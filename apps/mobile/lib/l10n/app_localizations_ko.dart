@@ -47,6 +47,39 @@ class AppLocalizationsKo extends AppLocalizations {
   String get connect => '연결';
 
   @override
+  String toolSuggestionTitle(Object toolName) {
+    return 'Codex에 $toolName을(를) 추가할까요?';
+  }
+
+  @override
+  String toolSuggestionInstall(Object toolName) {
+    return '$toolName 설치';
+  }
+
+  @override
+  String get toolSuggestionInstalling => '설치 중…';
+
+  @override
+  String get toolSuggestionNotNow => '나중에';
+
+  @override
+  String get toolSuggestionAuthDescription => '필요한 앱을 연결한 후 완료되면 확인해 주세요.';
+
+  @override
+  String toolSuggestionConnect(Object appName) {
+    return '$appName 연결';
+  }
+
+  @override
+  String get toolSuggestionComplete => '연결을 완료했습니다';
+
+  @override
+  String get toolSuggestionFailed => '설치하지 못했습니다';
+
+  @override
+  String get toolSuggestionOpenFailed => '연결 페이지를 열 수 없습니다.';
+
+  @override
   String get copy => '복사';
 
   @override

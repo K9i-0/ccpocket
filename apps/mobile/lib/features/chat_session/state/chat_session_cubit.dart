@@ -257,6 +257,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       emit(state.copyWith(goal: msg.goal));
       return;
     }
+    if (msg is PermissionResolvedMessage) {
+      _markToolUseResponded(msg.toolUseId);
+      _emitNextApprovalOrNone(msg.toolUseId);
+    }
 
     try {
       final update = _handler.handle(
@@ -1363,6 +1367,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _emitNextApprovalOrNone(
       toolUseId,
       exitPlanModeResolved: isExitPlanApproval,
+    );
+  }
+
+  /// Begin installing a plugin or connector suggested by Codex.
+  ///
+  /// Unlike a normal approval, the request remains visible while Bridge
+  /// installs the plugin or waits for external connector authentication.
+  void installToolSuggestion(String toolUseId) {
+    logger.info(
+      '[session:$sessionId] install tool suggestion toolUseId=$toolUseId',
+    );
+    _bridge.send(
+      ClientMessage.installToolSuggestion(toolUseId, sessionId: sessionId),
     );
   }
 

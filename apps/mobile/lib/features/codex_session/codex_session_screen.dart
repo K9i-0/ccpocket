@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/feature_flags.dart';
 import '../../hooks/use_app_resume_callback.dart';
@@ -54,6 +55,7 @@ import '../claude_session/widgets/rewind_message_list_sheet.dart'
 import 'state/codex_session_cubit.dart';
 import 'widgets/codex_goal_card.dart';
 import 'widgets/codex_rewind_dialog.dart';
+import 'widgets/tool_suggestion_card.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -823,6 +825,32 @@ class _CodexChatBody extends HookWidget {
     }
 
     final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
+    final isToolSuggestion = pendingPermission?.isToolSuggestion ?? false;
+
+    Future<void> openToolSuggestionUrl(String rawUrl) async {
+      final uri = Uri.tryParse(rawUrl);
+      final launched =
+          uri != null &&
+          uri.hasAuthority &&
+          (uri.scheme == 'https' || uri.scheme == 'http') &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.toolSuggestionOpenFailed)));
+      }
+    }
+
+    void installSuggestedTool() {
+      if (pendingToolUseId == null || pendingPermission == null) return;
+      context.read<ChatSessionCubit>().installToolSuggestion(pendingToolUseId);
+      final installUrl = pendingPermission.toolSuggestionInstallUrl;
+      if (pendingPermission.toolSuggestionType == 'connector' &&
+          installUrl != null &&
+          installUrl.isNotEmpty) {
+        unawaited(openToolSuggestionUrl(installUrl));
+      }
+    }
 
     void approveToolUse() {
       if (pendingToolUseId == null) return;
@@ -1221,7 +1249,23 @@ class _CodexChatBody extends HookWidget {
                                       onAnswer: answerQuestion,
                                       scrollable: false,
                                     ),
-                                  if (pendingToolUseId != null)
+                                  if (pendingToolUseId != null &&
+                                      isToolSuggestion &&
+                                      pendingPermission != null)
+                                    ToolSuggestionCard(
+                                      key: ValueKey(
+                                        'tool_suggestion_$pendingToolUseId',
+                                      ),
+                                      appColors: appColors,
+                                      permission: pendingPermission,
+                                      onInstall: installSuggestedTool,
+                                      onComplete: approveToolUse,
+                                      onReject: rejectToolUse,
+                                      onOpenUrl: (url) =>
+                                          unawaited(openToolSuggestionUrl(url)),
+                                    ),
+                                  if (pendingToolUseId != null &&
+                                      !isToolSuggestion)
                                     ApprovalBar(
                                       key: ValueKey(
                                         'approval_$pendingToolUseId',

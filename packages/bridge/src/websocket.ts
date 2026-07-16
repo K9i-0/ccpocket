@@ -3822,6 +3822,32 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "install_tool_suggestion": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        if (session.provider !== "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "Tool suggestions are only supported for Codex sessions.",
+          });
+          return;
+        }
+        try {
+          await (session.process as CodexProcess).installToolSuggestion(
+            msg.toolUseId,
+          );
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+        break;
+      }
+
       case "list_sessions": {
         this.sendSessionList(ws);
         break;
@@ -7433,6 +7459,8 @@ export class BridgeWebSocketServer {
       case "reject":
         return `id=${msg.id}`;
       case "answer":
+        return `toolUseId=${msg.toolUseId}`;
+      case "install_tool_suggestion":
         return `toolUseId=${msg.toolUseId}`;
       case "start":
         return `projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`;

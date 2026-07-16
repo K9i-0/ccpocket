@@ -172,6 +172,7 @@ vi.mock("./session.js", () => ({
         approveAlways: vi.fn(),
         reject: vi.fn(),
         answer: vi.fn(),
+        installToolSuggestion: vi.fn(async () => {}),
         interrupt: vi.fn(),
         getPendingPermission: vi.fn(() => undefined),
       };
@@ -387,6 +388,7 @@ vi.mock("./session.js", () => ({
         approveAlways: vi.fn(),
         reject: vi.fn(),
         answer: vi.fn(),
+        installToolSuggestion: vi.fn(async () => {}),
         interrupt: vi.fn(),
         getPendingPermission: vi.fn(() => undefined),
       };
@@ -4380,6 +4382,46 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sourceSessionId: sessionId,
     });
 
+    bridge.close();
+  });
+
+  it("routes tool suggestion installation to the Codex process", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-tool-suggestion",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    const created = sends.find(
+      (message: any) =>
+        message.type === "system" && message.subtype === "session_created",
+    );
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "install_tool_suggestion",
+        toolUseId: "approval-0",
+        sessionId: created.sessionId,
+      },
+      ws,
+    );
+
+    expect(session.process.installToolSuggestion).toHaveBeenCalledWith(
+      "approval-0",
+    );
     bridge.close();
   });
 

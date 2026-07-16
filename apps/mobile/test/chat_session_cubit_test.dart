@@ -1118,6 +1118,56 @@ void main() {
       expect(mockBridge.sentMessages, hasLength(1));
     });
 
+    test(
+      'tool suggestion install keeps approval visible while pending',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        const permission = PermissionRequestMessage(
+          toolUseId: 'approval-0',
+          toolName: 'ToolSuggestion',
+          input: {'toolName': 'GitHub', 'installState': 'idle'},
+        );
+        mockBridge.emitMessage(permission, sessionId: 's1');
+        await Future.microtask(() {});
+
+        cubit.installToolSuggestion('approval-0');
+
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+        expect(mockBridge.sentMessages, hasLength(1));
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'install_tool_suggestion',
+          'toolUseId': 'approval-0',
+          'sessionId': 's1',
+        });
+      },
+    );
+
+    test('server resolution clears a completed tool suggestion', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const PermissionRequestMessage(
+          toolUseId: 'approval-0',
+          toolName: 'ToolSuggestion',
+          input: {'toolName': 'GitHub', 'installState': 'installing'},
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      mockBridge.emitMessage(
+        const PermissionResolvedMessage(toolUseId: 'approval-0'),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.approval, isA<ApprovalNone>());
+    });
+
     test('approved permission is not restored by stale history', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);

@@ -207,6 +207,7 @@ export type ClientMessage =
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
   | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
+  | { type: "install_tool_suggestion"; toolUseId: string; sessionId?: string }
   | { type: "list_sessions" }
   | { type: "stop_session"; sessionId: string }
   | {
@@ -1202,6 +1203,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "answer":
         if (typeof msg.toolUseId !== "string" || typeof msg.result !== "string")
           return null;
+        break;
+      case "install_tool_suggestion":
+        if (typeof msg.toolUseId !== "string") return null;
         break;
       case "list_sessions":
         break;

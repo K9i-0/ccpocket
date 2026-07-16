@@ -438,6 +438,23 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses install_tool_suggestion message", () => {
+    const msg = parseClientMessage(
+      '{"type":"install_tool_suggestion","toolUseId":"approval-0","sessionId":"session-1"}',
+    );
+    expect(msg).toEqual({
+      type: "install_tool_suggestion",
+      toolUseId: "approval-0",
+      sessionId: "session-1",
+    });
+  });
+
+  it("rejects install_tool_suggestion without toolUseId", () => {
+    expect(
+      parseClientMessage('{"type":"install_tool_suggestion"}'),
+    ).toBeNull();
+  });
+
   it("parses list_sessions message", () => {
     const msg = parseClientMessage('{"type":"list_sessions"}');
     expect(msg).toEqual({ type: "list_sessions" });

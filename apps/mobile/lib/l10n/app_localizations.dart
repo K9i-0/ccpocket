@@ -174,6 +174,60 @@ abstract class AppLocalizations {
   /// **'接続'**
   String get connect;
 
+  /// No description provided for @toolSuggestionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex に {toolName} を追加しますか？'**
+  String toolSuggestionTitle(Object toolName);
+
+  /// No description provided for @toolSuggestionInstall.
+  ///
+  /// In ja, this message translates to:
+  /// **'{toolName} をインストール'**
+  String toolSuggestionInstall(Object toolName);
+
+  /// No description provided for @toolSuggestionInstalling.
+  ///
+  /// In ja, this message translates to:
+  /// **'インストール中…'**
+  String get toolSuggestionInstalling;
+
+  /// No description provided for @toolSuggestionNotNow.
+  ///
+  /// In ja, this message translates to:
+  /// **'今回はしない'**
+  String get toolSuggestionNotNow;
+
+  /// No description provided for @toolSuggestionAuthDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'必要なアプリを接続し、完了したら確認してください。'**
+  String get toolSuggestionAuthDescription;
+
+  /// No description provided for @toolSuggestionConnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'{appName} を接続'**
+  String toolSuggestionConnect(Object appName);
+
+  /// No description provided for @toolSuggestionComplete.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続が完了しました'**
+  String get toolSuggestionComplete;
+
+  /// No description provided for @toolSuggestionFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'インストールに失敗しました'**
+  String get toolSuggestionFailed;
+
+  /// No description provided for @toolSuggestionOpenFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続ページを開けませんでした。'**
+  String get toolSuggestionOpenFailed;
+
   /// No description provided for @copy.
   ///
   /// In ja, this message translates to:

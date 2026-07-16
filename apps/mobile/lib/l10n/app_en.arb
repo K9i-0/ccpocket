@@ -21,6 +21,36 @@
   "sessionNameHint": "Session name",
   "clearName": "Clear name",
   "connect": "Connect",
+  "toolSuggestionTitle": "Add {toolName} to Codex?",
+  "@toolSuggestionTitle": {
+    "placeholders": {
+      "toolName": {
+        "type": "Object"
+      }
+    }
+  },
+  "toolSuggestionInstall": "Install {toolName}",
+  "@toolSuggestionInstall": {
+    "placeholders": {
+      "toolName": {
+        "type": "Object"
+      }
+    }
+  },
+  "toolSuggestionInstalling": "Installing…",
+  "toolSuggestionNotNow": "Not now",
+  "toolSuggestionAuthDescription": "Connect the required app, then confirm when you're done.",
+  "toolSuggestionConnect": "Connect {appName}",
+  "@toolSuggestionConnect": {
+    "placeholders": {
+      "appName": {
+        "type": "Object"
+      }
+    }
+  },
+  "toolSuggestionComplete": "I've finished connecting",
+  "toolSuggestionFailed": "Installation failed",
+  "toolSuggestionOpenFailed": "Could not open the connection page.",
   "copy": "Copy",
   "copied": "Copied",
   "copiedToClipboard": "Copied to clipboard",

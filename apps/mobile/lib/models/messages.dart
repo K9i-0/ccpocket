@@ -1621,6 +1621,32 @@ class HistorySnapshotMessage implements ServerMessage {
   });
 }
 
+class ToolSuggestionApp {
+  final String id;
+  final String name;
+  final String? description;
+  final String? installUrl;
+  final String? category;
+
+  const ToolSuggestionApp({
+    required this.id,
+    required this.name,
+    this.description,
+    this.installUrl,
+    this.category,
+  });
+
+  factory ToolSuggestionApp.fromJson(Map<String, dynamic> json) {
+    return ToolSuggestionApp(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      installUrl: json['installUrl'] as String?,
+      category: json['category'] as String?,
+    );
+  }
+}
+
 class PermissionRequestMessage implements ServerMessage {
   final String toolUseId;
   final String toolName;
@@ -1635,6 +1661,35 @@ class PermissionRequestMessage implements ServerMessage {
       toolName == 'AskUserQuestion' && isMcpApprovalRequestUserInput(input);
 
   bool get isMcpElicitation => toolName == 'McpElicitation';
+
+  bool get isToolSuggestion => toolName == 'ToolSuggestion';
+
+  String get suggestedToolName =>
+      input['toolName'] as String? ?? displayToolName;
+
+  String get toolSuggestionReason =>
+      input['suggestReason'] as String? ??
+      input['message'] as String? ??
+      suggestedToolName;
+
+  String get toolSuggestionInstallState =>
+      input['installState'] as String? ?? 'idle';
+
+  String? get toolSuggestionInstallError => input['installError'] as String?;
+
+  String? get toolSuggestionInstallUrl => input['installUrl'] as String?;
+
+  String? get toolSuggestionType => input['toolType'] as String?;
+
+  List<ToolSuggestionApp> get appsNeedingAuthentication {
+    final raw = input['appsNeedingAuth'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((app) => ToolSuggestionApp.fromJson(app.cast<String, dynamic>()))
+        .where((app) => app.id.isNotEmpty && app.name.isNotEmpty)
+        .toList(growable: false);
+  }
 
   bool get hasQuestions => hasRequestUserInputQuestions(input);
 
@@ -1677,6 +1732,9 @@ class PermissionRequestMessage implements ServerMessage {
   PermissionPresentation get presentation => PermissionPresentation.from(this);
 
   String get displayToolName {
+    if (isToolSuggestion) {
+      return input['toolName'] as String? ?? 'Plugin suggestion';
+    }
     if (isQuestionApproval) {
       return requestUserInputHeader(input) ?? 'App Tool Approval';
     }
@@ -1722,6 +1780,17 @@ class PermissionPresentation {
   factory PermissionPresentation.from(PermissionRequestMessage message) {
     final input = message.input;
     final rawDetails = const JsonEncoder.withIndent('  ').convert(input);
+
+    if (message.isToolSuggestion) {
+      return PermissionPresentation(
+        title: message.suggestedToolName,
+        summary: message.toolSuggestionReason,
+        rawDetails: rawDetails,
+        riskBadge: message.toolSuggestionType == 'plugin'
+            ? 'Plugin'
+            : 'Connector',
+      );
+    }
 
     if (message.isQuestionApproval && !message.isMcpElicitation) {
       return PermissionPresentation(
@@ -3989,6 +4058,17 @@ class ClientMessage {
       'type': 'answer',
       'toolUseId': toolUseId,
       'result': result,
+      'sessionId': ?sessionId,
+    });
+  }
+
+  factory ClientMessage.installToolSuggestion(
+    String toolUseId, {
+    String? sessionId,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'install_tool_suggestion',
+      'toolUseId': toolUseId,
       'sessionId': ?sessionId,
     });
   }

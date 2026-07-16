@@ -3,6 +3,55 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('serializes tool suggestion installation action', () {
+    expect(
+      jsonDecode(
+        ClientMessage.installToolSuggestion(
+          'approval-0',
+          sessionId: 'session-1',
+        ).toJson(),
+      ),
+      {
+        'type': 'install_tool_suggestion',
+        'toolUseId': 'approval-0',
+        'sessionId': 'session-1',
+      },
+    );
+  });
+
+  test('parses structured tool suggestion state', () {
+    final message =
+        ServerMessage.fromJson({
+              'type': 'permission_request',
+              'toolUseId': 'approval-0',
+              'toolName': 'ToolSuggestion',
+              'input': {
+                'toolName': 'GitHub',
+                'toolType': 'plugin',
+                'suggestReason': 'Inspect forks on GitHub.',
+                'installState': 'needs_auth',
+                'appsNeedingAuth': [
+                  {
+                    'id': 'github-app',
+                    'name': 'GitHub',
+                    'installUrl': 'https://example.com/connect',
+                  },
+                ],
+              },
+            })
+            as PermissionRequestMessage;
+
+    expect(message.isToolSuggestion, isTrue);
+    expect(message.usesAskUserUi, isFalse);
+    expect(message.suggestedToolName, 'GitHub');
+    expect(message.toolSuggestionInstallState, 'needs_auth');
+    expect(message.appsNeedingAuthentication.single.name, 'GitHub');
+    expect(
+      message.appsNeedingAuthentication.single.installUrl,
+      'https://example.com/connect',
+    );
+  });
+
   test('parses Codex goal state and serializes goal actions', () {
     final message =
         ServerMessage.fromJson({

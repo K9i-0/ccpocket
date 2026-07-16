@@ -152,7 +152,16 @@ interface PendingUserInputRequest {
     | "questions"
     | "elicitation_form"
     | "elicitation_url"
-    | "elicitation_approval";
+    | "elicitation_approval"
+    | "tool_suggestion";
+}
+
+interface ToolSuggestionApp {
+  id: string;
+  name: string;
+  description?: string;
+  installUrl?: string;
+  category?: string;
 }
 
 interface PendingTurnCompletion {
@@ -1019,6 +1028,104 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
   }
 
+  /**
+   * Install a plugin or begin connector authentication proposed by Codex.
+   * The elicitation remains pending while external app authentication is
+   * required, and is accepted only after installation is complete.
+   */
+  async installToolSuggestion(toolUseId: string): Promise<void> {
+    const pending = this.resolvePendingUserInput(toolUseId);
+    if (!pending || pending.kind !== "tool_suggestion") {
+      throw new Error("No pending tool suggestion found");
+    }
+
+    const currentState = pending.input.installState;
+    if (currentState === "installing") return;
+    if (currentState === "needs_auth") return;
+
+    const meta = asRecord(pending.input._meta) ?? {};
+    const toolType = stringValue(meta.tool_type) ?? "";
+    const suggestType = stringValue(meta.suggest_type) ?? "";
+    if (suggestType !== "install") {
+      this.updateToolSuggestion(pending, {
+        installState: "failed",
+        installError: `Unsupported suggestion action: ${suggestType || "unknown"}`,
+      });
+      return;
+    }
+
+    if (toolType === "connector") {
+      const installUrl = stringValue(meta.install_url);
+      if (!installUrl) {
+        this.updateToolSuggestion(pending, {
+          installState: "failed",
+          installError: "This connector did not provide an installation URL.",
+        });
+        return;
+      }
+      this.updateToolSuggestion(pending, { installState: "needs_auth" });
+      return;
+    }
+
+    if (toolType !== "plugin") {
+      this.updateToolSuggestion(pending, {
+        installState: "failed",
+        installError: `Unsupported tool type: ${toolType || "unknown"}`,
+      });
+      return;
+    }
+
+    const toolId = stringValue(meta.tool_id) ?? "";
+    const remotePluginId = stringValue(meta.remote_plugin_id);
+    const separator = toolId.lastIndexOf("@");
+    const fallbackPluginName =
+      separator > 0 ? toolId.slice(0, separator) : toolId;
+    const remoteMarketplaceName =
+      separator > 0 ? toolId.slice(separator + 1) : "openai-curated-remote";
+    const pluginName = remotePluginId ?? fallbackPluginName;
+    if (!pluginName) {
+      this.updateToolSuggestion(pending, {
+        installState: "failed",
+        installError: "This plugin did not provide an installation identifier.",
+      });
+      return;
+    }
+
+    this.updateToolSuggestion(pending, {
+      installState: "installing",
+      installError: null,
+    });
+
+    try {
+      const result = (await this.request("plugin/install", {
+        remoteMarketplaceName,
+        pluginName,
+      })) as Record<string, unknown>;
+
+      // The user may reject the suggestion while installation is in flight.
+      if (this.pendingUserInputs.get(toolUseId) !== pending) return;
+
+      const appsNeedingAuth = normalizeToolSuggestionApps(
+        result.appsNeedingAuth,
+      );
+      if (appsNeedingAuth.length > 0) {
+        this.updateToolSuggestion(pending, {
+          installState: "needs_auth",
+          appsNeedingAuth,
+        });
+        return;
+      }
+
+      this.resolveToolSuggestion(pending, "Installed");
+    } catch (err) {
+      if (this.pendingUserInputs.get(toolUseId) !== pending) return;
+      this.updateToolSuggestion(pending, {
+        installState: "failed",
+        installError: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   getPendingPermission(
     toolUseId?: string,
   ):
@@ -1091,6 +1198,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     const pending = this.resolvePendingUserInput(toolUseId);
     if (!pending) return false;
 
+    if (pending.kind === "tool_suggestion") {
+      if (pending.input.installState === "needs_auth") {
+        this.resolveToolSuggestion(pending, "Installed");
+      } else {
+        void this.installToolSuggestion(pending.toolUseId);
+      }
+      return true;
+    }
+
     this.pendingUserInputs.delete(pending.toolUseId);
     this.respondToServerRequest(
       pending.requestId,
@@ -1102,6 +1218,39 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.setStatus("running");
     }
     return true;
+  }
+
+  private updateToolSuggestion(
+    pending: PendingUserInputRequest,
+    changes: Record<string, unknown>,
+  ): void {
+    pending.input = { ...pending.input, ...changes };
+    this.emitMessage({
+      type: "permission_request",
+      toolUseId: pending.toolUseId,
+      toolName: "ToolSuggestion",
+      input: { ...pending.input },
+    });
+  }
+
+  private resolveToolSuggestion(
+    pending: PendingUserInputRequest,
+    toolResult: string,
+  ): void {
+    this.pendingUserInputs.delete(pending.toolUseId);
+    this.respondToServerRequest(pending.requestId, {
+      action: "accept",
+      content: null,
+      _meta: null,
+    });
+    this.emitMessage({
+      type: "permission_resolved",
+      toolUseId: pending.toolUseId,
+    });
+    this.emitToolResult(pending.toolUseId, toolResult);
+    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+      this.setStatus("running");
+    }
   }
 
   /**
@@ -2007,10 +2156,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       case "mcpServer/elicitation/request": {
         const toolUseId = this.extractToolUseId(params, id);
         const elicitation = createElicitationInput(params);
+        const toolName =
+          elicitation.kind === "tool_suggestion"
+            ? "ToolSuggestion"
+            : "McpElicitation";
         this.pendingUserInputs.set(toolUseId, {
           requestId: id,
           toolUseId,
-          toolName: "McpElicitation",
+          toolName,
           questions: elicitation.questions,
           input: elicitation.input,
           kind: elicitation.kind,
@@ -2018,7 +2171,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         this.emitMessage({
           type: "permission_request",
           toolUseId,
-          toolName: "McpElicitation",
+          toolName,
           input: elicitation.input,
         });
         this.setStatus("waiting_approval");
@@ -3631,6 +3784,14 @@ function buildElicitationResponse(
   pending: PendingUserInputRequest,
   rawResult: string,
 ): Record<string, unknown> {
+  if (pending.kind === "tool_suggestion") {
+    return {
+      action: parseElicitationAction(rawResult),
+      content: null,
+      _meta: null,
+    };
+  }
+
   if (pending.kind === "elicitation_url") {
     const action = parseElicitationAction(rawResult);
     return {
@@ -3792,7 +3953,34 @@ function createElicitationInput(params: Record<string, unknown>): {
 
   const schema = asRecord(params.requestedSchema);
   const elicitationMeta = asRecord(params._meta);
-  if (isApprovalActionElicitation(schema, elicitationMeta)) {
+  if (isToolSuggestionElicitation(serverName, elicitationMeta)) {
+    const toolName = stringValue(elicitationMeta?.tool_name) ?? "Tool";
+    return {
+      kind: "tool_suggestion",
+      questions: [],
+      input: {
+        mode: "form",
+        serverName,
+        message,
+        _meta: elicitationMeta ?? null,
+        toolType: stringValue(elicitationMeta?.tool_type),
+        suggestType: stringValue(elicitationMeta?.suggest_type),
+        suggestReason: stringValue(elicitationMeta?.suggest_reason) ?? message,
+        toolId: stringValue(elicitationMeta?.tool_id),
+        toolName,
+        installUrl: stringValue(elicitationMeta?.install_url),
+        remotePluginId: stringValue(elicitationMeta?.remote_plugin_id),
+        appConnectorIds: Array.isArray(elicitationMeta?.app_connector_ids)
+          ? elicitationMeta.app_connector_ids.filter(
+              (entry): entry is string => typeof entry === "string",
+            )
+          : [],
+        installState: "idle",
+        appsNeedingAuth: [],
+      },
+    };
+  }
+  if (isApprovalActionElicitation(schema, serverName, elicitationMeta)) {
     const questionId = "approval";
     const isToolApproval = isToolApprovalElicitation(elicitationMeta);
     return {
@@ -3907,9 +4095,13 @@ function createElicitationInput(params: Record<string, unknown>): {
 
 function isApprovalActionElicitation(
   schema: Record<string, unknown> | undefined,
+  serverName: string,
   meta: Record<string, unknown> | undefined,
 ): boolean {
-  return isEmptyObjectSchema(schema) && !isToolSuggestionElicitation(meta);
+  return (
+    isEmptyObjectSchema(schema) &&
+    !isToolSuggestionElicitation(serverName, meta)
+  );
 }
 
 function isEmptyObjectSchema(
@@ -3928,9 +4120,13 @@ function isToolApprovalElicitation(
 }
 
 function isToolSuggestionElicitation(
+  serverName: string,
   meta: Record<string, unknown> | undefined,
 ): boolean {
-  return meta?.codex_approval_kind === "tool_suggestion";
+  return (
+    serverName === "codex_apps" &&
+    meta?.codex_approval_kind === "tool_suggestion"
+  );
 }
 
 function buildApprovalActionElicitationOptions(
@@ -4041,6 +4237,32 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function normalizeToolSuggestionApps(value: unknown): ToolSuggestionApp[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const app = asRecord(entry);
+    const id = stringValue(app?.id);
+    const name = stringValue(app?.name);
+    if (!id || !name) return [];
+    const description = stringValue(app?.description);
+    const installUrl = stringValue(app?.installUrl);
+    const category = stringValue(app?.category);
+    return [
+      {
+        id,
+        name,
+        ...(description ? { description } : {}),
+        ...(installUrl ? { installUrl } : {}),
+        ...(category ? { category } : {}),
+      },
+    ];
+  });
 }
 
 function buildPlanUpdateToolUseInput(

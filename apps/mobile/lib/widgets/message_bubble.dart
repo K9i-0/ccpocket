@@ -197,7 +197,8 @@ class ServerMessageWidget extends StatelessWidget {
       final PermissionRequestMessage msg =>
         msg.toolName == 'ExitPlanMode' ||
                 msg.toolName == 'AskUserQuestion' ||
-                msg.toolName == 'McpElicitation'
+                msg.toolName == 'McpElicitation' ||
+                msg.toolName == 'ToolSuggestion'
             ? const SizedBox.shrink()
             : PermissionRequestBubble(message: msg, isCodex: isCodex),
       PermissionResolvedMessage() => const SizedBox.shrink(),

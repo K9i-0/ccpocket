@@ -151,6 +151,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'clear_goal': UnsupportedAction.showUpdateHint,
   'mutate_prompt_history': UnsupportedAction.showUpdateHint,
   'import_prompt_history_v1': UnsupportedAction.showUpdateHint,
+  'install_tool_suggestion': UnsupportedAction.showUpdateHint,
   // Git Operations (Phase 1-3)
   'git_stage': UnsupportedAction.showUpdateHint,
   'git_unstage': UnsupportedAction.showUpdateHint,

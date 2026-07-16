@@ -112,6 +112,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
         hasPermission && permission.toolName == 'ExitPlanMode';
+    final isToolSuggestion = hasPermission && permission.isToolSuggestion;
     final hasQuestionPrompt = hasPermission && permission.usesAskUserUi;
     if (isPlanApproval) {
       _syncPlanApprovalState(permission);
@@ -225,6 +226,12 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             ),
                             onReject: () =>
                                 widget.onReject?.call(permission.toolUseId),
+                          )
+                        : isToolSuggestion
+                        ? _ToolSuggestionArea(
+                            permission: permission,
+                            statusColor: statusColor,
+                            onTap: widget.onTap,
                           )
                         : hasQuestionPrompt
                         ? _AskUserArea(
@@ -586,6 +593,61 @@ class _RunningSessionStopButton extends StatelessWidget {
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.error,
         backgroundColor: colorScheme.errorContainer.withValues(alpha: 0.26),
+      ),
+    );
+  }
+}
+
+class _ToolSuggestionArea extends StatelessWidget {
+  final PermissionRequestMessage permission;
+  final Color statusColor;
+  final VoidCallback onTap;
+
+  const _ToolSuggestionArea({
+    required this.permission,
+    required this.statusColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('session_tool_suggestion_area'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.extension_outlined, size: 17, color: statusColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  permission.suggestedToolName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            permission.toolSuggestionReason,
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          _OpenButton(onTap: onTap),
+        ],
       ),
     );
   }

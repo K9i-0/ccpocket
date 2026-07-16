@@ -539,6 +539,47 @@ void main() {
       expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
     });
 
+    testWidgets('shows a compact open action for codex tool suggestions', (
+      tester,
+    ) async {
+      var opened = false;
+      final session = SessionInfo(
+        id: 'codex-tool-suggestion',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'approval-0',
+          toolName: 'ToolSuggestion',
+          input: {
+            'toolName': 'GitHub',
+            'suggestReason': 'Inspect forks and their changes on GitHub.',
+            'installState': 'idle',
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () => opened = true)),
+      );
+
+      expect(
+        find.byKey(const ValueKey('session_tool_suggestion_area')),
+        findsOneWidget,
+      );
+      expect(find.text('GitHub'), findsOneWidget);
+      expect(
+        find.text('Inspect forks and their changes on GitHub.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('approve_button')), findsNothing);
+
+      await tester.tap(find.text('Open'));
+      expect(opened, isTrue);
+    });
+
     testWidgets('shows structured codex command approval summary', (
       tester,
     ) async {
