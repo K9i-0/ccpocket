@@ -18,10 +18,15 @@ export interface UsageInfo {
 
 // ── Codex ──
 
-interface CodexRateLimitWindow {
+export interface CodexRateLimitWindow {
   used_percent: number;
   window_minutes: number;
   resets_at: number;  // unix timestamp (seconds)
+}
+
+export interface CodexRateLimits {
+  primary?: CodexRateLimitWindow | null;
+  secondary?: CodexRateLimitWindow | null;
 }
 
 interface CodexTokenCountEvent {
@@ -29,11 +34,39 @@ interface CodexTokenCountEvent {
   type: "event_msg";
   payload: {
     type: "token_count";
-    rate_limits?: {
-      primary?: CodexRateLimitWindow;
-      secondary?: CodexRateLimitWindow;
-    };
+    rate_limits?: CodexRateLimits;
   };
+}
+
+const FIVE_HOUR_WINDOW_MINUTES = 5 * 60;
+const SEVEN_DAY_WINDOW_MINUTES = 7 * 24 * 60;
+
+/**
+ * Map Codex rate-limit windows by duration rather than their primary/secondary
+ * position. Codex may promote the weekly window to primary when the short-term
+ * limit is temporarily disabled.
+ */
+export function mapCodexRateLimits(
+  rateLimits: CodexRateLimits,
+): Pick<UsageInfo, "fiveHour" | "sevenDay"> {
+  let fiveHour: UsageWindow | null = null;
+  let sevenDay: UsageWindow | null = null;
+
+  for (const window of [rateLimits.primary, rateLimits.secondary]) {
+    if (!window) continue;
+
+    const usageWindow = {
+      utilization: window.used_percent,
+      resetsAt: new Date(window.resets_at * 1000).toISOString(),
+    };
+    if (window.window_minutes === FIVE_HOUR_WINDOW_MINUTES) {
+      fiveHour ??= usageWindow;
+    } else if (window.window_minutes === SEVEN_DAY_WINDOW_MINUTES) {
+      sevenDay ??= usageWindow;
+    }
+  }
+
+  return { fiveHour, sevenDay };
 }
 
 /**
@@ -71,21 +104,9 @@ export async function fetchCodexUsage(): Promise<UsageInfo> {
     for (const filePath of sessionFiles) {
       const event = await findLatestTokenCount(filePath);
       if (event?.payload.rate_limits) {
-        const rl = event.payload.rate_limits;
         return {
           provider: "codex",
-          fiveHour: rl.primary
-            ? {
-                utilization: rl.primary.used_percent,
-                resetsAt: new Date(rl.primary.resets_at * 1000).toISOString(),
-              }
-            : null,
-          sevenDay: rl.secondary
-            ? {
-                utilization: rl.secondary.used_percent,
-                resetsAt: new Date(rl.secondary.resets_at * 1000).toISOString(),
-              }
-            : null,
+          ...mapCodexRateLimits(event.payload.rate_limits),
         };
       }
     }

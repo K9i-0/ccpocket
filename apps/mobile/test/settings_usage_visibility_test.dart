@@ -983,7 +983,9 @@ void main() {
       bridge.dispose();
     });
 
-    testWidgets('shows usage section when connected', (tester) async {
+    testWidgets('shows weekly-only Codex usage without a five-hour row', (
+      tester,
+    ) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final settingsCubit = _SeededSettingsCubit(
@@ -999,10 +1001,6 @@ void main() {
           providers: [
             UsageInfo(
               provider: 'codex',
-              fiveHour: UsageWindow(
-                utilization: 0.08,
-                resetsAt: '2026-04-12T10:19:42Z',
-              ),
               sevenDay: UsageWindow(
                 utilization: 0.09,
                 resetsAt: '2026-04-17T00:19:19Z',
@@ -1033,6 +1031,8 @@ void main() {
 
       expect(find.text(l.settingsUsageSectionTitle), findsOneWidget);
       expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
+      expect(find.text(l.usageSevenDay), findsOneWidget);
+      expect(find.text(l.usageFiveHour), findsNothing);
 
       await settingsCubit.close();
       await machineManagerCubit.close();
