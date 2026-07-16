@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.66.1] - 2026-07-16
+
+### Fixed
+- Classify Codex usage limits by window duration so a weekly-only limit is not mislabeled as the five-hour limit.
+
 ## [1.66.0] - 2026-07-16
 
 ### Added
