@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.105.2] - 2026-07-16
+
+### Fixed
+- Prevent repeated Codex settings metadata chips from appearing when reopening a session.
+
 ## [1.105.1] - 2026-07-16
 
 ### Changed
