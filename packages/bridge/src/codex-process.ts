@@ -3853,10 +3853,7 @@ function parseResultObject(rawResult: string): {
 
 function isInformationalGuardianApproval(message: string): boolean {
   const normalized = message.trim().replace(/\s+/g, " ").toLowerCase();
-  return (
-    normalized.startsWith("automatic approval review approved") &&
-    /: auto-review returned a low[- ]risk allow decision\.?$/.test(normalized)
-  );
+  return /^automatic approval review approved\b/.test(normalized);
 }
 
 function normalizeAnswerValues(value: unknown): string[] {

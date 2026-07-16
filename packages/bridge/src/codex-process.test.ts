@@ -1708,7 +1708,7 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
-  it("suppresses low-risk guardian approval notifications", () => {
+  it("suppresses approved guardian notifications regardless of risk", () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];
     proc.on("message", (message) => messages.push(message));
@@ -1716,6 +1716,10 @@ describe("CodexProcess (app-server)", () => {
     (proc as any).handleNotification("guardianWarning", {
       message:
         "Automatic approval review approved (risk: low, authorization: unknown):\nAuto-review returned a low-risk allow decision.",
+    });
+    (proc as any).handleNotification("guardianWarning", {
+      message:
+        "Automatic approval review approved (risk: medium, authorization: medium):\nLaunching the Flutter app on the local iOS simulator is a bounded, reversible verification step for the user-requested UI fix, even though it writes build/cache files outside the workspace and starts a long-running local process.",
     });
 
     expect(messages).toEqual([]);
