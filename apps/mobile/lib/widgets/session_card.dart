@@ -12,6 +12,7 @@ import 'adaptive_context_menu.dart';
 import 'codex_environment_summary.dart';
 import 'plan_detail_sheet.dart';
 import 'expandable_summary_text.dart';
+import 'pin_toggle_button.dart';
 import 'session_visual_status.dart';
 
 /// Shared layout constant for AskUserArea buttons.
@@ -30,6 +31,8 @@ class RunningSessionCard extends StatefulWidget {
   final VoidCallback? onStop;
   final bool isUnseen;
   final bool isSelected;
+  final bool isPinned;
+  final VoidCallback? onTogglePinned;
 
   const RunningSessionCard({
     super.key,
@@ -44,6 +47,8 @@ class RunningSessionCard extends StatefulWidget {
     this.onStop,
     this.isUnseen = false,
     this.isSelected = false,
+    this.isPinned = false,
+    this.onTogglePinned,
   });
 
   @override
@@ -201,14 +206,20 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       ),
                     ),
                   ],
-                  if (queuedInput != null || widget.onStop != null) ...[
-                    const Spacer(),
-                    if (queuedInput != null) ...[
-                      _QueuedInputBadge(item: queuedInput),
-                      if (widget.onStop != null) const SizedBox(width: 6),
-                    ],
+                  const Spacer(),
+                  PinToggleButton(
+                    key: ValueKey('running_session_pin_${session.id}_button'),
+                    isPinned: widget.isPinned,
+                    onPressed: widget.onTogglePinned,
+                    pinTooltip: AppLocalizations.of(context).pin,
+                    unpinTooltip: AppLocalizations.of(context).unpin,
+                  ),
+                  if (queuedInput != null) ...[
+                    const SizedBox(width: 4),
+                    _QueuedInputBadge(item: queuedInput),
                   ],
                   if (widget.onStop != null) ...[
+                    const SizedBox(width: 6),
                     _RunningSessionStopButton(onPressed: widget.onStop!),
                   ],
                 ],
@@ -2540,6 +2551,8 @@ class RecentSessionCard extends StatelessWidget {
   final String? draftText;
   final bool isProcessing;
   final bool isSelected;
+  final bool isPinned;
+  final VoidCallback? onTogglePinned;
 
   const RecentSessionCard({
     super.key,
@@ -2552,6 +2565,8 @@ class RecentSessionCard extends StatelessWidget {
     this.draftText,
     this.isProcessing = false,
     this.isSelected = false,
+    this.isPinned = false,
+    this.onTogglePinned,
   });
 
   @override
@@ -2659,6 +2674,16 @@ class RecentSessionCard extends StatelessWidget {
                             ],
                           ],
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      PinToggleButton(
+                        key: ValueKey(
+                          'recent_session_pin_${session.sessionId}_button',
+                        ),
+                        isPinned: isPinned,
+                        onPressed: onTogglePinned,
+                        pinTooltip: AppLocalizations.of(context).pin,
+                        unpinTooltip: AppLocalizations.of(context).unpin,
                       ),
                     ],
                   ),

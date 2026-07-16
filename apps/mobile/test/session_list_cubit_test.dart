@@ -152,6 +152,18 @@ RecentSession _session({
   );
 }
 
+SessionInfo _runningSession({String? providerSessionId}) {
+  return SessionInfo(
+    id: 'bridge-session',
+    provider: Provider.claude.value,
+    projectPath: '/a/proj1',
+    claudeSessionId: providerSessionId,
+    status: 'idle',
+    createdAt: '2025-01-01T00:00:00Z',
+    lastActivityAt: '2025-01-01T00:00:00Z',
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -170,6 +182,104 @@ void main() {
   });
 
   group('SessionListCubit', () {
+    test('prioritizePinned keeps stable priority buckets', () {
+      final ordered = prioritizePinned(
+        const ['normal-a', 'project-pinned', 'session-pinned', 'normal-b'],
+        isPinned: (item) => item == 'session-pinned',
+        isProjectPinned: (item) => item == 'project-pinned',
+      );
+
+      expect(ordered, const [
+        'session-pinned',
+        'project-pinned',
+        'normal-a',
+        'normal-b',
+      ]);
+    });
+
+    test('session and project pins are persisted', () async {
+      final session = _session(id: 'pinned-session', projectPath: '/a/proj1');
+
+      await cubit.toggleRecentSessionPinned(session);
+      await cubit.toggleProjectPinned('/a/proj1');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.isRecentSessionPinned(session), isTrue);
+      expect(cubit.isProjectPinned('/a/proj1'), isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getStringList('session_list_pinned_session_keys_v1'),
+        contains(recentSessionPinKey(session)),
+      );
+      expect(
+        prefs.getStringList('session_list_pinned_project_paths_v1'),
+        contains('/a/proj1'),
+      );
+    });
+
+    test('persisted session and project pins are restored', () async {
+      final session = _session(id: 'restored-pin', projectPath: '/a/proj1');
+      await cubit.close();
+      mockBridge.dispose();
+      SharedPreferences.setMockInitialValues({
+        'session_list_pinned_session_keys_v1': [recentSessionPinKey(session)],
+        'session_list_pinned_project_paths_v1': ['/a/proj1'],
+      });
+      mockBridge = MockBridgeService();
+      cubit = SessionListCubit(bridge: mockBridge);
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.isRecentSessionPinned(session), isTrue);
+      expect(cubit.isProjectPinned('/a/proj1'), isTrue);
+    });
+
+    test(
+      'pin toggle waits for preference restoration before updating',
+      () async {
+        final restored = _session(id: 'restored-pin', projectPath: '/a/proj1');
+        final added = _session(id: 'added-pin', projectPath: '/a/proj2');
+        await cubit.close();
+        mockBridge.dispose();
+        SharedPreferences.setMockInitialValues({
+          'session_list_pinned_session_keys_v1': [
+            recentSessionPinKey(restored),
+          ],
+        });
+        mockBridge = MockBridgeService();
+        cubit = SessionListCubit(bridge: mockBridge);
+
+        await cubit.toggleRecentSessionPinned(added);
+
+        expect(cubit.isRecentSessionPinned(restored), isTrue);
+        expect(cubit.isRecentSessionPinned(added), isTrue);
+      },
+    );
+
+    test(
+      'running session can only be pinned after provider ID resolves',
+      () async {
+        final pending = _runningSession();
+
+        await cubit.toggleRunningSessionPinned(pending);
+        expect(cubit.isRunningSessionPinned(pending), isFalse);
+        expect(cubit.state.pinnedSessionKeys, isEmpty);
+
+        final resolved = _runningSession(providerSessionId: 'provider-session');
+        await cubit.toggleRunningSessionPinned(resolved);
+
+        expect(cubit.isRunningSessionPinned(resolved), isTrue);
+        expect(
+          runningSessionPinKey(resolved),
+          sessionPinKey(
+            provider: Provider.claude.value,
+            projectPath: '/a/proj1',
+            sessionId: 'provider-session',
+          ),
+        );
+      },
+    );
+
     test('initial state is empty', () {
       expect(cubit.state.sessions, isEmpty);
       expect(cubit.state.hasMore, isFalse);

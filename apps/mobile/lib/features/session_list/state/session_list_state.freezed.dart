@@ -27,7 +27,9 @@ mixin _$SessionListState {
  Set<String> get collapsedProjectPaths;/// Project paths currently loading an additional page.
  Set<String> get loadingProjectPaths;/// Project paths known to have no more recent sessions to load.
  Set<String> get exhaustedProjectPaths;/// Per-project number of recent sessions currently visible in the list.
- Map<String, int> get projectSessionDisplayLimits;/// Provider filter (All / Claude / Codex). Applied server-side.
+ Map<String, int> get projectSessionDisplayLimits;/// Stable keys for sessions pinned on this device.
+ Set<String> get pinnedSessionKeys;/// Project paths pinned on this device.
+ Set<String> get pinnedProjectPaths;/// Provider filter (All / Claude / Codex). Applied server-side.
  ProviderFilter get providerFilter;/// Named-only filter toggle. Applied server-side.
  bool get namedOnly;
 /// Create a copy of SessionListState
@@ -40,16 +42,16 @@ $SessionListStateCopyWith<SessionListState> get copyWith => _$SessionListStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionListState&&const DeepCollectionEquality().equals(other.sessions, sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.isInitialLoading, isInitialLoading) || other.isInitialLoading == isInitialLoading)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other.accumulatedProjectPaths, accumulatedProjectPaths)&&const DeepCollectionEquality().equals(other.collapsedProjectPaths, collapsedProjectPaths)&&const DeepCollectionEquality().equals(other.loadingProjectPaths, loadingProjectPaths)&&const DeepCollectionEquality().equals(other.exhaustedProjectPaths, exhaustedProjectPaths)&&const DeepCollectionEquality().equals(other.projectSessionDisplayLimits, projectSessionDisplayLimits)&&(identical(other.providerFilter, providerFilter) || other.providerFilter == providerFilter)&&(identical(other.namedOnly, namedOnly) || other.namedOnly == namedOnly));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionListState&&const DeepCollectionEquality().equals(other.sessions, sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.isInitialLoading, isInitialLoading) || other.isInitialLoading == isInitialLoading)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other.accumulatedProjectPaths, accumulatedProjectPaths)&&const DeepCollectionEquality().equals(other.collapsedProjectPaths, collapsedProjectPaths)&&const DeepCollectionEquality().equals(other.loadingProjectPaths, loadingProjectPaths)&&const DeepCollectionEquality().equals(other.exhaustedProjectPaths, exhaustedProjectPaths)&&const DeepCollectionEquality().equals(other.projectSessionDisplayLimits, projectSessionDisplayLimits)&&const DeepCollectionEquality().equals(other.pinnedSessionKeys, pinnedSessionKeys)&&const DeepCollectionEquality().equals(other.pinnedProjectPaths, pinnedProjectPaths)&&(identical(other.providerFilter, providerFilter) || other.providerFilter == providerFilter)&&(identical(other.namedOnly, namedOnly) || other.namedOnly == namedOnly));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(sessions),hasMore,isLoadingMore,isInitialLoading,searchQuery,const DeepCollectionEquality().hash(accumulatedProjectPaths),const DeepCollectionEquality().hash(collapsedProjectPaths),const DeepCollectionEquality().hash(loadingProjectPaths),const DeepCollectionEquality().hash(exhaustedProjectPaths),const DeepCollectionEquality().hash(projectSessionDisplayLimits),providerFilter,namedOnly);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(sessions),hasMore,isLoadingMore,isInitialLoading,searchQuery,const DeepCollectionEquality().hash(accumulatedProjectPaths),const DeepCollectionEquality().hash(collapsedProjectPaths),const DeepCollectionEquality().hash(loadingProjectPaths),const DeepCollectionEquality().hash(exhaustedProjectPaths),const DeepCollectionEquality().hash(projectSessionDisplayLimits),const DeepCollectionEquality().hash(pinnedSessionKeys),const DeepCollectionEquality().hash(pinnedProjectPaths),providerFilter,namedOnly);
 
 @override
 String toString() {
-  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, isInitialLoading: $isInitialLoading, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths, collapsedProjectPaths: $collapsedProjectPaths, loadingProjectPaths: $loadingProjectPaths, exhaustedProjectPaths: $exhaustedProjectPaths, projectSessionDisplayLimits: $projectSessionDisplayLimits, providerFilter: $providerFilter, namedOnly: $namedOnly)';
+  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, isInitialLoading: $isInitialLoading, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths, collapsedProjectPaths: $collapsedProjectPaths, loadingProjectPaths: $loadingProjectPaths, exhaustedProjectPaths: $exhaustedProjectPaths, projectSessionDisplayLimits: $projectSessionDisplayLimits, pinnedSessionKeys: $pinnedSessionKeys, pinnedProjectPaths: $pinnedProjectPaths, providerFilter: $providerFilter, namedOnly: $namedOnly)';
 }
 
 
@@ -60,7 +62,7 @@ abstract mixin class $SessionListStateCopyWith<$Res>  {
   factory $SessionListStateCopyWith(SessionListState value, $Res Function(SessionListState) _then) = _$SessionListStateCopyWithImpl;
 @useResult
 $Res call({
- List<RecentSession> sessions, bool hasMore, bool isLoadingMore, bool isInitialLoading, String searchQuery, Set<String> accumulatedProjectPaths, Set<String> collapsedProjectPaths, Set<String> loadingProjectPaths, Set<String> exhaustedProjectPaths, Map<String, int> projectSessionDisplayLimits, ProviderFilter providerFilter, bool namedOnly
+ List<RecentSession> sessions, bool hasMore, bool isLoadingMore, bool isInitialLoading, String searchQuery, Set<String> accumulatedProjectPaths, Set<String> collapsedProjectPaths, Set<String> loadingProjectPaths, Set<String> exhaustedProjectPaths, Map<String, int> projectSessionDisplayLimits, Set<String> pinnedSessionKeys, Set<String> pinnedProjectPaths, ProviderFilter providerFilter, bool namedOnly
 });
 
 
@@ -77,7 +79,7 @@ class _$SessionListStateCopyWithImpl<$Res>
 
 /// Create a copy of SessionListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? isInitialLoading = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,Object? collapsedProjectPaths = null,Object? loadingProjectPaths = null,Object? exhaustedProjectPaths = null,Object? projectSessionDisplayLimits = null,Object? providerFilter = null,Object? namedOnly = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? isInitialLoading = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,Object? collapsedProjectPaths = null,Object? loadingProjectPaths = null,Object? exhaustedProjectPaths = null,Object? projectSessionDisplayLimits = null,Object? pinnedSessionKeys = null,Object? pinnedProjectPaths = null,Object? providerFilter = null,Object? namedOnly = null,}) {
   return _then(_self.copyWith(
 sessions: null == sessions ? _self.sessions : sessions // ignore: cast_nullable_to_non_nullable
 as List<RecentSession>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
@@ -89,7 +91,9 @@ as Set<String>,collapsedProjectPaths: null == collapsedProjectPaths ? _self.coll
 as Set<String>,loadingProjectPaths: null == loadingProjectPaths ? _self.loadingProjectPaths : loadingProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,exhaustedProjectPaths: null == exhaustedProjectPaths ? _self.exhaustedProjectPaths : exhaustedProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,projectSessionDisplayLimits: null == projectSessionDisplayLimits ? _self.projectSessionDisplayLimits : projectSessionDisplayLimits // ignore: cast_nullable_to_non_nullable
-as Map<String, int>,providerFilter: null == providerFilter ? _self.providerFilter : providerFilter // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,pinnedSessionKeys: null == pinnedSessionKeys ? _self.pinnedSessionKeys : pinnedSessionKeys // ignore: cast_nullable_to_non_nullable
+as Set<String>,pinnedProjectPaths: null == pinnedProjectPaths ? _self.pinnedProjectPaths : pinnedProjectPaths // ignore: cast_nullable_to_non_nullable
+as Set<String>,providerFilter: null == providerFilter ? _self.providerFilter : providerFilter // ignore: cast_nullable_to_non_nullable
 as ProviderFilter,namedOnly: null == namedOnly ? _self.namedOnly : namedOnly // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -176,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  ProviderFilter providerFilter,  bool namedOnly)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  Set<String> pinnedSessionKeys,  Set<String> pinnedProjectPaths,  ProviderFilter providerFilter,  bool namedOnly)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SessionListState() when $default != null:
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.providerFilter,_that.namedOnly);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.pinnedSessionKeys,_that.pinnedProjectPaths,_that.providerFilter,_that.namedOnly);case _:
   return orElse();
 
 }
@@ -197,10 +201,10 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitial
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  ProviderFilter providerFilter,  bool namedOnly)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  Set<String> pinnedSessionKeys,  Set<String> pinnedProjectPaths,  ProviderFilter providerFilter,  bool namedOnly)  $default,) {final _that = this;
 switch (_that) {
 case _SessionListState():
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.providerFilter,_that.namedOnly);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.pinnedSessionKeys,_that.pinnedProjectPaths,_that.providerFilter,_that.namedOnly);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +221,10 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitial
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  ProviderFilter providerFilter,  bool namedOnly)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  bool isInitialLoading,  String searchQuery,  Set<String> accumulatedProjectPaths,  Set<String> collapsedProjectPaths,  Set<String> loadingProjectPaths,  Set<String> exhaustedProjectPaths,  Map<String, int> projectSessionDisplayLimits,  Set<String> pinnedSessionKeys,  Set<String> pinnedProjectPaths,  ProviderFilter providerFilter,  bool namedOnly)?  $default,) {final _that = this;
 switch (_that) {
 case _SessionListState() when $default != null:
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.providerFilter,_that.namedOnly);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitialLoading,_that.searchQuery,_that.accumulatedProjectPaths,_that.collapsedProjectPaths,_that.loadingProjectPaths,_that.exhaustedProjectPaths,_that.projectSessionDisplayLimits,_that.pinnedSessionKeys,_that.pinnedProjectPaths,_that.providerFilter,_that.namedOnly);case _:
   return null;
 
 }
@@ -232,7 +236,7 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.isInitial
 
 
 class _SessionListState implements SessionListState {
-  const _SessionListState({final  List<RecentSession> sessions = const [], this.hasMore = false, this.isLoadingMore = false, this.isInitialLoading = true, this.searchQuery = '', final  Set<String> accumulatedProjectPaths = const {}, final  Set<String> collapsedProjectPaths = const {}, final  Set<String> loadingProjectPaths = const {}, final  Set<String> exhaustedProjectPaths = const {}, final  Map<String, int> projectSessionDisplayLimits = const {}, this.providerFilter = ProviderFilter.all, this.namedOnly = false}): _sessions = sessions,_accumulatedProjectPaths = accumulatedProjectPaths,_collapsedProjectPaths = collapsedProjectPaths,_loadingProjectPaths = loadingProjectPaths,_exhaustedProjectPaths = exhaustedProjectPaths,_projectSessionDisplayLimits = projectSessionDisplayLimits;
+  const _SessionListState({final  List<RecentSession> sessions = const [], this.hasMore = false, this.isLoadingMore = false, this.isInitialLoading = true, this.searchQuery = '', final  Set<String> accumulatedProjectPaths = const {}, final  Set<String> collapsedProjectPaths = const {}, final  Set<String> loadingProjectPaths = const {}, final  Set<String> exhaustedProjectPaths = const {}, final  Map<String, int> projectSessionDisplayLimits = const {}, final  Set<String> pinnedSessionKeys = const {}, final  Set<String> pinnedProjectPaths = const {}, this.providerFilter = ProviderFilter.all, this.namedOnly = false}): _sessions = sessions,_accumulatedProjectPaths = accumulatedProjectPaths,_collapsedProjectPaths = collapsedProjectPaths,_loadingProjectPaths = loadingProjectPaths,_exhaustedProjectPaths = exhaustedProjectPaths,_projectSessionDisplayLimits = projectSessionDisplayLimits,_pinnedSessionKeys = pinnedSessionKeys,_pinnedProjectPaths = pinnedProjectPaths;
   
 
 /// All sessions loaded from the server (including paginated results).
@@ -302,6 +306,24 @@ class _SessionListState implements SessionListState {
   return EqualUnmodifiableMapView(_projectSessionDisplayLimits);
 }
 
+/// Stable keys for sessions pinned on this device.
+ final  Set<String> _pinnedSessionKeys;
+/// Stable keys for sessions pinned on this device.
+@override@JsonKey() Set<String> get pinnedSessionKeys {
+  if (_pinnedSessionKeys is EqualUnmodifiableSetView) return _pinnedSessionKeys;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_pinnedSessionKeys);
+}
+
+/// Project paths pinned on this device.
+ final  Set<String> _pinnedProjectPaths;
+/// Project paths pinned on this device.
+@override@JsonKey() Set<String> get pinnedProjectPaths {
+  if (_pinnedProjectPaths is EqualUnmodifiableSetView) return _pinnedProjectPaths;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_pinnedProjectPaths);
+}
+
 /// Provider filter (All / Claude / Codex). Applied server-side.
 @override@JsonKey() final  ProviderFilter providerFilter;
 /// Named-only filter toggle. Applied server-side.
@@ -317,16 +339,16 @@ _$SessionListStateCopyWith<_SessionListState> get copyWith => __$SessionListStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionListState&&const DeepCollectionEquality().equals(other._sessions, _sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.isInitialLoading, isInitialLoading) || other.isInitialLoading == isInitialLoading)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other._accumulatedProjectPaths, _accumulatedProjectPaths)&&const DeepCollectionEquality().equals(other._collapsedProjectPaths, _collapsedProjectPaths)&&const DeepCollectionEquality().equals(other._loadingProjectPaths, _loadingProjectPaths)&&const DeepCollectionEquality().equals(other._exhaustedProjectPaths, _exhaustedProjectPaths)&&const DeepCollectionEquality().equals(other._projectSessionDisplayLimits, _projectSessionDisplayLimits)&&(identical(other.providerFilter, providerFilter) || other.providerFilter == providerFilter)&&(identical(other.namedOnly, namedOnly) || other.namedOnly == namedOnly));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionListState&&const DeepCollectionEquality().equals(other._sessions, _sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.isInitialLoading, isInitialLoading) || other.isInitialLoading == isInitialLoading)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other._accumulatedProjectPaths, _accumulatedProjectPaths)&&const DeepCollectionEquality().equals(other._collapsedProjectPaths, _collapsedProjectPaths)&&const DeepCollectionEquality().equals(other._loadingProjectPaths, _loadingProjectPaths)&&const DeepCollectionEquality().equals(other._exhaustedProjectPaths, _exhaustedProjectPaths)&&const DeepCollectionEquality().equals(other._projectSessionDisplayLimits, _projectSessionDisplayLimits)&&const DeepCollectionEquality().equals(other._pinnedSessionKeys, _pinnedSessionKeys)&&const DeepCollectionEquality().equals(other._pinnedProjectPaths, _pinnedProjectPaths)&&(identical(other.providerFilter, providerFilter) || other.providerFilter == providerFilter)&&(identical(other.namedOnly, namedOnly) || other.namedOnly == namedOnly));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_sessions),hasMore,isLoadingMore,isInitialLoading,searchQuery,const DeepCollectionEquality().hash(_accumulatedProjectPaths),const DeepCollectionEquality().hash(_collapsedProjectPaths),const DeepCollectionEquality().hash(_loadingProjectPaths),const DeepCollectionEquality().hash(_exhaustedProjectPaths),const DeepCollectionEquality().hash(_projectSessionDisplayLimits),providerFilter,namedOnly);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_sessions),hasMore,isLoadingMore,isInitialLoading,searchQuery,const DeepCollectionEquality().hash(_accumulatedProjectPaths),const DeepCollectionEquality().hash(_collapsedProjectPaths),const DeepCollectionEquality().hash(_loadingProjectPaths),const DeepCollectionEquality().hash(_exhaustedProjectPaths),const DeepCollectionEquality().hash(_projectSessionDisplayLimits),const DeepCollectionEquality().hash(_pinnedSessionKeys),const DeepCollectionEquality().hash(_pinnedProjectPaths),providerFilter,namedOnly);
 
 @override
 String toString() {
-  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, isInitialLoading: $isInitialLoading, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths, collapsedProjectPaths: $collapsedProjectPaths, loadingProjectPaths: $loadingProjectPaths, exhaustedProjectPaths: $exhaustedProjectPaths, projectSessionDisplayLimits: $projectSessionDisplayLimits, providerFilter: $providerFilter, namedOnly: $namedOnly)';
+  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, isInitialLoading: $isInitialLoading, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths, collapsedProjectPaths: $collapsedProjectPaths, loadingProjectPaths: $loadingProjectPaths, exhaustedProjectPaths: $exhaustedProjectPaths, projectSessionDisplayLimits: $projectSessionDisplayLimits, pinnedSessionKeys: $pinnedSessionKeys, pinnedProjectPaths: $pinnedProjectPaths, providerFilter: $providerFilter, namedOnly: $namedOnly)';
 }
 
 
@@ -337,7 +359,7 @@ abstract mixin class _$SessionListStateCopyWith<$Res> implements $SessionListSta
   factory _$SessionListStateCopyWith(_SessionListState value, $Res Function(_SessionListState) _then) = __$SessionListStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<RecentSession> sessions, bool hasMore, bool isLoadingMore, bool isInitialLoading, String searchQuery, Set<String> accumulatedProjectPaths, Set<String> collapsedProjectPaths, Set<String> loadingProjectPaths, Set<String> exhaustedProjectPaths, Map<String, int> projectSessionDisplayLimits, ProviderFilter providerFilter, bool namedOnly
+ List<RecentSession> sessions, bool hasMore, bool isLoadingMore, bool isInitialLoading, String searchQuery, Set<String> accumulatedProjectPaths, Set<String> collapsedProjectPaths, Set<String> loadingProjectPaths, Set<String> exhaustedProjectPaths, Map<String, int> projectSessionDisplayLimits, Set<String> pinnedSessionKeys, Set<String> pinnedProjectPaths, ProviderFilter providerFilter, bool namedOnly
 });
 
 
@@ -354,7 +376,7 @@ class __$SessionListStateCopyWithImpl<$Res>
 
 /// Create a copy of SessionListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? isInitialLoading = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,Object? collapsedProjectPaths = null,Object? loadingProjectPaths = null,Object? exhaustedProjectPaths = null,Object? projectSessionDisplayLimits = null,Object? providerFilter = null,Object? namedOnly = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? isInitialLoading = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,Object? collapsedProjectPaths = null,Object? loadingProjectPaths = null,Object? exhaustedProjectPaths = null,Object? projectSessionDisplayLimits = null,Object? pinnedSessionKeys = null,Object? pinnedProjectPaths = null,Object? providerFilter = null,Object? namedOnly = null,}) {
   return _then(_SessionListState(
 sessions: null == sessions ? _self._sessions : sessions // ignore: cast_nullable_to_non_nullable
 as List<RecentSession>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
@@ -366,7 +388,9 @@ as Set<String>,collapsedProjectPaths: null == collapsedProjectPaths ? _self._col
 as Set<String>,loadingProjectPaths: null == loadingProjectPaths ? _self._loadingProjectPaths : loadingProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,exhaustedProjectPaths: null == exhaustedProjectPaths ? _self._exhaustedProjectPaths : exhaustedProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,projectSessionDisplayLimits: null == projectSessionDisplayLimits ? _self._projectSessionDisplayLimits : projectSessionDisplayLimits // ignore: cast_nullable_to_non_nullable
-as Map<String, int>,providerFilter: null == providerFilter ? _self.providerFilter : providerFilter // ignore: cast_nullable_to_non_nullable
+as Map<String, int>,pinnedSessionKeys: null == pinnedSessionKeys ? _self._pinnedSessionKeys : pinnedSessionKeys // ignore: cast_nullable_to_non_nullable
+as Set<String>,pinnedProjectPaths: null == pinnedProjectPaths ? _self._pinnedProjectPaths : pinnedProjectPaths // ignore: cast_nullable_to_non_nullable
+as Set<String>,providerFilter: null == providerFilter ? _self.providerFilter : providerFilter // ignore: cast_nullable_to_non_nullable
 as ProviderFilter,namedOnly: null == namedOnly ? _self.namedOnly : namedOnly // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

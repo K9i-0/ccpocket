@@ -1999,6 +1999,8 @@ class _SessionListScreenState extends State<SessionListScreen>
               loadingProjectPaths: slState.loadingProjectPaths,
               exhaustedProjectPaths: slState.exhaustedProjectPaths,
               projectSessionDisplayLimits: slState.projectSessionDisplayLimits,
+              pinnedSessionKeys: slState.pinnedSessionKeys,
+              pinnedProjectPaths: slState.pinnedProjectPaths,
               searchQuery: slState.searchQuery,
               isLoadingMore: slState.isLoadingMore,
               isInitialLoading: slState.isInitialLoading,
@@ -2074,9 +2076,15 @@ class _SessionListScreenState extends State<SessionListScreen>
                 bridge.clearSessionPermission(sessionId);
               },
               onResumeSession: _resumeSession,
+              onToggleRecentSessionPinned: (session) => context
+                  .read<SessionListCubit>()
+                  .toggleRecentSessionPinned(session),
               onLongPressRecentSession: _showRecentSessionActions,
               onArchiveSession: _archiveSession,
               onLongPressRunningSession: _showRunningSessionActions,
+              onToggleRunningSessionPinned: (session) => context
+                  .read<SessionListCubit>()
+                  .toggleRunningSessionPinned(session),
               onSelectProject: (path) =>
                   context.read<SessionListCubit>().selectProject(path),
               onLoadMore: () => context.read<SessionListCubit>().loadMore(),
@@ -2084,6 +2092,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                   context.read<SessionListCubit>().loadMoreProject(path),
               onToggleProjectCollapsed: (path) =>
                   context.read<SessionListCubit>().toggleProjectCollapsed(path),
+              onToggleProjectPinned: (path) =>
+                  context.read<SessionListCubit>().toggleProjectPinned(path),
               providerFilter: effectiveProviderFilter,
               namedOnly: slState.namedOnly,
               onToggleProvider: () => context

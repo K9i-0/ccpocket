@@ -365,8 +365,16 @@ describe("SessionManager codex path", () => {
     expect(manager.getHistorySince(sessionB, 0)?.toSeq).toBe(1);
   });
 
-  it("updates codex session settings from runtime init metadata", () => {
-    const manager = new SessionManager(() => {});
+  it("updates codex session settings and broadcasts the resolved thread id", () => {
+    const onSessionUpdated = vi.fn();
+    const manager = new SessionManager(
+      () => {},
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      onSessionUpdated,
+    );
     const sessionId = manager.create(
       "/tmp/project-codex",
       undefined,
@@ -400,6 +408,8 @@ describe("SessionManager codex path", () => {
 
     const session = manager.get(sessionId);
     expect(session?.claudeSessionId).toBe("thread-runtime");
+    expect(onSessionUpdated).toHaveBeenCalledOnce();
+    expect(onSessionUpdated).toHaveBeenCalledWith(sessionId);
     expect(session?.codexSettings).toMatchObject({
       model: "gpt-5.4",
       approvalPolicy: "never",
@@ -534,6 +544,40 @@ describe("SessionManager codex path", () => {
       status: "idle",
       historySeq: 1,
     });
+  });
+
+  it("evicts the least recently active idle session above the retention limit", () => {
+    const onSessionUpdated = vi.fn();
+    const manager = new SessionManager(
+      () => {},
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      onSessionUpdated,
+    );
+    const sessionIds = Array.from({ length: 31 }, (_, index) => {
+      const id = manager.create(
+        `/tmp/project-idle-${index}`,
+        undefined,
+        undefined,
+        undefined,
+        "codex",
+      );
+      manager.get(id)!.lastActivityAt = new Date(index * 1000);
+      return id;
+    });
+
+    for (const process of codexInstances) {
+      process.emit("status", "idle" satisfies ProcessStatus);
+    }
+
+    expect(manager.get(sessionIds[0])).toBeUndefined();
+    expect(codexInstances[0].stop).toHaveBeenCalledOnce();
+    expect(manager.get(sessionIds[1])).toBeDefined();
+    expect(manager.list()).toHaveLength(30);
+    expect(onSessionUpdated).toHaveBeenCalledOnce();
+    manager.destroyAll();
   });
 
   it("includes codex agent metadata in session summaries", () => {

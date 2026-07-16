@@ -38,6 +38,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get renameSession => '세션 이름 변경';
 
   @override
+  String get pin => '세션 고정';
+
+  @override
+  String get unpin => '세션 고정 해제';
+
+  @override
+  String get pinProject => '프로젝트 고정';
+
+  @override
+  String get unpinProject => '프로젝트 고정 해제';
+
+  @override
   String get sessionNameHint => '세션 이름';
 
   @override

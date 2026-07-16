@@ -38,6 +38,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get renameSession => 'セッション名を変更';
 
   @override
+  String get pin => 'セッションをピン留め';
+
+  @override
+  String get unpin => 'セッションのピン留めを解除';
+
+  @override
+  String get pinProject => 'プロジェクトをピン留め';
+
+  @override
+  String get unpinProject => 'プロジェクトのピン留めを解除';
+
+  @override
   String get sessionNameHint => 'セッション名';
 
   @override

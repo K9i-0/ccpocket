@@ -161,6 +161,108 @@ void main() {
       expect(bridge.requestedFileLists, ['/tmp/project', '/tmp/project']);
     });
 
+    testWidgets('Codex defers file list refresh while app is backgrounded', (
+      tester,
+    ) async {
+      final bridge = _RecordingBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        await _wrap(
+          const CodexSessionScreen(
+            sessionId: 'codex-session',
+            projectPath: '/tmp/project',
+          ),
+          bridge,
+        ),
+      );
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      bridge.emitMessage(
+        const ToolResultMessage(
+          toolUseId: 'tool-background',
+          toolName: 'Write',
+          content: 'created docs/background.md',
+        ),
+        sessionId: 'codex-session',
+      );
+      await tester.pump();
+
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project', '/tmp/project']);
+    });
+
+    testWidgets('Codex does not reload for inactive to resumed transition', (
+      tester,
+    ) async {
+      final bridge = _RecordingBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        await _wrap(
+          const CodexSessionScreen(
+            sessionId: 'codex-session',
+            projectPath: '/tmp/project',
+          ),
+          bridge,
+        ),
+      );
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+    });
+
+    testWidgets('Codex reloads after a hidden-only background transition', (
+      tester,
+    ) async {
+      final bridge = _RecordingBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        await _wrap(
+          const CodexSessionScreen(
+            sessionId: 'codex-session',
+            projectPath: '/tmp/project',
+          ),
+          bridge,
+        ),
+      );
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      bridge.emitMessage(
+        const ToolResultMessage(
+          toolUseId: 'tool-hidden',
+          toolName: 'Write',
+          content: 'created docs/hidden.md',
+        ),
+        sessionId: 'codex-session',
+      );
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project']);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(bridge.requestedFileLists, ['/tmp/project', '/tmp/project']);
+    });
+
     testWidgets('Claude requests file list after pending session resolves', (
       tester,
     ) async {

@@ -38,6 +38,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get renameSession => '重命名会话';
 
   @override
+  String get pin => '置顶会话';
+
+  @override
+  String get unpin => '取消置顶会话';
+
+  @override
+  String get pinProject => '置顶项目';
+
+  @override
+  String get unpinProject => '取消置顶项目';
+
+  @override
   String get sessionNameHint => '会话名称';
 
   @override

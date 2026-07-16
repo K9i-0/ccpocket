@@ -38,6 +38,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get renameSession => 'Rename Session';
 
   @override
+  String get pin => 'Pin session';
+
+  @override
+  String get unpin => 'Unpin session';
+
+  @override
+  String get pinProject => 'Pin project';
+
+  @override
+  String get unpinProject => 'Unpin project';
+
+  @override
   String get sessionNameHint => 'Session name';
 
   @override

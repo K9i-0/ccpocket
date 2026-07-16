@@ -17,6 +17,7 @@ import '../../../services/support_banner_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
 import '../../../router/app_router.dart';
+import '../../../widgets/pin_toggle_button.dart';
 import '../../../widgets/session_card.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/session_list_cubit.dart';
@@ -77,6 +78,8 @@ class HomeContent extends StatefulWidget {
   final Set<String> loadingProjectPaths;
   final Set<String> exhaustedProjectPaths;
   final Map<String, int> projectSessionDisplayLimits;
+  final Set<String> pinnedSessionKeys;
+  final Set<String> pinnedProjectPaths;
   final String searchQuery;
   final bool isLoadingMore;
   final bool isInitialLoading;
@@ -107,15 +110,18 @@ class HomeContent extends StatefulWidget {
   final void Function(String sessionId, String toolUseId, String result)?
   onAnswerQuestion;
   final ValueChanged<RecentSession> onResumeSession;
+  final ValueChanged<RecentSession>? onToggleRecentSessionPinned;
   final void Function(RecentSession session, Offset? position)
   onLongPressRecentSession;
   final ValueChanged<RecentSession> onArchiveSession;
   final void Function(SessionInfo session, Offset? position)
   onLongPressRunningSession;
+  final ValueChanged<SessionInfo>? onToggleRunningSessionPinned;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
   final ValueChanged<String>? onLoadMoreProject;
   final ValueChanged<String>? onToggleProjectCollapsed;
+  final ValueChanged<String>? onToggleProjectPinned;
   final ProviderFilter providerFilter;
   final bool namedOnly;
   final VoidCallback onToggleProvider;
@@ -143,6 +149,8 @@ class HomeContent extends StatefulWidget {
     this.loadingProjectPaths = const {},
     this.exhaustedProjectPaths = const {},
     this.projectSessionDisplayLimits = const {},
+    this.pinnedSessionKeys = const {},
+    this.pinnedProjectPaths = const {},
     required this.searchQuery,
     required this.isLoadingMore,
     required this.isInitialLoading,
@@ -159,13 +167,16 @@ class HomeContent extends StatefulWidget {
     this.onRejectPermission,
     this.onAnswerQuestion,
     required this.onResumeSession,
+    this.onToggleRecentSessionPinned,
     required this.onLongPressRecentSession,
     required this.onArchiveSession,
     required this.onLongPressRunningSession,
+    this.onToggleRunningSessionPinned,
     required this.onSelectProject,
     required this.onLoadMore,
     this.onLoadMoreProject,
     this.onToggleProjectCollapsed,
+    this.onToggleProjectPinned,
     required this.providerFilter,
     required this.namedOnly,
     required this.onToggleProvider,
@@ -503,19 +514,43 @@ class HomeContentState extends State<HomeContent> {
 
     // All filtering (project, provider, namedOnly, searchQuery) is applied
     // server-side. Only deduplicate running sessions here.
-    final filteredSessions = widget.recentSessions
-        .where((s) => !isDuplicate(s))
-        .toList();
-    final allProjectPaths = <String>{
-      if (widget.currentProjectFilter != null) widget.currentProjectFilter!,
-      if (widget.currentProjectFilter == null)
-        ...widget.accumulatedProjectPaths,
-      if (widget.currentProjectFilter == null)
-        ...filteredSessions.map((session) => session.projectPath),
-    }.where((path) => path.isNotEmpty).toList();
+    final filteredSessions = prioritizePinned(
+      widget.recentSessions.where((session) => !isDuplicate(session)),
+      isPinned: (session) =>
+          widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
+      isProjectPinned: (session) =>
+          widget.pinnedProjectPaths.contains(session.projectPath),
+    );
+    final projectPathsWithPinnedSessions = filteredSessions
+        .where(
+          (session) =>
+              widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
+        )
+        .map((session) => session.projectPath)
+        .toSet();
+    final allProjectPaths = prioritizePinned(
+      <String>{
+        if (widget.currentProjectFilter != null) widget.currentProjectFilter!,
+        if (widget.currentProjectFilter == null)
+          ...widget.accumulatedProjectPaths,
+        if (widget.currentProjectFilter == null)
+          ...filteredSessions.map((session) => session.projectPath),
+      }.where((path) => path.isNotEmpty),
+      isPinned: projectPathsWithPinnedSessions.contains,
+      isProjectPinned: widget.pinnedProjectPaths.contains,
+    );
     final groupedRecentSessions = _groupSessionsByProject(
       projectPaths: allProjectPaths,
       sessions: filteredSessions,
+    );
+    final runningSessions = prioritizePinned(
+      widget.sessions,
+      isPinned: (session) {
+        final key = runningSessionPinKey(session);
+        return key != null && widget.pinnedSessionKeys.contains(key);
+      },
+      isProjectPinned: (session) =>
+          widget.pinnedProjectPaths.contains(session.projectPath),
     );
 
     final hasActiveFilter =
@@ -595,7 +630,7 @@ class HomeContentState extends State<HomeContent> {
                   ? null
                   : () => widget.onCancelOfflinePendingAction!(action.id),
             ),
-          for (final session in widget.sessions)
+          for (final session in runningSessions)
             Slidable(
               key: ValueKey('running_session_${session.id}'),
               endActionPane: ActionPane(
@@ -624,6 +659,15 @@ class HomeContentState extends State<HomeContent> {
               ),
               child: RunningSessionCard(
                 session: session,
+                isPinned: switch (runningSessionPinKey(session)) {
+                  final key? => widget.pinnedSessionKeys.contains(key),
+                  null => false,
+                },
+                onTogglePinned:
+                    runningSessionPinKey(session) == null ||
+                        widget.onToggleRunningSessionPinned == null
+                    ? null
+                    : () => widget.onToggleRunningSessionPinned!(session),
                 isUnseen: widget.unseenSessionIds.contains(session.id),
                 isSelected:
                     selectedSessionId == session.id &&
@@ -732,9 +776,13 @@ class HomeContentState extends State<HomeContent> {
             onToggleRecentGrouping: _toggleRecentGrouping,
             providerFilter: widget.providerFilter,
             onToggleProviderFilter: widget.onToggleProvider,
-            projects: widget.accumulatedProjectPaths.map((path) {
-              return (path: path, name: pathBasename(path));
-            }).toList(),
+            projects:
+                prioritizePinned(
+                  widget.accumulatedProjectPaths,
+                  isPinned: widget.pinnedProjectPaths.contains,
+                ).map((path) {
+                  return (path: path, name: pathBasename(path));
+                }).toList(),
             currentProjectFilter: widget.currentProjectFilter,
             onProjectFilterChanged: widget.onSelectProject,
             namedOnly: widget.namedOnly,
@@ -756,10 +804,16 @@ class HomeContentState extends State<HomeContent> {
               for (final session in filteredSessions)
                 _RecentSessionSlidable(
                   session: session,
+                  isPinned: widget.pinnedSessionKeys.contains(
+                    recentSessionPinKey(session),
+                  ),
                   displayMode: _displayMode,
                   archivingSessionIds: widget.archivingSessionIds,
                   onArchiveSession: widget.onArchiveSession,
                   onResumeSession: widget.onResumeSession,
+                  onTogglePinned: widget.onToggleRecentSessionPinned == null
+                      ? null
+                      : () => widget.onToggleRecentSessionPinned!(session),
                   onLongPressRecentSession: widget.onLongPressRecentSession,
                 ),
               if (widget.hasMoreSessions) ...[
@@ -788,12 +842,20 @@ class HomeContentState extends State<HomeContent> {
                       widget.currentProjectFilter == null &&
                       !widget.exhaustedProjectPaths.contains(group.projectPath),
                   archivingSessionIds: widget.archivingSessionIds,
+                  pinnedSessionKeys: widget.pinnedSessionKeys,
+                  isPinned: widget.pinnedProjectPaths.contains(
+                    group.projectPath,
+                  ),
                   onToggleCollapsed: () =>
                       widget.onToggleProjectCollapsed?.call(group.projectPath),
+                  onTogglePinned: widget.onToggleProjectPinned == null
+                      ? null
+                      : () => widget.onToggleProjectPinned!(group.projectPath),
                   onLoadMore: () =>
                       widget.onLoadMoreProject?.call(group.projectPath),
                   onArchiveSession: widget.onArchiveSession,
                   onResumeSession: widget.onResumeSession,
+                  onToggleSessionPinned: widget.onToggleRecentSessionPinned,
                   onLongPressRecentSession: widget.onLongPressRecentSession,
                 ),
             if (widget.currentProjectFilter != null &&
@@ -845,19 +907,23 @@ class _LoadMoreRecentSessionsButton extends StatelessWidget {
 
 class _RecentSessionSlidable extends StatelessWidget {
   final RecentSession session;
+  final bool isPinned;
   final SessionDisplayMode displayMode;
   final Set<String> archivingSessionIds;
   final ValueChanged<RecentSession> onArchiveSession;
   final ValueChanged<RecentSession> onResumeSession;
+  final VoidCallback? onTogglePinned;
   final void Function(RecentSession session, Offset? position)
   onLongPressRecentSession;
 
   const _RecentSessionSlidable({
     required this.session,
+    required this.isPinned,
     required this.displayMode,
     required this.archivingSessionIds,
     required this.onArchiveSession,
     required this.onResumeSession,
+    required this.onTogglePinned,
     required this.onLongPressRecentSession,
   });
 
@@ -891,10 +957,12 @@ class _RecentSessionSlidable extends StatelessWidget {
       ),
       child: RecentSessionCard(
         session: session,
+        isPinned: isPinned,
         displayMode: displayMode,
         isSelected: false,
         draftText: context.read<DraftService>().getDraft(session.sessionId),
         isProcessing: archivingSessionIds.contains(session.sessionId),
+        onTogglePinned: onTogglePinned,
         onTap: () => onResumeSession(session),
         onLongPress: () => onLongPressRecentSession(session, null),
         onShowActions: (position) =>
@@ -956,10 +1024,14 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
   final int displayLimit;
   final bool canLoadFromBridge;
   final Set<String> archivingSessionIds;
+  final Set<String> pinnedSessionKeys;
+  final bool isPinned;
   final VoidCallback onToggleCollapsed;
+  final VoidCallback? onTogglePinned;
   final VoidCallback onLoadMore;
   final ValueChanged<RecentSession> onArchiveSession;
   final ValueChanged<RecentSession> onResumeSession;
+  final ValueChanged<RecentSession>? onToggleSessionPinned;
   final void Function(RecentSession session, Offset? position)
   onLongPressRecentSession;
 
@@ -971,10 +1043,14 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
     required this.displayLimit,
     required this.canLoadFromBridge,
     required this.archivingSessionIds,
+    required this.pinnedSessionKeys,
+    required this.isPinned,
     required this.onToggleCollapsed,
+    required this.onTogglePinned,
     required this.onLoadMore,
     required this.onArchiveSession,
     required this.onResumeSession,
+    required this.onToggleSessionPinned,
     required this.onLongPressRecentSession,
   });
 
@@ -992,17 +1068,25 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
             projectPath: group.projectPath,
             projectName: group.projectName,
             isCollapsed: isCollapsed,
+            isPinned: isPinned,
             onTap: onToggleCollapsed,
+            onTogglePinned: onTogglePinned,
           ),
           if (!isCollapsed) ...[
             const SizedBox(height: 4),
             for (final session in visibleSessions)
               _RecentSessionSlidable(
                 session: session,
+                isPinned: pinnedSessionKeys.contains(
+                  recentSessionPinKey(session),
+                ),
                 displayMode: displayMode,
                 archivingSessionIds: archivingSessionIds,
                 onArchiveSession: onArchiveSession,
                 onResumeSession: onResumeSession,
+                onTogglePinned: onToggleSessionPinned == null
+                    ? null
+                    : () => onToggleSessionPinned!(session),
                 onLongPressRecentSession: onLongPressRecentSession,
               ),
             if (isLoadingMore)
@@ -1061,13 +1145,17 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
   final String projectPath;
   final String projectName;
   final bool isCollapsed;
+  final bool isPinned;
   final VoidCallback onTap;
+  final VoidCallback? onTogglePinned;
 
   const _ProjectRecentSessionHeader({
     required this.projectPath,
     required this.projectName,
     required this.isCollapsed,
+    required this.isPinned,
     required this.onTap,
+    required this.onTogglePinned,
   });
 
   @override
@@ -1103,6 +1191,13 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              PinToggleButton(
+                key: ValueKey('pin_project_$projectPath'),
+                isPinned: isPinned,
+                onPressed: onTogglePinned,
+                pinTooltip: AppLocalizations.of(context).pinProject,
+                unpinTooltip: AppLocalizations.of(context).unpinProject,
               ),
             ],
           ),

@@ -490,15 +490,15 @@ class _CodexProviders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bridge = context.read<BridgeService>();
-    final streamingCubit = StreamingStateCubit();
     return MultiBlocProvider(
       providers: [
+        BlocProvider(create: (_) => StreamingStateCubit()),
         // Register as ChatSessionCubit so shared widgets can find it.
         BlocProvider<ChatSessionCubit>(
-          create: (_) => CodexSessionCubit(
+          create: (context) => CodexSessionCubit(
             sessionId: sessionId,
             bridge: bridge,
-            streamingCubit: streamingCubit,
+            streamingCubit: context.read<StreamingStateCubit>(),
             initialExplorerCurrentPath: explorerCurrentPath,
             initialRecentPeekedFiles: recentPeekedFiles,
             initialSandboxMode: sandboxMode,
@@ -509,7 +509,6 @@ class _CodexProviders extends StatelessWidget {
             initialProjectPath: projectPath,
           ),
         ),
-        BlocProvider.value(value: streamingCubit),
       ],
       child: _CodexChatBody(
         sessionId: sessionId,
@@ -561,6 +560,8 @@ class _CodexChatBody extends HookWidget {
     final lifecycleState = useAppLifecycleState();
     final isBackground =
         lifecycleState != null && lifecycleState != AppLifecycleState.resumed;
+    final isBackgroundRef = useRef(isBackground);
+    isBackgroundRef.value = isBackground;
     final scroll = useScrollTracking(sessionId);
     useKeyboardScrollAdjustment(scroll.controller);
 
@@ -692,7 +693,7 @@ class _CodexChatBody extends HookWidget {
         (effects) => _executeSideEffects(
           effects,
           sessionId: sessionId,
-          isBackground: isBackground,
+          isBackground: isBackgroundRef.value,
           approval: chatSessionCubit.state.approval,
           l: l,
           collapseToolResults: collapseToolResults,
@@ -708,10 +709,10 @@ class _CodexChatBody extends HookWidget {
       () {
         final bridge = context.read<BridgeService>();
         final path = gitProjectPath;
-        if (effectiveProjectPath != null) {
+        if (!isBackground && effectiveProjectPath != null) {
           bridge.requestFileList(effectiveProjectPath);
         }
-        if (path != null && path.isNotEmpty) {
+        if (!isBackground && path != null && path.isNotEmpty) {
           try {
             context.read<GitStatusCubit>().refresh(
               sessionId: sessionId,
@@ -720,8 +721,10 @@ class _CodexChatBody extends HookWidget {
             );
           } catch (_) {}
         }
-        bridge.requestSessionList();
-        bridge.refreshBranch(sessionId);
+        if (!isBackground) {
+          bridge.requestSessionList();
+          bridge.refreshBranch(sessionId);
+        }
         return null;
       },
       [
@@ -744,6 +747,7 @@ class _CodexChatBody extends HookWidget {
           gitViewCache = context.read<GitViewCacheService>();
         } catch (_) {}
         final sub = bridge.messagesForSession(sessionId).listen((msg) {
+          if (isBackgroundRef.value) return;
           if (msg case ToolResultMessage(
             :final toolName,
           ) when _fileListRefreshToolNames.contains(toolName)) {
@@ -781,7 +785,7 @@ class _CodexChatBody extends HookWidget {
     }, [sessionId]);
 
     // --- App resume: verify WebSocket health + refresh history ---
-    // Only triggers on genuine resume from paused/detached, not from
+    // Only triggers on genuine resume from paused/hidden/detached, not from
     // inactive (e.g. Android notification shade).
     useAppResumeCallback(lifecycleState, () {
       final bridge = context.read<BridgeService>();
@@ -790,6 +794,20 @@ class _CodexChatBody extends HookWidget {
         final cubit = context.read<ChatSessionCubit>();
         cubit.refreshHistory();
         cubit.requestGoal();
+        if (effectiveProjectPath != null) {
+          bridge.requestFileList(effectiveProjectPath);
+        }
+        if (gitProjectPath != null && gitProjectPath.isNotEmpty) {
+          try {
+            context.read<GitStatusCubit>().refresh(
+              sessionId: sessionId,
+              projectPath: gitProjectPath,
+              includeRemote: showRemoteGitStatusBadge,
+            );
+          } catch (_) {}
+        }
+        bridge.requestSessionList();
+        bridge.refreshBranch(sessionId);
       }
     });
 

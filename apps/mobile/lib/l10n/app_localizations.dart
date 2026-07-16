@@ -156,6 +156,30 @@ abstract class AppLocalizations {
   /// **'セッション名を変更'**
   String get renameSession;
 
+  /// No description provided for @pin.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションをピン留め'**
+  String get pin;
+
+  /// No description provided for @unpin.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションのピン留めを解除'**
+  String get unpin;
+
+  /// No description provided for @pinProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトをピン留め'**
+  String get pinProject;
+
+  /// No description provided for @unpinProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトのピン留めを解除'**
+  String get unpinProject;
+
   /// No description provided for @sessionNameHint.
   ///
   /// In ja, this message translates to:

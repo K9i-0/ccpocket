@@ -44,6 +44,12 @@ abstract class SessionListState with _$SessionListState {
     /// Per-project number of recent sessions currently visible in the list.
     @Default({}) Map<String, int> projectSessionDisplayLimits,
 
+    /// Stable keys for sessions pinned on this device.
+    @Default({}) Set<String> pinnedSessionKeys,
+
+    /// Project paths pinned on this device.
+    @Default({}) Set<String> pinnedProjectPaths,
+
     /// Provider filter (All / Claude / Codex). Applied server-side.
     @Default(ProviderFilter.all) ProviderFilter providerFilter,
 
