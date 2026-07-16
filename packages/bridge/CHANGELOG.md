@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.66.2] - 2026-07-16
+
+### Fixed
+- Handle Codex tool suggestion dialogs and preserve their pending state until installation or authentication completes.
+- Cover additional Codex app-server requests, warnings, review results, and typed MCP elicitation responses, including required and optional form fields.
+
 ## [1.66.1] - 2026-07-16
 
 ### Fixed
