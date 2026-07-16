@@ -1708,6 +1708,45 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("suppresses low-risk guardian approval notifications", () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (message) => messages.push(message));
+
+    (proc as any).handleNotification("guardianWarning", {
+      message:
+        "Automatic approval review approved (risk: low, authorization: unknown):\nAuto-review returned a low-risk allow decision.",
+    });
+
+    expect(messages).toEqual([]);
+    proc.stop();
+  });
+
+  it("continues to surface actionable guardian and standard warnings", () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (message) => messages.push(message));
+
+    (proc as any).handleNotification("guardianWarning", {
+      message: "Automatic approval review could not verify this command.",
+    });
+    (proc as any).handleNotification("warning", {
+      message: "Model fallback is active.",
+    });
+
+    expect(messages).toContainEqual({
+      type: "error",
+      errorCode: "codex_warning",
+      message: "Automatic approval review could not verify this command.",
+    });
+    expect(messages).toContainEqual({
+      type: "error",
+      errorCode: "codex_warning",
+      message: "Model fallback is active.",
+    });
+    proc.stop();
+  });
+
   it("installs a suggested remote plugin before accepting the elicitation", async () => {
     const proc = new CodexProcess("linux");
     const child = new FakeChildProcess();

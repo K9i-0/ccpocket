@@ -2359,8 +2359,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
-      case "warning":
-      case "guardianWarning": {
+      case "warning": {
         const message = stringValue(params.message);
         if (message) {
           this.emitMessage({
@@ -2369,6 +2368,23 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             message,
           });
         }
+        break;
+      }
+
+      case "guardianWarning": {
+        const message = stringValue(params.message);
+        if (!message) break;
+        if (isInformationalGuardianApproval(message)) {
+          console.debug(
+            "[codex-process] suppressed informational guardian approval notification",
+          );
+          break;
+        }
+        this.emitMessage({
+          type: "error",
+          errorCode: "codex_warning",
+          message,
+        });
         break;
       }
 
@@ -3833,6 +3849,14 @@ function parseResultObject(rawResult: string): {
   } catch {
     return { byId: {}, byQuestion: {} };
   }
+}
+
+function isInformationalGuardianApproval(message: string): boolean {
+  const normalized = message.trim().replace(/\s+/g, " ").toLowerCase();
+  return (
+    normalized.startsWith("automatic approval review approved") &&
+    /: auto-review returned a low[- ]risk allow decision\.?$/.test(normalized)
+  );
 }
 
 function normalizeAnswerValues(value: unknown): string[] {
