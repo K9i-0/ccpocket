@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.105.1] - 2026-07-16
+
+### Changed
+- Require Bridge 1.66.2 for the latest Codex app-server dialog, warning, review, and typed form handling.
+
+### Fixed
+- Handle Codex tool suggestion dialogs consistently in active chats and session cards, including installation and authentication flows.
+- Preserve typed Codex and MCP question responses, optional fields, multi-select values, and label/value mappings across chat and session-card answers.
+- Classify Codex usage windows by duration so weekly-only limits are displayed correctly.
+
 ## [1.105.0] - 2026-07-16
 
 ### Added
