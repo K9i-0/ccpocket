@@ -1,4 +1,5 @@
-• Switch Codex models from an existing session when you need to adjust how the task continues.
-• Choose whether new sessions and filters show Codex, Claude, or both providers.
-• View Recent Sessions as a simple list in addition to project grouping.
-• Fixed Settings on Flutter Web and improved Codex/Claude session display details.
+• Add persistent Codex Goals with controls to edit, pause, resume, and complete active goals.
+• Add Codex Effort and Speed controls, including Fast mode, to new and active sessions.
+• Pin important sessions and projects so they stay at the top of your lists.
+• Add GPT-5.6 Max and Ultra reasoning options.
+• Improve Codex dialogs, typed questions, session details, layout, and overall stability.
