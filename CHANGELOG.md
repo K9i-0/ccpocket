@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.106.2] - 2026-07-18
+
+### Changed
+- Require Bridge 1.67.3 for the latest Codex goal history replay behavior.
+
+### Fixed
+- Open Markdown file links in File Peek, and show a copyable error when a link cannot be opened or is unsupported.
+
 ## [1.106.1] - 2026-07-16
 
 ### Changed
