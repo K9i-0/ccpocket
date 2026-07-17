@@ -47,11 +47,7 @@ MarkdownLinkTarget classifyMarkdownLink(
   if (uri == null) return MarkdownLinkTarget.unsupported(raw);
 
   if (uri.scheme == 'file') {
-    try {
-      return MarkdownLinkTarget.file(uri.toFilePath());
-    } on UnsupportedError {
-      return MarkdownLinkTarget.unsupported(raw);
-    }
+    return MarkdownLinkTarget.file(_fileUriPath(uri));
   }
 
   if (uri.hasScheme) return MarkdownLinkTarget.external(uri);
@@ -161,4 +157,11 @@ bool _looksLikeFilePath(String path) {
 
 String _stripLineColumn(String path) {
   return path.replaceFirst(_lineColumnSuffix, '');
+}
+
+String _fileUriPath(Uri uri) {
+  final path = Uri.decodeComponent(uri.path);
+  if (uri.host.isNotEmpty) return '//${uri.host}$path';
+  if (RegExp(r'^/[A-Za-z]:/').hasMatch(path)) return path.substring(1);
+  return path;
 }
