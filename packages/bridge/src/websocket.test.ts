@@ -1851,6 +1851,85 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("replays cached Codex goal state with history responses", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["goal_state"],
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.codexGoal = {
+      threadId: "thread-goal",
+      objective: "Keep this goal visible",
+      status: "active",
+      tokenBudget: null,
+      tokensUsed: 10,
+      timeUsedSeconds: 5,
+      createdAt: 1,
+      updatedAt: 2,
+    };
+
+    const expectGoalReplay = async (
+      request: Record<string, unknown>,
+      expectedHistoryType: string,
+    ) => {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(request, ws);
+      const sends = ws.send.mock.calls.map((c: unknown[]) =>
+        JSON.parse(c[0] as string),
+      );
+      expect(sends.some((m: any) => m.type === expectedHistoryType)).toBe(true);
+      const goalState = sends.find((m: any) => m.type === "goal_state");
+      expect(goalState).toEqual({
+        type: "goal_state",
+        sessionId,
+        goal: session.codexGoal,
+      });
+    };
+
+    await expectGoalReplay({ type: "get_history", sessionId }, "history");
+    await expectGoalReplay(
+      { type: "get_history_delta", sessionId, sinceSeq: 0 },
+      "history_delta",
+    );
+
+    session.claudeSessionId = "thread-goal";
+    session.process.readThread.mockResolvedValue({
+      id: "thread-goal",
+      turns: [],
+    });
+    await expectGoalReplay({ type: "get_history", sessionId }, "history");
+    session.codexCanonicalHistoryRevision = undefined;
+    await expectGoalReplay(
+      { type: "get_history_delta", sessionId, sinceSeq: 0 },
+      "history_snapshot",
+    );
+
+    bridge.close();
+  });
+
   it("reads codex history from the process that owns the target session", async () => {
     codexThreadToSessionHistoryMock.mockReturnValue([]);
 
