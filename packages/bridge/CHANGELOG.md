@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.67.3] - 2026-07-18
+
+### Fixed
+- Replay cached Codex goal state with history responses so active goals remain visible after turn completion and app relaunch.
+
 ## [1.67.2] - 2026-07-17
 
 ### Fixed
