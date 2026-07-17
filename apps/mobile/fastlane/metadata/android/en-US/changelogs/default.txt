@@ -1,5 +1,4 @@
-• Add persistent Codex Goals with controls to edit, pause, resume, and complete active goals.
-• Add Codex Effort and Speed controls, including Fast mode, to new and active sessions.
 • Pin important sessions and projects so they stay at the top of your lists.
-• Add GPT-5.6 Max and Ultra reasoning options.
-• Improve Codex dialogs, typed questions, session details, layout, and overall stability.
+• Improve Codex tool dialogs and typed forms, including optional and multi-select responses.
+• Prevent duplicate Codex settings details when reopening sessions.
+• Refine pin controls, session card layout, and overall stability.
