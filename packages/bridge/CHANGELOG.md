@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.67.2] - 2026-07-17
+
+### Fixed
+- Run Codex commit-message and session-name assistance with no reasoning effort instead of inheriting a higher global setting.
+
 ## [1.67.1] - 2026-07-16
 
 ### Fixed
