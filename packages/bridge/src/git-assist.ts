@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Provider } from "./parser.js";
 import { getStagedDiff } from "./git-operations.js";
-import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
+import {
+  CODEX_ASSIST_MODEL,
+  CODEX_ASSIST_REASONING_EFFORT,
+} from "./codex-assist.js";
 
 const COMMIT_MESSAGE_PROMPT =
   "Write a single Conventional Commits message in English for the staged changes below. Output only the commit message, with no quotes or explanation.";
@@ -60,7 +63,16 @@ function runCodexCommitAssist(
   try {
     execFileSync(
       "codex",
-      ["exec", "-m", CODEX_ASSIST_MODEL, "-o", outputPath, "-"],
+      [
+        "exec",
+        "-m",
+        CODEX_ASSIST_MODEL,
+        "-c",
+        `model_reasoning_effort="${CODEX_ASSIST_REASONING_EFFORT}"`,
+        "-o",
+        outputPath,
+        "-",
+      ],
       {
         cwd,
         encoding: "utf-8",

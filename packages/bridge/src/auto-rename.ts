@@ -3,7 +3,10 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Provider, ServerMessage } from "./parser.js";
-import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
+import {
+  CODEX_ASSIST_MODEL,
+  CODEX_ASSIST_REASONING_EFFORT,
+} from "./codex-assist.js";
 
 export const AUTO_RENAME_PROMPT_PREFIX =
   "Write a concise name for this coding-agent session.";
@@ -137,7 +140,16 @@ function runCodexAutoRename(cwd: string, prompt: string): string {
   try {
     execFileSync(
       "codex",
-      ["exec", "-m", CODEX_ASSIST_MODEL, "-o", outputPath, "-"],
+      [
+        "exec",
+        "-m",
+        CODEX_ASSIST_MODEL,
+        "-c",
+        `model_reasoning_effort="${CODEX_ASSIST_REASONING_EFFORT}"`,
+        "-o",
+        outputPath,
+        "-",
+      ],
       {
         cwd,
         encoding: "utf-8",

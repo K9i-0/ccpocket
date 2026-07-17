@@ -152,6 +152,8 @@ describe("auto rename", () => {
         "exec",
         "-m",
         "gpt-5.4-mini",
+        "-c",
+        'model_reasoning_effort="none"',
         "-o",
         join("/tmp/ccpocket-auto-rename-1", "session-name.txt"),
         "-",
