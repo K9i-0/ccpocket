@@ -86,7 +86,10 @@ class ChatEntryWidget extends StatelessWidget {
             imageBytesList: user.imageBytesList,
             imageCount: user.imageCount,
           ),
-          StreamingChatEntry(:final text) => StreamingBubble(text: text),
+          StreamingChatEntry(:final text) => StreamingBubble(
+            text: text,
+            onFileTap: onFileTap,
+          ),
         },
         // Image attachment tap button — placed below the bubble to avoid
         // gesture conflicts with the bubble's GestureDetector.
@@ -188,7 +191,7 @@ class ServerMessageWidget extends StatelessWidget {
                 httpBaseUrl: httpBaseUrl,
                 collapseNotifier: collapseToolResults,
               ),
-      final ResultMessage msg => ResultChip(message: msg),
+      final ResultMessage msg => ResultChip(message: msg, onFileTap: onFileTap),
       final ErrorMessage msg => ErrorBubble(message: msg),
       final StatusMessage msg => StatusChip(message: msg),
       HistoryMessage() => const SizedBox.shrink(),

@@ -95,6 +95,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get copy => '복사';
 
   @override
+  String get markdownLinkOpenFailed => '링크를 열 수 없습니다.';
+
+  @override
+  String get markdownLinkUnsupported => '지원하지 않는 링크 형식입니다.';
+
+  @override
+  String get markdownFileUnavailable => '여기서는 이 파일을 미리 볼 수 없습니다.';
+
+  @override
   String get copied => '복사됨';
 
   @override

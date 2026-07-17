@@ -258,6 +258,24 @@ abstract class AppLocalizations {
   /// **'コピー'**
   String get copy;
 
+  /// No description provided for @markdownLinkOpenFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'リンクを開けませんでした。'**
+  String get markdownLinkOpenFailed;
+
+  /// No description provided for @markdownLinkUnsupported.
+  ///
+  /// In ja, this message translates to:
+  /// **'この種類のリンクには対応していません。'**
+  String get markdownLinkUnsupported;
+
+  /// No description provided for @markdownFileUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'このファイルはここではプレビューできません。'**
+  String get markdownFileUnavailable;
+
   /// No description provided for @copied.
   ///
   /// In ja, this message translates to:

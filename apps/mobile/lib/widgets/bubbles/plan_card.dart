@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../../features/file_peek/file_path_syntax.dart';
+import '../../features/file_peek/markdown_link_handler.dart';
+import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
 
@@ -11,6 +15,7 @@ import '../../theme/markdown_style.dart';
 class PlanCard extends StatelessWidget {
   final String planText;
   final VoidCallback onViewFullPlan;
+  final FilePathTapCallback? onFileTap;
 
   /// Lines threshold below which the full plan is shown without a button.
   static const int _shortPlanLineThreshold = 10;
@@ -22,6 +27,7 @@ class PlanCard extends StatelessWidget {
     super.key,
     required this.planText,
     required this.onViewFullPlan,
+    this.onFileTap,
   });
 
   bool get _isLongPlan => planText.split('\n').length > _shortPlanLineThreshold;
@@ -52,7 +58,11 @@ class PlanCard extends StatelessWidget {
           children: [
             _PlanHeader(sectionCount: _sectionCount),
             Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
-            _PlanBody(planText: planText, isLongPlan: _isLongPlan),
+            _PlanBody(
+              planText: planText,
+              isLongPlan: _isLongPlan,
+              onFileTap: onFileTap,
+            ),
             if (_isLongPlan) _PlanFooter(onViewFullPlan: onViewFullPlan),
           ],
         ),
@@ -110,20 +120,41 @@ class _PlanHeader extends StatelessWidget {
 class _PlanBody extends StatelessWidget {
   final String planText;
   final bool isLongPlan;
+  final FilePathTapCallback? onFileTap;
 
-  const _PlanBody({required this.planText, required this.isLongPlan});
+  const _PlanBody({
+    required this.planText,
+    required this.isLongPlan,
+    this.onFileTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final fileSuffixes = onFileTap != null
+        ? FilePathSyntax.buildSuffixSet(context.watch<FileListCubit>().state)
+        : const <String>{};
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: MarkdownBody(
         data: planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
-        onTapLink: handleMarkdownLink,
-        inlineSyntaxes: colorCodeInlineSyntaxes,
-        builders: markdownBuilders,
+        onTapLink: buildChatMarkdownLinkHandler(
+          context,
+          onFileTap: onFileTap,
+          knownPathSuffixes: fileSuffixes,
+        ),
+        inlineSyntaxes: [
+          if (onFileTap != null) ...[
+            FilePathSyntax(knownPathSuffixes: fileSuffixes),
+            BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+          ],
+          ...colorCodeInlineSyntaxes,
+        ],
+        builders: {
+          if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),
+          ...markdownBuilders,
+        },
       ),
     );
 

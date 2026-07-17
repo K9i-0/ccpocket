@@ -96,6 +96,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copy => 'Copy';
 
   @override
+  String get markdownLinkOpenFailed => 'Could not open this link.';
+
+  @override
+  String get markdownLinkUnsupported => 'This link type is not supported.';
+
+  @override
+  String get markdownFileUnavailable => 'This file cannot be previewed here.';
+
+  @override
   String get copied => 'Copied';
 
   @override

@@ -70,10 +70,20 @@ Future<void> handleMarkdownLink(String text, String? href, String title) async {
   final uri = Uri.tryParse(href);
   if (uri == null) return;
 
+  await launchMarkdownUri(uri);
+}
+
+/// Opens a markdown URI and reports whether the platform accepted it.
+Future<bool> launchMarkdownUri(Uri uri) async {
   try {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (e) {
-    logger.error('Failed to open URL: $href', e);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched) {
+      logger.warning('Failed to open URL: $uri');
+    }
+    return launched;
+  } catch (error, stackTrace) {
+    logger.error('Failed to open URL: $uri', error, stackTrace);
+    return false;
   }
 }
 

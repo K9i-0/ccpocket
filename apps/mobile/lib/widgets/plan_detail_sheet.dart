@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../features/file_peek/file_path_syntax.dart';
+import '../features/file_peek/markdown_link_handler.dart';
+import '../providers/bridge_cubits.dart';
 import '../theme/app_theme.dart';
 import '../theme/markdown_style.dart';
 import 'workspace_pane_chrome.dart';
 
 /// Shows a full-screen bottom sheet with the complete plan text.
-Future<void> showPlanDetailSheet(BuildContext context, String planText) {
+Future<void> showPlanDetailSheet(
+  BuildContext context,
+  String planText, {
+  FilePathTapCallback? onFileTap,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -15,14 +23,16 @@ Future<void> showPlanDetailSheet(BuildContext context, String planText) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) => _PlanDetailContent(planText: planText),
+    builder: (context) =>
+        _PlanDetailContent(planText: planText, onFileTap: onFileTap),
   );
 }
 
 class _PlanDetailContent extends StatelessWidget {
   final String planText;
+  final FilePathTapCallback? onFileTap;
 
-  const _PlanDetailContent({required this.planText});
+  const _PlanDetailContent({required this.planText, this.onFileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +84,9 @@ class _PlanDetailContent extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Divider(height: 1),
-          Expanded(child: _PlanViewMode(planText: planText)),
+          Expanded(
+            child: _PlanViewMode(planText: planText, onFileTap: onFileTap),
+          ),
           SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
@@ -84,20 +96,37 @@ class _PlanDetailContent extends StatelessWidget {
 
 class _PlanViewMode extends StatelessWidget {
   final String planText;
+  final FilePathTapCallback? onFileTap;
 
-  const _PlanViewMode({required this.planText});
+  const _PlanViewMode({required this.planText, this.onFileTap});
 
   @override
   Widget build(BuildContext context) {
+    final fileSuffixes = onFileTap != null
+        ? FilePathSyntax.buildSuffixSet(context.watch<FileListCubit>().state)
+        : const <String>{};
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: MarkdownBody(
         data: planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
-        onTapLink: handleMarkdownLink,
-        inlineSyntaxes: colorCodeInlineSyntaxes,
-        builders: markdownBuilders,
+        onTapLink: buildChatMarkdownLinkHandler(
+          context,
+          onFileTap: onFileTap,
+          knownPathSuffixes: fileSuffixes,
+        ),
+        inlineSyntaxes: [
+          if (onFileTap != null) ...[
+            FilePathSyntax(knownPathSuffixes: fileSuffixes),
+            BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+          ],
+          ...colorCodeInlineSyntaxes,
+        ],
+        builders: {
+          if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),
+          ...markdownBuilders,
+        },
       ),
     );
   }

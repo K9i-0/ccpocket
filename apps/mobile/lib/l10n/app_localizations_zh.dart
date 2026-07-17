@@ -95,6 +95,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copy => '复制';
 
   @override
+  String get markdownLinkOpenFailed => '无法打开此链接。';
+
+  @override
+  String get markdownLinkUnsupported => '不支持此类型的链接。';
+
+  @override
+  String get markdownFileUnavailable => '无法在此处预览此文件。';
+
+  @override
   String get copied => '已复制';
 
   @override

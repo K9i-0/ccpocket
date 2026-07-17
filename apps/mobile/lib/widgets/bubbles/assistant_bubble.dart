@@ -18,6 +18,7 @@ import '../../utils/diff_parser.dart';
 import '../../utils/tool_categories.dart';
 import '../../utils/codex_plan_update.dart';
 import '../../features/file_peek/file_path_syntax.dart';
+import '../../features/file_peek/markdown_link_handler.dart';
 import 'error_bubble.dart';
 import '../plan_detail_sheet.dart';
 import '../google_search_text_selection.dart';
@@ -97,6 +98,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         resolvedPlanText: widget.resolvedPlanText,
         allText: _allText(),
         plainTextMode: _plainTextMode,
+        onFileTap: widget.onFileTap,
         onFork: widget.onFork,
         onTogglePlainText: () {
           setState(() => _plainTextMode = !_plainTextMode);
@@ -124,6 +126,7 @@ class _PlanLayout extends StatelessWidget {
   final String? resolvedPlanText;
   final String allText;
   final bool plainTextMode;
+  final FilePathTapCallback? onFileTap;
   final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
 
@@ -133,6 +136,7 @@ class _PlanLayout extends StatelessWidget {
     required this.resolvedPlanText,
     required this.allText,
     required this.plainTextMode,
+    this.onFileTap,
     this.onFork,
     required this.onTogglePlainText,
   });
@@ -168,7 +172,12 @@ class _PlanLayout extends StatelessWidget {
           },
         PlanCard(
           planText: originalPlanText,
-          onViewFullPlan: () => showPlanDetailSheet(context, originalPlanText),
+          onFileTap: onFileTap,
+          onViewFullPlan: () => showPlanDetailSheet(
+            context,
+            originalPlanText,
+            onFileTap: onFileTap,
+          ),
         ),
         if (hasTextContent)
           MessageActionBar(
@@ -261,7 +270,11 @@ class _DefaultLayout extends StatelessWidget {
                 data: text,
                 selectable: !googleSearchSelectionMenuEnabled,
                 styleSheet: buildMarkdownStyle(context),
-                onTapLink: handleMarkdownLink,
+                onTapLink: buildChatMarkdownLinkHandler(
+                  context,
+                  onFileTap: onFileTap,
+                  knownPathSuffixes: fileSuffixes,
+                ),
                 inlineSyntaxes: [
                   if (onFileTap != null) ...[
                     FilePathSyntax(knownPathSuffixes: fileSuffixes),

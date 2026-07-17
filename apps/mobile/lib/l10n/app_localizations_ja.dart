@@ -95,6 +95,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get copy => 'コピー';
 
   @override
+  String get markdownLinkOpenFailed => 'リンクを開けませんでした。';
+
+  @override
+  String get markdownLinkUnsupported => 'この種類のリンクには対応していません。';
+
+  @override
+  String get markdownFileUnavailable => 'このファイルはここではプレビューできません。';
+
+  @override
   String get copied => 'コピーしました';
 
   @override

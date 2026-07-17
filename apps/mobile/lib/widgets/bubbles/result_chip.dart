@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../../features/file_peek/file_path_syntax.dart';
+import '../../features/file_peek/markdown_link_handler.dart';
 import '../../models/messages.dart';
+import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
 
 class ResultChip extends StatelessWidget {
   final ResultMessage message;
-  const ResultChip({super.key, required this.message});
+  final FilePathTapCallback? onFileTap;
+
+  const ResultChip({super.key, required this.message, this.onFileTap});
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final fileSuffixes = onFileTap != null
+        ? FilePathSyntax.buildSuffixSet(context.watch<FileListCubit>().state)
+        : const <String>{};
     final parts = <String>[];
     if (message.cost != null) {
       parts.add('\$${message.cost!.toStringAsFixed(4)}');
@@ -82,9 +91,23 @@ class ResultChip extends StatelessWidget {
                 data: resultText,
                 selectable: true,
                 styleSheet: buildMarkdownStyle(context),
-                onTapLink: handleMarkdownLink,
-                inlineSyntaxes: colorCodeInlineSyntaxes,
-                builders: markdownBuilders,
+                onTapLink: buildChatMarkdownLinkHandler(
+                  context,
+                  onFileTap: onFileTap,
+                  knownPathSuffixes: fileSuffixes,
+                ),
+                inlineSyntaxes: [
+                  if (onFileTap != null) ...[
+                    FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                    BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+                  ],
+                  ...colorCodeInlineSyntaxes,
+                ],
+                builders: {
+                  if (onFileTap != null)
+                    'filePath': FilePathBuilder(onTap: onFileTap),
+                  ...markdownBuilders,
+                },
               ),
             ),
           ),
