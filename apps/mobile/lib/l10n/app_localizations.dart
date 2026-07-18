@@ -3582,6 +3582,18 @@ abstract class AppLocalizations {
   /// **'最初のエージェント応答後に Codex セッションへ自動で名前を付ける'**
   String get autoRenameCodexSessionsSubtitle;
 
+  /// No description provided for @showExtendedCodexEfforts.
+  ///
+  /// In ja, this message translates to:
+  /// **'Effortスライダーに Max / Ultra を表示'**
+  String get showExtendedCodexEfforts;
+
+  /// No description provided for @showExtendedCodexEffortsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択した Codex モデルが対応している場合、スライダーに Max と Ultra を追加します'**
+  String get showExtendedCodexEffortsSubtitle;
+
   /// No description provided for @autoRenameClaudeSessions.
   ///
   /// In ja, this message translates to:

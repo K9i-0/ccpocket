@@ -428,6 +428,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   NewSessionParams? initialParams,
   bool lockProvider = false,
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
+  bool showExtendedCodexEfforts = false,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -444,6 +445,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       initialParams: initialParams,
       lockProvider: lockProvider,
       visibleTabs: visibleTabs,
+      showExtendedCodexEfforts: showExtendedCodexEfforts,
     ),
   );
 }
@@ -465,6 +467,7 @@ class _NewSessionSheetContent extends StatefulWidget {
   final NewSessionParams? initialParams;
   final bool lockProvider;
   final List<NewSessionTab> visibleTabs;
+  final bool showExtendedCodexEfforts;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
@@ -473,6 +476,7 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.initialParams,
     this.lockProvider = false,
     this.visibleTabs = defaultNewSessionTabs,
+    this.showExtendedCodexEfforts = false,
   });
 
   @override
@@ -1219,6 +1223,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           _OptionsSection(
             appColors: appColors,
             provider: pageProvider,
+            showExtendedCodexEfforts: widget.showExtendedCodexEfforts,
             claudePermissionMode: _claudePermissionMode,
             onClaudePermissionModeChanged: (value) {
               setState(() => _claudePermissionMode = value);
@@ -2108,6 +2113,7 @@ class _AddWritableRootSheet extends StatelessWidget {
 class _OptionsSection extends StatelessWidget {
   final AppColors appColors;
   final Provider provider;
+  final bool showExtendedCodexEfforts;
   final PermissionMode claudePermissionMode;
   final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
   final ExecutionMode executionMode;
@@ -2175,6 +2181,7 @@ class _OptionsSection extends StatelessWidget {
   const _OptionsSection({
     required this.appColors,
     required this.provider,
+    required this.showExtendedCodexEfforts,
     required this.claudePermissionMode,
     required this.onClaudePermissionModeChanged,
     required this.executionMode,
@@ -2669,6 +2676,7 @@ class _OptionsSection extends StatelessWidget {
               reasoningEfforts: codexReasoningEfforts,
               reasoningEffort: modelReasoningEffort,
               onReasoningEffortChanged: onModelReasoningEffortChanged,
+              showExtendedEfforts: showExtendedCodexEfforts,
               speed: codexSpeed,
               supportsFast: codexSupportsFast,
               onSpeedChanged: onCodexSpeedChanged,
@@ -2852,6 +2860,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
   final List<ReasoningEffort> reasoningEfforts;
   final ReasoningEffort reasoningEffort;
   final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
+  final bool showExtendedEfforts;
   final CodexSpeed speed;
   final bool supportsFast;
   final ValueChanged<CodexSpeed> onSpeedChanged;
@@ -2864,6 +2873,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
     required this.reasoningEfforts,
     required this.reasoningEffort,
     required this.onReasoningEffortChanged,
+    required this.showExtendedEfforts,
     required this.speed,
     required this.supportsFast,
     required this.onSpeedChanged,
@@ -2905,6 +2915,7 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
         value: effectiveEffort,
         onChanged: widget.onReasoningEffortChanged,
         sliderKey: 'dialog_codex_effort_slider',
+        includeExtended: widget.showExtendedEfforts,
       ),
       advancedChild: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),

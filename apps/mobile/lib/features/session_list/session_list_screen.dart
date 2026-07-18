@@ -749,7 +749,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         context.read<SessionListCubit>().state.sessions;
     final history = context.read<ProjectHistoryCubit>().state;
     final bridge = context.read<BridgeService>();
-    final visibleTabs = context.read<SettingsCubit>().state.newSessionTabs;
+    final settings = context.read<SettingsCubit>().state;
     return showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
@@ -757,7 +757,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       bridge: bridge,
       initialParams: initialParams,
       lockProvider: lockProvider,
-      visibleTabs: visibleTabs,
+      visibleTabs: settings.newSessionTabs,
+      showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
     );
   }
 

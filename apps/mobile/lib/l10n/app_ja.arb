@@ -791,6 +791,8 @@
   "showBridgeNameInSessionListSubtitle": "複数のBridgeが登録されているとき、接続中のBridge名をセッション一覧に表示します。",
   "autoRenameCodexSessions": "自動Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "最初のエージェント応答後に Codex セッションへ自動で名前を付ける",
+  "showExtendedCodexEfforts": "Effortスライダーに Max / Ultra を表示",
+  "showExtendedCodexEffortsSubtitle": "選択した Codex モデルが対応している場合、スライダーに Max と Ultra を追加します",
   "autoRenameClaudeSessions": "自動Rename (Claude)",
   "autoRenameClaudeSessionsSubtitle": "最初のエージェント応答後に Claude セッションへ自動で名前を付ける。API Key 利用時は追加の従量課金が発生します。",
   "newSessionTabCodex": "Codex",

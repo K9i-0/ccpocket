@@ -14,8 +14,13 @@ import 'codex_settings_sheet.dart';
 
 class SessionModeBar extends StatelessWidget {
   final Future<void> Function()? onBeforeRestart;
+  final bool showExtendedCodexEfforts;
 
-  const SessionModeBar({super.key, this.onBeforeRestart});
+  const SessionModeBar({
+    super.key,
+    this.onBeforeRestart,
+    this.showExtendedCodexEfforts = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +72,11 @@ class SessionModeBar extends StatelessWidget {
                     model: codexModel!,
                     reasoningEffort: codexReasoningEffort,
                     speed: chatCubit.state.codexSpeed,
-                    onTap: () => showCodexModelMenu(context, chatCubit),
+                    onTap: () => showCodexModelMenu(
+                      context,
+                      chatCubit,
+                      showExtendedEfforts: showExtendedCodexEfforts,
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -362,7 +371,11 @@ ReasoningEffort _effectiveCodexReasoningEffort(
   List<ReasoningEffort> efforts,
 ) => preferredCodexEffort(efforts, current: current);
 
-void showCodexModelMenu(BuildContext context, ChatSessionCubit chatCubit) {
+void showCodexModelMenu(
+  BuildContext context,
+  ChatSessionCubit chatCubit, {
+  bool showExtendedEfforts = false,
+}) {
   final models = chatCubit.codexModels.isNotEmpty
       ? chatCubit.codexModels
       : defaultCodexModels;
@@ -387,6 +400,7 @@ void showCodexModelMenu(BuildContext context, ChatSessionCubit chatCubit) {
       initialModel: currentModel,
       initialEffort: currentEffort,
       initialSpeed: chatCubit.state.codexSpeed,
+      showExtendedEfforts: showExtendedEfforts,
       onModelChanged: (model, effort) =>
           chatCubit.setCodexModel(model, reasoningEffort: effort),
       onEffortChanged: (model, effort) =>

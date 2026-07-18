@@ -1896,6 +1896,13 @@ class AppLocalizationsKo extends AppLocalizations {
       '첫 에이전트 응답 후 Codex 세션 이름을 자동으로 지정합니다';
 
   @override
+  String get showExtendedCodexEfforts => 'Effort 슬라이더에 Max / Ultra 표시';
+
+  @override
+  String get showExtendedCodexEffortsSubtitle =>
+      '선택한 Codex 모델이 지원하는 경우 슬라이더에 Max와 Ultra를 추가합니다';
+
+  @override
   String get autoRenameClaudeSessions => '자동 Rename (Claude)';
 
   @override

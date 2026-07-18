@@ -12,6 +12,7 @@ class CodexSettingsSheet extends StatefulWidget {
   final String initialModel;
   final ReasoningEffort initialEffort;
   final CodexSpeed initialSpeed;
+  final bool showExtendedEfforts;
   final void Function(String model, ReasoningEffort effort) onModelChanged;
   final void Function(String model, ReasoningEffort effort) onEffortChanged;
   final ValueChanged<CodexSpeed> onSpeedChanged;
@@ -24,6 +25,7 @@ class CodexSettingsSheet extends StatefulWidget {
     required this.initialModel,
     required this.initialEffort,
     required this.initialSpeed,
+    this.showExtendedEfforts = false,
     required this.onModelChanged,
     required this.onEffortChanged,
     required this.onSpeedChanged,
@@ -99,6 +101,7 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
             value: _effort,
             onChanged: _selectEffort,
             sliderKey: 'codex_effort_slider',
+            includeExtended: widget.showExtendedEfforts,
           ),
           advancedChild: Column(
             mainAxisSize: MainAxisSize.min,

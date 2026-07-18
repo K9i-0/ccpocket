@@ -830,6 +830,8 @@
   "showBridgeNameInSessionListSubtitle": "注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。",
   "autoRenameCodexSessions": "自动 Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "在首次智能体回复后自动为 Codex 会话命名",
+  "showExtendedCodexEfforts": "在 Effort 滑块中显示 Max / Ultra",
+  "showExtendedCodexEffortsSubtitle": "当所选 Codex 模型支持时，在滑块中添加 Max 和 Ultra",
   "autoRenameClaudeSessions": "自动 Rename (Claude)",
   "autoRenameClaudeSessionsSubtitle": "在首次智能体回复后自动为 Claude 会话命名。使用 API Key 计费时会产生额外按量费用。",
   "newSessionTabCodex": "Codex",

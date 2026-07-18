@@ -1862,6 +1862,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get autoRenameCodexSessionsSubtitle => '在首次智能体回复后自动为 Codex 会话命名';
 
   @override
+  String get showExtendedCodexEfforts => '在 Effort 滑块中显示 Max / Ultra';
+
+  @override
+  String get showExtendedCodexEffortsSubtitle =>
+      '当所选 Codex 模型支持时，在滑块中添加 Max 和 Ultra';
+
+  @override
   String get autoRenameClaudeSessions => '自动 Rename (Claude)';
 
   @override

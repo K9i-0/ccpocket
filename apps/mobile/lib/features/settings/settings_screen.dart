@@ -630,6 +630,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .read<SettingsCubit>()
                             .setAutoRenameCodexSessions(value),
                       ),
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      SwitchListTile(
+                        key: const ValueKey(
+                          'show_extended_codex_efforts_toggle',
+                        ),
+                        secondary: Icon(
+                          Icons.linear_scale_rounded,
+                          color: cs.primary,
+                        ),
+                        title: Text(l.showExtendedCodexEfforts),
+                        subtitle: Text(l.showExtendedCodexEffortsSubtitle),
+                        value: state.showExtendedCodexEfforts,
+                        onChanged: (value) => context
+                            .read<SettingsCubit>()
+                            .setShowExtendedCodexEfforts(value),
+                      ),
                     ],
                     if (claudeEnabled) ...[
                       Divider(

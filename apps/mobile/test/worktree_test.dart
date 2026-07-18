@@ -1153,5 +1153,55 @@ void main() {
         findsWidgets,
       );
     });
+
+    testWidgets('Codex quick slider includes Ultra when enabled in settings', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithCodexModels();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  showExtendedCodexEfforts: true,
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    permissionMode: PermissionMode.acceptEdits,
+                    model: 'gpt-5.6-sol',
+                    modelReasoningEffort: ReasoningEffort.xhigh,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final slider = find.byKey(const ValueKey('dialog_codex_effort_slider'));
+      final sliderRect = tester.getRect(slider);
+      await tester.tapAt(Offset(sliderRect.right - 8, sliderRect.center.dy));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('dialog_codex_effort_label')),
+            )
+            .data,
+        'Ultra',
+      );
+    });
   });
 }

@@ -935,7 +935,45 @@ void main() {
       );
       expect(find.text(l.settingsNewSessionTabs), findsOneWidget);
       expect(find.text(l.autoRenameCodexSessions), findsOneWidget);
+      expect(find.text(l.showExtendedCodexEfforts), findsOneWidget);
       expect(find.text(l.autoRenameClaudeSessions), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('toggles extended Codex Efforts from agent settings', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(
+        const ValueKey('show_extended_codex_efforts_toggle'),
+      );
+      await tester.scrollUntilVisible(toggle, 180);
+      await tester.pumpAndSettle();
+
+      expect(settingsCubit.state.showExtendedCodexEfforts, isFalse);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(settingsCubit.state.showExtendedCodexEfforts, isTrue);
+      expect(prefs.getBool('settings_show_extended_codex_efforts'), isTrue);
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -975,6 +1013,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(l.autoRenameCodexSessions), findsOneWidget);
+      expect(find.text(l.showExtendedCodexEfforts), findsOneWidget);
       expect(find.text(l.settingsNewSessionTabs), findsNothing);
       expect(find.text(l.autoRenameClaudeSessions), findsNothing);
 

@@ -1955,6 +1955,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Name Codex sessions automatically after the first agent response';
 
   @override
+  String get showExtendedCodexEfforts => 'Max / Ultra in Effort slider';
+
+  @override
+  String get showExtendedCodexEffortsSubtitle =>
+      'Show Max and Ultra on the slider when supported by the selected Codex model';
+
+  @override
   String get autoRenameClaudeSessions => 'Auto Rename (Claude)';
 
   @override

@@ -76,7 +76,7 @@ class _MockBridgeService extends BridgeService {
   }
 }
 
-Widget _wrap(ChatSessionCubit cubit) {
+Widget _wrap(ChatSessionCubit cubit, {bool showExtendedCodexEfforts = false}) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
@@ -85,7 +85,9 @@ Widget _wrap(ChatSessionCubit cubit) {
     home: Scaffold(
       body: BlocProvider<ChatSessionCubit>.value(
         value: cubit,
-        child: const SessionModeBar(),
+        child: SessionModeBar(
+          showExtendedCodexEfforts: showExtendedCodexEfforts,
+        ),
       ),
     ),
   );
@@ -132,6 +134,46 @@ void main() {
     );
     expect(codexSupportsFast('gpt-5.5', const {}), isFalse);
     expect(codexSupportsFast('gpt-5.4-mini', const {}), isFalse);
+  });
+
+  test('Codex Effort slider caps at Extra High unless extended', () {
+    const available = [
+      ReasoningEffort.low,
+      ReasoningEffort.medium,
+      ReasoningEffort.high,
+      ReasoningEffort.xhigh,
+      ReasoningEffort.max,
+      ReasoningEffort.ultra,
+    ];
+
+    expect(codexQuickEfforts(available).last, ReasoningEffort.xhigh);
+    expect(
+      codexQuickEfforts(available, includeExtended: true),
+      containsAllInOrder([ReasoningEffort.max, ReasoningEffort.ultra]),
+    );
+  });
+
+  testWidgets('extended Codex Effort slider can select Ultra', (tester) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+    };
+
+    await tester.pumpWidget(_wrap(cubit, showExtendedCodexEfforts: true));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('5.6 Sol High'));
+    await tester.pumpAndSettle();
+
+    final slider = find.byKey(const ValueKey('codex_effort_slider'));
+    final sliderRect = tester.getRect(slider);
+    await tester.tapAt(Offset(sliderRect.right - 8, sliderRect.center.dy));
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.ultra);
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('modelReasoningEffort', 'ultra'),
+    );
   });
 
   testWidgets('codex settings header fits narrow layouts with large text', (

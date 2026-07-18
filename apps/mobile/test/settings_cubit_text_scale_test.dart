@@ -131,6 +131,26 @@ void main() {
       await restored.close();
     });
 
+    test('extended Codex Efforts default off and persist', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.showExtendedCodexEfforts, isFalse);
+
+      cubit.setShowExtendedCodexEfforts(true);
+
+      expect(cubit.state.showExtendedCodexEfforts, isTrue);
+      expect(prefs.getBool('settings_show_extended_codex_efforts'), isTrue);
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.showExtendedCodexEfforts, isTrue);
+
+      await restored.close();
+    });
+
     test('persists enabled agents through new session tabs', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();

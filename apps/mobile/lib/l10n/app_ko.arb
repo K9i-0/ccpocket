@@ -704,6 +704,8 @@
   "showBridgeNameInSessionListSubtitle": "여러 Bridge가 등록되어 있을 때 세션 목록에 연결된 Bridge 이름을 표시합니다.",
   "autoRenameCodexSessions": "자동 Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "첫 에이전트 응답 후 Codex 세션 이름을 자동으로 지정합니다",
+  "showExtendedCodexEfforts": "Effort 슬라이더에 Max / Ultra 표시",
+  "showExtendedCodexEffortsSubtitle": "선택한 Codex 모델이 지원하는 경우 슬라이더에 Max와 Ultra를 추가합니다",
   "autoRenameClaudeSessions": "자동 Rename (Claude)",
   "autoRenameClaudeSessionsSubtitle": "첫 에이전트 응답 후 Claude 세션 이름을 자동으로 지정합니다. API Key 결제 사용 시 추가 종량 요금이 발생합니다.",
   "newSessionTabCodex": "Codex",

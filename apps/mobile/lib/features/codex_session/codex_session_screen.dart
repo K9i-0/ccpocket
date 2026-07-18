@@ -1326,6 +1326,10 @@ class _CodexChatBody extends HookWidget {
                       right: 0,
                       child: Center(
                         child: SessionModeBar(
+                          showExtendedCodexEfforts: context
+                              .watch<SettingsCubit>()
+                              .state
+                              .showExtendedCodexEfforts,
                           onBeforeRestart: () async {
                             draftService.saveDraft(
                               sessionId,

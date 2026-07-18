@@ -59,6 +59,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
   static const _keyAutoRenameCodexSessions = 'autoRenameCodexSessions';
+  static const _keyShowExtendedCodexEfforts =
+      'settings_show_extended_codex_efforts';
   static const _keyAutoRenameClaudeSessions = 'autoRenameClaudeSessions';
   static const _keyTextScale = 'settings_text_scale';
   static const _keyCodeFontSize = 'settings_code_font_size';
@@ -211,6 +213,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
     final autoRenameCodexSessions =
         prefs.getBool(_keyAutoRenameCodexSessions) ?? true;
+    final showExtendedCodexEfforts =
+        prefs.getBool(_keyShowExtendedCodexEfforts) ?? false;
     final autoRenameClaudeSessions =
         prefs.getBool(_keyAutoRenameClaudeSessions) ?? false;
 
@@ -260,6 +264,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       newSessionTabs: newSessionTabs,
       usageDisplayMode: usageDisplayMode,
       autoRenameCodexSessions: autoRenameCodexSessions,
+      showExtendedCodexEfforts: showExtendedCodexEfforts,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
     );
   }
@@ -425,6 +430,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setAutoRenameCodexSessions(bool enabled) {
     _prefs.setBool(_keyAutoRenameCodexSessions, enabled);
     emit(state.copyWith(autoRenameCodexSessions: enabled));
+  }
+
+  void setShowExtendedCodexEfforts(bool enabled) {
+    _prefs.setBool(_keyShowExtendedCodexEfforts, enabled);
+    emit(state.copyWith(showExtendedCodexEfforts: enabled));
   }
 
   void setAutoRenameClaudeSessions(bool enabled) {

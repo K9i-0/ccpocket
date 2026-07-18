@@ -1883,6 +1883,13 @@ class AppLocalizationsJa extends AppLocalizations {
       '最初のエージェント応答後に Codex セッションへ自動で名前を付ける';
 
   @override
+  String get showExtendedCodexEfforts => 'Effortスライダーに Max / Ultra を表示';
+
+  @override
+  String get showExtendedCodexEffortsSubtitle =>
+      '選択した Codex モデルが対応している場合、スライダーに Max と Ultra を追加します';
+
+  @override
   String get autoRenameClaudeSessions => '自動Rename (Claude)';
 
   @override

@@ -110,6 +110,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether new Codex sessions should be automatically named after the first turn.
     @Default(true) bool autoRenameCodexSessions,
 
+    /// Whether Max and Ultra appear in Codex Effort sliders when supported.
+    @Default(false) bool showExtendedCodexEfforts,
+
     /// Whether new Claude sessions should be automatically named after the first turn.
     @Default(false) bool autoRenameClaudeSessions,
   }) = _SettingsState;

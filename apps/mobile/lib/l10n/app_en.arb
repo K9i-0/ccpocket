@@ -761,6 +761,8 @@
   "showBridgeNameInSessionListSubtitle": "Show the connected Bridge name in the session list when multiple Bridges are registered.",
   "autoRenameCodexSessions": "Auto Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "Name Codex sessions automatically after the first agent response",
+  "showExtendedCodexEfforts": "Max / Ultra in Effort slider",
+  "showExtendedCodexEffortsSubtitle": "Show Max and Ultra on the slider when supported by the selected Codex model",
   "autoRenameClaudeSessions": "Auto Rename (Claude)",
   "autoRenameClaudeSessionsSubtitle": "Name Claude sessions automatically after the first agent response. Uses an additional Claude request when API key billing is active.",
   "newSessionTabCodex": "Codex",
