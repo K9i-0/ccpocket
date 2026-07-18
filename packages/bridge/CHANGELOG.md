@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.67.4] - 2026-07-19
+
+### Fixed
+- Preserve streamed Codex assistant responses when completion notifications are missing or delayed.
+- Deduplicate canonical and live Codex history for the same user turn without collapsing distinct responses.
+
 ## [1.67.3] - 2026-07-18
 
 ### Fixed
