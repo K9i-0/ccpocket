@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.107.1] - 2026-07-19
+
+### Changed
+- Require Bridge 1.67.4 for the latest Codex response history reconciliation behavior.
+
+### Fixed
+- Prevent Codex responses from disappearing or duplicating when a turn completes or session history refreshes.
+
 ## [1.107.0] - 2026-07-18
 
 ### Added
