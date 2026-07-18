@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.107.0] - 2026-07-18
+
+### Added
+- Add an opt-in setting to extend Codex Effort sliders with Max and Ultra while keeping Extra High as the default maximum.
+
+### Fixed
+- Normalize file URI paths across platforms before opening Markdown links in File Peek.
+
 ## [1.106.2] - 2026-07-18
 
 ### Changed
