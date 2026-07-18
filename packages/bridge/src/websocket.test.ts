@@ -2294,6 +2294,147 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("deduplicates a live assistant from the same canonical user turn", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "Reply with OK" }],
+      },
+      {
+        role: "assistant",
+        uuid: "canonical-first",
+        content: [{ type: "text", text: "FIRST" }],
+      },
+      {
+        role: "user",
+        uuid: "codex:user-turn:2",
+        content: [{ type: "text", text: "Reply with SECOND" }],
+      },
+      {
+        role: "assistant",
+        uuid: "canonical-second",
+        content: [{ type: "text", text: "SECOND" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_same_turn";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_same_turn",
+      turns: [],
+    });
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "Reply with OK",
+      userMessageUuid: "codex:user-turn:1",
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "live-first",
+        role: "assistant",
+        content: [{ type: "text", text: "FIRST" }],
+        model: "gpt-5.3-codex",
+      },
+    });
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "Reply with SECOND",
+      userMessageUuid: "codex:user-turn:2",
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      messageUuid: "canonical-second",
+      message: {
+        id: "canonical-second",
+        role: "assistant",
+        content: [{ type: "text", text: "SECOND" }],
+        model: "gpt-5.3-codex",
+      },
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "live-second-extra",
+        role: "assistant",
+        content: [{ type: "text", text: "SECOND" }],
+        model: "gpt-5.3-codex",
+      },
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    const snapshot = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((message: any) => message.type === "history_snapshot");
+    expect(snapshot.messages).toHaveLength(5);
+    expect(snapshot.messages.map((entry: any) => entry.message.type)).toEqual([
+      "user_input",
+      "assistant",
+      "user_input",
+      "assistant",
+      "assistant",
+    ]);
+    expect(snapshot.messages[1].message).toMatchObject({
+      type: "assistant",
+      messageUuid: "canonical-first",
+      message: { id: "canonical-first" },
+    });
+    expect(snapshot.messages[3].message).toMatchObject({
+      type: "assistant",
+      messageUuid: "canonical-second",
+      message: { id: "canonical-second" },
+    });
+    expect(snapshot.messages[4].message).toMatchObject({
+      type: "assistant",
+      message: { id: "live-second-extra" },
+    });
+    expect(session.historyEntries).toMatchObject([
+      {
+        seq: 5,
+        message: {
+          type: "assistant",
+          message: { id: "live-second-extra" },
+        },
+      },
+    ]);
+
+    bridge.close();
+  });
+
   it("deduplicates codex live tool use by canonical item id", async () => {
     codexThreadToSessionHistoryMock.mockReturnValue([
       {

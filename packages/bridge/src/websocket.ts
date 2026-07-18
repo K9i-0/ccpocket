@@ -1439,12 +1439,54 @@ export class BridgeWebSocketServer {
     this.seedCodexCanonicalUserTurnUuidMap(session, history);
 
     let nextSeq = canonicalEntries.at(-1)?.seq ?? 0;
+    const canonicalAssistantContentsByUser = new Map<string, string[]>();
+    let canonicalUserKey: string | null = null;
+    for (const entry of canonicalEntries) {
+      if (entry.message.type === "user_input") {
+        canonicalUserKey = entry.message.userMessageUuid
+          ? `user:${entry.message.userMessageUuid}`
+          : null;
+        continue;
+      }
+      if (entry.message.type !== "assistant" || !canonicalUserKey) continue;
+      const contents = canonicalAssistantContentsByUser.get(canonicalUserKey);
+      const contentKey = this.historyValueKey(entry.message.message.content);
+      if (contents) contents.push(contentKey);
+      else canonicalAssistantContentsByUser.set(canonicalUserKey, [contentKey]);
+    }
+    let pendingCanonicalAssistantContents: string[] = [];
     const retainedMessages: ServerMessage[] = [];
     const retainedEntries: HistoryEntry[] = [];
     for (const entry of liveEntries) {
       if (!this.shouldRetainCodexLiveHistoryMessage(entry.message)) continue;
       const keys = this.codexHistoryMessageIdentityKeys(entry.message);
-      if (keys.some((key) => canonicalKeys.has(key))) continue;
+      const matchesCanonical = keys.some((key) => canonicalKeys.has(key));
+      if (entry.message.type === "user_input") {
+        const userKey = entry.message.userMessageUuid
+          ? `user:${entry.message.userMessageUuid}`
+          : null;
+        pendingCanonicalAssistantContents =
+          matchesCanonical && userKey
+            ? [...(canonicalAssistantContentsByUser.get(userKey) ?? [])]
+            : [];
+      }
+      if (entry.message.type === "assistant") {
+        const contentKey = this.historyValueKey(entry.message.message.content);
+        const contentIndex =
+          pendingCanonicalAssistantContents.indexOf(contentKey);
+        if (matchesCanonical) {
+          if (contentIndex !== -1) {
+            pendingCanonicalAssistantContents.splice(contentIndex, 1);
+          }
+          continue;
+        }
+        const matchesCanonicalTurnAssistant = contentIndex !== -1;
+        if (matchesCanonicalTurnAssistant) {
+          pendingCanonicalAssistantContents.splice(contentIndex, 1);
+        }
+        if (matchesCanonicalTurnAssistant) continue;
+      }
+      if (matchesCanonical) continue;
       const seq = ++nextSeq;
       (entry.message as Record<string, unknown>).historySeq = seq;
       retainedMessages.push(entry.message);

@@ -21,6 +21,7 @@ export { buildCodexSpawnSpec };
 
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
+const UNKNOWN_AGENT_ITEM_ID = "__unknown_agent_message__";
 const CODEX_CLI_NOT_FOUND_MESSAGE =
   "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `curl -fsSL https://chatgpt.com/codex/install.sh | sh`, then restart Bridge.";
 
@@ -316,6 +317,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private lastPlanItemText: string | null = null;
   /** Last assistant text message — used as `result` in completion notification. */
   private lastResultText: string | null = null;
+  /** Agent text received as deltas but not yet confirmed by item/completed. */
+  private readonly pendingAgentTextByItemId = new Map<string, string>();
+  /** Suppresses late item/completed events after synthetic fallbacks. */
+  private readonly syntheticAgentTextByItemId = new Map<string, string>();
   private pendingPlanCompletion: {
     toolUseId: string;
     planText: string;
@@ -753,6 +758,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._collaborationMode = options?.collaborationMode ?? "default";
     this.lastPlanItemText = null;
     this.lastResultText = null;
+    this.pendingAgentTextByItemId.clear();
+    this.syntheticAgentTextByItemId.clear();
     this.pendingPlanCompletion = null;
     this._pendingPlanInput = null;
     this._projectPath = projectPath;
@@ -2219,6 +2226,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         if (typeof turn?.id === "string") {
           this.pendingTurnId = turn.id;
         }
+        this.lastResultText = null;
+        this.pendingAgentTextByItemId.clear();
+        this.syntheticAgentTextByItemId.clear();
         this.setStatus("running");
         break;
       }
@@ -2292,6 +2302,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
               ? params.textDelta
               : "";
         if (delta) {
+          const itemId = stringOrNull(params.itemId) ?? UNKNOWN_AGENT_ITEM_ID;
+          this.pendingAgentTextByItemId.set(
+            itemId,
+            (this.pendingAgentTextByItemId.get(itemId) ?? "") + delta,
+          );
           this.emitMessage({ type: "stream_delta", text: delta });
         }
         break;
@@ -2436,6 +2451,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private handleTurnCompleted(turn: Record<string, unknown> | undefined): void {
     const status = String(turn?.status ?? "completed");
+    this.finalizePendingAgentText();
 
     const usage = this.lastTokenUsage;
     this.lastTokenUsage = null;
@@ -2506,6 +2522,27 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.pendingTurnCompletion = null;
     }
     this.cleanupSteerTempPaths();
+  }
+
+  private finalizePendingAgentText(): void {
+    const pendingItems = [...this.pendingAgentTextByItemId.entries()];
+    this.pendingAgentTextByItemId.clear();
+    for (const [pendingItemId, text] of pendingItems) {
+      if (!text.trim()) continue;
+      const itemId =
+        pendingItemId === UNKNOWN_AGENT_ITEM_ID ? randomUUID() : pendingItemId;
+      this.lastResultText = text;
+      this.syntheticAgentTextByItemId.set(itemId, text);
+      this.emitMessage({
+        type: "assistant",
+        message: {
+          id: itemId,
+          role: "assistant",
+          content: [{ type: "text", text }],
+          model: this.getMessageModel(),
+        },
+      });
+    }
   }
 
   private cleanupSteerTempPaths(): void {
@@ -2661,8 +2698,35 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     switch (itemType) {
       case "agentmessage": {
-        const text = extractAgentText(item);
-        if (!text) return;
+        const completedText = extractAgentText(item);
+        const hasCompletedText = completedText?.trim().length > 0;
+        const directPendingText = this.pendingAgentTextByItemId.get(itemId);
+        const usedUnknownPendingText =
+          !hasCompletedText && directPendingText === undefined;
+        const pendingText = usedUnknownPendingText
+          ? (this.pendingAgentTextByItemId.get(UNKNOWN_AGENT_ITEM_ID) ?? "")
+          : (directPendingText ?? "");
+        const text = hasCompletedText ? completedText : pendingText;
+        this.pendingAgentTextByItemId.delete(itemId);
+        if (usedUnknownPendingText) {
+          this.pendingAgentTextByItemId.delete(UNKNOWN_AGENT_ITEM_ID);
+        }
+        if (!text.trim()) return;
+        if (this.pendingTurnId === null) {
+          const syntheticText = this.syntheticAgentTextByItemId.get(itemId);
+          if (syntheticText === text) {
+            this.syntheticAgentTextByItemId.delete(itemId);
+            return;
+          }
+          const syntheticEntry = [
+            ...this.syntheticAgentTextByItemId.entries(),
+          ].find(([, candidate]) => candidate === text);
+          if (syntheticEntry) {
+            this.syntheticAgentTextByItemId.delete(syntheticEntry[0]);
+            return;
+          }
+        }
+        this.syntheticAgentTextByItemId.delete(itemId);
         this.lastResultText = text;
         this.emitMessage({
           type: "assistant",

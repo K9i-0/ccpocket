@@ -826,6 +826,334 @@ void main() {
     );
 
     test(
+      'history replace keeps completed live assistant missing from snapshot',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        const result = ResultMessage(subtype: 'success', sessionId: 'thread-1');
+        final assistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'assistant-1',
+            role: 'assistant',
+            content: const [TextContent(text: 'Completed live response')],
+            model: 'codex',
+          ),
+        );
+
+        mockBridge.emitMessage(
+          const StreamDeltaMessage(text: 'Completed live response'),
+          sessionId: 's1',
+        );
+        mockBridge.emitMessage(assistant, sessionId: 's1');
+        mockBridge.emitMessage(result, sessionId: 's1');
+        await pumpEventQueue();
+
+        mockBridge.emitMessage(
+          const HistoryMessage(messages: [result]),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        final assistants = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>()
+            .toList();
+        expect(assistants, hasLength(1));
+        expect(assistants.single.message.content, const [
+          TextContent(text: 'Completed live response'),
+        ]);
+        expect(streamingCubit.state.isStreaming, isFalse);
+      },
+    );
+
+    test(
+      'history replace keeps richer live content for the same assistant id',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        final completeAssistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'assistant-1',
+            role: 'assistant',
+            content: const [TextContent(text: 'Complete response')],
+            model: 'codex',
+          ),
+        );
+        final incompleteAssistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'assistant-1',
+            role: 'assistant',
+            content: const [TextContent(text: '')],
+            model: 'codex',
+          ),
+        );
+
+        mockBridge.emitMessage(completeAssistant, sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          HistoryMessage(messages: [incompleteAssistant]),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        final assistant = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>()
+            .single;
+        expect(assistant.message.content, const [
+          TextContent(text: 'Complete response'),
+        ]);
+      },
+    );
+
+    test(
+      'history replace deduplicates matching assistants with different ids',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        final liveAssistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'live-assistant-id',
+            role: 'assistant',
+            content: const [TextContent(text: 'Completed response')],
+            model: 'codex',
+          ),
+        );
+        final historyAssistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'history-assistant-id',
+            role: 'assistant',
+            content: const [TextContent(text: 'Completed response')],
+            model: 'codex',
+          ),
+        );
+
+        mockBridge.emitMessage(liveAssistant, sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          HistoryMessage(messages: [historyAssistant]),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        final assistants = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>()
+            .toList();
+        expect(assistants, hasLength(1));
+        expect(assistants.single.message.id, 'history-assistant-id');
+      },
+    );
+
+    test(
+      'history delta deduplicates current-turn messages with different ids',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        final liveAssistant = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'live-assistant-id',
+            role: 'assistant',
+            content: const [TextContent(text: 'Completed response')],
+            model: 'codex',
+          ),
+        );
+        final historyAssistant = AssistantServerMessage(
+          messageUuid: 'history-item-id',
+          message: AssistantMessage(
+            id: 'history-assistant-id',
+            role: 'assistant',
+            content: const [TextContent(text: 'Completed response')],
+            model: 'codex',
+          ),
+        );
+        const liveResult = ResultMessage(
+          subtype: 'success',
+          result: 'Completed response',
+          sessionId: 'live-thread-id',
+        );
+        const historyResult = ResultMessage(
+          subtype: 'success',
+          result: 'Completed response',
+          sessionId: 'canonical-thread-id',
+        );
+
+        mockBridge.emitMessage(liveAssistant, sessionId: 's1');
+        mockBridge.emitMessage(liveResult, sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.emitMessage(historyAssistant, sessionId: 's1');
+        mockBridge.emitMessage(historyResult, sessionId: 's1');
+        await pumpEventQueue();
+
+        final serverMessages = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .toList();
+        expect(
+          serverMessages.whereType<AssistantServerMessage>(),
+          hasLength(1),
+        );
+        expect(serverMessages.whereType<ResultMessage>(), hasLength(1));
+      },
+    );
+
+    test(
+      'same-turn live assistants with matching text remain distinct',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        AssistantServerMessage assistant(String id) => AssistantServerMessage(
+          message: AssistantMessage(
+            id: id,
+            role: 'assistant',
+            content: const [TextContent(text: 'Same response')],
+            model: 'codex',
+          ),
+        );
+
+        mockBridge.emitMessage(assistant('assistant-1'), sessionId: 's1');
+        mockBridge.emitMessage(assistant('assistant-2'), sessionId: 's1');
+        await pumpEventQueue();
+
+        final assistants = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>();
+        expect(assistants, hasLength(2));
+      },
+    );
+
+    test(
+      'stale history keeps same-text assistant from the current turn',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        AssistantServerMessage assistant(String id) => AssistantServerMessage(
+          message: AssistantMessage(
+            id: id,
+            role: 'assistant',
+            content: const [TextContent(text: 'OK')],
+            model: 'codex',
+          ),
+        );
+        const firstUser = UserInputMessage(
+          text: 'Same prompt',
+          userMessageUuid: 'user-turn-1',
+        );
+        const secondUser = UserInputMessage(
+          text: 'Same prompt',
+          userMessageUuid: 'user-turn-2',
+        );
+        final initialHistory = HistoryMessage(
+          messages: [firstUser, assistant('assistant-1'), secondUser],
+        );
+        final staleHistory = HistoryMessage(
+          messages: [firstUser, assistant('assistant-1')],
+        );
+
+        mockBridge.emitMessage(initialHistory, sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.emitMessage(assistant('assistant-2'), sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.emitMessage(staleHistory, sessionId: 's1');
+        await pumpEventQueue();
+
+        final assistants = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>()
+            .toList();
+        expect(assistants, hasLength(2));
+        expect(assistants.map((message) => message.message.id), [
+          'assistant-1',
+          'assistant-2',
+        ]);
+      },
+    );
+
+    test(
+      'history UUID matches a local client-id user at the turn boundary',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.claude);
+        addTearDown(cubit.close);
+
+        cubit.sendMessage('Same prompt');
+        await pumpEventQueue();
+        expect(cubit.state.entries.whereType<UserChatEntry>(), hasLength(1));
+
+        mockBridge.emitMessage(
+          const HistoryMessage(
+            messages: [
+              UserInputMessage(
+                text: 'Same prompt',
+                userMessageUuid: 'server-user-uuid',
+              ),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        final users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users, hasLength(1));
+        expect(users.single.text, 'Same prompt');
+      },
+    );
+
+    test(
+      'identical assistant text in a later turn is not deduplicated',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        AssistantServerMessage assistant(String id) => AssistantServerMessage(
+          message: AssistantMessage(
+            id: id,
+            role: 'assistant',
+            content: const [TextContent(text: 'Same response')],
+            model: 'codex',
+          ),
+        );
+
+        mockBridge.emitMessage(assistant('assistant-1'), sessionId: 's1');
+        mockBridge.emitMessage(
+          const ResultMessage(subtype: 'success'),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          HistoryMessage(
+            messages: [
+              assistant('assistant-1'),
+              const ResultMessage(subtype: 'success'),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          const UserInputMessage(
+            text: 'Ask again',
+            userMessageUuid: 'user-turn-2',
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(cubit.state.entries.whereType<UserChatEntry>(), hasLength(1));
+        mockBridge.emitMessage(assistant('assistant-2'), sessionId: 's1');
+        await pumpEventQueue();
+
+        final assistants = cubit.state.entries
+            .whereType<ServerChatEntry>()
+            .map((entry) => entry.message)
+            .whereType<AssistantServerMessage>();
+        expect(assistants, hasLength(2));
+      },
+    );
+
+    test(
       'codex assistant response clears delivery pending without ack',
       () async {
         final cubit = createCubit('s1', provider: Provider.codex);

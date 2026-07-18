@@ -147,6 +147,131 @@ describe("CodexProcess (app-server)", () => {
     ).toThrow("invalid shape");
   });
 
+  it("finalizes streamed agent text before turn completion", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-stream-only" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-1",
+      delta: "Streamed ",
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-1",
+      delta: "response",
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: { id: "turn-stream-only", status: "completed" },
+    });
+
+    const assistantIndex = messages.findIndex(
+      (message) => message.type === "assistant",
+    );
+    const resultIndex = messages.findIndex(
+      (message) => message.type === "result",
+    );
+    expect(assistantIndex).toBeGreaterThanOrEqual(0);
+    expect(resultIndex).toBeGreaterThan(assistantIndex);
+    expect(messages[assistantIndex]).toMatchObject({
+      type: "assistant",
+      message: {
+        id: "agent-message-1",
+        role: "assistant",
+        content: [{ type: "text", text: "Streamed response" }],
+      },
+    });
+    expect(messages[resultIndex]).toMatchObject({
+      type: "result",
+      subtype: "success",
+      result: "Streamed response",
+    });
+  });
+
+  it("finalizes multiple streamed agent items independently", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-multiple-agents" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-1",
+      delta: "First response",
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-2",
+      delta: "Second response",
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: { id: "turn-multiple-agents", status: "completed" },
+    });
+
+    const assistants = messages.filter(
+      (message) => message.type === "assistant",
+    );
+    expect(assistants).toMatchObject([
+      {
+        message: {
+          id: "agent-message-1",
+          content: [{ type: "text", text: "First response" }],
+        },
+      },
+      {
+        message: {
+          id: "agent-message-2",
+          content: [{ type: "text", text: "Second response" }],
+        },
+      },
+    ]);
+    expect(messages.find((message) => message.type === "result")).toMatchObject(
+      { result: "Second response" },
+    );
+  });
+
+  it("keeps an unknown-id delta when another agent item completes", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-unknown-agent" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      delta: "Unknown item response",
+    });
+    (proc as any).handleNotification("item/completed", {
+      item: {
+        id: "known-agent-message",
+        type: "agentMessage",
+        text: "Known item response",
+      },
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: { id: "turn-unknown-agent", status: "completed" },
+    });
+
+    const assistantTexts = messages
+      .filter((message) => message.type === "assistant")
+      .map(
+        (message) =>
+          ((message.message as any).content[0] as Record<string, unknown>).text,
+      );
+    expect(assistantTexts).toEqual([
+      "Known item response",
+      "Unknown item response",
+    ]);
+  });
+
   it("emits goal state for app-server goal notifications", () => {
     const proc = new CodexProcess("linux");
     (proc as any)._threadId = "thread-1";

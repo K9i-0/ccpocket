@@ -452,13 +452,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       // to prevent duplicates when get_history is received multiple times.
       final pastEntries = entries.take(_pastEntryCount).toList();
       final existingNonPast = entries.skip(_pastEntryCount).toList();
-
-      final extraLiveEntries = _entriesToPreserveAfterHistoryReplace(
-        existingNonPast: existingNonPast,
+      final mergedHistoryEntries = _mergeRicherLiveAssistantEntries(
+        existingEntries: existingNonPast,
         historyEntries: nonStreamingEntries,
       );
 
-      entries = [...pastEntries, ...nonStreamingEntries, ...extraLiveEntries];
+      final extraLiveEntries = _entriesToPreserveAfterHistoryReplace(
+        existingNonPast: existingNonPast,
+        historyEntries: mergedHistoryEntries,
+      );
+
+      entries = [...pastEntries, ...mergedHistoryEntries, ...extraLiveEntries];
 
       // Preserve local data (image bytes, timestamps) from existing entries
       // that the server history does not contain.
@@ -740,26 +744,26 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     required List<ChatEntry> existingNonPast,
     required List<ChatEntry> historyEntries,
   }) {
-    var lastMatchedExistingIndex = -1;
-    var searchStart = 0;
-
-    for (final historyEntry in historyEntries) {
-      final matchIndex = _indexOfEquivalentEntry(
-        existingNonPast,
-        historyEntry,
-        start: searchStart,
-        allowWeakMatch: true,
-      );
-      if (matchIndex == -1) continue;
-      lastMatchedExistingIndex = matchIndex;
-      searchStart = matchIndex + 1;
-    }
-
-    final candidates = lastMatchedExistingIndex == -1
-        ? existingNonPast.where(_isLocalUnconfirmedUserEntry)
-        : existingNonPast.skip(lastMatchedExistingIndex + 1);
+    final lastUserIndex = existingNonPast.lastIndexWhere(
+      (entry) => entry is UserChatEntry,
+    );
+    final candidates = existingNonPast.skip(
+      lastUserIndex == -1 ? 0 : lastUserIndex,
+    );
     final preserved = <ChatEntry>[];
-    final covered = [...historyEntries];
+    final historyCurrentUserIndex = lastUserIndex == -1
+        ? -1
+        : historyEntries.lastIndexWhere(
+            (entry) => _entriesEquivalentForTurnBoundary(
+              entry,
+              existingNonPast[lastUserIndex],
+            ),
+          );
+    final covered = lastUserIndex == -1
+        ? [...historyEntries]
+        : historyCurrentUserIndex == -1
+        ? <ChatEntry>[]
+        : historyEntries.skip(historyCurrentUserIndex).toList();
 
     for (final candidate in candidates) {
       if (_indexOfEquivalentEntry(covered, candidate, allowWeakMatch: true) !=
@@ -773,6 +777,69 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     return preserved;
   }
 
+  bool _entriesEquivalentForTurnBoundary(ChatEntry a, ChatEntry b) {
+    if (a is UserChatEntry && b is UserChatEntry) {
+      final aUuid = a.messageUuid;
+      final bUuid = b.messageUuid;
+      if (aUuid?.isNotEmpty == true && bUuid?.isNotEmpty == true) {
+        return aUuid == bUuid;
+      }
+      final aClientId = a.clientMessageId;
+      final bClientId = b.clientMessageId;
+      if (aClientId?.isNotEmpty == true && bClientId?.isNotEmpty == true) {
+        return aClientId == bClientId;
+      }
+      return _entriesEquivalent(a, b, allowWeakMatch: true);
+    }
+    final aKey = _entryStableKey(a);
+    final bKey = _entryStableKey(b);
+    if (aKey != null && bKey != null) return aKey == bKey;
+    return _entriesEquivalent(a, b, allowWeakMatch: true);
+  }
+
+  List<ChatEntry> _mergeRicherLiveAssistantEntries({
+    required List<ChatEntry> existingEntries,
+    required List<ChatEntry> historyEntries,
+  }) {
+    return historyEntries.map((historyEntry) {
+      final historyAssistant = _assistantMessageFromEntry(historyEntry);
+      if (historyAssistant == null) return historyEntry;
+
+      final existingIndex = _indexOfEquivalentEntry(
+        existingEntries,
+        historyEntry,
+      );
+      if (existingIndex == -1) return historyEntry;
+      final existingEntry = existingEntries[existingIndex];
+      final existingAssistant = _assistantMessageFromEntry(existingEntry);
+      if (existingAssistant == null) return historyEntry;
+
+      return _hasRenderableAssistantContent(existingAssistant) &&
+              !_hasRenderableAssistantContent(historyAssistant)
+          ? existingEntry
+          : historyEntry;
+    }).toList();
+  }
+
+  AssistantMessage? _assistantMessageFromEntry(ChatEntry entry) {
+    if (entry case ServerChatEntry(
+      message: AssistantServerMessage(:final message),
+    )) {
+      return message;
+    }
+    return null;
+  }
+
+  bool _hasRenderableAssistantContent(AssistantMessage message) {
+    return message.content.any(
+      (content) => switch (content) {
+        TextContent(:final text) => text.trim().isNotEmpty,
+        ThinkingContent(:final thinking) => thinking.trim().isNotEmpty,
+        ToolUseContent() => true,
+      },
+    );
+  }
+
   ({List<ChatEntry> entries, bool didChange}) _appendEntriesDeduped(
     List<ChatEntry> current,
     List<ChatEntry> additions,
@@ -781,7 +848,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     var didChange = false;
 
     for (final addition in additions) {
-      final matchIndex = _indexOfEquivalentEntry(next, addition);
+      var matchIndex = _indexOfEquivalentEntry(next, addition);
+      if (matchIndex == -1 && _canWeakMatchAppendedEntry(addition)) {
+        final lastUserIndex = next.lastIndexWhere((e) => e is UserChatEntry);
+        matchIndex = _indexOfEquivalentEntry(
+          next,
+          addition,
+          start: lastUserIndex + 1,
+          allowWeakMatch: true,
+        );
+      }
       if (matchIndex != -1) {
         final merged = _mergeEquivalentEntry(next[matchIndex], addition);
         if (!identical(merged, next[matchIndex])) {
@@ -797,6 +873,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     return (entries: next, didChange: didChange);
+  }
+
+  bool _canWeakMatchAppendedEntry(ChatEntry entry) {
+    if (entry case ServerChatEntry(
+      message: AssistantServerMessage(:final messageUuid),
+    )) {
+      return messageUuid?.isNotEmpty == true;
+    }
+    return entry is ServerChatEntry && entry.message is ResultMessage;
   }
 
   int _indexOfEquivalentEntry(
@@ -824,13 +909,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }) {
     final aKey = _entryStableKey(a);
     final bKey = _entryStableKey(b);
-    if (aKey != null && bKey != null) return aKey == bKey;
+    if (aKey != null && bKey != null && aKey == bKey) return true;
 
     if (allowWeakMatch) {
       final aWeakKey = _entryWeakKey(a);
       final bWeakKey = _entryWeakKey(b);
       if (aWeakKey != null && bWeakKey != null) return aWeakKey == bWeakKey;
     }
+
+    if (aKey != null && bKey != null) return false;
 
     if (a is UserChatEntry && b is UserChatEntry) {
       // Older Bridge versions may not include clientMessageId in restored
@@ -929,19 +1016,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         return 'assistant:content:${_assistantContentSignature(message)}';
       case ResultMessage(
         :final subtype,
-        :final sessionId,
         :final stopReason,
         :final result,
         :final error,
       ):
-        return [
-          'result',
-          subtype,
-          sessionId,
-          stopReason,
-          result,
-          error,
-        ].join('\u0001');
+        return ['result', subtype, stopReason, result, error].join('\u0001');
       case ErrorMessage(:final message, :final errorCode):
         return ['error', errorCode, message].join('\u0001');
       case ToolUseSummaryMessage(:final summary, :final precedingToolUseIds):
@@ -965,10 +1044,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           };
         })
         .join('\u0001');
-  }
-
-  bool _isLocalUnconfirmedUserEntry(ChatEntry entry) {
-    return entry is UserChatEntry && entry.status != MessageStatus.sent;
   }
 
   bool _shouldPreserveEntryAcrossHistoryReplace(ChatEntry entry) {
