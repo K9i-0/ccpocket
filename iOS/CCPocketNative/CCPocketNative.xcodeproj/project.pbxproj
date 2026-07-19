@@ -1,0 +1,498 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* CCPocketNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* CCPocketNativeApp.swift */; };
+		A10000000000000000000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* AppState.swift */; };
+		A10000000000000000000003 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* JSONValue.swift */; };
+		A10000000000000000000004 /* BridgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* BridgeModels.swift */; };
+		A10000000000000000000005 /* ConnectionURLParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ConnectionURLParser.swift */; };
+		A10000000000000000000006 /* BridgeWebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* BridgeWebSocketClient.swift */; };
+		A10000000000000000000007 /* BonjourDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* BonjourDiscoveryService.swift */; };
+		A10000000000000000000008 /* QRCodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* QRCodeScannerView.swift */; };
+		A10000000000000000000013 /* LocalNetworkPermissionProber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* LocalNetworkPermissionProber.swift */; };
+		A10000000000000000000009 /* GlassStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* GlassStyle.swift */; };
+		A1000000000000000000000A /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* RootView.swift */; };
+		A1000000000000000000000B /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* SessionsView.swift */; };
+		A1000000000000000000000C /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* ProjectsView.swift */; };
+		A1000000000000000000000D /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* ChatView.swift */; };
+		A1000000000000000000000E /* GitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* GitView.swift */; };
+		A1000000000000000000000F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* SettingsView.swift */; };
+		A10000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* Assets.xcassets */; };
+		A10000000000000000000011 /* ConnectionURLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ConnectionURLParserTests.swift */; };
+		A10000000000000000000012 /* BridgeDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BridgeDecodingTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A30000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A40000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A50000000000000000000001;
+			remoteInfo = CCPocketNative;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* CCPocketNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CCPocketNativeApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* BridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeModels.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* ConnectionURLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionURLParser.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* BridgeWebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeWebSocketClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* BonjourDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourDiscoveryService.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* QRCodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeScannerView.swift; sourceTree = "<group>"; };
+		A20000000000000000000014 /* LocalNetworkPermissionProber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionProber.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* GlassStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassStyle.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* GitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000000000000000000011 /* ConnectionURLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionURLParserTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* BridgeDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeDecodingTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A60000000000000000000001 /* CCPocketNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CCPocketNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A60000000000000000000002 /* CCPocketNativeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CCPocketNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A70000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A70000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A80000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A80000000000000000000002 /* CCPocketNative */,
+				A80000000000000000000008 /* CCPocketNativeTests */,
+				A80000000000000000000009 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A80000000000000000000002 /* CCPocketNative */ = {
+			isa = PBXGroup;
+			children = (
+				A80000000000000000000003 /* App */,
+				A80000000000000000000004 /* Models */,
+				A80000000000000000000005 /* Services */,
+				A80000000000000000000006 /* Views */,
+				A80000000000000000000007 /* Resources */,
+			);
+			path = CCPocketNative;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* CCPocketNativeApp.swift */,
+				A20000000000000000000002 /* AppState.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000004 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000003 /* JSONValue.swift */,
+				A20000000000000000000004 /* BridgeModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000005 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000005 /* ConnectionURLParser.swift */,
+				A20000000000000000000006 /* BridgeWebSocketClient.swift */,
+				A20000000000000000000007 /* BonjourDiscoveryService.swift */,
+				A20000000000000000000014 /* LocalNetworkPermissionProber.swift */,
+				A20000000000000000000008 /* QRCodeScannerView.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000009 /* GlassStyle.swift */,
+				A2000000000000000000000A /* RootView.swift */,
+				A2000000000000000000000B /* SessionsView.swift */,
+				A2000000000000000000000C /* ProjectsView.swift */,
+				A2000000000000000000000D /* ChatView.swift */,
+				A2000000000000000000000E /* GitView.swift */,
+				A2000000000000000000000F /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000010 /* Assets.xcassets */,
+				A20000000000000000000013 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000008 /* CCPocketNativeTests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000011 /* ConnectionURLParserTests.swift */,
+				A20000000000000000000012 /* BridgeDecodingTests.swift */,
+			);
+			path = CCPocketNativeTests;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000009 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A60000000000000000000001 /* CCPocketNative.app */,
+				A60000000000000000000002 /* CCPocketNativeTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50000000000000000000001 /* CCPocketNative */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000003 /* Build configuration list for PBXNativeTarget "CCPocketNative" */;
+			buildPhases = (
+				A90000000000000000000001 /* Sources */,
+				A70000000000000000000001 /* Frameworks */,
+				AB0000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CCPocketNative;
+			productName = CCPocketNative;
+			productReference = A60000000000000000000001 /* CCPocketNative.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A50000000000000000000002 /* CCPocketNativeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000004 /* Build configuration list for PBXNativeTarget "CCPocketNativeTests" */;
+			buildPhases = (
+				A90000000000000000000002 /* Sources */,
+				A70000000000000000000002 /* Frameworks */,
+				AB0000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AC0000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = CCPocketNativeTests;
+			productName = CCPocketNativeTests;
+			productReference = A60000000000000000000002 /* CCPocketNativeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A40000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					A50000000000000000000001 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					A50000000000000000000002 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = A50000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = AA0000000000000000000001 /* Build configuration list for PBXProject "CCPocketNative" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A80000000000000000000001;
+			productRefGroup = A80000000000000000000009 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A50000000000000000000001 /* CCPocketNative */,
+				A50000000000000000000002 /* CCPocketNativeTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AB0000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000010 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB0000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A90000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* CCPocketNativeApp.swift in Sources */,
+				A10000000000000000000002 /* AppState.swift in Sources */,
+				A10000000000000000000003 /* JSONValue.swift in Sources */,
+				A10000000000000000000004 /* BridgeModels.swift in Sources */,
+				A10000000000000000000005 /* ConnectionURLParser.swift in Sources */,
+				A10000000000000000000006 /* BridgeWebSocketClient.swift in Sources */,
+				A10000000000000000000007 /* BonjourDiscoveryService.swift in Sources */,
+				A10000000000000000000013 /* LocalNetworkPermissionProber.swift in Sources */,
+				A10000000000000000000008 /* QRCodeScannerView.swift in Sources */,
+				A10000000000000000000009 /* GlassStyle.swift in Sources */,
+				A1000000000000000000000A /* RootView.swift in Sources */,
+				A1000000000000000000000B /* SessionsView.swift in Sources */,
+				A1000000000000000000000C /* ProjectsView.swift in Sources */,
+				A1000000000000000000000D /* ChatView.swift in Sources */,
+				A1000000000000000000000E /* GitView.swift in Sources */,
+				A1000000000000000000000F /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A90000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000011 /* ConnectionURLParserTests.swift in Sources */,
+				A10000000000000000000012 /* BridgeDecodingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AC0000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A50000000000000000000001 /* CCPocketNative */;
+			targetProxy = A30000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AD0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.2;
+			};
+			name = Debug;
+		};
+		AD0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.2;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AD0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 8769C7PNS4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CCPocketNative/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AD0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 8769C7PNS4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CCPocketNative/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AD0000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8769C7PNS4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.native.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CCPocketNative.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CCPocketNative";
+			};
+			name = Debug;
+		};
+		AD0000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8769C7PNS4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.native.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CCPocketNative.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CCPocketNative";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA0000000000000000000001 /* Build configuration list for PBXProject "CCPocketNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD0000000000000000000001 /* Debug */,
+				AD0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000003 /* Build configuration list for PBXNativeTarget "CCPocketNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD0000000000000000000003 /* Debug */,
+				AD0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000004 /* Build configuration list for PBXNativeTarget "CCPocketNativeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD0000000000000000000005 /* Debug */,
+				AD0000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A40000000000000000000001 /* Project object */;
+}
