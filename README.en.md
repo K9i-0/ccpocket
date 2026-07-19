@@ -33,12 +33,12 @@ Source directory: [`iOS/CCPocketNative`](iOS/CCPocketNative)
 
 Release download:
 
-[CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
+[CC Pocket Native iOS v0.1.1 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.1)
 
 | File | Notes |
 |------|-------|
-| `CCPocketNative-unsigned-20260720-052037.ipa` | iOS package. Physical-device installation requires your own Apple account or existing signing workflow. |
-| `CCPocketNative-source-20260720.zip` | Native iOS client source package. |
+| `CCPocketNative-unsigned-20260720-0650.ipa` | iOS package. Physical-device installation requires your own Apple account or existing signing workflow. |
+| `CCPocketNative-source-20260720-0650.zip` | Native iOS client source package. |
 
 Current coverage includes separate Codex / Claude Code workspaces, project-folder based conversations, multiple conversations per project, streaming chat, permission approval, folded tool calls, QR / deep-link parsing, and Bonjour discovery.
 
