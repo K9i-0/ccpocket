@@ -12,15 +12,35 @@ Preview release:
 
 [CC Pocket Windows Tray Preview](https://github.com/11233321323/ccpocket/releases/tag/windows-tray-preview-2026-07-20)
 
-Download the single recommended package:
+Available packages:
 
 | Package | Use When |
 |---------|----------|
-| `CCPocketTray-win-x64-self-contained.zip` | Windows x64 build with the .NET runtime included. |
+| `CCPocketTray-win-x64-self-contained.zip` | Recommended for most users. Includes the .NET runtime. |
+| `CCPocketTray-win-x64-framework-dependent.zip` | Smaller package. Requires .NET Desktop Runtime 8. |
 
-Node.js is still required because the Bridge itself is a Node application.
+Both packages still require Node.js because the Bridge itself is a Node application.
 
-## What This Adds
+## Native iOS Preview
+
+This fork also provides **CC Pocket Native iOS**, a SwiftUI-based native iPhone client preview. It reuses the existing Bridge Server, does not modify `packages/bridge`, and remains compatible with:
+
+```bash
+npx /bridge
+```
+
+Release download:
+
+[CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
+
+| File | Notes |
+|------|-------|
+| `CCPocketNative-unsigned-20260720-052037.ipa` | iOS package. Physical-device installation requires your own Apple account or existing signing workflow. |
+| `CCPocketNative-source-20260720.zip` | Native iOS client source package. |
+
+Current coverage includes separate Codex / Claude Code workspaces, project-folder based conversations, multiple conversations per project, streaming chat, permission approval, folded tool calls, QR / deep-link parsing, and Bonjour discovery.
+
+## What Windows Adds
 
 - Windows tray launcher under `apps/windows-tray`.
 - Start, stop, restart, and monitor Bridge from a GUI.
@@ -71,7 +91,13 @@ $env:CCPOCKET_REPO_ROOT="C:\path\to\ccpocket"
 
 ## Build Packages
 
-Release package with the .NET runtime included:
+Framework-dependent:
+
+```powershell
+dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+```
+
+Self-contained:
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
