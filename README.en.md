@@ -29,6 +29,8 @@ This fork also provides **CC Pocket Native iOS**, a SwiftUI-based native iPhone 
 npx /bridge
 ```
 
+Source directory: [`iOS/CCPocketNative`](iOS/CCPocketNative)
+
 Release download:
 
 [CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
