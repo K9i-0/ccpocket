@@ -7,8 +7,7 @@
 - Windows 10 或更高版本
 - Node.js 18 或更高版本
 - 已在仓库根目录执行 `npm install`
-- 如果使用 framework-dependent 包，需要安装 .NET Desktop Runtime 8 或更高版本
-- 如果使用 self-contained 包，不需要单独安装 .NET Runtime
+- 发布包已包含 .NET Runtime，不需要单独安装 .NET Runtime
 
 ## 从源码运行
 
@@ -32,13 +31,7 @@ npm run bridge:build
 
 ## 打包 EXE
 
-framework-dependent 版本体积较小，但需要用户安装 .NET Desktop Runtime 8：
-
-```powershell
-dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
-```
-
-self-contained 版本体积较大，但包含 .NET 运行时：
+发布包包含 .NET 运行时：
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\

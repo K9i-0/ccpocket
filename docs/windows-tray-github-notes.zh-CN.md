@@ -56,13 +56,7 @@ npm run bridge:build
 dotnet build apps\windows-tray\CCPocketTray.csproj -c Release
 ```
 
-发布 framework-dependent EXE：
-
-```powershell
-dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
-```
-
-发布 self-contained EXE：
+发布 EXE：
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
@@ -72,16 +66,13 @@ dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --sel
 
 建议通过 GitHub Releases 上传压缩包，不建议把 EXE、ZIP、`bin/`、`obj/` 直接提交到 Git。
 
-推荐附件：
+推荐附件只保留：
 
 ```text
-CCPocketTray-win-x64-framework-dependent.zip
 CCPocketTray-win-x64-self-contained.zip
 ```
 
-framework-dependent 版本需要安装 .NET Desktop Runtime 8，包更小。
-
-self-contained 版本包含 .NET 运行时，包更大，但用户开箱即用。两种版本都仍然需要 Node.js，因为 Bridge 本身是 Node 程序。
+发布包包含 .NET 运行时，用户开箱即用。仍然需要 Node.js，因为 Bridge 本身是 Node 程序。
 
 ## 验证命令
 

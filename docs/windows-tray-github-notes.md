@@ -52,13 +52,7 @@ Build the tray app:
 dotnet build apps\windows-tray\CCPocketTray.csproj -c Release
 ```
 
-Publish framework-dependent EXE:
-
-```powershell
-dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
-```
-
-Publish self-contained EXE:
+Publish EXE:
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
@@ -66,13 +60,7 @@ dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --sel
 
 ## Release Artifacts
 
-Framework-dependent:
-
-```text
-apps/windows-tray/bin/Release/net8.0-windows/win-x64/publish/CCPocketTray.exe
-```
-
-Self-contained:
+Release executable:
 
 ```text
 apps/windows-tray/bin/Release/net8.0-windows/win-x64/publish-self-contained/CCPocketTray.exe
@@ -115,7 +103,7 @@ Expected shape:
 - If Bridge has not been built, it falls back to `npm run bridge`.
 - If a Bridge is already reachable on the configured port, the tray app attaches instead of starting a duplicate Bridge.
 - The tray app does not bundle Node.js; users still need Node.js installed.
-- The self-contained .NET build removes the need to install the .NET runtime, but Node.js is still required for Bridge.
+- The release build includes the .NET runtime, but Node.js is still required for Bridge.
 
 ## Suggested Commit Scope
 

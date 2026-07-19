@@ -12,14 +12,13 @@ Preview release:
 
 [CC Pocket Windows Tray Preview](https://github.com/11233321323/ccpocket/releases/tag/windows-tray-preview-2026-07-20)
 
-Available packages:
+Download the single recommended package:
 
 | Package | Use When |
 |---------|----------|
-| `CCPocketTray-win-x64-self-contained.zip` | Recommended for most users. Includes the .NET runtime. |
-| `CCPocketTray-win-x64-framework-dependent.zip` | Smaller package. Requires .NET Desktop Runtime 8. |
+| `CCPocketTray-win-x64-self-contained.zip` | Windows x64 build with the .NET runtime included. |
 
-Both packages still require Node.js because the Bridge itself is a Node application.
+Node.js is still required because the Bridge itself is a Node application.
 
 ## What This Adds
 
@@ -72,13 +71,7 @@ $env:CCPOCKET_REPO_ROOT="C:\path\to\ccpocket"
 
 ## Build Packages
 
-Framework-dependent:
-
-```powershell
-dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
-```
-
-Self-contained:
+Release package with the .NET runtime included:
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\

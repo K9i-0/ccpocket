@@ -7,7 +7,6 @@ Chinese documentation: [README.zh-CN.md](README.zh-CN.md).
 ## Requirements
 
 - Windows 10 or later
-- .NET Desktop Runtime 8 or later
 - Node.js 18 or later
 - Repository dependencies installed with `npm install`
 
@@ -34,13 +33,13 @@ When `packages\bridge\dist\index.js` exists, the tray app runs the compiled brid
 ## Publish EXE
 
 ```powershell
-dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
 ```
 
 The executable is written to:
 
 ```text
-apps\windows-tray\bin\Release\net8.0-windows\win-x64\publish\CCPocketTray.exe
+apps\windows-tray\bin\Release\net8.0-windows\win-x64\publish-self-contained\CCPocketTray.exe
 ```
 
 ## Behavior
