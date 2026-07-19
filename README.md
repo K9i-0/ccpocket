@@ -1,150 +1,109 @@
-# CC Pocket
+# CC Pocket Windows Tray
 
-CC Pocket is a mobile and desktop app for controlling Codex and Claude coding-agent sessions.
-Run the agents through a self-hosted Bridge Server on your own Mac, Linux, or Windows machine,
-then start sessions, approve actions, answer questions, review changes, and pick up work
-from iPhone, iPad, Android, native macOS, or experimental Linux/Windows desktop builds.
-Experimental Linux and Windows desktop builds are also available from GitHub Releases.
+A Windows desktop tray client for running the CC Pocket Bridge without keeping a terminal window open.
 
-[日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
+This fork is based on [K9i-0/ccpocket](https://github.com/K9i-0/ccpocket). The upstream project provides the mobile app, desktop app experiments, and Bridge Server. This fork focuses on a cleaner Windows desktop experience: a tray app, a bilingual settings window, Windows-friendly development scripts, third-party runtime compatibility, and improved Codex recent-session syncing.
 
-<p align="center">
-  <img src="docs/images/screenshots.png" alt="CC Pocket screenshots" width="800">
-</p>
+[简体中文](README.zh-CN.md) | [Upstream Project](https://github.com/K9i-0/ccpocket) | [Draft PR](https://github.com/K9i-0/ccpocket/pull/175)
 
-## Install
+## Download
 
-1. Install at least one agent CLI on the machine that will run your sessions:
-   [Codex](https://github.com/openai/codex) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
-   For Codex on macOS/Linux, the current standalone installer is:
-   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`.
-2. Install [Node.js](https://nodejs.org/) 18 or newer on that same machine.
-3. Start the CC Pocket Bridge Server:
+Preview release:
 
-```bash
-npx @ccpocket/bridge@latest
-```
+[CC Pocket Windows Tray Preview](https://github.com/11233321323/ccpocket/releases/tag/windows-tray-preview-2026-07-20)
 
-4. Install CC Pocket and scan the QR code printed by the Bridge Server.
-5. Pick a project, choose Codex or Claude, and start coding from the app.
+Available packages:
 
-| Platform | Install |
-|----------|---------|
-| **iOS / iPadOS** | <a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"><img height="40" alt="Download on the App Store" src="docs/images/app-store-badge.svg" /></a> |
-| **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
-| **macOS** | Download the latest `.dmg` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos). Look for releases tagged `macos/v*`. You can also install using Homebrew Cask with `brew install --cask cc-pocket`. |
-| **Linux (experimental)** | Download the latest `.tar.gz` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux). Look for releases tagged `linux/v*`. |
-| **Windows (experimental)** | Download the latest `.zip` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows). Look for releases tagged `windows/v*`. |
+| Package | Use When |
+|---------|----------|
+| `CCPocketTray-win-x64-self-contained.zip` | Recommended for most users. Includes the .NET runtime. |
+| `CCPocketTray-win-x64-framework-dependent.zip` | Smaller package. Requires .NET Desktop Runtime 8. |
 
-## Free to Use
+Both packages still require Node.js because the Bridge itself is a Node application.
 
-CC Pocket is free to use. If it helps your workflow, please consider becoming a Supporter in the app. Supporter purchases help cover development and AI tooling costs.
+## What This Adds
 
-New to mobile coding agents? See [How to run Codex from iPhone or Android](https://k9i-0.github.io/ccpocket/how-to-run-codex-from-iphone-android/).
-
-## What You Can Do
-
-- **Control Codex and Claude anywhere**: start sessions from the app, resume recent sessions created in the CLI or app, and move between phone, tablet, and Mac without losing context.
-- **Stay in the approval loop**: approve commands, file edits, MCP requests, and agent questions from a mobile-first UI without returning to your keyboard.
-- **Explore and review the workspace**: browse project files with Explorer, inspect git diffs and image diffs, stage changes, commit, push, or revert them.
-- **Write rich prompts on mobile**: use Markdown, completions, voice input, and image attachments.
-- **Keep working on spotty networks**: recover missed streaming updates, queue outgoing messages while offline, and resend automatically after reconnecting.
-- **Work in parallel safely**: run sessions in separate git worktrees and keep long-running work isolated.
-- **Manage your machines**: save hosts, connect with QR codes or mDNS discovery, use Tailscale, start/stop/update over SSH, and receive push notifications.
-- **Use larger screens when helpful**: CC Pocket adapts to iPad, macOS, Linux, and Windows with workspace layouts for chat, Git, Explorer, screenshots, and images.
-
-## Why Fork CC Pocket?
-
-CC Pocket is MIT licensed so you can treat it as a starting point for your own
-agent workflow, not only as a finished app.
-
-- Build an internal client that combines Codex or Claude with your team's Jira,
-  Linear, GitHub, or private REST APIs.
-- Remove surfaces you do not need and keep a focused app for your daily workflow.
-- Reuse the Bridge sync layer, approval flow, prompt history, git operations,
-  file browsing, and image/diff viewers instead of rebuilding them from scratch.
-- Keep compatibility with the local agent tools and their session history while
-  adding workflow-specific GUI features that are easier to use than prompts or MCP.
-- Extend desktop support. macOS, Linux, and Windows builds are available today;
-  Linux and Windows remain experimental because the project does not have the
-  same continuous verification coverage for those environments.
-
-For a deeper implementation overview, see the
-[technical stack page](https://k9i-0.github.io/ccpocket/architecture/) or the
-[agent-readable Markdown](https://k9i-0.github.io/ccpocket/architecture/stack.md).
+- Windows tray launcher under `apps/windows-tray`.
+- Start, stop, restart, and monitor Bridge from a GUI.
+- Main window opens on launch and keeps running from the system tray after closing.
+- Chinese and English UI, switchable from the main window.
+- Tray menu follows the selected language.
+- Hidden Bridge process, so no terminal window needs to stay open.
+- Windows-compatible `npm install` and `npm run bridge` scripts.
+- Third-party model, proxy, or Claude-compatible runtime support without a hard local Claude API-key precheck.
+- Improved Codex recent-session listing by merging app-server results with local `.codex/sessions` scanning.
 
 ## How It Works
 
-CC Pocket has two parts:
-
 ```text
-CC Pocket app  <->  Bridge Server on your machine  <->  Codex / Claude
+Phone / tablet / desktop client
+        |
+        v
+CC Pocket Bridge on your Windows machine
+        |
+        v
+Codex / Claude / compatible runtime
 ```
 
-The app is the interface you use. The Bridge Server runs locally on the machine that
-has access to your projects, shell, git repository, and agent CLI. Your code stays
-on your own machine instead of moving into a hosted IDE.
+The Windows tray app does not replace the Bridge. It wraps the Bridge with a desktop UI, keeps it running in the background, exposes connection URLs, and lets the existing mobile or desktop clients connect as before.
 
-## Remote Access
+## Run From Source
 
-On the same network, connect with the QR code, mDNS discovery, or a manual
-`ws://` / `wss://` URL.
+Requirements:
 
-For access away from home or the office, Tailscale is the recommended setup:
+- Windows 10 or later
+- Node.js 18 or later
+- .NET SDK 8 or later
 
-1. Install [Tailscale](https://tailscale.com/) on your host machine and phone.
-2. Join the same tailnet.
-3. Connect to `ws://<host-tailscale-ip>:8765` from CC Pocket.
-
-For an always-on host, the Bridge Server can also be registered as a background service:
-
-```bash
-npx @ccpocket/bridge@latest setup
-```
-
-Service setup supports macOS launchd and Linux systemd.
-For Bridge flags and persisted service settings such as `BRIDGE_ALLOWED_DIRS`,
-see the [Bridge package README](packages/bridge/README.md#configuration).
-
-## Notes
-
-- Claude sessions require `@ccpocket/bridge` `1.25.0` or newer and an `ANTHROPIC_API_KEY`.
-  Claude subscription login via `/login` is not supported for new Bridge installs.
-  See [Claude authentication troubleshooting](docs/auth-troubleshooting.md).
-- CC Pocket is designed around self-hosting and minimal data collection. Supporter purchases
-  restore within the same Apple ID or Google account, but do not sync across stores.
-  See [Supporter / Purchases](docs/supporter.md).
-- Screenshot capture on macOS requires Screen Recording permission for the terminal app
-  running the Bridge Server.
-- CC Pocket is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
-
-## Development
-
-```bash
-git clone https://github.com/K9i-0/ccpocket.git
+```powershell
+git clone https://github.com/11233321323/ccpocket.git
 cd ccpocket
+git checkout windows-tray-bridge
 npm install
-cd apps/mobile && flutter pub get && cd ../..
+npm run bridge:build
+dotnet run --project apps\windows-tray\CCPocketTray.csproj
 ```
 
-Common commands:
+If you run the built executable from a different folder, point it at the repository:
 
-| Command | Description |
-|---------|-------------|
-| `npm run bridge` | Start Bridge Server in dev mode |
-| `npm run bridge:build` | Build the Bridge Server |
-| `npm run dev` | Restart Bridge and launch the Flutter app |
-| `npm run test:bridge` | Run Bridge Server tests |
-| `dotnet run --project apps/windows-tray/CCPocketTray.csproj` | Run the Windows tray launcher |
-| `cd apps/mobile && flutter test` | Run Flutter tests |
-| `cd apps/mobile && dart analyze` | Run Dart static analysis |
+```powershell
+$env:CCPOCKET_REPO_ROOT="C:\path\to\ccpocket"
+```
 
-For end-to-end checks with a local Bridge and mobile app, see
-[Development Testing](docs/development-testing.md).
-For Windows tray packaging notes, see
-[Windows Tray Launcher Notes](docs/windows-tray-github-notes.md).
+## Build Packages
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+Framework-dependent:
+
+```powershell
+dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+```
+
+Self-contained:
+
+```powershell
+dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
+```
+
+## Documentation
+
+- [Windows tray developer notes](apps/windows-tray/README.md)
+- [Windows tray release notes](docs/windows-tray-github-notes.md)
+- [Chinese Windows tray developer notes](apps/windows-tray/README.zh-CN.md)
+- [Chinese Windows tray release notes](docs/windows-tray-github-notes.zh-CN.md)
+
+## Verification
+
+These checks were run for the current preview branch:
+
+```powershell
+npx tsc --noEmit -p packages\bridge\tsconfig.json
+npm --workspace=packages/bridge run test:windows-smoke
+dotnet build apps\windows-tray\CCPocketTray.csproj -c Release
+```
+
+## Relationship To Upstream
+
+This repository keeps the original CC Pocket source tree so the Windows tray work can remain compatible with upstream Bridge behavior and can be reviewed as a normal fork or pull request. The original project is MIT licensed and remains credited as the foundation of this fork.
 
 ## License
 
