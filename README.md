@@ -12,15 +12,35 @@
 
 [CC Pocket Windows Tray Preview](https://github.com/11233321323/ccpocket/releases/tag/windows-tray-preview-2026-07-20)
 
-只需要下载这一个软件包：
+可下载两个包：
 
 | 文件 | 适合场景 |
 |------|----------|
-| `CCPocketTray-win-x64-self-contained.zip` | Windows x64 版本，已包含 .NET 运行时。 |
+| `CCPocketTray-win-x64-self-contained.zip` | 推荐普通用户下载，包含 .NET 运行时。 |
+| `CCPocketTray-win-x64-framework-dependent.zip` | 体积更小，但需要安装 .NET Desktop Runtime 8。 |
 
-注意：仍然需要 Node.js，因为 Bridge 本身是 Node 程序。
+两个包都仍然需要 Node.js，因为 Bridge 本身是 Node 程序。
 
-## 这次做了什么
+## 原生 iOS 预览版
+
+这个 fork 也提供 **CC Pocket Native iOS**，一个基于 SwiftUI 的原生 iPhone 客户端预览版。它复用现有 Bridge Server，不修改 `packages/bridge`，仍然兼容：
+
+```bash
+npx /bridge
+```
+
+Release 下载：
+
+[CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
+
+| 文件 | 说明 |
+|------|------|
+| `CCPocketNative-unsigned-20260720-052037.ipa` | iOS 安装包，真机安装需要使用你自己的 Apple 账号或现有签名流程。 |
+| `CCPocketNative-source-20260720.zip` | 原生 iOS 客户端源码包。 |
+
+当前包括 Codex / Claude Code 分离、按项目文件夹整理对话、同项目多对话、流式聊天、权限审批、工具调用默认折叠、二维码 / deep link 连接解析和 Bonjour 自动发现。
+
+## Windows 这次做了什么
 
 - 新增 Windows 托盘启动器：`apps/windows-tray`。
 - 可以从图形界面启动、停止、重启、查看 Bridge 状态。
@@ -71,7 +91,13 @@ $env:CCPOCKET_REPO_ROOT="C:\path\to\ccpocket"
 
 ## 打包
 
-发布包，包含 .NET Runtime：
+小包，需要 .NET Runtime：
+
+```powershell
+dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+```
+
+自包含包，包含 .NET Runtime：
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
