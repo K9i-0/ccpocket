@@ -26,7 +26,7 @@
 这个 fork 也提供 **CC Pocket Native iOS**，一个基于 SwiftUI 的原生 iPhone 客户端预览版。它复用现有 Bridge Server，不修改 `packages/bridge`，仍然兼容：
 
 ```bash
-npx /bridge
+npx @ccpocket/bridge@latest
 ```
 
 源码目录：[`iOS/CCPocketNative`](iOS/CCPocketNative)
