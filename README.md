@@ -33,12 +33,12 @@ npx @ccpocket/bridge@latest
 
 Release 下载：
 
-[CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
+[CC Pocket Native iOS v0.1.1 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.1)
 
 | 文件 | 说明 |
 |------|------|
-| `CCPocketNative-unsigned-20260720-052037.ipa` | iOS 安装包，真机安装需要使用你自己的 Apple 账号或现有签名流程。 |
-| `CCPocketNative-source-20260720.zip` | 原生 iOS 客户端源码包。 |
+| `CCPocketNative-unsigned-20260720-0650.ipa` | iOS 安装包，真机安装需要使用你自己的 Apple 账号或现有签名流程。 |
+| `CCPocketNative-source-20260720-0650.zip` | 原生 iOS 客户端源码包。 |
 
 当前包括 Codex / Claude Code 分离、按项目文件夹整理对话、同项目多对话、流式聊天、权限审批、工具调用默认折叠、二维码 / deep link 连接解析和 Bonjour 自动发现。
 
