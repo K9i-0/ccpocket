@@ -26,7 +26,7 @@ Both packages still require Node.js because the Bridge itself is a Node applicat
 This fork also provides **CC Pocket Native iOS**, a SwiftUI-based native iPhone client preview. It reuses the existing Bridge Server, does not modify `packages/bridge`, and remains compatible with:
 
 ```bash
-npx /bridge
+npx @ccpocket/bridge@latest
 ```
 
 Source directory: [`iOS/CCPocketNative`](iOS/CCPocketNative)
