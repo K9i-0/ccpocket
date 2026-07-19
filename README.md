@@ -29,6 +29,8 @@
 npx /bridge
 ```
 
+源码目录：[`iOS/CCPocketNative`](iOS/CCPocketNative)
+
 Release 下载：
 
 [CC Pocket Native iOS v0.1.0 Preview](https://github.com/11233321323/ccpocket/releases/tag/native-ios-v0.1.0)
