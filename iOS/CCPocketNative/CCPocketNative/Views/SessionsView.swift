@@ -92,11 +92,7 @@ struct AgentWorkspaceView: View {
                             .autocorrectionDisabled()
                             .font(.callout.monospaced())
 
-                        Picker("权限", selection: $appState.selectedPermissionMode) {
-                            ForEach(PermissionMode.allCases) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
+                        PermissionModeMenu(selection: $appState.selectedPermissionMode)
 
                         Button {
                             let path = manualPath
