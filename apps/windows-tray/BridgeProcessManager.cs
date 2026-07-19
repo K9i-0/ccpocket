@@ -24,6 +24,7 @@ internal sealed class BridgeProcessManager : IDisposable
 
     public bool IsRunning => process is { HasExited: false };
     public string RepositoryRoot { get; }
+    public bool HasRepository => IsRepositoryRoot(RepositoryRoot);
     public string BridgeDirectory => Path.Combine(RepositoryRoot, "packages", "bridge");
     public string Logs
     {
@@ -195,9 +196,13 @@ internal sealed class BridgeProcessManager : IDisposable
 
     private void ValidateBridgeDirectory()
     {
-        if (!File.Exists(Path.Combine(BridgeDirectory, "package.json")))
+        if (!HasRepository)
         {
-            throw new InvalidOperationException($"Bridge package not found: {BridgeDirectory}");
+            throw new InvalidOperationException(
+                "未找到 CC Pocket Bridge 源码目录。\n\n" +
+                "请把 CCPocketTray.exe 放在 ccpocket 仓库目录内运行，" +
+                "或者设置环境变量 CCPOCKET_REPO_ROOT 指向 ccpocket 仓库路径。\n\n" +
+                $"当前查找路径：{RepositoryRoot}");
         }
     }
 
@@ -224,8 +229,7 @@ internal sealed class BridgeProcessManager : IDisposable
             }
         }
 
-        throw new InvalidOperationException(
-            "Could not find ccpocket repository. Set CCPOCKET_REPO_ROOT to the repository path.");
+        return Path.GetFullPath(AppContext.BaseDirectory);
     }
 
     private static bool IsRepositoryRoot(string path)
