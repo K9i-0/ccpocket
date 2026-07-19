@@ -17,11 +17,7 @@ struct ProjectsView: View {
                             Label(provider.title, systemImage: provider.symbolName).tag(provider)
                         }
                     }
-                    Picker("权限模式", selection: $appState.selectedPermissionMode) {
-                        ForEach(PermissionMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
-                        }
-                    }
+                    PermissionModeMenu(selection: $appState.selectedPermissionMode)
                     Button {
                         Task { await appState.startSession() }
                     } label: {
