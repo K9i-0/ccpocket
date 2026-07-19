@@ -2,6 +2,8 @@
 
 This document summarizes the Windows tray launcher work and the Bridge changes that make Windows use smoother.
 
+Simplified Chinese version: [windows-tray-github-notes.zh-CN.md](windows-tray-github-notes.zh-CN.md).
+
 ## Summary
 
 - Added a lightweight WinForms tray app at `apps/windows-tray`.

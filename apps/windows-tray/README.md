@@ -2,6 +2,8 @@
 
 Lightweight Windows tray launcher for the CC Pocket Bridge. It starts the existing Node bridge in the background, keeps the console hidden, exposes a small settings window, and provides tray actions for start, stop, and copying the WebSocket URL.
 
+Chinese documentation: [README.zh-CN.md](README.zh-CN.md).
+
 ## Requirements
 
 - Windows 10 or later

@@ -82,6 +82,7 @@ npm-debug.log*
 # Web preview artifacts
 web-preview.png
 /tmp/*.png
+/release-artifacts/
 
 # Local Cowart canvas drafts
 canvas/
