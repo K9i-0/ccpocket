@@ -4,7 +4,7 @@
 
 这个 fork 基于 [K9i-0/ccpocket](https://github.com/K9i-0/ccpocket)。原项目提供移动端 App、桌面端实验版本和 Bridge Server。本 fork 重点做 Windows 电脑版体验：托盘程序、双语言设置界面、Windows 友好的开发脚本、第三方模型兼容，以及 Codex 最近会话同步优化。
 
-[English](README.md) | [原项目](https://github.com/K9i-0/ccpocket) | [当前 PR](https://github.com/K9i-0/ccpocket/pull/175)
+[English](README.en.md) | [原项目](https://github.com/K9i-0/ccpocket) | [当前 PR](https://github.com/K9i-0/ccpocket/pull/175)
 
 ## 下载
 

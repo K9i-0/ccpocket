@@ -1,59 +1,59 @@
-# CC Pocket Windows Tray
+# CC Pocket Windows 托盘客户端
 
-A Windows desktop tray client for running the CC Pocket Bridge without keeping a terminal window open.
+一个面向 Windows 用户的 CC Pocket Bridge 托盘客户端。它可以在后台启动 Bridge，不需要一直挂着终端窗口，更适合日常在 Windows 电脑上连接手机端、平板端或其他客户端使用。
 
-This fork is based on [K9i-0/ccpocket](https://github.com/K9i-0/ccpocket). The upstream project provides the mobile app, desktop app experiments, and Bridge Server. This fork focuses on a cleaner Windows desktop experience: a tray app, a bilingual settings window, Windows-friendly development scripts, third-party runtime compatibility, and improved Codex recent-session syncing.
+这个 fork 基于 [K9i-0/ccpocket](https://github.com/K9i-0/ccpocket)。原项目提供移动端 App、桌面端实验版本和 Bridge Server。本 fork 重点做 Windows 电脑版体验：托盘程序、双语言设置界面、Windows 友好的开发脚本、第三方模型兼容，以及 Codex 最近会话同步优化。
 
-[简体中文](README.zh-CN.md) | [Upstream Project](https://github.com/K9i-0/ccpocket) | [Draft PR](https://github.com/K9i-0/ccpocket/pull/175)
+[English](README.en.md) | [原项目](https://github.com/K9i-0/ccpocket) | [当前 PR](https://github.com/K9i-0/ccpocket/pull/175)
 
-## Download
+## 下载
 
-Preview release:
+预览版 Release：
 
 [CC Pocket Windows Tray Preview](https://github.com/11233321323/ccpocket/releases/tag/windows-tray-preview-2026-07-20)
 
-Available packages:
+可下载两个包：
 
-| Package | Use When |
-|---------|----------|
-| `CCPocketTray-win-x64-self-contained.zip` | Recommended for most users. Includes the .NET runtime. |
-| `CCPocketTray-win-x64-framework-dependent.zip` | Smaller package. Requires .NET Desktop Runtime 8. |
+| 文件 | 适合场景 |
+|------|----------|
+| `CCPocketTray-win-x64-self-contained.zip` | 推荐普通用户下载，包含 .NET 运行时。 |
+| `CCPocketTray-win-x64-framework-dependent.zip` | 体积更小，但需要安装 .NET Desktop Runtime 8。 |
 
-Both packages still require Node.js because the Bridge itself is a Node application.
+两个包都仍然需要 Node.js，因为 Bridge 本身是 Node 程序。
 
-## What This Adds
+## 这次做了什么
 
-- Windows tray launcher under `apps/windows-tray`.
-- Start, stop, restart, and monitor Bridge from a GUI.
-- Main window opens on launch and keeps running from the system tray after closing.
-- Chinese and English UI, switchable from the main window.
-- Tray menu follows the selected language.
-- Hidden Bridge process, so no terminal window needs to stay open.
-- Windows-compatible `npm install` and `npm run bridge` scripts.
-- Third-party model, proxy, or Claude-compatible runtime support without a hard local Claude API-key precheck.
-- Improved Codex recent-session listing by merging app-server results with local `.codex/sessions` scanning.
+- 新增 Windows 托盘启动器：`apps/windows-tray`。
+- 可以从图形界面启动、停止、重启、查看 Bridge 状态。
+- 启动时自动打开主界面，关闭窗口后继续留在系统托盘。
+- 主界面支持中文、英文切换。
+- 托盘菜单跟随当前语言。
+- Bridge 在后台隐藏运行，不需要一直打开终端。
+- 修复 Windows 下 `npm install` 和 `npm run bridge` 对 WSL、bash、Unix `env` 的依赖。
+- 支持第三方模型、代理或 Claude-compatible runtime 自己处理认证，不再被本地 Claude API Key 检查挡住。
+- 优化 Codex 最近会话列表：合并 app-server 返回结果和本地 `.codex/sessions` 扫描结果，减少手机端看不到最近记录、需要重启 Codex 的情况。
 
-## How It Works
+## 工作方式
 
 ```text
-Phone / tablet / desktop client
+手机 / 平板 / 桌面客户端
         |
         v
-CC Pocket Bridge on your Windows machine
+Windows 电脑上的 CC Pocket Bridge
         |
         v
-Codex / Claude / compatible runtime
+Codex / Claude / 兼容运行时
 ```
 
-The Windows tray app does not replace the Bridge. It wraps the Bridge with a desktop UI, keeps it running in the background, exposes connection URLs, and lets the existing mobile or desktop clients connect as before.
+Windows 托盘程序不是替代 Bridge，而是给 Bridge 套了一层电脑版界面：负责后台启动、状态查看、复制连接地址、托盘驻留，让手机端或其他客户端照常连接。
 
-## Run From Source
+## 从源码运行
 
-Requirements:
+要求：
 
-- Windows 10 or later
-- Node.js 18 or later
-- .NET SDK 8 or later
+- Windows 10 或更高版本
+- Node.js 18 或更高版本
+- .NET SDK 8 或更高版本
 
 ```powershell
 git clone https://github.com/11233321323/ccpocket.git
@@ -64,36 +64,36 @@ npm run bridge:build
 dotnet run --project apps\windows-tray\CCPocketTray.csproj
 ```
 
-If you run the built executable from a different folder, point it at the repository:
+如果你从其他目录运行编译好的 EXE，可以指定仓库路径：
 
 ```powershell
 $env:CCPOCKET_REPO_ROOT="C:\path\to\ccpocket"
 ```
 
-## Build Packages
+## 打包
 
-Framework-dependent:
+小包，需要 .NET Runtime：
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
 ```
 
-Self-contained:
+自包含包，包含 .NET Runtime：
 
 ```powershell
 dotnet publish apps\windows-tray\CCPocketTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishDir=bin\Release\net8.0-windows\win-x64\publish-self-contained\
 ```
 
-## Documentation
+## 文档
 
-- [Windows tray developer notes](apps/windows-tray/README.md)
-- [Windows tray release notes](docs/windows-tray-github-notes.md)
-- [Chinese Windows tray developer notes](apps/windows-tray/README.zh-CN.md)
-- [Chinese Windows tray release notes](docs/windows-tray-github-notes.zh-CN.md)
+- [Windows 托盘开发说明](apps/windows-tray/README.zh-CN.md)
+- [Windows 托盘发布说明](docs/windows-tray-github-notes.zh-CN.md)
+- [English Windows tray developer notes](apps/windows-tray/README.md)
+- [English Windows tray release notes](docs/windows-tray-github-notes.md)
 
-## Verification
+## 验证
 
-These checks were run for the current preview branch:
+当前预览分支已经跑过：
 
 ```powershell
 npx tsc --noEmit -p packages\bridge\tsconfig.json
@@ -101,10 +101,10 @@ npm --workspace=packages/bridge run test:windows-smoke
 dotnet build apps\windows-tray\CCPocketTray.csproj -c Release
 ```
 
-## Relationship To Upstream
+## 和原项目的关系
 
-This repository keeps the original CC Pocket source tree so the Windows tray work can remain compatible with upstream Bridge behavior and can be reviewed as a normal fork or pull request. The original project is MIT licensed and remains credited as the foundation of this fork.
+这个仓库保留原 CC Pocket 源码树，是为了让 Windows 托盘客户端继续兼容原 Bridge 行为，也方便以 fork 或 PR 的形式审查。原项目采用 MIT License，本 fork 明确保留原项目来源说明。
 
-## License
+## 许可证
 
 [MIT](LICENSE)
