@@ -91,11 +91,7 @@ struct ChatContextBar: View {
                     }
                 }
 
-                Picker("权限", selection: $appState.selectedPermissionMode) {
-                    ForEach(PermissionMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
+                PermissionModeMenu(selection: $appState.selectedPermissionMode)
 
                 if contextProvider == .codex {
                     Picker("模型", selection: $appState.selectedCodexModel) {
@@ -226,6 +222,28 @@ struct ChatContextBar: View {
         return appState.sessions
             .filter { $0.projectPath != currentProjectPath }
             .sorted { $0.lastActivityAt > $1.lastActivityAt }
+    }
+}
+
+struct PermissionModeMenu: View {
+    @Binding var selection: PermissionMode
+
+    var body: some View {
+        Menu {
+            ForEach(PermissionMode.allCases) { mode in
+                Button {
+                    selection = mode
+                } label: {
+                    if mode == selection {
+                        Label(mode.title, systemImage: "checkmark")
+                    } else {
+                        Text(mode.title)
+                    }
+                }
+            }
+        } label: {
+            Label("权限：\(selection.title)", systemImage: "lock.shield")
+        }
     }
 }
 
