@@ -111,8 +111,11 @@ cd apps/mobile && flutter pub get && cd ../..
 | `npm run bridge:build` | 构建 Bridge Server |
 | `npm run dev` | 重启 Bridge 并启动 Flutter App |
 | `npm run test:bridge` | 运行 Bridge Server 测试 |
+| `dotnet run --project apps/windows-tray/CCPocketTray.csproj` | 运行 Windows 托盘启动器 |
 | `cd apps/mobile && flutter test` | 运行 Flutter 测试 |
 | `cd apps/mobile && dart analyze` | 运行 Dart 静态分析 |
+
+Windows 托盘打包说明请见 [Windows Tray Launcher Notes](docs/windows-tray-github-notes.md)。
 
 贡献指南请见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 

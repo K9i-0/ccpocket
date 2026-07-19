@@ -6392,6 +6392,8 @@ export class BridgeWebSocketServer {
         provider: "codex",
         limit: sourceLimit,
         offset: 0,
+      }, {
+        includeScan: false,
       }),
     ]);
 
@@ -6411,22 +6413,52 @@ export class BridgeWebSocketServer {
 
   private async listRecentCodexSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+    options: { includeScan?: boolean } = {},
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
-    try {
-      return await this.listRecentCodexThreads(msg);
-    } catch (err) {
-      console.warn(
-        `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
-      );
-      return getAllRecentSessions({
-        limit: msg.limit,
-        offset: msg.offset,
+    const includeScan = options.includeScan ?? true;
+    const limit = msg.limit ?? 20;
+    const offset = msg.offset ?? 0;
+    const sourceLimit = offset + limit;
+
+    const scanPromise = includeScan
+      ? getAllRecentSessions({
+        limit: sourceLimit,
+        offset: 0,
         projectPath: msg.projectPath,
         provider: "codex",
         namedOnly: msg.namedOnly,
         searchQuery: msg.searchQuery,
         archivedSessionIds: this.archiveStore.archivedIds(),
-      });
+      })
+      : Promise.resolve({ sessions: [], hasMore: false });
+
+    try {
+      const [threadResult, scanResult] = await Promise.all([
+        this.listRecentCodexThreads({
+          ...msg,
+          limit: sourceLimit,
+          offset: 0,
+        }),
+        scanPromise,
+      ]);
+
+      const merged = mergeRecentSessionPages([
+        ...threadResult.sessions,
+        ...scanResult.sessions,
+      ]);
+
+      return {
+        sessions: merged.slice(offset, offset + limit),
+        hasMore:
+          merged.length > offset + limit ||
+          threadResult.hasMore ||
+          scanResult.hasMore,
+      };
+    } catch (err) {
+      console.warn(
+        `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
+      );
+      return scanPromise;
     }
   }
 

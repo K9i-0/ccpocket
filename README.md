@@ -135,11 +135,14 @@ Common commands:
 | `npm run bridge:build` | Build the Bridge Server |
 | `npm run dev` | Restart Bridge and launch the Flutter app |
 | `npm run test:bridge` | Run Bridge Server tests |
+| `dotnet run --project apps/windows-tray/CCPocketTray.csproj` | Run the Windows tray launcher |
 | `cd apps/mobile && flutter test` | Run Flutter tests |
 | `cd apps/mobile && dart analyze` | Run Dart static analysis |
 
 For end-to-end checks with a local Bridge and mobile app, see
 [Development Testing](docs/development-testing.md).
+For Windows tray packaging notes, see
+[Windows Tray Launcher Notes](docs/windows-tray-github-notes.md).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
