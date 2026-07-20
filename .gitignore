@@ -65,6 +65,10 @@ apps/mobile/.flutter-plugins-dependencies
 # Coverage
 coverage/
 
+# .NET desktop builds
+bin/
+obj/
+
 # Logs
 *.log
 npm-debug.log*
@@ -77,6 +81,11 @@ npm-debug.log*
 
 # Web preview artifacts
 web-preview.png
+/tmp/*.png
+/release-artifacts/
+
+# Local Cowart canvas drafts
+canvas/
 
 # Codex investigation artifacts
 .codex-tmp/
