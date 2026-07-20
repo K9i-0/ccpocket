@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.68.0] - 2026-07-20
+
+### Added
+- Support configuring the Codex model and reasoning effort used for session auto-rename and commit-message assistance, including persisted launchd and systemd service settings.
+
 ## [1.67.4] - 2026-07-19
 
 ### Fixed
