@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolvePlatformPath } from "./path-utils.js";
 
 const {
   getSessionHistoryMock,
@@ -4461,7 +4462,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
     expect(getCachedCommands).toHaveBeenCalledWith(
       "codex",
-      "/tmp/project-codex",
+      resolvePlatformPath("/tmp/project-codex"),
     );
     const sends = ws.send.mock.calls.map((call: unknown[]) =>
       JSON.parse(call[0] as string),
