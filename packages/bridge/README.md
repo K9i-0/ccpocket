@@ -42,6 +42,8 @@ ccpocket-bridge --version
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
 | `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
+| `BRIDGE_CODEX_ASSIST_MODEL` | `gpt-5.4-mini` | Codex model used for auto-rename and commit-message assist calls |
+| `BRIDGE_CODEX_ASSIST_REASONING_EFFORT` | `none` | Reasoning effort used for Codex assist calls |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 | `BRIDGE_RECORDING` | (none) | Enable session recording for debugging (enabled when set) |
 | `BRIDGE_DISABLE_MDNS` | (none) | Disable mDNS auto-discovery advertisement (macOS disables it automatically) |
@@ -83,6 +85,11 @@ ccpocket-bridge --public-ws-url wss://example.ngrok-free.app
 BRIDGE_DISABLE_MDNS=1 npx @ccpocket/bridge@latest
 # or via CLI flag
 ccpocket-bridge --no-mdns
+
+# Example: use an assist model provided by a custom Codex gateway
+BRIDGE_CODEX_ASSIST_MODEL=gpt-oss:20b-cloud \
+BRIDGE_CODEX_ASSIST_REASONING_EFFORT=none \
+npx @ccpocket/bridge@latest
 ```
 
 When `BRIDGE_PUBLIC_WS_URL` is set, the startup deep link and terminal QR code
@@ -111,12 +118,22 @@ that affect startup:
 - `BRIDGE_DISABLE_MDNS` / `--no-mdns`
 - `BRIDGE_CODEX_APP_SERVER_MODE` / `--codex-app-server-mode`
 - `BRIDGE_CODEX_SHARED_APP_SERVER_URL` / `--codex-shared-app-server-url`
+- `BRIDGE_CODEX_ASSIST_MODEL`
+- `BRIDGE_CODEX_ASSIST_REASONING_EFFORT`
 
 Example:
 
 ```bash
 BRIDGE_ALLOWED_DIRS="$HOME,/scratch/$USER" \
 BRIDGE_API_KEY=my-secret \
+npx @ccpocket/bridge@latest setup
+```
+
+Custom gateway users can persist assist overrides in the same way:
+
+```bash
+BRIDGE_CODEX_ASSIST_MODEL=gpt-oss:20b-cloud \
+BRIDGE_CODEX_ASSIST_REASONING_EFFORT=none \
 npx @ccpocket/bridge@latest setup
 ```
 

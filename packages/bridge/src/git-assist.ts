@@ -5,8 +5,8 @@ import { join, resolve } from "node:path";
 import type { Provider } from "./parser.js";
 import { getStagedDiff } from "./git-operations.js";
 import {
-  CODEX_ASSIST_MODEL,
-  CODEX_ASSIST_REASONING_EFFORT,
+  getCodexAssistModel,
+  getCodexAssistReasoningConfig,
 } from "./codex-assist.js";
 
 const COMMIT_MESSAGE_PROMPT =
@@ -66,9 +66,9 @@ function runCodexCommitAssist(
       [
         "exec",
         "-m",
-        CODEX_ASSIST_MODEL,
+        getCodexAssistModel(),
         "-c",
-        `model_reasoning_effort="${CODEX_ASSIST_REASONING_EFFORT}"`,
+        getCodexAssistReasoningConfig(),
         "-o",
         outputPath,
         "-",

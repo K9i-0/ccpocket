@@ -20,6 +20,7 @@ import {
   extractMessageImages,
   codexThreadToSessionHistory,
 } from "./sessions-index.js";
+import { buildAutoRenamePrompt } from "./auto-rename.js";
 
 describe("pathToSlug", () => {
   it("converts a path to Claude directory slug", () => {
@@ -368,7 +369,7 @@ describe("scanJsonlDir", () => {
           content: [
             {
               type: "text",
-              text: "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+              text: buildAutoRenamePrompt({ userText: "real task" }),
             },
           ],
         },
@@ -824,7 +825,7 @@ describe("codex sessions integration", () => {
     expect(result.sessions.some((s) => s.sessionId === threadId)).toBe(false);
   });
 
-  it("excludes codex auto-rename helper sessions from rollout scans", async () => {
+  it("excludes Codex auto-rename helpers without hiding prefix-matching user sessions", async () => {
     const userThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68023";
     const renameThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68024";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
@@ -846,7 +847,11 @@ describe("codex sessions integration", () => {
         JSON.stringify({
           timestamp: "2026-02-13T12:03:02.000Z",
           type: "event_msg",
-          payload: { type: "user_message", message: "normal mini session" },
+          payload: {
+            type: "user_message",
+            message:
+              "Write a concise name for this coding-agent session.\n\nPlease implement a similar user-facing prompt.",
+          },
         }),
       ].join("\n"),
     );
@@ -861,15 +866,14 @@ describe("codex sessions integration", () => {
         JSON.stringify({
           timestamp: "2026-02-13T12:04:01.000Z",
           type: "turn_context",
-          payload: { model: "gpt-5.4-mini" },
+          payload: { model: "gpt-oss:20b-cloud" },
         }),
         JSON.stringify({
           timestamp: "2026-02-13T12:04:02.000Z",
           type: "event_msg",
           payload: {
             type: "user_message",
-            message:
-              "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+            message: buildAutoRenamePrompt({ userText: "real task" }),
           },
         }),
       ].join("\n"),
@@ -2218,8 +2222,7 @@ describe("claude namedOnly optimization", () => {
             sessionId: "auto-rename-helper",
             fullPath: join(projectDir, "auto-rename-helper.jsonl"),
             fileMtime: Date.now(),
-            firstPrompt:
-              "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+            firstPrompt: buildAutoRenamePrompt({ userText: "real task" }),
             messageCount: 2,
             created: "2026-02-13T11:30:00.000Z",
             modified: "2026-02-13T11:30:01.000Z",

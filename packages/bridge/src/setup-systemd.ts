@@ -100,6 +100,9 @@ export function setupSystemd(opts: SetupOptions): void {
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
   const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
+  const codexAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL?.trim() ?? "";
+  const codexAssistReasoningEffort =
+    process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT?.trim() ?? "";
   const codexAppServerMode =
     opts.codexAppServerMode ?? process.env.BRIDGE_CODEX_APP_SERVER_MODE ?? "";
   const legacyCodexAppServerPort =
@@ -154,6 +157,12 @@ Environment=BRIDGE_HOST=${host}`;
   }
   if (disableMdns) {
     envLines += "\nEnvironment=BRIDGE_DISABLE_MDNS=1";
+  }
+  if (codexAssistModel) {
+    envLines += `\nEnvironment=BRIDGE_CODEX_ASSIST_MODEL=${codexAssistModel}`;
+  }
+  if (codexAssistReasoningEffort) {
+    envLines += `\nEnvironment=BRIDGE_CODEX_ASSIST_REASONING_EFFORT=${codexAssistReasoningEffort}`;
   }
   if (codexAppServerMode) {
     envLines += `\nEnvironment=BRIDGE_CODEX_APP_SERVER_MODE=${codexAppServerMode}`;

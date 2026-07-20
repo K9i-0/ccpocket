@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { join, resolve } from "node:path";
 
 const { execFileSyncMock, getStagedDiffMock } = vi.hoisted(() => ({
@@ -32,6 +32,10 @@ vi.mock("./git-operations.js", () => ({
 
 import { generateCommitMessage } from "./git-assist.js";
 
+const originalAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL;
+const originalAssistReasoningEffort =
+  process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
+
 describe("generateCommitMessage", () => {
   beforeEach(() => {
     execFileSyncMock.mockReset();
@@ -41,6 +45,16 @@ describe("generateCommitMessage", () => {
     rmSyncMock.mockReset();
     getStagedDiffMock.mockReturnValue("diff --git a/a.txt b/a.txt\n");
     mkdtempSyncMock.mockReturnValue("/tmp/codex-output-dir");
+    delete process.env.BRIDGE_CODEX_ASSIST_MODEL;
+    delete process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
+  });
+
+  afterEach(() => {
+    restoreEnvVar("BRIDGE_CODEX_ASSIST_MODEL", originalAssistModel);
+    restoreEnvVar(
+      "BRIDGE_CODEX_ASSIST_REASONING_EFFORT",
+      originalAssistReasoningEffort,
+    );
   });
 
   it("uses claude CLI for claude sessions", () => {
@@ -133,6 +147,30 @@ describe("generateCommitMessage", () => {
     );
   });
 
+  it("uses Codex assist environment overrides", () => {
+    process.env.BRIDGE_CODEX_ASSIST_MODEL = "gpt-oss:20b-cloud";
+    process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT = "low";
+    readFileSyncMock.mockReturnValue("fix: custom gateway\n");
+
+    generateCommitMessage({
+      provider: "codex",
+      projectPath: "/tmp/project",
+      model: "ignored-session-model",
+    });
+
+    expect(execFileSyncMock).toHaveBeenCalledWith(
+      "codex",
+      expect.arrayContaining([
+        "exec",
+        "-m",
+        "gpt-oss:20b-cloud",
+        "-c",
+        'model_reasoning_effort="low"',
+      ]),
+      expect.any(Object),
+    );
+  });
+
   it("fails when no files are staged", () => {
     getStagedDiffMock.mockReturnValue("");
 
@@ -155,3 +193,11 @@ describe("generateCommitMessage", () => {
     ).toThrow(/empty output/);
   });
 });
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}

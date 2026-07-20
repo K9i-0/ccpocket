@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Provider, ServerMessage } from "./parser.js";
 import {
-  CODEX_ASSIST_MODEL,
-  CODEX_ASSIST_REASONING_EFFORT,
+  getCodexAssistModel,
+  getCodexAssistReasoningConfig,
 } from "./codex-assist.js";
 
 export const AUTO_RENAME_PROMPT_PREFIX =
@@ -21,6 +21,11 @@ Rules:
 - Keep it short: 2-8 English words or about 8-24 Japanese/Chinese/Korean characters.
 - Avoid generic words such as Session, Chat, Task, Discussion.
 - Avoid trailing punctuation.`;
+
+const AUTO_RENAME_PROMPT_SIGNATURE = `${AUTO_RENAME_PROMPT_PREFIX}
+
+Rules:
+- Output only the name. No quotes, JSON, markdown, or explanation.`;
 
 const MAX_TRANSCRIPT_CHARS = 2400;
 const MAX_ASSISTANT_CHARS = 1200;
@@ -77,7 +82,7 @@ export function buildAutoRenamePrompt(
 }
 
 export function isAutoRenamePromptText(text: string): boolean {
-  return text.trimStart().startsWith(AUTO_RENAME_PROMPT_PREFIX);
+  return text.trimStart().startsWith(AUTO_RENAME_PROMPT_SIGNATURE);
 }
 
 export function sanitizeAutoRenameName(output: string): string | null {
@@ -143,9 +148,9 @@ function runCodexAutoRename(cwd: string, prompt: string): string {
       [
         "exec",
         "-m",
-        CODEX_ASSIST_MODEL,
+        getCodexAssistModel(),
         "-c",
-        `model_reasoning_effort="${CODEX_ASSIST_REASONING_EFFORT}"`,
+        getCodexAssistReasoningConfig(),
         "-o",
         outputPath,
         "-",

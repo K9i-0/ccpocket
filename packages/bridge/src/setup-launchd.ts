@@ -51,6 +51,9 @@ export function setupLaunchd(opts: SetupOptions): void {
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
   const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
+  const codexAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL?.trim() ?? "";
+  const codexAssistReasoningEffort =
+    process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT?.trim() ?? "";
   const codexAppServerMode =
     opts.codexAppServerMode ?? process.env.BRIDGE_CODEX_APP_SERVER_MODE ?? "";
   const legacyCodexAppServerPort =
@@ -111,6 +114,18 @@ export function setupLaunchd(opts: SetupOptions): void {
     envBlock += `
         <key>BRIDGE_DISABLE_MDNS</key>
         <string>1</string>`;
+  }
+
+  if (codexAssistModel) {
+    envBlock += `
+        <key>BRIDGE_CODEX_ASSIST_MODEL</key>
+        <string>${codexAssistModel}</string>`;
+  }
+
+  if (codexAssistReasoningEffort) {
+    envBlock += `
+        <key>BRIDGE_CODEX_ASSIST_REASONING_EFFORT</key>
+        <string>${codexAssistReasoningEffort}</string>`;
   }
 
   if (codexAppServerMode) {

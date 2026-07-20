@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { join, resolve } from "node:path";
 import type { ServerMessage } from "./parser.js";
 
@@ -31,6 +31,10 @@ import {
   sanitizeAutoRenameName,
 } from "./auto-rename.js";
 
+const originalAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL;
+const originalAssistReasoningEffort =
+  process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
+
 describe("auto rename", () => {
   beforeEach(() => {
     execFileSyncMock.mockReset();
@@ -38,6 +42,16 @@ describe("auto rename", () => {
     readFileSyncMock.mockReset();
     rmSyncMock.mockReset();
     mkdtempSyncMock.mockReturnValue("/tmp/ccpocket-auto-rename-1");
+    delete process.env.BRIDGE_CODEX_ASSIST_MODEL;
+    delete process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
+  });
+
+  afterEach(() => {
+    restoreEnvVar("BRIDGE_CODEX_ASSIST_MODEL", originalAssistModel);
+    restoreEnvVar(
+      "BRIDGE_CODEX_ASSIST_REASONING_EFFORT",
+      originalAssistReasoningEffort,
+    );
   });
 
   it("builds transcript from first real user input and assistant text", () => {
@@ -176,4 +190,36 @@ describe("auto rename", () => {
       force: true,
     });
   });
+
+  it("uses Codex assist environment overrides", () => {
+    process.env.BRIDGE_CODEX_ASSIST_MODEL = "gpt-oss:20b-cloud";
+    process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT = "low";
+    readFileSyncMock.mockReturnValue("Custom gateway rename\n");
+
+    generateAutoRenameName({
+      provider: "codex",
+      projectPath: "/tmp/project",
+      transcript: { userText: "Rename this session" },
+    });
+
+    expect(execFileSyncMock).toHaveBeenCalledWith(
+      "codex",
+      expect.arrayContaining([
+        "exec",
+        "-m",
+        "gpt-oss:20b-cloud",
+        "-c",
+        'model_reasoning_effort="low"',
+      ]),
+      expect.any(Object),
+    );
+  });
 });
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}
