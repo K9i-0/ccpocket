@@ -2890,6 +2890,13 @@ describe("CodexProcess (app-server)", () => {
       "/tmp/project-completions",
     ) as Promise<void>;
 
+    await tick();
+    expect(outgoingRequests(child).map((request) => request.method)).toEqual([
+      "skills/list",
+      "app/list",
+      "plugin/list",
+    ]);
+
     const skillsReq = await waitForOutgoingRequest(child, "skills/list");
     expect(skillsReq.method).toBe("skills/list");
     emitRpc({ id: skillsReq.id, result: { data: [] } });
@@ -2932,6 +2939,45 @@ describe("CodexProcess (app-server)", () => {
     emitRpc({ id: refetchPluginsReq.id, result: { marketplaces: [] } });
     await tick();
 
+    proc.stop();
+  });
+
+  it("emits an empty skill snapshot before slower completion sources finish", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    fakeChildren.push(child);
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+    const internal = proc as any;
+    attachFakeTransport(internal, child);
+    const emitRpc = (message: Record<string, unknown>) => {
+      internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
+    };
+
+    const fetchPromise = internal.fetchCompletionEntities(
+      "/tmp/project-empty-completions",
+    ) as Promise<void>;
+    const skillsReq = await waitForOutgoingRequest(child, "skills/list");
+    const appsReq = await waitForOutgoingRequest(child, "app/list");
+    const pluginsReq = await waitForOutgoingRequest(child, "plugin/list");
+
+    emitRpc({ id: skillsReq.id, result: { data: [] } });
+    await tick();
+
+    expect(messages).toContainEqual({
+      type: "system",
+      subtype: "supported_commands",
+      skills: [],
+      skillMetadata: [],
+      apps: [],
+      appMetadata: [],
+      plugins: [],
+      pluginMetadata: [],
+    });
+
+    emitRpc({ id: appsReq.id, result: { data: [] } });
+    emitRpc({ id: pluginsReq.id, result: { marketplaces: [] } });
+    await fetchPromise;
     proc.stop();
   });
 
@@ -3016,7 +3062,11 @@ describe("CodexProcess (app-server)", () => {
       (msg): msg is { pluginMetadata: Array<Record<string, unknown>> } =>
         typeof msg === "object" &&
         msg !== null &&
-        (msg as { subtype?: unknown }).subtype === "supported_commands",
+        (msg as { subtype?: unknown }).subtype === "supported_commands" &&
+        Array.isArray(
+          (msg as { pluginMetadata?: unknown }).pluginMetadata,
+        ) &&
+        (msg as { pluginMetadata: unknown[] }).pluginMetadata.length > 0,
     );
     expect(supportedCommands?.pluginMetadata[0]?.composerIcon).toBeUndefined();
 
@@ -3060,6 +3110,16 @@ describe("CodexProcess (app-server)", () => {
         ],
       },
     });
+    await tick();
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "supported_commands",
+        skills: ["review"],
+        apps: [],
+        plugins: [],
+      }),
+    );
     const appsReq = await waitForOutgoingRequest(child, "app/list");
     emitRpc({
       id: appsReq.id,

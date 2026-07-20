@@ -207,7 +207,9 @@ describe("SessionManager codex path", () => {
       ],
     } satisfies ServerMessage);
 
-    expect(manager.getCachedCommands("/tmp/project-codex")).toMatchObject({
+    expect(
+      manager.getCachedCommands("codex", "/tmp/project-codex"),
+    ).toMatchObject({
       plugins: ["sample"],
       pluginMetadata: [
         expect.objectContaining({
@@ -215,6 +217,105 @@ describe("SessionManager codex path", () => {
           path: "plugin://sample@test",
         }),
       ],
+    });
+  });
+
+  it("separates completion caches by provider", () => {
+    const manager = new SessionManager(() => {});
+    manager.create(
+      "/tmp/shared-project",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    manager.create(
+      "/tmp/shared-project",
+      undefined,
+      undefined,
+      undefined,
+      "claude",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      skills: ["codex-skill"],
+    } satisfies ServerMessage);
+    sdkInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      slashCommands: ["claude-command"],
+    } satisfies ServerMessage);
+
+    expect(
+      manager.getCachedCommands("codex", "/tmp/shared-project")?.skills,
+    ).toEqual(["codex-skill"]);
+    expect(
+      manager.getCachedCommands("claude", "/tmp/shared-project")
+        ?.slashCommands,
+    ).toEqual(["claude-command"]);
+  });
+
+  it("keys completion caches by the effective worktree cwd", () => {
+    const manager = new SessionManager(() => {});
+    manager.create(
+      "/tmp/base-project",
+      undefined,
+      undefined,
+      { existingWorktreePath: "/tmp/project-worktree" },
+      "codex",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      skills: ["worktree-skill"],
+    } satisfies ServerMessage);
+
+    expect(
+      manager.getCachedCommands("codex", "/tmp/project-worktree")?.skills,
+    ).toEqual(["worktree-skill"]);
+    expect(
+      manager.getCachedCommands("codex", "/tmp/base-project"),
+    ).toBeUndefined();
+  });
+
+  it("replaces cached completion entities with an empty snapshot", () => {
+    const manager = new SessionManager(() => {});
+    manager.create(
+      "/tmp/project-empty",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      skills: ["removed-skill"],
+    } satisfies ServerMessage);
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      slashCommands: [],
+      skills: [],
+      skillMetadata: [],
+      apps: [],
+      appMetadata: [],
+      plugins: [],
+      pluginMetadata: [],
+    } satisfies ServerMessage);
+
+    expect(manager.getCachedCommands("codex", "/tmp/project-empty")).toEqual({
+      slashCommands: [],
+      skills: [],
+      skillMetadata: [],
+      apps: [],
+      appMetadata: [],
+      plugins: [],
+      pluginMetadata: [],
     });
   });
 

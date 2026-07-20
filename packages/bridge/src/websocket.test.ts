@@ -4428,6 +4428,62 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("includes cached Codex completions in session_created", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const getCachedCommands = vi
+      .spyOn((bridge as any).sessionManager, "getCachedCommands")
+      .mockReturnValue({
+        slashCommands: [],
+        skills: ["skill-creator"],
+        skillMetadata: [
+          {
+            name: "skill-creator",
+            path: "/tmp/skill-creator/SKILL.md",
+          },
+        ],
+        apps: [],
+        plugins: [],
+      });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    expect(getCachedCommands).toHaveBeenCalledWith(
+      "codex",
+      "/tmp/project-codex",
+    );
+    const sends = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    const created = sends.find(
+      (message: any) =>
+        message.type === "system" && message.subtype === "session_created",
+    );
+    expect(created).toMatchObject({
+      provider: "codex",
+      skills: ["skill-creator"],
+      skillMetadata: [
+        {
+          name: "skill-creator",
+          path: "/tmp/skill-creator/SKILL.md",
+        },
+      ],
+    });
+
+    bridge.close();
+  });
+
   it("returns error when set_permission_mode is sent without active session", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

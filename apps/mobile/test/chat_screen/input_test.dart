@@ -251,5 +251,42 @@ void main() {
       );
       expect(textField.controller?.text, '@ccc.dart ');
     });
+
+    patrolWidgetTest(
+      'H9: Active dollar query refreshes when skills become available',
+      ($) async {
+        await $.pumpWidget(await buildTestCodexSessionScreen(bridge: bridge));
+        await pumpN($.tester);
+
+        await emitAndPump($.tester, bridge, [
+          const StatusMessage(status: ProcessStatus.idle),
+        ]);
+        await $.tester.enterText(
+          find.byKey(const ValueKey('message_input')),
+          r'$',
+        );
+        await pumpN($.tester);
+        expect(find.text(r'$skill-creator'), findsNothing);
+
+        bridge.emitMessage(
+          const SystemMessage(
+            subtype: 'supported_commands',
+            provider: 'codex',
+            skills: ['skill-creator'],
+            skillMetadata: [
+              CodexSkillMetadata(
+                name: 'skill-creator',
+                path: '/tmp/skill-creator/SKILL.md',
+                description: 'Create a skill',
+              ),
+            ],
+          ),
+          sessionId: testSessionId,
+        );
+        await $.tester.pumpAndSettle();
+
+        expect(find.text(r'$skill-creator'), findsOneWidget);
+      },
+    );
   });
 }

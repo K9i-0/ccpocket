@@ -231,6 +231,8 @@ class ChatInputWithOverlays extends HookWidget {
 
     // Input change listener
     useEffect(() {
+      var effectActive = true;
+
       void onChange() {
         final text = inputController.text;
         final trimHasText = text.trim().isNotEmpty;
@@ -352,8 +354,14 @@ class ChatInputWithOverlays extends HookWidget {
       }
 
       inputController.addListener(onChange);
-      return () => inputController.removeListener(onChange);
-    }, [commands, dollarEntities, pluginEntities, isCodex, projectFiles]);
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (effectActive && context.mounted) onChange();
+      });
+      return () {
+        effectActive = false;
+        inputController.removeListener(onChange);
+      };
+    }, [completionItems, isCodex, projectFiles, inputController]);
 
     // Update canDedent on cursor/text changes
     useEffect(() {

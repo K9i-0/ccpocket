@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ccpocket/features/claude_session/claude_session_screen.dart';
+import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -115,6 +116,14 @@ Future<Widget> buildTestClaudeSessionScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
+}) => _buildTestSessionScreen(
+  bridge: bridge,
+  child: ClaudeSessionScreen(sessionId: sessionId, projectPath: projectPath),
+);
+
+Future<Widget> _buildTestSessionScreen({
+  required MockBridgeService bridge,
+  required Widget child,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -144,10 +153,7 @@ Future<Widget> buildTestClaudeSessionScreen({
           ),
           BlocProvider<SettingsCubit>(create: (_) => SettingsCubit(prefs)),
         ],
-        child: ClaudeSessionScreen(
-          sessionId: sessionId,
-          projectPath: projectPath,
-        ),
+        child: child,
       ),
     ),
   );
@@ -162,6 +168,15 @@ Future<Widget> buildTestChatScreen({
   bridge: bridge,
   sessionId: sessionId,
   projectPath: projectPath,
+);
+
+Future<Widget> buildTestCodexSessionScreen({
+  required MockBridgeService bridge,
+  String sessionId = testSessionId,
+  String? projectPath,
+}) => _buildTestSessionScreen(
+  bridge: bridge,
+  child: CodexSessionScreen(sessionId: sessionId, projectPath: projectPath),
 );
 
 // ---------------------------------------------------------------------------

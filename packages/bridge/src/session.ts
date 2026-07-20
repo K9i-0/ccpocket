@@ -252,7 +252,7 @@ export class SessionManager {
   private worktreeStore: WorktreeStore | null;
   private onSessionUpdated: SessionUpdatedCallback | null;
 
-  /** Cache slash commands per project path for early loading on subsequent sessions. */
+  /** Cache completion entities per provider and effective cwd. */
   private commandCache = new Map<
     string,
     {
@@ -386,31 +386,32 @@ export class SessionManager {
             msg.plugins ||
             msg.pluginMetadata)
         ) {
-          this.commandCache.set(projectPath, {
+          const commandCacheKey = this.commandCacheKey(
+            effectiveProvider,
+            effectiveCwd,
+          );
+          const previousCommands = this.commandCache.get(commandCacheKey);
+          this.commandCache.set(commandCacheKey, {
             slashCommands:
-              msg.slashCommands ??
-              this.commandCache.get(projectPath)?.slashCommands ??
-              [],
-            skills:
-              msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
+              msg.slashCommands ?? previousCommands?.slashCommands ?? [],
+            skills: msg.skills ?? previousCommands?.skills ?? [],
             skillMetadata:
               (msg.skillMetadata as
                 | Array<Record<string, unknown>>
                 | undefined) ??
-              this.commandCache.get(projectPath)?.skillMetadata,
-            apps: msg.apps ?? this.commandCache.get(projectPath)?.apps ?? [],
+              previousCommands?.skillMetadata,
+            apps: msg.apps ?? previousCommands?.apps ?? [],
             appMetadata:
               (msg.appMetadata as
                 | Array<Record<string, unknown>>
                 | undefined) ??
-              this.commandCache.get(projectPath)?.appMetadata,
-            plugins:
-              msg.plugins ?? this.commandCache.get(projectPath)?.plugins ?? [],
+              previousCommands?.appMetadata,
+            plugins: msg.plugins ?? previousCommands?.plugins ?? [],
             pluginMetadata:
               (msg.pluginMetadata as
                 | Array<Record<string, unknown>>
                 | undefined) ??
-              this.commandCache.get(projectPath)?.pluginMetadata,
+              previousCommands?.pluginMetadata,
           });
         }
 
@@ -1391,7 +1392,8 @@ export class SessionManager {
   }
 
   getCachedCommands(
-    projectPath: string,
+    provider: Provider,
+    effectiveCwd: string,
   ):
     | {
         slashCommands: string[];
@@ -1403,7 +1405,11 @@ export class SessionManager {
         pluginMetadata?: Array<Record<string, unknown>>;
       }
     | undefined {
-    return this.commandCache.get(projectPath);
+    return this.commandCache.get(this.commandCacheKey(provider, effectiveCwd));
+  }
+
+  private commandCacheKey(provider: Provider, effectiveCwd: string): string {
+    return `${provider}\u0000${effectiveCwd}`;
   }
 
   /** Get worktree store for external use (e.g., resume_session in websocket.ts). */

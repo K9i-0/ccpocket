@@ -638,22 +638,21 @@ class ChatMessageHandler {
           if (m.provider == Provider.codex.value) {
             isCodexSession = true;
           }
-          if (m.slashCommands.isNotEmpty) {
+          final isCompletionSnapshot = m.subtype == 'supported_commands';
+          final hasCompletionEntities =
+              m.slashCommands.isNotEmpty ||
+              m.skills.isNotEmpty ||
+              m.apps.isNotEmpty ||
+              m.plugins.isNotEmpty;
+          if (isCompletionSnapshot || hasCompletionEntities) {
             commands = _buildCommandList(
               m.slashCommands,
               m.skills,
               m.skillMetadata,
               m.apps,
               m.appMetadata,
-              includeDollarEntities: isCodexSession,
-            );
-          } else if (m.skills.isNotEmpty || m.apps.isNotEmpty) {
-            commands = _buildCommandList(
-              const [],
-              m.skills,
-              m.skillMetadata,
-              m.apps,
-              m.appMetadata,
+              plugins: m.plugins,
+              pluginMetadata: m.pluginMetadata,
               includeDollarEntities: isCodexSession,
             );
           }
@@ -787,10 +786,12 @@ class ChatMessageHandler {
         message.approvalPolicy != null;
     bool hasPlanSignals(SystemMessage message) =>
         message.planMode != null || message.permissionMode != null;
+    final isCompletionSnapshot = subtype == 'supported_commands';
     if ((subtype == 'init' ||
             subtype == 'session_created' ||
-            subtype == 'supported_commands') &&
-        (slashCommands.isNotEmpty ||
+            isCompletionSnapshot) &&
+        (isCompletionSnapshot ||
+            slashCommands.isNotEmpty ||
             skills.isNotEmpty ||
             apps.isNotEmpty ||
             plugins.isNotEmpty)) {

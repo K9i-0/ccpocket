@@ -626,6 +626,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
+  private launchStartedAt = 0;
 
   get status(): ProcessStatus {
     return this._status;
@@ -671,6 +672,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
     }
@@ -1134,7 +1136,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
             scope: "project" as const,
           }));
         const skills = skillMetadata.map((m) => m.name);
-        console.log(`[sdk-process] supportedCommands() returned ${slashCommands.length} commands (${skills.length} with descriptions)`);
+        const elapsedMs = Date.now() - this.launchStartedAt;
+        console.log(
+          `[sdk-process] supportedCommands() returned ${slashCommands.length} commands (${skills.length} with descriptions, ${elapsedMs}ms since start)`,
+        );
         this.emitMessage({
           type: "system",
           subtype: "supported_commands",

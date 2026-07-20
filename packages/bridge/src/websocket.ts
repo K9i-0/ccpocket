@@ -2235,10 +2235,6 @@ export class BridgeWebSocketServer {
             );
             break;
           }
-          const cached =
-            provider === "claude"
-              ? this.sessionManager.getCachedCommands(projectPath)
-              : undefined;
           const {
             sessionId,
             permissionMode: effectivePermissionMode,
@@ -2322,6 +2318,10 @@ export class BridgeWebSocketServer {
                   usedFallback: false,
                 };
           const createdSession = this.sessionManager.get(sessionId);
+          const cached = this.sessionManager.getCachedCommands(
+            provider,
+            createdSession?.worktreePath ?? projectPath,
+          );
 
           // Load saved session name from CLI storage (for resumed sessions)
           void this.loadAndSetSessionName(
@@ -4414,6 +4414,10 @@ export class BridgeWebSocketServer {
               },
             );
             const createdSession = this.sessionManager.get(sessionId);
+            const cached = this.sessionManager.getCachedCommands(
+              "codex",
+              createdSession?.worktreePath ?? effectiveProjectPath,
+            );
             await this.loadAndSetSessionName(
               createdSession,
               "codex",
@@ -4437,6 +4441,23 @@ export class BridgeWebSocketServer {
                 permissionMode: legacyPermissionMode,
                 executionMode,
                 planMode,
+                ...(cached
+                  ? {
+                      slashCommands: cached.slashCommands,
+                      skills: cached.skills,
+                      ...(cached.skillMetadata
+                        ? { skillMetadata: cached.skillMetadata }
+                        : {}),
+                      apps: cached.apps,
+                      ...(cached.appMetadata
+                        ? { appMetadata: cached.appMetadata }
+                        : {}),
+                      plugins: cached.plugins,
+                      ...(cached.pluginMetadata
+                        ? { pluginMetadata: cached.pluginMetadata }
+                        : {}),
+                    }
+                  : {}),
               }),
             );
             this.broadcastSessionList();
@@ -4458,7 +4479,6 @@ export class BridgeWebSocketServer {
         }
 
         const claudeSessionId = sessionRefId;
-        const cached = this.sessionManager.getCachedCommands(resumeProjectPath);
         let pendingResumes = this.pendingClaudeResumeInputs.get(ws);
         if (!pendingResumes) {
           pendingResumes = new Map();
@@ -4526,6 +4546,10 @@ export class BridgeWebSocketServer {
               worktreeOptions: worktreeOpts,
             });
             const createdSession = this.sessionManager.get(sessionId);
+            const cached = this.sessionManager.getCachedCommands(
+              "claude",
+              createdSession?.worktreePath ?? resumeProjectPath,
+            );
             const finishResume = () => {
               this.send(ws, {
                 ...this.buildSessionCreatedMessage({
@@ -7024,7 +7048,10 @@ export class BridgeWebSocketServer {
   ): void {
     // Restore command metadata when the original init/supported_commands event
     // has fallen out of the bounded in-memory history.
-    const cached = this.sessionManager.getCachedCommands(session.projectPath);
+    const cached = this.sessionManager.getCachedCommands(
+      session.provider,
+      session.worktreePath ?? session.projectPath,
+    );
     if (
       !cached ||
       (cached.slashCommands.length === 0 &&
