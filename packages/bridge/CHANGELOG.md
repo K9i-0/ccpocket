@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.68.1] - 2026-07-21
+
+### Changed
+- Reduce Codex skill-completion latency by reusing provider- and working-directory-scoped completion metadata and fetching skills, apps, and plugins in parallel with skills prioritized.
+- Log the elapsed time from session start until completion metadata becomes available.
+
+### Fixed
+- Propagate empty completion snapshots so removed skills, apps, and plugins do not remain cached.
+
 ## [1.68.0] - 2026-07-20
 
 ### Added
