@@ -91,6 +91,14 @@ export interface SessionInfo {
   codexUserTurnUuidByRawId?: Map<string, string>;
   /** Last Bridge history seq covered by the canonical Codex thread snapshot. */
   codexCanonicalHistoryRevision?: number;
+  /** Monotonic revision that invalidates deltas from an older Codex baseline. */
+  codexHistoryResetRevision?: number;
+  /** Latest Codex user input, retained even when the history tail is trimmed. */
+  codexLatestUserInput?: Extract<ServerMessage, { type: "user_input" }>;
+  /** Last merged Codex snapshot, retained to preserve live event ordering. */
+  codexOrderedHistoryEntries?: HistoryEntry[];
+  /** Bridge history revision covered by codexOrderedHistoryEntries. */
+  codexOrderedHistoryRevision?: number;
   /** Whether to generate a session name after the first completed turn. */
   autoRename?: boolean;
   /** Prevents automatic rename from running more than once. */
@@ -169,7 +177,7 @@ export interface SessionSummary {
   queuedInput?: QueuedInputItem;
 }
 
-const MAX_HISTORY_PER_SESSION = 100;
+export const MAX_HISTORY_PER_SESSION = 100;
 const MAX_IDLE_SESSIONS = 30;
 
 export type GalleryImageCallback = (meta: GalleryImageMeta) => void;
@@ -860,6 +868,9 @@ export class SessionManager {
     session.historyRevision = entry.seq;
     session.history.push(msg);
     session.historyEntries.push(entry);
+    if (session.provider === "codex" && msg.type === "user_input") {
+      session.codexLatestUserInput = msg;
+    }
     this.trimHistory(session);
     return entry;
   }

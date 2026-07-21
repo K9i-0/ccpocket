@@ -444,6 +444,38 @@ describe("SessionManager codex path", () => {
     ]);
   });
 
+  it("retains the latest Codex user anchor after history compaction", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex-history-anchor",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "delegate this task",
+      userMessageUuid: "codex:user-turn:1",
+    });
+    for (let index = 0; index < 100; index++) {
+      manager.appendHistory(sessionId, {
+        type: "status",
+        status: index % 2 === 0 ? "running" : "idle",
+      });
+    }
+
+    const session = manager.get(sessionId);
+    expect(session?.history).toHaveLength(100);
+    expect(session?.history.some((message) => message.type === "user_input"))
+      .toBe(false);
+    expect(session?.codexLatestUserInput).toMatchObject({
+      type: "user_input",
+      text: "delegate this task",
+      userMessageUuid: "codex:user-turn:1",
+    });
+  });
+
   it("keeps history delta sequences isolated per running session", () => {
     const manager = new SessionManager(() => {});
     const sessionA = manager.create("/tmp/project-history-a");

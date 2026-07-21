@@ -86,6 +86,7 @@ vi.mock("./git-operations.js", async () => {
 });
 
 vi.mock("./session.js", () => ({
+  MAX_HISTORY_PER_SESSION: 100,
   SessionManager: class MockSessionManager {
     private sessions = new Map<string, any>();
     private seq = 0;
@@ -287,6 +288,9 @@ vi.mock("./session.js", () => ({
       session.historyRevision = entry.seq;
       session.history.push(msg);
       session.historyEntries.push(entry);
+      if (session.provider === "codex" && msg.type === "user_input") {
+        session.codexLatestUserInput = msg;
+      }
       if (session.history.length > 100) {
         session.history.shift();
         session.historyEntries.shift();
@@ -1606,7 +1610,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
-    const session = (bridge as any).sessionManager.get(sessionId);
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
     session.claudeSessionId = "thr_codex_1";
     session.codexSettings = {
       model: "gpt-5.3-codex",
@@ -1923,6 +1928,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     });
     await expectGoalReplay({ type: "get_history", sessionId }, "history");
     session.codexCanonicalHistoryRevision = undefined;
+    session.codexHistoryResetRevision = undefined;
     await expectGoalReplay(
       { type: "get_history_delta", sessionId, sinceSeq: 0 },
       "history_snapshot",
@@ -2037,7 +2043,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
-    const session = (bridge as any).sessionManager.get(sessionId);
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
     session.claudeSessionId = "thr_codex_empty";
     session.process.readThread.mockRejectedValue(
       new Error(
@@ -2063,15 +2070,23 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 0,
       messages: [],
       reason: "reset",
     });
+    expect(sends[0].fromSeq).toBe(sends[0].toSeq + 1);
+    expect(sends[0].toSeq).toBeGreaterThan(0);
     expect(session.pastMessages).toEqual([]);
     expect(session.history).toEqual([]);
-    expect(session.historyRevision).toBe(0);
+    expect(session.historyRevision).toBe(sends[0].toSeq);
     expect(session.codexCanonicalHistoryRevision).toBe(0);
+
+    const baselineRevision = session.historyRevision;
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "first materialized input",
+      userMessageUuid: "codex:user-turn:1",
+    });
+    expect(session.historyRevision).toBe(baselineRevision + 1);
 
     bridge.close();
   });
@@ -2143,12 +2158,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 2,
       reason: "reset",
       messages: [
         {
-          seq: 1,
           message: {
             type: "user_input",
             text: "restore this thread",
@@ -2156,7 +2168,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           },
         },
         {
-          seq: 2,
           message: {
             type: "assistant",
             messageUuid: "live-assistant-1",
@@ -2170,17 +2181,230 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
-    expect(session.codexCanonicalHistoryRevision).toBe(1);
+    expect(sends[0].fromSeq).toBe(sends[0].messages[0].seq);
+    expect(sends[0].toSeq).toBe(sends[0].messages[1].seq);
+    expect(sends[0].fromSeq).toBeGreaterThan(1);
+    expect(session.codexCanonicalHistoryRevision).toBe(
+      sends[0].messages[0].seq,
+    );
     expect(session.historyEntries).toMatchObject([
       {
-        seq: 2,
+        seq: sends[0].messages[1].seq,
         message: {
           type: "assistant",
           messageUuid: "live-assistant-1",
         },
       },
     ]);
-    expect(session.historyRevision).toBe(2);
+    expect(session.historyRevision).toBe(sends[0].toSeq);
+
+    bridge.close();
+  });
+
+  it("keeps omitted live tool logs before the final reply across canonical refreshes", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "delegate this task" }],
+      },
+      {
+        role: "assistant",
+        uuid: "commentary-1",
+        content: [{ type: "text", text: "I will delegate this task." }],
+      },
+      {
+        role: "assistant",
+        uuid: "final-1",
+        content: [{ type: "text", text: "The task is complete." }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" && message.subtype === "session_created",
+      );
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_subagent_order";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.status = "running";
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_subagent_order",
+      turns: [],
+    });
+
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "delegate this task",
+      userMessageUuid: "codex:user-turn:1",
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      messageUuid: "commentary-1",
+      message: {
+        id: "commentary-1",
+        role: "assistant",
+        content: [{ type: "text", text: "I will delegate this task." }],
+        model: "gpt-5.3-codex",
+      },
+    });
+    for (let index = 0; index < 101; index++) {
+      manager.appendHistory(sessionId, {
+        type: "tool_result",
+        toolUseId: `background-${index}`,
+        toolName: "SubAgent",
+        content: `background result ${index}`,
+      });
+    }
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "subagent-1",
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "subagent-1",
+            name: "SubAgent",
+            input: { tool: "wait" },
+          },
+        ],
+        model: "gpt-5.3-codex",
+      },
+    });
+    manager.appendHistory(sessionId, {
+      type: "tool_result",
+      toolUseId: "subagent-1",
+      toolName: "SubAgent",
+      content: "status: completed",
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      messageUuid: "live-final-1",
+      message: {
+        id: "live-final-1",
+        role: "assistant",
+        content: [{ type: "text", text: "The task is complete." }],
+        model: "gpt-5.3-codex",
+      },
+    });
+    expect(
+      session.history.some((message: any) => message.type === "user_input"),
+    ).toBe(false);
+
+    const readHistoryOrder = async (): Promise<string[]> => {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(
+        { type: "get_history", sessionId },
+        ws,
+      );
+      const sentMessages = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string));
+      const history = sentMessages.find(
+        (message: any) => message.type === "history",
+      );
+      expect(history, JSON.stringify(sentMessages)).toBeDefined();
+      return history.messages.map((message: any) => {
+        if (message.type === "user_input") return "user";
+        if (message.type === "tool_result") {
+          return message.toolUseId === "subagent-1"
+            ? "subagent-result"
+            : "background-result";
+        }
+        const content = message.message.content[0];
+        if (content.type === "tool_use") return "subagent-use";
+        return content.text;
+      });
+    };
+
+    const assertOrder = (order: string[]): void => {
+      expect(order.slice(0, 2)).toEqual([
+        "user",
+        "I will delegate this task.",
+      ]);
+      expect(order.slice(-3)).toEqual([
+        "subagent-use",
+        "subagent-result",
+        "The task is complete.",
+      ]);
+      expect(
+        order.filter((item) => item === "The task is complete."),
+      ).toHaveLength(1);
+    };
+
+    const firstOrder = await readHistoryOrder();
+    assertOrder(firstOrder);
+    const firstRevision = session.historyRevision;
+    expect(session.codexCanonicalHistoryRevision).toBe(firstRevision);
+    expect(firstRevision).toBeGreaterThan(firstOrder.length);
+    expect(session.codexOrderedHistoryEntries).toHaveLength(100);
+
+    const secondOrder = await readHistoryOrder();
+    assertOrder(secondOrder);
+    const secondRevision = session.historyRevision;
+    expect(secondRevision).toBeGreaterThan(firstRevision);
+    expect(session.codexOrderedHistoryEntries).toHaveLength(100);
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history_delta", sessionId, sinceSeq: firstRevision },
+      ws,
+    );
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "history_snapshot"),
+    ).toMatchObject({ reason: "reset" });
+
+    const resetRevision = session.historyRevision;
+    expect(resetRevision).toBeGreaterThan(secondRevision);
+    manager.appendHistory(sessionId, {
+      type: "tool_result",
+      toolUseId: "after-refresh",
+      toolName: "SubAgent",
+      content: "new result",
+    });
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history_delta", sessionId, sinceSeq: resetRevision },
+      ws,
+    );
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "history_delta"),
+    ).toMatchObject({
+      fromSeq: resetRevision + 1,
+      toSeq: resetRevision + 1,
+      messages: [
+        {
+          seq: resetRevision + 1,
+          message: { type: "tool_result", toolUseId: "after-refresh" },
+        },
+      ],
+    });
 
     bridge.close();
   });
@@ -2250,11 +2474,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 2,
       messages: [
         {
-          seq: 1,
           message: {
             type: "assistant",
             messageUuid: "canonical-ok",
@@ -2267,7 +2488,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           },
         },
         {
-          seq: 2,
           message: {
             type: "assistant",
             message: {
@@ -2280,9 +2500,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].fromSeq).toBe(sends[0].messages[0].seq);
+    expect(sends[0].toSeq).toBe(sends[0].messages[1].seq);
+    expect(sends[0].fromSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toMatchObject([
       {
-        seq: 2,
+        seq: sends[0].messages[1].seq,
         message: {
           type: "assistant",
           message: {
@@ -2425,7 +2648,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     });
     expect(session.historyEntries).toMatchObject([
       {
-        seq: 5,
+        seq: snapshot.messages[4].seq,
         message: {
           type: "assistant",
           message: { id: "live-second-extra" },
@@ -2514,11 +2737,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 1,
       messages: [
         {
-          seq: 1,
           message: {
             type: "assistant",
             message: {
@@ -2535,8 +2755,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].fromSeq).toBe(sends[0].toSeq);
+    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
+    expect(sends[0].toSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toEqual([]);
-    expect(session.historyRevision).toBe(1);
+    expect(session.historyRevision).toBe(sends[0].toSeq);
 
     bridge.close();
   });
@@ -2604,11 +2827,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 1,
       messages: [
         {
-          seq: 1,
           message: {
             type: "tool_result",
             toolUseId: "cmd-1",
@@ -2618,8 +2838,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].fromSeq).toBe(sends[0].toSeq);
+    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
+    expect(sends[0].toSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toEqual([]);
-    expect(session.historyRevision).toBe(1);
+    expect(session.historyRevision).toBe(sends[0].toSeq);
 
     bridge.close();
   });
@@ -2696,11 +2919,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sends[0]).toMatchObject({
       type: "history_snapshot",
       sessionId,
-      fromSeq: 1,
-      toSeq: 2,
       messages: [
         {
-          seq: 1,
           message: {
             type: "user_input",
             text: "stored before pending read",
@@ -2708,7 +2928,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           },
         },
         {
-          seq: 2,
           message: {
             type: "assistant",
             messageUuid: "live-during-read",
@@ -2722,9 +2941,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].fromSeq).toBe(sends[0].messages[0].seq);
+    expect(sends[0].toSeq).toBe(sends[0].messages[1].seq);
+    expect(sends[0].fromSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toMatchObject([
       {
-        seq: 2,
+        seq: sends[0].messages[1].seq,
         message: {
           type: "assistant",
           messageUuid: "live-during-read",
@@ -2807,7 +3029,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       type: "history_snapshot",
       messages: [
         {
-          seq: 1,
           message: {
             type: "tool_result",
             toolUseId: "ig-1",
@@ -2823,6 +3044,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
+    expect(sends[0].toSeq).toBeGreaterThan(1);
 
     bridge.close();
   });
@@ -2910,7 +3133,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       type: "history_snapshot",
       messages: [
         {
-          seq: 1,
           message: {
             type: "user_input",
             text: "look at this",
@@ -2931,6 +3153,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
+    expect(sends[0].toSeq).toBeGreaterThan(1);
 
     bridge.close();
   });
@@ -5570,7 +5794,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
-    expect(session.codexCanonicalHistoryRevision).toBe(1);
+    expect(session.codexCanonicalHistoryRevision).toBeGreaterThan(1);
 
     ws.send.mockClear();
     await (bridge as any).handleClientMessage(
