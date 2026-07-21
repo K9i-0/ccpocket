@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.69.0] - 2026-07-21
+
+### Added
+- Emit structured Codex Guardian approval notices for medium- and high-risk auto-approved actions, with client capability negotiation and legacy history filtering.
+
 ## [1.68.2] - 2026-07-21
 
 ### Fixed
