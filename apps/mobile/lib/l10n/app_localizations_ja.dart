@@ -965,6 +965,26 @@ class AppLocalizationsJa extends AppLocalizations {
       'Never Ask では承認リクエストが発生しないため利用できません';
 
   @override
+  String get guardianApprovalTitle => '自動レビューで承認';
+
+  @override
+  String get guardianApprovalMediumRisk => '中リスク';
+
+  @override
+  String get guardianApprovalHighRisk => '高リスク';
+
+  @override
+  String get guardianApprovalDetails => '詳細';
+
+  @override
+  String get guardianApprovalHideDetails => '詳細を閉じる';
+
+  @override
+  String guardianApprovalAuthorization(String authorization) {
+    return '承認レベル: $authorization';
+  }
+
+  @override
   String get enablePlanModeTitle => 'Plan Mode を有効化';
 
   @override

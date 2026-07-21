@@ -954,6 +954,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get codexAutoReviewUnavailableDescription => '关闭审批时不可用';
 
   @override
+  String get guardianApprovalTitle => '自动审查已批准';
+
+  @override
+  String get guardianApprovalMediumRisk => '中等风险';
+
+  @override
+  String get guardianApprovalHighRisk => '高风险';
+
+  @override
+  String get guardianApprovalDetails => '详细信息';
+
+  @override
+  String get guardianApprovalHideDetails => '收起详细信息';
+
+  @override
+  String guardianApprovalAuthorization(String authorization) {
+    return '授权级别：$authorization';
+  }
+
+  @override
   String get enablePlanModeTitle => '启用 Plan Mode';
 
   @override

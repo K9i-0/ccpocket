@@ -1000,6 +1000,26 @@ void main() {
       },
     );
 
+    test('deduplicates repeated guardian approvals in the same turn', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      const approval = GuardianApprovalMessage(
+        risk: GuardianApprovalRisk.medium,
+        reason: 'Launching the app writes files outside the workspace.',
+        authorization: 'medium',
+      );
+
+      mockBridge.emitMessage(approval, sessionId: 's1');
+      mockBridge.emitMessage(approval, sessionId: 's1');
+      await pumpEventQueue();
+
+      final approvals = cubit.state.entries
+          .whereType<ServerChatEntry>()
+          .map((entry) => entry.message)
+          .whereType<GuardianApprovalMessage>();
+      expect(approvals, hasLength(1));
+    });
+
     test(
       'same-turn live assistants with matching text remain distinct',
       () async {

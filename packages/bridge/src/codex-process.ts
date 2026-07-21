@@ -2418,10 +2418,28 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       case "guardianWarning": {
         const message = stringValue(params.message);
         if (!message) break;
-        if (isInformationalGuardianApproval(message)) {
+        const approval = parseGuardianApproval(message);
+        if (
+          approval?.risk === "low" &&
+          isLowRiskAllowDecision(approval.reason)
+        ) {
           console.debug(
             "[codex-process] suppressed informational guardian approval notification",
           );
+          break;
+        }
+        if (
+          approval &&
+          (approval.risk === "medium" || approval.risk === "high")
+        ) {
+          this.emitMessage({
+            type: "guardian_approval",
+            risk: approval.risk,
+            reason: approval.reason,
+            ...(approval.authorization
+              ? { authorization: approval.authorization }
+              : {}),
+          });
           break;
         }
         this.emitMessage({
@@ -3944,9 +3962,48 @@ function parseResultObject(rawResult: string): {
   }
 }
 
-function isInformationalGuardianApproval(message: string): boolean {
-  const normalized = message.trim().replace(/\s+/g, " ").toLowerCase();
-  return /^automatic approval review approved\b/.test(normalized);
+interface GuardianApproval {
+  risk: "low" | "medium" | "high";
+  reason: string;
+  authorization?: string;
+}
+
+function parseGuardianApproval(message: string): GuardianApproval | null {
+  const match = message
+    .trim()
+    .match(
+      /^automatic approval review approved\s*\(([^)]*)\)\s*:\s*([\s\S]+)$/i,
+    );
+  if (!match) return null;
+
+  const metadata = new Map<string, string>();
+  for (const field of match[1].split(",")) {
+    const separator = field.indexOf(":");
+    if (separator === -1) continue;
+    metadata.set(
+      field.slice(0, separator).trim().toLowerCase(),
+      field.slice(separator + 1).trim(),
+    );
+  }
+
+  const risk = metadata.get("risk")?.toLowerCase();
+  const reason = match[2].trim();
+  if (!reason || (risk !== "low" && risk !== "medium" && risk !== "high")) {
+    return null;
+  }
+  const authorization = metadata.get("authorization");
+  return {
+    risk,
+    reason,
+    ...(authorization ? { authorization } : {}),
+  };
+}
+
+function isLowRiskAllowDecision(reason: string): boolean {
+  const normalized = reason.trim().replace(/\s+/g, " ");
+  return /^auto-review returned a low[- ]risk allow decision\.?$/i.test(
+    normalized,
+  );
 }
 
 function normalizeAnswerValues(value: unknown): string[] {

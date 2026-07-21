@@ -881,7 +881,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     )) {
       return messageUuid?.isNotEmpty == true;
     }
-    return entry is ServerChatEntry && entry.message is ResultMessage;
+    return entry is ServerChatEntry &&
+        (entry.message is ResultMessage ||
+            entry.message is GuardianApprovalMessage);
   }
 
   int _indexOfEquivalentEntry(
@@ -1023,6 +1025,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         return ['result', subtype, stopReason, result, error].join('\u0001');
       case ErrorMessage(:final message, :final errorCode):
         return ['error', errorCode, message].join('\u0001');
+      case GuardianApprovalMessage(
+        :final risk,
+        :final reason,
+        :final authorization,
+      ):
+        return [
+          'guardian_approval',
+          risk.name,
+          authorization,
+          reason,
+        ].join('\u0001');
       case ToolUseSummaryMessage(:final summary, :final precedingToolUseIds):
         return [
           'tool_use_summary',

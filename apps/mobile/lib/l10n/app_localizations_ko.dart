@@ -963,6 +963,26 @@ class AppLocalizationsKo extends AppLocalizations {
   String get codexAutoReviewUnavailableDescription => '승인이 비활성화되어 있으면 사용할 수 없음';
 
   @override
+  String get guardianApprovalTitle => '자동 리뷰 승인';
+
+  @override
+  String get guardianApprovalMediumRisk => '중간 위험';
+
+  @override
+  String get guardianApprovalHighRisk => '높은 위험';
+
+  @override
+  String get guardianApprovalDetails => '세부 정보';
+
+  @override
+  String get guardianApprovalHideDetails => '세부 정보 숨기기';
+
+  @override
+  String guardianApprovalAuthorization(String authorization) {
+    return '승인 수준: $authorization';
+  }
+
+  @override
   String get enablePlanModeTitle => 'Plan Mode 활성화';
 
   @override

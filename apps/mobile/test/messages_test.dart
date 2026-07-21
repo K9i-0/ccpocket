@@ -89,6 +89,21 @@ void main() {
     });
   });
 
+  test('parses structured Guardian approval notices', () {
+    final message =
+        ServerMessage.fromJson({
+              'type': 'guardian_approval',
+              'risk': 'high',
+              'reason': 'The command changes files outside the workspace.',
+              'authorization': 'high',
+            })
+            as GuardianApprovalMessage;
+
+    expect(message.risk, GuardianApprovalRisk.high);
+    expect(message.reason, 'The command changes files outside the workspace.');
+    expect(message.authorization, 'high');
+  });
+
   test('ReasoningEffort preserves model-advertised future values', () {
     final effort = reasoningEffortByValue('future-tier');
 
@@ -338,6 +353,7 @@ void main() {
       expect(json['supportedServerMessages'], [
         'conversation_queue',
         'goal_state',
+        'guardian_approval',
         'history_delta',
         'history_snapshot',
         'git_status_result',

@@ -820,6 +820,11 @@ sealed class ServerMessage {
         toolCalls: json['toolCalls'] as int?,
         fileEdits: json['fileEdits'] as int?,
       ),
+      'guardian_approval' => GuardianApprovalMessage(
+        risk: GuardianApprovalRisk.fromString(json['risk'] as String?),
+        reason: json['reason'] as String? ?? '',
+        authorization: json['authorization'] as String?,
+      ),
       'error' => ErrorMessage(
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
@@ -1562,6 +1567,27 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   const ErrorMessage({required this.message, this.errorCode});
+}
+
+enum GuardianApprovalRisk {
+  medium,
+  high;
+
+  static GuardianApprovalRisk fromString(String? value) => switch (value) {
+    'high' => GuardianApprovalRisk.high,
+    _ => GuardianApprovalRisk.medium,
+  };
+}
+
+class GuardianApprovalMessage implements ServerMessage {
+  final GuardianApprovalRisk risk;
+  final String reason;
+  final String? authorization;
+  const GuardianApprovalMessage({
+    required this.risk,
+    required this.reason,
+    this.authorization,
+  });
 }
 
 class StatusMessage implements ServerMessage {
@@ -3779,6 +3805,7 @@ class ClientMessage {
     List<String> supportedServerMessages = const [
       'conversation_queue',
       'goal_state',
+      'guardian_approval',
       'history_delta',
       'history_snapshot',
       'git_status_result',

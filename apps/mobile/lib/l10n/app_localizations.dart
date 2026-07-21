@@ -1896,6 +1896,42 @@ abstract class AppLocalizations {
   /// **'Never Ask では承認リクエストが発生しないため利用できません'**
   String get codexAutoReviewUnavailableDescription;
 
+  /// No description provided for @guardianApprovalTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'自動レビューで承認'**
+  String get guardianApprovalTitle;
+
+  /// No description provided for @guardianApprovalMediumRisk.
+  ///
+  /// In ja, this message translates to:
+  /// **'中リスク'**
+  String get guardianApprovalMediumRisk;
+
+  /// No description provided for @guardianApprovalHighRisk.
+  ///
+  /// In ja, this message translates to:
+  /// **'高リスク'**
+  String get guardianApprovalHighRisk;
+
+  /// No description provided for @guardianApprovalDetails.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細'**
+  String get guardianApprovalDetails;
+
+  /// No description provided for @guardianApprovalHideDetails.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細を閉じる'**
+  String get guardianApprovalHideDetails;
+
+  /// No description provided for @guardianApprovalAuthorization.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認レベル: {authorization}'**
+  String guardianApprovalAuthorization(String authorization);
+
   /// No description provided for @enablePlanModeTitle.
   ///
   /// In ja, this message translates to:

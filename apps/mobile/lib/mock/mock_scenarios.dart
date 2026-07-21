@@ -82,6 +82,7 @@ final List<MockScenario> mockScenarios = [
   _codexMcpApproval,
   _codexAskUserQuestion,
   _codexWebSearch,
+  _guardianApprovalNotice,
   _codexFullConversation,
   codexGoalPreviewScenario,
   _codexQueuedInput,
@@ -2070,7 +2071,42 @@ final _codexWebSearch = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6h. Codex Full Conversation
+// 6h. Guardian Approval Notice
+// ---------------------------------------------------------------------------
+final _guardianApprovalNotice = MockScenario(
+  name: 'Guardian Approval Notice',
+  icon: Icons.shield_outlined,
+  description: 'Quiet expandable notice for an auto-approved action',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const SystemMessage(
+        subtype: 'init',
+        sessionId: 'mock-session-guardian-approval',
+        provider: 'codex',
+        model: 'gpt-5.4',
+        approvalPolicy: 'on-request',
+        approvalsReviewer: 'auto_review',
+        sandboxMode: 'workspace-write',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 500),
+      message: const GuardianApprovalMessage(
+        risk: GuardianApprovalRisk.medium,
+        reason:
+            'Launching the Flutter app is a bounded verification step, '
+            'but it writes build files outside the workspace and starts '
+            'a long-running local process.',
+        authorization: 'medium',
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6i. Codex Full Conversation
 // ---------------------------------------------------------------------------
 final _codexFullConversation = MockScenario(
   name: 'Codex Full Conversation',
@@ -2133,7 +2169,7 @@ final _codexFullConversation = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6i. Codex Goal
+// 6j. Codex Goal
 // ---------------------------------------------------------------------------
 final codexGoalPreviewScenario = MockScenario(
   name: 'Codex Goal',

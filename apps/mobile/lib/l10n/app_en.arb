@@ -382,6 +382,17 @@
   "codexAutoReview": "Auto Review",
   "codexAutoReviewDescription": "Let Codex review approval requests automatically",
   "codexAutoReviewUnavailableDescription": "Unavailable when approvals are disabled",
+  "guardianApprovalTitle": "Auto Review approved",
+  "guardianApprovalMediumRisk": "Medium risk",
+  "guardianApprovalHighRisk": "High risk",
+  "guardianApprovalDetails": "Details",
+  "guardianApprovalHideDetails": "Hide details",
+  "guardianApprovalAuthorization": "Authorization: {authorization}",
+  "@guardianApprovalAuthorization": {
+    "placeholders": {
+      "authorization": {"type": "String"}
+    }
+  },
   "enablePlanModeTitle": "Enable Plan Mode",
   "disablePlanModeTitle": "Disable Plan Mode",
   "enablePlanModeBody": "Enabling Plan Mode will restart the session. Your conversation will be preserved.",

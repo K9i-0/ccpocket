@@ -1833,21 +1833,64 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
-  it("suppresses approved guardian notifications regardless of risk", () => {
+  it("suppresses low-risk guardian allow decisions", () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];
     proc.on("message", (message) => messages.push(message));
 
     (proc as any).handleNotification("guardianWarning", {
       message:
-        "Automatic approval review approved (risk: low, authorization: unknown):\nAuto-review returned a low-risk allow decision.",
+        "Automatic approval review approved (risk: low, authorization: unknown):\nAuto-review returned a\n  low-risk   allow decision.",
     });
-    (proc as any).handleNotification("guardianWarning", {
-      message:
-        "Automatic approval review approved (risk: medium, authorization: medium):\nLaunching the Flutter app on the local iOS simulator is a bounded, reversible verification step for the user-requested UI fix, even though it writes build/cache files outside the workspace and starts a long-running local process.",
-    });
-
     expect(messages).toEqual([]);
+    proc.stop();
+  });
+
+  it.each([
+    [
+      "medium",
+      "medium",
+      "Launching the Flutter app writes build files outside the workspace.",
+    ],
+    [
+      "high",
+      "high",
+      "Running this command can change files outside the workspace.",
+    ],
+  ] as const)(
+    "surfaces %s-risk guardian approvals as dedicated notices",
+    (risk, authorization, reason) => {
+      const proc = new CodexProcess("linux");
+      const messages: unknown[] = [];
+      proc.on("message", (message) => messages.push(message));
+
+      (proc as any).handleNotification("guardianWarning", {
+        message: `Automatic approval review approved (risk: ${risk}, authorization: ${authorization}):\n${reason}`,
+      });
+
+      expect(messages).toEqual([
+        {
+          type: "guardian_approval",
+          risk,
+          authorization,
+          reason,
+        },
+      ]);
+      proc.stop();
+    },
+  );
+
+  it("surfaces malformed approved guardian notifications as warnings", () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (message) => messages.push(message));
+    const message = "Automatic approval review approved without metadata.";
+
+    (proc as any).handleNotification("guardianWarning", { message });
+
+    expect(messages).toEqual([
+      { type: "error", errorCode: "codex_warning", message },
+    ]);
     proc.stop();
   });
 

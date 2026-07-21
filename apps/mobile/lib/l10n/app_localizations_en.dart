@@ -995,6 +995,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unavailable when approvals are disabled';
 
   @override
+  String get guardianApprovalTitle => 'Auto Review approved';
+
+  @override
+  String get guardianApprovalMediumRisk => 'Medium risk';
+
+  @override
+  String get guardianApprovalHighRisk => 'High risk';
+
+  @override
+  String get guardianApprovalDetails => 'Details';
+
+  @override
+  String get guardianApprovalHideDetails => 'Hide details';
+
+  @override
+  String guardianApprovalAuthorization(String authorization) {
+    return 'Authorization: $authorization';
+  }
+
+  @override
   String get enablePlanModeTitle => 'Enable Plan Mode';
 
   @override

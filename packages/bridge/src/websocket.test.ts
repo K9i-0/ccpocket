@@ -725,6 +725,65 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("suppresses guardian approvals unless the client opts in", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const msg = {
+      type: "guardian_approval",
+      risk: "medium",
+      reason: "Writes build files outside the workspace.",
+    };
+
+    (bridge as any).send(ws, msg);
+    expect(ws.send).not.toHaveBeenCalled();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["guardian_approval"],
+      },
+      ws,
+    );
+    (bridge as any).send(ws, msg);
+    expect(ws.send).toHaveBeenCalledWith(JSON.stringify(msg));
+
+    bridge.close();
+  });
+
+  it("filters guardian approvals from history for legacy clients", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const msg = {
+      type: "history_delta",
+      fromSeq: 1,
+      toSeq: 2,
+      messages: [
+        { seq: 1, message: { type: "status", status: "running" } },
+        {
+          seq: 2,
+          message: {
+            type: "guardian_approval",
+            risk: "high",
+            reason: "Changes files outside the workspace.",
+          },
+        },
+      ],
+    };
+
+    (bridge as any).send(ws, msg);
+
+    expect(ws.send).toHaveBeenCalledWith(
+      JSON.stringify({ ...msg, messages: [msg.messages[0]] }),
+    );
+    bridge.close();
+  });
+
   it("suppresses prompt_history_status for clients that did not opt in", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

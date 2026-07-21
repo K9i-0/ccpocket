@@ -389,6 +389,17 @@
   "codexAutoReview": "自動レビュー",
   "codexAutoReviewDescription": "承認リクエストを Codex が自動レビューします",
   "codexAutoReviewUnavailableDescription": "Never Ask では承認リクエストが発生しないため利用できません",
+  "guardianApprovalTitle": "自動レビューで承認",
+  "guardianApprovalMediumRisk": "中リスク",
+  "guardianApprovalHighRisk": "高リスク",
+  "guardianApprovalDetails": "詳細",
+  "guardianApprovalHideDetails": "詳細を閉じる",
+  "guardianApprovalAuthorization": "承認レベル: {authorization}",
+  "@guardianApprovalAuthorization": {
+    "placeholders": {
+      "authorization": {"type": "String"}
+    }
+  },
   "enablePlanModeTitle": "Plan Mode を有効化",
   "disablePlanModeTitle": "Plan Mode を無効化",
   "enablePlanModeBody": "Plan Mode を有効化するとセッションが再起動します。会話は保持されます。",

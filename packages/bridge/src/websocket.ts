@@ -189,8 +189,13 @@ const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "conversation_queue",
   "goal_state",
+  "guardian_approval",
   "prompt_history_status",
 ]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function parseCodexUserTurnOrdinal(uuid: string | undefined): number | null {
   if (!uuid) return null;
@@ -6474,12 +6479,19 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
     exclude?: WebSocket,
   ): void {
-    const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
       if (client === exclude) continue;
       if (client.readyState === WebSocket.OPEN) {
-        if (!this.shouldSendToClient(client, msg)) continue;
-        client.send(data);
+        const outboundMsg = {
+          ...(msg as unknown as Record<string, unknown>),
+          sessionId,
+        };
+        const compatibleMsg = this.prepareServerMessageForClient(
+          client,
+          outboundMsg,
+        );
+        if (!compatibleMsg) continue;
+        client.send(JSON.stringify(compatibleMsg));
       }
     }
   }
@@ -7064,13 +7076,42 @@ export class BridgeWebSocketServer {
   }
 
   private broadcast(msg: Record<string, unknown>): void {
-    const data = JSON.stringify(msg);
     for (const client of this.wss.clients) {
       if (client.readyState === WebSocket.OPEN) {
-        if (!this.shouldSendToClient(client, msg)) continue;
-        client.send(data);
+        const compatibleMsg = this.prepareServerMessageForClient(client, msg);
+        if (!compatibleMsg) continue;
+        client.send(JSON.stringify(compatibleMsg));
       }
     }
+  }
+
+  private prepareServerMessageForClient(
+    ws: WebSocket,
+    msg: ServerMessage | Record<string, unknown>,
+  ): ServerMessage | Record<string, unknown> | null {
+    if (!this.shouldSendToClient(ws, msg)) return null;
+    if (!("messages" in msg) || !Array.isArray(msg.messages)) return msg;
+    const messages = msg.messages as unknown[];
+
+    if (msg.type === "history") {
+      return {
+        ...(msg as unknown as Record<string, unknown>),
+        messages: messages.filter(
+          (message) =>
+            isRecord(message) && this.shouldSendToClient(ws, message),
+        ),
+      };
+    }
+    if (msg.type === "history_delta" || msg.type === "history_snapshot") {
+      return {
+        ...(msg as unknown as Record<string, unknown>),
+        messages: messages.filter((entry) => {
+          if (!isRecord(entry) || !isRecord(entry.message)) return true;
+          return this.shouldSendToClient(ws, entry.message);
+        }),
+      };
+    }
+    return msg;
   }
 
   private shouldSendToClient(
@@ -7203,18 +7244,19 @@ export class BridgeWebSocketServer {
     ws: WebSocket,
     msg: ServerMessage | Record<string, unknown>,
   ): void {
-    if (!this.shouldSendToClient(ws, msg)) return;
-    const sessionId = this.extractSessionIdFromServerMessage(msg);
+    const compatibleMsg = this.prepareServerMessageForClient(ws, msg);
+    if (!compatibleMsg) return;
+    const sessionId = this.extractSessionIdFromServerMessage(compatibleMsg);
     if (sessionId) {
       this.recordDebugEvent(sessionId, {
         direction: "outgoing",
         channel: "ws",
-        type: String(msg.type ?? "unknown"),
-        detail: this.summarizeOutboundMessage(msg),
+        type: String(compatibleMsg.type ?? "unknown"),
+        detail: this.summarizeOutboundMessage(compatibleMsg),
       });
     }
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify(compatibleMsg));
     }
   }
 

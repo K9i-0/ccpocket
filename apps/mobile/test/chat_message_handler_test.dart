@@ -91,6 +91,25 @@ void main() {
     });
   });
 
+  group('GuardianApprovalMessage handling', () {
+    test('adds the dedicated notice without warning side effects', () {
+      const message = GuardianApprovalMessage(
+        risk: GuardianApprovalRisk.medium,
+        reason: 'Writes build files outside the workspace.',
+        authorization: 'medium',
+      );
+
+      final update = handler.handle(message, isBackground: false);
+
+      expect(update.entriesToAdd, hasLength(1));
+      expect(
+        (update.entriesToAdd.single as ServerChatEntry).message,
+        same(message),
+      );
+      expect(update.sideEffects, isEmpty);
+    });
+  });
+
   group('ThinkingDelta handling', () {
     test('accumulates thinking text', () {
       handler.handle(

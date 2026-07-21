@@ -519,6 +519,12 @@ export type ServerMessage =
       toolCalls?: number;
       fileEdits?: number;
     }
+  | {
+      type: "guardian_approval";
+      risk: "medium" | "high";
+      reason: string;
+      authorization?: string;
+    }
   | { type: "error"; message: string; errorCode?: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
