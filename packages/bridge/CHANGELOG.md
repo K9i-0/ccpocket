@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.68.2] - 2026-07-21
+
+### Fixed
+- Preserve live Codex subagent tool logs before the final assistant response when canonical thread snapshots omit subagent activity, including compacted and multi-client history synchronization.
+
 ## [1.68.1] - 2026-07-21
 
 ### Changed
