@@ -3,6 +3,9 @@
     {
       "source": "functions",
       "codebase": "default",
+      "predeploy": [
+        "\"$RESOURCE_DIR/node_modules/.bin/tsc\" -p \"$RESOURCE_DIR/tsconfig.json\""
+      ],
       "ignore": [
         "node_modules",
         ".git",

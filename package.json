@@ -22,7 +22,7 @@
     "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge",
     "functions:typecheck": "npm --prefix functions run typecheck",
     "functions:build": "npm --prefix functions run build",
-    "functions:deploy": "npm --prefix functions run deploy",
+    "functions:deploy": "firebase deploy --only functions --project ccpocket-ca33b",
     "release-card": "node scripts/release-card/generate.mjs",
     "shorebird:patch:android": "bash .claude/skills/shorebird-patch/patch.sh android",
     "shorebird:patch:ios": "bash .claude/skills/shorebird-patch/patch.sh ios",

@@ -38,6 +38,16 @@ type NotifyBody = {
 
 type RelayBody = RegisterBody | UnregisterBody | NotifyBody;
 
+class RelayHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(code);
+    this.name = "RelayHttpError";
+  }
+}
+
 const db = getFirestore();
 const messaging = getMessaging();
 const auth = getAuth();
@@ -201,13 +211,7 @@ function isValidFcmToken(token: string): boolean {
 
 async function handleRegister(body: RegisterBody): Promise<void> {
   if (!isValidFcmToken(body.token)) {
-    throw new Error("Invalid FCM token format");
-  }
-
-  // Limit number of tokens per bridge to prevent abuse
-  const existingTokens = await db.collection(`bridges/${body.bridgeId}/tokens`).count().get();
-  if (existingTokens.data().count >= 20) {
-    throw new Error("Too many registered tokens for this bridge");
+    throw new RelayHttpError(400, "invalid_fcm_token");
   }
 
   const ref = db.doc(tokenDocPath(body.bridgeId, body.token));
@@ -222,6 +226,14 @@ async function handleRegister(body: RegisterBody): Promise<void> {
     await ref.update(updateData);
     return;
   }
+
+  // Limit new tokens per bridge to prevent abuse. Existing tokens may still
+  // refresh their platform or locale after the bridge reaches this limit.
+  const existingTokens = await db.collection(`bridges/${body.bridgeId}/tokens`).count().get();
+  if (existingTokens.data().count >= 20) {
+    throw new RelayHttpError(409, "token_limit_exceeded");
+  }
+
   await ref.set({
     token: body.token,
     platform: body.platform,
@@ -382,8 +394,21 @@ export const relay = onRequest({ cors: true, maxInstances: 10 }, async (req, res
       }
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error("Relay operation failed", { op: parsed.op, message });
-    res.status(500).json({ error: message });
+    if (error instanceof RelayHttpError) {
+      logger.warn("Relay operation rejected", {
+        op: parsed.op,
+        status: error.status,
+        code: error.code,
+      });
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
+
+    logger.error("Relay operation failed", {
+      op: parsed.op,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    res.status(500).json({ error: "internal_error" });
   }
 });

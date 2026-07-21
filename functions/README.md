@@ -3,30 +3,25 @@
 Bridge からの Push Relay (`register` / `unregister` / `notify`) を受けて
 Firestore と FCM を操作する Firebase Functions 実装です。
 
-## 事前準備（手動）
+## 認証
 
-1. Firebase プロジェクト作成
-2. Cloud Firestore 有効化
-3. Cloud Messaging 設定
-4. Functions 用の `PUSH_RELAY_SECRET` を設定
-
-```bash
-firebase functions:secrets:set PUSH_RELAY_SECRET
-```
+Bridge は Firebase Anonymous Auth で取得した ID token を Bearer token として送信する。
+Relay は token を検証し、認証済み UID を Bridge ID として利用するため、環境変数や共有secretの設定は不要。
 
 ## ローカル開発
 
 ```bash
-cd functions
-npm install
-npm run typecheck
+npm ci --prefix functions
+npm --prefix functions test
+npm --prefix functions run typecheck
+npm --prefix functions run build
 ```
 
 ## デプロイ
 
 ```bash
-cd functions
-npm run deploy
+npm run functions:deploy
 ```
 
-デプロイ後のエンドポイント URL を Bridge の `PUSH_RELAY_URL` に設定する。
+`firebase.json` の predeploy hook がデプロイ前にFunctionsをビルドする。
+デプロイ先は `ccpocket-ca33b` で、CDは使用せず手動で実行する。
