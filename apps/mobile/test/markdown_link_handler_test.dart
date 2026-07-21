@@ -35,6 +35,9 @@ void main() {
 
     test('classifies file URIs and relative file paths as files', () {
       final fileUri = classifyMarkdownLink('file:///Users/example/report.md');
+      final fileUriWithPosition = classifyMarkdownLink(
+        'file:///Users/example/report.md:12:3',
+      );
       final windowsFileUri = classifyMarkdownLink(
         'file:///C:/work/My%20report.md',
       );
@@ -42,6 +45,8 @@ void main() {
 
       expect(fileUri.kind, MarkdownLinkTargetKind.file);
       expect(fileUri.value, '/Users/example/report.md');
+      expect(fileUriWithPosition.kind, MarkdownLinkTargetKind.file);
+      expect(fileUriWithPosition.value, '/Users/example/report.md');
       expect(windowsFileUri.kind, MarkdownLinkTargetKind.file);
       expect(windowsFileUri.value, 'C:/work/My report.md');
       expect(relative.kind, MarkdownLinkTargetKind.file);

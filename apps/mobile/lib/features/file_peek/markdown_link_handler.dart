@@ -47,7 +47,7 @@ MarkdownLinkTarget classifyMarkdownLink(
   if (uri == null) return MarkdownLinkTarget.unsupported(raw);
 
   if (uri.scheme == 'file') {
-    return MarkdownLinkTarget.file(_fileUriPath(uri));
+    return MarkdownLinkTarget.file(_stripLineColumn(_fileUriPath(uri)));
   }
 
   if (uri.hasScheme) return MarkdownLinkTarget.external(uri);
