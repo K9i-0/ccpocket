@@ -5,11 +5,13 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let appIconChannelName = "ccpocket/app_icon"
   private let platformEnvironmentChannelName = "ccpocket/platform_environment"
+  private let watchConnectivityChannelName = "ccpocket/watch_connectivity"
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    WatchConnectivityManager.shared.activate()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -28,6 +30,44 @@ import UIKit
         binaryMessenger: registrar.messenger()
       )
       channel.setMethodCallHandler(handlePlatformEnvironmentMethodCall)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "WatchConnectivityChannel") {
+      let channel = FlutterMethodChannel(
+        name: watchConnectivityChannelName,
+        binaryMessenger: registrar.messenger()
+      )
+      WatchConnectivityManager.shared.attach(channel: channel)
+      channel.setMethodCallHandler(handleWatchConnectivityMethodCall)
+    }
+  }
+
+  private func handleWatchConnectivityMethodCall(
+    _ call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    switch call.method {
+    case "activate":
+      WatchConnectivityManager.shared.activate()
+      result(nil)
+    case "updateSnapshot":
+      guard let snapshot = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "invalid_snapshot", message: "Missing snapshot", details: nil))
+        return
+      }
+      do {
+        try WatchConnectivityManager.shared.updateSnapshot(snapshot)
+        result(nil)
+      } catch {
+        result(
+          FlutterError(
+            code: "watch_update_failed",
+            message: error.localizedDescription,
+            details: nil
+          )
+        )
+      }
+    default:
+      result(FlutterMethodNotImplemented)
     }
   }
 

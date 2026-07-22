@@ -1,0 +1,2 @@
+// Share Flutter's version/build variables without inheriting iOS CocoaPods.
+#include "Generated.xcconfig"

@@ -51,8 +51,10 @@ jobs:
         working-directory: apps/mobile
       - name: Fetch signing files
         run: |
-          app-store-connect fetch-signing-files com.k9i.ccpocket \
-            --type IOS_APP_STORE --create
+          for BUNDLE_ID in com.k9i.ccpocket com.k9i.ccpocket.watchkitapp; do
+            app-store-connect fetch-signing-files "$BUNDLE_ID" \
+              --type IOS_APP_STORE --create
+          done
       - name: Setup keychain
         run: keychain initialize
       - name: Add certs to keychain

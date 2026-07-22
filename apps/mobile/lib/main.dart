@@ -56,6 +56,7 @@ import 'services/revenuecat_service.dart';
 import 'services/ssh_bridge_tunnel_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'services/support_banner_service.dart';
+import 'services/watch_connectivity_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
@@ -150,6 +151,17 @@ void main() async {
 
   final bridge = BridgeService();
   bridge.onDisconnect = sshBridgeTunnelService?.closeAll;
+  final WatchConnectivityService? watchConnectivityService;
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    watchConnectivityService = WatchConnectivityService(bridge: bridge);
+    try {
+      await watchConnectivityService.initialize();
+    } catch (e) {
+      logger.warning('[watch] WatchConnectivity initialization failed', e);
+    }
+  } else {
+    watchConnectivityService = null;
+  }
   final fcmService = FcmService();
   final draftService = DraftService(prefs);
   final inAppReviewService = InAppReviewService(prefs: prefs);
@@ -200,6 +212,7 @@ void main() async {
           lazy: false,
           dispose: (service) {
             unawaited(promptHistorySyncSub.cancel());
+            unawaited(watchConnectivityService?.dispose());
             service.dispose();
           },
         ),
