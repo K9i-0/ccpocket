@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('WatchSnapshotBuilder', () {
-    test('orders actionable sessions first and maps semantic status', () {
+    test('preserves mobile order and maps semantic status', () {
       final snapshot = WatchSnapshotBuilder.build(
         connected: true,
         bridgeUrl: 'ws://localhost:8765',
@@ -35,10 +35,16 @@ void main() {
         'waiting_approval': 1,
         'running': 1,
       });
-      expect(first['id'], 'approval');
-      expect(first['title'], 'Watch MVP');
-      expect(first['statusLabel'], 'Needs you');
-      expect(first['permission'], isA<Map<String, Object?>>());
+      expect(first['id'], 'idle');
+      expect(first['statusLabel'], 'Ready');
+
+      final approval = sessions[1]! as Map<String, Object?>;
+      expect(approval['title'], 'Watch MVP');
+      expect(approval['statusLabel'], 'Needs You');
+      expect(approval['permission'], isA<Map<String, Object?>>());
+
+      final running = sessions[2]! as Map<String, Object?>;
+      expect(running['statusLabel'], 'Working');
     });
 
     test('maps utilization to remaining fractions', () {

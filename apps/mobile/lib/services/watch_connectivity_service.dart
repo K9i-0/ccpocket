@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/logger.dart';
 import '../models/messages.dart';
+import '../utils/session_ordering.dart';
 import 'bridge_service.dart';
 import 'watch_snapshot_builder.dart';
 
@@ -31,6 +33,7 @@ class WatchConnectivityService {
     _subscriptions
       ..add(_bridge.sessionList.listen((_) => _scheduleSnapshot()))
       ..add(_bridge.connectionStatus.listen(_handleConnection))
+      ..add(sessionOrderingChanges.listen((_) => _scheduleSnapshot()))
       ..add(
         _bridge.usageResults.listen((usage) {
           _usage = usage;
@@ -64,9 +67,25 @@ class WatchConnectivityService {
   }
 
   Future<void> _publishSnapshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pinnedSessionKeys =
+        prefs.getStringList(pinnedSessionKeysPreferenceKey)?.toSet() ??
+        const <String>{};
+    final pinnedProjectPaths =
+        prefs.getStringList(pinnedProjectPathsPreferenceKey)?.toSet() ??
+        const <String>{};
+    final orderedSessions = prioritizePinned(
+      _bridge.sessions,
+      isPinned: (session) {
+        final key = runningSessionPinKey(session);
+        return key != null && pinnedSessionKeys.contains(key);
+      },
+      isProjectPinned: (session) =>
+          pinnedProjectPaths.contains(session.projectPath),
+    );
     final snapshot = WatchSnapshotBuilder.build(
       connected: _bridge.isConnected,
-      sessions: _bridge.sessions,
+      sessions: orderedSessions,
       bridgeUrl: _bridge.httpBaseUrl,
       usage: _usage,
     );

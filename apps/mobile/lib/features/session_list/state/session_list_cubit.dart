@@ -6,55 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../services/bridge_service.dart';
+import '../../../utils/session_ordering.dart';
 import 'session_list_state.dart';
 
+export '../../../utils/session_ordering.dart';
+
 const _collapsedProjectPathsKey = 'session_list_collapsed_project_paths';
-const _pinnedSessionKeysKey = 'session_list_pinned_session_keys_v1';
-const _pinnedProjectPathsKey = 'session_list_pinned_project_paths_v1';
 const _projectInitialSessionDisplayLimit = 5;
 const _projectSessionDisplayPageSize = 20;
-
-String sessionPinKey({
-  required String? provider,
-  required String projectPath,
-  required String sessionId,
-}) => '${provider ?? Provider.claude.value}\n$projectPath\n$sessionId';
-
-String recentSessionPinKey(RecentSession session) => sessionPinKey(
-  provider: session.provider,
-  projectPath: session.projectPath,
-  sessionId: session.sessionId,
-);
-
-String? runningSessionPinKey(SessionInfo session) {
-  final providerSessionId = session.claudeSessionId;
-  if (providerSessionId == null || providerSessionId.isEmpty) return null;
-  return sessionPinKey(
-    provider: session.provider,
-    projectPath: session.projectPath,
-    sessionId: providerSessionId,
-  );
-}
-
-List<T> prioritizePinned<T>(
-  Iterable<T> items, {
-  required bool Function(T item) isPinned,
-  bool Function(T item)? isProjectPinned,
-}) {
-  final pinned = <T>[];
-  final pinnedProjects = <T>[];
-  final others = <T>[];
-  for (final item in items) {
-    if (isPinned(item)) {
-      pinned.add(item);
-    } else if (isProjectPinned?.call(item) ?? false) {
-      pinnedProjects.add(item);
-    } else {
-      others.add(item);
-    }
-  }
-  return [...pinned, ...pinnedProjects, ...others];
-}
 
 /// Manages session list state: sessions, filters, pagination, and
 /// accumulated project paths.
@@ -87,9 +46,10 @@ class SessionListCubit extends Cubit<SessionListState> {
         prefs.getStringList(_collapsedProjectPathsKey)?.toSet() ??
         const <String>{};
     final pinnedSessionKeys =
-        prefs.getStringList(_pinnedSessionKeysKey)?.toSet() ?? const <String>{};
+        prefs.getStringList(pinnedSessionKeysPreferenceKey)?.toSet() ??
+        const <String>{};
     final pinnedProjectPaths =
-        prefs.getStringList(_pinnedProjectPathsKey)?.toSet() ??
+        prefs.getStringList(pinnedProjectPathsPreferenceKey)?.toSet() ??
         const <String>{};
 
     var provider = ProviderFilter.all;
@@ -319,7 +279,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedSessionKeys};
     if (!next.remove(key)) next.add(key);
     emit(state.copyWith(pinnedSessionKeys: next));
-    await _persistStringSet(_pinnedSessionKeysKey, next);
+    await _persistStringSet(pinnedSessionKeysPreferenceKey, next);
   }
 
   Future<void> toggleProjectPinned(String projectPath) async {
@@ -329,13 +289,14 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedProjectPaths};
     if (!next.remove(projectPath)) next.add(projectPath);
     emit(state.copyWith(pinnedProjectPaths: next));
-    await _persistStringSet(_pinnedProjectPathsKey, next);
+    await _persistStringSet(pinnedProjectPathsPreferenceKey, next);
   }
 
   Future<void> _persistStringSet(String key, Set<String> values) async {
     final sorted = values.toList()..sort();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(key, sorted);
+    notifySessionOrderingChanged();
   }
 
   /// Request fresh data from the server.

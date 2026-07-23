@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/watch_connectivity_service.dart';
+import 'package:ccpocket/utils/session_ordering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,6 +117,79 @@ void main() {
     bridge.dispose();
     await fixture.close();
   });
+
+  test('refreshes Watch order immediately after a mobile pin change', () async {
+    final pinnedKey = sessionPinKey(
+      provider: 'codex',
+      projectPath: '/work/pinned',
+      sessionId: 'provider-pinned',
+    );
+    final fixture = await _WatchBridgeFixture.start(
+      sessions: const [
+        {
+          'id': 'normal',
+          'projectPath': '/work/normal',
+          'provider': 'codex',
+          'claudeSessionId': 'provider-normal',
+          'status': 'idle',
+          'createdAt': '2026-07-22T00:00:00Z',
+          'lastActivityAt': '2026-07-22T02:00:00Z',
+        },
+        {
+          'id': 'pinned',
+          'projectPath': '/work/pinned',
+          'provider': 'codex',
+          'claudeSessionId': 'provider-pinned',
+          'status': 'running',
+          'createdAt': '2026-07-22T00:00:00Z',
+          'lastActivityAt': '2026-07-22T01:00:00Z',
+        },
+      ],
+    );
+    final bridge = BridgeService();
+    final sessionReceived = bridge.sessionList.firstWhere(
+      (sessions) => sessions.length == 2,
+    );
+    bridge.connect(fixture.url);
+    await fixture.sessionDelivered;
+    await sessionReceived;
+
+    final initialSnapshotSent = Completer<Map<Object?, Object?>>();
+    final pinnedSnapshotSent = Completer<Map<Object?, Object?>>();
+    var snapshotCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'updateSnapshot') {
+            snapshotCount += 1;
+            final snapshot = call.arguments as Map<Object?, Object?>;
+            if (snapshotCount == 1) {
+              initialSnapshotSent.complete(snapshot);
+            } else if (!pinnedSnapshotSent.isCompleted) {
+              pinnedSnapshotSent.complete(snapshot);
+            }
+          }
+          return null;
+        });
+    final service = WatchConnectivityService(bridge: bridge, channel: channel);
+    await service.initialize();
+
+    final initialSnapshot = await initialSnapshotSent.future;
+    final initialSessions = initialSnapshot['sessions']! as List<Object?>;
+    expect((initialSessions.first! as Map<Object?, Object?>)['id'], 'normal');
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(pinnedSessionKeysPreferenceKey, [pinnedKey]);
+    notifySessionOrderingChanged();
+
+    final pinnedSnapshot = await pinnedSnapshotSent.future;
+    final pinnedSessions = pinnedSnapshot['sessions']! as List<Object?>;
+    expect((pinnedSessions.first! as Map<Object?, Object?>)['id'], 'pinned');
+
+    await service.dispose();
+    bridge.disconnect();
+    bridge.dispose();
+    await fixture.close();
+  });
 }
 
 class _WatchBridgeFixture {
@@ -128,7 +202,9 @@ class _WatchBridgeFixture {
   String get url => 'ws://127.0.0.1:${server.port}';
   Future<void> get sessionDelivered => _sessionDelivered.future;
 
-  static Future<_WatchBridgeFixture> start() async {
+  static Future<_WatchBridgeFixture> start({
+    List<Map<String, Object?>>? sessions,
+  }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final delivered = Completer<void>();
     final fixture = _WatchBridgeFixture(server, delivered);
@@ -137,20 +213,22 @@ class _WatchBridgeFixture {
       socket.add(
         jsonEncode({
           'type': 'session_list',
-          'sessions': [
-            {
-              'id': 'watch-session',
-              'projectPath': '/work/ccpocket',
-              'status': 'waiting_approval',
-              'createdAt': '2026-07-22T00:00:00Z',
-              'lastActivityAt': '2026-07-22T01:00:00Z',
-              'pendingPermission': {
-                'toolUseId': 'watch-tool',
-                'toolName': 'Bash',
-                'input': {'command': 'flutter test'},
-              },
-            },
-          ],
+          'sessions':
+              sessions ??
+              [
+                {
+                  'id': 'watch-session',
+                  'projectPath': '/work/ccpocket',
+                  'status': 'waiting_approval',
+                  'createdAt': '2026-07-22T00:00:00Z',
+                  'lastActivityAt': '2026-07-22T01:00:00Z',
+                  'pendingPermission': {
+                    'toolUseId': 'watch-tool',
+                    'toolName': 'Bash',
+                    'input': {'command': 'flutter test'},
+                  },
+                },
+              ],
         }),
       );
       delivered.complete();

@@ -39,7 +39,7 @@ struct WatchSnapshot {
         "branch": "feat/apple-watch-mvp",
         "provider": "codex",
         "status": "waiting_approval",
-        "statusLabel": "Needs approval",
+        "statusLabel": "Needs You",
         "lastMessage": "Ready to run the full Flutter test suite.",
         "permission": [
           "toolUseId": "preview-tool",
@@ -59,7 +59,7 @@ struct WatchSnapshot {
         "branch": "main",
         "provider": "claude",
         "status": "running",
-        "statusLabel": "Running",
+        "statusLabel": "Working",
         "lastMessage": "Reviewing the WebSocket session lifecycle.",
       ] as [String: Any],
     ],
@@ -82,13 +82,16 @@ struct WatchSnapshot {
     connected = dictionary["connected"] as? Bool ?? false
     bridgeHost = dictionary["bridgeHost"] as? String ?? ""
     bridgePort = dictionary["bridgePort"] as? Int
-    activeSessionCount = dictionary["activeSessionCount"] as? Int
-      ?? Self.dictionaries(dictionary["sessions"]).count
+    activeSessionCount = max(
+      0,
+      dictionary["activeSessionCount"] as? Int
+        ?? Self.dictionaries(dictionary["sessions"]).count
+    )
     sessions = Self.dictionaries(dictionary["sessions"]).compactMap(WatchSession.init)
     if let counts = dictionary["statusCounts"] as? [String: Any] {
       statusCounts = counts.reduce(into: [:]) { result, entry in
         if let count = entry.value as? Int {
-          result[entry.key] = count
+          result[entry.key] = max(0, count)
         }
       }
     } else {
@@ -147,7 +150,11 @@ struct WatchSession: Identifiable {
     branch = dictionary["branch"] as? String ?? ""
     provider = dictionary["provider"] as? String ?? "claude"
     status = dictionary["status"] as? String ?? "idle"
-    statusLabel = dictionary["statusLabel"] as? String ?? status
+    statusLabel = switch status {
+    case "waiting_approval": "Needs You"
+    case "running", "starting", "compacting": "Working"
+    default: "Ready"
+    }
     lastMessage = dictionary["lastMessage"] as? String ?? ""
     permission = (dictionary["permission"] as? [String: Any]).flatMap(WatchPermission.init)
   }

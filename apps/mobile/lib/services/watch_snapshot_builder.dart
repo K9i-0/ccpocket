@@ -29,7 +29,6 @@ class WatchSnapshotBuilder {
     UsageResultMessage? usage,
     DateTime? generatedAt,
   }) {
-    final orderedSessions = [...sessions]..sort(_compareSessions);
     final bridgeUri = bridgeUrl == null ? null : Uri.tryParse(bridgeUrl);
     final statusCounts = <String, int>{};
     for (final session in sessions) {
@@ -45,7 +44,8 @@ class WatchSnapshotBuilder {
       if (bridgeUri != null) 'bridgePort': _bridgePort(bridgeUri),
       'activeSessionCount': sessions.length,
       'statusCounts': statusCounts,
-      'sessions': orderedSessions
+      // The caller supplies the same stable, pin-aware order as mobile.
+      'sessions': sessions
           .take(_maxSessions)
           .map(_sessionPayload)
           .toList(growable: false),
@@ -101,19 +101,6 @@ class WatchSnapshotBuilder {
     }
     return jsonEncode({'questions': questions, 'answers': normalized});
   }
-
-  static int _compareSessions(SessionInfo a, SessionInfo b) {
-    final priority = _statusPriority(a.status) - _statusPriority(b.status);
-    if (priority != 0) return priority;
-    return b.lastActivityAt.compareTo(a.lastActivityAt);
-  }
-
-  static int _statusPriority(String status) => switch (status) {
-    'waiting_approval' => 0,
-    'running' || 'starting' => 1,
-    'compacting' => 2,
-    _ => 3,
-  };
 
   static Map<String, Object?> _sessionPayload(SessionInfo session) {
     final permission = session.pendingPermission;
@@ -259,13 +246,9 @@ class WatchSnapshotBuilder {
       _knownStatuses.contains(status) ? status : 'other';
 
   static String _statusLabel(String status) => switch (status) {
-    'waiting_approval' => 'Needs you',
-    'running' => 'Running',
-    'starting' => 'Starting',
-    'compacting' => 'Compacting',
-    'idle' => 'Idle',
-    'stopped' => 'Stopped',
-    'other' => 'Other',
+    'waiting_approval' => 'Needs You',
+    'running' || 'starting' || 'compacting' => 'Working',
+    'idle' || 'stopped' || 'other' => 'Ready',
     _ => status.replaceAll('_', ' '),
   };
 }

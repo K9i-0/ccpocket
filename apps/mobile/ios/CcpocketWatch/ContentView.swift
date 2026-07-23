@@ -65,120 +65,104 @@ private enum DashboardPage: Int, Hashable {
 private struct SummaryPage: View {
   let snapshot: WatchSnapshot
 
-  private var runningCount: Int { snapshot.statusCounts["running", default: 0] }
-
-  private var otherStatuses: [StatusMetric] {
-    let known = [
+  private var statusMetrics: [StatusMetric] {
+    let total = max(0, snapshot.activeSessionCount)
+    let rawWorking = snapshot.statusCounts["running", default: 0]
+      + snapshot.statusCounts["starting", default: 0]
+      + snapshot.statusCounts["compacting", default: 0]
+    let working = min(total, max(0, rawWorking))
+    let needsYou = min(
+      total - working,
+      max(0, snapshot.statusCounts["waiting_approval", default: 0])
+    )
+    let ready = total - working - needsYou
+    return [
       StatusMetric(
-        key: "waiting_approval",
-        label: "Needs you",
-        symbol: "hand.raised.fill",
-        color: .ccpocketApproval,
-        count: snapshot.statusCounts["waiting_approval", default: 0]
-      ),
-      StatusMetric(
-        key: "starting",
-        label: "Starting",
-        symbol: "hourglass",
+        key: "working",
+        label: "Working",
         color: .ccpocketRunning,
-        count: snapshot.statusCounts["starting", default: 0]
+        count: working
       ),
       StatusMetric(
-        key: "compacting",
-        label: "Compacting",
-        symbol: "arrow.triangle.2.circlepath",
-        color: .ccpocketCompacting,
-        count: snapshot.statusCounts["compacting", default: 0]
+        key: "needs_you",
+        label: "Needs You",
+        color: .ccpocketApproval,
+        count: needsYou
       ),
       StatusMetric(
-        key: "idle",
-        label: "Idle",
-        symbol: "pause.fill",
+        key: "ready",
+        label: "Ready",
         color: .ccpocketIdle,
-        count: snapshot.statusCounts["idle", default: 0]
-      ),
-      StatusMetric(
-        key: "stopped",
-        label: "Stopped",
-        symbol: "stop.fill",
-        color: .secondary,
-        count: snapshot.statusCounts["stopped", default: 0]
-      ),
-      StatusMetric(
-        key: "other",
-        label: "Other",
-        symbol: "circle.fill",
-        color: .secondary,
-        count: snapshot.statusCounts["other", default: 0]
-      ),
+        count: ready
+      )
     ]
-    let knownKeys = Set(known.map(\.key) + ["running"])
-    let unknown = snapshot.statusCounts
-      .filter { !knownKeys.contains($0.key) && $0.value > 0 }
-      .sorted { $0.key < $1.key }
-      .map { key, count in
-        StatusMetric(
-          key: key,
-          label: key.replacingOccurrences(of: "_", with: " ").capitalized,
-          symbol: "circle.fill",
-          color: .secondary,
-          count: count
-        )
-      }
-    return known.filter { $0.count > 0 } + unknown
   }
 
   var body: some View {
-    ScrollView {
-      VStack(spacing: 8) {
-        ConnectionPill(connected: snapshot.connected)
+    ViewThatFits(in: .vertical) {
+      summaryContent(compact: false)
+      summaryContent(compact: true)
+    }
+    .padding(.horizontal, 4)
+    .padding(.bottom, 8)
+  }
 
-        VStack(alignment: .leading, spacing: 2) {
-          HStack(alignment: .firstTextBaseline) {
-            Text(runningCount, format: .number)
-              .font(.system(size: 42, weight: .semibold, design: .rounded))
-              .foregroundStyle(Color.ccpocketRunning)
-            Spacer()
-            Image(systemName: "bolt.fill")
-              .foregroundStyle(Color.ccpocketRunning)
+  @ViewBuilder
+  private func summaryContent(compact: Bool) -> some View {
+    VStack(spacing: compact ? 5 : 7) {
+      if !compact {
+        ConnectionPill(connected: snapshot.connected)
+      }
+
+      HStack(alignment: .center) {
+        VStack(alignment: .leading, spacing: 0) {
+          HStack(spacing: 5) {
+            if compact {
+              Circle()
+                .fill(snapshot.connected ? Color.ccpocketOnline : Color.ccpocketIdle)
+                .frame(width: 6, height: 6)
+            }
+            Text("Active")
+              .font(.headline)
           }
-          Text("Running sessions")
-            .font(.headline)
-          Text("\(snapshot.activeSessionCount) active in total")
+          Text(snapshot.connected
+            ? (compact ? "This Bridge" : "Across this Bridge")
+            : "Bridge unavailable")
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
-        .dashboardCard()
+        Spacer()
+        Text(snapshot.activeSessionCount, format: .number)
+          .font(.system(size: compact ? 30 : 38, weight: .semibold, design: .rounded))
+          .foregroundStyle(Color.ccpocketOrange)
+          .monospacedDigit()
+      }
+      .dashboardCard(contentPadding: compact ? 7 : 10)
 
-        if otherStatuses.isEmpty {
-          if snapshot.activeSessionCount == 0 {
-            Label("No active sessions", systemImage: "checkmark.circle")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .dashboardCard()
-          }
-        } else {
-          VStack(spacing: 8) {
-            ForEach(otherStatuses) { metric in
-              HStack(spacing: 7) {
-                Image(systemName: metric.symbol)
-                  .font(.caption)
-                  .foregroundStyle(metric.color)
-                  .frame(width: 16)
-                Text(metric.label)
-                  .font(.caption)
-                Spacer()
-                Text(metric.count, format: .number)
-                  .font(.headline.monospacedDigit())
-              }
+      HStack(spacing: 5) {
+        ForEach(statusMetrics) { metric in
+          VStack(spacing: 3) {
+            HStack(spacing: 4) {
+              Circle()
+                .fill(metric.color)
+                .frame(width: 7, height: 7)
+              Text(metric.count, format: .number)
+                .font(.headline.monospacedDigit())
             }
+            Text(metric.label)
+              .font(.system(size: 9, weight: .medium))
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+              .minimumScaleFactor(0.75)
           }
-          .dashboardCard()
+          .frame(maxWidth: .infinity)
+          .padding(.vertical, compact ? 4 : 7)
+          .background {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+              .fill(Color.white.opacity(0.08))
+          }
         }
       }
-      .padding(.horizontal, 4)
-      .padding(.bottom, 8)
     }
   }
 }
@@ -186,7 +170,6 @@ private struct SummaryPage: View {
 private struct StatusMetric: Identifiable {
   let key: String
   let label: String
-  let symbol: String
   let color: Color
   let count: Int
 
@@ -253,12 +236,6 @@ private struct SessionCard: View {
         Text(session.title)
           .font(.headline)
           .lineLimit(1)
-        HStack(spacing: 4) {
-          Image(systemName: session.providerSymbol)
-          Text(session.statusLabel)
-        }
-        .font(.caption2)
-        .foregroundStyle(session.statusColor)
         if !session.lastMessage.isEmpty {
           Text(session.lastMessage)
             .font(.caption2)
@@ -268,9 +245,14 @@ private struct SessionCard: View {
       }
 
       Spacer(minLength: 0)
-      Image(systemName: "chevron.right")
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.tertiary)
+      VStack(spacing: 5) {
+        Image(systemName: session.providerSymbol)
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+        Image(systemName: "chevron.right")
+          .font(.caption2.weight(.semibold))
+          .foregroundStyle(.tertiary)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .dashboardCard(highlighted: session.permission != nil)
@@ -412,8 +394,11 @@ private struct ConnectionPill: View {
 }
 
 private extension View {
-  func dashboardCard(highlighted: Bool = false) -> some View {
-    padding(10)
+  func dashboardCard(
+    highlighted: Bool = false,
+    contentPadding: CGFloat = 10
+  ) -> some View {
+    padding(contentPadding)
       .background {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
           .fill(highlighted ? Color.ccpocketOrange.opacity(0.16) : Color.white.opacity(0.08))
