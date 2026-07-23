@@ -53,6 +53,15 @@ private struct SummaryComplicationView: View {
         renderingMode: renderingMode
       )
     }
+    .widgetLabel {
+      if !entry.summary.connected {
+        Text("Bridge Offline")
+      } else if entry.summary.needsYou > 0 {
+        Text("\(entry.summary.needsYou) Needs You")
+      } else {
+        Text("\(entry.summary.active) Active")
+      }
+    }
   }
 }
 
@@ -66,7 +75,7 @@ private struct CcpocketSummaryComplication: Widget {
     }
     .configurationDisplayName("Session Summary")
     .description("Shows active sessions and whether any need your attention.")
-    .supportedFamilies([.accessoryCircular])
+    .supportedFamilies([.accessoryCircular, .accessoryCorner])
   }
 }
 
@@ -78,6 +87,13 @@ struct CcpocketWatchWidgetBundle: WidgetBundle {
 }
 
 #Preview(as: .accessoryCircular) {
+  CcpocketSummaryComplication()
+} timeline: {
+  SummaryEntry(date: .now, summary: .preview)
+  SummaryEntry(date: .now, summary: .empty)
+}
+
+#Preview("Corner", as: .accessoryCorner) {
   CcpocketSummaryComplication()
 } timeline: {
   SummaryEntry(date: .now, summary: .preview)
