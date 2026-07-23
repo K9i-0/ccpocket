@@ -225,39 +225,64 @@ private struct SessionsPage: View {
 private struct SessionCard: View {
   let session: WatchSession
 
+  private var usesProjectName: Bool {
+    !session.hasCustomName
+  }
+
+  private var accessibilityDescription: String {
+    if usesProjectName {
+      return "Project, \(session.title), \(session.statusLabel)"
+    }
+    if session.project.isEmpty {
+      return "Session, \(session.title), \(session.statusLabel)"
+    }
+    return "Session, \(session.title), project \(session.project), \(session.statusLabel)"
+  }
+
   var body: some View {
-    HStack(spacing: 9) {
+    HStack(alignment: .top, spacing: 8) {
       Circle()
         .fill(session.statusColor)
         .frame(width: 9, height: 9)
+        .padding(.top, 5)
         .accessibilityHidden(true)
 
-      VStack(alignment: .leading, spacing: 3) {
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 5) {
+          Text(usesProjectName ? "PROJECT" : "SESSION")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(usesProjectName ? Color.ccpocketTeal : Color.ccpocketOrange)
+
+          if !usesProjectName, !session.project.isEmpty {
+            Text(session.project)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
+        }
+
         Text(session.title)
           .font(.headline)
           .lineLimit(1)
+
         if !session.lastMessage.isEmpty {
           Text(session.lastMessage)
             .font(.caption2)
             .foregroundStyle(.secondary)
-            .lineLimit(2)
+            .lineLimit(3)
         }
       }
 
       Spacer(minLength: 0)
-      VStack(spacing: 5) {
-        Image(systemName: session.providerSymbol)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-        Image(systemName: "chevron.right")
-          .font(.caption2.weight(.semibold))
-          .foregroundStyle(.tertiary)
-      }
+      Image(systemName: "chevron.right")
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.tertiary)
+        .padding(.top, 26)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .dashboardCard(highlighted: session.permission != nil)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(session.title), \(session.statusLabel)")
+    .accessibilityLabel(accessibilityDescription)
     .accessibilityHint("Opens session actions")
   }
 }

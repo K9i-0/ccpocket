@@ -134,6 +134,7 @@ struct WatchSnapshot {
 struct WatchSession: Identifiable {
   let id: String
   let title: String
+  let hasCustomName: Bool
   let project: String
   let branch: String
   let provider: String
@@ -145,8 +146,10 @@ struct WatchSession: Identifiable {
   init?(_ dictionary: [String: Any]) {
     guard let id = dictionary["id"] as? String else { return nil }
     self.id = id
-    title = dictionary["title"] as? String ?? "Session"
+    let decodedTitle = dictionary["title"] as? String ?? ""
+    title = decodedTitle.isEmpty ? "Session" : decodedTitle
     project = dictionary["project"] as? String ?? ""
+    hasCustomName = (dictionary["hasCustomName"] as? Bool) ?? (title != project)
     branch = dictionary["branch"] as? String ?? ""
     provider = dictionary["provider"] as? String ?? "claude"
     status = dictionary["status"] as? String ?? "idle"

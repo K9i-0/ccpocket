@@ -108,6 +108,7 @@ class WatchSnapshotBuilder {
     return <String, Object?>{
       'id': session.id,
       'title': _truncate(_sessionTitle(session), 60),
+      'hasCustomName': session.name?.trim().isNotEmpty ?? false,
       'project': _truncate(_basename(session.projectPath), 60),
       'branch': _truncate(session.gitBranch, 80),
       'provider': session.provider ?? 'claude',
@@ -234,7 +235,8 @@ class WatchSnapshotBuilder {
   static String _sessionTitle(SessionInfo session) {
     final name = session.name?.trim();
     if (name != null && name.isNotEmpty) return name;
-    return _basename(session.projectPath);
+    final project = _basename(session.projectPath);
+    return project.isEmpty ? 'Session' : project;
   }
 
   static String _basename(String path) {

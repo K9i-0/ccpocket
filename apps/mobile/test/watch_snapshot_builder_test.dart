@@ -37,9 +37,11 @@ void main() {
       });
       expect(first['id'], 'idle');
       expect(first['statusLabel'], 'Ready');
+      expect(first['hasCustomName'], isFalse);
 
       final approval = sessions[1]! as Map<String, Object?>;
       expect(approval['title'], 'Watch MVP');
+      expect(approval['hasCustomName'], isTrue);
       expect(approval['statusLabel'], 'Needs You');
       expect(approval['permission'], isA<Map<String, Object?>>());
 
@@ -207,6 +209,17 @@ void main() {
 
       expect(secure['bridgePort'], 443);
       expect(local['bridgePort'], 80);
+    });
+
+    test('falls back to a non-empty title without a project path', () {
+      final snapshot = WatchSnapshotBuilder.build(
+        connected: true,
+        sessions: [_session(id: 'empty-project', status: 'idle', projectPath: '')],
+      );
+
+      final session = (snapshot['sessions']! as List).single as Map;
+      expect(session['title'], 'Session');
+      expect(session['hasCustomName'], isFalse);
     });
 
     test('aggregates unknown statuses without growing the payload map', () {
