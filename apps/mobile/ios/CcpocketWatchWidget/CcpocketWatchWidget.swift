@@ -53,6 +53,9 @@ private struct SummaryComplicationView: View {
         renderingMode: renderingMode
       )
     }
+    .containerBackground(for: .widget) {
+      Color.clear
+    }
     .widgetLabel {
       if !entry.summary.connected {
         Text("Bridge Offline")
