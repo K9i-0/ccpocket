@@ -7,6 +7,7 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
   static let shared = WatchConnectivityManager()
 
   private var flutterChannel: FlutterMethodChannel?
+  private var latestSnapshot: [String: Any]?
   private var pendingActions: [[String: Any]] = []
 
   private override init() {
@@ -27,7 +28,16 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
 
   func updateSnapshot(_ snapshot: [String: Any]) throws {
     guard WCSession.isSupported() else { return }
+    latestSnapshot = snapshot
     let session = WCSession.default
+    guard session.activationState == .activated else { return }
+    try deliver(snapshot, using: session)
+  }
+
+  private func deliver(
+    _ snapshot: [String: Any],
+    using session: WCSession
+  ) throws {
     try session.updateApplicationContext(snapshot)
     if session.isReachable {
       session.sendMessage(
@@ -85,7 +95,20 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     _ session: WCSession,
     activationDidCompleteWith activationState: WCSessionActivationState,
     error: Error?
-  ) {}
+  ) {
+    guard activationState == .activated, error == nil else { return }
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let snapshot = self.latestSnapshot else { return }
+      do {
+        try self.deliver(snapshot, using: session)
+      } catch {
+        NSLog(
+          "[watch] Deferred snapshot update failed: %@",
+          error.localizedDescription
+        )
+      }
+    }
+  }
 
   func sessionDidBecomeInactive(_ session: WCSession) {}
 
