@@ -48,6 +48,20 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     }
   }
 
+  private func redeliverLatestSnapshot(using session: WCSession) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let snapshot = self.latestSnapshot else { return }
+      do {
+        try self.deliver(snapshot, using: session)
+      } catch {
+        NSLog(
+          "[watch] Deferred snapshot update failed: %@",
+          error.localizedDescription
+        )
+      }
+    }
+  }
+
   private func flushPendingActions() {
     guard flutterChannel != nil, !pendingActions.isEmpty else { return }
     let actions = pendingActions
@@ -97,17 +111,17 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     error: Error?
   ) {
     guard activationState == .activated, error == nil else { return }
-    DispatchQueue.main.async { [weak self] in
-      guard let self, let snapshot = self.latestSnapshot else { return }
-      do {
-        try self.deliver(snapshot, using: session)
-      } catch {
-        NSLog(
-          "[watch] Deferred snapshot update failed: %@",
-          error.localizedDescription
-        )
-      }
-    }
+    redeliverLatestSnapshot(using: session)
+  }
+
+  func sessionWatchStateDidChange(_ session: WCSession) {
+    guard session.activationState == .activated else { return }
+    redeliverLatestSnapshot(using: session)
+  }
+
+  func sessionReachabilityDidChange(_ session: WCSession) {
+    guard session.isReachable else { return }
+    redeliverLatestSnapshot(using: session)
   }
 
   func sessionDidBecomeInactive(_ session: WCSession) {}

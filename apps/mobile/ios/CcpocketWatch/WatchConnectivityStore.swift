@@ -197,6 +197,16 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
   func sessionReachabilityDidChange(_ session: WCSession) {
     DispatchQueue.main.async { [weak self] in
       self?.isReachable = session.isReachable
+      if session.isReachable {
+        self?.refresh()
+      }
+    }
+  }
+
+  func sessionCompanionAppInstalledDidChange(_ session: WCSession) {
+    guard session.isCompanionAppInstalled else { return }
+    DispatchQueue.main.async { [weak self] in
+      self?.refresh()
     }
   }
 
