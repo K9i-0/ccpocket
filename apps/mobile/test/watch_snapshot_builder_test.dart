@@ -9,6 +9,7 @@ void main() {
     test('orders actionable sessions first and maps semantic status', () {
       final snapshot = WatchSnapshotBuilder.build(
         connected: true,
+        bridgeUrl: 'ws://localhost:8765',
         generatedAt: DateTime.utc(2026, 7, 22),
         sessions: [
           _session(id: 'idle', status: 'idle', projectPath: '/work/idle'),
@@ -26,7 +27,14 @@ void main() {
       final sessions = snapshot['sessions']! as List<Object?>;
       final first = sessions.first! as Map<String, Object?>;
       expect(snapshot['connected'], isTrue);
+      expect(snapshot['bridgeHost'], 'localhost');
+      expect(snapshot['bridgePort'], 8765);
       expect(snapshot['activeSessionCount'], 3);
+      expect(snapshot['statusCounts'], {
+        'idle': 1,
+        'waiting_approval': 1,
+        'running': 1,
+      });
       expect(first['id'], 'approval');
       expect(first['title'], 'Watch MVP');
       expect(first['statusLabel'], 'Needs you');
@@ -175,6 +183,45 @@ void main() {
 
       expect((snapshot['sessions']! as List), hasLength(6));
       expect(snapshot['activeSessionCount'], 20);
+      expect(snapshot['statusCounts'], {'waiting_approval': 20});
+      expect(utf8.encode(jsonEncode(snapshot)).length, lessThan(40 * 1024));
+    });
+
+    test('uses default ports when the Bridge URL omits one', () {
+      final secure = WatchSnapshotBuilder.build(
+        connected: true,
+        bridgeUrl: 'wss://bridge.example.com',
+        sessions: const [],
+      );
+      final local = WatchSnapshotBuilder.build(
+        connected: true,
+        bridgeUrl: 'ws://localhost',
+        sessions: const [],
+      );
+
+      expect(secure['bridgePort'], 443);
+      expect(local['bridgePort'], 80);
+    });
+
+    test('aggregates unknown statuses without growing the payload map', () {
+      final longStatus = List.filled(2000, '異常').join();
+      final snapshot = WatchSnapshotBuilder.build(
+        connected: true,
+        sessions: List.generate(
+          200,
+          (index) => _session(
+            id: 'unknown-$index',
+            status: '$index-$longStatus',
+            projectPath: '/work/project-$index',
+          ),
+        ),
+      );
+
+      expect(snapshot['activeSessionCount'], 200);
+      expect(snapshot['statusCounts'], {'other': 200});
+      final sessions = snapshot['sessions']! as List;
+      expect(sessions, hasLength(6));
+      expect((sessions.first as Map)['status'], 'other');
       expect(utf8.encode(jsonEncode(snapshot)).length, lessThan(40 * 1024));
     });
 

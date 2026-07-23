@@ -2,14 +2,20 @@ import SwiftUI
 
 struct WatchSnapshot {
   let connected: Bool
+  let bridgeHost: String
+  let bridgePort: Int?
   let activeSessionCount: Int
+  let statusCounts: [String: Int]
   let sessions: [WatchSession]
   let usage: [WatchUsage]
   let generatedAt: Date?
 
   static let empty = WatchSnapshot(
     connected: false,
+    bridgeHost: "",
+    bridgePort: nil,
     activeSessionCount: 0,
+    statusCounts: [:],
     sessions: [],
     usage: [],
     generatedAt: nil
@@ -18,7 +24,13 @@ struct WatchSnapshot {
   #if DEBUG
   static let preview = WatchSnapshot(dictionary: [
     "connected": true,
+    "bridgeHost": "localhost",
+    "bridgePort": 8765,
     "generatedAt": "2026-07-22T03:00:00Z",
+    "statusCounts": [
+      "waiting_approval": 1,
+      "running": 1,
+    ],
     "sessions": [
       [
         "id": "preview-approval",
@@ -68,9 +80,21 @@ struct WatchSnapshot {
 
   init(dictionary: [String: Any]) {
     connected = dictionary["connected"] as? Bool ?? false
+    bridgeHost = dictionary["bridgeHost"] as? String ?? ""
+    bridgePort = dictionary["bridgePort"] as? Int
     activeSessionCount = dictionary["activeSessionCount"] as? Int
       ?? Self.dictionaries(dictionary["sessions"]).count
     sessions = Self.dictionaries(dictionary["sessions"]).compactMap(WatchSession.init)
+    if let counts = dictionary["statusCounts"] as? [String: Any] {
+      statusCounts = counts.reduce(into: [:]) { result, entry in
+        if let count = entry.value as? Int {
+          result[entry.key] = count
+        }
+      }
+    } else {
+      statusCounts = Dictionary(grouping: sessions, by: \WatchSession.status)
+        .mapValues(\.count)
+    }
     usage = Self.dictionaries(dictionary["usage"]).compactMap(WatchUsage.init)
     if let value = dictionary["generatedAt"] as? String {
       generatedAt = ISO8601DateFormatter().date(from: value)
@@ -81,13 +105,19 @@ struct WatchSnapshot {
 
   private init(
     connected: Bool,
+    bridgeHost: String,
+    bridgePort: Int?,
     activeSessionCount: Int,
+    statusCounts: [String: Int],
     sessions: [WatchSession],
     usage: [WatchUsage],
     generatedAt: Date?
   ) {
     self.connected = connected
+    self.bridgeHost = bridgeHost
+    self.bridgePort = bridgePort
     self.activeSessionCount = activeSessionCount
+    self.statusCounts = statusCounts
     self.sessions = sessions
     self.usage = usage
     self.generatedAt = generatedAt
@@ -125,7 +155,7 @@ struct WatchSession: Identifiable {
   var statusColor: Color {
     switch status {
     case "waiting_approval": .ccpocketApproval
-    case "running": .ccpocketRunning
+    case "running", "starting": .ccpocketRunning
     case "compacting": .ccpocketCompacting
     default: .ccpocketIdle
     }

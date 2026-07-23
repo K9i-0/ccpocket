@@ -67,6 +67,7 @@ class WatchConnectivityService {
     final snapshot = WatchSnapshotBuilder.build(
       connected: _bridge.isConnected,
       sessions: _bridge.sessions,
+      bridgeUrl: _bridge.httpBaseUrl,
       usage: _usage,
     );
     try {

@@ -13,19 +13,38 @@ class WatchSnapshotBuilder {
   static const _maxSessions = 6;
   static const _maxQuestions = 3;
   static const _maxOptions = 6;
+  static const _knownStatuses = {
+    'waiting_approval',
+    'running',
+    'starting',
+    'compacting',
+    'idle',
+    'stopped',
+  };
 
   static Map<String, Object?> build({
     required bool connected,
     required List<SessionInfo> sessions,
+    String? bridgeUrl,
     UsageResultMessage? usage,
     DateTime? generatedAt,
   }) {
     final orderedSessions = [...sessions]..sort(_compareSessions);
+    final bridgeUri = bridgeUrl == null ? null : Uri.tryParse(bridgeUrl);
+    final statusCounts = <String, int>{};
+    for (final session in sessions) {
+      final status = _normalizedStatus(session.status);
+      statusCounts.update(status, (count) => count + 1, ifAbsent: () => 1);
+    }
     return <String, Object?>{
       'schemaVersion': 1,
       'generatedAt': (generatedAt ?? DateTime.now()).toUtc().toIso8601String(),
       'connected': connected,
+      if (bridgeUri != null && bridgeUri.host.isNotEmpty)
+        'bridgeHost': _truncate(bridgeUri.host, 120),
+      if (bridgeUri != null) 'bridgePort': _bridgePort(bridgeUri),
       'activeSessionCount': sessions.length,
+      'statusCounts': statusCounts,
       'sessions': orderedSessions
           .take(_maxSessions)
           .map(_sessionPayload)
@@ -33,6 +52,14 @@ class WatchSnapshotBuilder {
       'usage':
           usage?.providers.map(_usagePayload).toList(growable: false) ??
           const <Object?>[],
+    };
+  }
+
+  static int _bridgePort(Uri uri) {
+    if (uri.hasPort) return uri.port;
+    return switch (uri.scheme) {
+      'wss' || 'https' => 443,
+      _ => 80,
     };
   }
 
@@ -83,21 +110,22 @@ class WatchSnapshotBuilder {
 
   static int _statusPriority(String status) => switch (status) {
     'waiting_approval' => 0,
-    'running' => 1,
+    'running' || 'starting' => 1,
     'compacting' => 2,
     _ => 3,
   };
 
   static Map<String, Object?> _sessionPayload(SessionInfo session) {
     final permission = session.pendingPermission;
+    final status = _normalizedStatus(session.status);
     return <String, Object?>{
       'id': session.id,
       'title': _truncate(_sessionTitle(session), 60),
       'project': _truncate(_basename(session.projectPath), 60),
       'branch': _truncate(session.gitBranch, 80),
       'provider': session.provider ?? 'claude',
-      'status': session.status,
-      'statusLabel': _statusLabel(session.status),
+      'status': status,
+      'statusLabel': _statusLabel(status),
       'lastMessage': _truncate(session.lastMessage, 180),
       if (permission != null) 'permission': _permissionPayload(permission),
     };
@@ -227,12 +255,17 @@ class WatchSnapshotBuilder {
     return parts.where((part) => part.isNotEmpty).lastOrNull ?? path;
   }
 
+  static String _normalizedStatus(String status) =>
+      _knownStatuses.contains(status) ? status : 'other';
+
   static String _statusLabel(String status) => switch (status) {
     'waiting_approval' => 'Needs you',
     'running' => 'Running',
+    'starting' => 'Starting',
     'compacting' => 'Compacting',
     'idle' => 'Idle',
     'stopped' => 'Stopped',
+    'other' => 'Other',
     _ => status.replaceAll('_', ' '),
   };
 }
