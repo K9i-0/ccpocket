@@ -10,8 +10,8 @@
 include: package:flutter_lints/flutter.yaml
 
 plugins:
-  altive_lints:
-    version: ^2.3.0
+  altive_lints_plugin:
+    version: ^1.0.0
     diagnostics:
       avoid_consecutive_sliver_to_box_adapter: false
       avoid_hardcoded_color: false
