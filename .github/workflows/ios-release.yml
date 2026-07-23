@@ -45,9 +45,31 @@ jobs:
         working-directory: apps/mobile
       - run: flutter test
         working-directory: apps/mobile
+      - name: Test iOS companion code
+        working-directory: apps/mobile/ios
+        run: |
+          pod install
+          SIMULATOR_ID=$(xcrun simctl list devices available -j | jq -r '
+            [.devices | to_entries[]
+              | select(.key | contains("iOS"))
+              | .value[]
+              | select(.isAvailable == true)
+              | select(.name | startswith("iPhone"))]
+            | (first | .udid) // empty
+          ')
+          test -n "$SIMULATOR_ID"
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -only-testing:RunnerTests/ComplicationSummaryTests
       - name: Fetch signing files
         run: |
-          for BUNDLE_ID in com.k9i.ccpocket com.k9i.ccpocket.watchkitapp; do
+          for BUNDLE_ID in \
+            com.k9i.ccpocket \
+            com.k9i.ccpocket.watchkitapp \
+            com.k9i.ccpocket.watchkitapp.widget; do
             app-store-connect fetch-signing-files "$BUNDLE_ID" \
               --type IOS_APP_STORE --create
           done
@@ -87,6 +109,26 @@ jobs:
           echo "aps-environment=$APS_ENV"
           if [ "$APS_ENV" != "production" ]; then
             echo "::error::Expected aps-environment=production in TestFlight IPA"
+            exit 1
+          fi
+          WATCH_APP="$EXTRACT_DIR/Payload/Runner.app/Watch/ccpocket Watch App.app"
+          WATCH_WIDGET="$WATCH_APP/PlugIns/ccpocket Watch Widget.appex"
+          WATCH_ENTITLEMENTS="$RUNNER_TEMP/ccpocket-watch-entitlements.plist"
+          WIDGET_ENTITLEMENTS="$RUNNER_TEMP/ccpocket-widget-entitlements.plist"
+          test -d "$WATCH_APP"
+          test -d "$WATCH_WIDGET"
+          codesign -d --entitlements :- "$WATCH_APP" > "$WATCH_ENTITLEMENTS"
+          codesign -d --entitlements :- "$WATCH_WIDGET" > "$WIDGET_ENTITLEMENTS"
+          EXPECTED_GROUP=group.com.k9i.ccpocket
+          WATCH_GROUP=$(/usr/libexec/PlistBuddy \
+            -c 'Print :com.apple.security.application-groups:0' \
+            "$WATCH_ENTITLEMENTS")
+          WIDGET_GROUP=$(/usr/libexec/PlistBuddy \
+            -c 'Print :com.apple.security.application-groups:0' \
+            "$WIDGET_ENTITLEMENTS")
+          if [ "$WATCH_GROUP" != "$EXPECTED_GROUP" ] ||
+             [ "$WIDGET_GROUP" != "$EXPECTED_GROUP" ]; then
+            echo "::error::Watch App Group entitlement is missing"
             exit 1
           fi
       - name: Upload to TestFlight

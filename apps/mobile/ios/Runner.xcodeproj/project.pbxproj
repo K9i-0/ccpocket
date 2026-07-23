@@ -29,6 +29,14 @@
 		C0A710000000000000000025 /* UsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A710000000000000000015 /* UsageView.swift */; };
 		C0A710000000000000000051 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0A710000000000000000050 /* Assets.xcassets */; };
 		C0A710000000000000000041 /* ccpocket Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C0A710000000000000000030 /* ccpocket Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C0A720000000000000000001 /* ComplicationSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000010 /* ComplicationSnapshotStore.swift */; };
+		C0A720000000000000000002 /* ComplicationSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000010 /* ComplicationSnapshotStore.swift */; };
+		C0A720000000000000000003 /* CcpocketWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000012 /* CcpocketWatchWidget.swift */; };
+		C0A720000000000000000004 /* ccpocket Watch Widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000015 /* ccpocket Watch Widget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C0A720000000000000000005 /* ComplicationSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000016 /* ComplicationSummaryView.swift */; };
+		C0A720000000000000000006 /* ComplicationSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000016 /* ComplicationSummaryView.swift */; };
+		C0A720000000000000000007 /* ComplicationSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000017 /* ComplicationSummaryTests.swift */; };
+		C0A720000000000000000008 /* ComplicationSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A720000000000000000010 /* ComplicationSnapshotStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +53,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C0A710000000000000000035;
 			remoteInfo = "ccpocket Watch App";
+		};
+		C0A720000000000000000040 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0A720000000000000000035;
+			remoteInfo = "ccpocket Watch Widget";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -68,6 +83,17 @@
 				C0A710000000000000000041 /* ccpocket Watch App.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0A720000000000000000033 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C0A720000000000000000004 /* ccpocket Watch Widget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -115,6 +141,14 @@
 		C0A710000000000000000050 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C0A710000000000000000030 /* ccpocket Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ccpocket Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0A710000000000000000044 /* Watch.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Watch.xcconfig; path = Flutter/Watch.xcconfig; sourceTree = "<group>"; };
+		C0A720000000000000000010 /* ComplicationSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationSnapshotStore.swift; sourceTree = "<group>"; };
+		C0A720000000000000000011 /* CcpocketWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CcpocketWatch.entitlements; sourceTree = "<group>"; };
+		C0A720000000000000000012 /* CcpocketWatchWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CcpocketWatchWidget.swift; sourceTree = "<group>"; };
+		C0A720000000000000000013 /* CcpocketWatchWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CcpocketWatchWidget.entitlements; sourceTree = "<group>"; };
+		C0A720000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C0A720000000000000000015 /* ccpocket Watch Widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "ccpocket Watch Widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0A720000000000000000016 /* ComplicationSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationSummaryView.swift; sourceTree = "<group>"; };
+		C0A720000000000000000017 /* ComplicationSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationSummaryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +176,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0A720000000000000000030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -158,6 +199,7 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				C0A720000000000000000017 /* ComplicationSummaryTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -194,6 +236,7 @@
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				C0A710000000000000000031 /* CcpocketWatch */,
+				C0A720000000000000000020 /* CcpocketWatchWidget */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				913CCFD7703F2A68370A3706 /* Pods */,
@@ -208,6 +251,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				C0A710000000000000000030 /* ccpocket Watch App.app */,
+				C0A720000000000000000015 /* ccpocket Watch Widget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -241,9 +285,22 @@
 				C0A710000000000000000013 /* ContentView.swift */,
 				C0A710000000000000000014 /* SessionDetailView.swift */,
 				C0A710000000000000000015 /* UsageView.swift */,
+				C0A720000000000000000010 /* ComplicationSnapshotStore.swift */,
+				C0A720000000000000000016 /* ComplicationSummaryView.swift */,
+				C0A720000000000000000011 /* CcpocketWatch.entitlements */,
 				C0A710000000000000000050 /* Assets.xcassets */,
 			);
 			path = CcpocketWatch;
+			sourceTree = "<group>";
+		};
+		C0A720000000000000000020 /* CcpocketWatchWidget */ = {
+			isa = PBXGroup;
+			children = (
+				C0A720000000000000000012 /* CcpocketWatchWidget.swift */,
+				C0A720000000000000000013 /* CcpocketWatchWidget.entitlements */,
+				C0A720000000000000000014 /* Info.plist */,
+			);
+			path = CcpocketWatchWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -304,15 +361,34 @@
 				C0A710000000000000000032 /* Sources */,
 				C0A710000000000000000034 /* Frameworks */,
 				C0A710000000000000000033 /* Resources */,
+				C0A720000000000000000033 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C0A720000000000000000041 /* PBXTargetDependency */,
 			);
 			name = "ccpocket Watch App";
 			productName = "ccpocket Watch App";
 			productReference = C0A710000000000000000030 /* ccpocket Watch App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C0A720000000000000000035 /* ccpocket Watch Widget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0A720000000000000000036 /* Build configuration list for PBXNativeTarget "ccpocket Watch Widget" */;
+			buildPhases = (
+				C0A720000000000000000031 /* Sources */,
+				C0A720000000000000000030 /* Frameworks */,
+				C0A720000000000000000032 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ccpocket Watch Widget";
+			productName = "ccpocket Watch Widget";
+			productReference = C0A720000000000000000015 /* ccpocket Watch Widget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -325,6 +401,9 @@
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					C0A710000000000000000035 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					C0A720000000000000000035 = {
 						CreatedOnToolsVersion = 26.4;
 					};
 					331C8080294A63A400263BE5 = {
@@ -359,6 +438,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				C0A710000000000000000035 /* ccpocket Watch App */,
+				C0A720000000000000000035 /* ccpocket Watch Widget */,
 			);
 		};
 /* End PBXProject section */
@@ -390,6 +470,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				C0A710000000000000000051 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0A720000000000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,6 +615,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				C0A720000000000000000007 /* ComplicationSummaryTests.swift in Sources */,
+				C0A720000000000000000008 /* ComplicationSnapshotStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -551,6 +640,18 @@
 				C0A710000000000000000023 /* ContentView.swift in Sources */,
 				C0A710000000000000000024 /* SessionDetailView.swift in Sources */,
 				C0A710000000000000000025 /* UsageView.swift in Sources */,
+				C0A720000000000000000001 /* ComplicationSnapshotStore.swift in Sources */,
+				C0A720000000000000000005 /* ComplicationSummaryView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0A720000000000000000031 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0A720000000000000000002 /* ComplicationSnapshotStore.swift in Sources */,
+				C0A720000000000000000006 /* ComplicationSummaryView.swift in Sources */,
+				C0A720000000000000000003 /* CcpocketWatchWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -566,6 +667,11 @@
 			isa = PBXTargetDependency;
 			target = C0A710000000000000000035 /* ccpocket Watch App */;
 			targetProxy = C0A710000000000000000042 /* PBXContainerItemProxy */;
+		};
+		C0A720000000000000000041 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0A720000000000000000035 /* ccpocket Watch Widget */;
+			targetProxy = C0A720000000000000000040 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -605,6 +711,7 @@
 			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatch/CcpocketWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = X4XA2SC7M4;
@@ -634,6 +741,7 @@
 			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatch/CcpocketWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = X4XA2SC7M4;
@@ -663,6 +771,7 @@
 			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatch/CcpocketWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = X4XA2SC7M4;
@@ -675,6 +784,94 @@
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Profile;
+		};
+		C0A720000000000000000037 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatchWidget/CcpocketWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = X4XA2SC7M4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CcpocketWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		C0A720000000000000000038 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatchWidget/CcpocketWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = X4XA2SC7M4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CcpocketWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		C0A720000000000000000039 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C0A710000000000000000044 /* Watch.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = CcpocketWatchWidget/CcpocketWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = X4XA2SC7M4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CcpocketWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.watchkitapp.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -980,6 +1177,16 @@
 				C0A710000000000000000037 /* Debug */,
 				C0A710000000000000000038 /* Release */,
 				C0A710000000000000000039 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0A720000000000000000036 /* Build configuration list for PBXNativeTarget "ccpocket Watch Widget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0A720000000000000000037 /* Debug */,
+				C0A720000000000000000038 /* Release */,
+				C0A720000000000000000039 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

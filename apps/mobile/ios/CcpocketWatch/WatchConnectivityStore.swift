@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
 
 final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegate {
   @Published private(set) var snapshot = WatchSnapshot.empty
@@ -12,6 +13,11 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
     #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("-watch-preview") {
       snapshot = .preview
+      if ComplicationSnapshotStore.savePreview() {
+        WidgetCenter.shared.reloadTimelines(
+          ofKind: ComplicationSnapshotStore.widgetKind
+        )
+      }
       return
     }
     #endif
@@ -19,7 +25,9 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
     let session = WCSession.default
     session.delegate = self
     if !session.receivedApplicationContext.isEmpty {
-      snapshot = WatchSnapshot(dictionary: session.receivedApplicationContext)
+      let applicationContext = session.receivedApplicationContext
+      snapshot = WatchSnapshot(dictionary: applicationContext)
+      updateComplication(with: applicationContext)
     }
     session.activate()
   }
@@ -159,7 +167,15 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
   private func receive(_ dictionary: [String: Any]) {
     DispatchQueue.main.async { [weak self] in
       self?.snapshot = WatchSnapshot(dictionary: dictionary)
+      self?.updateComplication(with: dictionary)
     }
+  }
+
+  private func updateComplication(with dictionary: [String: Any]) {
+    guard ComplicationSnapshotStore.save(dictionary: dictionary) else { return }
+    WidgetCenter.shared.reloadTimelines(
+      ofKind: ComplicationSnapshotStore.widgetKind
+    )
   }
 
   func session(
