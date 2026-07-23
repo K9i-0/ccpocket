@@ -13,6 +13,7 @@ class WatchSnapshotBuilder {
   static const _maxSessions = 6;
   static const _maxQuestions = 3;
   static const _maxOptions = 6;
+  static const _maxAgentMessageBytes = 32 * 1024;
   static const _knownStatuses = {
     'waiting_approval',
     'running',
@@ -102,9 +103,26 @@ class WatchSnapshotBuilder {
     return jsonEncode({'questions': questions, 'answers': normalized});
   }
 
+  static Map<String, Object?> buildAgentMessageResult(String text) {
+    final normalized = text.trim();
+    if (normalized.isEmpty) {
+      return const {'accepted': false, 'message': 'Agent message unavailable'};
+    }
+    final truncated = utf8.encode(normalized).length > _maxAgentMessageBytes;
+    return {
+      'accepted': true,
+      'text': _truncate(normalized, _maxAgentMessageBytes),
+      'truncated': truncated,
+    };
+  }
+
   static Map<String, Object?> _sessionPayload(SessionInfo session) {
     final permission = session.pendingPermission;
     final status = _normalizedStatus(session.status);
+    // Approval metadata can be large. Keep its surrounding previews compact so
+    // the Watch application context stays below its transport budget.
+    final previewLimit = permission == null ? 1200 : 180;
+    final queuedPreviewLimit = permission == null ? 800 : 180;
     return <String, Object?>{
       'id': session.id,
       'title': _truncate(_sessionTitle(session), 60),
@@ -114,7 +132,12 @@ class WatchSnapshotBuilder {
       'provider': session.provider ?? 'claude',
       'status': status,
       'statusLabel': _statusLabel(status),
-      'lastMessage': _truncate(session.lastMessage, 180),
+      'lastMessage': _truncate(session.lastMessage, previewLimit),
+      if (session.queuedInput case final queued?)
+        'queuedInput': <String, Object?>{
+          'text': _truncate(queued.text, queuedPreviewLimit),
+          'imageCount': queued.imageCount.clamp(0, 999),
+        },
       if (permission != null) 'permission': _permissionPayload(permission),
     };
   }

@@ -71,6 +71,42 @@ void main() {
       expect(window['remaining'], 0.63);
     });
 
+    test('includes a bounded queued message summary', () {
+      final queuedText = 'q' * 1000;
+      final snapshot = WatchSnapshotBuilder.build(
+        connected: true,
+        sessions: [
+          _session(
+            id: 'queued',
+            status: 'running',
+            projectPath: '/work/queued',
+            queuedInput: QueuedInputItem(
+              itemId: 'queue-1',
+              text: queuedText,
+              createdAt: '2026-07-22T01:00:00Z',
+              imageCount: 2,
+            ),
+          ),
+        ],
+      );
+
+      final session = (snapshot['sessions']! as List).single as Map;
+      final queuedInput = session['queuedInput']! as Map;
+      expect(utf8.encode(queuedInput['text']! as String), hasLength(800));
+      expect(queuedInput['imageCount'], 2);
+    });
+
+    test('bounds an on-demand agent message for WatchConnectivity', () {
+      final result = WatchSnapshotBuilder.buildAgentMessageResult('界' * 20000);
+
+      expect(result['accepted'], isTrue);
+      expect(result['truncated'], isTrue);
+      expect(
+        utf8.encode(result['text']! as String).length,
+        lessThanOrEqualTo(32 * 1024),
+      );
+    });
+
     test('keeps a single-select answer as plain text', () {
       final result = WatchSnapshotBuilder.buildAnswerResult(
         permission: _questionPermission(),
@@ -185,6 +221,12 @@ void main() {
             name: longText,
             lastMessage: longText,
             permission: permission,
+            queuedInput: QueuedInputItem(
+              itemId: 'queue-$index',
+              text: longText,
+              createdAt: '2026-07-22T01:00:00Z',
+              imageCount: 9999,
+            ),
           ),
         ),
       );
@@ -192,6 +234,10 @@ void main() {
       expect((snapshot['sessions']! as List), hasLength(6));
       expect(snapshot['activeSessionCount'], 20);
       expect(snapshot['statusCounts'], {'waiting_approval': 20});
+      final firstSession = (snapshot['sessions']! as List).first as Map;
+      final queuedInput = firstSession['queuedInput']! as Map;
+      expect(utf8.encode(queuedInput['text']! as String), hasLength(180));
+      expect(queuedInput['imageCount'], 999);
       expect(utf8.encode(jsonEncode(snapshot)).length, lessThan(40 * 1024));
     });
 
@@ -214,7 +260,9 @@ void main() {
     test('falls back to a non-empty title without a project path', () {
       final snapshot = WatchSnapshotBuilder.build(
         connected: true,
-        sessions: [_session(id: 'empty-project', status: 'idle', projectPath: '')],
+        sessions: [
+          _session(id: 'empty-project', status: 'idle', projectPath: ''),
+        ],
       );
 
       final session = (snapshot['sessions']! as List).single as Map;
@@ -287,6 +335,7 @@ SessionInfo _session({
   String? name,
   String lastMessage = '',
   PermissionRequestMessage? permission,
+  QueuedInputItem? queuedInput,
 }) => SessionInfo(
   id: id,
   projectPath: projectPath,
@@ -296,6 +345,7 @@ SessionInfo _session({
   lastActivityAt: '2026-07-22T01:00:00Z',
   lastMessage: lastMessage,
   pendingPermission: permission,
+  queuedInput: queuedInput,
 );
 
 PermissionRequestMessage _questionPermission() =>

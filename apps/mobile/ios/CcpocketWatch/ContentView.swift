@@ -225,18 +225,17 @@ private struct SessionsPage: View {
 private struct SessionCard: View {
   let session: WatchSession
 
-  private var usesProjectName: Bool {
-    !session.hasCustomName
-  }
-
   private var accessibilityDescription: String {
-    if usesProjectName {
-      return "Project, \(session.title), \(session.statusLabel)"
+    let identity: String
+    if session.hasCustomName, !session.project.isEmpty {
+      identity = "Session, \(session.title), project \(session.project)"
+    } else if session.hasCustomName {
+      identity = "Session, \(session.title)"
+    } else {
+      identity = "Project, \(session.title)"
     }
-    if session.project.isEmpty {
-      return "Session, \(session.title), \(session.statusLabel)"
-    }
-    return "Session, \(session.title), project \(session.project), \(session.statusLabel)"
+    let queue = session.queuedInput == nil ? "" : ", message queued"
+    return "\(identity), \(session.statusLabel)\(queue)"
   }
 
   var body: some View {
@@ -248,22 +247,26 @@ private struct SessionCard: View {
         .accessibilityHidden(true)
 
       VStack(alignment: .leading, spacing: 4) {
-        HStack(spacing: 5) {
-          Text(usesProjectName ? "PROJECT" : "SESSION")
-            .font(.system(size: 9, weight: .bold))
-            .foregroundStyle(usesProjectName ? Color.ccpocketTeal : Color.ccpocketOrange)
-
-          if !usesProjectName, !session.project.isEmpty {
-            Text(session.project)
-              .font(.caption2)
-              .foregroundStyle(.secondary)
-              .lineLimit(1)
-          }
+        if session.hasCustomName, !session.project.isEmpty {
+          Text(session.project)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(Color.ccpocketTeal)
+            .lineLimit(1)
         }
 
-        Text(session.title)
-          .font(.headline)
-          .lineLimit(1)
+        HStack(spacing: 6) {
+          Text(session.title)
+            .font(.headline)
+            .foregroundStyle(session.hasCustomName ? Color.primary : Color.ccpocketTeal)
+            .lineLimit(1)
+
+          if session.queuedInput != nil {
+            Image(systemName: "text.bubble.fill")
+              .font(.caption2)
+              .foregroundStyle(Color.ccpocketOrange)
+              .accessibilityHidden(true)
+          }
+        }
 
         if !session.lastMessage.isEmpty {
           Text(session.lastMessage)

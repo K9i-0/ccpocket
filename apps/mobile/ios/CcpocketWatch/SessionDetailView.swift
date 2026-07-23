@@ -27,18 +27,14 @@ struct SessionDetailView: View {
   private func sessionContent(_ session: WatchSession) -> some View {
     List {
       Section {
-        Label(session.statusLabel, systemImage: session.providerSymbol)
-          .foregroundStyle(session.statusColor)
-        if !session.branch.isEmpty {
-          Label(session.branch, systemImage: "arrow.triangle.branch")
-            .font(.caption)
+        NavigationLink {
+          QuickMessageView(session: session)
+        } label: {
+          Label("Speak", systemImage: "mic.fill")
+            .font(.headline)
+            .foregroundStyle(Color.ccpocketOrange)
         }
-        if !session.lastMessage.isEmpty {
-          Text(session.lastMessage)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(4)
-        }
+        .listRowBackground(Color.ccpocketOrange.opacity(0.14))
       }
 
       if let permission = session.permission {
@@ -64,11 +60,56 @@ struct SessionDetailView: View {
         }
       }
 
-      Section {
-        NavigationLink {
-          QuickMessageView(session: session)
-        } label: {
-          Label("Send message", systemImage: "mic")
+      Section("Details") {
+        SessionInfoRow(
+          label: "Project",
+          value: session.project.isEmpty ? "Unknown" : session.project,
+          color: .ccpocketTeal
+        )
+        SessionInfoRow(
+          label: "Session",
+          value: session.hasCustomName ? session.title : "Unnamed",
+          color: .ccpocketOrange
+        )
+        Label(session.statusLabel, systemImage: "circle.fill")
+          .foregroundStyle(session.statusColor)
+        if !session.branch.isEmpty {
+          Label(session.branch, systemImage: "arrow.triangle.branch")
+            .font(.caption)
+        }
+      }
+
+      if let queuedInput = session.queuedInput {
+        Section("Queued") {
+          Label("Next message", systemImage: "text.bubble.fill")
+            .foregroundStyle(Color.ccpocketOrange)
+          if !queuedInput.text.isEmpty {
+            Text(queuedInput.text)
+              .font(.caption)
+          }
+          if queuedInput.imageCount > 0 {
+            Label(
+              queuedInput.imageCount == 1
+                ? "1 image"
+                : "\(queuedInput.imageCount) images",
+              systemImage: "photo"
+            )
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+          }
+        }
+      }
+
+      if !session.lastMessage.isEmpty {
+        Section("Agent") {
+          NavigationLink {
+            AgentMessageView(session: session)
+          } label: {
+            Text(session.lastMessage)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(5)
+          }
         }
       }
 
@@ -78,6 +119,82 @@ struct SessionDetailView: View {
           .foregroundStyle(
             message == "Sent" ? Color.ccpocketOnline : Color.secondary
           )
+      }
+    }
+  }
+}
+
+private struct SessionInfoRow: View {
+  let label: String
+  let value: String
+  let color: Color
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(label.uppercased())
+        .font(.system(size: 9, weight: .bold))
+        .foregroundStyle(color)
+      Text(value)
+        .font(.body)
+        .lineLimit(2)
+    }
+  }
+}
+
+private struct AgentMessageView: View {
+  @EnvironmentObject private var connectivity: WatchConnectivityStore
+  let session: WatchSession
+
+  @State private var message: String
+  @State private var isLoading = true
+  @State private var isTruncated = false
+  @State private var errorMessage: String?
+  @State private var hasRequested = false
+
+  init(session: WatchSession) {
+    self.session = session
+    _message = State(initialValue: session.lastMessage)
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 8) {
+        if isLoading {
+          ProgressView()
+            .frame(maxWidth: .infinity)
+        }
+        Text(message)
+          .font(.body)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        if isTruncated {
+          Label("Long response shortened", systemImage: "ellipsis.circle")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        } else if let errorMessage {
+          Text(errorMessage)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+      }
+      .padding(.horizontal, 4)
+    }
+    .navigationTitle("Agent message")
+    .onAppear(perform: loadMessage)
+  }
+
+  private func loadMessage() {
+    guard !hasRequested else { return }
+    hasRequested = true
+    connectivity.fetchLatestAgentMessage(sessionId: session.id) {
+      text,
+      truncated,
+      error in
+      isLoading = false
+      if let text {
+        message = text
+        isTruncated = truncated
+      } else {
+        errorMessage = error
       }
     }
   }

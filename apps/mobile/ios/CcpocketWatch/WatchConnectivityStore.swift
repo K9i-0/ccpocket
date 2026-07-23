@@ -12,6 +12,7 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
     #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("-watch-preview") {
       snapshot = .preview
+      return
     }
     #endif
     guard WCSession.isSupported() else { return }
@@ -79,6 +80,42 @@ final class WatchConnectivityStore: NSObject, ObservableObject, WCSessionDelegat
       "sessionId": session.id,
       "text": text,
     ], completion: completion)
+  }
+
+  func fetchLatestAgentMessage(
+    sessionId: String,
+    completion: @escaping (String?, Bool, String?) -> Void
+  ) {
+    guard WCSession.default.isReachable else {
+      completion(nil, false, "Open ccpocket on iPhone to reconnect.")
+      return
+    }
+    WCSession.default.sendMessage(
+      [
+        "type": "latest_agent_message",
+        "sessionId": sessionId,
+      ],
+      replyHandler: { response in
+        DispatchQueue.main.async {
+          guard response["accepted"] as? Bool == true,
+                let text = response["text"] as? String
+          else {
+            completion(
+              nil,
+              false,
+              response["message"] as? String ?? "Agent message unavailable"
+            )
+            return
+          }
+          completion(text, response["truncated"] as? Bool ?? false, nil)
+        }
+      },
+      errorHandler: { error in
+        DispatchQueue.main.async {
+          completion(nil, false, error.localizedDescription)
+        }
+      }
+    )
   }
 
   private func send(

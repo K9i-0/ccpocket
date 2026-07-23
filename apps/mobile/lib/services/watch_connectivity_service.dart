@@ -119,7 +119,9 @@ class WatchConnectivityService {
     return {'accepted': true};
   }
 
-  Map<String, Object?> _performAction(Map<String, dynamic> action) {
+  Future<Map<String, Object?>> _performAction(
+    Map<String, dynamic> action,
+  ) async {
     final type = action['type'] as String?;
     final sessionId = action['sessionId'] as String?;
     if (type == null || sessionId == null) {
@@ -132,6 +134,10 @@ class WatchConnectivityService {
         .where((candidate) => candidate.id == sessionId)
         .firstOrNull;
     if (session == null) return _rejected('Session is no longer active');
+
+    if (type == 'latest_agent_message') {
+      return _latestAgentMessage(session);
+    }
 
     if (type == 'input') {
       final text = (action['text'] as String?)?.trim() ?? '';
@@ -193,6 +199,88 @@ class WatchConnectivityService {
     return _accepted();
   }
 
+  Future<Map<String, Object?>> _latestAgentMessage(SessionInfo session) async {
+    var text = _latestCachedAssistantText(session.id);
+    if (!_matchesSummary(text, session.lastMessage)) {
+      text = await _requestLatestAssistantText(session.id);
+      text ??= _latestCachedAssistantText(session.id);
+    }
+    final currentSession = _bridge.sessions
+        .where((candidate) => candidate.id == session.id)
+        .firstOrNull;
+    if (!_bridge.isConnected ||
+        currentSession == null ||
+        currentSession.projectPath != session.projectPath ||
+        currentSession.provider != session.provider) {
+      return _rejected('Session is no longer active');
+    }
+    return WatchSnapshotBuilder.buildAgentMessageResult(text ?? '');
+  }
+
+  Future<String?> _requestLatestAssistantText(String sessionId) async {
+    final iterator = StreamIterator(_bridge.messagesForSession(sessionId));
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    String? pastHistoryText;
+    _bridge.send(ClientMessage.getHistory(sessionId));
+    try {
+      while (true) {
+        final remaining = deadline.difference(DateTime.now());
+        if (remaining <= Duration.zero ||
+            !await iterator.moveNext().timeout(remaining)) {
+          return pastHistoryText;
+        }
+        switch (iterator.current) {
+          case PastHistoryMessage(:final messages):
+            pastHistoryText = _latestPastAssistantText(messages);
+          case HistoryMessage(:final messages):
+            return _latestAssistantText(messages) ?? pastHistoryText;
+          default:
+            break;
+        }
+      }
+    } on TimeoutException {
+      return pastHistoryText;
+    } finally {
+      await iterator.cancel();
+    }
+  }
+
+  String? _latestCachedAssistantText(String sessionId) {
+    return _latestAssistantText(_bridge.cachedSessionMessages(sessionId));
+  }
+
+  String? _latestAssistantText(List<ServerMessage> messages) {
+    for (final message in messages.reversed) {
+      if (message is! AssistantServerMessage) continue;
+      final text = _joinTextContent(message.message.content);
+      if (text.isNotEmpty) return text;
+    }
+    return null;
+  }
+
+  String? _latestPastAssistantText(List<PastMessage> messages) {
+    for (final message in messages.reversed) {
+      if (message.role != 'assistant') continue;
+      final text = _joinTextContent(message.content);
+      if (text.isNotEmpty) return text;
+    }
+    return null;
+  }
+
+  String _joinTextContent(List<AssistantContent> content) => content
+      .whereType<TextContent>()
+      .map((content) => content.text.trim())
+      .where((text) => text.isNotEmpty)
+      .join('\n\n');
+
+  bool _matchesSummary(String? text, String summary) {
+    if (text == null) return false;
+    final normalizedSummary = summary.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalizedSummary.isEmpty) return true;
+    final normalizedText = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return normalizedText.startsWith(normalizedSummary);
+  }
+
   Map<String, Object?> _accepted() => const {'accepted': true};
 
   Map<String, Object?> _rejected(String message) => {
@@ -207,5 +295,6 @@ class WatchConnectivityService {
       await subscription.cancel();
     }
     _subscriptions.clear();
+    await _publishChain.catchError((Object _, StackTrace _) {});
   }
 }

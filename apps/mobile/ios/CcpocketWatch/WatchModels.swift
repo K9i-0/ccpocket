@@ -61,6 +61,10 @@ struct WatchSnapshot {
         "status": "running",
         "statusLabel": "Working",
         "lastMessage": "Reviewing the WebSocket session lifecycle.",
+        "queuedInput": [
+          "text": "Run the Watch layout checks after this review.",
+          "imageCount": 1,
+        ] as [String: Any],
       ] as [String: Any],
     ],
     "usage": [
@@ -141,6 +145,7 @@ struct WatchSession: Identifiable {
   let status: String
   let statusLabel: String
   let lastMessage: String
+  let queuedInput: WatchQueuedInput?
   let permission: WatchPermission?
 
   init?(_ dictionary: [String: Any]) {
@@ -159,6 +164,7 @@ struct WatchSession: Identifiable {
     default: "Ready"
     }
     lastMessage = dictionary["lastMessage"] as? String ?? ""
+    queuedInput = (dictionary["queuedInput"] as? [String: Any]).map(WatchQueuedInput.init)
     permission = (dictionary["permission"] as? [String: Any]).flatMap(WatchPermission.init)
   }
 
@@ -173,6 +179,16 @@ struct WatchSession: Identifiable {
 
   var providerSymbol: String {
     provider == "codex" ? "chevron.left.forwardslash.chevron.right" : "sparkles"
+  }
+}
+
+struct WatchQueuedInput {
+  let text: String
+  let imageCount: Int
+
+  init(_ dictionary: [String: Any]) {
+    text = dictionary["text"] as? String ?? ""
+    imageCount = max(0, dictionary["imageCount"] as? Int ?? 0)
   }
 }
 
