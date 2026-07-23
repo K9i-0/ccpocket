@@ -1,4 +1,4 @@
-• Switch Codex models from an existing session when you need to adjust how the task continues.
-• Choose whether new sessions and filters show Codex, Claude, or both providers.
-• View Recent Sessions as a simple list in addition to project grouping.
-• Fixed Settings on Flutter Web and improved Codex/Claude session display details.
+• Added optional Max and Ultra levels to Codex Effort controls.
+• Guardian auto-approvals now appear as quiet, expandable notices with risk and authorization details.
+• Improved slash, skill, app, plugin, and file completions, plus session response reliability.
+• Fixed file link handling and improved overall stability.
