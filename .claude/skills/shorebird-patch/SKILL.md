@@ -45,6 +45,8 @@ bash .claude/skills/shorebird-patch/patch.sh android <version>
 スクリプトが以下を一括で行う:
 - `shorebird patch` で **staging** にパッチ作成
 - `--allow-asset-diffs` によりアセット変更の確認プロンプトを自動スキップ
+- iOSでは一時的にWatchターゲットを除外し、一般向けReleaseと同じXcode構成で作成
+- iOSのnative差分は許可せず、検出時はフルリリースを要求
 
 完了後の出力から **パッチ番号** を記録する（= `<patch-number>`）。
 
@@ -105,6 +107,7 @@ npm run shorebird:promote -- <release-version> <patch-number>
 ## トラブルシュート
 
 - **アセット差分でパッチが適用されない**: `--allow-asset-diffs` でパッチ作成は成功するが、アセット変更（フォント、画像等）を含むパッチは実機で適用に失敗する。`/release-mobile` で新リリースが必要
+- **iOS native差分**: パッチでは配布できないため、Watch機能をmainへ初めてマージした後は、先に一般向けiOSフルリリースを作成する。以前のpre-Watch releaseへiOS patchを作らない
 - **署名エラー（exportArchive）**: IPA生成時のエラーはShorebirdパッチ自体には影響しない。パッチが `Published Patch N!` と表示されていれば成功
 - **インタラクティブプロンプト**: `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトで非TTY環境がエラーになる）
 - **パッチが反映されない場合の確認**: 設定画面のバージョン表示で `(patch N)` が出ているか確認。出ていなければShorebirdリリースビルドでない可能性がある

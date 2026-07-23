@@ -18,7 +18,10 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (_) async => null);
+        .setMockMethodCallHandler(
+          channel,
+          (call) async => call.method == 'activate' ? true : null,
+        );
   });
 
   tearDown(() {
@@ -26,13 +29,56 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  Future<Object?> invokeFromWatch(Map<String, Object?> action) async {
+  Future<Object?> invokeNative(
+    String method,
+    Map<String, Object?> arguments,
+  ) async {
     final reply = Completer<ByteData?>();
-    final data = codec.encodeMethodCall(MethodCall('performAction', action));
+    final data = codec.encodeMethodCall(MethodCall(method, arguments));
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(channel.name, data, reply.complete);
     return codec.decodeEnvelope((await reply.future)!);
   }
+
+  Future<Object?> invokeFromWatch(Map<String, Object?> action) =>
+      invokeNative('performAction', action);
+
+  test('stays idle until a paired Watch app becomes available', () async {
+    final fixture = await _WatchBridgeFixture.start();
+    final outgoing = <ClientMessage>[];
+    var snapshotCount = 0;
+    final bridge = BridgeService()..onOutgoingMessage = outgoing.add;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'activate') return false;
+          if (call.method == 'updateSnapshot') snapshotCount += 1;
+          return null;
+        });
+    final service = WatchConnectivityService(bridge: bridge, channel: channel);
+    await service.initialize();
+
+    bridge.connect(fixture.url);
+    await fixture.sessionDelivered;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    bool sent(String type) => outgoing.any((message) {
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      return json['type'] == type;
+    });
+    expect(sent('get_usage'), isFalse);
+    expect(snapshotCount, 0);
+
+    await invokeNative('availabilityChanged', {'available': true});
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(sent('get_usage'), isTrue);
+    expect(snapshotCount, greaterThan(0));
+
+    await service.dispose();
+    bridge.disconnect();
+    bridge.dispose();
+    await fixture.close();
+  });
 
   test('accepts an approval once and immediately clears it', () async {
     final fixture = await _WatchBridgeFixture.start();
@@ -287,6 +333,7 @@ void main() {
     var snapshotCount = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'activate') return true;
           if (call.method == 'updateSnapshot') {
             snapshotCount += 1;
             final snapshot = call.arguments as Map<Object?, Object?>;

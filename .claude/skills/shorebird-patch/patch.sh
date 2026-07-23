@@ -6,10 +6,12 @@
 #
 # デフォルトで staging トラックに配信する。
 # stable に昇格するには promote.sh を使う。
-# 常に --allow-asset-diffs と --allow-native-diffs を付与し、非TTY環境でも安定動作する。
+# 常に --allow-asset-diffs を付与する。Androidのみ既存挙動との互換性のため
+# --allow-native-diffs も付与する。iOSのnative差分はフルリリースが必要。
 
 set -euo pipefail
 export PATH="$HOME/.shorebird/bin:$PATH"
+SHOREBIRD_BIN="${CCPOCKET_SHOREBIRD_BIN:-shorebird}"
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <ios|android> <release-version> [extra-args...]"
@@ -22,7 +24,19 @@ RELEASE_VERSION="$2"
 shift 2
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$SCRIPT_DIR/../../../apps/mobile"
+REPO_DIR="$SCRIPT_DIR/../../.."
+PROJECT_DIR="$REPO_DIR/apps/mobile"
+IOS_PROJECT_FILE="$PROJECT_DIR/ios/Runner.xcodeproj/project.pbxproj"
+IOS_PROJECT_PATHSPEC="apps/mobile/ios/Runner.xcodeproj/project.pbxproj"
+IOS_PROJECT_BACKUP=""
+
+restore_ios_project() {
+  if [ -n "$IOS_PROJECT_BACKUP" ] && [ -f "$IOS_PROJECT_BACKUP" ]; then
+    cp "$IOS_PROJECT_BACKUP" "$IOS_PROJECT_FILE"
+    rm -f "$IOS_PROJECT_BACKUP"
+  fi
+}
+trap restore_ios_project EXIT
 
 echo "=== Shorebird Patch ($PLATFORM) ==="
 echo "Release version: $RELEASE_VERSION"
@@ -31,14 +45,31 @@ echo ""
 
 cd "$PROJECT_DIR"
 
+if [ "$PLATFORM" = "ios" ]; then
+  if ! git -C "$REPO_DIR" diff --quiet -- "$IOS_PROJECT_PATHSPEC" ||
+     ! git -C "$REPO_DIR" diff --cached --quiet -- "$IOS_PROJECT_PATHSPEC"; then
+    echo "Error: Runner.xcodeproj has uncommitted changes."
+    echo "Commit or stash them before creating an iOS patch."
+    exit 1
+  fi
+  IOS_PROJECT_BACKUP="$(mktemp "${TMPDIR:-/tmp}/ccpocket-ios-project.XXXXXX")"
+  cp "$IOS_PROJECT_FILE" "$IOS_PROJECT_BACKUP"
+  ruby "$REPO_DIR/scripts/configure-ios-watch-payload.rb" exclude
+fi
+
 echo "--- Creating $PLATFORM patch (staging) ---"
 # --no-tree-shake-icons: Keep MaterialIcons font stable across release/patch builds.
 # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
-shorebird patch "$PLATFORM" \
-  --release-version="$RELEASE_VERSION" \
-  --track=staging \
-  --allow-asset-diffs \
-  --allow-native-diffs \
+PATCH_ARGS=(
+  "$PLATFORM"
+  "--release-version=$RELEASE_VERSION"
+  "--track=staging"
+  "--allow-asset-diffs"
+)
+if [ "$PLATFORM" = "android" ]; then
+  PATCH_ARGS+=("--allow-native-diffs")
+fi
+"$SHOREBIRD_BIN" patch "${PATCH_ARGS[@]}" \
   -- --no-tree-shake-icons \
   "$@"
 

@@ -74,6 +74,70 @@ jobs:
       - run: flutter test
         working-directory: apps/mobile
 
+  ios:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - name: Use precompiled Rust artifacts
+        run: |
+          printf '%s\n' 'use_precompiled_binaries: true' > apps/mobile/cargokit_options.yaml
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: pod install
+        working-directory: apps/mobile/ios
+      - name: Select iPhone simulator
+        id: simulator
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices available -j | jq -r '
+            [.devices | to_entries[]
+              | select(.key | contains("iOS"))
+              | .value[]
+              | select(.isAvailable == true)
+              | select(.name | startswith("iPhone"))]
+            | (first | .udid) // empty
+          ')
+          test -n "$SIMULATOR_ID"
+          echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
+      - name: Test iOS companion and Watch summary code
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
+            -derivedDataPath "$RUNNER_TEMP/ccpocket-ios-debug" \
+            -only-testing:RunnerTests
+      - name: Verify Debug build includes Apple Watch
+        run: |
+          bash scripts/verify-ios-watch-payload.sh \
+            included \
+            "$RUNNER_TEMP/ccpocket-ios-debug/Build/Products/Debug-iphonesimulator/Runner.app"
+      - name: Configure iPhone-only public project
+        run: ruby scripts/configure-ios-watch-payload.rb exclude
+      - name: Build public iPhone configuration
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild build \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/ccpocket-ios-release" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Verify public build excludes Apple Watch
+        run: |
+          bash scripts/verify-ios-watch-payload.sh \
+            excluded \
+            "$RUNNER_TEMP/ccpocket-ios-release/Build/Products/Release-iphoneos/Runner.app"
+
   bridge:
     runs-on: ubuntu-latest
     steps:

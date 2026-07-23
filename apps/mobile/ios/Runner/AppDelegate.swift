@@ -47,8 +47,7 @@ import UIKit
   ) {
     switch call.method {
     case "activate":
-      WatchConnectivityManager.shared.activate()
-      result(nil)
+      result(WatchConnectivityManager.shared.activate())
     case "updateSnapshot":
       guard let snapshot = call.arguments as? [String: Any] else {
         result(FlutterError(code: "invalid_snapshot", message: "Missing snapshot", details: nil))

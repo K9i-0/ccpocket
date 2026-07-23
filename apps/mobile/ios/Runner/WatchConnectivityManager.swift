@@ -14,16 +14,39 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     super.init()
   }
 
-  func activate() {
-    guard WCSession.isSupported() else { return }
+  static func canDeliver(isPaired: Bool, isWatchAppInstalled: Bool) -> Bool {
+    isPaired && isWatchAppInstalled
+  }
+
+  @discardableResult
+  func activate() -> Bool {
+    guard WCSession.isSupported() else { return false }
     let session = WCSession.default
     session.delegate = self
     session.activate()
+    return isAvailable(using: session)
   }
 
   func attach(channel: FlutterMethodChannel) {
     flutterChannel = channel
     flushPendingActions()
+  }
+
+  private func isAvailable(using session: WCSession) -> Bool {
+    Self.canDeliver(
+      isPaired: session.isPaired,
+      isWatchAppInstalled: session.isWatchAppInstalled
+    )
+  }
+
+  private func notifyAvailability(using session: WCSession) {
+    let available = isAvailable(using: session)
+    DispatchQueue.main.async { [weak self] in
+      self?.flutterChannel?.invokeMethod(
+        "availabilityChanged",
+        arguments: ["available": available]
+      )
+    }
   }
 
   func updateSnapshot(_ snapshot: [String: Any]) throws {
@@ -38,6 +61,9 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     _ snapshot: [String: Any],
     using session: WCSession
   ) throws {
+    guard isAvailable(using: session) else {
+      return
+    }
     try session.updateApplicationContext(snapshot)
     if session.isReachable {
       session.sendMessage(
@@ -111,10 +137,12 @@ final class WatchConnectivityManager: NSObject, WCSessionDelegate {
     error: Error?
   ) {
     guard activationState == .activated, error == nil else { return }
+    notifyAvailability(using: session)
     redeliverLatestSnapshot(using: session)
   }
 
   func sessionWatchStateDidChange(_ session: WCSession) {
+    notifyAvailability(using: session)
     guard session.activationState == .activated else { return }
     redeliverLatestSnapshot(using: session)
   }

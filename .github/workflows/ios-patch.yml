@@ -67,16 +67,13 @@ jobs:
             -scheme Runner \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -only-testing:RunnerTests/ComplicationSummaryTests
+            -only-testing:RunnerTests
+      - name: Configure iPhone-only public project
+        run: ruby scripts/configure-ios-watch-payload.rb exclude
       - name: Fetch signing files
         run: |
-          for BUNDLE_ID in \
-            com.k9i.ccpocket \
-            com.k9i.ccpocket.watchkitapp \
-            com.k9i.ccpocket.watchkitapp.widget; do
-            app-store-connect fetch-signing-files "$BUNDLE_ID" \
-              --type IOS_APP_STORE --create
-          done
+          app-store-connect fetch-signing-files com.k9i.ccpocket \
+            --type IOS_APP_STORE --create
       - name: Setup keychain
         run: keychain initialize
       - name: Add certs to keychain

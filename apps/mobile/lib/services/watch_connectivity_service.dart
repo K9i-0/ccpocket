@@ -19,6 +19,7 @@ class WatchConnectivityService {
   UsageResultMessage? _usage;
   Future<void> _publishChain = Future.value();
   bool _initialized = false;
+  bool _relayStarted = false;
 
   WatchConnectivityService({
     required BridgeService bridge,
@@ -30,6 +31,18 @@ class WatchConnectivityService {
     if (_initialized) return;
     _initialized = true;
     _channel.setMethodCallHandler(_handleWatchCall);
+    try {
+      final available = await _channel.invokeMethod<bool>('activate') ?? false;
+      await _setAvailability(available);
+    } catch (_) {
+      await dispose();
+      rethrow;
+    }
+  }
+
+  void _startRelay() {
+    if (!_initialized || _relayStarted) return;
+    _relayStarted = true;
     _subscriptions
       ..add(_bridge.sessionList.listen((_) => _scheduleSnapshot()))
       ..add(_bridge.connectionStatus.listen(_handleConnection))
@@ -40,8 +53,31 @@ class WatchConnectivityService {
           _scheduleSnapshot();
         }),
       );
-    await _channel.invokeMethod<void>('activate');
+    if (_bridge.isConnected) {
+      _bridge
+        ..requestSessionList()
+        ..requestUsage();
+    }
     _scheduleSnapshot();
+  }
+
+  Future<void> _stopRelay() async {
+    if (!_relayStarted) return;
+    _relayStarted = false;
+    _usage = null;
+    for (final subscription in _subscriptions) {
+      await subscription.cancel();
+    }
+    _subscriptions.clear();
+  }
+
+  Future<void> _setAvailability(bool available) async {
+    if (!_initialized) return;
+    if (available) {
+      _startRelay();
+    } else {
+      await _stopRelay();
+    }
   }
 
   void _handleConnection(BridgeConnectionState state) {
@@ -58,7 +94,7 @@ class WatchConnectivityService {
   }
 
   void _scheduleSnapshot() {
-    if (!_initialized) return;
+    if (!_initialized || !_relayStarted) return;
     _publishChain = _publishChain
         .catchError((Object error, StackTrace stackTrace) {
           logger.warning('[watch] Snapshot queue recovered', error, stackTrace);
@@ -67,6 +103,7 @@ class WatchConnectivityService {
   }
 
   Future<void> _publishSnapshot() async {
+    if (!_relayStarted) return;
     final prefs = await SharedPreferences.getInstance();
     final pinnedSessionKeys =
         prefs.getStringList(pinnedSessionKeysPreferenceKey)?.toSet() ??
@@ -89,6 +126,7 @@ class WatchConnectivityService {
       bridgeUrl: _bridge.httpBaseUrl,
       usage: _usage,
     );
+    if (!_relayStarted) return;
     try {
       await _channel.invokeMethod<void>('updateSnapshot', snapshot);
     } catch (error, stackTrace) {
@@ -102,6 +140,10 @@ class WatchConnectivityService {
     final action = arguments is Map
         ? Map<String, dynamic>.from(arguments)
         : const <String, dynamic>{};
+    if (call.method == 'availabilityChanged') {
+      await _setAvailability(action['available'] == true);
+      return const {'accepted': true};
+    }
     return switch (call.method) {
       'requestRefresh' => _refresh(),
       'performAction' => _performAction(action),
@@ -291,10 +333,7 @@ class WatchConnectivityService {
   Future<void> dispose() async {
     _initialized = false;
     _channel.setMethodCallHandler(null);
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
-    }
-    _subscriptions.clear();
+    await _stopRelay();
     await _publishChain.catchError((Object _, StackTrace _) {});
   }
 }
