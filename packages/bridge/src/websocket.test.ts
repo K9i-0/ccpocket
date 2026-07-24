@@ -496,6 +496,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
   it("archives a Codex thread before recording the local archive marker", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const archiveProjectPath = resolvePlatformPath("/tmp/project-archive");
     const ws = {
       readyState: OPEN_STATE,
       send: vi.fn(),
@@ -534,7 +535,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(archive).toHaveBeenCalledWith(
       "codex-thread-1",
       "codex",
-      "/tmp/project-archive",
+      archiveProjectPath,
     );
     expect(
       ws.send.mock.calls
@@ -550,6 +551,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
   it("archives a Codex thread through a standalone process when none is active", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const archiveProjectPath = resolvePlatformPath(
+      "/tmp/project-archive-standalone",
+    );
     const ws = {
       readyState: OPEN_STATE,
       send: vi.fn(),
@@ -580,14 +584,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(codexProcess.archiveThread).toHaveBeenCalledWith(
       "codex-thread-standalone",
     );
-    expect(createStandalone).toHaveBeenCalledWith(
-      "/tmp/project-archive-standalone",
-    );
+    expect(createStandalone).toHaveBeenCalledWith(archiveProjectPath);
     expect(codexProcess.stop).toHaveBeenCalledTimes(1);
     expect(archive).toHaveBeenCalledWith(
       "codex-thread-standalone",
       "codex",
-      "/tmp/project-archive-standalone",
+      archiveProjectPath,
     );
     bridge.close();
   });
