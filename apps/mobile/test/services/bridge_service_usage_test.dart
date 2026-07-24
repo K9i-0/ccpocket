@@ -29,13 +29,18 @@ void main() {
         final bridge = BridgeService();
         final messages = <ServerMessage>[];
         final connectionStates = <BridgeConnectionState>[];
+        final reconnecting = Completer<void>();
         final subscription = bridge.messages.listen(messages.add);
-        final connectionSubscription = bridge.connectionStatus.listen(
-          connectionStates.add,
-        );
+        final connectionSubscription = bridge.connectionStatus.listen((state) {
+          connectionStates.add(state);
+          if (state == BridgeConnectionState.reconnecting &&
+              !reconnecting.isCompleted) {
+            reconnecting.complete();
+          }
+        });
 
         bridge.connect('ws://127.0.0.1:$port');
-        await Future<void>.delayed(const Duration(milliseconds: 250));
+        await reconnecting.future.timeout(const Duration(seconds: 5));
 
         expect(
           messages.whereType<ErrorMessage>().where(
