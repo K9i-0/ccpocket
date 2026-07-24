@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.69.2] - 2026-07-24
+
+### Fixed
+- Keep image-heavy session restores alive with explicit progress and failure events, idempotent reconnect handling, and bounded restore timeouts.
+- Reduce repeated history and image processing during session restore with reusable Codex history, content-addressed image references, and seven-day HTTP caching.
+
 ## [1.69.1] - 2026-07-24
 
 ### Fixed
