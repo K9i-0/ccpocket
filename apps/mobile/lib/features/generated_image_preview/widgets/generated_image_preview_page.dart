@@ -190,6 +190,7 @@ class _GeneratedImage extends StatelessWidget {
       item.url!,
       fit: BoxFit.contain,
       cache: true,
+      cacheKey: item.cacheKey,
       cacheMaxAge: _cacheMaxAge,
       loadStateChanged: (state) {
         return switch (state.extendedImageLoadState) {

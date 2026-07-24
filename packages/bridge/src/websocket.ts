@@ -57,6 +57,10 @@ import {
   saveCodexSessionProfile,
 } from "./sessions-index.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
+import {
+  formatResumePerformanceLog,
+  summarizeResumeHistory,
+} from "./resume-metrics.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
@@ -110,6 +114,23 @@ import {
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
 type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
+type ResumeClientMessage = Extract<ClientMessage, { type: "resume_session" }>;
+type ResumeOperation = {
+  id: string;
+  provider: Provider;
+  sourceSessionId: string;
+  projectPath: string;
+  fingerprint: string;
+  waiters: Set<WebSocket>;
+  timeout?: ReturnType<typeof setTimeout>;
+  completed?: {
+    sessionId: string;
+    message: SystemServerMessage;
+    completedAt: number;
+  };
+};
+const RESUME_OPERATION_TIMEOUT_MS = 5 * 60 * 1000;
+const RESUME_COMPLETED_TTL_MS = 30 * 1000;
 type ClaudePermissionMode =
   | "default"
   | "auto"
@@ -726,6 +747,7 @@ export class BridgeWebSocketServer {
     WebSocket,
     Map<string, InputClientMessage[]>
   >();
+  private resumeOperations = new Map<string, ResumeOperation>();
 
   constructor(options: BridgeServerOptions) {
     const {
@@ -1411,11 +1433,13 @@ export class BridgeWebSocketServer {
     const threadId = this.codexThreadIdForSession(session);
     if (!threadId) return null;
 
-    const history = await this.getCodexThreadHistoryFromRpc(
-      threadId,
-      session.projectPath,
-      session.process as CodexProcess,
-    );
+    const history = session.codexInitialHistoryPending
+      ? ((session.pastMessages ?? []) as SessionHistoryMessage[])
+      : await this.getCodexThreadHistoryFromRpc(
+          threadId,
+          session.projectPath,
+          session.process as CodexProcess,
+        );
     session.claudeSessionId = threadId;
 
     const messages = await this.codexHistoryToServerMessages(session, history);
@@ -1428,6 +1452,7 @@ export class BridgeWebSocketServer {
       history,
       entries,
     );
+    session.codexInitialHistoryPending = false;
     return entries;
   }
 
@@ -2170,6 +2195,10 @@ export class BridgeWebSocketServer {
 
   close(): void {
     console.log("[ws] Shutting down...");
+    for (const operation of this.resumeOperations.values()) {
+      if (operation.timeout) clearTimeout(operation.timeout);
+    }
+    this.resumeOperations.clear();
     this.flushAllDeltaBatches();
     this.sessionManager.destroyAll();
     this.flushAllDeltaBatches();
@@ -4449,6 +4478,7 @@ export class BridgeWebSocketServer {
       }
 
       case "resume_session": {
+        const resumeStartedAt = Date.now();
         console.log(
           `[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
         );
@@ -4456,11 +4486,16 @@ export class BridgeWebSocketServer {
           msg.projectPath,
           this.platform,
         );
+        const provider = msg.provider ?? "claude";
         if (!this.isPathAllowed(resumeProjectPath)) {
+          this.sendResumeFailed(ws, {
+            provider,
+            sourceSessionId: msg.sessionId,
+            projectPath: resumeProjectPath,
+          });
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
-        const provider = msg.provider ?? "claude";
         const normalizedCodexPermissionsMode =
           provider === "codex"
             ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
@@ -4534,6 +4569,11 @@ export class BridgeWebSocketServer {
               effectiveProjectPath,
             );
           if (additionalWritableRoots.deniedRoot) {
+            this.sendResumeFailed(ws, {
+              provider,
+              sourceSessionId: sessionRefId,
+              projectPath: effectiveProjectPath,
+            });
             this.send(
               ws,
               this.buildPathNotAllowedError(additionalWritableRoots.deniedRoot),
@@ -4561,11 +4601,30 @@ export class BridgeWebSocketServer {
             }
           }
 
+          const resumeOperation = this.beginResumeOperation({
+            ws,
+            provider: "codex",
+            sourceSessionId: sessionRefId,
+            projectPath: effectiveProjectPath,
+            request: msg,
+          });
+          if (!resumeOperation.isOwner) break;
+
+          let historyMetrics = summarizeResumeHistory([]);
+          let historyLoadMs = 0;
+          let historyLoaded = false;
+          let sessionCreateMs = 0;
+          let nameLoadMs = 0;
+          const historyStartedAt = Date.now();
           try {
             const pastMessages = await this.getCodexThreadHistory(
               sessionRefId,
               effectiveProjectPath,
             );
+            historyLoadMs = Date.now() - historyStartedAt;
+            historyLoaded = true;
+            historyMetrics = summarizeResumeHistory(pastMessages);
+            const createStartedAt = Date.now();
             const sessionId = this.sessionManager.create(
               effectiveProjectPath,
               undefined,
@@ -4604,53 +4663,70 @@ export class BridgeWebSocketServer {
                   : ("default" as const),
               }),
             );
+            sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
+            if (createdSession) {
+              // get_history immediately follows session_created on the app.
+              // Reuse the canonical history loaded above instead of issuing a
+              // second thread/read for the same restored session.
+              createdSession.codexInitialHistoryPending = true;
+            }
             const cached = this.sessionManager.getCachedCommands(
               "codex",
               createdSession?.worktreePath ?? effectiveProjectPath,
             );
+            const nameStartedAt = Date.now();
             await this.loadAndSetSessionName(
               createdSession,
               "codex",
               effectiveProjectPath,
               sessionRefId,
             );
-            this.send(
-              ws,
-              this.buildSessionCreatedMessage({
+            nameLoadMs = Date.now() - nameStartedAt;
+            const createdMessage = this.buildSessionCreatedMessage({
+              sessionId,
+              provider: "codex",
+              projectPath: effectiveProjectPath,
+              session: createdSession,
+              sandboxMode: createdSession?.codexSettings?.sandboxMode
+                ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
+                : undefined,
+              approvalsReviewer:
+                createdSession?.codexSettings?.approvalsReviewer,
+              codexPermissionsMode:
+                createdSession?.codexSettings?.codexPermissionsMode,
+              permissionMode: legacyPermissionMode,
+              executionMode,
+              planMode,
+              ...(cached
+                ? {
+                    slashCommands: cached.slashCommands,
+                    skills: cached.skills,
+                    ...(cached.skillMetadata
+                      ? { skillMetadata: cached.skillMetadata }
+                      : {}),
+                    apps: cached.apps,
+                    ...(cached.appMetadata
+                      ? { appMetadata: cached.appMetadata }
+                      : {}),
+                    plugins: cached.plugins,
+                    ...(cached.pluginMetadata
+                      ? { pluginMetadata: cached.pluginMetadata }
+                      : {}),
+                  }
+                : {}),
+            });
+            if (
+              !this.completeResumeOperation(
+                resumeOperation.key,
+                resumeOperation.operationId,
                 sessionId,
-                provider: "codex",
-                projectPath: effectiveProjectPath,
-                session: createdSession,
-                sandboxMode: createdSession?.codexSettings?.sandboxMode
-                  ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
-                  : undefined,
-                approvalsReviewer:
-                  createdSession?.codexSettings?.approvalsReviewer,
-                codexPermissionsMode:
-                  createdSession?.codexSettings?.codexPermissionsMode,
-                permissionMode: legacyPermissionMode,
-                executionMode,
-                planMode,
-                ...(cached
-                  ? {
-                      slashCommands: cached.slashCommands,
-                      skills: cached.skills,
-                      ...(cached.skillMetadata
-                        ? { skillMetadata: cached.skillMetadata }
-                        : {}),
-                      apps: cached.apps,
-                      ...(cached.appMetadata
-                        ? { appMetadata: cached.appMetadata }
-                        : {}),
-                      plugins: cached.plugins,
-                      ...(cached.pluginMetadata
-                        ? { pluginMetadata: cached.pluginMetadata }
-                        : {}),
-                    }
-                  : {}),
-              }),
-            );
+                createdMessage,
+              )
+            ) {
+              this.sessionManager.destroy(sessionId);
+              break;
+            }
             this.broadcastSessionList();
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -4660,30 +4736,44 @@ export class BridgeWebSocketServer {
               detail: `provider=codex thread=${sessionRefId}`,
             });
             this.projectHistory?.addProject(effectiveProjectPath);
+            console.info(
+              formatResumePerformanceLog({
+                provider: "codex",
+                sourceSessionId: sessionRefId,
+                outcome: "success",
+                ...historyMetrics,
+                historyLoadMs,
+                sessionCreateMs,
+                nameLoadMs,
+                totalMs: Date.now() - resumeStartedAt,
+              }),
+            );
           } catch (err) {
-            this.send(ws, {
-              type: "error",
-              message: `Failed to load Codex session history: ${err}`,
-            });
+            if (!historyLoaded) {
+              historyLoadMs = Date.now() - historyStartedAt;
+            }
+            console.info(
+              formatResumePerformanceLog({
+                provider: "codex",
+                sourceSessionId: sessionRefId,
+                outcome: "failed",
+                ...historyMetrics,
+                historyLoadMs,
+                sessionCreateMs,
+                nameLoadMs,
+                totalMs: Date.now() - resumeStartedAt,
+              }),
+            );
+            this.failResumeOperation(
+              resumeOperation.key,
+              resumeOperation.operationId,
+              `Failed to load Codex session history: ${err}`,
+            );
           }
           break;
         }
 
         const claudeSessionId = sessionRefId;
-        let pendingResumes = this.pendingClaudeResumeInputs.get(ws);
-        if (!pendingResumes) {
-          pendingResumes = new Map();
-          this.pendingClaudeResumeInputs.set(ws, pendingResumes);
-        }
-        if (pendingResumes.has(claudeSessionId)) {
-          this.send(ws, {
-            type: "error",
-            message: `Session resume already in progress: ${claudeSessionId}`,
-          });
-          break;
-        }
-        pendingResumes.set(claudeSessionId, []);
-
         // Look up worktree mapping for this Claude session
         const wtMapping = this.worktreeStore.get(claudeSessionId);
         let worktreeOpts:
@@ -4709,8 +4799,26 @@ export class BridgeWebSocketServer {
           }
         }
 
+        const resumeOperation = this.beginResumeOperation({
+          ws,
+          provider: "claude",
+          sourceSessionId: claudeSessionId,
+          projectPath: resumeProjectPath,
+          request: msg,
+        });
+        if (!resumeOperation.isOwner) break;
+
+        const historyStartedAt = Date.now();
+        let historyMetrics = summarizeResumeHistory([]);
+        let historyLoadMs = 0;
+        let historyLoaded = false;
+        let sessionCreateMs = 0;
         getSessionHistory(claudeSessionId)
           .then((pastMessages) => {
+            historyLoadMs = Date.now() - historyStartedAt;
+            historyLoaded = true;
+            historyMetrics = summarizeResumeHistory(pastMessages);
+            const createStartedAt = Date.now();
             const {
               sessionId,
               permissionMode: effectivePermissionMode,
@@ -4736,13 +4844,15 @@ export class BridgeWebSocketServer {
               pastMessages,
               worktreeOptions: worktreeOpts,
             });
+            sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
             const cached = this.sessionManager.getCachedCommands(
               "claude",
               createdSession?.worktreePath ?? resumeProjectPath,
             );
+            const nameStartedAt = Date.now();
             const finishResume = () => {
-              this.send(ws, {
+              const createdMessage = {
                 ...this.buildSessionCreatedMessage({
                   sessionId,
                   provider: "claude",
@@ -4771,11 +4881,17 @@ export class BridgeWebSocketServer {
                     : {}),
                 }),
                 claudeSessionId,
-              });
-              const queuedInputs = pendingResumes.get(claudeSessionId) ?? [];
-              pendingResumes.delete(claudeSessionId);
-              for (const input of queuedInputs) {
-                void this.handleClientMessage({ ...input, sessionId }, ws);
+              } as SystemServerMessage;
+              if (
+                !this.completeResumeOperation(
+                  resumeOperation.key,
+                  resumeOperation.operationId,
+                  sessionId,
+                  createdMessage,
+                )
+              ) {
+                this.sessionManager.destroy(sessionId);
+                return;
               }
               this.broadcastSessionList();
               if (autoFallbackUsed) {
@@ -4786,6 +4902,18 @@ export class BridgeWebSocketServer {
                   createdSession,
                 );
               }
+              console.info(
+                formatResumePerformanceLog({
+                  provider: "claude",
+                  sourceSessionId: claudeSessionId,
+                  outcome: "success",
+                  ...historyMetrics,
+                  historyLoadMs,
+                  sessionCreateMs,
+                  nameLoadMs: Date.now() - nameStartedAt,
+                  totalMs: Date.now() - resumeStartedAt,
+                }),
+              );
             };
             void this.loadAndSetSessionName(
               createdSession,
@@ -4806,22 +4934,26 @@ export class BridgeWebSocketServer {
             this.projectHistory?.addProject(resumeProjectPath);
           })
           .catch((err) => {
-            const queuedInputs = pendingResumes.get(claudeSessionId) ?? [];
-            pendingResumes.delete(claudeSessionId);
-            for (const input of queuedInputs) {
-              if (input.clientMessageId) {
-                this.send(ws, {
-                  type: "input_rejected",
-                  sessionId: claudeSessionId,
-                  clientMessageId: input.clientMessageId,
-                  reason: "Session resume failed",
-                });
-              }
+            if (!historyLoaded) {
+              historyLoadMs = Date.now() - historyStartedAt;
             }
-            this.send(ws, {
-              type: "error",
-              message: `Failed to load session history: ${err}`,
-            });
+            console.info(
+              formatResumePerformanceLog({
+                provider: "claude",
+                sourceSessionId: claudeSessionId,
+                outcome: "failed",
+                ...historyMetrics,
+                historyLoadMs,
+                sessionCreateMs,
+                nameLoadMs: 0,
+                totalMs: Date.now() - resumeStartedAt,
+              }),
+            );
+            this.failResumeOperation(
+              resumeOperation.key,
+              resumeOperation.operationId,
+              `Failed to load session history: ${err}`,
+            );
           });
         break;
       }
@@ -6204,6 +6336,266 @@ export class BridgeWebSocketServer {
   private clearPendingClaudeResumeInputs(ws: WebSocket): void {
     this.pendingClaudeResumeInputs.get(ws)?.clear();
     this.pendingClaudeResumeInputs.delete(ws);
+    for (const operation of this.resumeOperations.values()) {
+      operation.waiters.delete(ws);
+    }
+  }
+
+  private resumeOperationKey(
+    provider: Provider,
+    sourceSessionId: string,
+  ): string {
+    return `${provider}:${sourceSessionId}`;
+  }
+
+  private resumeRequestFingerprint(msg: ResumeClientMessage): string {
+    return JSON.stringify({
+      provider: msg.provider ?? "claude",
+      sessionId: msg.sessionId,
+      projectPath: msg.projectPath,
+      permissionMode: msg.permissionMode,
+      executionMode: msg.executionMode,
+      approvalPolicy: msg.approvalPolicy,
+      approvalsReviewer: msg.approvalsReviewer,
+      codexPermissionsMode: msg.codexPermissionsMode,
+      planMode: msg.planMode,
+      sandboxMode: msg.sandboxMode,
+      model: msg.model,
+      effort: msg.effort,
+      maxTurns: msg.maxTurns,
+      maxBudgetUsd: msg.maxBudgetUsd,
+      fallbackModel: msg.fallbackModel,
+      forkSession: msg.forkSession ?? false,
+      persistSession: msg.persistSession,
+      profile: msg.profile,
+      modelReasoningEffort: msg.modelReasoningEffort,
+      serviceTier: msg.serviceTier,
+      networkAccessEnabled: msg.networkAccessEnabled,
+      webSearchMode: msg.webSearchMode,
+      additionalWritableRoots: [...(msg.additionalWritableRoots ?? [])].sort(),
+    });
+  }
+
+  private clearResumeOperation(key: string, operation: ResumeOperation): void {
+    if (operation.timeout) clearTimeout(operation.timeout);
+    if (this.resumeOperations.get(key) === operation) {
+      this.resumeOperations.delete(key);
+    }
+  }
+
+  private ensurePendingClaudeResume(
+    ws: WebSocket,
+    sourceSessionId: string,
+  ): void {
+    let pendingResumes = this.pendingClaudeResumeInputs.get(ws);
+    if (!pendingResumes) {
+      pendingResumes = new Map();
+      this.pendingClaudeResumeInputs.set(ws, pendingResumes);
+    }
+    if (!pendingResumes.has(sourceSessionId)) {
+      pendingResumes.set(sourceSessionId, []);
+    }
+  }
+
+  private beginResumeOperation(params: {
+    ws: WebSocket;
+    provider: Provider;
+    sourceSessionId: string;
+    projectPath: string;
+    request: ResumeClientMessage;
+  }): { key: string; operationId: string; isOwner: boolean } {
+    const { ws, provider, sourceSessionId, projectPath, request } = params;
+    const key = this.resumeOperationKey(provider, sourceSessionId);
+    const fingerprint = this.resumeRequestFingerprint(request);
+    let operation = this.resumeOperations.get(key);
+    if (
+      operation?.completed &&
+      (!this.sessionManager.get(operation.completed.sessionId) ||
+        Date.now() - operation.completed.completedAt >
+          RESUME_COMPLETED_TTL_MS ||
+        operation.fingerprint !== fingerprint ||
+        request.forkSession === true)
+    ) {
+      this.clearResumeOperation(key, operation);
+      operation = undefined;
+    }
+
+    if (
+      operation &&
+      !operation.completed &&
+      operation.fingerprint !== fingerprint
+    ) {
+      this.sendResumeFailed(ws, {
+        provider,
+        sourceSessionId,
+        projectPath,
+      });
+      this.send(ws, {
+        type: "error",
+        message:
+          "This session is already being restored with different settings. Wait for it to finish, then try again.",
+      });
+      return { key, operationId: operation.id, isOwner: false };
+    }
+
+    this.send(ws, {
+      type: "system",
+      subtype: "session_resume_started",
+      sourceSessionId,
+      provider,
+      projectPath,
+    });
+
+    if (provider === "claude") {
+      this.ensurePendingClaudeResume(ws, sourceSessionId);
+    }
+
+    if (operation) {
+      if (operation.completed) {
+        this.send(ws, operation.completed.message);
+        this.flushPendingClaudeResumeInputs(
+          ws,
+          sourceSessionId,
+          operation.completed.sessionId,
+        );
+      } else {
+        operation.waiters.add(ws);
+      }
+      return { key, operationId: operation.id, isOwner: false };
+    }
+
+    const operationId = randomUUID();
+    const newOperation: ResumeOperation = {
+      id: operationId,
+      provider,
+      sourceSessionId,
+      projectPath,
+      fingerprint,
+      waiters: new Set([ws]),
+    };
+    const timeout = setTimeout(() => {
+      this.failResumeOperation(
+        key,
+        operationId,
+        "Session restore is taking longer than expected. Please reconnect and try again.",
+      );
+    }, RESUME_OPERATION_TIMEOUT_MS);
+    timeout.unref?.();
+    newOperation.timeout = timeout;
+    this.resumeOperations.set(key, newOperation);
+    return { key, operationId, isOwner: true };
+  }
+
+  private completeResumeOperation(
+    key: string,
+    operationId: string,
+    sessionId: string,
+    message: SystemServerMessage,
+  ): boolean {
+    const operation = this.resumeOperations.get(key);
+    if (!operation || operation.id !== operationId) return false;
+    if (operation.timeout) clearTimeout(operation.timeout);
+    operation.completed = {
+      sessionId,
+      message,
+      completedAt: Date.now(),
+    };
+    for (const waiter of operation.waiters) {
+      this.send(waiter, message);
+      this.flushPendingClaudeResumeInputs(
+        waiter,
+        operation.sourceSessionId,
+        sessionId,
+      );
+    }
+    operation.waiters.clear();
+    const timeout = setTimeout(() => {
+      this.clearResumeOperation(key, operation);
+    }, RESUME_COMPLETED_TTL_MS);
+    timeout.unref?.();
+    operation.timeout = timeout;
+    this.pruneCompletedResumeOperations();
+    return true;
+  }
+
+  private failResumeOperation(
+    key: string,
+    operationId: string,
+    message: string,
+  ): void {
+    const operation = this.resumeOperations.get(key);
+    if (!operation || operation.id !== operationId) return;
+    this.clearResumeOperation(key, operation);
+    for (const waiter of operation.waiters) {
+      this.rejectPendingClaudeResumeInputs(
+        waiter,
+        operation.sourceSessionId,
+      );
+      this.sendResumeFailed(waiter, operation);
+      this.send(waiter, { type: "error", message });
+    }
+  }
+
+  private sendResumeFailed(
+    ws: WebSocket,
+    resume: {
+      provider: Provider;
+      sourceSessionId: string;
+      projectPath: string;
+    },
+  ): void {
+    this.send(ws, {
+      type: "system",
+      subtype: "session_resume_failed",
+      provider: resume.provider,
+      sourceSessionId: resume.sourceSessionId,
+      projectPath: resume.projectPath,
+    });
+  }
+
+  private flushPendingClaudeResumeInputs(
+    ws: WebSocket,
+    sourceSessionId: string,
+    sessionId: string,
+  ): void {
+    const pendingResumes = this.pendingClaudeResumeInputs.get(ws);
+    const queuedInputs = pendingResumes?.get(sourceSessionId) ?? [];
+    pendingResumes?.delete(sourceSessionId);
+    for (const input of queuedInputs) {
+      void this.handleClientMessage({ ...input, sessionId }, ws);
+    }
+  }
+
+  private rejectPendingClaudeResumeInputs(
+    ws: WebSocket,
+    sourceSessionId: string,
+  ): void {
+    const pendingResumes = this.pendingClaudeResumeInputs.get(ws);
+    const queuedInputs = pendingResumes?.get(sourceSessionId) ?? [];
+    pendingResumes?.delete(sourceSessionId);
+    for (const input of queuedInputs) {
+      if (!input.clientMessageId) continue;
+      this.send(ws, {
+        type: "input_rejected",
+        sessionId: sourceSessionId,
+        clientMessageId: input.clientMessageId,
+        reason: "Session resume failed",
+      });
+    }
+  }
+
+  private pruneCompletedResumeOperations(): void {
+    const completed = [...this.resumeOperations.entries()]
+      .filter((entry) => entry[1].completed)
+      .sort(
+        (a, b) =>
+          (a[1].completed?.completedAt ?? 0) -
+          (b[1].completed?.completedAt ?? 0),
+      );
+    while (completed.length > 100) {
+      const oldest = completed.shift();
+      if (oldest) this.clearResumeOperation(oldest[0], oldest[1]);
+    }
   }
 
   /**

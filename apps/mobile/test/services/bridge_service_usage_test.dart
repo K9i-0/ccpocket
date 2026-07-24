@@ -16,6 +16,51 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
+    test(
+      'transport failures use reconnect state without chat errors',
+      () async {
+        final closedServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final port = closedServer.port;
+        await closedServer.close(force: true);
+
+        final bridge = BridgeService();
+        final messages = <ServerMessage>[];
+        final connectionStates = <BridgeConnectionState>[];
+        final subscription = bridge.messages.listen(messages.add);
+        final connectionSubscription = bridge.connectionStatus.listen(
+          connectionStates.add,
+        );
+
+        bridge.connect('ws://127.0.0.1:$port');
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+
+        expect(
+          messages.whereType<ErrorMessage>().where(
+            (message) =>
+                message.message.startsWith('WebSocket error:') ||
+                message.message.startsWith('Connection failed:'),
+          ),
+          isEmpty,
+        );
+        expect(
+          connectionStates,
+          isNot(contains(BridgeConnectionState.connected)),
+        );
+        expect(
+          bridge.currentBridgeConnectionState,
+          BridgeConnectionState.reconnecting,
+        );
+
+        bridge.disconnect();
+        await subscription.cancel();
+        await connectionSubscription.cancel();
+        bridge.dispose();
+      },
+    );
+
     test('disconnect clears last usage result cache', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final sockets = <WebSocket>[];
@@ -885,6 +930,107 @@ void main() {
       await server.close(force: true);
       bridge.dispose();
     });
+
+    test(
+      'resume failure clears the processing action and allows retry',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(
+          ClientMessage.resumeSession(
+            'thread-with-images',
+            '/home/user/app',
+            provider: 'codex',
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(bridge.offlinePendingActions, isEmpty);
+
+        socket.add(
+          jsonEncode({
+            'type': 'system',
+            'subtype': 'session_resume_started',
+            'sourceSessionId': 'thread-with-images',
+            'provider': 'codex',
+            'projectPath': '/home/user/app',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(bridge.offlinePendingActions, hasLength(1));
+        expect(
+          bridge.offlinePendingActions.single.state,
+          OfflinePendingActionState.processing,
+        );
+        expect(bridge.offlinePendingActions.single.canCancel, isFalse);
+
+        socket.add(
+          jsonEncode({
+            'type': 'system',
+            'subtype': 'session_resume_failed',
+            'sourceSessionId': 'thread-with-images',
+            'provider': 'codex',
+            'projectPath': '/home/user/app',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(bridge.offlinePendingActions, isEmpty);
+
+        bridge.send(
+          ClientMessage.resumeSession(
+            'thread-with-images',
+            '/home/user/app',
+            provider: 'codex',
+          ),
+        );
+        socket.add(
+          jsonEncode({
+            'type': 'system',
+            'subtype': 'session_resume_started',
+            'sourceSessionId': 'thread-with-images',
+            'provider': 'codex',
+            'projectPath': '/home/user/app',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(bridge.offlinePendingActions, hasLength(1));
+        expect(
+          bridge.offlinePendingActions.single.state,
+          OfflinePendingActionState.processing,
+        );
+
+        socket.add(
+          jsonEncode({
+            'type': 'system',
+            'subtype': 'session_created',
+            'sessionId': 'running-1',
+            'claudeSessionId': 'thread-with-images',
+            'provider': 'codex',
+            'projectPath': '/home/user/app',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(bridge.offlinePendingActions, isEmpty);
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
 
     test(
       'clears connected pending start when session_created path differs',

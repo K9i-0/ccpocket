@@ -5,6 +5,7 @@ class GeneratedImagePreviewItem {
   final String id;
   final String? url;
   final Uint8List? bytes;
+  final String? cacheKey;
   final String mimeType;
   final String prompt;
   final String? status;
@@ -15,6 +16,7 @@ class GeneratedImagePreviewItem {
     required this.id,
     this.url,
     this.bytes,
+    this.cacheKey,
     required this.mimeType,
     required this.prompt,
     this.status,

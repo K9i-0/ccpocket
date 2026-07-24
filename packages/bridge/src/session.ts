@@ -53,6 +53,12 @@ export interface SessionInfo {
   historyLowWatermark: number;
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
   pastMessages?: unknown[];
+  /**
+   * True until the first Codex history response consumes the history already
+   * loaded during resume. This also distinguishes a loaded empty history from
+   * a session that has not loaded canonical history yet.
+   */
+  codexInitialHistoryPending?: boolean;
   projectPath: string;
   claudeSessionId?: string;
   /** User-assigned session name (via /rename or mobile rename). */

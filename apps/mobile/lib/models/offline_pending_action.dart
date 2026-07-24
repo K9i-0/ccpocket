@@ -1,5 +1,7 @@
 enum OfflinePendingActionKind { start, resume }
 
+enum OfflinePendingActionState { queuedForReconnect, processing }
+
 class OfflinePendingAction {
   const OfflinePendingAction({
     required this.id,
@@ -7,6 +9,7 @@ class OfflinePendingAction {
     required this.projectPath,
     required this.provider,
     required this.createdAt,
+    this.state = OfflinePendingActionState.queuedForReconnect,
     this.canCancel = true,
     this.sessionId,
   });
@@ -16,6 +19,7 @@ class OfflinePendingAction {
   final String projectPath;
   final String provider;
   final DateTime createdAt;
+  final OfflinePendingActionState state;
   final bool canCancel;
   final String? sessionId;
 

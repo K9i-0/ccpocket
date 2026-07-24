@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
+
 import '../../models/messages.dart';
 import 'generated_image_preview_item.dart';
 
@@ -19,7 +21,8 @@ List<GeneratedImagePreviewItem> generatedImageItemsFromToolResults(
 }) {
   final items = <GeneratedImagePreviewItem>[];
   for (final message in messages) {
-    for (final image in message.images) {
+    for (var imageIndex = 0; imageIndex < message.images.length; imageIndex++) {
+      final image = message.images[imageIndex];
       final resolvedUrl = _resolveImageUrl(image.url, httpBaseUrl);
       if (resolvedUrl == null) continue;
       final cacheKey = (
@@ -37,6 +40,7 @@ List<GeneratedImagePreviewItem> generatedImageItemsFromToolResults(
       final item = _itemFromImageRef(
         message: message,
         image: image,
+        imageIndex: imageIndex,
         resolvedUrl: resolvedUrl,
       );
       items.add(item);
@@ -54,6 +58,7 @@ List<GeneratedImagePreviewItem> generatedImageItemsFromToolResults(
 GeneratedImagePreviewItem _itemFromImageRef({
   required ToolResultMessage message,
   required ImageRef image,
+  required int imageIndex,
   required String resolvedUrl,
 }) {
   final bytes = _decodeDataImageUrl(resolvedUrl);
@@ -61,12 +66,33 @@ GeneratedImagePreviewItem _itemFromImageRef({
     id: '${message.toolUseId}:${image.id}',
     url: bytes == null ? resolvedUrl : null,
     bytes: bytes,
+    cacheKey: bytes == null
+        ? _generatedImageCacheKey(message, imageIndex, image.mimeType)
+        : null,
     mimeType: image.mimeType,
     prompt: _readPrefixedLine(message.content, 'revisedPrompt') ?? '',
     status: _readPrefixedLine(message.content, 'status'),
     savedPath: _readPrefixedLine(message.content, 'savedPath'),
     details: message.content.isEmpty ? null : message.content,
   );
+}
+
+String _generatedImageCacheKey(
+  ToolResultMessage message,
+  int imageIndex,
+  String mimeType,
+) {
+  final normalizedImageId = message.images[imageIndex].id.toLowerCase();
+  final isContentAddressed = RegExp(
+    r'^[0-9a-f]{64}$',
+  ).hasMatch(normalizedImageId);
+  final identity = isContentAddressed
+      ? 'generated-image-content-v1\n$normalizedImageId\n$mimeType'
+      : 'generated-image-v1\n'
+            '${message.toolUseId}\n'
+            '$imageIndex\n'
+            '$mimeType';
+  return sha256.convert(utf8.encode(identity)).toString();
 }
 
 bool canResolveGeneratedImageUrl(

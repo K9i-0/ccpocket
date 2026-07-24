@@ -188,6 +188,7 @@ class _IntrinsicAspectRatioImageState
     return ExtendedNetworkImageProvider(
       item.url!,
       cache: true,
+      cacheKey: item.cacheKey,
       cacheMaxAge: _cacheMaxAge,
     );
   }
@@ -270,6 +271,7 @@ class _GeneratedImageThumbnail extends StatelessWidget {
       item.url!,
       fit: fit,
       cache: true,
+      cacheKey: item.cacheKey,
       cacheMaxAge: _cacheMaxAge,
       loadStateChanged: (state) {
         return switch (state.extendedImageLoadState) {

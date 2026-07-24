@@ -37,6 +37,7 @@ class ReconnectBanner extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 color: errorColor,
               ),
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),

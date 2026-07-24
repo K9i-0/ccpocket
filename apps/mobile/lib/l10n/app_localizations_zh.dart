@@ -1034,13 +1034,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tooltipCancelQueuedMessage => '取消排队消息';
 
   @override
-  String get reconnecting => '正在重新连接...';
+  String get reconnecting => 'Bridge 连接暂时中断。正在自动重新连接...';
 
   @override
-  String get reconnectingQueuedMessages => '正在重新连接... 排队消息将自动发送';
+  String get reconnectingQueuedMessages => 'Bridge 连接暂时中断。正在自动重新连接；排队消息已安全保留。';
 
   @override
-  String get disconnectedMessagesQueued => '已断开连接 - 消息可排队等待重连';
+  String get disconnectedMessagesQueued => 'Bridge 当前不可用。操作会保存在此设备上，并在重连后发送。';
 
   @override
   String get sessionQueuedForReconnect => '会话已加入重连队列';
@@ -1061,10 +1061,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pendingActionStatus => '等待中';
 
   @override
+  String get pendingActionProcessingStatus => '正在恢复';
+
+  @override
+  String get pendingActionProcessingStartStatus => '准备中';
+
+  @override
+  String get pendingActionProcessingStartDescription => 'Bridge 正在准备会话';
+
+  @override
+  String get pendingActionProcessingResumeDescription => '包含大量图片的会话可能需要更长时间';
+
+  @override
+  String get pendingActionProcessingStartTitle => '正在创建新会话';
+
+  @override
+  String get pendingActionProcessingResumeTitle => '正在加载会话历史';
+
+  @override
   String get tooltipCancelPendingAction => '取消等待中的操作';
 
   @override
   String get queuedLocally => '已在本地排队';
+
+  @override
+  String get processingOnBridge => 'Bridge 正在处理';
 
   @override
   String get offlinePendingNewSessionTitle => '新会话等待中';

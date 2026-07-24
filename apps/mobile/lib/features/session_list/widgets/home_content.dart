@@ -1225,13 +1225,45 @@ class OfflinePendingSessionCard extends StatelessWidget {
     final provider = providerFromRaw(action.provider);
     final providerStyle = providerStyleFor(context, provider);
     final statusColor = colorScheme.tertiary;
-    final subtitle = switch (action.kind) {
-      OfflinePendingActionKind.start => l.pendingActionWillCreateOnReconnect,
-      OfflinePendingActionKind.resume => l.pendingActionWillResumeOnReconnect,
+    final isProcessing = action.state == OfflinePendingActionState.processing;
+    final status = isProcessing
+        ? switch (action.kind) {
+            OfflinePendingActionKind.start =>
+              l.pendingActionProcessingStartStatus,
+            OfflinePendingActionKind.resume => l.pendingActionProcessingStatus,
+          }
+        : l.pendingActionStatus;
+    final subtitle = switch ((action.state, action.kind)) {
+      (
+        OfflinePendingActionState.queuedForReconnect,
+        OfflinePendingActionKind.start,
+      ) =>
+        l.pendingActionWillCreateOnReconnect,
+      (
+        OfflinePendingActionState.queuedForReconnect,
+        OfflinePendingActionKind.resume,
+      ) =>
+        l.pendingActionWillResumeOnReconnect,
+      (OfflinePendingActionState.processing, OfflinePendingActionKind.start) =>
+        l.pendingActionProcessingStartDescription,
+      (OfflinePendingActionState.processing, OfflinePendingActionKind.resume) =>
+        l.pendingActionProcessingResumeDescription,
     };
-    final title = switch (action.kind) {
-      OfflinePendingActionKind.start => l.offlinePendingNewSessionTitle,
-      OfflinePendingActionKind.resume => l.offlinePendingResumeTitle,
+    final title = switch ((action.state, action.kind)) {
+      (
+        OfflinePendingActionState.queuedForReconnect,
+        OfflinePendingActionKind.start,
+      ) =>
+        l.offlinePendingNewSessionTitle,
+      (
+        OfflinePendingActionState.queuedForReconnect,
+        OfflinePendingActionKind.resume,
+      ) =>
+        l.offlinePendingResumeTitle,
+      (OfflinePendingActionState.processing, OfflinePendingActionKind.start) =>
+        l.pendingActionProcessingStartTitle,
+      (OfflinePendingActionState.processing, OfflinePendingActionKind.resume) =>
+        l.pendingActionProcessingResumeTitle,
     };
 
     return Card(
@@ -1262,7 +1294,7 @@ class OfflinePendingSessionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  l.pendingActionStatus,
+                  status,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1344,14 +1376,14 @@ class OfflinePendingSessionCard extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.cloud_off,
+                      isProcessing ? Icons.cloud_sync : Icons.cloud_off,
                       size: 13,
                       color: appColors.subtleText,
                     ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        l.queuedLocally,
+                        isProcessing ? l.processingOnBridge : l.queuedLocally,
                         style: TextStyle(
                           fontSize: 11,
                           color: appColors.subtleText,

@@ -138,4 +138,61 @@ describe("ImageStore.registerImages", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("reuses the same content-addressed ref for identical files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ccpocket-image-store-"));
+    try {
+      const firstPath = join(root, "first.png");
+      const secondPath = join(root, "second.png");
+      const contents = Buffer.from("89504e470d0a1a0a", "hex");
+      await writeFile(firstPath, contents);
+      await writeFile(secondPath, contents);
+
+      const store = new ImageStore();
+      const refs = await store.registerImages([firstPath, secondPath]);
+
+      expect(refs).toHaveLength(2);
+      expect(refs[0]).toEqual(refs[1]);
+      expect(refs[0].id).toMatch(/^[a-f0-9]{64}$/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ImageStore.registerFromBase64", () => {
+  it("reuses the same ref for repeated base64 history images", () => {
+    const store = new ImageStore();
+    const data = Buffer.from("same generated image").toString("base64");
+
+    const first = store.registerFromBase64(data, "image/png");
+    const second = store.registerFromBase64(data, "image/png");
+
+    expect(first).not.toBeNull();
+    expect(second).toEqual(first);
+    expect(first?.id).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("keeps mime types distinct for identical bytes", () => {
+    const store = new ImageStore();
+    const data = Buffer.from("same bytes").toString("base64");
+
+    const png = store.registerFromBase64(data, "image/png");
+    const webp = store.registerFromBase64(data, "image/webp");
+
+    expect(png?.id).not.toBe(webp?.id);
+  });
+
+  it("bounds the base64 dedupe index to the image store capacity", () => {
+    const store = new ImageStore();
+
+    for (let index = 0; index < 125; index++) {
+      store.registerFromBase64(
+        Buffer.from(`generated image ${index}`).toString("base64"),
+        "image/png",
+      );
+    }
+
+    expect((store as any).base64Ids.size).toBe(100);
+  });
 });

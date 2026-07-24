@@ -45,6 +45,83 @@ void main() {
     );
   });
 
+  test('keeps the disk cache key stable when Bridge image URLs change', () {
+    const firstMessage = ToolResultMessage(
+      toolUseId: 'image-generation-stable',
+      toolName: 'ImageGeneration',
+      content:
+          'status: completed\n'
+          'revisedPrompt: Stable image\n'
+          'Generated 1 image',
+      images: [
+        ImageRef(
+          id: 'bridge-image-1',
+          url: '/images/random-1',
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+    const restoredMessage = ToolResultMessage(
+      toolUseId: 'image-generation-stable',
+      toolName: 'ImageGeneration',
+      content: 'status: completed\nrevisedPrompt: Stable image',
+      images: [
+        ImageRef(
+          id: 'bridge-image-2',
+          url: '/images/random-2',
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+
+    final first = generatedImageItemsFromToolResults([
+      firstMessage,
+    ], httpBaseUrl: 'http://localhost:8765').single;
+    final restored = generatedImageItemsFromToolResults([
+      restoredMessage,
+    ], httpBaseUrl: 'http://localhost:8765').single;
+
+    expect(first.url, isNot(restored.url));
+    expect(first.cacheKey, isNotNull);
+    expect(first.cacheKey, restored.cacheKey);
+  });
+
+  test('changes the disk cache key when content-addressed image id changes', () {
+    const firstMessage = ToolResultMessage(
+      toolUseId: 'image-generation-content-addressed',
+      toolName: 'ImageGeneration',
+      content: 'Generated 1 image',
+      images: [
+        ImageRef(
+          id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          url: '/images/first',
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+    const changedMessage = ToolResultMessage(
+      toolUseId: 'image-generation-content-addressed',
+      toolName: 'ImageGeneration',
+      content: 'Generated 1 image',
+      images: [
+        ImageRef(
+          id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          url: '/images/second',
+          mimeType: 'image/png',
+        ),
+      ],
+    );
+
+    final first = generatedImageItemsFromToolResults([
+      firstMessage,
+    ], httpBaseUrl: 'http://localhost:8765').single;
+    final changed = generatedImageItemsFromToolResults([
+      changedMessage,
+    ], httpBaseUrl: 'http://localhost:8765').single;
+
+    expect(first.cacheKey, isNot(changed.cacheKey));
+  });
+
   test('reuses decoded data images from the supplied bounded cache', () {
     final cache = <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
 

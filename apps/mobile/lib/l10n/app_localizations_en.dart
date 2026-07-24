@@ -1079,15 +1079,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipCancelQueuedMessage => 'Cancel queued message';
 
   @override
-  String get reconnecting => 'Reconnecting...';
+  String get reconnecting =>
+      'Bridge connection was interrupted. Reconnecting automatically...';
 
   @override
   String get reconnectingQueuedMessages =>
-      'Reconnecting... queued messages will be sent automatically';
+      'Bridge connection was interrupted. Reconnecting automatically; queued messages are safe.';
 
   @override
   String get disconnectedMessagesQueued =>
-      'Disconnected - messages can be queued for reconnect';
+      'Bridge is unavailable. Actions are saved on this device and sent after reconnecting.';
 
   @override
   String get sessionQueuedForReconnect => 'Session queued for reconnect';
@@ -1110,10 +1111,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pendingActionStatus => 'Pending';
 
   @override
+  String get pendingActionProcessingStatus => 'Restoring';
+
+  @override
+  String get pendingActionProcessingStartStatus => 'Preparing';
+
+  @override
+  String get pendingActionProcessingStartDescription =>
+      'Bridge is preparing the session';
+
+  @override
+  String get pendingActionProcessingResumeDescription =>
+      'Sessions with many images may take longer';
+
+  @override
+  String get pendingActionProcessingStartTitle => 'Creating new session';
+
+  @override
+  String get pendingActionProcessingResumeTitle => 'Loading session history';
+
+  @override
   String get tooltipCancelPendingAction => 'Cancel pending action';
 
   @override
   String get queuedLocally => 'Queued locally';
+
+  @override
+  String get processingOnBridge => 'Processing on Bridge';
 
   @override
   String get offlinePendingNewSessionTitle => 'New session pending';

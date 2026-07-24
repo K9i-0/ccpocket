@@ -24,9 +24,13 @@ class SessionReconnectBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            l.reconnecting,
-            style: TextStyle(fontSize: 13, color: appColors.statusApproval),
+          Expanded(
+            child: Text(
+              l.reconnecting,
+              style: TextStyle(fontSize: 13, color: appColors.statusApproval),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

@@ -2037,19 +2037,19 @@ abstract class AppLocalizations {
   /// No description provided for @reconnecting.
   ///
   /// In ja, this message translates to:
-  /// **'再接続中...'**
+  /// **'Bridge との接続が一時的に切れました。自動で再接続しています...'**
   String get reconnecting;
 
   /// No description provided for @reconnectingQueuedMessages.
   ///
   /// In ja, this message translates to:
-  /// **'再接続中... キュー内のメッセージは自動送信されます'**
+  /// **'Bridge との接続が一時的に切れました。自動で再接続しています。待機中のメッセージは保持されています。'**
   String get reconnectingQueuedMessages;
 
   /// No description provided for @disconnectedMessagesQueued.
   ///
   /// In ja, this message translates to:
-  /// **'切断中 - メッセージは再接続待ちキューに入れられます'**
+  /// **'Bridge に接続できません。操作は端末に保存され、再接続後に送信されます。'**
   String get disconnectedMessagesQueued;
 
   /// No description provided for @sessionQueuedForReconnect.
@@ -2088,6 +2088,42 @@ abstract class AppLocalizations {
   /// **'待機中'**
   String get pendingActionStatus;
 
+  /// No description provided for @pendingActionProcessingStatus.
+  ///
+  /// In ja, this message translates to:
+  /// **'復元中'**
+  String get pendingActionProcessingStatus;
+
+  /// No description provided for @pendingActionProcessingStartStatus.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備中'**
+  String get pendingActionProcessingStartStatus;
+
+  /// No description provided for @pendingActionProcessingStartDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge でセッションを準備しています'**
+  String get pendingActionProcessingStartDescription;
+
+  /// No description provided for @pendingActionProcessingResumeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像が多いセッションは時間がかかることがあります'**
+  String get pendingActionProcessingResumeDescription;
+
+  /// No description provided for @pendingActionProcessingStartTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションを作成中'**
+  String get pendingActionProcessingStartTitle;
+
+  /// No description provided for @pendingActionProcessingResumeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション履歴を読み込んでいます'**
+  String get pendingActionProcessingResumeTitle;
+
   /// No description provided for @tooltipCancelPendingAction.
   ///
   /// In ja, this message translates to:
@@ -2099,6 +2135,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'ローカルでキュー中'**
   String get queuedLocally;
+
+  /// No description provided for @processingOnBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge で処理中'**
+  String get processingOnBridge;
 
   /// No description provided for @offlinePendingNewSessionTitle.
   ///

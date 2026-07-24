@@ -1043,13 +1043,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get tooltipCancelQueuedMessage => '대기 중인 메시지 취소';
 
   @override
-  String get reconnecting => '재연결 중...';
+  String get reconnecting => 'Bridge 연결이 일시적으로 끊겼습니다. 자동으로 다시 연결하는 중...';
 
   @override
-  String get reconnectingQueuedMessages => '재연결 중... 대기 중인 메시지는 자동으로 전송됩니다';
+  String get reconnectingQueuedMessages =>
+      'Bridge 연결이 일시적으로 끊겼습니다. 자동으로 다시 연결 중이며 대기 메시지는 안전하게 보관됩니다.';
 
   @override
-  String get disconnectedMessagesQueued => '연결 끊김 - 메시지를 재연결 대기열에 추가할 수 있습니다';
+  String get disconnectedMessagesQueued =>
+      'Bridge를 사용할 수 없습니다. 작업은 이 기기에 저장되며 재연결 후 전송됩니다.';
 
   @override
   String get sessionQueuedForReconnect => '세션을 재연결 대기열에 추가했습니다';
@@ -1070,10 +1072,33 @@ class AppLocalizationsKo extends AppLocalizations {
   String get pendingActionStatus => '대기 중';
 
   @override
+  String get pendingActionProcessingStatus => '복원 중';
+
+  @override
+  String get pendingActionProcessingStartStatus => '준비 중';
+
+  @override
+  String get pendingActionProcessingStartDescription =>
+      'Bridge에서 세션을 준비하고 있습니다';
+
+  @override
+  String get pendingActionProcessingResumeDescription =>
+      '이미지가 많은 세션은 시간이 더 걸릴 수 있습니다';
+
+  @override
+  String get pendingActionProcessingStartTitle => '새 세션을 만드는 중';
+
+  @override
+  String get pendingActionProcessingResumeTitle => '세션 기록을 불러오는 중';
+
+  @override
   String get tooltipCancelPendingAction => '대기 중인 작업 취소';
 
   @override
   String get queuedLocally => '로컬에서 대기 중';
+
+  @override
+  String get processingOnBridge => 'Bridge에서 처리 중';
 
   @override
   String get offlinePendingNewSessionTitle => '새 세션 대기 중';

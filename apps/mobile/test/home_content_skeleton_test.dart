@@ -507,6 +507,44 @@ void main() {
       },
     );
 
+    testWidgets('labels an accepted resume as restoring', (tester) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          offlinePendingActions: [
+            OfflinePendingAction(
+              id: 'processing-resume-s1',
+              kind: OfflinePendingActionKind.resume,
+              state: OfflinePendingActionState.processing,
+              canCancel: false,
+              projectPath: '/home/user/project-a',
+              provider: 'codex',
+              sessionId: 's1',
+              createdAt: DateTime.utc(2026, 1, 1),
+            ),
+          ],
+          recentSessions: [_session(id: 's1')],
+          isInitialLoading: false,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Restoring'), findsOneWidget);
+      expect(
+        find.text('Sessions with many images may take longer'),
+        findsOneWidget,
+      );
+      expect(find.text('Loading session history'), findsOneWidget);
+      expect(find.text('Processing on Bridge'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('pending_session_cancel_button')),
+        findsNothing,
+      );
+    });
+
     testWidgets('shows skeleton while loading even if recent sessions exist', (
       tester,
     ) async {
