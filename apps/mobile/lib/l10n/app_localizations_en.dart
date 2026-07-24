@@ -991,6 +991,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Let Codex review approval requests automatically';
 
   @override
+  String get codexAutoReviewDisabledByPolicy =>
+      'Disabled by your organization\'s Browser Use policy';
+
+  @override
   String get codexAutoReviewUnavailableDescription =>
       'Unavailable when approvals are disabled';
 

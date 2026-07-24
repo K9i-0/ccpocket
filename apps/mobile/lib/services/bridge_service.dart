@@ -36,6 +36,7 @@ class BridgeService implements BridgeServiceBase {
   final _fileListMessageController =
       StreamController<FileListMessage>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
+  final _codexAutoReviewPolicyController = StreamController<bool>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
   final _diffImageResultController =
       StreamController<DiffImageResultMessage>.broadcast();
@@ -111,6 +112,7 @@ class BridgeService implements BridgeServiceBase {
   Map<String, List<String>> _codexModelServiceTiers = {};
   List<String> _codexProfiles = [];
   String? _defaultCodexProfile;
+  bool _codexAutoReviewDisabled = false;
   String? _bridgeVersion;
   String? _promptHistoryBridgeId;
   UsageResultMessage? _lastUsageResult;
@@ -159,6 +161,8 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
+  Stream<bool> get codexAutoReviewPolicyStream =>
+      _codexAutoReviewPolicyController.stream;
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   Stream<FileListMessage> get fileListMessages =>
@@ -242,6 +246,7 @@ class BridgeService implements BridgeServiceBase {
       _codexModelServiceTiers;
   List<String> get codexProfiles => _codexProfiles;
   String? get defaultCodexProfile => _defaultCodexProfile;
+  bool get codexAutoReviewDisabled => _codexAutoReviewDisabled;
   String? get bridgeVersion => _bridgeVersion;
   String? get promptHistoryBridgeId => _promptHistoryBridgeId;
   UsageResultMessage? get lastUsageResult => _lastUsageResult;
@@ -404,6 +409,7 @@ class BridgeService implements BridgeServiceBase {
                 :final codexModelServiceTiers,
                 :final codexProfiles,
                 :final defaultCodexProfile,
+                :final codexAutoReviewDisabled,
                 :final bridgeVersion,
               ):
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
@@ -417,6 +423,8 @@ class BridgeService implements BridgeServiceBase {
                 _codexModelServiceTiers = codexModelServiceTiers;
                 _codexProfiles = codexProfiles;
                 _defaultCodexProfile = defaultCodexProfile;
+                _codexAutoReviewDisabled = codexAutoReviewDisabled;
+                _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 _lastRecentSessionsMessage = msg;
@@ -680,6 +688,7 @@ class BridgeService implements BridgeServiceBase {
     _codexModelServiceTiers = const {};
     _codexProfiles = const [];
     _defaultCodexProfile = null;
+    _codexAutoReviewDisabled = false;
     _bridgeVersion = null;
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
@@ -2333,6 +2342,7 @@ class BridgeService implements BridgeServiceBase {
     _fileListController.close();
     _fileListMessageController.close();
     _projectHistoryController.close();
+    _codexAutoReviewPolicyController.close();
     _diffResultController.close();
     _diffImageResultController.close();
     _worktreeListController.close();

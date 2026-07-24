@@ -931,6 +931,8 @@ sealed class ServerMessage {
                 .toList() ??
             const [],
         defaultCodexProfile: json['defaultCodexProfile'] as String?,
+        codexAutoReviewDisabled:
+            json['codexAutoReviewDisabled'] as bool? ?? false,
         bridgeVersion: json['bridgeVersion'] as String?,
       ),
       'recent_sessions' => RecentSessionsMessage(
@@ -2303,6 +2305,7 @@ class SessionListMessage implements ServerMessage {
   final Map<String, List<String>> codexModelServiceTiers;
   final List<String> codexProfiles;
   final String? defaultCodexProfile;
+  final bool codexAutoReviewDisabled;
   final String? bridgeVersion;
   const SessionListMessage({
     required this.sessions,
@@ -2314,6 +2317,7 @@ class SessionListMessage implements ServerMessage {
     this.codexModelServiceTiers = const {},
     this.codexProfiles = const [],
     this.defaultCodexProfile,
+    this.codexAutoReviewDisabled = false,
     this.bridgeVersion,
   });
 }

@@ -951,6 +951,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get codexAutoReviewDescription => '让 Codex 自动审查审批请求';
 
   @override
+  String get codexAutoReviewDisabledByPolicy => '已被组织的 Browser Use 政策禁用';
+
+  @override
   String get codexAutoReviewUnavailableDescription => '关闭审批时不可用';
 
   @override

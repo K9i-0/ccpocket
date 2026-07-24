@@ -381,6 +381,7 @@
   "codexApprovalNeverDescription": "Never ask for approval; failures are returned immediately",
   "codexAutoReview": "Auto Review",
   "codexAutoReviewDescription": "Let Codex review approval requests automatically",
+  "codexAutoReviewDisabledByPolicy": "Disabled by your organization's Browser Use policy",
   "codexAutoReviewUnavailableDescription": "Unavailable when approvals are disabled",
   "guardianApprovalTitle": "Auto Review approved",
   "guardianApprovalMediumRisk": "Medium risk",

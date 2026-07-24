@@ -960,6 +960,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get codexAutoReviewDescription => 'Codex가 승인 요청을 자동으로 검토';
 
   @override
+  String get codexAutoReviewDisabledByPolicy => '조직의 Browser Use 정책에 의해 비활성화됨';
+
+  @override
   String get codexAutoReviewUnavailableDescription => '승인이 비활성화되어 있으면 사용할 수 없음';
 
   @override

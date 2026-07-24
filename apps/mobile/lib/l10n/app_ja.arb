@@ -388,6 +388,7 @@
   "codexApprovalNeverDescription": "確認せず実行し、失敗時も承認を求めません",
   "codexAutoReview": "自動レビュー",
   "codexAutoReviewDescription": "承認リクエストを Codex が自動レビューします",
+  "codexAutoReviewDisabledByPolicy": "組織の Browser Use ポリシーにより無効です",
   "codexAutoReviewUnavailableDescription": "Never Ask では承認リクエストが発生しないため利用できません",
   "guardianApprovalTitle": "自動レビューで承認",
   "guardianApprovalMediumRisk": "中リスク",

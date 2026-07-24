@@ -528,6 +528,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
+  StreamSubscription<bool>? _codexAutoReviewPolicySub;
+  bool _codexAutoReviewDisabled = false;
 
   /// Live-updated recent projects (initially from widget, updated via stream).
   late List<({String path, String name})> _liveRecentProjects;
@@ -588,6 +590,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   void _applyCodexPermissionsMode(CodexPermissionsMode mode) {
+    if (_codexAutoReviewDisabled && mode == CodexPermissionsMode.autoReview) {
+      return;
+    }
     _codexPermissionsMode = mode;
     final approvalPolicy = approvalPolicyForCodexPermissionsMode(mode);
     final sandboxMode = sandboxModeForCodexPermissionsMode(mode);
@@ -602,6 +607,18 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexApprovalPolicyTouched = true;
     _codexAutoReviewTouched = true;
     _codexSandboxModeTouched = true;
+  }
+
+  void _enforceCodexAutoReviewPolicy() {
+    if (!_codexAutoReviewDisabled ||
+        _codexPermissionsMode != CodexPermissionsMode.autoReview) {
+      return;
+    }
+    _codexPermissionsMode = CodexPermissionsMode.defaultPermissions;
+    _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
+    _codexAutoReviewEnabled = false;
+    _executionMode = ExecutionMode.defaultMode;
+    _codexSandboxMode = SandboxMode.on;
   }
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
@@ -688,6 +705,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
     _codexModelServiceTiers = widget.bridge?.codexModelServiceTiers ?? const {};
     _codexProfiles = widget.bridge?.codexProfiles ?? const [];
+    _codexAutoReviewDisabled = widget.bridge?.codexAutoReviewDisabled ?? false;
     final defaultCodexProfile = widget.bridge?.defaultCodexProfile;
     if (_codexProfiles.contains(defaultCodexProfile)) {
       _selectedCodexProfile = defaultCodexProfile;
@@ -707,8 +725,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         setState(() => _liveProjectHistory = projects);
       }
     });
+    _codexAutoReviewPolicySub = widget.bridge?.codexAutoReviewPolicyStream
+        .listen((disabled) {
+          if (!mounted) return;
+          setState(() {
+            _codexAutoReviewDisabled = disabled;
+            _enforceCodexAutoReviewPolicy();
+          });
+        });
     unawaited(_loadAdditionalWritableRootHistory());
     _applyInitialParams();
+    _enforceCodexAutoReviewPolicy();
     // Pre-fill project path with allowedDirs prefix when the path is empty
     // and the server has exactly one allowed directory.
     if (_pathController.text.isEmpty) {
@@ -732,6 +759,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
+    _codexAutoReviewPolicySub?.cancel();
     _pageController.dispose();
     _pathController.dispose();
     _branchController.dispose();
@@ -857,6 +885,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         projectPath: p.projectPath,
       );
     }
+    _enforceCodexAutoReviewPolicy();
   }
 
   void _fetchWorktrees() {
@@ -1233,6 +1262,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               setState(() => _executionMode = value);
             },
             codexPermissionsMode: _codexPermissionsMode,
+            codexAutoReviewDisabled: _codexAutoReviewDisabled,
             onCodexPermissionsModeChanged: (value) {
               setState(() => _applyCodexPermissionsMode(value));
             },
@@ -2119,6 +2149,7 @@ class _OptionsSection extends StatelessWidget {
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexPermissionsMode codexPermissionsMode;
+  final bool codexAutoReviewDisabled;
   final ValueChanged<CodexPermissionsMode> onCodexPermissionsModeChanged;
   final List<String> codexProfiles;
   final String? selectedCodexProfile;
@@ -2187,6 +2218,7 @@ class _OptionsSection extends StatelessWidget {
     required this.executionMode,
     required this.onExecutionModeChanged,
     required this.codexPermissionsMode,
+    required this.codexAutoReviewDisabled,
     required this.onCodexPermissionsModeChanged,
     required this.codexProfiles,
     required this.selectedCodexProfile,
@@ -2293,7 +2325,10 @@ class _OptionsSection extends StatelessWidget {
         switch (mode) {
           CodexPermissionsMode.defaultPermissions =>
             l.sandboxRestrictedDescription,
-          CodexPermissionsMode.autoReview => l.codexAutoReviewDescription,
+          CodexPermissionsMode.autoReview =>
+            codexAutoReviewDisabled
+                ? l.codexAutoReviewDisabledByPolicy
+                : l.codexAutoReviewDescription,
           CodexPermissionsMode.fullAccess => l.sandboxNativeCautionDescription,
           CodexPermissionsMode.custom =>
             selectedCodexProfile == null
@@ -2383,6 +2418,7 @@ class _OptionsSection extends StatelessWidget {
       required String Function(T) descriptionFor,
       required ValueChanged<T> onSelected,
       Color Function(T, ColorScheme)? colorFor,
+      bool Function(T)? enabledFor,
     }) {
       showModalBottomSheet(
         context: context,
@@ -2431,6 +2467,7 @@ class _OptionsSection extends StatelessWidget {
                       children: [
                         for (final mode in modes)
                           ListTile(
+                            enabled: enabledFor?.call(mode) ?? true,
                             leading: Icon(
                               iconFor(mode),
                               color: mode == currentMode
@@ -2454,10 +2491,12 @@ class _OptionsSection extends StatelessWidget {
                                     size: 20,
                                   )
                                 : null,
-                            onTap: () {
-                              Navigator.pop(sheetContext);
-                              onSelected(mode);
-                            },
+                            onTap: (enabledFor?.call(mode) ?? true)
+                                ? () {
+                                    Navigator.pop(sheetContext);
+                                    onSelected(mode);
+                                  }
+                                : null,
                           ),
                         const SizedBox(height: 8),
                       ],
@@ -2547,6 +2586,9 @@ class _OptionsSection extends StatelessWidget {
                     iconFor: codexPermissionsIcon,
                     labelFor: (mode) => mode.label,
                     descriptionFor: codexPermissionsDescription,
+                    enabledFor: (mode) =>
+                        !codexAutoReviewDisabled ||
+                        mode != CodexPermissionsMode.autoReview,
                     onSelected: onCodexPermissionsModeChanged,
                     colorFor: (mode, cs) => switch (mode) {
                       CodexPermissionsMode.fullAccess => cs.error,

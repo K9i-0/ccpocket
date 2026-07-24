@@ -43,6 +43,11 @@ class _BridgeWithCodexModels extends BridgeService {
   };
 }
 
+class _BridgeWithManagedBrowserUsePolicy extends BridgeService {
+  @override
+  bool get codexAutoReviewDisabled => true;
+}
+
 Widget _wrap(Widget child) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -194,6 +199,61 @@ void main() {
   });
 
   group('NewSessionSheet - worktree UI', () {
+    testWidgets('managed Browser Use policy disables Codex auto-review', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithManagedBrowserUsePolicy();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: const [],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    codexPermissionsMode: CodexPermissionsMode.autoReview,
+                    codexAutoReviewEnabled: true,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final permissions = find.byKey(
+        const ValueKey('dialog_codex_permissions_mode'),
+      );
+      await tester.ensureVisible(permissions);
+      expect(find.text('Default permissions'), findsOneWidget);
+
+      await tester.tap(permissions);
+      await tester.pumpAndSettle();
+
+      final autoReviewTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Auto-review'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      expect(autoReviewTile.enabled, isFalse);
+      expect(
+        find.text("Disabled by your organization's Browser Use policy"),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('keyboard dismiss button clears project path focus', (
       tester,
     ) async {

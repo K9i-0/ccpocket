@@ -1890,6 +1890,12 @@ abstract class AppLocalizations {
   /// **'承認リクエストを Codex が自動レビューします'**
   String get codexAutoReviewDescription;
 
+  /// No description provided for @codexAutoReviewDisabledByPolicy.
+  ///
+  /// In ja, this message translates to:
+  /// **'組織の Browser Use ポリシーにより無効です'**
+  String get codexAutoReviewDisabledByPolicy;
+
   /// No description provided for @codexAutoReviewUnavailableDescription.
   ///
   /// In ja, this message translates to:

@@ -546,6 +546,7 @@ void main() {
         },
         'codexProfiles': ['ccpocket', 'research'],
         'defaultCodexProfile': 'ccpocket',
+        'codexAutoReviewDisabled': true,
       });
 
       expect(msg, isA<SessionListMessage>());
@@ -571,6 +572,7 @@ void main() {
       expect(sessionList.codexModelServiceTiers['gpt-5.5'], ['fast']);
       expect(sessionList.codexProfiles, ['ccpocket', 'research']);
       expect(sessionList.defaultCodexProfile, 'ccpocket');
+      expect(sessionList.codexAutoReviewDisabled, isTrue);
     });
 
     test('RecentSessionsMessage parses request metadata', () {

@@ -961,6 +961,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get codexAutoReviewDescription => '承認リクエストを Codex が自動レビューします';
 
   @override
+  String get codexAutoReviewDisabledByPolicy => '組織の Browser Use ポリシーにより無効です';
+
+  @override
   String get codexAutoReviewUnavailableDescription =>
       'Never Ask では承認リクエストが発生しないため利用できません';
 

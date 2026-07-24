@@ -293,6 +293,7 @@
   "codexApprovalNeverDescription": "永不请求确认，失败会立即返回",
   "codexAutoReview": "自动审查",
   "codexAutoReviewDescription": "让 Codex 自动审查审批请求",
+  "codexAutoReviewDisabledByPolicy": "已被组织的 Browser Use 政策禁用",
   "codexAutoReviewUnavailableDescription": "关闭审批时不可用",
   "guardianApprovalTitle": "自动审查已批准",
   "guardianApprovalMediumRisk": "中等风险",
