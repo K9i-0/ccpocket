@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.109.1] - 2026-07-24
+
+### Changed
+- Cache generated images on disk for up to seven days using stable image references.
+- Require Bridge 1.69.3 for resilient session restore progress, retry handling, and optimized image delivery.
+
+### Fixed
+- Keep image-heavy session restores in a clear restoring state instead of surfacing transient Bridge connection errors.
+- Preserve and retry pending session actions safely across reconnects, and report restore failures with actionable status.
+
 ## [1.109.0] - 2026-07-24
 
 ### Added
