@@ -154,6 +154,7 @@ vi.mock("./session.js", () => ({
           threadId: "thread-forked",
           thread: { id: "thread-forked", turns: [] },
         })),
+        archiveThread: vi.fn(async () => {}),
         getGoal: vi.fn(async () => null),
         setGoal: vi.fn(async (update: Record<string, unknown>) => ({
           threadId: "thread-goal",
@@ -418,7 +419,7 @@ vi.mock("./session.js", () => ({
 }));
 
 import { BridgeWebSocketServer } from "./websocket.js";
-import { CodexProcess } from "./codex-process.js";
+import { CodexProcess, CodexRpcError } from "./codex-process.js";
 
 describe("BridgeWebSocketServer resume/get_history flow", () => {
   const OPEN_STATE = 1;
@@ -488,6 +489,193 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       offset: 40,
       projectPath: "/tmp/project",
       requestScope: "project",
+    });
+
+    bridge.close();
+  });
+
+  it("archives a Codex thread before recording the local archive marker", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const order: string[] = [];
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-archive",
+        provider: "codex",
+      },
+      ws,
+    );
+    const session = (bridge as any).sessionManager.get("s-1");
+    session.process.archiveThread.mockImplementation(async () => {
+      order.push("rpc");
+    });
+    const archive = vi.fn(async () => {
+      order.push("local");
+    });
+    (bridge as any).archiveStore = { archive };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "archive_session",
+        sessionId: "codex-thread-1",
+        provider: "codex",
+        projectPath: "/tmp/project-archive",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(order).toEqual(["rpc", "local"]);
+    expect(archive).toHaveBeenCalledWith(
+      "codex-thread-1",
+      "codex",
+      "/tmp/project-archive",
+    );
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "archive_result"),
+    ).toMatchObject({
+      sessionId: "codex-thread-1",
+      success: true,
+    });
+
+    bridge.close();
+  });
+
+  it("archives a Codex thread through a standalone process when none is active", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const codexProcess = {
+      archiveThread: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+    };
+    const createStandalone = vi.spyOn(
+      bridge as any,
+      "createStandaloneCodexProcess",
+    ).mockResolvedValue(codexProcess);
+    const archive = vi.fn(async () => {});
+    (bridge as any).archiveStore = { archive };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "archive_session",
+        sessionId: "codex-thread-standalone",
+        provider: "codex",
+        projectPath:
+          "/tmp/project-archive-standalone/../project-archive-standalone",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(codexProcess.archiveThread).toHaveBeenCalledWith(
+      "codex-thread-standalone",
+    );
+    expect(createStandalone).toHaveBeenCalledWith(
+      "/tmp/project-archive-standalone",
+    );
+    expect(codexProcess.stop).toHaveBeenCalledTimes(1);
+    expect(archive).toHaveBeenCalledWith(
+      "codex-thread-standalone",
+      "codex",
+      "/tmp/project-archive-standalone",
+    );
+    bridge.close();
+  });
+
+  it("rejects standalone Codex archive outside allowed directories", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).allowedDirs = ["/tmp/allowed"];
+    const createStandalone = vi.spyOn(
+      bridge as any,
+      "createStandaloneCodexProcess",
+    );
+    const archive = vi.fn(async () => {});
+    (bridge as any).archiveStore = { archive };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "archive_session",
+        sessionId: "codex-thread-denied",
+        provider: "codex",
+        projectPath: "/tmp/denied",
+      },
+      ws,
+    );
+
+    expect(createStandalone).not.toHaveBeenCalled();
+    expect(archive).not.toHaveBeenCalled();
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "archive_result"),
+    ).toMatchObject({
+      sessionId: "codex-thread-denied",
+      success: false,
+      error: expect.stringContaining("Project path not allowed"),
+    });
+    bridge.close();
+  });
+
+  it("does not record a local archive marker when Codex rejects writer ownership", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-archive-conflict",
+        provider: "codex",
+      },
+      ws,
+    );
+    const session = (bridge as any).sessionManager.get("s-1");
+    session.process.archiveThread.mockRejectedValue(
+      new CodexRpcError("thread/archive", {
+        code: -32600,
+        message: "thread codex-thread-1 already has an active writer",
+      }),
+    );
+    const archive = vi.fn(async () => {});
+    (bridge as any).archiveStore = { archive };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "archive_session",
+        sessionId: "codex-thread-1",
+        provider: "codex",
+        projectPath: "/tmp/project-archive-conflict",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(archive).not.toHaveBeenCalled();
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "archive_result"),
+    ).toMatchObject({
+      sessionId: "codex-thread-1",
+      success: false,
+      error:
+        "This Codex thread is already open in another client. Close it there and try again.",
     });
 
     bridge.close();
@@ -881,6 +1069,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           supportedReasoningEfforts: ["high"],
         },
       ]),
+      readConfigRequirements: vi.fn().mockResolvedValue({
+        autoReviewDisabled: true,
+      }),
       stop: vi.fn(),
     };
     const createStandalone = vi
@@ -895,9 +1086,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       "/tmp/project-a",
     );
     expect(codexProcess.listAvailableModelMetadata).toHaveBeenCalledTimes(1);
+    expect(codexProcess.readConfigRequirements).toHaveBeenCalledTimes(1);
     expect(codexProcess.stop).toHaveBeenCalledTimes(1);
     expect((bridge as any).codexProfiles).toEqual(["ccpocket"]);
     expect((bridge as any).codexModels).toEqual(["gpt-test"]);
+    expect((bridge as any).codexAutoReviewDisabled).toBe(true);
+    expect((bridge as any).codexAutoReviewPolicyLoaded).toBe(true);
     bridge.close();
   });
 
@@ -4188,6 +4382,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       send: vi.fn(),
     } as any;
     (bridge as any).wss.clients.add(ws);
+    (bridge as any).codexAutoReviewPolicyLoaded = true;
 
     (bridge as any).handleClientMessage(
       {
@@ -4250,6 +4445,200 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       planMode: true,
     });
 
+    bridge.close();
+  });
+
+  it("restarts instead of applying auto-review in-place while policy is unknown", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex-policy-unknown",
+        provider: "codex",
+        codexPermissionsMode: "autoReview",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" &&
+          message.subtype === "session_created",
+      );
+    const oldSessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(oldSessionId);
+    session.status = "idle";
+    session.process.setApprovalPolicy("on-request");
+    session.process.setApprovalsReviewer("auto_review");
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId: oldSessionId,
+        mode: "plan",
+        planMode: true,
+      },
+      ws,
+    );
+
+    expect((bridge as any).sessionManager.get(oldSessionId)).toBeUndefined();
+    const newSessionSummary = (bridge as any).sessionManager.list()[0];
+    const newSession = (bridge as any).sessionManager.get(newSessionSummary.id);
+    expect(newSession.codexOptions.autoReviewDisabledByPolicy).toBeNull();
+    bridge.close();
+  });
+
+  it("coerces auto-review settings when Browser Use policy disables it", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).codexAutoReviewDisabled = true;
+    (bridge as any).codexAutoReviewPolicyLoaded = true;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex-managed",
+        provider: "codex",
+        codexPermissionsMode: "autoReview",
+        approvalsReviewer: "auto_review",
+      },
+      ws,
+    );
+
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" &&
+          message.subtype === "session_created",
+      );
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    expect(session.codexOptions).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      codexPermissionsMode: "default",
+      sandboxMode: "workspace-write",
+      autoReviewDisabledByPolicy: true,
+    });
+
+    session.status = "idle";
+    session.process.setApprovalsReviewer("auto_review");
+    session.codexSettings = {
+      ...(session.codexSettings ?? {}),
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      codexPermissionsMode: "autoReview",
+      sandboxMode: "workspace-write",
+    };
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId: session.id,
+        mode: "plan",
+        planMode: true,
+      },
+      ws,
+    );
+    expect(session.process.setApprovalsReviewer).toHaveBeenLastCalledWith(
+      "user",
+    );
+    expect(session.codexSettings).toMatchObject({
+      approvalsReviewer: "user",
+      codexPermissionsMode: "default",
+    });
+
+    (bridge as any).sendSessionList(ws);
+    const sessionList = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .reverse()
+      .find((message: any) => message.type === "session_list");
+    expect(sessionList.codexAutoReviewDisabled).toBe(true);
+    bridge.close();
+  });
+
+  it("preserves and coerces Codex review settings across sandbox restart", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).codexAutoReviewDisabled = true;
+    (bridge as any).codexAutoReviewPolicyLoaded = true;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex-managed-sandbox",
+        provider: "codex",
+      },
+      ws,
+    );
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" &&
+          message.subtype === "session_created",
+      );
+    const oldSession = (bridge as any).sessionManager.get(created.sessionId);
+    oldSession.codexSettings = {
+      ...(oldSession.codexSettings ?? {}),
+      approvalsReviewer: "auto_review",
+      codexPermissionsMode: "autoReview",
+      sandboxMode: "workspace-write",
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_sandbox_mode",
+        sessionId: oldSession.id,
+        sandboxMode: "off",
+      },
+      ws,
+    );
+
+    const newSessionSummary = (bridge as any).sessionManager.list()[0];
+    const newSession = (bridge as any).sessionManager.get(newSessionSummary.id);
+    expect(newSession.codexOptions).toMatchObject({
+      approvalsReviewer: "user",
+      codexPermissionsMode: "default",
+      sandboxMode: "danger-full-access",
+      autoReviewDisabledByPolicy: true,
+    });
+
+    newSession.claudeSessionId = "thread-managed-sandbox";
+    newSession.history.push({ type: "user_input", text: "hello" });
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_sandbox_mode",
+        sessionId: newSession.id,
+        sandboxMode: "on",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const resumedSummary = (bridge as any).sessionManager.list()[0];
+    const resumedSession = (bridge as any).sessionManager.get(resumedSummary.id);
+    expect(resumedSession.codexOptions).toMatchObject({
+      threadId: "thread-managed-sandbox",
+      approvalsReviewer: "user",
+      codexPermissionsMode: "default",
+      sandboxMode: "workspace-write",
+      autoReviewDisabledByPolicy: true,
+    });
     bridge.close();
   });
 
@@ -4478,6 +4867,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       send: vi.fn(),
     } as any;
     (bridge as any).wss.clients.add(ws);
+    (bridge as any).codexAutoReviewPolicyLoaded = true;
 
     (bridge as any).handleClientMessage(
       {

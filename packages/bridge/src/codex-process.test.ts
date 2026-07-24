@@ -38,7 +38,9 @@ vi.mock("node:child_process", () => ({
 
 import {
   buildCodexSpawnSpec,
+  codexErrorMessage,
   CodexProcess,
+  CodexRpcError,
   parseCodexGoal,
 } from "./codex-process.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
@@ -147,6 +149,49 @@ describe("CodexProcess (app-server)", () => {
     ).toThrow("invalid shape");
   });
 
+  it("preserves structured JSON-RPC error details", () => {
+    const proc = new CodexProcess("linux");
+    let rejected: Error | undefined;
+    (proc as any).pendingRpc.set(42, {
+      resolve: vi.fn(),
+      reject: (error: Error) => {
+        rejected = error;
+      },
+      method: "thread/resume",
+    });
+
+    (proc as any).handleRpcResponse({
+      id: 42,
+      error: {
+        code: -32600,
+        message: "thread thread-1 already has an active writer",
+        data: { threadId: "thread-1" },
+      },
+    });
+
+    expect(rejected).toBeInstanceOf(CodexRpcError);
+    expect(rejected).toMatchObject({
+      method: "thread/resume",
+      code: -32600,
+      message: "thread thread-1 already has an active writer",
+      data: { threadId: "thread-1" },
+    });
+    expect(codexErrorMessage(rejected)).toBe(
+      "This Codex thread is already open in another client. Close it there and try again.",
+    );
+  });
+
+  it("keeps non-writer JSON-RPC error messages unchanged", () => {
+    expect(
+      codexErrorMessage(
+        new CodexRpcError("thread/resume", {
+          code: -32600,
+          message: "invalid thread id",
+        }),
+      ),
+    ).toBe("invalid thread id");
+  });
+
   it("finalizes streamed agent text before turn completion", () => {
     const proc = new CodexProcess("linux");
     const messages: Array<Record<string, unknown>> = [];
@@ -189,6 +234,256 @@ describe("CodexProcess (app-server)", () => {
       type: "result",
       subtype: "success",
       result: "Streamed response",
+    });
+  });
+
+  it("repairs truncated streamed text from the turn completion summary", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-summary-repair" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-summary",
+      delta: "Partial response",
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-summary-repair",
+        status: "completed",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-summary",
+            type: "agentMessage",
+            text: "Complete response from summary",
+          },
+        ],
+      },
+    });
+
+    const assistants = messages.filter(
+      (message) => message.type === "assistant",
+    );
+    expect(assistants).toHaveLength(1);
+    expect(assistants[0]).toMatchObject({
+      message: {
+        id: "agent-message-summary",
+        content: [{ type: "text", text: "Complete response from summary" }],
+      },
+    });
+    expect(messages.find((message) => message.type === "result")).toMatchObject(
+      { result: "Complete response from summary" },
+    );
+  });
+
+  it("does not duplicate an agent message confirmed before the turn summary", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-summary-dedupe" },
+    });
+    (proc as any).handleNotification("item/completed", {
+      item: {
+        id: "agent-message-confirmed",
+        type: "agentMessage",
+        text: "Confirmed response",
+      },
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-summary-dedupe",
+        status: "completed",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-confirmed",
+            type: "agentMessage",
+            text: "Confirmed response",
+          },
+        ],
+      },
+    });
+
+    expect(messages.filter((message) => message.type === "assistant")).toHaveLength(
+      1,
+    );
+    expect(messages.find((message) => message.type === "result")).toMatchObject(
+      { result: "Confirmed response" },
+    );
+  });
+
+  it("keeps canonical item text when the completion summary differs", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-summary-canonical" },
+    });
+    (proc as any).handleNotification("item/completed", {
+      item: {
+        id: "agent-message-canonical",
+        type: "agentMessage",
+        text: "Canonical response",
+      },
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-summary-canonical",
+        status: "completed",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-canonical",
+            type: "agentMessage",
+            text: "Different fallback summary",
+          },
+        ],
+      },
+    });
+
+    expect(messages.filter((message) => message.type === "assistant")).toHaveLength(
+      1,
+    );
+    expect(messages.find((message) => message.type === "result")).toMatchObject(
+      { result: "Canonical response" },
+    );
+  });
+
+  it("correlates an unknown-id delta with a matching completion summary", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-summary-unknown-id" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      delta: "Response prefix",
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-summary-unknown-id",
+        status: "completed",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-known",
+            type: "agentMessage",
+            text: "Response prefix and completed suffix",
+          },
+        ],
+      },
+    });
+
+    const assistants = messages.filter(
+      (message) => message.type === "assistant",
+    );
+    expect(assistants).toHaveLength(1);
+    expect(assistants[0]).toMatchObject({
+      message: {
+        id: "agent-message-known",
+        content: [
+          { type: "text", text: "Response prefix and completed suffix" },
+        ],
+      },
+    });
+  });
+
+  it("does not duplicate an unknown-id delta confirmed by item/completed", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-unknown-id-completed" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      delta: "Complete response",
+    });
+    (proc as any).handleNotification("item/completed", {
+      item: {
+        id: "agent-message-known",
+        type: "agentMessage",
+        text: "Complete response",
+      },
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-unknown-id-completed",
+        status: "completed",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-known",
+            type: "agentMessage",
+            text: "Complete response",
+          },
+        ],
+      },
+    });
+
+    expect(messages.filter((message) => message.type === "assistant")).toHaveLength(
+      1,
+    );
+    expect(messages.find((message) => message.type === "result")).toMatchObject(
+      { result: "Complete response" },
+    );
+  });
+
+  it("ignores completion summaries for interrupted turns", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    (proc as any).handleNotification("turn/started", {
+      turn: { id: "turn-summary-interrupted" },
+    });
+    (proc as any).handleNotification("item/agentMessage/delta", {
+      itemId: "agent-message-interrupted",
+      delta: "Interrupted partial",
+    });
+    (proc as any).handleNotification("turn/completed", {
+      turn: {
+        id: "turn-summary-interrupted",
+        status: "interrupted",
+        itemsView: "summary",
+        items: [
+          {
+            id: "agent-message-interrupted",
+            type: "agentMessage",
+            text: "Unexpected completed summary",
+          },
+        ],
+      },
+    });
+
+    expect(
+      messages.find((message) => message.type === "assistant"),
+    ).toMatchObject({
+      message: {
+        content: [{ type: "text", text: "Interrupted partial" }],
+      },
+    });
+    expect(messages.find((message) => message.type === "result")).toMatchObject({
+      subtype: "interrupted",
     });
   });
 
@@ -578,6 +873,91 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("forces user review when managed Browser Use policy disables auto-review", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-managed-browser-use", {
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      codexPermissionsMode: "autoReview",
+      autoReviewDisabledByPolicy: true,
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.method).toBe("thread/start");
+    expect(startReq.params).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      sandbox: "workspace-write",
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: startReq.id,
+        result: {
+          thread: { id: "thr_managed_browser_use" },
+          approvalsReviewer: "guardian_subagent",
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        sessionId: "thr_managed_browser_use",
+        approvalsReviewer: "user",
+        codexPermissionsMode: "default",
+      }),
+    );
+    proc.setApprovalsReviewer("auto_review");
+    expect(proc.approvalsReviewer).toBe("user");
+    proc.stop();
+  });
+
+  it("forces user review under managed policy when reviewer is omitted", async () => {
+    const proc = new CodexProcess("linux");
+
+    proc.start("/tmp/project-managed-default-reviewer", {
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+      autoReviewDisabledByPolicy: true,
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.params).toMatchObject({
+      approvalsReviewer: "user",
+    });
+    proc.stop();
+  });
+
   it("sends reasoning effort via config override on thread/start", async () => {
     const proc = new CodexProcess("linux");
 
@@ -819,6 +1199,50 @@ describe("CodexProcess (app-server)", () => {
       id: "thr_read",
       turns: [],
     });
+  });
+
+  it("reads Browser Use auto-review policy without RPC params", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    const requirementsPromise = proc.readConfigRequirements();
+    const request = nextOutgoingRequest(child);
+    expect(request).toMatchObject({
+      method: "configRequirements/read",
+    });
+    expect(request).not.toHaveProperty("params");
+
+    (proc as any).handleRpcResponse({
+      id: request.id,
+      result: {
+        requirements: {
+          browserUse: { disableAutoReview: true },
+        },
+      },
+    });
+    await expect(requirementsPromise).resolves.toEqual({
+      autoReviewDisabled: true,
+    });
+    proc.stop();
+  });
+
+  it("treats missing configRequirements/read as an old Codex fallback", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    const requirementsPromise = proc.readConfigRequirements();
+    const request = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({
+      id: request.id,
+      error: { code: -32601, message: "Method not found" },
+    });
+
+    await expect(requirementsPromise).resolves.toEqual({
+      autoReviewDisabled: false,
+    });
+    proc.stop();
   });
 
   it("ignores placeholder codex model names from resume state", async () => {
@@ -2574,6 +2998,58 @@ describe("CodexProcess (app-server)", () => {
 
     proc.stop();
   });
+
+  it.each([
+    [
+      "camelCase",
+      {
+        pluginId: "openai.browser",
+        scriptPath: "/tmp/openai.browser/run.sh",
+      },
+    ],
+    [
+      "snake_case",
+      {
+        plugin_id: "openai.browser",
+        script_path: "/tmp/openai.browser/run.sh",
+      },
+    ],
+  ])(
+    "preserves %s command execution attribution in Bash tool input",
+    (_fieldStyle, attribution) => {
+      const proc = new CodexProcess("linux");
+      const messages: unknown[] = [];
+      proc.on("message", (msg) => messages.push(msg));
+
+      (proc as any).processItemStarted({
+        type: "commandExecution",
+        id: "cmd_attributed",
+        command: ["bash", "/tmp/openai.browser/run.sh"],
+        ...attribution,
+      });
+
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: "assistant",
+          message: expect.objectContaining({
+            content: [
+              {
+                type: "tool_use",
+                id: "cmd_attributed",
+                name: "Bash",
+                input: {
+                  command: "bash /tmp/openai.browser/run.sh",
+                  pluginId: "openai.browser",
+                  scriptPath: "/tmp/openai.browser/run.sh",
+                },
+              },
+            ],
+          }),
+        }),
+      );
+      proc.stop();
+    },
+  );
 
   it("maps image generation saved paths into tool_use and tool_result messages", async () => {
     const proc = new CodexProcess("linux");

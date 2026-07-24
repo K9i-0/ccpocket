@@ -2141,9 +2141,15 @@ export function codexThreadToSessionHistory(
 
         case "commandExecution": {
           const command = stringValue(item.command) ?? "";
+          const pluginId =
+            stringValue(item.pluginId) ?? stringValue(item.plugin_id);
+          const scriptPath =
+            stringValue(item.scriptPath) ?? stringValue(item.script_path);
           appendToolUseMessage(messages, itemId, "Bash", {
             command,
             ...(typeof item.cwd === "string" ? { cwd: item.cwd } : {}),
+            ...(pluginId ? { pluginId } : {}),
+            ...(scriptPath ? { scriptPath } : {}),
           });
           const outputParts: string[] = [];
           if (typeof item.status === "string") {

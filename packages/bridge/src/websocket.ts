@@ -21,6 +21,8 @@ import {
 } from "./sdk-process.js";
 import type { StartOptions } from "./sdk-process.js";
 import {
+  codexErrorMessage,
+  CodexRpcError,
   CodexProcess,
   type CodexModelMetadata,
   type CodexStartOptions,
@@ -378,6 +380,10 @@ interface CodexPermissionSettings {
   sandboxMode?: CodexStartOptions["sandboxMode"];
 }
 
+function isCodexAutoReviewApprovalsReviewer(value: unknown): boolean {
+  return value === "auto_review" || value === "guardian_subagent";
+}
+
 function sanitizeCodexModel(model: unknown): string | undefined {
   if (typeof model !== "string") return undefined;
   const normalized = model.trim();
@@ -679,6 +685,8 @@ export class BridgeWebSocketServer {
   private archiveStore: ArchiveStore;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
+  private codexAutoReviewDisabled = false;
+  private codexAutoReviewPolicyLoaded = false;
   private codexMetadataRequest: Promise<void> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
   private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
@@ -851,7 +859,9 @@ export class BridgeWebSocketServer {
   }
 
   /** Build a user-friendly error for disallowed project paths. */
-  private buildPathNotAllowedError(projectPath: string): ServerMessage {
+  private buildPathNotAllowedError(
+    projectPath: string,
+  ): Extract<ServerMessage, { type: "error" }> {
     return {
       type: "error",
       message: `⚠ Project path not allowed\n\n"${projectPath}" is not in the allowed directories.\n\nFix: Update BRIDGE_ALLOWED_DIRS on the Bridge server to include this path.`,
@@ -1185,10 +1195,10 @@ export class BridgeWebSocketServer {
       pastMessages,
       worktreeOpts,
       "codex",
-      {
+      this.withCodexAutoReviewPolicy({
         ...(codexSettings ?? {}),
         threadId,
-      } as CodexStartOptions,
+      } as CodexStartOptions),
     );
     const newSession = this.sessionManager.get(newSessionId);
 
@@ -1204,8 +1214,8 @@ export class BridgeWebSocketServer {
         provider: "codex",
         projectPath,
         session: newSession,
-        approvalsReviewer: codexSettings?.approvalsReviewer,
-        sandboxMode: codexSettings?.sandboxMode,
+        approvalsReviewer: newSession?.codexSettings?.approvalsReviewer,
+        sandboxMode: newSession?.codexSettings?.sandboxMode,
         sourceSessionId: sessionId,
       }),
     );
@@ -1297,10 +1307,10 @@ export class BridgeWebSocketServer {
       pastMessages,
       worktreeOpts,
       "codex",
-      {
+      this.withCodexAutoReviewPolicy({
         ...(codexSettings ?? {}),
         threadId: forkedThreadId,
-      } as CodexStartOptions,
+      } as CodexStartOptions),
     );
     const newSession = this.sessionManager.get(newSessionId);
 
@@ -1311,8 +1321,8 @@ export class BridgeWebSocketServer {
         provider: "codex",
         projectPath,
         session: newSession,
-        approvalsReviewer: codexSettings?.approvalsReviewer,
-        sandboxMode: codexSettings?.sandboxMode,
+        approvalsReviewer: newSession?.codexSettings?.approvalsReviewer,
+        sandboxMode: newSession?.codexSettings?.sandboxMode,
         sourceSessionId: sessionId,
       }),
     );
@@ -2277,10 +2287,15 @@ export class BridgeWebSocketServer {
         }
         try {
           const provider = msg.provider ?? "claude";
-          const requestedCodexPermissionsMode =
+          const normalizedCodexPermissionsMode =
             provider === "codex"
               ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
               : undefined;
+          const requestedCodexPermissionsMode =
+            this.codexAutoReviewDisabled &&
+            normalizedCodexPermissionsMode === "autoReview"
+              ? "default"
+              : normalizedCodexPermissionsMode;
           const codexPermissionSettings = requestedCodexPermissionsMode
             ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
             : undefined;
@@ -2394,7 +2409,7 @@ export class BridgeWebSocketServer {
                       existingWorktreePath: msg.existingWorktreePath,
                     },
                     provider,
-                    {
+                    this.withCodexAutoReviewPolicy({
                       profile: msg.profile,
                       approvalPolicy: codexPermissionSettings
                         ? codexPermissionSettings.approvalPolicy
@@ -2404,9 +2419,9 @@ export class BridgeWebSocketServer {
                               ? "never"
                               : "on-request",
                           )),
-                      approvalsReviewer: codexPermissionSettings
-                        ? codexPermissionSettings.approvalsReviewer
-                        : msg.approvalsReviewer,
+                      approvalsReviewer:
+                        codexPermissionSettings?.approvalsReviewer ??
+                        msg.approvalsReviewer,
                       codexPermissionsMode:
                         codexPermissionSettings?.codexPermissionsMode,
                       sandboxMode: codexPermissionSettings
@@ -2426,7 +2441,7 @@ export class BridgeWebSocketServer {
                       collaborationMode: planMode
                         ? ("plan" as const)
                         : ("default" as const),
-                    },
+                    }),
                   ),
                   permissionMode: claudePermissionMode,
                   executionMode,
@@ -3034,9 +3049,18 @@ export class BridgeWebSocketServer {
           // Permission mode for Codex requires a session restart (like sandbox mode).
           // approvalPolicy and collaborationMode are thread-level settings that
           // only take effect reliably at thread/start or thread/resume time.
-          const requestedCodexPermissionsMode = normalizeCodexPermissionsMode(
-            msg.codexPermissionsMode,
-          );
+          const normalizedCodexPermissionsMode =
+            normalizeCodexPermissionsMode(msg.codexPermissionsMode);
+          const requestedCodexPermissionsMode =
+            this.codexAutoReviewDisabled &&
+            normalizedCodexPermissionsMode === "autoReview"
+              ? "default"
+              : normalizedCodexPermissionsMode;
+          const requestedApprovalsReviewer =
+            this.codexAutoReviewDisabled &&
+            isCodexAutoReviewApprovalsReviewer(msg.approvalsReviewer)
+              ? "user"
+              : msg.approvalsReviewer;
           const codexPermissionSettings = requestedCodexPermissionsMode
             ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
             : undefined;
@@ -3085,26 +3109,31 @@ export class BridgeWebSocketServer {
           const newSandboxMode = codexPermissionSettings
             ? codexPermissionSettings.sandboxMode
             : currentSandboxMode;
-          const newPermissionsMode =
+          const configuredReviewer =
+            requestedCodexPermissionsMode === "custom"
+              ? undefined
+              : (codexPermissionSettings?.approvalsReviewer ??
+                requestedApprovalsReviewer ??
+                currentReviewer);
+          const newReviewer = this.codexAutoReviewDisabled
+            ? "user"
+            : configuredReviewer;
+          const derivedPermissionsMode =
             codexPermissionSettings?.codexPermissionsMode ??
             (collaborationOnlyChange ? currentPermissionsMode : undefined) ??
             deriveCodexPermissionsMode({
               approvalPolicy: newApproval,
-              approvalsReviewer:
-                codexPermissionSettings?.approvalsReviewer ??
-                msg.approvalsReviewer ??
-                currentReviewer,
+              approvalsReviewer: newReviewer,
               sandboxMode: newSandboxMode,
             });
+          const newPermissionsMode =
+            this.codexAutoReviewDisabled &&
+            derivedPermissionsMode === "autoReview"
+              ? "default"
+              : derivedPermissionsMode;
           const newCollaboration: "plan" | "default" = planMode
             ? "plan"
             : "default";
-          const newReviewer =
-            requestedCodexPermissionsMode === "custom"
-              ? undefined
-              : (codexPermissionSettings?.approvalsReviewer ??
-                msg.approvalsReviewer ??
-                currentReviewer);
           const currentCollaboration = process.collaborationMode;
           if (
             newApproval === currentApproval &&
@@ -3118,7 +3147,9 @@ export class BridgeWebSocketServer {
           const canApplyModeInPlace =
             session.status === "idle" &&
             requestedCodexPermissionsMode !== "custom" &&
-            newSandboxMode === currentSandboxMode;
+            newSandboxMode === currentSandboxMode &&
+            (this.codexAutoReviewPolicyLoaded ||
+              !isCodexAutoReviewApprovalsReviewer(newReviewer));
 
           if (canApplyModeInPlace) {
             const process = session.process as CodexProcess;
@@ -3194,7 +3225,7 @@ export class BridgeWebSocketServer {
                 ? { existingWorktreePath: worktreePath, worktreeBranch }
                 : undefined,
               "codex",
-              {
+              this.withCodexAutoReviewPolicy({
                 approvalPolicy: newApproval,
                 approvalsReviewer: newReviewer as
                   | "user"
@@ -3219,7 +3250,7 @@ export class BridgeWebSocketServer {
                   | "live"
                   | undefined,
                 collaborationMode: newCollaboration,
-              },
+              }),
             );
             const newSession = this.sessionManager.get(newId);
             if (newSession && sessionName) newSession.name = sessionName;
@@ -3284,7 +3315,7 @@ export class BridgeWebSocketServer {
                 pastMessages,
                 worktreeOpts,
                 "codex",
-                {
+                this.withCodexAutoReviewPolicy({
                   threadId,
                   approvalPolicy: newApproval,
                   approvalsReviewer: newReviewer as
@@ -3310,7 +3341,7 @@ export class BridgeWebSocketServer {
                     | "live"
                     | undefined,
                   collaborationMode: newCollaboration,
-                },
+                }),
               );
 
               const newSession = this.sessionManager.get(newId);
@@ -3722,10 +3753,21 @@ export class BridgeWebSocketServer {
               ? { existingWorktreePath: worktreePath, worktreeBranch }
               : undefined,
             "codex",
-            {
+            this.withCodexAutoReviewPolicy({
               approvalPolicy: oldSettings.approvalPolicy as
                 | "never"
                 | "on-request"
+                | undefined,
+              approvalsReviewer: oldSettings.approvalsReviewer as
+                | "user"
+                | "auto_review"
+                | "guardian_subagent"
+                | undefined,
+              codexPermissionsMode: oldSettings.codexPermissionsMode as
+                | "default"
+                | "autoReview"
+                | "fullAccess"
+                | "custom"
                 | undefined,
               sandboxMode: newSandboxMode,
               model: oldSettings.model,
@@ -3741,7 +3783,7 @@ export class BridgeWebSocketServer {
                 | "live"
                 | undefined,
               collaborationMode,
-            },
+            }),
           );
           const newSession = this.sessionManager.get(newId);
           if (newSession && sessionName) newSession.name = sessionName;
@@ -3799,11 +3841,22 @@ export class BridgeWebSocketServer {
               pastMessages,
               worktreeOpts,
               "codex",
-              {
+              this.withCodexAutoReviewPolicy({
                 threadId,
                 approvalPolicy: oldSettings.approvalPolicy as
                   | "never"
                   | "on-request"
+                  | undefined,
+                approvalsReviewer: oldSettings.approvalsReviewer as
+                  | "user"
+                  | "auto_review"
+                  | "guardian_subagent"
+                  | undefined,
+                codexPermissionsMode: oldSettings.codexPermissionsMode as
+                  | "default"
+                  | "autoReview"
+                  | "fullAccess"
+                  | "custom"
                   | undefined,
                 sandboxMode: newSandboxMode,
                 model: oldSettings.model,
@@ -3819,7 +3872,7 @@ export class BridgeWebSocketServer {
                   | "live"
                   | undefined,
                 collaborationMode,
-              },
+              }),
             );
 
             // Restore session name
@@ -4338,29 +4391,46 @@ export class BridgeWebSocketServer {
 
       case "archive_session": {
         const { sessionId, provider, projectPath } = msg;
-        this.archiveStore
-          .archive(sessionId, provider, projectPath)
-          .then(() => {
-            // For Codex sessions, also call thread/archive RPC (best-effort).
-            // Requires a running Codex app-server process; skip if none active.
-            if (provider === "codex") {
-              const activeSessions = this.sessionManager.list();
-              const codexSession = activeSessions.find(
-                (s) => s.provider === "codex",
-              );
-              if (codexSession) {
-                const session = this.sessionManager.get(codexSession.id);
-                if (session) {
-                  (session.process as CodexProcess)
-                    .archiveThread(sessionId)
-                    .catch((err) => {
-                      console.warn(
-                        `[ws] Codex thread/archive failed (non-fatal): ${err}`,
-                      );
-                    });
-                }
+        const archiveProjectPath = resolvePlatformPath(
+          projectPath,
+          this.platform,
+        );
+        if (!this.isPathAllowed(archiveProjectPath)) {
+          const pathError = this.buildPathNotAllowedError(projectPath);
+          this.send(ws, {
+            type: "archive_result",
+            sessionId,
+            success: false,
+            error: pathError.message,
+          } as Record<string, unknown>);
+          break;
+        }
+        void (async () => {
+          if (provider === "codex") {
+            const activeProcess = this.getActiveCodexProcess();
+            const codexProcess =
+              activeProcess ??
+              (await this.createStandaloneCodexProcess(archiveProjectPath));
+            try {
+              await codexProcess.archiveThread(sessionId);
+            } catch (err) {
+              if (!(err instanceof CodexRpcError && err.code === -32601)) {
+                throw err;
               }
+              console.warn(
+                "[ws] thread/archive unsupported; using local archive marker",
+              );
+            } finally {
+              if (!activeProcess) codexProcess.stop();
             }
+          }
+          await this.archiveStore.archive(
+            sessionId,
+            provider,
+            archiveProjectPath,
+          );
+        })()
+          .then(() => {
             this.send(ws, {
               type: "archive_result",
               sessionId,
@@ -4372,7 +4442,7 @@ export class BridgeWebSocketServer {
               type: "archive_result",
               sessionId,
               success: false,
-              error: String(err),
+              error: codexErrorMessage(err),
             } as Record<string, unknown>);
           });
         break;
@@ -4391,10 +4461,15 @@ export class BridgeWebSocketServer {
           break;
         }
         const provider = msg.provider ?? "claude";
-        const requestedCodexPermissionsMode =
+        const normalizedCodexPermissionsMode =
           provider === "codex"
             ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
             : undefined;
+        const requestedCodexPermissionsMode =
+          this.codexAutoReviewDisabled &&
+          normalizedCodexPermissionsMode === "autoReview"
+            ? "default"
+            : normalizedCodexPermissionsMode;
         const codexPermissionSettings = requestedCodexPermissionsMode
           ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
           : undefined;
@@ -4497,7 +4572,7 @@ export class BridgeWebSocketServer {
               pastMessages,
               worktreeOpts,
               "codex",
-              {
+              this.withCodexAutoReviewPolicy({
                 threadId: sessionRefId,
                 profile: effectiveProfile,
                 approvalPolicy: codexPermissionSettings
@@ -4506,9 +4581,9 @@ export class BridgeWebSocketServer {
                     normalizeCodexApprovalPolicy(
                       executionMode === "fullAccess" ? "never" : "on-request",
                     )),
-                approvalsReviewer: codexPermissionSettings
-                  ? codexPermissionSettings.approvalsReviewer
-                  : msg.approvalsReviewer,
+                approvalsReviewer:
+                  codexPermissionSettings?.approvalsReviewer ??
+                  msg.approvalsReviewer,
                 codexPermissionsMode:
                   codexPermissionSettings?.codexPermissionsMode,
                 sandboxMode: codexPermissionSettings
@@ -4527,7 +4602,7 @@ export class BridgeWebSocketServer {
                 collaborationMode: planMode
                   ? ("plan" as const)
                   : ("default" as const),
-              },
+              }),
             );
             const createdSession = this.sessionManager.get(sessionId);
             const cached = this.sessionManager.getCachedCommands(
@@ -6254,6 +6329,7 @@ export class BridgeWebSocketServer {
       codexModelServiceTiers: this.codexModelServiceTiers,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
+      codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
     });
   }
@@ -6290,6 +6366,7 @@ export class BridgeWebSocketServer {
       codexModelServiceTiers: this.codexModelServiceTiers,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
+      codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
     });
   }
@@ -6591,6 +6668,7 @@ export class BridgeWebSocketServer {
         console.warn(`[ws] Failed to load Codex metadata: ${err}`);
         this.codexProfiles = [];
         this.defaultCodexProfile = undefined;
+        this.codexAutoReviewPolicyLoaded = false;
         this.applyFallbackCodexModels();
         this.broadcastSessionList();
       })
@@ -6607,10 +6685,12 @@ export class BridgeWebSocketServer {
     const codexProcess =
       activeProcess ?? (await this.createStandaloneCodexProcess(projectPath));
     try {
-      const [profileResult, modelResult] = await Promise.allSettled([
-        codexProcess.readProfileConfig(projectPath),
-        this.readCodexModels(codexProcess),
-      ]);
+      const [profileResult, modelResult, requirementsResult] =
+        await Promise.allSettled([
+          codexProcess.readProfileConfig(projectPath),
+          this.readCodexModels(codexProcess),
+          this.readCodexAutoReviewDisabled(codexProcess),
+        ]);
 
       if (profileResult.status === "fulfilled") {
         this.codexProfiles = profileResult.value.profiles;
@@ -6630,6 +6710,16 @@ export class BridgeWebSocketServer {
           console.warn(`[ws] Failed to load Codex models: ${modelResult.reason}`);
         }
         this.applyFallbackCodexModels();
+      }
+
+      if (requirementsResult.status === "fulfilled") {
+        this.codexAutoReviewDisabled = requirementsResult.value;
+        this.codexAutoReviewPolicyLoaded = true;
+      } else {
+        console.warn(
+          `[ws] Failed to load Codex config requirements: ${requirementsResult.reason}`,
+        );
+        this.codexAutoReviewPolicyLoaded = false;
       }
       this.broadcastSessionList();
     } finally {
@@ -6701,6 +6791,21 @@ export class BridgeWebSocketServer {
       supportedReasoningEfforts: fallbackCodexReasoningEfforts(model),
       supportedServiceTiers: fallbackCodexServiceTiers(model),
     }));
+  }
+
+  private async readCodexAutoReviewDisabled(
+    codexProcess: CodexProcess,
+  ): Promise<boolean> {
+    const requirementsSource = codexProcess as CodexProcess & {
+      readConfigRequirements?: () => Promise<{
+        autoReviewDisabled: boolean;
+      }>;
+    };
+    if (typeof requirementsSource.readConfigRequirements !== "function") {
+      return false;
+    }
+    return (await requirementsSource.readConfigRequirements())
+      .autoReviewDisabled;
   }
 
   private applyCodexModels(models: CodexModelMetadata[]): void {
@@ -6804,6 +6909,22 @@ export class BridgeWebSocketServer {
     return session?.provider === "codex"
       ? (session.process as CodexProcess)
       : null;
+  }
+
+  private withCodexAutoReviewPolicy(
+    options: CodexStartOptions,
+  ): CodexStartOptions {
+    const disableAutoReview = this.codexAutoReviewDisabled;
+    return {
+      ...options,
+      ...(disableAutoReview ? { approvalsReviewer: "user" as const } : {}),
+      ...(disableAutoReview && options.codexPermissionsMode === "autoReview"
+        ? { codexPermissionsMode: "default" as const }
+        : {}),
+      autoReviewDisabledByPolicy: this.codexAutoReviewPolicyLoaded
+        ? disableAutoReview
+        : null,
+    };
   }
 
   private getActiveClaudeProcess(): SdkProcess | null {
