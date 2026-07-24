@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
 
@@ -122,6 +123,42 @@ void main() {
       expect(find.byIcon(Icons.expand_more), findsNothing);
       expect(find.byIcon(Icons.expand_less), findsNothing);
     });
+
+    testWidgets(
+      'can hide completed image generation from an assistant bubble',
+      (tester) async {
+        const toolUseId = 'generated-image-1';
+        await tester.pumpWidget(
+          _wrap(
+            const AssistantBubble(
+              hiddenToolUseIds: {toolUseId},
+              message: AssistantServerMessage(
+                message: AssistantMessage(
+                  id: 'assistant-image-generation',
+                  role: 'assistant',
+                  content: [
+                    TextContent(text: 'Here are the generated options.'),
+                    ToolUseContent(
+                      id: toolUseId,
+                      name: 'ImageGeneration',
+                      input: {
+                        'status': 'in_progress',
+                        'revisedPrompt': 'Hidden generation prompt',
+                      },
+                    ),
+                  ],
+                  model: 'gpt-5.6',
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Here are the generated options.'), findsOneWidget);
+        expect(find.text('Generating image'), findsNothing);
+        expect(find.text('Hidden generation prompt'), findsNothing);
+      },
+    );
   });
 
   group('ToolUseTile - 3-state expansion (non-edit tools)', () {

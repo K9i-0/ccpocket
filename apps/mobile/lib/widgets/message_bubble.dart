@@ -180,6 +180,7 @@ class ServerMessageWidget extends StatelessWidget {
       final AssistantServerMessage msg => AssistantBubble(
         message: msg,
         resolvedPlanText: resolvedPlanText,
+        hiddenToolUseIds: hiddenToolUseIds,
         onFileTap: onFileTap,
         onFork: onForkMessage != null ? () => onForkMessage!(msg) : null,
       ),

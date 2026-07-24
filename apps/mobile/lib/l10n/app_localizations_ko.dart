@@ -1975,6 +1975,32 @@ class AppLocalizationsKo extends AppLocalizations {
   String get failedToLoadImage => '이미지 로드 실패';
 
   @override
+  String get generatedImagePromptLabel => '프롬프트';
+
+  @override
+  String get generatedImageDetailsLabel => '세부정보';
+
+  @override
+  String get generatedImageHideDetailsLabel => '세부정보 닫기';
+
+  @override
+  String get generatedImageStatusLabel => '상태';
+
+  @override
+  String get generatedImageSavedPathLabel => '저장된 파일';
+
+  @override
+  String get previousImage => '이전 이미지';
+
+  @override
+  String get nextImage => '다음 이미지';
+
+  @override
+  String generatedImagePositionLabel(int current, int total) {
+    return '생성된 이미지 $current / $total';
+  }
+
+  @override
   String get noImageInClipboard => '클립보드에 이미지가 없습니다';
 
   @override

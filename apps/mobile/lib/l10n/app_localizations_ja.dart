@@ -1962,6 +1962,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get failedToLoadImage => '画像の読み込みに失敗しました';
 
   @override
+  String get generatedImagePromptLabel => 'プロンプト';
+
+  @override
+  String get generatedImageDetailsLabel => '詳細';
+
+  @override
+  String get generatedImageHideDetailsLabel => '詳細を閉じる';
+
+  @override
+  String get generatedImageStatusLabel => 'ステータス';
+
+  @override
+  String get generatedImageSavedPathLabel => '保存先';
+
+  @override
+  String get previousImage => '前の画像';
+
+  @override
+  String get nextImage => '次の画像';
+
+  @override
+  String generatedImagePositionLabel(int current, int total) {
+    return '生成画像 $current / $total';
+  }
+
+  @override
   String get noImageInClipboard => 'クリップボードに画像がありません';
 
   @override

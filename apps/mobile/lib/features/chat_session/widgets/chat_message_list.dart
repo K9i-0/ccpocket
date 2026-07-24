@@ -7,6 +7,10 @@ import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
 import '../../../widgets/message_bubble.dart';
+import '../../generated_image_preview/generated_image_preview_mapper.dart';
+import '../../generated_image_preview/generated_image_preview_item.dart';
+import '../../generated_image_preview/generated_image_response_grouping.dart';
+import '../../generated_image_preview/widgets/generated_image_chat_group.dart';
 import '../../file_peek/file_peek_sheet.dart';
 import '../../message_images/message_images_screen.dart';
 import '../state/chat_session_cubit.dart';
@@ -80,6 +84,9 @@ class ChatMessageList extends StatefulWidget {
 }
 
 class _ChatMessageListState extends State<ChatMessageList> {
+  final _generatedImageItemCache =
+      <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +190,23 @@ class _ChatMessageListState extends State<ChatMessageList> {
     );
     final totalCount = allEntries.length + (hasStreaming ? 1 : 0);
     final streamingCubit = context.read<StreamingStateCubit>();
+    final imageGroups = groupGeneratedImageResponses(allEntries);
+    final imageGroupMemberIndices = <int>{};
+    final imageItemsByAnchor = <int, List<GeneratedImagePreviewItem>>{};
+    for (final group in imageGroups) {
+      final items = generatedImageItemsFromToolResults(
+        group.messages,
+        httpBaseUrl: widget.httpBaseUrl,
+        itemCache: _generatedImageItemCache,
+      );
+      if (items.isEmpty) continue;
+      imageItemsByAnchor[group.anchorEntryIndex] = items;
+      imageGroupMemberIndices.addAll(group.memberEntryIndices);
+    }
+    final effectiveHiddenToolUseIds = {
+      ...hiddenToolUseIds,
+      ...completedGeneratedImageToolUseIds(allEntries),
+    };
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -237,62 +261,69 @@ class _ChatMessageListState extends State<ChatMessageList> {
               ? widget.onForkMessage
               : null;
 
-          Widget child = ChatEntryWidget(
-            entry: entry,
-            previous: previous,
-            httpBaseUrl: widget.httpBaseUrl,
-            onRetryMessage: widget.onRetryMessage,
-            onRewindMessage: widget.onRewindMessage,
-            onForkMessage: onForkMessage,
-            collapseToolResults: widget.collapseToolResults,
-            resolvedPlanText: _resolvePlanText(entry),
-            hiddenToolUseIds: hiddenToolUseIds,
-            onFileTap: (filePath) {
-              final projectPath = widget.projectPath;
-              if (projectPath == null || projectPath.isEmpty) return;
-              openFilePeek(
-                context,
-                bridge: context.read<BridgeService>(),
-                projectPath: projectPath,
-                filePath: filePath,
-                projectFiles: context.read<FileListCubit>().state,
-                onResolvedFilePath: widget.onFilePeekOpened,
-              );
-            },
-            onImageTap: (user) {
-              final claudeSessionId = context
-                  .read<ChatSessionCubit>()
-                  .state
-                  .claudeSessionId;
-              final httpBaseUrl = widget.httpBaseUrl;
-              if (claudeSessionId == null ||
-                  claudeSessionId.isEmpty ||
-                  httpBaseUrl == null) {
-                return;
-              }
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => MessageImagesScreen(
-                    bridge: context.read<BridgeService>(),
-                    httpBaseUrl: httpBaseUrl,
-                    claudeSessionId: claudeSessionId,
-                    messageUuid: user.messageUuid!,
-                    imageCount: user.imageCount,
+          final imageItems = imageItemsByAnchor[entryIndex];
+          final Widget child;
+          if (imageItems != null) {
+            child = GeneratedImageChatGroup(items: imageItems);
+          } else if (imageGroupMemberIndices.contains(entryIndex)) {
+            child = const SizedBox.shrink();
+          } else {
+            child = ChatEntryWidget(
+              entry: entry,
+              previous: previous,
+              httpBaseUrl: widget.httpBaseUrl,
+              onRetryMessage: widget.onRetryMessage,
+              onRewindMessage: widget.onRewindMessage,
+              onForkMessage: onForkMessage,
+              collapseToolResults: widget.collapseToolResults,
+              resolvedPlanText: _resolvePlanText(entry),
+              hiddenToolUseIds: effectiveHiddenToolUseIds,
+              onFileTap: (filePath) {
+                final projectPath = widget.projectPath;
+                if (projectPath == null || projectPath.isEmpty) return;
+                openFilePeek(
+                  context,
+                  bridge: context.read<BridgeService>(),
+                  projectPath: projectPath,
+                  filePath: filePath,
+                  projectFiles: context.read<FileListCubit>().state,
+                  onResolvedFilePath: widget.onFilePeekOpened,
+                );
+              },
+              onImageTap: (user) {
+                final claudeSessionId = context
+                    .read<ChatSessionCubit>()
+                    .state
+                    .claudeSessionId;
+                final httpBaseUrl = widget.httpBaseUrl;
+                if (claudeSessionId == null ||
+                    claudeSessionId.isEmpty ||
+                    httpBaseUrl == null) {
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MessageImagesScreen(
+                      bridge: context.read<BridgeService>(),
+                      httpBaseUrl: httpBaseUrl,
+                      claudeSessionId: claudeSessionId,
+                      messageUuid: user.messageUuid!,
+                      imageCount: user.imageCount,
+                    ),
                   ),
-                ),
-              );
-            },
-            isCodex: widget.isCodex,
-          );
+                );
+              },
+              isCodex: widget.isCodex,
+            );
+          }
           // Wrap with AutoScrollTag for scroll-to-index support.
           // Use entryIndex (not reverse index) as the AutoScrollTag index.
-          child = AutoScrollTag(
+          return AutoScrollTag(
             key: ValueKey(_entryKey(entry, entryIndex)),
             controller: widget.scrollController,
             index: entryIndex,
             child: child,
           );
-          return child;
         },
       ),
     );

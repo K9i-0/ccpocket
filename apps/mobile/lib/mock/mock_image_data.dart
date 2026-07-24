@@ -21,8 +21,35 @@ Future<Uint8List> generateMockNewFileImage() async {
   return _renderPng(_drawAfterImage);
 }
 
+/// Generates four lightweight proposal-sheet images for the generated-image
+/// preview mock. They intentionally share one visual system while keeping each
+/// page distinct, making page navigation easy to verify.
+Future<List<Uint8List>> generateMockGeneratedImages() async {
+  final images = <Uint8List>[];
+  for (var index = 0; index < 4; index++) {
+    images.add(await _renderGeneratedConcept(index));
+  }
+  return images;
+}
+
+/// Generates a landscape image so the chat preview can verify that a single
+/// generated image keeps its original aspect ratio.
+Future<Uint8List> generateMockGeneratedLandscapeImage() async {
+  const size = Size(1080, 640);
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  _drawGeneratedLandscapeConcept(canvas, size);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(size.width.toInt(), size.height.toInt());
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  picture.dispose();
+  image.dispose();
+  return byteData!.buffer.asUint8List();
+}
+
 const _width = 375.0;
 const _height = 400.0;
+const _generatedSize = Size(720, 900);
 
 Future<Uint8List> _renderPng(void Function(Canvas, Size) painter) async {
   final recorder = ui.PictureRecorder();
@@ -35,6 +62,288 @@ Future<Uint8List> _renderPng(void Function(Canvas, Size) painter) async {
   picture.dispose();
   image.dispose();
   return byteData!.buffer.asUint8List();
+}
+
+Future<Uint8List> _renderGeneratedConcept(int index) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  _drawGeneratedConcept(canvas, _generatedSize, index);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(
+    _generatedSize.width.toInt(),
+    _generatedSize.height.toInt(),
+  );
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  picture.dispose();
+  image.dispose();
+  return byteData!.buffer.asUint8List();
+}
+
+void _drawGeneratedConcept(Canvas canvas, Size size, int index) {
+  const paperColors = [
+    Color(0xFFFFFCF4),
+    Color(0xFFF8FBFF),
+    Color(0xFFFFFAF7),
+    Color(0xFFF8FFF9),
+  ];
+  const accentColors = [
+    Color(0xFFFFD92F),
+    Color(0xFFFFB347),
+    Color(0xFFFFD92F),
+    Color(0xFFB8E986),
+  ];
+  const titles = [
+    'AI TEAMMATE',
+    'MORNING FLOW',
+    'CHARACTER LOOP',
+    'NAME IDEAS',
+  ];
+  const subtitles = [
+    'Talk, delegate, and keep moving',
+    'Four steps to start the day',
+    'One partner across every task',
+    'A small workshop for big ideas',
+  ];
+
+  canvas.drawRect(Offset.zero & size, Paint()..color = paperColors[index]);
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(28, 28, size.width - 56, size.height - 56),
+      const Radius.circular(22),
+    ),
+    Paint()
+      ..color = const Color(0xFF202020)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(82, 72, size.width - 164, 84),
+      const Radius.circular(42),
+    ),
+    Paint()..color = accentColors[index].withValues(alpha: 0.72),
+  );
+  _paintGeneratedText(
+    canvas,
+    titles[index],
+    const Offset(0, 88),
+    size.width,
+    fontSize: 42,
+    fontWeight: FontWeight.w800,
+    textAlign: TextAlign.center,
+  );
+  _paintGeneratedText(
+    canvas,
+    subtitles[index],
+    const Offset(50, 166),
+    size.width - 100,
+    fontSize: 20,
+    textAlign: TextAlign.center,
+  );
+
+  for (var row = 0; row < 3; row++) {
+    _drawGeneratedStep(
+      canvas,
+      Rect.fromLTWH(64, 236 + row * 182, size.width - 128, 142),
+      number: row + 1,
+      accent: accentColors[index],
+      mirrored: (row + index).isOdd,
+    );
+  }
+
+  _paintGeneratedText(
+    canvas,
+    'CODEX  +  CC POCKET',
+    Offset(50, size.height - 88),
+    size.width - 100,
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
+    textAlign: TextAlign.center,
+    color: const Color(0xFF555555),
+  );
+}
+
+void _drawGeneratedLandscapeConcept(Canvas canvas, Size size) {
+  const accent = Color(0xFFFFD92F);
+  canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFFCF4));
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(28, 28, size.width - 56, size.height - 56),
+      const Radius.circular(24),
+    ),
+    Paint()
+      ..color = const Color(0xFF202020)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(290, 64, 500, 76),
+      const Radius.circular(38),
+    ),
+    Paint()..color = accent.withValues(alpha: 0.72),
+  );
+  _paintGeneratedText(
+    canvas,
+    'ONE WIDE CONCEPT',
+    const Offset(0, 80),
+    size.width,
+    fontSize: 38,
+    fontWeight: FontWeight.w800,
+    textAlign: TextAlign.center,
+  );
+  _paintGeneratedText(
+    canvas,
+    'A single image keeps its original landscape ratio',
+    const Offset(100, 158),
+    size.width - 200,
+    fontSize: 21,
+    textAlign: TextAlign.center,
+  );
+
+  for (var column = 0; column < 3; column++) {
+    final rect = Rect.fromLTWH(62 + column * 342, 232, 300, 260);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(22)),
+      Paint()..color = Colors.white,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(22)),
+      Paint()
+        ..color = const Color(0xFF202020)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+    canvas.drawCircle(
+      Offset(rect.center.dx, rect.top + 80),
+      42,
+      Paint()..color = accent.withValues(alpha: 0.58),
+    );
+    _paintGeneratedText(
+      canvas,
+      '${column + 1}  ${const ['ASK', 'MAKE', 'SHARE'][column]}',
+      Offset(rect.left + 24, rect.top + 145),
+      rect.width - 48,
+      fontSize: 25,
+      fontWeight: FontWeight.w800,
+      textAlign: TextAlign.center,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(rect.left + 48, rect.top + 202, rect.width - 96, 10),
+        const Radius.circular(5),
+      ),
+      Paint()..color = const Color(0xFFBDBDBD),
+    );
+  }
+}
+
+void _drawGeneratedStep(
+  Canvas canvas,
+  Rect rect, {
+  required int number,
+  required Color accent,
+  required bool mirrored,
+}) {
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(rect, const Radius.circular(20)),
+    Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(rect, const Radius.circular(20)),
+    Paint()
+      ..color = const Color(0xFF272727)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2,
+  );
+
+  final avatarX = mirrored ? rect.right - 74 : rect.left + 74;
+  canvas.drawCircle(
+    Offset(avatarX, rect.top + 60),
+    36,
+    Paint()..color = accent.withValues(alpha: 0.58),
+  );
+  canvas.drawCircle(
+    Offset(avatarX - 12, rect.top + 56),
+    4,
+    Paint()..color = const Color(0xFF202020),
+  );
+  canvas.drawCircle(
+    Offset(avatarX + 12, rect.top + 56),
+    4,
+    Paint()..color = const Color(0xFF202020),
+  );
+  canvas.drawArc(
+    Rect.fromCenter(
+      center: Offset(avatarX, rect.top + 61),
+      width: 30,
+      height: 22,
+    ),
+    0.2,
+    2.7,
+    false,
+    Paint()
+      ..color = const Color(0xFF202020)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2,
+  );
+
+  final textLeft = mirrored ? rect.left + 28 : rect.left + 142;
+  final textWidth = rect.width - 170;
+  _paintGeneratedText(
+    canvas,
+    '$number  ${switch (number) {
+      1 => 'ASK',
+      2 => 'MAKE',
+      _ => 'REVIEW',
+    }}',
+    Offset(textLeft, rect.top + 28),
+    textWidth,
+    fontSize: 24,
+    fontWeight: FontWeight.w800,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(textLeft, rect.top + 72, textWidth * 0.9, 10),
+      const Radius.circular(5),
+    ),
+    Paint()..color = const Color(0xFFBDBDBD),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(textLeft, rect.top + 94, textWidth * 0.68, 10),
+      const Radius.circular(5),
+    ),
+    Paint()..color = const Color(0xFFD8D8D8),
+  );
+}
+
+void _paintGeneratedText(
+  Canvas canvas,
+  String text,
+  Offset offset,
+  double width, {
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w500,
+  TextAlign textAlign = TextAlign.left,
+  Color color = const Color(0xFF202020),
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: 0.5,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: textAlign,
+  )..layout(minWidth: width, maxWidth: width);
+  painter.paint(canvas, offset);
 }
 
 // ---------------------------------------------------------------------------

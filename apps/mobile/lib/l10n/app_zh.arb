@@ -876,6 +876,20 @@
 
   "clipboardNotAvailable": "无法访问剪贴板",
   "failedToLoadImage": "加载图片失败",
+  "generatedImagePromptLabel": "提示词",
+  "generatedImageDetailsLabel": "详情",
+  "generatedImageHideDetailsLabel": "收起详情",
+  "generatedImageStatusLabel": "状态",
+  "generatedImageSavedPathLabel": "已保存文件",
+  "previousImage": "上一张图片",
+  "nextImage": "下一张图片",
+  "generatedImagePositionLabel": "生成的图片 {current} / {total}",
+  "@generatedImagePositionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "noImageInClipboard": "剪贴板中没有图片",
   "failedToReadClipboard": "读取剪贴板失败",
   "imageLimitReached": "最多允许 {max} 张图片",

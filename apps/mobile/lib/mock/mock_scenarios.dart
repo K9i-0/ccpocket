@@ -109,6 +109,8 @@ final List<MockScenario> mockScenarios = [
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
   // Standalone viewers
+  generatedImageChatPreviewScenario,
+  generatedImagePreviewScenario,
   imageDiffScenario,
   storeDiffLineNumberScenario,
   // File Peek
@@ -3315,6 +3317,30 @@ const supporterPreviewVeteran = MockScenario(
   icon: Icons.workspace_premium,
   description: 'Supporter screen for a long-running supporter',
   section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// Standalone: Generated Image Chat Preview
+// ---------------------------------------------------------------------------
+const generatedImageChatPreviewScenario = MockScenario(
+  name: 'Generated Image Chat Preview',
+  icon: Icons.grid_view_rounded,
+  description: 'Codex-style inline image group linked to the preview viewer',
+  section: MockScenarioSection.chat,
+  provider: MockScenarioProvider.codex,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// Standalone: Generated Image Preview
+// ---------------------------------------------------------------------------
+const generatedImagePreviewScenario = MockScenario(
+  name: 'Generated Image Preview',
+  icon: Icons.auto_awesome,
+  description: 'Swipeable generated images with prompt metadata',
+  section: MockScenarioSection.chat,
+  provider: MockScenarioProvider.codex,
   steps: [],
 );
 

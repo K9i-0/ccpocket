@@ -836,6 +836,20 @@
 
   "clipboardNotAvailable": "クリップボードにアクセスできません",
   "failedToLoadImage": "画像の読み込みに失敗しました",
+  "generatedImagePromptLabel": "プロンプト",
+  "generatedImageDetailsLabel": "詳細",
+  "generatedImageHideDetailsLabel": "詳細を閉じる",
+  "generatedImageStatusLabel": "ステータス",
+  "generatedImageSavedPathLabel": "保存先",
+  "previousImage": "前の画像",
+  "nextImage": "次の画像",
+  "generatedImagePositionLabel": "生成画像 {current} / {total}",
+  "@generatedImagePositionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "noImageInClipboard": "クリップボードに画像がありません",
   "failedToReadClipboard": "クリップボードの読み取りに失敗しました",
   "imageLimitReached": "画像は最大{max}枚までです",

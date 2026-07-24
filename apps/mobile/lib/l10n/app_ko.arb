@@ -748,6 +748,20 @@
   "retry": "재시도",
   "clipboardNotAvailable": "클립보드를 사용할 수 없습니다",
   "failedToLoadImage": "이미지 로드 실패",
+  "generatedImagePromptLabel": "프롬프트",
+  "generatedImageDetailsLabel": "세부정보",
+  "generatedImageHideDetailsLabel": "세부정보 닫기",
+  "generatedImageStatusLabel": "상태",
+  "generatedImageSavedPathLabel": "저장된 파일",
+  "previousImage": "이전 이미지",
+  "nextImage": "다음 이미지",
+  "generatedImagePositionLabel": "생성된 이미지 {current} / {total}",
+  "@generatedImagePositionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "noImageInClipboard": "클립보드에 이미지가 없습니다",
   "failedToReadClipboard": "클립보드 읽기 실패",
   "imageLimitReached": "최대 {max}개 이미지까지 허용됩니다",

@@ -806,6 +806,20 @@
 
   "clipboardNotAvailable": "Cannot access clipboard",
   "failedToLoadImage": "Failed to load image",
+  "generatedImagePromptLabel": "Prompt",
+  "generatedImageDetailsLabel": "Details",
+  "generatedImageHideDetailsLabel": "Hide details",
+  "generatedImageStatusLabel": "Status",
+  "generatedImageSavedPathLabel": "Saved file",
+  "previousImage": "Previous image",
+  "nextImage": "Next image",
+  "generatedImagePositionLabel": "Generated image {current} of {total}",
+  "@generatedImagePositionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
   "noImageInClipboard": "No image in clipboard",
   "failedToReadClipboard": "Failed to read clipboard",
   "imageLimitReached": "Maximum {max} images allowed",

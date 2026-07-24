@@ -3720,6 +3720,54 @@ abstract class AppLocalizations {
   /// **'画像の読み込みに失敗しました'**
   String get failedToLoadImage;
 
+  /// No description provided for @generatedImagePromptLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロンプト'**
+  String get generatedImagePromptLabel;
+
+  /// No description provided for @generatedImageDetailsLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細'**
+  String get generatedImageDetailsLabel;
+
+  /// No description provided for @generatedImageHideDetailsLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細を閉じる'**
+  String get generatedImageHideDetailsLabel;
+
+  /// No description provided for @generatedImageStatusLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ステータス'**
+  String get generatedImageStatusLabel;
+
+  /// No description provided for @generatedImageSavedPathLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存先'**
+  String get generatedImageSavedPathLabel;
+
+  /// No description provided for @previousImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'前の画像'**
+  String get previousImage;
+
+  /// No description provided for @nextImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'次の画像'**
+  String get nextImage;
+
+  /// No description provided for @generatedImagePositionLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'生成画像 {current} / {total}'**
+  String generatedImagePositionLabel(int current, int total);
+
   /// No description provided for @noImageInClipboard.
   ///
   /// In ja, this message translates to:

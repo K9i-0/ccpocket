@@ -1941,6 +1941,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get failedToLoadImage => '加载图片失败';
 
   @override
+  String get generatedImagePromptLabel => '提示词';
+
+  @override
+  String get generatedImageDetailsLabel => '详情';
+
+  @override
+  String get generatedImageHideDetailsLabel => '收起详情';
+
+  @override
+  String get generatedImageStatusLabel => '状态';
+
+  @override
+  String get generatedImageSavedPathLabel => '已保存文件';
+
+  @override
+  String get previousImage => '上一张图片';
+
+  @override
+  String get nextImage => '下一张图片';
+
+  @override
+  String generatedImagePositionLabel(int current, int total) {
+    return '生成的图片 $current / $total';
+  }
+
+  @override
   String get noImageInClipboard => '剪贴板中没有图片';
 
   @override

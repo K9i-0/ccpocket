@@ -42,6 +42,7 @@ class AssistantBubble extends StatefulWidget {
   /// Callback for tapping file paths in markdown content.
   final FilePathTapCallback? onFileTap;
   final VoidCallback? onFork;
+  final Set<String> hiddenToolUseIds;
 
   const AssistantBubble({
     super.key,
@@ -49,6 +50,7 @@ class AssistantBubble extends StatefulWidget {
     this.resolvedPlanText,
     this.onFileTap,
     this.onFork,
+    this.hiddenToolUseIds = const {},
   });
 
   @override
@@ -100,6 +102,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         plainTextMode: _plainTextMode,
         onFileTap: widget.onFileTap,
         onFork: widget.onFork,
+        hiddenToolUseIds: widget.hiddenToolUseIds,
         onTogglePlainText: () {
           setState(() => _plainTextMode = !_plainTextMode);
         },
@@ -113,6 +116,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       allText: _allText(),
       onFileTap: widget.onFileTap,
       onFork: widget.onFork,
+      hiddenToolUseIds: widget.hiddenToolUseIds,
       onTogglePlainText: () {
         setState(() => _plainTextMode = !_plainTextMode);
       },
@@ -129,6 +133,7 @@ class _PlanLayout extends StatelessWidget {
   final FilePathTapCallback? onFileTap;
   final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
+  final Set<String> hiddenToolUseIds;
 
   const _PlanLayout({
     required this.contents,
@@ -138,6 +143,7 @@ class _PlanLayout extends StatelessWidget {
     required this.plainTextMode,
     this.onFileTap,
     this.onFork,
+    required this.hiddenToolUseIds,
     required this.onTogglePlainText,
   });
 
@@ -165,7 +171,9 @@ class _PlanLayout extends StatelessWidget {
               thinking: thinking,
             ),
             ToolUseContent(:final id, :final name, :final input) =>
-              name == 'ExitPlanMode'
+              name == 'ExitPlanMode' ||
+                      name == _imageGenerationToolName &&
+                          hiddenToolUseIds.contains(id)
                   ? const SizedBox.shrink()
                   : ToolUseTile(toolUseId: id, name: name, input: input),
             TextContent() => const SizedBox.shrink(),
@@ -199,6 +207,7 @@ class _DefaultLayout extends StatelessWidget {
   final FilePathTapCallback? onFileTap;
   final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
+  final Set<String> hiddenToolUseIds;
 
   const _DefaultLayout({
     required this.contents,
@@ -207,6 +216,7 @@ class _DefaultLayout extends StatelessWidget {
     required this.allText,
     this.onFileTap,
     this.onFork,
+    required this.hiddenToolUseIds,
     required this.onTogglePlainText,
   });
 
@@ -226,7 +236,9 @@ class _DefaultLayout extends StatelessWidget {
               fileSuffixes,
             ),
             ToolUseContent(:final id, :final name, :final input) =>
-              name == 'TodoWrite' || isCodexUpdatePlanTool(name)
+              name == _imageGenerationToolName && hiddenToolUseIds.contains(id)
+                  ? const SizedBox.shrink()
+                  : name == 'TodoWrite' || isCodexUpdatePlanTool(name)
                   ? TodoWriteWidget(input: input)
                   : ToolUseTile(toolUseId: id, name: name, input: input),
             ThinkingContent(:final thinking) => ThinkingBubble(

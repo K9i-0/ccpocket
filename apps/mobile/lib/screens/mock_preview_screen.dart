@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:auto_route/auto_route.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../l10n/app_localizations.dart';
+import '../features/generated_image_preview/generated_image_preview_item.dart';
+import '../features/generated_image_preview/generated_image_preview_screen.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/settings/supporter_screen.dart';
 import '../features/settings/widgets/support_section.dart';
@@ -109,6 +112,16 @@ Route<void>? buildMockScenarioRoute(
   BuildContext context,
   MockScenario scenario,
 ) {
+  if (scenario == generatedImageChatPreviewScenario) {
+    return MaterialPageRoute(
+      builder: (_) => const _MockGeneratedImageChatPreviewWrapper(),
+    );
+  }
+  if (scenario == generatedImagePreviewScenario) {
+    return MaterialPageRoute(
+      builder: (_) => const _MockGeneratedImagePreviewWrapper(),
+    );
+  }
   if (scenario == imageDiffScenario) {
     return MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper());
   }
@@ -142,6 +155,287 @@ Route<void>? buildMockScenarioRoute(
       builder: (_) =>
           _MockChatWrapper(mockService: mockService, scenario: scenario),
     );
+  }
+}
+
+class _MockGeneratedImageChatPreviewWrapper extends StatefulWidget {
+  const _MockGeneratedImageChatPreviewWrapper();
+
+  @override
+  State<_MockGeneratedImageChatPreviewWrapper> createState() =>
+      _MockGeneratedImageChatPreviewWrapperState();
+}
+
+class _MockGeneratedImageChatPreviewWrapperState
+    extends State<_MockGeneratedImageChatPreviewWrapper> {
+  late final Future<_GeneratedImageChatPreviewData> _preview;
+
+  @override
+  void initState() {
+    super.initState();
+    _preview = _createGeneratedImageChatPreview();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_GeneratedImageChatPreviewData>(
+      future: _preview,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data != null) {
+          return _MockChatWrapper(
+            mockService: data.service,
+            scenario: data.scenario,
+          );
+        }
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Generated Image Chat Preview')),
+            body: Center(child: Text('Preview failed: ${snapshot.error}')),
+          );
+        }
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      },
+    );
+  }
+}
+
+class _GeneratedImageChatPreviewData {
+  final MockBridgeService service;
+  final MockScenario scenario;
+
+  const _GeneratedImageChatPreviewData({
+    required this.service,
+    required this.scenario,
+  });
+}
+
+Future<_GeneratedImageChatPreviewData>
+_createGeneratedImageChatPreview() async {
+  final images = await generateMockGeneratedImages();
+  final landscapeImage = await generateMockGeneratedLandscapeImage();
+  const prompts = [
+    'A hand-drawn overview of collaborating with AI teammates.',
+    'A four-step morning workflow with sparse yellow highlights.',
+    'A visual map of one character continuing across every task.',
+    'A playful naming workshop with four project directions.',
+  ];
+  final toolUseIds = List.generate(
+    images.length,
+    (index) => 'mock-image-generation-${index + 1}',
+  );
+  final steps = <MockStep>[
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 250),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-generated-image-chat-intro',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  '方向性に合わせて、白い紙に黒ペン＋黄色マーカーで '
+                  '要点を描いた企画メモ風の4案にまとめました。',
+            ),
+            for (var index = 0; index < toolUseIds.length; index++)
+              ToolUseContent(
+                id: toolUseIds[index],
+                name: 'ImageGeneration',
+                input: {
+                  'status': 'inProgress',
+                  'revisedPrompt': prompts[index],
+                },
+              ),
+          ],
+          model: 'gpt-5.6',
+        ),
+      ),
+    ),
+    for (var index = 0; index < images.length; index++)
+      MockStep(
+        delay: Duration(milliseconds: 500 + index * 120),
+        message: ToolResultMessage(
+          toolUseId: toolUseIds[index],
+          toolName: 'ImageGeneration',
+          content:
+              'status: completed\n'
+              'revisedPrompt: ${prompts[index]}\n'
+              'savedPath: /mock/generated/concept-${index + 1}.png',
+          images: [
+            ImageRef(
+              id: 'mock-generated-chat-${index + 1}',
+              url: 'data:image/png;base64,${base64Encode(images[index])}',
+              mimeType: 'image/png',
+            ),
+          ],
+        ),
+      ),
+    MockStep(
+      delay: const Duration(milliseconds: 1100),
+      message: const ResultMessage(
+        subtype: 'success',
+        duration: 1.1,
+        sessionId: 'mock-generated-image-chat',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: AssistantServerMessage(
+        message: const AssistantMessage(
+          id: 'mock-generated-image-chat-single-intro',
+          role: 'assistant',
+          content: [
+            TextContent(text: '1枚だけ生成した場合は、画像本来の縦横比で表示します。'),
+            ToolUseContent(
+              id: 'mock-image-generation-single',
+              name: 'ImageGeneration',
+              input: {
+                'status': 'inProgress',
+                'revisedPrompt':
+                    'A wide hand-drawn workflow concept on warm white paper.',
+              },
+            ),
+          ],
+          model: 'gpt-5.6',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1400),
+      message: ToolResultMessage(
+        toolUseId: 'mock-image-generation-single',
+        toolName: 'ImageGeneration',
+        content:
+            'status: completed\n'
+            'revisedPrompt: A wide hand-drawn workflow concept on warm white paper.\n'
+            'savedPath: /mock/generated/wide-concept.png',
+        images: [
+          ImageRef(
+            id: 'mock-generated-chat-single',
+            url: 'data:image/png;base64,${base64Encode(landscapeImage)}',
+            mimeType: 'image/png',
+          ),
+        ],
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1550),
+      message: const ResultMessage(
+        subtype: 'success',
+        duration: 0.4,
+        sessionId: 'mock-generated-image-chat',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1650),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ];
+  final service = MockBridgeService()..mockHttpBaseUrl = '';
+  return _GeneratedImageChatPreviewData(
+    service: service,
+    scenario: MockScenario(
+      name: generatedImageChatPreviewScenario.name,
+      icon: generatedImageChatPreviewScenario.icon,
+      description: generatedImageChatPreviewScenario.description,
+      section: generatedImageChatPreviewScenario.section,
+      provider: generatedImageChatPreviewScenario.provider,
+      steps: steps,
+    ),
+  );
+}
+
+class _MockGeneratedImagePreviewWrapper extends StatefulWidget {
+  const _MockGeneratedImagePreviewWrapper();
+
+  @override
+  State<_MockGeneratedImagePreviewWrapper> createState() =>
+      _MockGeneratedImagePreviewWrapperState();
+}
+
+class _MockGeneratedImagePreviewWrapperState
+    extends State<_MockGeneratedImagePreviewWrapper> {
+  late final Future<List<Uint8List>> _images;
+
+  @override
+  void initState() {
+    super.initState();
+    _images = generateMockGeneratedImages();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Uint8List>>(
+      future: _images,
+      builder: (context, snapshot) =>
+          _MockGeneratedImagePreviewContent(snapshot: snapshot),
+    );
+  }
+}
+
+class _MockGeneratedImagePreviewContent extends StatelessWidget {
+  final AsyncSnapshot<List<Uint8List>> snapshot;
+
+  const _MockGeneratedImagePreviewContent({required this.snapshot});
+
+  static const _prompts = [
+    'A hand-drawn proposal sheet showing how a person collaborates with '
+        'AI teammates, using black ink and yellow marker on warm white paper.',
+    'A compact morning workflow poster with four energetic steps, simple '
+        'characters, arrows, and sparse orange highlights.',
+    'A visual map of one AI character continuing across coding, research, '
+        'writing, and review tasks in a consistent sketch-note style.',
+    'A playful naming workshop board with four project directions, tiny '
+        'mascots, handwritten labels, and green accent marks.',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (snapshot.hasError) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Failed to generate preview images.\n${snapshot.error}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final images = snapshot.data;
+    if (images == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    final items = List.generate(
+      images.length,
+      (index) => GeneratedImagePreviewItem(
+        id: 'mock-generated-$index',
+        bytes: images[index],
+        mimeType: 'image/png',
+        prompt: _prompts[index],
+        status: 'completed',
+        savedPath: '/mock/generated/concept-${index + 1}.png',
+        details:
+            'Use case: style-transfer\n'
+            'Output: coherent proposal-sheet series\n'
+            'Page: ${index + 1} of ${images.length}',
+      ),
+      growable: false,
+    );
+    return GeneratedImagePreviewScreen(items: items);
   }
 }
 

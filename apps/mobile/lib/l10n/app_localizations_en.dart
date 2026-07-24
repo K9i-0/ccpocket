@@ -2035,6 +2035,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get failedToLoadImage => 'Failed to load image';
 
   @override
+  String get generatedImagePromptLabel => 'Prompt';
+
+  @override
+  String get generatedImageDetailsLabel => 'Details';
+
+  @override
+  String get generatedImageHideDetailsLabel => 'Hide details';
+
+  @override
+  String get generatedImageStatusLabel => 'Status';
+
+  @override
+  String get generatedImageSavedPathLabel => 'Saved file';
+
+  @override
+  String get previousImage => 'Previous image';
+
+  @override
+  String get nextImage => 'Next image';
+
+  @override
+  String generatedImagePositionLabel(int current, int total) {
+    return 'Generated image $current of $total';
+  }
+
+  @override
   String get noImageInClipboard => 'No image in clipboard';
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../features/generated_image_preview/generated_image_preview_mapper.dart';
+import '../../features/generated_image_preview/widgets/generated_image_chat_group.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import 'package:auto_route/auto_route.dart';
@@ -124,8 +126,10 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   bool get _isImageGenerationResult =>
       widget.message.toolName == _imageGenerationToolName;
 
-  bool get _hasRenderableImage =>
-      widget.message.images.isNotEmpty && widget.httpBaseUrl != null;
+  bool get _hasRenderableImage => widget.message.images.any(
+    (image) =>
+        canResolveGeneratedImageUrl(image.url, httpBaseUrl: widget.httpBaseUrl),
+  );
 
   ToolResultExpansion get _defaultExpansion =>
       (_isCodeEditResult || _isMcpImageResult)
@@ -229,7 +233,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     if (_isImageGenerationResult && _hasRenderableImage) {
       return _ImageGenerationResultCard(
         message: widget.message,
-        httpBaseUrl: widget.httpBaseUrl!,
+        httpBaseUrl: widget.httpBaseUrl,
         onLongPress: () => _copyContent(context),
       );
     }
@@ -262,9 +266,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   }
 }
 
-class _ImageGenerationResultCard extends StatefulWidget {
+class _ImageGenerationResultCard extends StatelessWidget {
   final ToolResultMessage message;
-  final String httpBaseUrl;
+  final String? httpBaseUrl;
   final VoidCallback onLongPress;
 
   const _ImageGenerationResultCard({
@@ -274,176 +278,16 @@ class _ImageGenerationResultCard extends StatefulWidget {
   });
 
   @override
-  State<_ImageGenerationResultCard> createState() =>
-      _ImageGenerationResultCardState();
-}
-
-class _ImageGenerationResultCardState
-    extends State<_ImageGenerationResultCard> {
-  bool _detailsExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final colorScheme = Theme.of(context).colorScheme;
-    final metadata = _ImageGenerationMetadata.fromContent(
-      widget.message.content,
-    );
-
-    return Container(
-      key: const ValueKey('image_generation_result_card'),
-      margin: const EdgeInsets.symmetric(
-        vertical: 4,
-        horizontal: AppSpacing.bubbleMarginH,
-      ),
-      child: GestureDetector(
-        onLongPress: widget.onLongPress,
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: appColors.toolResultBackground,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            border: Border.all(
-              color: colorScheme.secondary.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ImagePreviewWidget(
-                images: widget.message.images,
-                httpBaseUrl: widget.httpBaseUrl,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 15,
-                    color: colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 7),
-                  const Expanded(
-                    child: Text(
-                      'Generated image',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (metadata.status != null)
-                    _ImageGenerationStatusChip(status: metadata.status!),
-                ],
-              ),
-              if (metadata.revisedPrompt != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  metadata.revisedPrompt!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: appColors.subtleText,
-                    height: 1.35,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  key: const ValueKey('image_generation_details_button'),
-                  onPressed: () {
-                    setState(() => _detailsExpanded = !_detailsExpanded);
-                    HapticFeedback.selectionClick();
-                  },
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: appColors.subtleText,
-                  ),
-                  icon: Icon(
-                    _detailsExpanded ? Icons.expand_less : Icons.chevron_right,
-                    size: 16,
-                  ),
-                  label: Text(
-                    _detailsExpanded ? 'Hide details' : 'Details',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
-              if (_detailsExpanded) ...[
-                const SizedBox(height: 4),
-                SelectableText(
-                  widget.message.content,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: appColors.toolResultTextExpanded,
-                    height: 1.4,
-                  ),
-                  contextMenuBuilder:
-                      googleSearchSelectableTextContextMenuBuilder,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    final items = generatedImageItemsFromToolResults([
+      message,
+    ], httpBaseUrl: httpBaseUrl);
+    return GestureDetector(
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.translucent,
+      child: GeneratedImageChatGroup(items: items),
     );
   }
-}
-
-class _ImageGenerationStatusChip extends StatelessWidget {
-  final String status;
-
-  const _ImageGenerationStatusChip({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: colorScheme.secondary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        status.replaceAll('_', ' '),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.secondary,
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageGenerationMetadata {
-  final String? status;
-  final String? revisedPrompt;
-
-  const _ImageGenerationMetadata({this.status, this.revisedPrompt});
-
-  factory _ImageGenerationMetadata.fromContent(String content) {
-    return _ImageGenerationMetadata(
-      status: _readPrefixedLine(content, 'status'),
-      revisedPrompt: _readPrefixedLine(content, 'revisedPrompt'),
-    );
-  }
-}
-
-String? _readPrefixedLine(String content, String key) {
-  final prefix = '$key:';
-  for (final line in content.split('\n')) {
-    if (!line.startsWith(prefix)) continue;
-    final value = line.substring(prefix.length).trim();
-    return value.isEmpty ? null : value;
-  }
-  return null;
 }
 
 /// Collapsed: inline log row -- no card background.

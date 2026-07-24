@@ -1,3 +1,5 @@
+import 'package:ccpocket/features/generated_image_preview/generated_image_preview_screen.dart';
+import 'package:ccpocket/features/generated_image_preview/widgets/generated_image_chat_group.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:ccpocket/widgets/bubbles/image_preview.dart';
 import 'package:ccpocket/widgets/bubbles/tool_result_bubble.dart';
 
 Widget _wrap(Widget child) {
@@ -210,16 +211,17 @@ void main() {
         images: const [
           ImageRef(
             id: 'img-generated',
-            url: '/images/generated.png',
+            url:
+                'data:image/png;base64,'
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+                'AAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==',
             mimeType: 'image/png',
           ),
         ],
       );
     }
 
-    testWidgets('renders a dedicated image-first card initially', (
-      tester,
-    ) async {
+    testWidgets('renders only the generated image in chat', (tester) async {
       await tester.pumpWidget(
         _wrap(
           ToolResultBubble(
@@ -230,21 +232,34 @@ void main() {
       );
 
       expect(
-        find.byKey(const ValueKey('image_generation_result_card')),
+        find.byKey(const ValueKey('generated_image_chat_group')),
         findsOneWidget,
       );
-      expect(find.byType(ImagePreviewWidget), findsOneWidget);
-      expect(find.text('Generated image'), findsOneWidget);
-      expect(find.text('completed'), findsOneWidget);
+      expect(find.byType(GeneratedImageChatGroup), findsOneWidget);
       expect(
-        find.text('A neon bridge for mobile coding agents'),
+        find.byKey(const ValueKey('generated_image_chat_thumbnail_0')),
         findsOneWidget,
       );
+      expect(find.text('Generated image'), findsNothing);
+      expect(find.text('completed'), findsNothing);
+      expect(find.text('A neon bridge for mobile coding agents'), findsNothing);
       expect(find.text('ImageGeneration'), findsNothing);
       expect(find.textContaining('savedPath'), findsNothing);
     });
 
-    testWidgets('keeps details collapsed until explicitly opened', (
+    testWidgets('renders a data URL without an HTTP base URL', (tester) async {
+      await tester.pumpWidget(
+        _wrap(ToolResultBubble(message: imageGenerationMessage())),
+      );
+
+      expect(find.byType(GeneratedImageChatGroup), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('generated_image_chat_thumbnail_0')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('opens the metadata preview when the image is tapped', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -259,15 +274,19 @@ void main() {
       expect(find.textContaining('/tmp/generated-image.png'), findsNothing);
 
       await tester.tap(
-        find.byKey(const ValueKey('image_generation_details_button')),
+        find.byKey(const ValueKey('generated_image_chat_thumbnail_0')),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.textContaining('/tmp/generated-image.png'), findsOneWidget);
-      expect(find.text('Hide details'), findsOneWidget);
+      expect(find.byType(GeneratedImagePreviewScreen), findsOneWidget);
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(
+        find.text('A neon bridge for mobile coding agents'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('does not collapse the generated image on notifier updates', (
+    testWidgets('keeps the generated image visible on notifier updates', (
       tester,
     ) async {
       final notifier = ValueNotifier<int>(0);
@@ -286,11 +305,11 @@ void main() {
       await tester.pump();
 
       expect(
-        find.byKey(const ValueKey('image_generation_result_card')),
+        find.byKey(const ValueKey('generated_image_chat_group')),
         findsOneWidget,
       );
-      expect(find.byType(ImagePreviewWidget), findsOneWidget);
-      expect(find.text('Generated image'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Generated image'), findsNothing);
     });
   });
 
