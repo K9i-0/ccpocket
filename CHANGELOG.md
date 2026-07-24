@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.109.0] - 2026-07-24
+
+### Added
+- Group generated images in chat and open them in a full-screen gallery with navigation and prompt, status, and saved-file details.
+
+### Changed
+- Require Bridge 1.69.1 for managed Codex auto-review policy enforcement and the latest app-server reliability fixes.
+
+### Fixed
+- Disable Codex Auto Review in the new-session flow when an organization's Browser Use policy prohibits it.
+
 ## [1.108.1] - 2026-07-23
 
 ### Changed
