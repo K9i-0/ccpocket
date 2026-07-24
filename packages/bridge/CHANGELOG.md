@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.69.3] - 2026-07-24
+
+### Fixed
+- Verify session restore lifecycle events consistently across Windows and POSIX Bridge environments.
+
 ## [1.69.2] - 2026-07-24
 
 ### Fixed

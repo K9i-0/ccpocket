@@ -1745,7 +1745,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ).toMatchObject({
         sourceSessionId: "claude-session-timeout",
         provider: "claude",
-        projectPath: "/tmp/project-a",
+        projectPath: resolve("/tmp/project-a"),
       });
       bridge.close();
     } finally {
@@ -1963,7 +1963,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           subtype: "session_resume_failed",
           sourceSessionId: "claude-session-failed",
           provider: "claude",
-          projectPath: "/tmp/project-a",
+          projectPath: resolve("/tmp/project-a"),
         }),
       );
     });
