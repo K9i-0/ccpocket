@@ -1,4 +1,5 @@
-• Switch Codex models from an existing session when you need to adjust how the task continues.
-• Choose whether new sessions and filters show Codex, Claude, or both providers.
-• View Recent Sessions as a simple list in addition to project grouping.
-• Fixed Settings on Flutter Web and improved Codex/Claude session display details.
+• View generated images as grouped chat galleries with full-screen details.
+• Open notification and session links by attaching the matching live Codex or Claude session, or resuming the exact recent session.
+• Retry unavailable links safely and reuse existing session screens without duplicate navigation.
+• Keep image-heavy restores stable with disk caching, clear progress, and safe reconnect retries.
+• Added optional Max and Ultra Codex Effort levels, quieter Guardian notices, faster completions, and reliability improvements.
