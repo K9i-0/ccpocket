@@ -1,7 +1,1 @@
-• Added optional Max and Ultra Codex effort levels, plus more reliable session displays and slash-command completions.
-• Added quiet, expandable notices for Codex Guardian auto-approvals and enforced organization policies for Auto Review.
-• View generated images as grouped chat galleries with full-screen details, disk caching, and direct sharing.
-• Open notification and session links by attaching the matching live session or resuming the exact recent session, with safer retries.
-• Preview HTML files directly with a source toggle, safe read-only rendering, and reliable scrolling.
-• Faster, lower-data restores for image-heavy Codex sessions, with compact thumbnails and full originals still available.
-• Bridge 1.69.5 or later is required for the optimized restore experience.
+• Improved performance and responsiveness in long-running sessions.
