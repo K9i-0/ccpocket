@@ -43,11 +43,53 @@ jobs:
           ASC_TELEMETRY_DISABLED: '1'
         run: scripts/store-review/inspect-ios.sh store-state/ios.json
 
+      - name: Inspect ready iOS review submissions
+        env:
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_STRICT_AUTH: 'true'
+          ASC_TELEMETRY_DISABLED: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p store-state/ios-review
+          asc review submissions-list \
+            --app 6759188790 \
+            --platform IOS \
+            --state READY_FOR_REVIEW \
+            --include app,items,appStoreVersionForReview \
+            --item-fields appStoreVersion \
+            --paginate \
+            --output json > store-state/ios-review/ready.json
+          for submission_id in \
+            721245c8-889f-4706-b79c-8ba518c2e007 \
+            db674c2a-eb2c-4caa-96f3-7a0da995c553; do
+            asc review submissions-get \
+              --id "$submission_id" \
+              --include app,items,appStoreVersionForReview \
+              --item-fields appStoreVersion \
+              --output json > "store-state/ios-review/submission-${submission_id}.json"
+            asc review items-list \
+              --submission "$submission_id" \
+              --fields state,appStoreVersion \
+              --include appStoreVersion \
+              --paginate \
+              --output json > "store-state/ios-review/items-${submission_id}.json"
+          done
+
       - name: Upload iOS store state
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-store-state
           path: store-state/ios.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload iOS review state
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-review-state
+          path: store-state/ios-review
           if-no-files-found: error
           retention-days: 1
 
