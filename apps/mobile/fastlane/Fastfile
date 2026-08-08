@@ -109,7 +109,7 @@ def google_play_expected_release_notes(version_code:)
   locales = ["en-US", "ja-JP", "ko-KR", "zh-CN"]
   locales.to_h do |locale|
     path = File.join(
-      "./fastlane/metadata/android",
+      "./metadata/android",
       locale,
       "changelogs",
       "#{version_code}.txt",
@@ -272,7 +272,7 @@ platform :android do
       track_promote_release_status: release_status,
       version_code: version_code.to_i,
       rollout: user_fraction,
-      metadata_path: "./fastlane/metadata/android",
+      metadata_path: "./metadata/android",
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_metadata: true,

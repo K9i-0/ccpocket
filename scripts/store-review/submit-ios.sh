@@ -139,17 +139,21 @@ if [[ -z "$attached_build_id" ]]; then
     --output table
 fi
 
-log "Running App Store submission validation"
-asc validate \
-  --app "$app_id" \
-  --version-id "$version_id" \
-  --platform IOS \
-  --output table
-asc review doctor \
-  --app "$app_id" \
-  --version-id "$version_id" \
-  --platform IOS \
-  --output table
+if [[ "$version_state" == "READY_FOR_REVIEW" && "$review_state" == "NOT_SUBMITTED" ]]; then
+  log "Version is already attached to a ready review submission; skipping editable-state validation before retry"
+else
+  log "Running App Store submission validation"
+  asc validate \
+    --app "$app_id" \
+    --version-id "$version_id" \
+    --platform IOS \
+    --output table
+  asc review doctor \
+    --app "$app_id" \
+    --version-id "$version_id" \
+    --platform IOS \
+    --output table
+fi
 
 log "Submitting ${version} (${build_number}) for App Review"
 submission_json=$(asc review submit \
