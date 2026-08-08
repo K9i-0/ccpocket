@@ -157,15 +157,57 @@ else
 fi
 
 log "Submitting ${version} (${build_number}) for App Review"
-submission_json=$(asc review submit \
-  --app "$app_id" \
-  --version-id "$version_id" \
-  --build "$build_id" \
-  --platform IOS \
-  --confirm \
-  --output json)
-submission_id=$(jq -r '.submissionId // empty' <<< "$submission_json")
-already_submitted=$(jq -r '.alreadySubmitted // false' <<< "$submission_json")
+if [[ "$version_state" == "READY_FOR_REVIEW" &&
+      ("$review_state" == "NOT_SUBMITTED" || "$review_state" == "READY_FOR_REVIEW") ]]; then
+  ready_submissions_json=$(asc review submissions-list \
+    --app "$app_id" \
+    --platform IOS \
+    --state READY_FOR_REVIEW \
+    --include app,items,appStoreVersionForReview \
+    --item-fields appStoreVersion \
+    --paginate \
+    --output json)
+  matching_submissions=$(jq --arg version_id "$version_id" \
+    '[((.data // .)[]?) | select(.relationships.appStoreVersionForReview.data.id == $version_id)]' \
+    <<< "$ready_submissions_json")
+  matching_submission_count=$(jq 'length' <<< "$matching_submissions")
+  [[ "$matching_submission_count" == "1" ]] ||
+    fail "Expected exactly one ready review submission for App Store version ${version_id}, found ${matching_submission_count}"
+  submission_id=$(jq -er '.[0].id' <<< "$matching_submissions")
+
+  submission_items_json=$(asc review items-list \
+    --submission "$submission_id" \
+    --fields state,appStoreVersion \
+    --include appStoreVersion \
+    --paginate \
+    --output json)
+  submission_item_count=$(jq '[((.data // .)[]?)] | length' <<< "$submission_items_json")
+  [[ "$submission_item_count" == "1" ]] ||
+    fail "Review submission ${submission_id} must contain exactly one item, found ${submission_item_count}"
+  submission_item_version_id=$(jq -er '(.data // .)[0].relationships.appStoreVersion.data.id' <<< "$submission_items_json")
+  submission_item_state=$(jq -er '(.data // .)[0].attributes.state' <<< "$submission_items_json")
+  [[ "$submission_item_version_id" == "$version_id" ]] ||
+    fail "Review submission ${submission_id} contains App Store version ${submission_item_version_id}, expected ${version_id}"
+  [[ "$submission_item_state" == "READY_FOR_REVIEW" ]] ||
+    fail "Review submission ${submission_id} item is ${submission_item_state}, expected READY_FOR_REVIEW"
+
+  log "Submitting verified ready review submission ${submission_id}"
+  submission_json=$(asc review submissions-submit \
+    --id "$submission_id" \
+    --confirm \
+    --output json)
+  already_submitted=false
+else
+  submission_json=$(asc review submit \
+    --app "$app_id" \
+    --version-id "$version_id" \
+    --build "$build_id" \
+    --platform IOS \
+    --confirm \
+    --output json)
+  submission_id=$(jq -r '.submissionId // .data.id // .id // empty' <<< "$submission_json")
+  already_submitted=$(jq -r '.alreadySubmitted // false' <<< "$submission_json")
+fi
 
 for attempt in $(seq 1 30); do
   if [[ -n "$submission_id" && "$already_submitted" != "true" ]]; then

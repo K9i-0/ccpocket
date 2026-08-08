@@ -109,7 +109,7 @@ def google_play_expected_release_notes(version_code:)
   locales = ["en-US", "ja-JP", "ko-KR", "zh-CN"]
   locales.to_h do |locale|
     path = File.join(
-      "./metadata/android",
+      google_play_metadata_path,
       locale,
       "changelogs",
       "#{version_code}.txt",
@@ -121,6 +121,10 @@ def google_play_expected_release_notes(version_code:)
     UI.user_error!("Google Play release notes exceed 500 characters: #{path}") if text.length > 500
     [locale, text]
   end
+end
+
+def google_play_metadata_path
+  File.expand_path("metadata/android", __dir__)
 end
 
 def google_play_release_notes_match?(release:, expected_notes:)
@@ -272,7 +276,7 @@ platform :android do
       track_promote_release_status: release_status,
       version_code: version_code.to_i,
       rollout: release_status == "inProgress" ? user_fraction_raw : nil,
-      metadata_path: "./metadata/android",
+      metadata_path: google_play_metadata_path,
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_metadata: true,
