@@ -71,7 +71,7 @@ jobs:
       - name: Inspect live Google Play version
         env:
           GCLOUD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
-          STORE_STATE_OUTPUT: store-state/android.json
+          STORE_STATE_OUTPUT: ${{ github.workspace }}/apps/mobile/store-state/android.json
         run: bundle exec fastlane android store_state
 
       - name: Upload Android store state
