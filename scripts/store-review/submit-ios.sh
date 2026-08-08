@@ -139,7 +139,8 @@ if [[ -z "$attached_build_id" ]]; then
     --output table
 fi
 
-if [[ "$version_state" == "READY_FOR_REVIEW" && "$review_state" == "NOT_SUBMITTED" ]]; then
+if [[ "$version_state" == "READY_FOR_REVIEW" &&
+      ("$review_state" == "NOT_SUBMITTED" || "$review_state" == "READY_FOR_REVIEW") ]]; then
   log "Version is already attached to a ready review submission; skipping editable-state validation before retry"
 else
   log "Running App Store submission validation"

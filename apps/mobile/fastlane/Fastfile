@@ -271,7 +271,7 @@ platform :android do
       track_promote_to: "production",
       track_promote_release_status: release_status,
       version_code: version_code.to_i,
-      rollout: user_fraction,
+      rollout: release_status == "inProgress" ? user_fraction_raw : nil,
       metadata_path: "./metadata/android",
       skip_upload_aab: true,
       skip_upload_apk: true,
