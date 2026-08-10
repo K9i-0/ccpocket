@@ -750,6 +750,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get directoryPath => '디렉터리 경로';
 
   @override
+  String get directoryPathOutsideAllowedRoots => '디렉터리 경로가 허용된 루트 밖에 있습니다';
+
+  @override
+  String get browseDirectory => '디렉터리 찾아보기';
+
+  @override
+  String get selectDirectory => '디렉터리 선택';
+
+  @override
+  String get noSubdirectories => '하위 디렉터리 없음';
+
+  @override
+  String get directoryBrowserRoots => '허용된 디렉터리';
+
+  @override
   String get worktreeNew => '새로 만들기';
 
   @override

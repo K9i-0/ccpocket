@@ -638,6 +638,40 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"list_files"}')).toBeNull();
   });
 
+  it("parses list_directory message", () => {
+    const msg = parseClientMessage(
+      '{"type":"list_directory","path":"/workspace","requestId":"dir-1"}',
+    );
+    expect(msg).toEqual({
+      type: "list_directory",
+      path: "/workspace",
+      requestId: "dir-1",
+    });
+  });
+
+  it("rejects list_directory without a non-empty path", () => {
+    expect(parseClientMessage('{"type":"list_directory"}')).toBeNull();
+    expect(
+      parseClientMessage('{"type":"list_directory","path":"   "}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage('{"type":"list_directory","path":123}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"list_directory","path":"/workspace","requestId":123}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects list_directory with unknown fields", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"list_directory","path":"/workspace","includeFiles":true}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses interrupt message", () => {
     const msg = parseClientMessage('{"type":"interrupt"}');
     expect(msg).toEqual({ type: "interrupt" });

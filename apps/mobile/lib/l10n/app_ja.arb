@@ -291,6 +291,11 @@
   "additionalWritableRootsSuggestions": "最近のプロジェクト",
   "addDirectory": "ディレクトリを追加",
   "directoryPath": "ディレクトリパス",
+  "directoryPathOutsideAllowedRoots": "ディレクトリパスが許可されたルートの外側です",
+  "browseDirectory": "ディレクトリを参照",
+  "selectDirectory": "ディレクトリを選択",
+  "noSubdirectories": "サブディレクトリはありません",
+  "directoryBrowserRoots": "許可されたディレクトリ",
   "worktreeNew": "新規",
   "worktreeExisting": "既存 ({count})",
   "@worktreeExisting": {

@@ -3,6 +3,44 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test(
+    'serializes directory listing requests and parses directory entries',
+    () {
+      expect(
+        jsonDecode(
+          ClientMessage.listDirectory(
+            '/workspace',
+            requestId: 'dir-1',
+          ).toJson(),
+        ),
+        {
+          'type': 'list_directory',
+          'path': '/workspace',
+          'requestId': 'dir-1',
+        },
+      );
+
+      final message =
+          ServerMessage.fromJson({
+            'type': 'directory_listing',
+            'path': '/workspace',
+            'requestId': 'dir-1',
+            'directories': [
+              {'name': 'alpha', 'path': '/workspace/alpha'},
+              {'name': 'beta', 'path': '/workspace/beta'},
+            ],
+          }) as DirectoryListingMessage;
+
+      expect(message.path, '/workspace');
+      expect(message.requestId, 'dir-1');
+      expect(
+        message.directories.map((entry) => entry.name),
+        ['alpha', 'beta'],
+      );
+      expect(message.directories.last.path, '/workspace/beta');
+    },
+  );
+
   test('serializes and parses session link resolution messages', () {
     expect(
       jsonDecode(

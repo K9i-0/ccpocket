@@ -837,6 +837,8 @@ sealed class ServerMessage {
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
         sessionId: json['sessionId'] as String?,
+        path: json['path'] as String?,
+        requestId: json['requestId'] as String?,
       ),
       'session_link_resolution' => SessionLinkResolutionMessage(
         requestId: json['requestId'] as String,
@@ -1038,6 +1040,11 @@ sealed class ServerMessage {
       ),
       'project_history' => ProjectHistoryMessage(
         projects: (json['projects'] as List).cast<String>(),
+      ),
+      'directory_listing' => DirectoryListingMessage(
+        path: json['path'] as String? ?? '',
+        directories: _parseDirectoryListingEntries(json['directories']),
+        requestId: json['requestId'] as String?,
       ),
       'diff_result' => DiffResultMessage(
         diff: json['diff'] as String? ?? '',
@@ -1593,7 +1600,16 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   final String? sessionId;
-  const ErrorMessage({required this.message, this.errorCode, this.sessionId});
+  final String? path;
+  final String? requestId;
+
+  const ErrorMessage({
+    required this.message,
+    this.errorCode,
+    this.sessionId,
+    this.path,
+    this.requestId,
+  });
 }
 
 enum SessionLinkResolutionStatus {
@@ -2625,6 +2641,44 @@ class FileContentMessage implements ServerMessage {
 class ProjectHistoryMessage implements ServerMessage {
   final List<String> projects;
   const ProjectHistoryMessage({required this.projects});
+}
+
+class DirectoryListingEntry {
+  final String name;
+  final String path;
+
+  const DirectoryListingEntry({required this.name, required this.path});
+}
+
+List<DirectoryListingEntry> _parseDirectoryListingEntries(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((entry) {
+        final name = entry['name'];
+        final path = entry['path'];
+        if (name is! String ||
+            path is! String ||
+            name.isEmpty ||
+            path.isEmpty) {
+          return null;
+        }
+        return DirectoryListingEntry(name: name, path: path);
+      })
+      .whereType<DirectoryListingEntry>()
+      .toList();
+}
+
+class DirectoryListingMessage implements ServerMessage {
+  final String path;
+  final List<DirectoryListingEntry> directories;
+  final String? requestId;
+
+  const DirectoryListingMessage({
+    required this.path,
+    required this.directories,
+    this.requestId,
+  });
 }
 
 /// Image change detected in a git diff.
@@ -4320,6 +4374,13 @@ class ClientMessage {
 
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
+
+  factory ClientMessage.listDirectory(String path, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'list_directory',
+        'path': path,
+        'requestId': ?requestId,
+      });
 
   factory ClientMessage.getDiff(String projectPath, {bool? staged}) =>
       ClientMessage._(<String, dynamic>{

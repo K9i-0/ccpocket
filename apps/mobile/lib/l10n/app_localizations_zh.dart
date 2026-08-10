@@ -745,6 +745,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get directoryPath => '目录路径';
 
   @override
+  String get directoryPathOutsideAllowedRoots => '目录路径不在允许的目录范围内';
+
+  @override
+  String get browseDirectory => '浏览目录';
+
+  @override
+  String get selectDirectory => '选择目录';
+
+  @override
+  String get noSubdirectories => '没有子目录';
+
+  @override
+  String get directoryBrowserRoots => '允许的目录';
+
+  @override
   String get worktreeNew => '新建';
 
   @override

@@ -1195,6 +1195,71 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it("lists only visible allowed directories", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-request-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [root],
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      mkdirSync(resolve(root, "zeta"));
+      mkdirSync(resolve(root, "alpha"));
+      mkdirSync(resolve(root, ".hidden"));
+      writeFileSync(resolve(root, "file.txt"), "file");
+
+      await (bridge as any).handleClientMessage(
+        { type: "list_directory", path: root, requestId: "dir-success" },
+        ws,
+      );
+
+      expect(ws.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "directory_listing",
+          path: root,
+          directories: [
+            { name: "alpha", path: resolve(root, "alpha") },
+            { name: "zeta", path: resolve(root, "zeta") },
+          ],
+          requestId: "dir-success",
+        }),
+      );
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects directory listing requests that resolve outside allowed roots", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-root-"));
+    const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-outside-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [root],
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      await (bridge as any).handleClientMessage(
+        { type: "list_directory", path: outside, requestId: "dir-error" },
+        ws,
+      );
+
+      expect(ws.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "error",
+          errorCode: "directory_not_allowed",
+          message: "Directory path is outside the allowed roots",
+          path: outside,
+          requestId: "dir-error",
+        }),
+      );
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it("refreshes connection metadata initially and after the cooldown", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const refreshCodexMetadata = vi

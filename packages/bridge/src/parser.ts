@@ -271,6 +271,7 @@ export type ClientMessage =
       maxLines?: number;
     }
   | { type: "list_files"; projectPath: string }
+  | { type: "list_directory"; path: string; requestId?: string }
   | { type: "get_diff"; projectPath: string; staged?: boolean }
   | {
       type: "get_diff_image";
@@ -538,6 +539,8 @@ export type ServerMessage =
       message: string;
       errorCode?: string;
       sessionId?: string;
+      path?: string;
+      requestId?: string;
     }
   | {
       type: "session_link_resolution";
@@ -607,6 +610,12 @@ export type ServerMessage =
       truncated?: boolean;
     }
   | { type: "project_history"; projects: string[] }
+  | {
+      type: "directory_listing";
+      path: string;
+      directories: Array<{ name: string; path: string }>;
+      requestId?: string;
+    }
   | {
       type: "diff_result";
       diff: string;
@@ -1402,6 +1411,19 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "list_files":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "list_directory":
+        if (!hasOnlyKeys(["type", "path", "requestId"])) return null;
+        if (
+          typeof msg.path !== "string" ||
+          msg.path.trim().length === 0
+        )
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" || msg.requestId.trim().length === 0)
+        )
+          return null;
         break;
       case "get_diff":
         if (typeof msg.projectPath !== "string") return null;

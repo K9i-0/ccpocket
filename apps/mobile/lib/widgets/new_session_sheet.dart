@@ -13,6 +13,7 @@ import '../models/new_session_tab.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
+import 'directory_browser_sheet.dart';
 import 'workspace_pane_chrome.dart';
 import 'codex_effort_slider.dart';
 
@@ -908,6 +909,21 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     });
   }
 
+  Future<void> _openDirectoryBrowser() async {
+    final bridge = widget.bridge;
+    if (bridge == null) return;
+    final selected = await showDirectoryBrowserSheet(
+      context: context,
+      bridge: bridge,
+      initialPath: _pathController.text.trim().isNotEmpty
+          ? _pathController.text.trim()
+          : null,
+      allowedRoots: bridge.allowedDirs,
+    );
+    if (!mounted || selected == null || selected.trim().isEmpty) return;
+    _onProjectSelected(selected);
+  }
+
   List<String> get _addDirSuggestions {
     final selectedProject = _pathController.text.trim();
     final seen = <String>{..._additionalWritableRoots, selectedProject};
@@ -1238,6 +1254,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               AppLocalizations.of(context).projectPath,
               hintText: AppLocalizations.of(context).projectPathHint,
             ),
+            onBrowse: widget.bridge == null ? null : _openDirectoryBrowser,
             onChanged: () => setState(() {}),
           ),
           if (pageProvider == Provider.codex) ...[
@@ -1844,22 +1861,34 @@ class _AllowedDirChips extends StatelessWidget {
 class _PathInput extends StatelessWidget {
   final TextEditingController controller;
   final InputDecoration decoration;
+  final VoidCallback? onBrowse;
   final VoidCallback onChanged;
 
   const _PathInput({
     required this.controller,
     required this.decoration,
+    this.onBrowse,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    final fieldDecoration = onBrowse == null
+        ? decoration
+        : decoration.copyWith(
+            suffixIcon: IconButton(
+              key: const ValueKey('dialog_project_path_browse_button'),
+              tooltip: AppLocalizations.of(context).browseDirectory,
+              onPressed: onBrowse,
+              icon: const Icon(Icons.folder_open),
+            ),
+          );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextField(
         key: const ValueKey('dialog_project_path'),
         controller: controller,
-        decoration: decoration,
+        decoration: fieldDecoration,
         onChanged: (_) => onChanged(),
       ),
     );

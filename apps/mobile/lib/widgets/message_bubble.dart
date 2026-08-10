@@ -219,6 +219,7 @@ class ServerMessageWidget extends StatelessWidget {
       FileListMessage() => const SizedBox.shrink(),
       FileContentMessage() => const SizedBox.shrink(),
       ProjectHistoryMessage() => const SizedBox.shrink(),
+      DirectoryListingMessage() => const SizedBox.shrink(),
       DiffResultMessage() => const SizedBox.shrink(),
       DiffImageResultMessage() => const SizedBox.shrink(),
       WorktreeListMessage() => const SizedBox.shrink(),

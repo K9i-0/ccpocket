@@ -1990,6 +1990,11 @@ class BridgeService implements BridgeServiceBase {
   }
 
   @override
+  void requestDirectoryListing(String path, {String? requestId}) {
+    send(ClientMessage.listDirectory(path, requestId: requestId));
+  }
+
+  @override
   void interrupt(String sessionId) {
     send(ClientMessage.interrupt(sessionId: sessionId));
   }

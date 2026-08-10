@@ -107,6 +107,10 @@ import {
   resolvePlatformPathFrom,
 } from "./path-utils.js";
 import {
+  DirectoryListingError,
+  listAllowedDirectories,
+} from "./directory-listing.js";
+import {
   deriveCodexPermissionsMode,
   normalizeCodexPermissionsMode,
   withDerivedCodexPermissionsMode,
@@ -5089,6 +5093,38 @@ export class BridgeWebSocketServer {
         this.projectHistory?.removeProject(msg.projectPath);
         const projects = this.projectHistory?.getProjects() ?? [];
         this.send(ws, { type: "project_history", projects });
+        break;
+      }
+
+      case "list_directory": {
+        try {
+          const listing = await listAllowedDirectories(
+            msg.path,
+            this.allowedDirs,
+            this.platform,
+          );
+          this.send(ws, {
+            type: "directory_listing",
+            path: listing.path,
+            directories: listing.directories,
+            requestId: msg.requestId,
+          });
+        } catch (error) {
+          const listingError =
+            error instanceof DirectoryListingError
+              ? error
+              : new DirectoryListingError(
+                  "directory_read_failed",
+                  "Unable to read directory",
+                );
+          this.send(ws, {
+            type: "error",
+            errorCode: listingError.code,
+            message: listingError.message,
+            path: msg.path,
+            requestId: msg.requestId,
+          });
+        }
         break;
       }
 
