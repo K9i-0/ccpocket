@@ -7400,14 +7400,20 @@ export class BridgeWebSocketServer {
   }
 
   private getActiveCodexProcess(): CodexProcess | null {
-    const summary = this.sessionManager
-      .list()
-      .find((session) => session.provider === "codex");
-    if (!summary) return null;
-    const session = this.sessionManager.get(summary.id);
-    return session?.provider === "codex"
-      ? (session.process as CodexProcess)
-      : null;
+    // [self-heal 20260818] OOM-isolation can leave a zombie codex session:
+    // its isolated app-server unit is OOM-killed, the ws delegate never emits
+    // exit, and isRunning stays false forever. Returning that dead transport
+    // here poisoned every downstream RPC ("codex app-server is not running").
+    // Skip dead transports and return the first healthy codex process; when
+    // none survive, return null so callers fall back to createStandaloneCodexProcess
+    // and spawn a fresh app-server.
+    for (const summary of this.sessionManager.list()) {
+      if (summary.provider !== "codex") continue;
+      const session = this.sessionManager.get(summary.id);
+      if (session?.provider === "codex" && (session.process as CodexProcess).isRunning)
+        return session.process as CodexProcess;
+    }
+    return null;
   }
 
   private withCodexAutoReviewPolicy(

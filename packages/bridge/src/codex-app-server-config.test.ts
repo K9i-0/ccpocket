@@ -21,6 +21,14 @@ describe("codex app-server config", () => {
     expect(codexCliJoinTarget("thr_123", {})).toBeUndefined();
   });
 
+  it("does not expose a shared join target for isolated mode", () => {
+    expect(
+      codexCliJoinTarget("thr_123", {
+        BRIDGE_CODEX_APP_SERVER_MODE: "isolated",
+      }),
+    ).toBeUndefined();
+  });
+
   it("uses the managed default URL when no explicit URL is set", () => {
     expect(
       resolveCodexSharedAppServerUrl("managed", { BRIDGE_PORT: "8767" }),

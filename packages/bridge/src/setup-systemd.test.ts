@@ -231,6 +231,18 @@ describe("setup-systemd", () => {
       );
     });
 
+    it("persists isolated mode without carrying a shared app-server URL", () => {
+      process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:8767";
+
+      setupSystemd({ codexAppServerMode: "isolated" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_APP_SERVER_MODE=isolated",
+      );
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
+    });
+
     it("omits BRIDGE_API_KEY when apiKey is empty", () => {
       setupSystemd({ apiKey: "" });
 

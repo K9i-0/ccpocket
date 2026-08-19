@@ -43,7 +43,10 @@ import {
   CodexRpcError,
   parseCodexGoal,
 } from "./codex-process.js";
-import { stopManagedCodexAppServers } from "./codex-transport.js";
+import {
+  buildIsolatedCodexSystemdRunSpec,
+  stopManagedCodexAppServers,
+} from "./codex-transport.js";
 
 const originalCodexAppServerEnv = {
   bridgePort: process.env.BRIDGE_PORT,
@@ -663,6 +666,46 @@ describe("CodexProcess (app-server)", () => {
     );
 
     proc.stop();
+  });
+
+  it("builds an isolated Codex worker systemd service without changing RPC flow", () => {
+    const spec = buildIsolatedCodexSystemdRunSpec(
+      "/tmp/project-isolated",
+      18801,
+      "ccpocket-codex-test.service",
+      "linux",
+      {
+        HOME: "/home/testuser",
+        CODEX_HOME: "/home/testuser/.codex",
+        PATH: "/home/testuser/.local/bin:/usr/bin",
+        BRIDGE_CODEX_ISOLATED_MEMORY_HIGH: "4608M",
+        BRIDGE_CODEX_ISOLATED_MEMORY_MAX: "5120M",
+        BRIDGE_CODEX_ISOLATED_MEMORY_SWAP_MAX: "2048M",
+      },
+    );
+
+    expect(spec.command).toBe("systemd-run");
+    expect(spec.options.stdio).toBe("ignore");
+    expect(spec.args).toEqual(
+      expect.arrayContaining([
+        "--user",
+        "--unit=ccpocket-codex-test.service",
+        "--slice=ccpocket-codex.slice",
+        "--property=MemoryHigh=4608M",
+        "--property=MemoryMax=5120M",
+        "--property=MemorySwapMax=2048M",
+        "--property=OOMPolicy=stop",
+        "--property=OOMScoreAdjust=700",
+        "--property=KillMode=control-group",
+        "codex",
+        "app-server",
+        "--listen",
+        "ws://127.0.0.1:18801",
+      ]),
+    );
+    expect(spec.args).toContain("--working-directory=/tmp/project-isolated");
+    expect(spec.args).toContain("--setenv=HOME=/home/testuser");
+    expect(spec.args).toContain("--setenv=CODEX_HOME=/home/testuser/.codex");
   });
 
   it("returns a clear error when Codex CLI is not installed", () => {
