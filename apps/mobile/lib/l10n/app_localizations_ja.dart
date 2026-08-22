@@ -849,6 +849,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get approvalRequired => '承認が必要';
 
   @override
+  String get approvalStatusPending => '承認待ち';
+
+  @override
+  String get approvalStatusApproved => '承認済み';
+
+  @override
+  String get approvalStatusApprovedForSession => 'セッション中承認済み';
+
+  @override
+  String get approvalStatusRejected => '拒否済み';
+
+  @override
+  String get approvalStatusResolved => '解決済み';
+
+  @override
   String get viewEditPlan => 'プランを表示';
 
   @override

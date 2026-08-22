@@ -866,6 +866,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalRequired => 'Approval Required';
 
   @override
+  String get approvalStatusPending => 'Pending';
+
+  @override
+  String get approvalStatusApproved => 'Approved';
+
+  @override
+  String get approvalStatusApprovedForSession => 'Approved for session';
+
+  @override
+  String get approvalStatusRejected => 'Rejected';
+
+  @override
+  String get approvalStatusResolved => 'Resolved';
+
+  @override
   String get viewEditPlan => 'View Plan';
 
   @override

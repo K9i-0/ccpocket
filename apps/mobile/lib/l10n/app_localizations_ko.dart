@@ -848,6 +848,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get approvalRequired => '승인 필요';
 
   @override
+  String get approvalStatusPending => '승인 대기 중';
+
+  @override
+  String get approvalStatusApproved => '승인됨';
+
+  @override
+  String get approvalStatusApprovedForSession => '세션 동안 승인됨';
+
+  @override
+  String get approvalStatusRejected => '거부됨';
+
+  @override
+  String get approvalStatusResolved => '해결됨';
+
+  @override
   String get viewEditPlan => '계획 보기';
 
   @override

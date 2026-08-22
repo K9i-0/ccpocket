@@ -23,6 +23,7 @@ import '../../generated_image_preview/generated_image_response_grouping.dart';
 import '../../generated_image_preview/widgets/generated_image_chat_group.dart';
 import '../../file_peek/file_peek_sheet.dart';
 import '../../message_images/message_images_screen.dart';
+import '../permission_transcript.dart';
 import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 import '../state/streaming_state.dart';
@@ -133,6 +134,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
   ChatSessionState? _derivedForState;
   List<ChatEntry>? _derivedEntries;
   String? _derivedForHttpBaseUrl;
+  ProcessStatus? _derivedForProcessStatus;
+  String? _derivedForActivePermissionId;
   _ChatListDerivedData? _derivedData;
   _VisibleAnchor? _pendingAnchor;
   bool _anchorCorrectionScheduled = false;
@@ -377,6 +380,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final chatState = context.watch<ChatSessionCubit>().state;
     final hiddenToolUseIds = chatState.hiddenToolUseIds;
     final allEntries = chatState.entries;
+    final activePermissionId = switch (chatState.approval) {
+      ApprovalPermission(:final toolUseId) => toolUseId,
+      _ => null,
+    };
 
     // Watch only the isStreaming flag (not the full streaming text) so the
     // list rebuilds when streaming starts/stops (to adjust itemCount) but NOT
@@ -391,7 +398,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
       for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
         entryKeys[entryIndex]: totalCount - 1 - entryIndex,
     };
-    final derivedData = _deriveData(chatState, allEntries);
+    final derivedData = _deriveData(
+      chatState,
+      allEntries,
+      activePermissionId: activePermissionId,
+    );
     final effectiveHiddenToolUseIds = {
       ...hiddenToolUseIds,
       ...derivedData.completedGeneratedImageToolUseIds,
@@ -480,7 +491,23 @@ class _ChatMessageListState extends State<ChatMessageList> {
                   entryIndex,
                 )) {
                   child = const SizedBox.shrink();
+                } else if (entry
+                    case ServerChatEntry(
+                      message: final ToolResultMessage result,
+                    )
+                    when derivedData.permissionTranscriptStatuses.containsKey(
+                          result.toolUseId,
+                        ) &&
+                        isSyntheticPermissionOutcome(result)) {
+                  child = const SizedBox.shrink();
                 } else {
+                  final permissionTranscriptStatus = switch (entry) {
+                    ServerChatEntry(
+                      message: PermissionRequestMessage(:final toolUseId),
+                    ) =>
+                      derivedData.permissionTranscriptStatuses[toolUseId],
+                    _ => null,
+                  };
                   child = ChatEntryWidget(
                     entry: entry,
                     previous: previous,
@@ -492,6 +519,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                     resolvedPlanText: _hasExitPlanMode(entry)
                         ? derivedData.latestPlanText
                         : null,
+                    permissionTranscriptStatus: permissionTranscriptStatus,
                     hiddenToolUseIds: effectiveHiddenToolUseIds,
                     onFileTap: (filePath) {
                       final projectPath = widget.projectPath;
@@ -549,13 +577,17 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   _ChatListDerivedData _deriveData(
     ChatSessionState chatState,
-    List<ChatEntry> entries,
-  ) {
+    List<ChatEntry> entries, {
+    required String? activePermissionId,
+  }) {
     final cached = _derivedData;
     if (_derivedForHttpBaseUrl == widget.httpBaseUrl && cached != null) {
       if (identical(_derivedForState, chatState)) return cached;
       final previousEntries = _derivedEntries;
-      if (previousEntries != null && listEquals(previousEntries, entries)) {
+      if (previousEntries != null &&
+          listEquals(previousEntries, entries) &&
+          _derivedForProcessStatus == chatState.status &&
+          _derivedForActivePermissionId == activePermissionId) {
         _derivedForState = chatState;
         return cached;
       }
@@ -581,11 +613,18 @@ class _ChatMessageListState extends State<ChatMessageList> {
         entries,
       ),
       forkableAssistantEntryIndices: forkableAssistantEntryIndices(entries),
+      permissionTranscriptStatuses: derivePermissionTranscriptStatuses(
+        entries,
+        processStatus: chatState.status,
+        activeToolUseId: activePermissionId,
+      ),
       latestPlanText: _findPlanFromWriteTool(entries),
     );
     _derivedForState = chatState;
     _derivedEntries = entries;
     _derivedForHttpBaseUrl = widget.httpBaseUrl;
+    _derivedForProcessStatus = chatState.status;
+    _derivedForActivePermissionId = activePermissionId;
     _derivedData = next;
     stopwatch?.stop();
     if (stopwatch != null) {
@@ -638,6 +677,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
   String _entryKeyBase(ChatEntry entry) {
     return switch (entry) {
       ServerChatEntry(:final message) => switch (message) {
+        final ToolResultMessage result
+            when isSyntheticPermissionOutcome(result) =>
+          'permission_outcome:${result.toolUseId}:${result.content.trim()}',
         ToolResultMessage(:final toolUseId) => 'tool_result:$toolUseId',
         AssistantServerMessage(:final messageUuid, :final message) =>
           messageUuid != null && messageUuid.isNotEmpty
@@ -702,6 +744,7 @@ class _ChatListDerivedData {
   final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
+  final Map<String, PermissionTranscriptStatus> permissionTranscriptStatuses;
   final String? latestPlanText;
 
   const _ChatListDerivedData({
@@ -709,6 +752,7 @@ class _ChatListDerivedData {
     required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
     required this.forkableAssistantEntryIndices,
+    required this.permissionTranscriptStatuses,
     required this.latestPlanText,
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
+import '../features/chat_session/permission_transcript.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../features/file_peek/file_path_syntax.dart';
@@ -29,6 +30,7 @@ class ChatEntryWidget extends StatelessWidget {
   final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
+  final PermissionTranscriptStatus? permissionTranscriptStatus;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -50,6 +52,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.onForkMessage,
     this.collapseToolResults,
     this.resolvedPlanText,
+    this.permissionTranscriptStatus,
     this.hiddenToolUseIds = const {},
     this.onImageTap,
     this.onFileTap,
@@ -68,6 +71,7 @@ class ChatEntryWidget extends StatelessWidget {
             httpBaseUrl: httpBaseUrl,
             collapseToolResults: collapseToolResults,
             resolvedPlanText: resolvedPlanText,
+            permissionTranscriptStatus: permissionTranscriptStatus,
             hiddenToolUseIds: hiddenToolUseIds,
             onFileTap: onFileTap,
             onForkMessage: onForkMessage,
@@ -151,6 +155,7 @@ class ServerMessageWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
+  final PermissionTranscriptStatus? permissionTranscriptStatus;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -166,6 +171,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.httpBaseUrl,
     this.collapseToolResults,
     this.resolvedPlanText,
+    this.permissionTranscriptStatus,
     this.hiddenToolUseIds = const {},
     this.onFileTap,
     this.onForkMessage,
@@ -207,7 +213,13 @@ class ServerMessageWidget extends StatelessWidget {
                 msg.toolName == 'McpElicitation' ||
                 msg.toolName == 'ToolSuggestion'
             ? const SizedBox.shrink()
-            : PermissionRequestBubble(message: msg, isCodex: isCodex),
+            : PermissionRequestBubble(
+                message: msg,
+                isCodex: isCodex,
+                status:
+                    permissionTranscriptStatus ??
+                    PermissionTranscriptStatus.resolved,
+              ),
       PermissionResolvedMessage() => const SizedBox.shrink(),
       StreamDeltaMessage() => const SizedBox.shrink(),
       ThinkingDeltaMessage() => const SizedBox.shrink(),

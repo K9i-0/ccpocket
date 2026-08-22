@@ -1668,6 +1668,36 @@ abstract class AppLocalizations {
   /// **'承認が必要'**
   String get approvalRequired;
 
+  /// No description provided for @approvalStatusPending.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認待ち'**
+  String get approvalStatusPending;
+
+  /// No description provided for @approvalStatusApproved.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認済み'**
+  String get approvalStatusApproved;
+
+  /// No description provided for @approvalStatusApprovedForSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション中承認済み'**
+  String get approvalStatusApprovedForSession;
+
+  /// No description provided for @approvalStatusRejected.
+  ///
+  /// In ja, this message translates to:
+  /// **'拒否済み'**
+  String get approvalStatusRejected;
+
+  /// No description provided for @approvalStatusResolved.
+  ///
+  /// In ja, this message translates to:
+  /// **'解決済み'**
+  String get approvalStatusResolved;
+
   /// No description provided for @viewEditPlan.
   ///
   /// In ja, this message translates to:
