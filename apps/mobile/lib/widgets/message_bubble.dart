@@ -29,6 +29,7 @@ class ChatEntryWidget extends StatelessWidget {
   final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
+  final bool showSuccessResultText;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -50,6 +51,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.onForkMessage,
     this.collapseToolResults,
     this.resolvedPlanText,
+    this.showSuccessResultText = false,
     this.hiddenToolUseIds = const {},
     this.onImageTap,
     this.onFileTap,
@@ -68,6 +70,7 @@ class ChatEntryWidget extends StatelessWidget {
             httpBaseUrl: httpBaseUrl,
             collapseToolResults: collapseToolResults,
             resolvedPlanText: resolvedPlanText,
+            showSuccessResultText: showSuccessResultText,
             hiddenToolUseIds: hiddenToolUseIds,
             onFileTap: onFileTap,
             onForkMessage: onForkMessage,
@@ -151,6 +154,7 @@ class ServerMessageWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
+  final bool showSuccessResultText;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -166,6 +170,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.httpBaseUrl,
     this.collapseToolResults,
     this.resolvedPlanText,
+    this.showSuccessResultText = false,
     this.hiddenToolUseIds = const {},
     this.onFileTap,
     this.onForkMessage,
@@ -193,7 +198,11 @@ class ServerMessageWidget extends StatelessWidget {
                 httpBaseUrl: httpBaseUrl,
                 collapseNotifier: collapseToolResults,
               ),
-      final ResultMessage msg => ResultChip(message: msg, onFileTap: onFileTap),
+      final ResultMessage msg => ResultChip(
+        message: msg,
+        onFileTap: onFileTap,
+        showSuccessResultText: showSuccessResultText,
+      ),
       final GuardianApprovalMessage msg => GuardianApprovalNotice(message: msg),
       final ErrorMessage msg => ErrorBubble(message: msg),
       SessionLinkResolutionMessage() => const SizedBox.shrink(),

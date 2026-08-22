@@ -942,6 +942,64 @@ void main() {
       },
     );
 
+    test('stale history keeps live summary tool results hidden', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(
+              text: 'Previous turn',
+              userMessageUuid: 'previous-turn',
+            ),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await pumpEventQueue();
+
+      mockBridge.emitMessage(
+        const UserInputMessage(
+          text: 'Current turn',
+          userMessageUuid: 'current-turn',
+        ),
+        sessionId: 's1',
+      );
+      mockBridge.emitMessage(
+        const ToolResultMessage(toolUseId: 'live-tool', content: 'live result'),
+        sessionId: 's1',
+      );
+      mockBridge.emitMessage(
+        const ToolUseSummaryMessage(
+          summary: 'Live summary',
+          precedingToolUseIds: ['live-tool'],
+        ),
+        sessionId: 's1',
+      );
+      await pumpEventQueue();
+      expect(cubit.state.hiddenToolUseIds, {'live-tool'});
+
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(
+              text: 'Previous turn',
+              userMessageUuid: 'previous-turn',
+            ),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await pumpEventQueue();
+
+      final messages = cubit.state.entries.whereType<ServerChatEntry>().map(
+        (entry) => entry.message,
+      );
+      expect(messages.whereType<ToolUseSummaryMessage>(), hasLength(1));
+      expect(cubit.state.hiddenToolUseIds, {'live-tool'});
+    });
+
     test(
       'history delta deduplicates current-turn messages with different ids',
       () async {

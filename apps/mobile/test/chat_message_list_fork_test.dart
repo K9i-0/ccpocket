@@ -46,6 +46,40 @@ void main() {
       expect(forkableAssistantEntryIndices(entries), {0, 2});
     });
   });
+
+  group('successResultFallbackEntryIndices', () {
+    test('uses result text when the final assistant message is missing', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_toolAssistant('tool-call')),
+        ServerChatEntry(_toolResult('tool-call')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), {3});
+    });
+
+    test('does not duplicate result text already shown by an assistant', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_assistantWithText('final', 'Final summary')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), isEmpty);
+    });
+
+    test('uses result text when only a progress update exists', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_assistantWithText('progress', 'Checking files')),
+        ServerChatEntry(_toolResult('tool-call')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), {3});
+    });
+  });
 }
 
 AssistantServerMessage _assistant(String id) => AssistantServerMessage(
@@ -60,4 +94,24 @@ AssistantServerMessage _assistant(String id) => AssistantServerMessage(
 ToolResultMessage _toolResult(String id) =>
     ToolResultMessage(toolUseId: id, content: 'ok');
 
-ResultMessage _result() => const ResultMessage(subtype: 'success');
+AssistantServerMessage _assistantWithText(String id, String text) =>
+    AssistantServerMessage(
+      message: AssistantMessage(
+        id: id,
+        role: 'assistant',
+        content: [TextContent(text: text)],
+        model: 'codex',
+      ),
+    );
+
+AssistantServerMessage _toolAssistant(String id) => AssistantServerMessage(
+  message: AssistantMessage(
+    id: 'assistant-$id',
+    role: 'assistant',
+    content: [ToolUseContent(id: id, name: 'Read', input: const {})],
+    model: 'codex',
+  ),
+);
+
+ResultMessage _result({String? result}) =>
+    ResultMessage(subtype: 'success', result: result);
