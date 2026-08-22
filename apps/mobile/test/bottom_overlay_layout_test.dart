@@ -26,7 +26,7 @@ void main() {
     expect(contentBuilds, 1);
   });
 
-  testWidgets('keyboard open and close preserves a paused reading position', (
+  testWidgets('keyboard open and close preserves a paused scroll offset', (
     tester,
   ) async {
     addTearDown(tester.view.resetViewInsets);
@@ -41,22 +41,14 @@ void main() {
     await tester.pump();
 
     final initialPixels = controller.position.pixels;
-    final initialMaxExtent = controller.position.maxScrollExtent;
-
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
 
-    final extentGrowth = controller.position.maxScrollExtent - initialMaxExtent;
-    expect(extentGrowth, greaterThan(0));
-    expect(
-      controller.position.pixels,
-      closeTo(initialPixels + extentGrowth, 1),
-    );
+    expect(controller.position.pixels, closeTo(initialPixels, 1));
 
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
 
-    expect(controller.position.maxScrollExtent, closeTo(initialMaxExtent, 1));
     expect(controller.position.pixels, closeTo(initialPixels, 1));
   });
 
@@ -115,6 +107,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.position.pixels, 0);
   });
+
+  testWidgets(
+    'three scroll and back-dismiss cycles do not accumulate position drift',
+    (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _KeyboardScrollHarness(controller: controller, isReadingHistory: true),
+      );
+      await tester.pumpAndSettle();
+
+      for (var cycle = 0; cycle < 3; cycle++) {
+        await tester.drag(find.byType(ListView), const Offset(0, 120));
+        await tester.pumpAndSettle();
+        final positionBeforeKeyboard = controller.position.pixels;
+
+        for (final inset in [100.0, 200.0, 300.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(
+          controller.position.pixels,
+          closeTo(positionBeforeKeyboard, 1),
+          reason: 'keyboard open cycle ${cycle + 1}',
+        );
+
+        for (final inset in [200.0, 100.0, 0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+
+        expect(
+          controller.position.pixels,
+          closeTo(positionBeforeKeyboard, 1),
+          reason: 'back-dismiss cycle ${cycle + 1}',
+        );
+        expect(
+          controller.position.pixels,
+          lessThan(controller.position.maxScrollExtent),
+          reason: 'cycle ${cycle + 1} must not jump to the oldest message',
+        );
+      }
+    },
+  );
 }
 
 class _BuildCounter extends StatelessWidget {
