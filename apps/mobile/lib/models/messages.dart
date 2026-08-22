@@ -4375,12 +4375,16 @@ class ClientMessage {
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
 
-  factory ClientMessage.listDirectory(String path, {String? requestId}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'list_directory',
-        'path': path,
-        'requestId': ?requestId,
-      });
+  factory ClientMessage.listDirectory(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'list_directory',
+    'path': path,
+    'requestId': ?requestId,
+    if (includeHidden) 'includeHidden': true,
+  });
 
   factory ClientMessage.getDiff(String projectPath, {bool? staged}) =>
       ClientMessage._(<String, dynamic>{

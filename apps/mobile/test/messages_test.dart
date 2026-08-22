@@ -16,6 +16,15 @@ void main() {
         ),
         {'type': 'list_directory', 'path': '/workspace', 'requestId': 'dir-1'},
       );
+      expect(
+        jsonDecode(
+          ClientMessage.listDirectory(
+            '/workspace',
+            includeHidden: true,
+          ).toJson(),
+        ),
+        {'type': 'list_directory', 'path': '/workspace', 'includeHidden': true},
+      );
 
       final message = ServerMessage.fromJson({
         'type': 'directory_listing',

@@ -770,6 +770,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       lockProvider: lockProvider,
       visibleTabs: settings.newSessionTabs,
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
+      showHiddenDirectories: settings.showHiddenDirectories,
     );
   }
 

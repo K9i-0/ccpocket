@@ -57,6 +57,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
+  static const _keyShowHiddenDirectories = 'settings_show_hidden_directories';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
   static const _keyAutoRenameCodexSessions = 'autoRenameCodexSessions';
   static const _keyShowExtendedCodexEfforts =
@@ -217,6 +218,8 @@ class SettingsCubit extends Cubit<SettingsState> {
         prefs.getBool(_keyShowExtendedCodexEfforts) ?? false;
     final autoRenameClaudeSessions =
         prefs.getBool(_keyAutoRenameClaudeSessions) ?? false;
+    final showHiddenDirectories =
+        prefs.getBool(_keyShowHiddenDirectories) ?? false;
 
     // Load terminal app config
     var terminalApp = TerminalAppConfig.empty;
@@ -262,6 +265,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
+      showHiddenDirectories: showHiddenDirectories,
       usageDisplayMode: usageDisplayMode,
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
@@ -416,6 +420,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setNewSessionTabs(List<NewSessionTab> tabs) {
     _prefs.setString(_keyNewSessionTabs, tabsToJson(tabs));
     emit(state.copyWith(newSessionTabs: tabs));
+  }
+
+  void setShowHiddenDirectories(bool show) {
+    _prefs.setBool(_keyShowHiddenDirectories, show);
+    emit(state.copyWith(showHiddenDirectories: show));
   }
 
   void setEnabledAgentsMode(EnabledAgentsMode mode) {

@@ -1990,8 +1990,18 @@ class BridgeService implements BridgeServiceBase {
   }
 
   @override
-  void requestDirectoryListing(String path, {String? requestId}) {
-    send(ClientMessage.listDirectory(path, requestId: requestId));
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) {
+    send(
+      ClientMessage.listDirectory(
+        path,
+        requestId: requestId,
+        includeHidden: includeHidden,
+      ),
+    );
   }
 
   @override

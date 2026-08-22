@@ -76,6 +76,7 @@ Future<String?> showDirectoryBrowserSheet({
   required BridgeServiceBase bridge,
   String? initialPath,
   List<String> allowedRoots = const [],
+  bool includeHidden = false,
 }) {
   final fallbackPath = initialPath?.trim().isNotEmpty == true
       ? initialPath!.trim()
@@ -89,6 +90,7 @@ Future<String?> showDirectoryBrowserSheet({
       bridge: bridge,
       initialPath: fallbackPath,
       allowedRoots: allowedRoots,
+      includeHidden: includeHidden,
     ),
   );
 }
@@ -97,11 +99,13 @@ class _DirectoryBrowserSheet extends StatefulWidget {
   final BridgeServiceBase bridge;
   final String initialPath;
   final List<String> allowedRoots;
+  final bool includeHidden;
 
   const _DirectoryBrowserSheet({
     required this.bridge,
     required this.initialPath,
     required this.allowedRoots,
+    required this.includeHidden,
   });
 
   @override
@@ -227,7 +231,11 @@ class _DirectoryBrowserSheetState extends State<_DirectoryBrowserSheet> {
       _error = null;
       _loading = true;
     });
-    widget.bridge.requestDirectoryListing(normalized, requestId: requestId);
+    widget.bridge.requestDirectoryListing(
+      normalized,
+      requestId: requestId,
+      includeHidden: widget.includeHidden,
+    );
   }
 
   bool _isAllowedPath(String path) {

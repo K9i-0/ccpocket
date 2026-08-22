@@ -1232,6 +1232,36 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it("lists hidden allowed directories when requested", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-hidden-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [root],
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      mkdirSync(resolve(root, ".hidden"));
+
+      await (bridge as any).handleClientMessage(
+        { type: "list_directory", path: root, includeHidden: true },
+        ws,
+      );
+
+      expect(ws.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "directory_listing",
+          path: root,
+          directories: [
+            { name: ".hidden", path: resolve(root, ".hidden") },
+          ],
+        }),
+      );
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects directory listing requests that resolve outside allowed roots", async () => {
     const root = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-root-"));
     const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-outside-"));

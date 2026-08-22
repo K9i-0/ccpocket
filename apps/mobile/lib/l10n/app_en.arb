@@ -804,6 +804,8 @@
   "settingsClaudeSubscriptionUsage": "Subscription usage",
   "settingsNewSessionTabs": "New Session Tabs",
   "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
+  "showHiddenDirectories": "Show Hidden Directories",
+  "showHiddenDirectoriesSubtitle": "Include folders beginning with . in the new session directory browser.",
   "showBridgeNameInSessionList": "Show Bridge name",
   "showBridgeNameInSessionListSubtitle": "Show the connected Bridge name in the session list when multiple Bridges are registered.",
   "autoRenameCodexSessions": "Auto Rename (Codex)",

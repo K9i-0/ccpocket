@@ -228,5 +228,25 @@ void main() {
 
       await restored.close();
     });
+
+    test('hidden directories default off and persist', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.showHiddenDirectories, isFalse);
+
+      cubit.setShowHiddenDirectories(true);
+
+      expect(cubit.state.showHiddenDirectories, isTrue);
+      expect(prefs.getBool('settings_show_hidden_directories'), isTrue);
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.showHiddenDirectories, isTrue);
+
+      await restored.close();
+    });
   });
 }

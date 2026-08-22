@@ -13,7 +13,11 @@ abstract class BridgeServiceBase {
   int cachedSessionHistorySeq(String sessionId);
   void stopSession(String sessionId);
   void requestFileList(String projectPath);
-  void requestDirectoryListing(String path, {String? requestId});
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  });
   void requestSessionList();
   void interrupt(String sessionId);
 

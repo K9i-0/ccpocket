@@ -2025,6 +2025,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
 
   @override
+  String get showHiddenDirectories => '숨김 디렉터리 표시';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      '새 세션 디렉터리 브라우저에 .으로 시작하는 폴더를 표시합니다.';
+
+  @override
   String get showBridgeNameInSessionList => 'Bridge 이름 표시';
 
   @override
