@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -677,12 +678,15 @@ class _InputTextField extends StatefulWidget {
   State<_InputTextField> createState() => _InputTextFieldState();
 }
 
-class _InputTextFieldState extends State<_InputTextField> {
+class _InputTextFieldState extends State<_InputTextField>
+    with WidgetsBindingObserver {
   late final FocusNode _focusNode;
+  var _androidImeResetPending = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
     _focusNode.addListener(_syncNativePasteBridge);
   }
@@ -697,10 +701,45 @@ class _InputTextFieldState extends State<_InputTextField> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     NativePasteBridge.instance.deactivate(this);
     _focusNode.removeListener(_syncNativePasteBridge);
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    switch (state) {
+      case AppLifecycleState.hidden ||
+          AppLifecycleState.paused ||
+          AppLifecycleState.detached:
+        if (_androidImeResetPending || !_focusNode.hasFocus) return;
+        _androidImeResetPending = true;
+        _resetAndroidIme();
+      case AppLifecycleState.resumed:
+        if (!_androidImeResetPending) return;
+        _androidImeResetPending = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _resetAndroidIme();
+        });
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  void _resetAndroidIme() {
+    _focusNode.unfocus();
+    unawaited(_hideAndroidIme());
+  }
+
+  Future<void> _hideAndroidIme() async {
+    try {
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    } catch (_) {
+      // The text input channel may already be disconnected.
+    }
   }
 
   void _syncNativePasteBridge() {
