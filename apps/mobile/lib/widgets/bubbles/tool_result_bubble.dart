@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -19,6 +20,17 @@ import 'image_preview.dart';
 enum ToolResultExpansion { collapsed, preview, expanded }
 
 const _imageGenerationToolName = 'ImageGeneration';
+
+@visibleForTesting
+int debugToolResultPresentationScanCount = 0;
+
+final _toolResultPresentationCache =
+    Expando<_ToolResultPresentation>('tool result presentation');
+
+_ToolResultPresentation _presentationFor(ToolResultMessage message) {
+  return _toolResultPresentationCache[message] ??=
+      _ToolResultPresentation.fromMessage(message);
+}
 
 class ToolResultBubble extends StatefulWidget {
   final ToolResultMessage message;
@@ -145,29 +157,28 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     widget.message.toolName ?? '',
   );
 
-  String _buildSummary(String content, String? toolName, AppLocalizations l) {
-    final lines = content.split('\n');
-    final lineCount = lines.length;
-
+  String _buildSummary(
+    _ToolResultPresentation presentation,
+    String content,
+    String? toolName,
+    AppLocalizations l,
+  ) {
     if (toolName == 'Edit' ||
         toolName == 'FileEdit' ||
         toolName == 'FileChange') {
-      var added = 0;
-      var removed = 0;
-      for (final line in lines) {
-        if (line.startsWith('+') && !line.startsWith('+++')) added++;
-        if (line.startsWith('-') && !line.startsWith('---')) removed++;
-      }
-      if (added > 0 || removed > 0) {
-        return l.diffSummaryAddedRemoved(added, removed);
+      if (presentation.addedLines > 0 || presentation.removedLines > 0) {
+        return l.diffSummaryAddedRemoved(
+          presentation.addedLines,
+          presentation.removedLines,
+        );
       }
     }
 
-    if (lineCount == 1 && content.length < 40) {
+    if (presentation.lineCount == 1 && content.length < 40) {
       return content;
     }
 
-    return l.lineCountSummary(lineCount);
+    return l.lineCountSummary(presentation.lineCount);
   }
 
   /// Whether this tool result contains a viewable diff.
@@ -181,18 +192,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     final content = widget.message.content;
     // Check for unified diff markers
     return content.contains('---') && content.contains('+++') ||
-        _hasDiffLines(content);
-  }
-
-  static bool _hasDiffLines(String content) {
-    final lines = content.split('\n');
-    for (final line in lines) {
-      if ((line.startsWith('+') && !line.startsWith('+++')) ||
-          (line.startsWith('-') && !line.startsWith('---'))) {
-        return true;
-      }
-    }
-    return false;
+        _presentationFor(widget.message).hasDiffLines;
   }
 
   String? _extractFilePath() {
@@ -238,7 +238,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     }
 
     final l = AppLocalizations.of(context);
+    final presentation = _presentationFor(widget.message);
     final summary = _buildSummary(
+      presentation,
       widget.message.content,
       widget.message.toolName,
       l,
@@ -258,6 +260,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
       httpBaseUrl: widget.httpBaseUrl,
       category: _category,
       summary: summary,
+      presentation: presentation,
       expansion: _expansion,
       onTap: _onTap,
       onLongPress: () => _copyContent(context),
@@ -362,6 +365,7 @@ class _ExpandedToolResult extends StatelessWidget {
   final String? httpBaseUrl;
   final ToolCategory category;
   final String summary;
+  final _ToolResultPresentation presentation;
   final ToolResultExpansion expansion;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -373,6 +377,7 @@ class _ExpandedToolResult extends StatelessWidget {
     required this.httpBaseUrl,
     required this.category,
     required this.summary,
+    required this.presentation,
     required this.expansion,
     required this.onTap,
     required this.onLongPress,
@@ -384,11 +389,7 @@ class _ExpandedToolResult extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final content = message.content;
     final toolName = message.toolName;
-    final lines = content.split('\n');
-    final hasMore = lines.length > _previewLines;
-    final previewText = hasMore
-        ? lines.take(_previewLines).join('\n')
-        : content;
+    final hasMore = presentation.lineCount > _previewLines;
 
     final chevronIcon = expansion == ToolResultExpansion.preview
         ? Icons.expand_more
@@ -453,7 +454,7 @@ class _ExpandedToolResult extends StatelessWidget {
               if (expansion == ToolResultExpansion.preview) ...[
                 const SizedBox(height: 6),
                 Text(
-                  previewText,
+                  presentation.previewText,
                   style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'monospace',
@@ -467,7 +468,7 @@ class _ExpandedToolResult extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '... ${lines.length - _previewLines} more lines',
+                      '... ${presentation.lineCount - _previewLines} more lines',
                       style: TextStyle(
                         fontSize: 10,
                         fontStyle: FontStyle.italic,
@@ -494,5 +495,79 @@ class _ExpandedToolResult extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ToolResultPresentation {
+  final int lineCount;
+  final int addedLines;
+  final int removedLines;
+  final String previewText;
+
+  const _ToolResultPresentation({
+    required this.lineCount,
+    required this.addedLines,
+    required this.removedLines,
+    required this.previewText,
+  });
+
+  bool get hasDiffLines => addedLines > 0 || removedLines > 0;
+
+  factory _ToolResultPresentation.fromMessage(ToolResultMessage message) {
+    assert(() {
+      debugToolResultPresentationScanCount++;
+      return true;
+    }());
+    final content = message.content;
+    final countDiffLines = switch (message.toolName) {
+      'Edit' || 'FileEdit' || 'FileChange' => true,
+      _ => false,
+    };
+    var lineCount = 1;
+    var addedLines = 0;
+    var removedLines = 0;
+    var lineStart = 0;
+    int? previewEnd;
+
+    for (var index = 0; index < content.length; index++) {
+      if (content.codeUnitAt(index) != 0x0a) continue;
+      if (countDiffLines) {
+        final type = _diffLineType(content, lineStart, index);
+        if (type == 0x2b) addedLines++;
+        if (type == 0x2d) removedLines++;
+      }
+      if (lineCount == ToolResultBubbleState._previewLines) {
+        previewEnd = index;
+      }
+      lineCount++;
+      lineStart = index + 1;
+    }
+
+    if (countDiffLines) {
+      final type = _diffLineType(content, lineStart, content.length);
+      if (type == 0x2b) addedLines++;
+      if (type == 0x2d) removedLines++;
+    }
+
+    return _ToolResultPresentation(
+      lineCount: lineCount,
+      addedLines: addedLines,
+      removedLines: removedLines,
+      previewText: previewEnd == null
+          ? content
+          : content.substring(0, previewEnd),
+    );
+  }
+
+  static int? _diffLineType(String content, int start, int end) {
+    if (start >= end) return null;
+    final first = content.codeUnitAt(start);
+    if (first != 0x2b && first != 0x2d) return null;
+    if (end - start >= 3 &&
+        content.codeUnitAt(start + 1) == first &&
+        content.codeUnitAt(start + 2) == first) {
+      return null;
+    }
+    return first;
   }
 }

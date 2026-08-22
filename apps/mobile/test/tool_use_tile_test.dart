@@ -316,6 +316,31 @@ void main() {
       // No expand_more (preview) state for edit tools
       expect(find.byIcon(Icons.expand_more), findsNothing);
     });
+
+    testWidgets('large edit diff renders only the inline line limit', (
+      tester,
+    ) async {
+      final oldText = List.generate(12, (index) => 'old $index').join('\n');
+      final newText = List.generate(13, (index) => 'new $index').join('\n');
+
+      await tester.pumpWidget(
+        _wrap(
+          ToolUseTile(
+            name: 'Edit',
+            input: {
+              'file_path': 'lib/main.dart',
+              'old_string': oldText,
+              'new_string': newText,
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('... 5 more lines'), findsOneWidget);
+      expect(find.text('- old 11'), findsOneWidget);
+      expect(find.text('+ new 7'), findsOneWidget);
+      expect(find.textContaining('new 8'), findsNothing);
+    });
   });
 
   group('ToolUseTile - long press copy', () {

@@ -26,26 +26,28 @@ class InlineEditDiff extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
-    // Flatten all hunk lines for inline display.
-    final allLines = <({DiffLine line, bool isSeparator})>[];
+    final totalLines = diffFile.hunks.fold<int>(
+      0,
+      (total, hunk) => total + hunk.lines.length,
+    ) + (diffFile.hunks.isEmpty ? 0 : diffFile.hunks.length - 1);
+    final visibleLines = <({DiffLine line, bool isSeparator})>[];
     for (var i = 0; i < diffFile.hunks.length; i++) {
       if (i > 0) {
         // Add a visual separator between hunks (for MultiEdit).
-        allLines.add((
+        visibleLines.add((
           line: const DiffLine(type: DiffLineType.context, content: ''),
           isSeparator: true,
         ));
       }
       for (final line in diffFile.hunks[i].lines) {
-        allLines.add((line: line, isSeparator: false));
+        if (visibleLines.length == _maxInlineLines) break;
+        visibleLines.add((line: line, isSeparator: false));
       }
+      if (visibleLines.length == _maxInlineLines) break;
     }
 
-    final isTruncated = allLines.length > _maxInlineLines;
-    final visibleLines = isTruncated
-        ? allLines.take(_maxInlineLines).toList()
-        : allLines;
-    final remaining = allLines.length - _maxInlineLines;
+    final isTruncated = totalLines > _maxInlineLines;
+    final remaining = totalLines - _maxInlineLines;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
