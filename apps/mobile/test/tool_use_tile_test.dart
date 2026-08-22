@@ -316,6 +316,32 @@ void main() {
       // No expand_more (preview) state for edit tools
       expect(find.byIcon(Icons.expand_more), findsNothing);
     });
+
+    testWidgets('large multi-edit stops at the inline line limit', (
+      tester,
+    ) async {
+      final oldText = List.generate(10, (index) => 'old $index').join('\n');
+      final newText = List.generate(10, (index) => 'new $index').join('\n');
+
+      await tester.pumpWidget(
+        _wrap(
+          ToolUseTile(
+            name: 'MultiEdit',
+            input: {
+              'file_path': 'lib/main.dart',
+              'edits': [
+                {'old_string': oldText, 'new_string': newText},
+                {'old_string': 'second old', 'new_string': 'second new'},
+              ],
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('... 3 more lines'), findsOneWidget);
+      expect(find.text('+ new 9'), findsOneWidget);
+      expect(find.textContaining('second'), findsNothing);
+    });
   });
 
   group('ToolUseTile - long press copy', () {
