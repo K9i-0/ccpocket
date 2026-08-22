@@ -123,6 +123,87 @@ void main() {
     expect(tester.getTopLeft(target).dy, closeTo(beforeCombinedResize, 1));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('streaming keeps text fixed while reading inside its own row', (
+    tester,
+  ) async {
+    final bridge = _ScrollTestBridge();
+    final streamingCubit = StreamingStateCubit();
+    final chatCubit = ChatSessionCubit(
+      sessionId: 'scroll-anchor',
+      bridge: bridge,
+      streamingCubit: streamingCubit,
+    );
+    final controller = AnchorMaintainingAutoScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(chatCubit.close);
+    addTearDown(streamingCubit.close);
+    addTearDown(bridge.dispose);
+
+    streamingCubit.appendText(
+      List.generate(100, (index) => 'streaming line $index').join('\n\n'),
+    );
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [RepositoryProvider<BridgeService>.value(value: bridge)],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<ChatSessionCubit>.value(value: chatCubit),
+            BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            home: Scaffold(
+              body: ChatMessageList(
+                sessionId: 'scroll-anchor',
+                scrollController: controller,
+                httpBaseUrl: null,
+                onRetryMessage: null,
+                collapseToolResults: null,
+                isReadingHistory: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    bridge.emit(const StatusMessage(status: ProcessStatus.idle));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.position.maxScrollExtent, greaterThan(500));
+    controller.jumpTo(400);
+    await tester.pump();
+    final streamingEntry = find.byWidgetPredicate(
+      (widget) =>
+          widget is ChatEntryWidget && widget.entry is StreamingChatEntry,
+    );
+
+    final topBefore = tester.getTopLeft(streamingEntry).dy;
+    final offsetBefore = controller.offset;
+    streamingCubit.appendText(
+      List.generate(12, (index) => '\n\nnew line $index').join(),
+    );
+    await tester.pump();
+
+    expect(tester.getTopLeft(streamingEntry).dy, closeTo(topBefore, 1));
+    expect(controller.offset, greaterThan(offsetBefore));
+
+    final gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(0, -24));
+    await tester.pump();
+    final topDuringDrag = tester.getTopLeft(streamingEntry).dy;
+    streamingCubit.appendText(
+      List.generate(8, (index) => '\n\nmore line $index').join(),
+    );
+    await tester.pump();
+
+    expect(tester.getTopLeft(streamingEntry).dy, closeTo(topDuringDrag, 1));
+    await gesture.up();
+  });
 }
 
 class _ScrollTestBridge extends BridgeService {
