@@ -271,7 +271,12 @@ export type ClientMessage =
       maxLines?: number;
     }
   | { type: "list_files"; projectPath: string }
-  | { type: "list_directory"; path: string; requestId?: string }
+  | {
+      type: "list_directory";
+      path: string;
+      requestId?: string;
+      includeHidden?: boolean;
+    }
   | { type: "get_diff"; projectPath: string; staged?: boolean }
   | {
       type: "get_diff_image";
@@ -1413,7 +1418,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "list_directory":
-        if (!hasOnlyKeys(["type", "path", "requestId"])) return null;
+        if (!hasOnlyKeys(["type", "path", "requestId", "includeHidden"]))
+          return null;
         if (
           typeof msg.path !== "string" ||
           msg.path.trim().length === 0
@@ -1422,6 +1428,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.requestId !== undefined &&
           (typeof msg.requestId !== "string" || msg.requestId.trim().length === 0)
+        )
+          return null;
+        if (
+          msg.includeHidden !== undefined &&
+          typeof msg.includeHidden !== "boolean"
         )
           return null;
         break;

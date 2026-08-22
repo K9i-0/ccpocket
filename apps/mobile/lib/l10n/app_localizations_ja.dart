@@ -2011,6 +2011,13 @@ class AppLocalizationsJa extends AppLocalizations {
       '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
 
   @override
+  String get showHiddenDirectories => '隠しディレクトリを表示';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      '新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。';
+
+  @override
   String get showBridgeNameInSessionList => 'Bridge名を表示';
 
   @override

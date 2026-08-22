@@ -5102,6 +5102,7 @@ export class BridgeWebSocketServer {
             msg.path,
             this.allowedDirs,
             this.platform,
+            msg.includeHidden ?? false,
           );
           this.send(ws, {
             type: "directory_listing",

@@ -1988,6 +1988,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
 
   @override
+  String get showHiddenDirectories => '显示隐藏目录';
+
+  @override
+  String get showHiddenDirectoriesSubtitle => '在新建会话目录浏览器中显示以 . 开头的文件夹。';
+
+  @override
   String get showBridgeNameInSessionList => '显示 Bridge 名称';
 
   @override

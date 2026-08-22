@@ -72,7 +72,7 @@ function isWithinAnyRoot(
 }
 
 /**
- * List visible, real child directories under a Bridge-allowed directory.
+ * List real child directories under a Bridge-allowed directory.
  *
  * The lexical check prevents traversal before filesystem access. The realpath
  * checks prevent a symlinked request or a raced child entry from escaping the
@@ -82,6 +82,7 @@ export async function listAllowedDirectories(
   requestedPath: string,
   allowedDirs: string[],
   platform: NodeJS.Platform = process.platform,
+  includeHidden = false,
 ): Promise<{ path: string; directories: DirectoryListingEntry[] }> {
   const resolvedRequestedPath = resolvePlatformPath(requestedPath, platform);
 
@@ -133,7 +134,11 @@ export async function listAllowedDirectories(
 
   const directories: DirectoryListingEntry[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    if (
+      !entry.isDirectory() ||
+      (!includeHidden && entry.name.startsWith("."))
+    )
+      continue;
 
     const childPath = resolvePlatformPathFrom(
       canonicalPath,

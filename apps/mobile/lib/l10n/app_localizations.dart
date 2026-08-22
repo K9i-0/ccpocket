@@ -3810,6 +3810,18 @@ abstract class AppLocalizations {
   /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
   String get settingsNewSessionTabsDescription;
 
+  /// No description provided for @showHiddenDirectories.
+  ///
+  /// In ja, this message translates to:
+  /// **'隠しディレクトリを表示'**
+  String get showHiddenDirectories;
+
+  /// No description provided for @showHiddenDirectoriesSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。'**
+  String get showHiddenDirectoriesSubtitle;
+
   /// No description provided for @showBridgeNameInSessionList.
   ///
   /// In ja, this message translates to:

@@ -430,6 +430,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   bool lockProvider = false,
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
   bool showExtendedCodexEfforts = false,
+  bool showHiddenDirectories = false,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -447,6 +448,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       lockProvider: lockProvider,
       visibleTabs: visibleTabs,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
+      showHiddenDirectories: showHiddenDirectories,
     ),
   );
 }
@@ -469,6 +471,7 @@ class _NewSessionSheetContent extends StatefulWidget {
   final bool lockProvider;
   final List<NewSessionTab> visibleTabs;
   final bool showExtendedCodexEfforts;
+  final bool showHiddenDirectories;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
@@ -478,6 +481,7 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.lockProvider = false,
     this.visibleTabs = defaultNewSessionTabs,
     this.showExtendedCodexEfforts = false,
+    this.showHiddenDirectories = false,
   });
 
   @override
@@ -919,6 +923,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           ? _pathController.text.trim()
           : null,
       allowedRoots: bridge.allowedDirs,
+      includeHidden: widget.showHiddenDirectories,
     );
     if (!mounted || selected == null || selected.trim().isEmpty) return;
     _onProjectSelected(selected);

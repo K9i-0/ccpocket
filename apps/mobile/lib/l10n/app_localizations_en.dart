@@ -2086,6 +2086,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which AI tools appear for new sessions and change their order.';
 
   @override
+  String get showHiddenDirectories => 'Show Hidden Directories';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      'Include folders beginning with . in the new session directory browser.';
+
+  @override
   String get showBridgeNameInSessionList => 'Show Bridge name';
 
   @override
