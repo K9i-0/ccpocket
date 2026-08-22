@@ -86,10 +86,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
 
     if (hasOnlyTextContent && inferredErrorCode != null) {
       return ErrorBubble(
-        message: ErrorMessage(
-          message: _allText(),
-          errorCode: inferredErrorCode,
-        ),
+        message: ErrorMessage(message: allText, errorCode: inferredErrorCode),
       );
     }
 
@@ -98,7 +95,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         contents: contents,
         hasTextContent: hasTextContent,
         resolvedPlanText: widget.resolvedPlanText,
-        allText: _allText(),
+        allText: allText,
         plainTextMode: _plainTextMode,
         onFileTap: widget.onFileTap,
         onFork: widget.onFork,
@@ -113,7 +110,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       contents: contents,
       hasTextContent: hasTextContent,
       plainTextMode: _plainTextMode,
-      allText: _allText(),
+      allText: allText,
       onFileTap: widget.onFileTap,
       onFork: widget.onFork,
       hiddenToolUseIds: widget.hiddenToolUseIds,

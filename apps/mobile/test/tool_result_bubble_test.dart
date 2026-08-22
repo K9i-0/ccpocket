@@ -73,6 +73,17 @@ void main() {
       expect(find.text('3 lines'), findsOneWidget);
     });
 
+    testWidgets('large collapsed output shows its line count', (tester) async {
+      final content = List.generate(10000, (index) => 'line $index').join('\n');
+
+      await tester.pumpWidget(
+        _wrap(ToolResultBubble(message: _msg(content: content))),
+      );
+      await tester.pump();
+
+      expect(find.text('10000 lines'), findsOneWidget);
+    });
+
     testWidgets('collapsed hides images', (tester) async {
       final msg = ToolResultMessage(
         toolUseId: 'test-img',
@@ -147,6 +158,25 @@ void main() {
         return false;
       });
       expect(cardFinder, findsOneWidget);
+    });
+
+    testWidgets('large preview only renders the first five lines', (
+      tester,
+    ) async {
+      final content = List.generate(10000, (index) => 'line $index').join('\n');
+      await tester.pumpWidget(
+        _wrap(ToolResultBubble(message: _msg(content: content))),
+      );
+
+      await tester.tap(find.byType(InkWell).first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('line 0\nline 1\nline 2\nline 3\nline 4'),
+        findsOneWidget,
+      );
+      expect(find.text('... 9995 more lines'), findsOneWidget);
+      expect(find.textContaining('line 5'), findsNothing);
     });
   });
 
