@@ -220,12 +220,17 @@ class _ChatMessageListState extends State<ChatMessageList> {
   /// Records one measured, visible message before a state change. After the
   /// next layout, the same keyed message is restored to the same screen Y.
   /// This avoids relying on the lazy list's estimated maxScrollExtent.
-  void _captureVisibleAnchor() {
+  void _captureVisibleAnchor({bool allowStreamingExtentFallback = false}) {
     if (!widget.isReadingHistory ||
         !widget.scrollController.hasClients ||
         widget.scrollController.isAutoScrolling ||
-        widget.scrollController.position.isScrollingNotifier.value ||
         _anchorCorrectionScheduled) {
+      return;
+    }
+    if (widget.scrollController.position.isScrollingNotifier.value) {
+      if (allowStreamingExtentFallback) {
+        _scheduleStreamingExtentCorrection();
+      }
       return;
     }
 
@@ -259,12 +264,26 @@ class _ChatMessageListState extends State<ChatMessageList> {
         );
       }
     }
-    if (best == null) return;
+    if (best == null) {
+      if (allowStreamingExtentFallback) {
+        _scheduleStreamingExtentCorrection();
+      }
+      return;
+    }
 
     _pendingAnchor = best;
     _anchorCorrectionScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _restoreVisibleAnchor(),
+    );
+  }
+
+  void _scheduleStreamingExtentCorrection() {
+    final controller = widget.scrollController;
+    if (controller is! AnchorMaintainingAutoScrollController) return;
+    final generation = controller.requestStreamingExtentCorrection();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => controller.clearStreamingExtentCorrection(generation),
     );
   }
 
@@ -403,7 +422,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
           listener: (_, _) => _captureVisibleAnchor(),
         ),
         BlocListener<StreamingStateCubit, StreamingState>(
-          listener: (_, _) => _captureVisibleAnchor(),
+          listener: (_, _) =>
+              _captureVisibleAnchor(allowStreamingExtentFallback: true),
         ),
       ],
       child: NotificationListener<ScrollMetricsNotification>(
