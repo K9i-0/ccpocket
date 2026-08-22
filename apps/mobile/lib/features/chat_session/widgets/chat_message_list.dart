@@ -75,6 +75,71 @@ Set<int> forkableAssistantEntryIndices(List<ChatEntry> entries) {
   return result;
 }
 
+@visibleForTesting
+Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
+  final fallbackIndices = <int>{};
+  final assistantTexts = <String>[];
+  ({int index, String text, List<String> assistantTexts})? pendingResult;
+
+  bool isAlreadyShown(String resultText, List<String> texts) {
+    final visibleAssistantText = texts.join('\n\n');
+    return visibleAssistantText == resultText ||
+        visibleAssistantText.endsWith('\n\n$resultText');
+  }
+
+  void resolvePendingResult({bool includeTrailingAssistants = false}) {
+    final pending = pendingResult;
+    if (pending == null) return;
+    final visibleTexts = includeTrailingAssistants
+        ? [...pending.assistantTexts, ...assistantTexts]
+        : pending.assistantTexts;
+    if (!isAlreadyShown(pending.text, visibleTexts)) {
+      fallbackIndices.add(pending.index);
+    }
+    pendingResult = null;
+  }
+
+  void finishTurn() {
+    resolvePendingResult(includeTrailingAssistants: true);
+    assistantTexts.clear();
+  }
+
+  for (var index = 0; index < entries.length; index++) {
+    final entry = entries[index];
+    if (entry is UserChatEntry) {
+      finishTurn();
+      continue;
+    }
+    if (entry is! ServerChatEntry) continue;
+    switch (entry.message) {
+      case AssistantServerMessage(:final message):
+        final text = message.content
+            .whereType<TextContent>()
+            .map((content) => content.text)
+            .join('\n\n')
+            .trim();
+        if (text.isNotEmpty) assistantTexts.add(text);
+      case ResultMessage(:final subtype, :final result):
+        // Result messages are turn boundaries even when old history omitted
+        // the corresponding user entry. Only the final pending result may use
+        // trailing assistant text as a late-arrival reconciliation.
+        resolvePendingResult();
+        if (subtype == 'success' && result?.trim().isNotEmpty == true) {
+          pendingResult = (
+            index: index,
+            text: result!.trim(),
+            assistantTexts: List.of(assistantTexts),
+          );
+        }
+        assistantTexts.clear();
+      default:
+        break;
+    }
+  }
+  finishTurn();
+  return fallbackIndices;
+}
+
 /// Displays the chat message list with [ListView.builder] (reverse: true).
 ///
 /// Reads entries directly from [ChatSessionCubit] state (SSOT).
@@ -492,6 +557,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
                     resolvedPlanText: _hasExitPlanMode(entry)
                         ? derivedData.latestPlanText
                         : null,
+                    showSuccessResultText: derivedData
+                        .successResultFallbackEntryIndices
+                        .contains(entryIndex),
                     hiddenToolUseIds: effectiveHiddenToolUseIds,
                     onFileTap: (filePath) {
                       final projectPath = widget.projectPath;
@@ -581,6 +649,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
         entries,
       ),
       forkableAssistantEntryIndices: forkableAssistantEntryIndices(entries),
+      successResultFallbackEntryIndices: successResultFallbackEntryIndices(
+        entries,
+      ),
       latestPlanText: _findPlanFromWriteTool(entries),
     );
     _derivedForState = chatState;
@@ -702,6 +773,7 @@ class _ChatListDerivedData {
   final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
+  final Set<int> successResultFallbackEntryIndices;
   final String? latestPlanText;
 
   const _ChatListDerivedData({
@@ -709,6 +781,7 @@ class _ChatListDerivedData {
     required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
     required this.forkableAssistantEntryIndices,
+    required this.successResultFallbackEntryIndices,
     required this.latestPlanText,
   });
 }

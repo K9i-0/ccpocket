@@ -46,6 +46,81 @@ void main() {
       expect(forkableAssistantEntryIndices(entries), {0, 2});
     });
   });
+
+  group('successResultFallbackEntryIndices', () {
+    test('uses result text when the final assistant message is missing', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_toolAssistant('tool-call')),
+        ServerChatEntry(_toolResult('tool-call')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), {3});
+    });
+
+    test('does not duplicate result text already shown by an assistant', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_assistantWithText('final', 'Final summary')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), isEmpty);
+    });
+
+    test(
+      'does not duplicate a final answer split across assistant entries',
+      () {
+        final entries = <ChatEntry>[
+          UserChatEntry('inspect this'),
+          ServerChatEntry(_assistantWithText('progress', 'Checking files')),
+          ServerChatEntry(_assistantWithText('final-1', 'First paragraph')),
+          ServerChatEntry(_assistantWithText('final-2', 'Second paragraph')),
+          ServerChatEntry(
+            _result(result: 'First paragraph\n\nSecond paragraph'),
+          ),
+        ];
+
+        expect(successResultFallbackEntryIndices(entries), isEmpty);
+      },
+    );
+
+    test(
+      'separates completed turns when restored user entries are missing',
+      () {
+        final entries = <ChatEntry>[
+          ServerChatEntry(_assistantWithText('first', 'First answer')),
+          ServerChatEntry(_result(result: 'First answer')),
+          ServerChatEntry(_assistantWithText('second', 'Second answer')),
+          ServerChatEntry(_result(result: 'Second answer')),
+        ];
+
+        expect(successResultFallbackEntryIndices(entries), isEmpty);
+      },
+    );
+
+    test('does not let a later turn hide an earlier missing answer', () {
+      final entries = <ChatEntry>[
+        ServerChatEntry(_result(result: 'Repeated answer')),
+        ServerChatEntry(_assistantWithText('later', 'Repeated answer')),
+        ServerChatEntry(_result(result: 'Repeated answer')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), {0});
+    });
+
+    test('uses result text when only a progress update exists', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_assistantWithText('progress', 'Checking files')),
+        ServerChatEntry(_toolResult('tool-call')),
+        ServerChatEntry(_result(result: 'Final summary')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), {3});
+    });
+  });
 }
 
 AssistantServerMessage _assistant(String id) => AssistantServerMessage(
@@ -60,4 +135,24 @@ AssistantServerMessage _assistant(String id) => AssistantServerMessage(
 ToolResultMessage _toolResult(String id) =>
     ToolResultMessage(toolUseId: id, content: 'ok');
 
-ResultMessage _result() => const ResultMessage(subtype: 'success');
+AssistantServerMessage _assistantWithText(String id, String text) =>
+    AssistantServerMessage(
+      message: AssistantMessage(
+        id: id,
+        role: 'assistant',
+        content: [TextContent(text: text)],
+        model: 'codex',
+      ),
+    );
+
+AssistantServerMessage _toolAssistant(String id) => AssistantServerMessage(
+  message: AssistantMessage(
+    id: 'assistant-$id',
+    role: 'assistant',
+    content: [ToolUseContent(id: id, name: 'Read', input: const {})],
+    model: 'codex',
+  ),
+);
+
+ResultMessage _result({String? result}) =>
+    ResultMessage(subtype: 'success', result: result);

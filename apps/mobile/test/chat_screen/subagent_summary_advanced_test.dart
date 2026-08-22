@@ -96,52 +96,45 @@ void main() {
       expect($('Analyzed entire codebase'), findsOneWidget);
     });
 
-    patrolWidgetTest(
-      'M4: Summary in history — tool results not hidden (current behavior)',
-      ($) async {
-        // _handleHistory does NOT extract toolUseIdsToHide from
-        // ToolUseSummaryMessage, so hidden IDs are empty and all tool
-        // results render normally alongside the summary bubble.
-        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
-        await pumpN($.tester);
+    patrolWidgetTest('M4: Summary in history hides its tool results', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await pumpN($.tester);
 
-        final history = HistoryMessage(
-          messages: [
-            const StatusMessage(status: ProcessStatus.idle),
-            makeAssistantMessage('h1', 'Work done.'),
-            const ToolResultMessage(
-              toolUseId: 'sub-hist-1',
-              content: 'History result 1',
-            ),
-            const ToolResultMessage(
-              toolUseId: 'sub-hist-2',
-              content: 'History result 2',
-            ),
-            const ToolUseSummaryMessage(
-              summary: 'Read 2 files from history',
-              precedingToolUseIds: ['sub-hist-1', 'sub-hist-2'],
-            ),
-            const ToolResultMessage(
-              toolUseId: 'normal-hist',
-              content: 'Normal history result',
-            ),
-          ],
-        );
+      final history = HistoryMessage(
+        messages: [
+          const StatusMessage(status: ProcessStatus.idle),
+          makeAssistantMessage('h1', 'Work done.'),
+          const ToolResultMessage(
+            toolUseId: 'sub-hist-1',
+            content: 'History result 1',
+          ),
+          const ToolResultMessage(
+            toolUseId: 'sub-hist-2',
+            content: 'History result 2',
+          ),
+          const ToolUseSummaryMessage(
+            summary: 'Read 2 files from history',
+            precedingToolUseIds: ['sub-hist-1', 'sub-hist-2'],
+          ),
+          const ToolResultMessage(
+            toolUseId: 'normal-hist',
+            content: 'Normal history result',
+          ),
+        ],
+      );
 
-        await emitAndPump($.tester, bridge, [history]);
-        await pumpN($.tester);
+      await emitAndPump($.tester, bridge, [history]);
+      await pumpN($.tester);
 
-        // Summary bubble is rendered
-        expect($(ToolUseSummaryBubble), findsOneWidget);
-        expect($('Read 2 files from history'), findsOneWidget);
+      expect($(ToolUseSummaryBubble), findsOneWidget);
+      expect($('Read 2 files from history'), findsOneWidget);
 
-        // History tool results are NOT hidden (hiddenToolUseIds empty)
-        // so they render alongside the summary
-        expect($('History result 1'), findsOneWidget);
-        expect($('History result 2'), findsOneWidget);
-        expect($('Normal history result'), findsOneWidget);
-      },
-    );
+      expect($('History result 1'), findsNothing);
+      expect($('History result 2'), findsNothing);
+      expect($('Normal history result'), findsOneWidget);
+    });
 
     patrolWidgetTest('M5: Summary followed by new live tool results', (
       $,
