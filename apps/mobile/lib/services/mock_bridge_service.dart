@@ -430,7 +430,11 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
-  void requestDirectoryListing(String path, {String? requestId}) {
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) {
     if (_mockMessageController.isClosed) return;
     _mockMessageController.add(
       DirectoryListingMessage(

@@ -640,12 +640,13 @@ describe("parseClientMessage", () => {
 
   it("parses list_directory message", () => {
     const msg = parseClientMessage(
-      '{"type":"list_directory","path":"/workspace","requestId":"dir-1"}',
+      '{"type":"list_directory","path":"/workspace","requestId":"dir-1","includeHidden":true}',
     );
     expect(msg).toEqual({
       type: "list_directory",
       path: "/workspace",
       requestId: "dir-1",
+      includeHidden: true,
     });
   });
 
@@ -660,6 +661,11 @@ describe("parseClientMessage", () => {
     expect(
       parseClientMessage(
         '{"type":"list_directory","path":"/workspace","requestId":123}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"list_directory","path":"/workspace","includeHidden":"yes"}',
       ),
     ).toBeNull();
   });

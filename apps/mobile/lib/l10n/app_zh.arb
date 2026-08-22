@@ -868,6 +868,8 @@
   "settingsClaudeSubscriptionUsage": "订阅用量",
   "settingsNewSessionTabs": "新建会话标签页",
   "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
+  "showHiddenDirectories": "显示隐藏目录",
+  "showHiddenDirectoriesSubtitle": "在新建会话目录浏览器中显示以 . 开头的文件夹。",
   "showBridgeNameInSessionList": "显示 Bridge 名称",
   "showBridgeNameInSessionListSubtitle": "注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。",
   "autoRenameCodexSessions": "自动 Rename (Codex)",

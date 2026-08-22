@@ -742,6 +742,8 @@
   "settingsClaudeSubscriptionUsage": "구독 사용량",
   "settingsNewSessionTabs": "새 세션 탭",
   "settingsNewSessionTabsDescription": "새 세션에 표시할 AI 도구와 순서를 선택하세요.",
+  "showHiddenDirectories": "숨김 디렉터리 표시",
+  "showHiddenDirectoriesSubtitle": "새 세션 디렉터리 브라우저에 .으로 시작하는 폴더를 표시합니다.",
   "showBridgeNameInSessionList": "Bridge 이름 표시",
   "showBridgeNameInSessionListSubtitle": "여러 Bridge가 등록되어 있을 때 세션 목록에 연결된 Bridge 이름을 표시합니다.",
   "autoRenameCodexSessions": "자동 Rename (Codex)",
