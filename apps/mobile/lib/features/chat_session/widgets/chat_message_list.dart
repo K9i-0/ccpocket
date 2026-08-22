@@ -75,6 +75,50 @@ Set<int> forkableAssistantEntryIndices(List<ChatEntry> entries) {
   return result;
 }
 
+@visibleForTesting
+Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
+  final fallbackIndices = <int>{};
+  final resultCandidates = <({int index, String text})>[];
+  final assistantTexts = <String>[];
+
+  void finishTurn() {
+    final combinedAssistantText = assistantTexts.join('\n\n').trim();
+    for (final candidate in resultCandidates) {
+      final isAlreadyShown =
+          assistantTexts.contains(candidate.text) ||
+          combinedAssistantText == candidate.text;
+      if (!isAlreadyShown) fallbackIndices.add(candidate.index);
+    }
+    assistantTexts.clear();
+    resultCandidates.clear();
+  }
+
+  for (var index = 0; index < entries.length; index++) {
+    final entry = entries[index];
+    if (entry is UserChatEntry) {
+      finishTurn();
+      continue;
+    }
+    if (entry is! ServerChatEntry) continue;
+    switch (entry.message) {
+      case AssistantServerMessage(:final message):
+        final text = message.content
+            .whereType<TextContent>()
+            .map((content) => content.text)
+            .join('\n\n')
+            .trim();
+        if (text.isNotEmpty) assistantTexts.add(text);
+      case ResultMessage(:final subtype, :final result)
+          when subtype == 'success' && result?.trim().isNotEmpty == true:
+        resultCandidates.add((index: index, text: result!.trim()));
+      default:
+        break;
+    }
+  }
+  finishTurn();
+  return fallbackIndices;
+}
+
 /// Displays the chat message list with [ListView.builder] (reverse: true).
 ///
 /// Reads entries directly from [ChatSessionCubit] state (SSOT).
@@ -492,6 +536,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
                     resolvedPlanText: _hasExitPlanMode(entry)
                         ? derivedData.latestPlanText
                         : null,
+                    showSuccessResultText: derivedData
+                        .successResultFallbackEntryIndices
+                        .contains(entryIndex),
                     hiddenToolUseIds: effectiveHiddenToolUseIds,
                     onFileTap: (filePath) {
                       final projectPath = widget.projectPath;
@@ -581,6 +628,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
         entries,
       ),
       forkableAssistantEntryIndices: forkableAssistantEntryIndices(entries),
+      successResultFallbackEntryIndices: successResultFallbackEntryIndices(
+        entries,
+      ),
       latestPlanText: _findPlanFromWriteTool(entries),
     );
     _derivedForState = chatState;
@@ -702,6 +752,7 @@ class _ChatListDerivedData {
   final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
+  final Set<int> successResultFallbackEntryIndices;
   final String? latestPlanText;
 
   const _ChatListDerivedData({
@@ -709,6 +760,7 @@ class _ChatListDerivedData {
     required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
     required this.forkableAssistantEntryIndices,
+    required this.successResultFallbackEntryIndices,
     required this.latestPlanText,
   });
 }
