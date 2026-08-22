@@ -1535,23 +1535,82 @@ class BridgeService implements BridgeServiceBase {
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final deadline = DateTime.now().add(timeout);
-    if (!isConnected) {
-      try {
-        await connectionStatus
-            .firstWhere((state) => state == BridgeConnectionState.connected)
-            .timeout(timeout);
-      } on TimeoutException {
-        return const SessionLinkResolveResult.unavailable();
-      }
-      if (!isConnected) {
-        return const SessionLinkResolveResult.unavailable();
-      }
+    _prepareSessionLinkConnection();
+    if (!await _waitForConnection(deadline)) {
+      return const SessionLinkResolveResult.unavailable();
     }
 
-    final remaining = deadline.difference(DateTime.now());
+    var remaining = deadline.difference(DateTime.now());
     if (remaining <= Duration.zero) {
       return const SessionLinkResolveResult.unavailable();
     }
+    final firstAttemptTimeout = Duration(
+      microseconds: min(
+        remaining.inMicroseconds ~/ 2,
+        const Duration(seconds: 3).inMicroseconds,
+      ),
+    );
+    final firstResult = await _requestSessionLinkResolution(
+      sessionId,
+      provider: provider,
+      timeout: firstAttemptTimeout,
+    );
+    if (firstResult != null) return firstResult;
+
+    // A connected WebSocket can remain marked open after the app was
+    // suspended even though it no longer delivers messages. A timed-out
+    // resolution request is safe to retry after replacing that stale socket.
+    final reconnectUrl = _lastUrl;
+    if (reconnectUrl == null) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    connect(reconnectUrl);
+    if (!await _waitForConnection(deadline)) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+
+    remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    final retryResult = await _requestSessionLinkResolution(
+      sessionId,
+      provider: provider,
+      timeout: remaining,
+    );
+    return retryResult ?? const SessionLinkResolveResult.unavailable();
+  }
+
+  void _prepareSessionLinkConnection() {
+    if (_connectionState == BridgeConnectionState.reconnecting &&
+        _lastUrl != null) {
+      // A notification tap is an active foreground request, so do not make
+      // the user wait for an exponential background reconnect delay.
+      connect(_lastUrl!);
+      return;
+    }
+    ensureConnected();
+  }
+
+  Future<bool> _waitForConnection(DateTime deadline) async {
+    if (isConnected) return true;
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) return false;
+    try {
+      await connectionStatus
+          .firstWhere((state) => state == BridgeConnectionState.connected)
+          .timeout(remaining);
+    } on TimeoutException {
+      return false;
+    }
+    return isConnected;
+  }
+
+  Future<SessionLinkResolveResult?> _requestSessionLinkResolution(
+    String sessionId, {
+    required String provider,
+    required Duration timeout,
+  }) async {
     final requestId = 'session-link-${++_nextSessionLinkRequestId}';
     final completer = Completer<SessionLinkResolveResult>();
     _pendingSessionLinkResolutions[requestId] = completer;
@@ -1563,10 +1622,9 @@ class BridgeService implements BridgeServiceBase {
       ),
     );
     try {
-      return await completer.future.timeout(
-        remaining,
-        onTimeout: () => const SessionLinkResolveResult.unavailable(),
-      );
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      return null;
     } finally {
       _pendingSessionLinkResolutions.remove(requestId);
       _messageQueue.removeWhere((message) {

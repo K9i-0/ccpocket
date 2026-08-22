@@ -507,6 +507,74 @@ void main() {
       bridge.dispose();
     });
 
+    test('resolveSessionLink reconnects and retries a stale socket', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final firstSocketReady = Completer<WebSocket>();
+      final secondSocketReady = Completer<WebSocket>();
+      var connectionCount = 0;
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        connectionCount++;
+        if (connectionCount == 1) {
+          firstSocketReady.complete(socket);
+        } else if (connectionCount == 2) {
+          secondSocketReady.complete(socket);
+        }
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final firstSocket = await firstSocketReady.future;
+      final firstRequestFuture = firstSocket
+          .where((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            return json['type'] == 'resolve_session_link';
+          })
+          .map((event) => jsonDecode(event as String) as Map<String, dynamic>)
+          .first;
+
+      final resolutionFuture = bridge.resolveSessionLink(
+        'claude-uuid',
+        provider: 'claude',
+        timeout: const Duration(seconds: 2),
+      );
+      await firstRequestFuture.timeout(const Duration(seconds: 1));
+
+      // The first socket deliberately never answers. The resolver should
+      // replace it and repeat the request instead of showing unavailable.
+      final secondSocket = await secondSocketReady.future.timeout(
+        const Duration(seconds: 2),
+      );
+      final secondRequest = await secondSocket
+          .where((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            return json['type'] == 'resolve_session_link';
+          })
+          .map((event) => jsonDecode(event as String) as Map<String, dynamic>)
+          .first
+          .timeout(const Duration(seconds: 1));
+      secondSocket.add(
+        jsonEncode({
+          'type': 'session_link_resolution',
+          'requestId': secondRequest['requestId'],
+          'sourceSessionId': 'claude-uuid',
+          'status': 'live',
+          'bridgeSessionId': 'bridge-1',
+          'provider': 'claude',
+        }),
+      );
+
+      final result = await resolutionFuture.timeout(const Duration(seconds: 2));
+      expect(result.support, SessionLinkResolveSupport.resolved);
+      expect(result.resolution?.bridgeSessionId, 'bridge-1');
+      expect(connectionCount, 2);
+
+      bridge.disconnect();
+      await secondSocket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test('resolveSessionLink waits for a connection without queueing a stale request', () async {
       final bridge = BridgeService();
       final outgoing = <ClientMessage>[];
