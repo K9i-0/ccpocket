@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.116.0] - 2026-08-23
+
+### Added
+- Add an opt-in setting for browsing hidden directories when selecting a new session project.
+
+### Changed
+- Reduce rendering work for long tool outputs and large inline diffs.
+- Present approval decisions as a compact transcript while preserving active permission controls.
+
+### Fixed
+- Restore completed response summaries when assistant history is incomplete without duplicating existing text.
+- Keep active streaming content anchored and stabilize repeated Android keyboard and app lifecycle transitions.
+- Open notification-linked sessions reliably through stale or reconnecting Bridge sockets without interrupting in-flight tool actions.
+- Prevent duplicate or missing background notifications across FCM registration changes, local fallback, multiple devices, and session navigation.
+
 ## [1.115.2] - 2026-08-22
 
 ### Fixed
