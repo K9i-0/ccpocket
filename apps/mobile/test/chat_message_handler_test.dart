@@ -338,6 +338,23 @@ void main() {
   });
 
   group('SystemMessage handling', () {
+    test('Codex init applies approval policy without permission mode', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          provider: 'codex',
+          approvalPolicy: 'never',
+          codexPermissionsMode: 'custom',
+        ),
+        isBackground: false,
+        isCodex: true,
+      );
+
+      expect(update.codexApprovalPolicy, CodexApprovalPolicy.never);
+      expect(update.codexPermissionsMode, CodexPermissionsMode.custom);
+      expect(update.executionMode, ExecutionMode.fullAccess);
+    });
+
     test('set_permission_mode plan updates inPlanMode', () {
       final update = handler.handle(
         const SystemMessage(

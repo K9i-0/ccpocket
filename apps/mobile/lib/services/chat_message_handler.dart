@@ -851,6 +851,16 @@ class ChatMessageHandler {
           permissionMode: msg.permissionMode,
           approvalPolicy: msg.approvalPolicy,
         );
+        if (isCodex || msg.provider == Provider.codex.value) {
+          codexApprovalPolicy =
+              codexApprovalPolicyFromRaw(
+                resolveCodexApprovalPolicy(
+                  approvalPolicy: msg.approvalPolicy,
+                  executionMode: msg.executionMode,
+                ),
+              ) ??
+              codexApprovalPolicyFromLegacyExecutionMode(msg.executionMode);
+        }
       }
       if (hasPlanSignals(msg)) {
         planMode = derivePlanMode(
