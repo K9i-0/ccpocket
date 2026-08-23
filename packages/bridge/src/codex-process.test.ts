@@ -1095,7 +1095,7 @@ describe("CodexProcess (app-server)", () => {
     const canonicalRepoRoot = await realpath(repoRoot);
     const canonicalNestedProject = await realpath(nestedProject);
     const linkedNestedProject = join(repoLink, "packages", "app");
-    const proc = new CodexProcess("linux");
+    const proc = new CodexProcess(process.platform);
     proc.start(linkedNestedProject, {
       threadId: "thr_trusted",
       codexPermissionsMode: "custom",
@@ -1137,7 +1137,8 @@ describe("CodexProcess (app-server)", () => {
         threadId: "thr_trusted",
         approvalPolicy: "untrusted",
         approvalsReviewer: "user",
-        sandbox: "workspace-write",
+        sandbox:
+          process.platform === "win32" ? "read-only" : "workspace-write",
       },
     });
 
