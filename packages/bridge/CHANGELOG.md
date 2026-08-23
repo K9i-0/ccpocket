@@ -2,6 +2,20 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.72.0] - 2026-08-23
+
+### Added
+- Allow clients to opt in to listing hidden directories while preserving allowed-root and symlink protections.
+
+### Changed
+- Correlate push registration requests and tool-action failures so clients can safely resolve asynchronous outcomes.
+- Restrict push delivery to the Bridge's active token allowlist, including multi-device registration transitions.
+
+### Fixed
+- Prevent stale push registration completions from restoring disabled or superseded tokens.
+- Release notification-link reconnect guards after clear-context session replacement, stopped sessions, and rejected tool actions.
+- Keep approval transcript outcomes consistent across Claude and Codex tool results.
+
 ## [1.71.0] - 2026-08-22
 
 ### Added
