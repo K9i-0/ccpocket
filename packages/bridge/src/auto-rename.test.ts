@@ -54,7 +54,7 @@ describe("auto rename", () => {
     );
   });
 
-  it("builds transcript from first real user input and assistant text", () => {
+  it("builds transcript from the first user input only", () => {
     const history = [
       { type: "status", status: "running" },
       {
@@ -64,7 +64,7 @@ describe("auto rename", () => {
       },
       {
         type: "user_input",
-        text: "未プッシュ差分をレビューして",
+        text: "Fix Android push notifications",
         timestamp: "2026-05-01T00:00:00.000Z",
       },
       {
@@ -73,7 +73,7 @@ describe("auto rename", () => {
           role: "assistant",
           content: [
             { type: "tool_use", id: "t1", name: "Read", input: {} },
-            { type: "text", text: "差分を確認してレビューします。" },
+            { type: "text", text: "SSHログインに失敗しました。" },
           ],
         },
       },
@@ -87,12 +87,13 @@ describe("auto rename", () => {
     const transcript = buildAutoRenameTranscript(history);
 
     expect(transcript).toEqual({
-      userText: "未プッシュ差分をレビューして",
-      assistantText: "差分を確認してレビューします。",
+      userText: "Fix Android push notifications",
     });
     const prompt = buildAutoRenamePrompt(transcript!);
     expect(prompt).toContain("Never translate it");
     expect(prompt).toContain("natural, specific noun phrase");
+    expect(prompt).toContain("Use only the USER text");
+    expect(prompt).not.toContain("SSHログインに失敗しました");
     expect(prompt).not.toContain("secret tool output");
     expect(prompt).not.toContain("tool_use");
     expect(prompt).not.toContain("second turn should be ignored");
@@ -123,7 +124,6 @@ describe("auto rename", () => {
       model: "claude-haiku-4-6",
       transcript: {
         userText: "依存関係を更新して",
-        assistantText: "pubspecを確認します。",
       },
     });
 
@@ -134,7 +134,7 @@ describe("auto rename", () => {
         "-p",
         "--model",
         "claude-haiku-4-6",
-        expect.stringContaining("Use assistant text only to disambiguate"),
+        expect.stringContaining("Use only the USER text"),
       ],
       expect.objectContaining({
         cwd: resolve("/tmp/project"),
@@ -154,7 +154,6 @@ describe("auto rename", () => {
       model: "gpt-5.5",
       transcript: {
         userText: "Claude Agent SDKを更新して",
-        assistantText: "現在のSDKバージョンを確認します。",
       },
     });
 
@@ -178,7 +177,7 @@ describe("auto rename", () => {
       }),
     );
     expect(execFileSyncMock.mock.calls[0][2].input).toContain(
-      "Use assistant text only to disambiguate",
+      "Use only the USER text",
     );
     expect(readFileSyncMock).toHaveBeenCalledWith(
       "/tmp/ccpocket-auto-rename-1/session-name.txt",
