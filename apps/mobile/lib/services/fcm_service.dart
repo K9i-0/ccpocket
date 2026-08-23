@@ -8,7 +8,7 @@ class FcmService {
   FcmService({FirebaseMessaging? messaging}) : _messaging = messaging;
 
   FirebaseMessaging? _messaging;
-  bool _initAttempted = false;
+  Future<bool>? _initInProgress;
   bool _available = false;
   String? _cachedToken;
 
@@ -35,24 +35,29 @@ class FcmService {
   }
 
   Future<bool> init() async {
-    if (_initAttempted) return _available;
-    _initAttempted = true;
+    if (_available) return true;
     if (!isSupportedPlatform) {
       _available = false;
       return false;
     }
 
+    final initInProgress = _initInProgress;
+    if (initInProgress != null) return initInProgress;
+
+    final initialization = _initialize();
+    _initInProgress = initialization;
     try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+      return await initialization;
+    } finally {
+      if (identical(_initInProgress, initialization)) {
+        _initInProgress = null;
       }
-      await _instance.requestPermission(alert: true, badge: true, sound: true);
-      await _instance.setForegroundNotificationPresentationOptions(
-        alert: false,
-        badge: true,
-        sound: true,
-      );
-      _cachedToken = await _instance.getToken();
+    }
+  }
+
+  Future<bool> _initialize() async {
+    try {
+      _cachedToken = await initializeMessaging();
       _available = true;
       return true;
     } catch (e, st) {
@@ -60,6 +65,21 @@ class FcmService {
       _available = false;
       return false;
     }
+  }
+
+  @visibleForTesting
+  @protected
+  Future<String?> initializeMessaging() async {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    await _instance.requestPermission(alert: true, badge: true, sound: true);
+    await _instance.setForegroundNotificationPresentationOptions(
+      alert: false,
+      badge: true,
+      sound: true,
+    );
+    return _instance.getToken();
   }
 
   Future<String?> getToken() async {
