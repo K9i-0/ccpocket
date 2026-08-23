@@ -831,6 +831,155 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("reloads config permissions when resuming a custom thread", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-custom-resume", {
+      threadId: "thr_existing",
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const configReq = nextOutgoingRequest(child);
+    expect(configReq).toMatchObject({
+      method: "config/read",
+      params: {
+        cwd: "/tmp/project-custom-resume",
+        includeLayers: false,
+      },
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            approval_policy: "never",
+            approvals_reviewer: "user",
+            sandbox_mode: "danger-full-access",
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq.method).toBe("thread/resume");
+    expect(resumeReq.params).toMatchObject({
+      cwd: "/tmp/project-custom-resume",
+      threadId: "thr_existing",
+      approvalPolicy: "never",
+      approvalsReviewer: "user",
+      sandbox: "danger-full-access",
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        result: {
+          thread: { id: "thr_existing" },
+          approvalPolicy: "never",
+          approvalsReviewer: "user",
+          sandbox: { type: "dangerFullAccess" },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        sessionId: "thr_existing",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandboxMode: "danger-full-access",
+        codexPermissionsMode: "custom",
+      }),
+    );
+
+    proc.stop();
+  });
+
+  it("applies selected profile permissions when resuming a custom thread", async () => {
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/project-profile-resume", {
+      threadId: "thr_profile",
+      codexPermissionsMode: "custom",
+      profile: "unrestricted",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const configReq = nextOutgoingRequest(child);
+    expect(configReq.method).toBe("config/read");
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            approval_policy: "on-request",
+            sandbox_mode: "workspace-write",
+            profiles: {
+              unrestricted: {
+                approval_policy: "never",
+                sandbox_mode: "danger-full-access",
+              },
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        threadId: "thr_profile",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandbox: "danger-full-access",
+        config: { profile: "unrestricted" },
+      },
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        result: { thread: { id: "thr_profile" } },
+      })}\n`,
+    );
+    await tick();
+    proc.stop();
+  });
+
   it("handles managed app-server spawn errors without crashing", () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
     process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18767";

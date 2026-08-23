@@ -245,6 +245,12 @@ interface CodexResolvedSettings {
   webSearchMode?: string;
 }
 
+interface CodexConfigPermissions {
+  approvalPolicy?: NonNullable<CodexStartOptions["approvalPolicy"]>;
+  approvalsReviewer: NonNullable<CodexStartOptions["approvalsReviewer"]>;
+  sandboxMode?: NonNullable<CodexStartOptions["sandboxMode"]>;
+}
+
 export interface CodexProfileConfig {
   profiles: string[];
   defaultProfile?: string;
@@ -1425,13 +1431,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           ? (await this.readConfigRequirements()).autoReviewDisabled
           : options?.autoReviewDisabledByPolicy === true;
       this._autoReviewDisabledByPolicy = autoReviewDisabled;
-      const effectiveApprovalsReviewer = autoReviewDisabled
-        ? "user"
-        : options?.approvalsReviewer;
       const effectiveCodexPermissionsMode =
         autoReviewDisabled && options?.codexPermissionsMode === "autoReview"
           ? "default"
           : options?.codexPermissionsMode;
+      // thread/resume preserves the thread's prior permission overrides when
+      // these fields are omitted. Custom mode means the current config.toml
+      // should win, so resolve it and pass the values explicitly on resume.
+      const customResumePermissions =
+        options?.threadId &&
+        effectiveCodexPermissionsMode === "custom"
+          ? await this.readConfigPermissions(projectPath, options.profile)
+          : undefined;
+      const effectiveApprovalsReviewer = autoReviewDisabled
+        ? "user"
+        : (customResumePermissions?.approvalsReviewer ??
+          options?.approvalsReviewer);
       if (autoReviewDisabled) {
         console.warn(
           "[codex-process] Auto-review disabled by managed Browser Use policy",
@@ -1445,8 +1460,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             );
       this._codexPermissionsMode = effectiveCodexPermissionsMode;
 
-      const requestedApprovalPolicy = options?.approvalPolicy
-        ? normalizeApprovalPolicy(options.approvalPolicy)
+      const configuredApprovalPolicy =
+        customResumePermissions?.approvalPolicy ?? options?.approvalPolicy;
+      const requestedApprovalPolicy = configuredApprovalPolicy
+        ? normalizeApprovalPolicy(configuredApprovalPolicy)
         : undefined;
       const requestedApprovalsReviewer =
         effectiveApprovalsReviewer === undefined
@@ -1456,8 +1473,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             );
       const requestedClientApprovalsReviewer =
         normalizeApprovalsReviewerForClient(effectiveApprovalsReviewer);
-      const requestedSandboxMode = options?.sandboxMode
-        ? normalizeSandboxMode(options.sandboxMode)
+      const configuredSandboxMode =
+        customResumePermissions?.sandboxMode ?? options?.sandboxMode;
+      const requestedSandboxMode = configuredSandboxMode
+        ? normalizeSandboxMode(configuredSandboxMode)
         : undefined;
 
       const threadParams: Record<string, unknown> = {
@@ -1657,6 +1676,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       [...configuredRoots, ...normalizedAdditional],
       this.platform,
     );
+  }
+
+  private async readConfigPermissions(
+    projectPath: string,
+    profile?: string,
+  ): Promise<CodexConfigPermissions> {
+    const response = await this.request("config/read", {
+      includeLayers: false,
+      cwd: projectPath,
+    });
+    return extractPermissionsFromConfigRead(response, profile);
   }
 
   private async initializeRpcConnection(): Promise<void> {
@@ -3435,6 +3465,66 @@ function extractWritableRootsFromConfigRead(response: unknown): string[] {
   return writableRoots.filter(
     (root): root is string => typeof root === "string",
   );
+}
+
+function extractPermissionsFromConfigRead(
+  response: unknown,
+  profile?: string,
+): CodexConfigPermissions {
+  const config = asRecord(asRecord(response)?.config);
+  const profiles = asRecord(config?.profiles);
+  const profileConfig = profile ? asRecord(profiles?.[profile]) : undefined;
+  const configuredValue = (key: string): unknown =>
+    profileConfig?.[key] ?? config?.[key];
+  return {
+    approvalPolicy: parseConfigApprovalPolicy(
+      configuredValue("approval_policy"),
+    ),
+    approvalsReviewer:
+      parseConfigApprovalsReviewer(configuredValue("approvals_reviewer")) ??
+      "user",
+    sandboxMode: parseConfigSandboxMode(configuredValue("sandbox_mode")),
+  };
+}
+
+function parseConfigApprovalPolicy(
+  value: unknown,
+): CodexConfigPermissions["approvalPolicy"] {
+  switch (value) {
+    case "never":
+    case "on-request":
+    case "on-failure":
+    case "untrusted":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function parseConfigApprovalsReviewer(
+  value: unknown,
+): CodexConfigPermissions["approvalsReviewer"] | undefined {
+  switch (value) {
+    case "user":
+    case "auto_review":
+    case "guardian_subagent":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function parseConfigSandboxMode(
+  value: unknown,
+): CodexConfigPermissions["sandboxMode"] {
+  switch (value) {
+    case "read-only":
+    case "workspace-write":
+    case "danger-full-access":
+      return value;
+    default:
+      return undefined;
+  }
 }
 
 function normalizeWritableRoots(
