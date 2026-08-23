@@ -476,10 +476,11 @@ void main() {
 
       final bridge = BridgeService();
       bridge.connect('ws://127.0.0.1:${server.port}');
-      final socket = await socketReady.future;
-      await bridge.connectionStatus.firstWhere(
+      final connected = bridge.connectionStatus.firstWhere(
         (state) => state == BridgeConnectionState.connected,
       );
+      final socket = await socketReady.future;
+      await connected;
       final globalResult = bridge.messages
           .where((message) => message is PushRegistrationResultMessage)
           .cast<PushRegistrationResultMessage>()
@@ -965,10 +966,11 @@ void main() {
 
       final bridge = BridgeService();
       bridge.connect('ws://127.0.0.1:${server.port}');
-      await socketReady.future;
-      await bridge.connectionStatus.firstWhere(
+      final connected = bridge.connectionStatus.firstWhere(
         (state) => state == BridgeConnectionState.connected,
       );
+      await socketReady.future;
+      await connected;
       bridge.disconnect();
 
       final result = await bridge.resolveSessionLink(
@@ -1036,10 +1038,11 @@ void main() {
         await firstRequestReady.future.timeout(const Duration(seconds: 1));
 
         bridge.connect('ws://127.0.0.1:${secondServer.port}');
-        await secondSocketReady.future;
-        await bridge.connectionStatus.firstWhere(
+        final secondConnected = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
+        await secondSocketReady.future;
+        await secondConnected;
 
         final result = await resolutionFuture;
         expect(result.support, SessionLinkResolveSupport.unavailable);
