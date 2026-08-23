@@ -279,6 +279,36 @@ void main() {
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
     });
 
+    testWidgets('Android backgrounding releases input focus for IME recovery', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      inputController.text = 'draft stays intact';
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.pump();
+
+      final input = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(input.focusNode!.hasFocus, isTrue);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      expect(input.focusNode!.hasFocus, isFalse);
+      expect(inputController.text, 'draft stays intact');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(input.focusNode!.hasFocus, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
     testWidgets('completion handler suppresses Tab indentation', (
       tester,
     ) async {

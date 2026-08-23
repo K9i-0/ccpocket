@@ -20,7 +20,7 @@ void main() {
       expect(adjusted, 240);
     });
 
-    test('compensates for a smaller viewport while reading', () {
+    test('preserves the offset while the viewport changes', () {
       final physics = MaintainReadingPositionOnResizePhysics(
         shouldMaintain: () => true,
       );
@@ -40,7 +40,7 @@ void main() {
         velocity: 0,
       );
 
-      expect(adjusted, 540);
+      expect(adjusted, 240);
     });
 
     test('does not compensate at latest', () {
@@ -87,6 +87,32 @@ void main() {
       );
 
       expect(adjusted, 240);
+    });
+
+    test('ignores unstable lazy-list estimates during a viewport resize', () {
+      final physics = MaintainReadingPositionOnResizePhysics(
+        shouldMaintain: () => true,
+      );
+
+      var pixels = 2120.0;
+      for (final estimatedMax in [28141.0, 31107.0, 40434.0, 31151.0]) {
+        pixels = physics.adjustPositionForNewDimensions(
+          oldPosition: _metrics(
+            pixels: 2120,
+            maxScrollExtent: 28632,
+            viewportDimension: 364,
+          ),
+          newPosition: _metrics(
+            pixels: pixels,
+            maxScrollExtent: estimatedMax,
+            viewportDimension: 537,
+          ),
+          isScrolling: false,
+          velocity: 0,
+        );
+      }
+
+      expect(pixels, 2120);
     });
   });
 }

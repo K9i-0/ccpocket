@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueGetter, clampDouble;
 import 'package:flutter/widgets.dart';
 
-/// Keeps the content being read fixed when the viewport itself changes size,
+/// Keeps the reverse-list offset stable when the viewport itself changes size,
 /// for example when the keyboard or a bottom overlay opens.
 ///
 /// Message-content changes are deliberately ignored here. A lazy list's
@@ -46,8 +46,10 @@ class MaintainReadingPositionOnResizePhysics extends ScrollPhysics {
         oldPosition.viewportDimension - newPosition.viewportDimension;
     if (viewportDelta.abs() <= dimensionChangeTolerance) return adjusted;
 
+    // Animated IME resizing can produce unstable lazy-list extent estimates.
+    // Keep the reverse-list offset unchanged until resizing settles.
     return clampDouble(
-      newPosition.pixels + viewportDelta,
+      newPosition.pixels,
       newPosition.minScrollExtent,
       newPosition.maxScrollExtent,
     );
