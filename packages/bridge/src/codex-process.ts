@@ -1,7 +1,8 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
+import { realpathSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
 import type {
   CodexGoal,
@@ -235,7 +236,7 @@ interface JsonRpcEnvelope {
 
 interface CodexResolvedSettings {
   model?: string;
-  approvalPolicy?: string;
+  approvalPolicy?: CodexRpcApprovalPolicy;
   approvalsReviewer?: string;
   codexPermissionsMode?: string;
   sandboxMode?: string;
@@ -243,6 +244,16 @@ interface CodexResolvedSettings {
   serviceTier?: string;
   networkAccessEnabled?: boolean;
   webSearchMode?: string;
+}
+
+type CodexRpcApprovalPolicy =
+  | NonNullable<CodexStartOptions["approvalPolicy"]>
+  | Record<string, unknown>;
+
+interface CodexConfigPermissions {
+  approvalPolicy: CodexRpcApprovalPolicy;
+  approvalsReviewer: NonNullable<CodexStartOptions["approvalsReviewer"]>;
+  sandboxMode: NonNullable<CodexStartOptions["sandboxMode"]>;
 }
 
 export interface CodexProfileConfig {
@@ -354,7 +365,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private stdoutLineChunks: string[] = [];
 
   // Collaboration mode & plan completion state
-  private _approvalPolicy: string | undefined = undefined;
+  private _approvalPolicy: CodexRpcApprovalPolicy | undefined = undefined;
   private _approvalsReviewer: string | undefined = undefined;
   private _codexPermissionsMode: CodexStartOptions["codexPermissionsMode"] | undefined;
   private _autoReviewDisabledByPolicy = false;
@@ -416,7 +427,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   get approvalPolicy(): string {
-    return this._approvalPolicy ?? "on-request";
+    return approvalPolicyForClient(this._approvalPolicy);
   }
 
   get approvalsReviewer(): string {
@@ -483,7 +494,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * Takes effect on the next `turn/start` RPC call.
    */
   setApprovalPolicy(policy: string): void {
-    this._approvalPolicy = policy;
+    this._approvalPolicy = policy as CodexRpcApprovalPolicy;
     console.log(`[codex-process] Approval policy changed to: ${policy}`);
   }
 
@@ -1450,13 +1461,23 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           ? (await this.readConfigRequirements()).autoReviewDisabled
           : options?.autoReviewDisabledByPolicy === true;
       this._autoReviewDisabledByPolicy = autoReviewDisabled;
-      const effectiveApprovalsReviewer = autoReviewDisabled
-        ? "user"
-        : options?.approvalsReviewer;
       const effectiveCodexPermissionsMode =
         autoReviewDisabled && options?.codexPermissionsMode === "autoReview"
           ? "default"
           : options?.codexPermissionsMode;
+      // thread/resume preserves the thread's prior permission overrides when
+      // these fields are omitted. Custom mode and named profiles mean the
+      // current config.toml should win, so resolve it and pass the effective
+      // values explicitly on resume.
+      const configResumePermissions =
+        options?.threadId &&
+        (effectiveCodexPermissionsMode === "custom" || options.profile)
+          ? await this.readConfigPermissions(projectPath, options.profile)
+          : undefined;
+      const effectiveApprovalsReviewer = autoReviewDisabled
+        ? "user"
+        : (configResumePermissions?.approvalsReviewer ??
+          options?.approvalsReviewer);
       if (autoReviewDisabled) {
         console.warn(
           "[codex-process] Auto-review disabled by managed Browser Use policy",
@@ -1470,8 +1491,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             );
       this._codexPermissionsMode = effectiveCodexPermissionsMode;
 
-      const requestedApprovalPolicy = options?.approvalPolicy
-        ? normalizeApprovalPolicy(options.approvalPolicy)
+      const configuredApprovalPolicy =
+        configResumePermissions?.approvalPolicy ?? options?.approvalPolicy;
+      const requestedApprovalPolicy = configuredApprovalPolicy
+        ? normalizeApprovalPolicyForRpc(configuredApprovalPolicy)
         : undefined;
       const requestedApprovalsReviewer =
         effectiveApprovalsReviewer === undefined
@@ -1481,8 +1504,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             );
       const requestedClientApprovalsReviewer =
         normalizeApprovalsReviewerForClient(effectiveApprovalsReviewer);
-      const requestedSandboxMode = options?.sandboxMode
-        ? normalizeSandboxMode(options.sandboxMode)
+      const configuredSandboxMode =
+        configResumePermissions?.sandboxMode ?? options?.sandboxMode;
+      const requestedSandboxMode = configuredSandboxMode
+        ? normalizeSandboxMode(configuredSandboxMode)
         : undefined;
 
       const threadParams: Record<string, unknown> = {
@@ -1566,14 +1591,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
       const resolvedSettings =
         extractResolvedSettingsFromThreadResponse(response);
+      const activeApprovalPolicy =
+        resolvedSettings.approvalPolicy ?? requestedApprovalPolicy;
       const resolvedApprovalsReviewer = autoReviewDisabled
         ? "user"
         : resolvedSettings.approvalsReviewer;
       if (resolvedSettings.model) {
         this.startModel = resolvedSettings.model;
       }
-      if (resolvedSettings.approvalPolicy) {
-        this._approvalPolicy = resolvedSettings.approvalPolicy;
+      if (activeApprovalPolicy) {
+        this._approvalPolicy = activeApprovalPolicy;
       }
       if (resolvedApprovalsReviewer) {
         this._approvalsReviewer = normalizeApprovalsReviewerForAppServer(
@@ -1593,10 +1620,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(sanitizeCodexModel(this.startModel)
           ? { model: sanitizeCodexModel(this.startModel) }
           : {}),
-        ...(resolvedSettings.approvalPolicy ?? options?.approvalPolicy
+        ...(activeApprovalPolicy
           ? {
-              approvalPolicy:
-                resolvedSettings.approvalPolicy ?? requestedApprovalPolicy,
+              approvalPolicy: approvalPolicyForClient(activeApprovalPolicy),
             }
           : {}),
         ...(resolvedApprovalsReviewer ?? effectiveApprovalsReviewer
@@ -1681,6 +1707,23 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return normalizeWritableRoots(
       [...configuredRoots, ...normalizedAdditional],
       this.platform,
+    );
+  }
+
+  private async readConfigPermissions(
+    projectPath: string,
+    profile?: string,
+  ): Promise<CodexConfigPermissions> {
+    const projectLookupPaths = resolveConfigProjectLookupPaths(projectPath);
+    const response = await this.request("config/read", {
+      includeLayers: false,
+      cwd: projectPath,
+    });
+    return extractPermissionsFromConfigRead(
+      response,
+      projectLookupPaths,
+      this.platform,
+      profile,
     );
   }
 
@@ -2017,8 +2060,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           input,
         };
         if (this._approvalPolicy) {
-          params.approvalPolicy = normalizeApprovalPolicy(
-            this._approvalPolicy as CodexStartOptions["approvalPolicy"],
+          params.approvalPolicy = normalizeApprovalPolicyForRpc(
+            this._approvalPolicy,
           );
         }
         if (this._approvalsReviewer) {
@@ -3462,6 +3505,154 @@ function extractWritableRootsFromConfigRead(response: unknown): string[] {
   );
 }
 
+function extractPermissionsFromConfigRead(
+  response: unknown,
+  projectLookupPaths: readonly string[],
+  platform: NodeJS.Platform,
+  profile?: string,
+): CodexConfigPermissions {
+  const config = asRecord(asRecord(response)?.config);
+  const profiles = asRecord(config?.profiles);
+  const configuredDefaultProfile =
+    typeof config?.profile === "string" && config.profile.trim()
+      ? config.profile.trim()
+      : undefined;
+  const requestedProfile = profile?.trim() || undefined;
+  const selectedProfile = requestedProfile ?? configuredDefaultProfile;
+  const profileConfig = selectedProfile
+    ? asRecord(profiles?.[selectedProfile])
+    : undefined;
+  const configuredValue = (key: string): unknown =>
+    profileConfig?.[key] ?? config?.[key];
+  const projectTrust = findProjectTrust(config, projectLookupPaths, platform);
+  return {
+    approvalPolicy:
+      parseConfigApprovalPolicy(configuredValue("approval_policy")) ??
+      (projectTrust === "untrusted" ? "untrusted" : "on-request"),
+    approvalsReviewer:
+      parseConfigApprovalsReviewer(configuredValue("approvals_reviewer")) ??
+      "user",
+    sandboxMode:
+      parseConfigSandboxMode(configuredValue("sandbox_mode")) ??
+      (projectTrust !== undefined && platform !== "win32"
+        ? "workspace-write"
+        : "read-only"),
+  };
+}
+
+function findProjectTrust(
+  config: Record<string, unknown> | undefined,
+  projectLookupPaths: readonly string[],
+  platform: NodeJS.Platform,
+): "trusted" | "untrusted" | undefined {
+  const projects = asRecord(config?.projects);
+  if (!projects) return undefined;
+  const projectEntries = Object.entries(projects);
+  for (const lookupPath of projectLookupPaths) {
+    const normalizedLookupPath = normalizeConfigPath(lookupPath, platform);
+    for (const [configuredPath, rawProject] of projectEntries) {
+      if (normalizeConfigPath(configuredPath, platform) !== normalizedLookupPath) {
+        continue;
+      }
+      const trustLevel = asRecord(rawProject)?.trust_level;
+      if (trustLevel === "trusted" || trustLevel === "untrusted") {
+        return trustLevel;
+      }
+    }
+  }
+  return undefined;
+}
+
+function resolveConfigProjectLookupPaths(projectPath: string): string[] {
+  const lookupPaths = new Set<string>();
+  let canonicalPath: string;
+  try {
+    canonicalPath = realpathSync(projectPath);
+    lookupPaths.add(canonicalPath);
+    lookupPaths.add(projectPath);
+  } catch {
+    return [projectPath];
+  }
+
+  let candidate = canonicalPath;
+  while (true) {
+    try {
+      statSync(join(candidate, ".git"));
+      lookupPaths.add(candidate);
+      break;
+    } catch {
+      const parent = dirname(candidate);
+      if (parent === candidate) break;
+      candidate = parent;
+    }
+  }
+  return [...lookupPaths];
+}
+
+function normalizeConfigPath(
+  value: string,
+  platform: NodeJS.Platform,
+): string {
+  const normalized = resolvePlatformPath(value, platform);
+  return platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function parseConfigApprovalPolicy(
+  value: unknown,
+): CodexConfigPermissions["approvalPolicy"] | undefined {
+  switch (value) {
+    case "never":
+    case "on-request":
+    case "on-failure":
+    case "untrusted":
+      return value;
+    default:
+      return isGranularApprovalPolicy(value) ? { ...value } : undefined;
+  }
+}
+
+function isGranularApprovalPolicy(
+  value: unknown,
+): value is Record<string, unknown> {
+  const granular = asRecord(asRecord(value)?.granular);
+  return (
+    granular !== undefined &&
+    typeof granular.sandbox_approval === "boolean" &&
+    typeof granular.rules === "boolean" &&
+    typeof granular.mcp_elicitations === "boolean" &&
+    (granular.skill_approval === undefined ||
+      typeof granular.skill_approval === "boolean") &&
+    (granular.request_permissions === undefined ||
+      typeof granular.request_permissions === "boolean")
+  );
+}
+
+function parseConfigApprovalsReviewer(
+  value: unknown,
+): CodexConfigPermissions["approvalsReviewer"] | undefined {
+  switch (value) {
+    case "user":
+    case "auto_review":
+    case "guardian_subagent":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function parseConfigSandboxMode(
+  value: unknown,
+): CodexConfigPermissions["sandboxMode"] | undefined {
+  switch (value) {
+    case "read-only":
+    case "workspace-write":
+    case "danger-full-access":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
 function normalizeWritableRoots(
   roots: string[],
   platform: NodeJS.Platform,
@@ -3481,7 +3672,7 @@ function normalizeWritableRoots(
 
 function normalizeApprovalPolicy(
   value: CodexStartOptions["approvalPolicy"],
-): string {
+): NonNullable<CodexStartOptions["approvalPolicy"]> {
   switch (value) {
     case "on-request":
       return "on-request";
@@ -3493,6 +3684,22 @@ function normalizeApprovalPolicy(
     default:
       return "never";
   }
+}
+
+function normalizeApprovalPolicyForRpc(
+  value: CodexRpcApprovalPolicy,
+): CodexRpcApprovalPolicy {
+  return typeof value === "string" ? normalizeApprovalPolicy(value) : value;
+}
+
+function approvalPolicyForClient(
+  value: CodexRpcApprovalPolicy | undefined,
+): NonNullable<CodexStartOptions["approvalPolicy"]> {
+  // Mobile's legacy mode model cannot represent granular policies. They still
+  // request approval conditionally, so on-request is the closest UI projection.
+  return typeof value === "string"
+    ? (value as NonNullable<CodexStartOptions["approvalPolicy"]>)
+    : "on-request";
 }
 
 function normalizeApprovalsReviewerForAppServer(
@@ -3635,9 +3842,7 @@ function extractResolvedSettingsFromThreadResponse(
     model: sanitizeCodexModel(response.model)
       ?? sanitizeCodexModel(thread?.model),
     approvalPolicy:
-      typeof response.approvalPolicy === "string"
-        ? response.approvalPolicy
-        : undefined,
+      parseConfigApprovalPolicy(response.approvalPolicy),
     approvalsReviewer:
       typeof response.approvalsReviewer === "string"
         ? response.approvalsReviewer

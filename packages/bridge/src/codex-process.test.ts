@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { spawnMock, fakeChildren } = vi.hoisted(() => ({
@@ -52,6 +55,7 @@ const originalCodexAppServerEnv = {
   port: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
   url: process.env.BRIDGE_CODEX_APP_SERVER_URL,
 };
+const temporaryPaths: string[] = [];
 
 function restoreCodexAppServerEnv(): void {
   restoreEnvVar("BRIDGE_PORT", originalCodexAppServerEnv.bridgePort);
@@ -76,6 +80,7 @@ describe("CodexProcess (app-server)", () => {
   beforeEach(() => {
     spawnMock.mockReset();
     fakeChildren.length = 0;
+    temporaryPaths.length = 0;
     spawnMock.mockImplementation(() => {
       const child = new FakeChildProcess();
       fakeChildren.push(child);
@@ -83,7 +88,7 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     stopManagedCodexAppServers();
     restoreCodexAppServerEnv();
     for (const child of fakeChildren) {
@@ -91,6 +96,9 @@ describe("CodexProcess (app-server)", () => {
         child.kill();
       }
     }
+    await Promise.all(
+      temporaryPaths.map((path) => rm(path, { recursive: true, force: true })),
+    );
   });
 
   it("reports rejected tool actions when no matching request exists", () => {
@@ -836,6 +844,374 @@ describe("CodexProcess (app-server)", () => {
     expect(initMessage).not.toHaveProperty("approvalPolicy");
     expect(initMessage).not.toHaveProperty("approvalsReviewer");
     expect(initMessage).not.toHaveProperty("sandboxMode");
+
+    proc.stop();
+  });
+
+  it("reloads config permissions when resuming a custom thread", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-custom-resume", {
+      threadId: "thr_existing",
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const configReq = nextOutgoingRequest(child);
+    expect(configReq).toMatchObject({
+      method: "config/read",
+      params: {
+        cwd: "/tmp/project-custom-resume",
+        includeLayers: false,
+      },
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            approval_policy: "never",
+            approvals_reviewer: "user",
+            sandbox_mode: "danger-full-access",
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        cwd: "/tmp/project-custom-resume",
+        threadId: "thr_existing",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandbox: "danger-full-access",
+      },
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        result: {
+          thread: { id: "thr_existing" },
+          approvalPolicy: "never",
+          approvalsReviewer: "user",
+          sandbox: { type: "dangerFullAccess" },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        sessionId: "thr_existing",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandboxMode: "danger-full-access",
+        codexPermissionsMode: "custom",
+      }),
+    );
+
+    proc.stop();
+  });
+
+  it("applies selected profile permissions on resume without an explicit permissions mode", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-profile-resume", {
+      threadId: "thr_profile",
+      profile: "unrestricted",
+      approvalPolicy: "on-request",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const configReq = nextOutgoingRequest(child);
+    expect(configReq.method).toBe("config/read");
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            profile: "restricted",
+            approval_policy: "on-request",
+            sandbox_mode: "workspace-write",
+            profiles: {
+              restricted: {
+                approval_policy: "on-request",
+                sandbox_mode: "read-only",
+              },
+              unrestricted: {
+                approval_policy: "never",
+                sandbox_mode: "danger-full-access",
+              },
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        threadId: "thr_profile",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandbox: "danger-full-access",
+        config: { profile: "unrestricted" },
+      },
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        result: {
+          thread: { id: "thr_profile" },
+          approvalPolicy: "never",
+          approvalsReviewer: "user",
+          sandbox: { type: "dangerFullAccess" },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        sessionId: "thr_profile",
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandboxMode: "danger-full-access",
+      }),
+    );
+
+    proc.stop();
+  });
+
+  it("uses the configured default profile when resuming a custom thread", async () => {
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/project-default-profile", {
+      threadId: "thr_default_profile",
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+    const configReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            profile: "restricted",
+            approval_policy: "never",
+            sandbox_mode: "danger-full-access",
+            profiles: {
+              restricted: {
+                approval_policy: "on-request",
+                sandbox_mode: "read-only",
+              },
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        threadId: "thr_default_profile",
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        sandbox: "read-only",
+      },
+    });
+
+    proc.stop();
+  });
+
+  it("prefers cwd trust when resetting removed custom permissions", async () => {
+    const fixtureRoot = await mkdtemp(
+      join(tmpdir(), "ccpocket-codex-trust-"),
+    );
+    temporaryPaths.push(fixtureRoot);
+    const repoRoot = join(fixtureRoot, "repo");
+    const nestedProject = join(repoRoot, "packages", "app");
+    const repoLink = join(fixtureRoot, "repo-link");
+    await mkdir(join(repoRoot, ".git"), { recursive: true });
+    await mkdir(nestedProject, { recursive: true });
+    await symlink(
+      repoRoot,
+      repoLink,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    const canonicalRepoRoot = await realpath(repoRoot);
+    const canonicalNestedProject = await realpath(nestedProject);
+    const linkedNestedProject = join(repoLink, "packages", "app");
+    const proc = new CodexProcess("linux");
+    proc.start(linkedNestedProject, {
+      threadId: "thr_trusted",
+      codexPermissionsMode: "custom",
+      approvalPolicy: "never",
+      sandboxMode: "danger-full-access",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+    const configReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            projects: {
+              [canonicalRepoRoot]: { trust_level: "trusted" },
+              [canonicalNestedProject]: { trust_level: "untrusted" },
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        threadId: "thr_trusted",
+        approvalPolicy: "untrusted",
+        approvalsReviewer: "user",
+        sandbox: "workspace-write",
+      },
+    });
+
+    proc.stop();
+  });
+
+  it("preserves granular approval policies across resume and turns", async () => {
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/project-granular", {
+      threadId: "thr_granular",
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+    const configReq = nextOutgoingRequest(child);
+    const granularPolicy = {
+      granular: {
+        sandbox_approval: true,
+        rules: false,
+        mcp_elicitations: true,
+      },
+    };
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            approval_policy: granularPolicy,
+            sandbox_mode: "read-only",
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq).toMatchObject({
+      method: "thread/resume",
+      params: {
+        threadId: "thr_granular",
+        approvalPolicy: granularPolicy,
+      },
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        result: {
+          thread: { id: "thr_granular" },
+          approvalPolicy: granularPolicy,
+          sandbox: { type: "readOnly" },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(proc.approvalPolicy).toBe("on-request");
+    proc.sendInput("continue");
+    await tick();
+    const turnReq = nextOutgoingRequest(child);
+    expect(turnReq).toMatchObject({
+      method: "turn/start",
+      params: { approvalPolicy: granularPolicy },
+    });
 
     proc.stop();
   });

@@ -1751,7 +1751,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("forwards selected codex profile on resume", async () => {
+  it("forwards selected codex profile without an explicit permissions mode on resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -1781,6 +1781,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.codexOptions).toMatchObject({
       threadId: "thr_123",
       profile: "ccpocket",
+      approvalPolicy: "on-request",
+      codexPermissionsMode: undefined,
     });
 
     bridge.close();
