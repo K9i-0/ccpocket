@@ -2826,7 +2826,10 @@ class RecentSessionCard extends StatelessWidget {
             : session.displayText;
       case SessionDisplayMode.last:
         final text =
-            session.lastResponse ?? session.lastPrompt ?? session.firstPrompt;
+            session.lastResponse ??
+            session.summary ??
+            session.lastPrompt ??
+            session.firstPrompt;
         raw = text.isNotEmpty ? text : '(no description)';
       case SessionDisplayMode.summary:
         final text = session.summary ?? session.firstPrompt;

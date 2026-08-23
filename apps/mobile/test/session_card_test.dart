@@ -1378,12 +1378,14 @@ void main() {
       },
     );
 
-    testWidgets('defaults to the last agent response', (tester) async {
+    testWidgets('defaults to the summary response from older bridges', (
+      tester,
+    ) async {
       final session = RecentSession(
         sessionId: 'recent-default-response',
+        summary: 'summary response text',
         firstPrompt: 'first prompt text',
         lastPrompt: 'last prompt text',
-        lastResponse: 'last response text',
         created: DateTime.now().toIso8601String(),
         modified: DateTime.now().toIso8601String(),
         gitBranch: 'main',
@@ -1395,7 +1397,7 @@ void main() {
         _wrap(RecentSessionCard(session: session, onTap: () {})),
       );
 
-      expect(find.text('last response text'), findsOneWidget);
+      expect(find.text('summary response text'), findsOneWidget);
       expect(find.text('first prompt text'), findsNothing);
       expect(find.text('last prompt text'), findsNothing);
     });
