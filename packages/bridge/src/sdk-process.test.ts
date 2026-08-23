@@ -688,6 +688,16 @@ describe("SdkProcess.approveAlways", () => {
     expect(modeMsg).toBeUndefined();
     expect(proc.permissionMode).toBe("acceptEdits");
   });
+
+  it("reports whether a requested tool action was accepted", () => {
+    const { proc } = setupApproveAlways("Bash");
+
+    expect(proc.approveAlways("tool-1")).toBe(true);
+    expect(proc.approve("missing")).toBe(false);
+    expect(proc.approveAlways("missing")).toBe(false);
+    expect(proc.reject("missing")).toBe(false);
+    expect(proc.answer("missing", "answer")).toBe(false);
+  });
 });
 
 describe("SdkProcess input dispatch", () => {

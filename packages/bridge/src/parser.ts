@@ -550,6 +550,7 @@ export type ServerMessage =
       message: string;
       errorCode?: string;
       sessionId?: string;
+      toolUseId?: string;
       path?: string;
       requestId?: string;
     }

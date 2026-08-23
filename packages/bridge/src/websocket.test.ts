@@ -6341,6 +6341,100 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("correlates tool action errors with their session and tool", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const missingSessionActions = [
+      { type: "approve", id: "approve-1", sessionId: "missing" },
+      {
+        type: "approve_always",
+        id: "approve-always-1",
+        sessionId: "missing",
+      },
+      { type: "reject", id: "reject-1", sessionId: "missing" },
+      {
+        type: "answer",
+        toolUseId: "answer-1",
+        result: "yes",
+        sessionId: "missing",
+      },
+      {
+        type: "install_tool_suggestion",
+        toolUseId: "install-1",
+        sessionId: "missing",
+      },
+    ] as const;
+
+    for (const action of missingSessionActions) {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(action, ws);
+      const response = JSON.parse(ws.send.mock.calls.at(-1)[0] as string);
+      expect(response).toMatchObject({
+        type: "error",
+        message: "No active session.",
+        sessionId: "missing",
+        toolUseId: "toolUseId" in action ? action.toolUseId : action.id,
+      });
+    }
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-action-errors",
+        provider: "codex",
+      },
+      ws,
+    );
+    const sends = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    const created = sends.find(
+      (message: any) =>
+        message.type === "system" && message.subtype === "session_created",
+    );
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+
+    ws.send.mockClear();
+    session.process.approve.mockReturnValueOnce(false);
+    await (bridge as any).handleClientMessage(
+      {
+        type: "approve",
+        id: "invalid-approval",
+        sessionId: created.sessionId,
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)[0] as string)).toMatchObject({
+      type: "error",
+      message: "No matching pending tool action.",
+      sessionId: created.sessionId,
+      toolUseId: "invalid-approval",
+    });
+
+    ws.send.mockClear();
+    session.process.installToolSuggestion.mockRejectedValueOnce(
+      new Error("installation failed"),
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "install_tool_suggestion",
+        toolUseId: "install-failed",
+        sessionId: created.sessionId,
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)[0] as string)).toMatchObject({
+      type: "error",
+      message: "installation failed",
+      sessionId: created.sessionId,
+      toolUseId: "install-failed",
+    });
+    bridge.close();
+  });
+
   it("batches deltas for clients that were connected when each delta arrived", () => {
     vi.useFakeTimers();
     const bridge = new BridgeWebSocketServer({

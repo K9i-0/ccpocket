@@ -93,6 +93,15 @@ describe("CodexProcess (app-server)", () => {
     }
   });
 
+  it("reports rejected tool actions when no matching request exists", () => {
+    const proc = new CodexProcess("linux");
+
+    expect(proc.approve("missing")).toBe(false);
+    expect(proc.approveAlways("missing")).toBe(false);
+    expect(proc.reject("missing")).toBe(false);
+    expect(proc.answer("missing", "answer")).toBe(false);
+  });
+
   it("frames app-server JSONL split across many transport chunks", () => {
     const proc = new CodexProcess("linux");
     const internal = proc as any;

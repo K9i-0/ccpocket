@@ -1022,6 +1022,7 @@ class BridgeService implements BridgeServiceBase {
     final toolUseId = switch (message) {
       PermissionResolvedMessage(:final toolUseId) => toolUseId,
       ToolResultMessage(:final toolUseId) => toolUseId,
+      ErrorMessage(:final toolUseId) => toolUseId,
       _ => null,
     };
     if (toolUseId != null) {
@@ -1030,6 +1031,27 @@ class BridgeService implements BridgeServiceBase {
         toolUseId: toolUseId,
       ));
     }
+
+    switch (message) {
+      case SystemMessage(
+        subtype: 'session_created',
+        clearContext: true,
+        :final sourceSessionId?,
+      ):
+        _clearNonReplayableToolActionsForSession(sourceSessionId);
+      case ResultMessage(subtype: 'stopped'):
+        if (sessionId != null) {
+          _clearNonReplayableToolActionsForSession(sessionId);
+        }
+      default:
+        break;
+    }
+  }
+
+  void _clearNonReplayableToolActionsForSession(String sessionId) {
+    _inFlightNonReplayableToolActions.removeWhere(
+      (action) => action.sessionId == sessionId,
+    );
   }
 
   void _cacheAcceptedInFlightInput(

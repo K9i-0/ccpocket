@@ -900,6 +900,19 @@ export class BridgeWebSocketServer {
     };
   }
 
+  private sendToolActionError(
+    ws: WebSocket,
+    message: { sessionId?: string; id?: string; toolUseId?: string },
+    error: string,
+  ): void {
+    this.send(ws, {
+      type: "error",
+      message: error,
+      sessionId: message.sessionId,
+      toolUseId: message.toolUseId ?? message.id,
+    });
+  }
+
   private normalizeAdditionalWritableRoots(
     roots: string[] | undefined,
     projectPath: string,
@@ -4006,11 +4019,18 @@ export class BridgeWebSocketServer {
       case "approve": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
         if (session.provider === "codex") {
-          (session.process as CodexProcess).approve(msg.id);
+          const handled = (session.process as CodexProcess).approve(msg.id);
+          if (handled === false) {
+            this.sendToolActionError(
+              ws,
+              msg,
+              "No matching pending tool action.",
+            );
+          }
           break;
         }
         const sdkProc = session.process as SdkProcess;
@@ -4070,7 +4090,14 @@ export class BridgeWebSocketServer {
           this.broadcast({ ...createdMsg, clearContext: true });
           this.broadcastSessionList();
         } else {
-          sdkProc.approve(msg.id);
+          const handled = sdkProc.approve(msg.id);
+          if (handled === false) {
+            this.sendToolActionError(
+              ws,
+              msg,
+              "No matching pending tool action.",
+            );
+          }
         }
         break;
       }
@@ -4078,56 +4105,113 @@ export class BridgeWebSocketServer {
       case "approve_always": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
         if (session.provider === "codex") {
-          (session.process as CodexProcess).approveAlways(msg.id);
+          const handled = (session.process as CodexProcess).approveAlways(
+            msg.id,
+          );
+          if (handled === false) {
+            this.sendToolActionError(
+              ws,
+              msg,
+              "No matching pending tool action.",
+            );
+          }
           break;
         }
-        (session.process as SdkProcess).approveAlways(msg.id);
+        const handled = (session.process as SdkProcess).approveAlways(msg.id);
+        if (handled === false) {
+          this.sendToolActionError(
+            ws,
+            msg,
+            "No matching pending tool action.",
+          );
+        }
         break;
       }
 
       case "reject": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
         if (session.provider === "codex") {
-          (session.process as CodexProcess).reject(msg.id, msg.message);
+          const handled = (session.process as CodexProcess).reject(
+            msg.id,
+            msg.message,
+          );
+          if (handled === false) {
+            this.sendToolActionError(
+              ws,
+              msg,
+              "No matching pending tool action.",
+            );
+          }
           break;
         }
-        (session.process as SdkProcess).reject(msg.id, msg.message);
+        const handled = (session.process as SdkProcess).reject(
+          msg.id,
+          msg.message,
+        );
+        if (handled === false) {
+          this.sendToolActionError(
+            ws,
+            msg,
+            "No matching pending tool action.",
+          );
+        }
         break;
       }
 
       case "answer": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
         if (session.provider === "codex") {
-          (session.process as CodexProcess).answer(msg.toolUseId, msg.result);
+          const handled = (session.process as CodexProcess).answer(
+            msg.toolUseId,
+            msg.result,
+          );
+          if (handled === false) {
+            this.sendToolActionError(
+              ws,
+              msg,
+              "No matching pending tool action.",
+            );
+          }
           break;
         }
-        (session.process as SdkProcess).answer(msg.toolUseId, msg.result);
+        const handled = (session.process as SdkProcess).answer(
+          msg.toolUseId,
+          msg.result,
+        );
+        if (handled === false) {
+          this.sendToolActionError(
+            ws,
+            msg,
+            "No matching pending tool action.",
+          );
+        }
         break;
       }
 
       case "install_tool_suggestion": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
         if (session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            message: "Tool suggestions are only supported for Codex sessions.",
-          });
+          this.sendToolActionError(
+            ws,
+            msg,
+            "Tool suggestions are only supported for Codex sessions.",
+          );
           return;
         }
         try {
@@ -4135,10 +4219,11 @@ export class BridgeWebSocketServer {
             msg.toolUseId,
           );
         } catch (err) {
-          this.send(ws, {
-            type: "error",
-            message: err instanceof Error ? err.message : String(err),
-          });
+          this.sendToolActionError(
+            ws,
+            msg,
+            err instanceof Error ? err.message : String(err),
+          );
         }
         break;
       }

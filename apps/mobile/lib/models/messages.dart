@@ -855,6 +855,7 @@ sealed class ServerMessage {
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
         sessionId: json['sessionId'] as String?,
+        toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
       ),
@@ -1626,6 +1627,7 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   final String? sessionId;
+  final String? toolUseId;
   final String? path;
   final String? requestId;
 
@@ -1633,6 +1635,7 @@ class ErrorMessage implements ServerMessage {
     required this.message,
     this.errorCode,
     this.sessionId,
+    this.toolUseId,
     this.path,
     this.requestId,
   });

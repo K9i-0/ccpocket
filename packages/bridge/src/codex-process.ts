@@ -989,24 +989,24 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
   }
 
-  approve(toolUseId?: string): void {
+  approve(toolUseId?: string): boolean {
     // Check if this is a plan completion approval
     if (
       this.pendingPlanCompletion &&
       toolUseId === this.pendingPlanCompletion.toolUseId
     ) {
       this.handlePlanApproved();
-      return;
+      return true;
     }
 
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       // Fallback: McpElicitation lives in pendingUserInputs
-      if (this.approveUserInput(toolUseId, "Accept")) return;
+      if (this.approveUserInput(toolUseId, "Accept")) return true;
       console.log(
         "[codex-process] approve() called but no pending permission requests",
       );
-      return;
+      return false;
     }
 
     this.pendingApprovals.delete(pending.toolUseId);
@@ -1019,17 +1019,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
-  approveAlways(toolUseId?: string): void {
+  approveAlways(toolUseId?: string): boolean {
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       // Fallback: McpElicitation lives in pendingUserInputs
-      if (this.approveUserInput(toolUseId, "Allow for this session")) return;
+      if (this.approveUserInput(toolUseId, "Allow for this session")) {
+        return true;
+      }
       console.log(
         "[codex-process] approveAlways() called but no pending permission requests",
       );
-      return;
+      return false;
     }
 
     this.pendingApprovals.delete(pending.toolUseId);
@@ -1046,26 +1049,27 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
-  reject(toolUseId?: string, _message?: string): void {
+  reject(toolUseId?: string, _message?: string): boolean {
     // Check if this is a plan completion rejection
     if (
       this.pendingPlanCompletion &&
       toolUseId === this.pendingPlanCompletion.toolUseId
     ) {
       this.handlePlanRejected(_message);
-      return;
+      return true;
     }
 
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       // Fallback: McpElicitation lives in pendingUserInputs
-      if (this.rejectUserInput(toolUseId, "Decline")) return;
+      if (this.rejectUserInput(toolUseId, "Decline")) return true;
       console.log(
         "[codex-process] reject() called but no pending permission requests",
       );
-      return;
+      return false;
     }
 
     this.pendingApprovals.delete(pending.toolUseId);
@@ -1078,15 +1082,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
-  answer(toolUseId: string, result: string): void {
+  answer(toolUseId: string, result: string): boolean {
     const pending = this.resolvePendingUserInput(toolUseId);
     if (!pending) {
       console.log(
         "[codex-process] answer() called but no pending AskUserQuestion",
       );
-      return;
+      return false;
     }
 
     this.pendingUserInputs.delete(pending.toolUseId);
@@ -1100,6 +1105,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
   /**
