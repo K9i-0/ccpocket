@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1092,8 +1093,8 @@ describe("CodexProcess (app-server)", () => {
       repoLink,
       process.platform === "win32" ? "junction" : "dir",
     );
-    const canonicalRepoRoot = await realpath(repoRoot);
-    const canonicalNestedProject = await realpath(nestedProject);
+    const canonicalRepoRoot = realpathSync(repoRoot);
+    const canonicalNestedProject = realpathSync(nestedProject);
     const linkedNestedProject = join(repoLink, "packages", "app");
     const proc = new CodexProcess(process.platform);
     proc.start(linkedNestedProject, {
