@@ -16,6 +16,8 @@ export interface SessionIndexEntry {
   summary?: string;
   firstPrompt: string;
   lastPrompt?: string;
+  /** Last assistant response text shown by recent-session cards. */
+  lastResponse?: string;
   created: string;
   modified: string;
   gitBranch: string;
@@ -71,7 +73,7 @@ export interface GetRecentSessionsOptions {
   provider?: "claude" | "codex";
   /** Show only sessions with a non-empty name. */
   namedOnly?: boolean;
-  /** Free-text search across name, firstPrompt, lastPrompt and summary. */
+  /** Free-text search across name and recent-session preview fields. */
   searchQuery?: string;
 }
 
@@ -335,6 +337,18 @@ function extractUserPromptText(entry: Record<string, unknown>): string {
   return "";
 }
 
+/** Extract all text blocks from a Claude assistant entry. */
+function extractAssistantResponseText(entry: Record<string, unknown>): string {
+  const message = entry.message as { content?: unknown } | undefined;
+  if (typeof message?.content === "string") return message.content.trim();
+  if (!Array.isArray(message?.content)) return "";
+  return (message.content as Array<{ type?: unknown; text?: unknown }>)
+    .filter((content) => content.type === "text" && typeof content.text === "string")
+    .map((content) => content.text as string)
+    .join("\n")
+    .trim();
+}
+
 /**
  * Parse head and optional tail text chunks to build a SessionIndexEntry.
  * Uses regex for most fields, JSON.parse only for first/last user lines.
@@ -353,6 +367,7 @@ function parseFromChunks(
 ): ParsedClaudeChunks {
   let firstPrompt = "";
   let lastPrompt = "";
+  let lastResponse = "";
   let created = "";
   let modified = "";
   let gitBranch = "";
@@ -416,20 +431,30 @@ function parseFromChunks(
       if (pmMatch) permissionMode = pmMatch[1];
     }
 
-    if (isUser && !firstPrompt) {
-      // JSON.parse only user lines to extract prompt text, skipping
-      // system-injected messages (e.g. <local-command-caveat>)
+    if (isUser) {
+      // Extract prompt text while skipping system-injected messages (e.g.
+      // <local-command-caveat>). For small files this also captures the last
+      // prompt without a separate tail read.
       try {
         const entry = JSON.parse(line) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) {
-          if (isAutoRenamePromptText(text)) {
+          if (!firstPrompt && isAutoRenamePromptText(text)) {
             isInternalAutoRename = true;
             break;
           }
-          firstPrompt = text;
-          headFoundFirstPrompt = true;
+          if (!firstPrompt) {
+            firstPrompt = text;
+            headFoundFirstPrompt = true;
+          }
+          lastPrompt = text;
         }
+      } catch { /* skip */ }
+    } else if (isAssistant) {
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        const text = extractAssistantResponseText(entry);
+        if (text) lastResponse = text;
       } catch { /* skip */ }
     }
   }
@@ -447,9 +472,11 @@ function parseFromChunks(
   if (tail) {
     const tailLines = tail.split("\n");
 
-    // Find last timestamp and last user prompt from tail (scan in reverse)
+    // Find last timestamp, user prompt, and assistant response from the tail.
     let lastUserLine: string | null = null;
+    let lastAssistantLine: string | null = null;
     let tailCustomTitle = "";
+    let foundTailTimestamp = false;
     for (let i = tailLines.length - 1; i >= 0; i--) {
       const line = tailLines[i];
       if (!line.trim()) continue;
@@ -468,29 +495,18 @@ function parseFromChunks(
       if (!isUser && !isAssistant) continue;
       hasAnyMessage = true;
 
-      // Get the last modified timestamp
-      if (!modified || true) {
-        // Always update modified from tail (tail is later in file)
+      if (!lastUserLine && isUser) lastUserLine = line;
+      if (!lastAssistantLine && isAssistant) lastAssistantLine = line;
+
+      // The first message found in reverse order is the last modified one.
+      if (!foundTailTimestamp) {
         const tsMatch = line.match(RE_TIMESTAMP);
         if (tsMatch) {
           modified = tsMatch[1];
-          // We found the last message — we're done with timestamps
-          if (isUser && !lastUserLine) lastUserLine = line;
-          break;
+          foundTailTimestamp = true;
         }
       }
-    }
-
-    // Also find last user line if not found in reverse timestamp scan
-    if (!lastUserLine) {
-      for (let i = tailLines.length - 1; i >= 0; i--) {
-        const line = tailLines[i];
-        if (!line.trim()) continue;
-        if (RE_TYPE_USER.test(line)) {
-          lastUserLine = line;
-          break;
-        }
-      }
+      if (lastUserLine && lastAssistantLine) break;
     }
 
     // JSON.parse only the last user line for lastPrompt
@@ -499,6 +515,13 @@ function parseFromChunks(
         const entry = JSON.parse(lastUserLine) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) lastPrompt = text;
+      } catch { /* skip */ }
+    }
+    if (lastAssistantLine) {
+      try {
+        const entry = JSON.parse(lastAssistantLine) as Record<string, unknown>;
+        const text = extractAssistantResponseText(entry);
+        if (text) lastResponse = text;
       } catch { /* skip */ }
     }
 
@@ -547,6 +570,7 @@ function parseFromChunks(
       provider: "claude",
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+      ...(lastResponse ? { lastResponse } : {}),
       ...(customTitle ? { name: customTitle } : {}),
       created,
       modified,
@@ -697,6 +721,9 @@ async function hydrateClaudeIndexedEntry(
     projectPath: base.projectPath || parsed.projectPath,
     isSidechain: base.isSidechain || parsed.isSidechain,
     ...(base.lastPrompt || !parsed.lastPrompt ? {} : { lastPrompt: parsed.lastPrompt }),
+    ...(base.lastResponse || !parsed.lastResponse
+      ? {}
+      : { lastResponse: parsed.lastResponse }),
     ...(base.permissionMode || !parsed.permissionMode ? {} : { permissionMode: parsed.permissionMode }),
   };
 }
@@ -781,36 +808,36 @@ async function extractMissingFieldsStreaming(
 }
 
 /**
- * Maximum bytes to read from file tail when searching for lastPrompt.
+ * Maximum bytes to read from a file tail when searching for recent text.
  * Claude sessions often have large tool-result lines (diffs, etc.) near the
  * end, so 8KB is rarely enough.  We grow the read window in steps up to this
  * cap to balance speed and coverage.
  */
-const LAST_PROMPT_MAX_TAIL = 131072; // 128KB
+const RECENT_TEXT_MAX_TAIL = 131072; // 128KB
 
 /**
- * Fast tail-read to extract the last user prompt from a JSONL file.
- * Starts at TAIL_BYTES and doubles up to LAST_PROMPT_MAX_TAIL until a real
- * user text prompt is found.  No full-file scan is ever performed.
- * Used to supplement sessions-index.json entries that lack lastPrompt.
+ * Fast tail-read to extract the last user prompt and assistant response from
+ * a JSONL file. The read window grows until both are found or the cap is hit.
  */
-async function extractLastPromptFromTail(
+async function extractRecentTextFromTail(
   filePath: string,
-): Promise<string> {
+): Promise<{ lastPrompt: string; lastResponse: string }> {
   let fh;
   try {
     fh = await open(filePath, "r");
   } catch {
-    return "";
+    return { lastPrompt: "", lastResponse: "" };
   }
   try {
     const fileSize = (await fh.stat()).size;
-    if (fileSize === 0) return "";
+    if (fileSize === 0) return { lastPrompt: "", lastResponse: "" };
+    let lastPrompt = "";
+    let lastResponse = "";
 
     // Grow tail window: 8KB → 16KB → 32KB → 64KB → 128KB
     for (
       let tailSize = TAIL_BYTES;
-      tailSize <= LAST_PROMPT_MAX_TAIL;
+      tailSize <= RECENT_TEXT_MAX_TAIL;
       tailSize *= 2
     ) {
       const readSize = Math.min(fileSize, tailSize);
@@ -825,25 +852,37 @@ async function extractLastPromptFromTail(
         if (nl >= 0) raw = raw.slice(nl + 1);
       }
 
-      // Scan in reverse to find the last user line with real text
+      // Scan in reverse to find the latest real user and assistant texts.
       const lines = raw.split("\n");
       for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
         if (!line.trim()) continue;
-        if (!RE_TYPE_USER.test(line)) continue;
-        try {
-          const entry = JSON.parse(line) as Record<string, unknown>;
-          const text = extractUserPromptText(entry);
-          if (text && !isSystemInjectedText(text)) return text;
-        } catch {
-          // Truncated line — skip
+        if (!lastPrompt && RE_TYPE_USER.test(line)) {
+          try {
+            const entry = JSON.parse(line) as Record<string, unknown>;
+            const text = extractUserPromptText(entry);
+            if (text && !isSystemInjectedText(text)) lastPrompt = text;
+          } catch {
+            // Truncated line — retry with a larger window.
+          }
+        } else if (!lastResponse && RE_TYPE_ASSISTANT.test(line)) {
+          try {
+            const entry = JSON.parse(line) as Record<string, unknown>;
+            const text = extractAssistantResponseText(entry);
+            if (text) lastResponse = text;
+          } catch {
+            // Truncated line — retry with a larger window.
+          }
+        }
+        if (lastPrompt && lastResponse) {
+          return { lastPrompt, lastResponse };
         }
       }
 
       // If we already read the entire file, stop
       if (readSize >= fileSize) break;
     }
-    return "";
+    return { lastPrompt, lastResponse };
   } finally {
     await fh.close();
   }
@@ -1091,7 +1130,8 @@ export async function getAllRecentSessions(
         (e.modified ? 1 : 0) +
         (e.name ? 1 : 0) +
         (e.summary ? 1 : 0) +
-        (e.lastPrompt ? 1 : 0);
+        (e.lastPrompt ? 1 : 0) +
+        (e.lastResponse ? 1 : 0);
       if (score(entry) > score(existing)) {
         seen.set(entry.sessionId, entry);
       }
@@ -1125,7 +1165,7 @@ export async function getAllRecentSessions(
   }
   perfStats.counts.afterNamedOnly = filtered.length;
 
-  // Filter by search query (name, firstPrompt, lastPrompt, summary)
+  // Filter by search query across every visible preview field.
   if (options.searchQuery) {
     const q = options.searchQuery.toLowerCase();
     filtered = filtered.filter(
@@ -1133,6 +1173,7 @@ export async function getAllRecentSessions(
         e.name?.toLowerCase().includes(q) ||
         e.firstPrompt?.toLowerCase().includes(q) ||
         e.lastPrompt?.toLowerCase().includes(q) ||
+        e.lastResponse?.toLowerCase().includes(q) ||
         e.summary?.toLowerCase().includes(q),
     );
   }
@@ -1153,25 +1194,34 @@ export async function getAllRecentSessions(
   perfStats.counts.returned = sliced.length;
   markDuration(durations, "paginate", paginateStartedAt);
 
-  // Supplement missing lastPrompt for Claude sessions (sessions-index.json
-  // doesn't include lastPrompt).  Only the paginated page is processed so at
-  // most `limit` tail reads are needed — lightweight enough to keep inline.
+  // Supplement recent text for Claude sessions. sessions-index.json doesn't
+  // include the last prompt or response, so only the paginated page is read.
   const supplementStartedAt = process.hrtime.bigint();
-  const needLastPrompt = sliced.filter(
-    (e) => e.provider === "claude" && !e.lastPrompt && e.projectPath,
+  const needRecentText = sliced.filter(
+    (e) =>
+      e.provider === "claude" &&
+      (!e.lastPrompt || !e.lastResponse) &&
+      e.projectPath,
   );
-  if (needLastPrompt.length > 0) {
+  if (needRecentText.length > 0) {
     const projectsDir = join(homedir(), ".claude", "projects");
-    await parallelMap(needLastPrompt, PARALLEL_FILE_READ_LIMIT, async (entry) => {
+    await parallelMap(needRecentText, PARALLEL_FILE_READ_LIMIT, async (entry) => {
       const slug = pathToSlug(entry.projectPath);
       const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
-      const lp = await extractLastPromptFromTail(jsonlPath);
-      if (lp && lp !== entry.firstPrompt) {
-        entry.lastPrompt = lp;
+      const recentText = await extractRecentTextFromTail(jsonlPath);
+      if (
+        !entry.lastPrompt &&
+        recentText.lastPrompt &&
+        recentText.lastPrompt !== entry.firstPrompt
+      ) {
+        entry.lastPrompt = recentText.lastPrompt;
+      }
+      if (!entry.lastResponse && recentText.lastResponse) {
+        entry.lastResponse = recentText.lastResponse;
       }
     });
   }
-  markDuration(durations, "supplementLastPrompt", supplementStartedAt);
+  markDuration(durations, "supplementRecentText", supplementStartedAt);
 
   markDuration(durations, "total", totalStartedAt);
   logRecentSessionsPerf(options, durations, perfStats);
@@ -1201,6 +1251,8 @@ export interface CodexSessionIndexMetadata {
   lastPrompt?: string;
   /** Last assistant message text — the closest thing to a session summary. */
   summary?: string;
+  /** Last assistant response text for the recent-session card. */
+  lastResponse?: string;
 }
 
 interface CodexSessionParseResult {
@@ -1429,6 +1481,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       ...(agentNickname ? { agentNickname } : {}),
       ...(agentRole ? { agentRole } : {}),
       summary: summary || undefined,
+      lastResponse: lastAssistantText || undefined,
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
       created,
@@ -1907,6 +1960,9 @@ export async function getCodexSessionIndexMetadata(
       ...(parsed.entry.firstPrompt ? { firstPrompt: parsed.entry.firstPrompt } : {}),
       ...(parsed.entry.lastPrompt ? { lastPrompt: parsed.entry.lastPrompt } : {}),
       ...(parsed.entry.summary ? { summary: parsed.entry.summary } : {}),
+      ...(parsed.entry.lastResponse
+        ? { lastResponse: parsed.entry.lastResponse }
+        : {}),
     });
   }
 
@@ -3578,10 +3634,10 @@ export async function getCodexSessionHistory(
  */
 export async function findSessionsByClaudeIds(
   ids: Set<string>,
-): Promise<Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>> {
+): Promise<Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "lastResponse" | "projectPath">>> {
   if (ids.size === 0) return new Map();
 
-  const result = new Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>();
+  const result = new Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "lastResponse" | "projectPath">>();
   const remaining = new Set(ids);
 
   const projectsDir = join(homedir(), ".claude", "projects");
@@ -3621,6 +3677,7 @@ export async function findSessionsByClaudeIds(
         summary: entry.summary as string | undefined,
         firstPrompt: (entry.firstPrompt as string) ?? "",
         lastPrompt: entry.lastPrompt as string | undefined,
+        lastResponse: entry.lastResponse as string | undefined,
         projectPath: normalizeWorktreePath((entry.projectPath as string) ?? ""),
       });
       remaining.delete(sid);

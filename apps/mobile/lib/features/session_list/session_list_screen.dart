@@ -146,7 +146,7 @@ String buildResumeCommand(RecentSession session) {
   return 'cd ${shellQuote(cwd)} && $resumeCommand';
 }
 
-/// Filter sessions by text query (matches name, firstPrompt, lastPrompt and summary).
+/// Filter sessions by text query across all recent-session preview fields.
 List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   if (query.isEmpty) return sessions;
   final q = query.toLowerCase();
@@ -154,6 +154,7 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
     return (s.name?.toLowerCase().contains(q) ?? false) ||
         s.firstPrompt.toLowerCase().contains(q) ||
         (s.lastPrompt?.toLowerCase().contains(q) ?? false) ||
+        (s.lastResponse?.toLowerCase().contains(q) ?? false) ||
         (s.summary?.toLowerCase().contains(q) ?? false);
   }).toList();
 }

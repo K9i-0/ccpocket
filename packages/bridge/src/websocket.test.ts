@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePlatformPath } from "./path-utils.js";
 
@@ -109,8 +109,9 @@ vi.mock("./session.js", () => ({
       _worktreeOptions?: unknown,
       provider: "claude" | "codex" = "claude",
       codexOptions?: unknown,
+      restoredBridgeSessionId?: string,
     ): string {
-      const id = `s-${++this.seq}`;
+      const id = restoredBridgeSessionId ?? `s-${++this.seq}`;
       const process = {
         status: "idle",
         isRunning: true,
@@ -201,8 +202,10 @@ vi.mock("./session.js", () => ({
         historyLowWatermark: 1,
         status: "idle",
         provider,
+        name: undefined,
         createdAt: new Date(),
         lastActivityAt: new Date(),
+        restoredLastMessage: undefined,
         process,
       });
       return id;
@@ -346,11 +349,12 @@ vi.mock("./session.js", () => ({
         provider: s.provider,
         projectPath: s.projectPath,
         claudeSessionId: s.claudeSessionId,
+        name: s.name,
         status: s.status,
-        createdAt: "",
-        lastActivityAt: "",
+        createdAt: s.createdAt.toISOString(),
+        lastActivityAt: s.lastActivityAt.toISOString(),
         gitBranch: "",
-        lastMessage: "",
+        lastMessage: s.restoredLastMessage ?? "",
         codexSettings: s.codexSettings,
         queuedInput: s.codexQueuedInput,
       }));
@@ -428,6 +432,7 @@ vi.mock("./session.js", () => ({
 }));
 
 import { BridgeWebSocketServer } from "./websocket.js";
+import { ActiveSessionStore } from "./active-session-store.js";
 import { CodexProcess, CodexRpcError } from "./codex-process.js";
 
 describe("BridgeWebSocketServer resume/get_history flow", () => {
@@ -460,6 +465,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     vi.unstubAllEnvs();
     vi.useRealTimers();
     httpServer.close();
+  });
+
+  it("restores active sessions after restart until the user stops them", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ccpocket-active-restore-"));
+    const projectPath = join(directory, "project");
+    mkdirSync(projectPath, { recursive: true });
+    const storeFile = join(directory, "active-sessions.json");
+    const store = new ActiveSessionStore(storeFile);
+    store.replace([
+      {
+        bridgeSessionId: "bridge-kept",
+        providerSessionId: "claude-kept",
+        provider: "claude",
+        projectPath,
+        name: "Kept conversation",
+        createdAt: "2026-08-23T10:00:00.000Z",
+        lastActivityAt: "2026-08-23T11:00:00.000Z",
+        lastMessage: "Latest agent response",
+        permissionMode: "acceptEdits",
+      },
+    ]);
+
+    try {
+      const bridge = new BridgeWebSocketServer({
+        server: httpServer,
+        allowedDirs: [directory],
+        activeSessionStore: store,
+      });
+      expect((bridge as any).sessionManager.list()).toMatchObject([
+        {
+          id: "bridge-kept",
+          claudeSessionId: "claude-kept",
+          name: "Kept conversation",
+          lastMessage: "Latest agent response",
+        },
+      ]);
+
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      await (bridge as any).handleClientMessage(
+        { type: "stop_session", sessionId: "bridge-kept" },
+        ws,
+      );
+
+      expect(new ActiveSessionStore(storeFile).list()).toEqual([]);
+      bridge.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("acknowledges push registration only after relay success", async () => {

@@ -325,6 +325,7 @@ describe("scanJsonlDir", () => {
     expect(entry.sessionId).toBe("test-session-1");
     expect(entry.provider).toBe("claude");
     expect(entry.firstPrompt).toBe("hello world");
+    expect(entry.lastResponse).toBe("Hi there!");
     expect(entry.created).toBe("2026-01-01T00:00:00.000Z");
     expect(entry.modified).toBe("2026-01-01T00:00:01.000Z");
     expect(entry.gitBranch).toBe("main");
@@ -933,6 +934,7 @@ describe("codex sessions integration", () => {
     expect(entry?.provider).toBe("codex");
     expect(entry?.projectPath).toBe(mainProjectPath);
     expect(entry?.resumeCwd).toBe(worktreePath);
+    expect(entry?.lastResponse).toBe("worktree response");
 
     const mainFilter = await getAllRecentSessions({
       projectPath: mainProjectPath,
@@ -1243,6 +1245,9 @@ describe("codex sessions integration", () => {
       "thanks, now add a test",
     );
     expect(metadata.get(wantedThreadId)?.summary).toBe("done: fixed the bug");
+    expect(metadata.get(wantedThreadId)?.lastResponse).toBe(
+      "done: fixed the bug",
+    );
   });
 
   it("reads codex history from jsonl", async () => {
@@ -2203,6 +2208,70 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0].sessionId).toBe("named-s1");
     expect(result.sessions[0].name).toBe("My named session");
+  });
+
+  it("supplements indexed Claude sessions with the last agent response", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    const sessionId = "indexed-last-response";
+    const jsonlPath = join(projectDir, `${sessionId}.jsonl`);
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId,
+            fullPath: jsonlPath,
+            fileMtime: Date.now(),
+            firstPrompt: "initial request",
+            messageCount: 4,
+            created: "2026-02-13T10:00:00.000Z",
+            modified: "2026-02-13T11:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+    writeFileSync(
+      jsonlPath,
+      [
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "initial request" },
+          timestamp: "2026-02-13T10:00:00.000Z",
+        }),
+        JSON.stringify({
+          type: "assistant",
+          message: { role: "assistant", content: [{ type: "text", text: "initial response" }] },
+          timestamp: "2026-02-13T10:01:00.000Z",
+        }),
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "follow-up request" },
+          timestamp: "2026-02-13T10:02:00.000Z",
+        }),
+        JSON.stringify({
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "final agent response" }],
+          },
+          timestamp: "2026-02-13T10:03:00.000Z",
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      limit: 20,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].lastPrompt).toBe("follow-up request");
+    expect(result.sessions[0].lastResponse).toBe("final agent response");
   });
 
   it("finds an exact Claude session outside the first recent page", async () => {

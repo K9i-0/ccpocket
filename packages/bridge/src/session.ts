@@ -67,6 +67,8 @@ export interface SessionInfo {
   createdAt: Date;
   lastActivityAt: Date;
   gitBranch: string;
+  /** Last assistant preview restored from the active-session registry. */
+  restoredLastMessage?: string;
   /** If this session uses a worktree, the path to it. */
   worktreePath?: string;
   /** Branch name of the worktree. */
@@ -303,8 +305,12 @@ export class SessionManager {
     worktreeOpts?: WorktreeOptions,
     provider?: Provider,
     codexOptions?: CodexStartOptions,
+    restoredBridgeSessionId?: string,
   ): string {
-    const id = randomUUID().slice(0, 8);
+    const id =
+      restoredBridgeSessionId && !this.sessions.has(restoredBridgeSessionId)
+        ? restoredBridgeSessionId
+        : randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
     const proc =
       effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
@@ -1276,7 +1282,7 @@ export class SessionManager {
         }
       }
     }
-    return "";
+    return s.restoredLastMessage ?? "";
   }
 
   queueCodexInput(id: string, input: QueuedCodexInput): boolean {

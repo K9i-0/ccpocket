@@ -2562,7 +2562,7 @@ class RecentSessionCard extends StatelessWidget {
     this.onLongPress,
     this.onShowActions,
     this.hideProjectBadge = false,
-    this.displayMode = SessionDisplayMode.first,
+    this.displayMode = SessionDisplayMode.last,
     this.draftText,
     this.isProcessing = false,
     this.isSelected = false,
@@ -2825,7 +2825,8 @@ class RecentSessionCard extends StatelessWidget {
             ? session.firstPrompt
             : session.displayText;
       case SessionDisplayMode.last:
-        final text = session.lastPrompt ?? session.firstPrompt;
+        final text =
+            session.lastResponse ?? session.lastPrompt ?? session.firstPrompt;
         raw = text.isNotEmpty ? text : '(no description)';
       case SessionDisplayMode.summary:
         final text = session.summary ?? session.firstPrompt;

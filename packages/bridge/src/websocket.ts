@@ -64,6 +64,10 @@ import {
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
+import {
+  ActiveSessionStore,
+  type PersistedActiveSession,
+} from "./active-session-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import {
   listWorktrees,
@@ -596,6 +600,11 @@ function normalizeNonNegativeLimit(
     : fallback;
 }
 
+function parsePersistedDate(value: string, fallback: Date): Date {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -612,6 +621,9 @@ function codexThreadToRecentSession(
     summary: indexed?.summary || thread.preview || undefined,
     firstPrompt: indexed?.firstPrompt || thread.preview || "",
     ...(indexed?.lastPrompt ? { lastPrompt: indexed.lastPrompt } : {}),
+    ...((indexed?.lastResponse || indexed?.summary)
+      ? { lastResponse: indexed?.lastResponse || indexed?.summary }
+      : {}),
     created: threadTimestampToIso(thread.createdAt),
     modified: threadTimestampToIso(thread.updatedAt),
     gitBranch: thread.gitBranch ?? "",
@@ -660,6 +672,7 @@ export interface BridgeServerOptions {
   firebaseAuth?: FirebaseAuthClient;
   promptHistoryBackup?: PromptHistoryBackupStore;
   promptHistoryStore?: PromptHistoryStore;
+  activeSessionStore?: ActiveSessionStore | null;
   platform?: NodeJS.Platform;
   fileListMaxEntries?: number;
   fileListMaxBytes?: number;
@@ -710,6 +723,7 @@ export class BridgeWebSocketServer {
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
+  private activeSessionStore: ActiveSessionStore | null;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
   private codexAutoReviewDisabled = false;
@@ -771,6 +785,7 @@ export class BridgeWebSocketServer {
       firebaseAuth,
       promptHistoryBackup,
       promptHistoryStore,
+      activeSessionStore,
       platform,
       fileListMaxEntries,
       fileListMaxBytes,
@@ -788,6 +803,12 @@ export class BridgeWebSocketServer {
     this.pushRelay = new PushRelayClient({ firebaseAuth });
     this.promptHistoryBackup = promptHistoryBackup ?? null;
     this.promptHistoryStore = promptHistoryStore ?? null;
+    this.activeSessionStore =
+      activeSessionStore === undefined
+        ? process.env.NODE_ENV === "test"
+          ? null
+          : new ActiveSessionStore()
+        : activeSessionStore;
     this.platform = platform ?? process.platform;
     this.fileListMaxEntries = normalizePositiveLimit(
       fileListMaxEntries,
@@ -854,6 +875,7 @@ export class BridgeWebSocketServer {
       this.worktreeStore,
       () => this.broadcastSessionList(),
     );
+    this.restorePersistedActiveSessions();
 
     this.wss.on("connection", (ws, req) => {
       // API key authentication
@@ -2166,6 +2188,7 @@ export class BridgeWebSocketServer {
     options?: StartOptions & { permissionMode?: ClaudePermissionMode };
     pastMessages?: unknown[];
     worktreeOptions?: WorktreeOptions;
+    restoredBridgeSessionId?: string;
   }): {
     sessionId: string;
     permissionMode: ClaudePermissionMode;
@@ -2180,6 +2203,9 @@ export class BridgeWebSocketServer {
         params.options,
         params.pastMessages,
         params.worktreeOptions,
+        undefined,
+        undefined,
+        params.restoredBridgeSessionId,
       );
       return {
         sessionId,
@@ -2207,6 +2233,9 @@ export class BridgeWebSocketServer {
         fallbackOptions,
         params.pastMessages,
         params.worktreeOptions,
+        undefined,
+        undefined,
+        params.restoredBridgeSessionId,
       );
       return {
         sessionId,
@@ -2218,8 +2247,141 @@ export class BridgeWebSocketServer {
     }
   }
 
+  private restorePersistedActiveSessions(): void {
+    if (!this.activeSessionStore) return;
+    const records = this.activeSessionStore.list();
+    let restoredCount = 0;
+
+    for (const record of records) {
+      const projectPath = resolvePlatformPath(record.projectPath, this.platform);
+      if (!existsSync(projectPath) || !this.isPathAllowed(projectPath)) {
+        console.warn(
+          `[active-sessions] Skipping ${record.providerSessionId}: project path is unavailable or disallowed`,
+        );
+        continue;
+      }
+
+      let worktreeOptions: WorktreeOptions | undefined;
+      if (record.worktreePath) {
+        const worktreePath = resolvePlatformPath(
+          record.worktreePath,
+          this.platform,
+        );
+        if (!existsSync(worktreePath) || !this.isPathAllowed(worktreePath)) {
+          console.warn(
+            `[active-sessions] Skipping ${record.providerSessionId}: worktree path is unavailable or disallowed`,
+          );
+          continue;
+        }
+        worktreeOptions = {
+          existingWorktreePath: worktreePath,
+          worktreeBranch: record.worktreeBranch,
+        };
+      }
+
+      try {
+        const sessionId =
+          record.provider === "claude"
+            ? this.createClaudeSessionWithFallback({
+                projectPath,
+                options: {
+                  sessionId: record.providerSessionId,
+                  continueMode: true,
+                  permissionMode:
+                    record.permissionMode as StartOptions["permissionMode"],
+                  model: record.model,
+                  sandboxEnabled: record.sandboxEnabled,
+                },
+                worktreeOptions,
+                restoredBridgeSessionId: record.bridgeSessionId,
+              }).sessionId
+            : this.sessionManager.create(
+                projectPath,
+                undefined,
+                undefined,
+                worktreeOptions,
+                "codex",
+                this.withCodexAutoReviewPolicy({
+                  ...(record.codexSettings ?? {}),
+                  threadId: record.providerSessionId,
+                  collaborationMode: record.planMode ? "plan" : "default",
+                } as CodexStartOptions),
+                record.bridgeSessionId,
+              );
+        const session = this.sessionManager.get(sessionId);
+        if (!session) continue;
+        session.name = record.name;
+        session.restoredLastMessage = record.lastMessage;
+        session.createdAt = parsePersistedDate(record.createdAt, session.createdAt);
+        session.lastActivityAt = parsePersistedDate(
+          record.lastActivityAt,
+          session.lastActivityAt,
+        );
+        restoredCount += 1;
+      } catch (err) {
+        console.warn(
+          `[active-sessions] Failed to restore ${record.providerSessionId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    this.persistActiveSessions();
+    if (restoredCount > 0) {
+      console.log(`[active-sessions] Restored ${restoredCount} session(s)`);
+    }
+  }
+
+  private persistActiveSessions(): void {
+    if (!this.activeSessionStore) return;
+    const records: PersistedActiveSession[] = [];
+    for (const summary of this.sessionManager.list()) {
+      if (!summary.claudeSessionId) continue;
+      records.push({
+        bridgeSessionId: summary.id,
+        providerSessionId: summary.claudeSessionId,
+        provider: summary.provider,
+        projectPath: summary.projectPath,
+        ...(summary.name ? { name: summary.name } : {}),
+        createdAt: summary.createdAt,
+        lastActivityAt: summary.lastActivityAt,
+        lastMessage: summary.lastMessage,
+        ...(summary.worktreePath
+          ? { worktreePath: summary.worktreePath }
+          : {}),
+        ...(summary.worktreeBranch
+          ? { worktreeBranch: summary.worktreeBranch }
+          : {}),
+        ...(summary.permissionMode
+          ? { permissionMode: summary.permissionMode }
+          : {}),
+        ...(summary.model ? { model: summary.model } : {}),
+        ...(summary.sandboxEnabled !== undefined
+          ? { sandboxEnabled: summary.sandboxEnabled }
+          : {}),
+        ...(summary.planMode !== undefined
+          ? { planMode: summary.planMode }
+          : {}),
+        ...(summary.codexSettings
+          ? {
+              codexSettings: {
+                ...summary.codexSettings,
+                additionalWritableRoots:
+                  summary.codexSettings.additionalWritableRoots == null
+                    ? undefined
+                    : [...summary.codexSettings.additionalWritableRoots],
+              },
+            }
+          : {}),
+      });
+    }
+    this.activeSessionStore.replace(records);
+  }
+
   close(): void {
     console.log("[ws] Shutting down...");
+    this.persistActiveSessions();
     for (const operation of this.resumeOperations.values()) {
       if (operation.timeout) clearTimeout(operation.timeout);
     }
@@ -6982,6 +7144,7 @@ export class BridgeWebSocketServer {
   /** Broadcast session list to all connected clients. */
   private broadcastSessionList(): void {
     this.pruneDebugEvents();
+    this.persistActiveSessions();
     const sessions = this.sessionManager.list();
     this.broadcast({
       type: "session_list",
@@ -7021,6 +7184,9 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
     exclude?: WebSocket,
   ): void {
+    if (msg.type === "assistant") {
+      this.persistActiveSessions();
+    }
     if (this.shouldBatchDelta(msg, exclude)) {
       this.trackSessionMessage(sessionId, msg);
       const chunks = this.splitDeltaText(msg.text);

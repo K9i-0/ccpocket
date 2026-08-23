@@ -105,6 +105,7 @@ void main() {
         'projectPath': '/workspace/app',
         'gitBranch': 'main',
         'firstPrompt': 'Continue this task',
+        'lastResponse': 'The task is complete.',
         'created': '2026-07-24T00:00:00Z',
         'modified': '2026-07-24T01:00:00Z',
         'isSidechain': false,
@@ -115,6 +116,7 @@ void main() {
     expect(message.status, SessionLinkResolutionStatus.recent);
     expect(message.recentSession?.sessionId, 'claude-uuid');
     expect(message.recentSession?.projectPath, '/workspace/app');
+    expect(message.recentSession?.lastResponse, 'The task is complete.');
   });
 
   test('parses a scoped session-not-found error', () {
