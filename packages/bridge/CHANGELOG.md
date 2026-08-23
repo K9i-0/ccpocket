@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.72.1] - 2026-08-23
+
+### Fixed
+- Refresh Codex approval, reviewer, and sandbox permissions from current Custom or profile configuration when resuming a thread, including granular policies and project-trust defaults.
+
 ## [1.72.0] - 2026-08-23
 
 ### Added
