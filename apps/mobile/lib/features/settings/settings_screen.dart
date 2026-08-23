@@ -611,6 +611,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ],
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    SwitchListTile(
+                      key: const ValueKey('show_hidden_directories_toggle'),
+                      secondary: Icon(
+                        Icons.folder_open_outlined,
+                        color: cs.primary,
+                      ),
+                      title: Text(l.showHiddenDirectories),
+                      subtitle: Text(l.showHiddenDirectoriesSubtitle),
+                      value: state.showHiddenDirectories,
+                      onChanged: (value) => context
+                          .read<SettingsCubit>()
+                          .setShowHiddenDirectories(value),
+                    ),
                     if (codexEnabled) ...[
                       Divider(
                         height: 1,
@@ -1560,6 +1579,7 @@ class _PushNotificationTile extends StatelessWidget {
       FcmStatusKey.unavailable => l.pushNotificationsUnavailable,
       FcmStatusKey.bridgeNotInitialized => l.fcmBridgeNotInitialized,
       FcmStatusKey.tokenFailed => l.fcmTokenFailed,
+      FcmStatusKey.registrationFailed => l.fcmRegistrationFailed,
       FcmStatusKey.enabled => l.fcmEnabled,
       FcmStatusKey.enabledPending => l.fcmEnabledPending,
       FcmStatusKey.disabled => l.fcmDisabled,

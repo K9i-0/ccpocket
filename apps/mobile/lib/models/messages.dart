@@ -83,6 +83,21 @@ enum BridgeConnectionState { disconnected, connecting, connected, reconnecting }
 
 enum MessageStatus { sending, sent, queued, failed }
 
+enum PermissionOutcome {
+  approved,
+  approvedForSession,
+  rejected,
+  answered;
+
+  static PermissionOutcome? fromString(String? value) => switch (value) {
+    'approved' => PermissionOutcome.approved,
+    'approved_for_session' => PermissionOutcome.approvedForSession,
+    'rejected' => PermissionOutcome.rejected,
+    'answered' => PermissionOutcome.answered,
+    _ => null,
+  };
+}
+
 // ---- Process status ----
 
 enum ProcessStatus {
@@ -807,6 +822,9 @@ sealed class ServerMessage {
         toolUseId: json['toolUseId'] as String,
         content: _normalizeToolResultContent(json['content']),
         toolName: json['toolName'] as String?,
+        permissionOutcome: PermissionOutcome.fromString(
+          json['permissionOutcome'] as String?,
+        ),
         images:
             (json['images'] as List?)
                 ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
@@ -837,8 +855,15 @@ sealed class ServerMessage {
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
         sessionId: json['sessionId'] as String?,
+        toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
+      ),
+      'push_registration_result' => PushRegistrationResultMessage(
+        token: json['token'] as String,
+        requestId: json['requestId'] as String,
+        success: json['success'] as bool,
+        error: json['error'] as String?,
       ),
       'session_link_resolution' => SessionLinkResolutionMessage(
         requestId: json['requestId'] as String,
@@ -1556,12 +1581,14 @@ class ToolResultMessage implements ServerMessage {
   final String toolUseId;
   final String content;
   final String? toolName;
+  final PermissionOutcome? permissionOutcome;
   final List<ImageRef> images;
   final String? userMessageUuid;
   const ToolResultMessage({
     required this.toolUseId,
     required this.content,
     this.toolName,
+    this.permissionOutcome,
     this.images = const [],
     this.userMessageUuid,
   });
@@ -1600,6 +1627,7 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   final String? sessionId;
+  final String? toolUseId;
   final String? path;
   final String? requestId;
 
@@ -1607,8 +1635,23 @@ class ErrorMessage implements ServerMessage {
     required this.message,
     this.errorCode,
     this.sessionId,
+    this.toolUseId,
     this.path,
     this.requestId,
+  });
+}
+
+class PushRegistrationResultMessage implements ServerMessage {
+  final String token;
+  final String requestId;
+  final bool success;
+  final String? error;
+
+  const PushRegistrationResultMessage({
+    required this.token,
+    required this.requestId,
+    required this.success,
+    this.error,
   });
 }
 
@@ -3925,6 +3968,7 @@ class ClientMessage {
       'history_snapshot',
       'git_status_result',
       'prompt_history_status',
+      'push_registration_result',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{
@@ -4066,12 +4110,14 @@ class ClientMessage {
   factory ClientMessage.pushRegister({
     required String token,
     required String platform,
+    required String requestId,
     String? locale,
     bool? privacyMode,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'push_register',
     'token': token,
     'platform': platform,
+    'requestId': requestId,
     'locale': ?locale,
     'privacyMode': ?privacyMode,
   });
@@ -4375,12 +4421,16 @@ class ClientMessage {
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
 
-  factory ClientMessage.listDirectory(String path, {String? requestId}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'list_directory',
-        'path': path,
-        'requestId': ?requestId,
-      });
+  factory ClientMessage.listDirectory(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'list_directory',
+    'path': path,
+    'requestId': ?requestId,
+    if (includeHidden) 'includeHidden': true,
+  });
 
   factory ClientMessage.getDiff(String projectPath, {bool? staged}) =>
       ClientMessage._(<String, dynamic>{

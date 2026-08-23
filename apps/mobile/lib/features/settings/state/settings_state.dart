@@ -15,6 +15,7 @@ enum FcmStatusKey {
   unavailable,
   bridgeNotInitialized,
   tokenFailed,
+  registrationFailed,
   enabled,
   enabledPending,
   disabled,
@@ -104,6 +105,9 @@ abstract class SettingsState with _$SettingsState {
     /// Visible tabs (and their order) in the new session sheet.
     @Default(defaultNewSessionTabs) List<NewSessionTab> newSessionTabs,
 
+    /// Whether the new-session directory browser includes dot-directories.
+    @Default(false) bool showHiddenDirectories,
+
     /// Whether Codex usage limits are shown as remaining quota or used quota.
     @Default(UsageDisplayMode.remaining) UsageDisplayMode usageDisplayMode,
 
@@ -120,6 +124,10 @@ abstract class SettingsState with _$SettingsState {
   /// Whether push notifications are enabled for the currently connected machine.
   bool get fcmEnabled =>
       activeMachineId != null && fcmEnabledMachines.contains(activeMachineId);
+
+  /// Whether this Bridge has acknowledged the active token registration.
+  bool get fcmReady =>
+      fcmAvailable && fcmEnabled && fcmStatusKey == FcmStatusKey.enabled;
 
   /// Whether privacy mode is enabled for the currently connected machine.
   bool get fcmPrivacy =>

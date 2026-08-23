@@ -843,6 +843,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get approvalRequired => '需要批准';
 
   @override
+  String get approvalStatusPending => '待批准';
+
+  @override
+  String get approvalStatusApproved => '已批准';
+
+  @override
+  String get approvalStatusApprovedForSession => '本次会话已批准';
+
+  @override
+  String get approvalStatusRejected => '已拒绝';
+
+  @override
+  String get approvalStatusResolved => '已解决';
+
+  @override
   String get viewEditPlan => '查看计划';
 
   @override
@@ -1919,6 +1934,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fcmTokenFailed => '获取 FCM Token 失败';
 
   @override
+  String get fcmRegistrationFailed => '向 Bridge 注册通知失败';
+
+  @override
   String get fcmEnabled => '通知已启用';
 
   @override
@@ -1986,6 +2004,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
+
+  @override
+  String get showHiddenDirectories => '显示隐藏目录';
+
+  @override
+  String get showHiddenDirectoriesSubtitle => '在新建会话目录浏览器中显示以 . 开头的文件夹。';
 
   @override
   String get showBridgeNameInSessionList => '显示 Bridge 名称';

@@ -936,9 +936,52 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(l.settingsNewSessionTabs), findsOneWidget);
+      expect(find.text(l.showHiddenDirectories), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('show_hidden_directories_toggle')),
+        findsOneWidget,
+      );
       expect(find.text(l.autoRenameCodexSessions), findsOneWidget);
       expect(find.text(l.showExtendedCodexEfforts), findsOneWidget);
       expect(find.text(l.autoRenameClaudeSessions), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('toggles hidden directories from agent settings', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(
+        const ValueKey('show_hidden_directories_toggle'),
+      );
+      await tester.scrollUntilVisible(toggle, 180);
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      expect(settingsCubit.state.showHiddenDirectories, isFalse);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(settingsCubit.state.showHiddenDirectories, isTrue);
+      expect(prefs.getBool('settings_show_hidden_directories'), isTrue);
 
       await settingsCubit.close();
       await machineManagerCubit.close();

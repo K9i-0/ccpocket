@@ -33,6 +33,8 @@ type NotifyBody = {
   body: string;
   /** When set, only tokens with this locale receive the notification. */
   locale?: string;
+  /** SHA-256 IDs of tokens that the Bridge currently considers active. */
+  tokenHashes?: string[];
   data?: Record<string, string>;
 };
 
@@ -185,6 +187,18 @@ function parseRelayBody(payload: unknown): RelayBody | null {
     const bodyText = asNonEmptyString(body.body);
     if (!eventType || !title || !bodyText) return null;
     const locale = asNonEmptyString(body.locale) ?? undefined;
+    let tokenHashes: string[] | undefined;
+    if (body.tokenHashes != null) {
+      if (!Array.isArray(body.tokenHashes) || body.tokenHashes.length > 20) {
+        return null;
+      }
+      tokenHashes = [];
+      for (const value of body.tokenHashes) {
+        const hash = asNonEmptyString(value)?.toLowerCase();
+        if (!hash || !/^[a-f0-9]{64}$/.test(hash)) return null;
+        if (!tokenHashes.includes(hash)) tokenHashes.push(hash);
+      }
+    }
     const data =
       typeof body.data === "object" && body.data != null
         ? Object.fromEntries(
@@ -193,7 +207,16 @@ function parseRelayBody(payload: unknown): RelayBody | null {
               .map(([k, v]) => [k, String(v)]),
           )
         : undefined;
-    return { op, bridgeId: "", eventType, title, body: bodyText, locale, data };
+    return {
+      op,
+      bridgeId: "",
+      eventType,
+      title,
+      body: bodyText,
+      locale,
+      tokenHashes,
+      data,
+    };
   }
 
   return null;
@@ -260,8 +283,14 @@ async function handleNotify(body: NotifyBody): Promise<{
   deletedInvalidTokens: number;
 }> {
   const snapshot = await db.collection(`bridges/${body.bridgeId}/tokens`).get();
+  const activeTokenHashes = body.tokenHashes == null
+    ? null
+    : new Set(body.tokenHashes);
   const tokens = snapshot.docs
     .filter((d) => {
+      if (activeTokenHashes != null && !activeTokenHashes.has(d.id)) {
+        return false;
+      }
       // When locale is specified, only send to tokens with matching locale.
       // Tokens without a locale field are included when no locale filter is set (backward compat).
       if (!body.locale) return true;

@@ -1668,6 +1668,36 @@ abstract class AppLocalizations {
   /// **'承認が必要'**
   String get approvalRequired;
 
+  /// No description provided for @approvalStatusPending.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認待ち'**
+  String get approvalStatusPending;
+
+  /// No description provided for @approvalStatusApproved.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認済み'**
+  String get approvalStatusApproved;
+
+  /// No description provided for @approvalStatusApprovedForSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション中承認済み'**
+  String get approvalStatusApprovedForSession;
+
+  /// No description provided for @approvalStatusRejected.
+  ///
+  /// In ja, this message translates to:
+  /// **'拒否済み'**
+  String get approvalStatusRejected;
+
+  /// No description provided for @approvalStatusResolved.
+  ///
+  /// In ja, this message translates to:
+  /// **'解決済み'**
+  String get approvalStatusResolved;
+
   /// No description provided for @viewEditPlan.
   ///
   /// In ja, this message translates to:
@@ -3672,6 +3702,12 @@ abstract class AppLocalizations {
   /// **'FCM token を取得できませんでした'**
   String get fcmTokenFailed;
 
+  /// No description provided for @fcmRegistrationFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge への通知登録に失敗しました'**
+  String get fcmRegistrationFailed;
+
   /// No description provided for @fcmEnabled.
   ///
   /// In ja, this message translates to:
@@ -3809,6 +3845,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
   String get settingsNewSessionTabsDescription;
+
+  /// No description provided for @showHiddenDirectories.
+  ///
+  /// In ja, this message translates to:
+  /// **'隠しディレクトリを表示'**
+  String get showHiddenDirectories;
+
+  /// No description provided for @showHiddenDirectoriesSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。'**
+  String get showHiddenDirectoriesSubtitle;
 
   /// No description provided for @showBridgeNameInSessionList.
   ///

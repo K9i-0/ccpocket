@@ -13,8 +13,14 @@ import '../../theme/markdown_style.dart';
 class ResultChip extends StatelessWidget {
   final ResultMessage message;
   final FilePathTapCallback? onFileTap;
+  final bool showSuccessResultText;
 
-  const ResultChip({super.key, required this.message, this.onFileTap});
+  const ResultChip({
+    super.key,
+    required this.message,
+    this.onFileTap,
+    this.showSuccessResultText = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +61,10 @@ class ResultChip extends StatelessWidget {
         chipColor = appColors.errorChip;
     }
 
-    // Only show result text for non-success cases (errors, stopped).
-    // For success, the text is already displayed by AssistantBubble.
+    // Success text is a fallback when its assistant message is missing.
     final resultText = message.result;
     final showResultText =
-        message.subtype != 'success' &&
+        (message.subtype != 'success' || showSuccessResultText) &&
         resultText != null &&
         resultText.trim().isNotEmpty;
 

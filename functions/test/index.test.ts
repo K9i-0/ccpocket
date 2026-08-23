@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -245,6 +246,49 @@ describe("relay", () => {
       failureCount: 0,
       deletedInvalidTokens: 0,
     });
+  });
+
+  it("sends only to token hashes explicitly active on the Bridge", async () => {
+    const activeToken = "b".repeat(32);
+    const pendingToken = "c".repeat(32);
+    const activeHash = createHash("sha256").update(activeToken).digest("hex");
+    const pendingHash = createHash("sha256").update(pendingToken).digest("hex");
+    mocks.collectionGet.mockResolvedValue({
+      docs: [
+        { id: activeHash, get: (field: string) => field === "token" ? activeToken : "en" },
+        { id: pendingHash, get: (field: string) => field === "token" ? pendingToken : "en" },
+      ],
+    });
+
+    const res = await invoke({
+      op: "notify",
+      eventType: "session_completed",
+      title: "Done",
+      body: "Finished",
+      locale: "en",
+      tokenHashes: [activeHash],
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(mocks.sendEachForMulticast).toHaveBeenCalledWith(
+      expect.objectContaining({ tokens: [activeToken] }),
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenCount: 1, successCount: 1 }),
+    );
+  });
+
+  it("rejects malformed active token hashes", async () => {
+    const res = await invoke({
+      op: "notify",
+      eventType: "session_completed",
+      title: "Done",
+      body: "Finished",
+      tokenHashes: ["not-a-sha256"],
+    });
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mocks.collectionGet).not.toHaveBeenCalled();
   });
 
   it("sanitizes unexpected Firestore errors and logs their details", async () => {

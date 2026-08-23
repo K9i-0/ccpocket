@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/app_icon.dart';
@@ -31,8 +32,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   final RevenueCatService? _revenueCat;
   final AppIconService _appIconService;
   StreamSubscription<BridgeConnectionState>? _bridgeSub;
+  StreamSubscription<ServerMessage>? _bridgeMessagesSub;
   StreamSubscription<String>? _tokenRefreshSub;
   String? _activeToken;
+  String? _activePushRegistrationRequestId;
   VoidCallback? _supporterListener;
 
   static const _keyThemeMode = 'settings_theme_mode';
@@ -57,6 +60,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
+  static const _keyShowHiddenDirectories = 'settings_show_hidden_directories';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
   static const _keyAutoRenameCodexSessions = 'autoRenameCodexSessions';
   static const _keyShowExtendedCodexEfforts =
@@ -71,6 +75,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyIndentSize = 'settings_indent_size';
   // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
+  static const _uuid = Uuid();
 
   SettingsCubit(
     this._prefs, {
@@ -92,13 +97,20 @@ class SettingsCubit extends Cubit<SettingsState> {
        ) {
     final bridge = _bridge;
     if (bridge != null) {
+      _bridgeMessagesSub = bridge.messages.listen((message) {
+        if (message case PushRegistrationResultMessage()) {
+          _handlePushRegistrationResult(message);
+        }
+      });
       _bridgeSub = bridge.connectionStatus.listen((status) {
         if (status == BridgeConnectionState.connected) {
+          emit(state.copyWith(activeMachineId: null, fcmStatusKey: null));
           _updateActiveMachine();
           if (state.fcmEnabled) {
             unawaited(_syncPushRegistration());
           }
-        } else if (status == BridgeConnectionState.disconnected) {
+        } else {
+          _activePushRegistrationRequestId = null;
           emit(state.copyWith(activeMachineId: null, fcmStatusKey: null));
         }
       });
@@ -217,6 +229,8 @@ class SettingsCubit extends Cubit<SettingsState> {
         prefs.getBool(_keyShowExtendedCodexEfforts) ?? false;
     final autoRenameClaudeSessions =
         prefs.getBool(_keyAutoRenameClaudeSessions) ?? false;
+    final showHiddenDirectories =
+        prefs.getBool(_keyShowHiddenDirectories) ?? false;
 
     // Load terminal app config
     var terminalApp = TerminalAppConfig.empty;
@@ -262,6 +276,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
+      showHiddenDirectories: showHiddenDirectories,
       usageDisplayMode: usageDisplayMode,
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
@@ -299,6 +314,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     _tokenRefreshSub = _fcmService.onTokenRefresh.listen((token) {
       final previousToken = _fcmService.cacheToken(token);
       _activeToken = token;
+      if (state.fcmEnabled) {
+        emit(state.copyWith(fcmStatusKey: FcmStatusKey.enabledPending));
+      }
       if (state.fcmEnabled && previousToken != null && previousToken != token) {
         bridge.unregisterPushToken(previousToken);
       }
@@ -416,6 +434,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setNewSessionTabs(List<NewSessionTab> tabs) {
     _prefs.setString(_keyNewSessionTabs, tabsToJson(tabs));
     emit(state.copyWith(newSessionTabs: tabs));
+  }
+
+  void setShowHiddenDirectories(bool show) {
+    _prefs.setBool(_keyShowHiddenDirectories, show);
+    emit(state.copyWith(showHiddenDirectories: show));
   }
 
   void setEnabledAgentsMode(EnabledAgentsMode mode) {
@@ -537,6 +560,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> _syncPushRegistration() async {
+    final requestId = _uuid.v4();
+    _activePushRegistrationRequestId = requestId;
     final bridge = _bridge;
     if (bridge == null) {
       emit(
@@ -549,6 +574,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     final token = await _fcmService.getToken();
+    if (_activePushRegistrationRequestId != requestId) return;
     if (token == null || token.isEmpty) {
       emit(
         state.copyWith(
@@ -560,19 +586,39 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     _activeToken = token;
+    emit(
+      state.copyWith(
+        fcmSyncInProgress: false,
+        fcmStatusKey: FcmStatusKey.enabledPending,
+      ),
+    );
     bridge.registerPushToken(
       token: token,
       platform: _fcmService.platform,
+      requestId: requestId,
       locale: _resolvePushLocale(),
       privacyMode: state.fcmPrivacy ? true : null,
     );
-    final statusKey = bridge.isConnected
-        ? FcmStatusKey.enabled
-        : FcmStatusKey.enabledPending;
-    emit(state.copyWith(fcmSyncInProgress: false, fcmStatusKey: statusKey));
+  }
+
+  void _handlePushRegistrationResult(PushRegistrationResultMessage result) {
+    if (result.token != _activeToken ||
+        result.requestId != _activePushRegistrationRequestId ||
+        !state.fcmEnabled) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        fcmSyncInProgress: false,
+        fcmStatusKey: result.success
+            ? FcmStatusKey.enabled
+            : FcmStatusKey.registrationFailed,
+      ),
+    );
   }
 
   Future<void> _syncPushUnregister() async {
+    _activePushRegistrationRequestId = null;
     final bridge = _bridge;
     if (bridge == null) {
       emit(
@@ -623,6 +669,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   @override
   Future<void> close() async {
     await _bridgeSub?.cancel();
+    await _bridgeMessagesSub?.cancel();
     await _tokenRefreshSub?.cancel();
     final listener = _supporterListener;
     if (listener != null) {

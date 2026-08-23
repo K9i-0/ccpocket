@@ -469,6 +469,46 @@ void main() {
       bridge.dispose();
     });
 
+    test('push registration result stays out of session streams', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final globalResult = bridge.messages
+          .where((message) => message is PushRegistrationResultMessage)
+          .cast<PushRegistrationResultMessage>()
+          .first;
+      final sessionResult = bridge
+          .messagesForSession('s1')
+          .where((message) => message is PushRegistrationResultMessage)
+          .cast<PushRegistrationResultMessage>()
+          .first
+          .timeout(const Duration(milliseconds: 100));
+
+      socket.add(
+        jsonEncode({
+          'type': 'push_registration_result',
+          'token': 'sensitive-fcm-token',
+          'requestId': 'push-request-1',
+          'success': true,
+        }),
+      );
+
+      expect((await globalResult).token, 'sensitive-fcm-token');
+      await expectLater(sessionResult, throwsA(isA<TimeoutException>()));
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test('resolveSessionLink degrades for an older Bridge', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();
@@ -506,6 +546,609 @@ void main() {
       await server.close(force: true);
       bridge.dispose();
     });
+
+    test('resolveSessionLink reconnects and retries a stale socket', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final firstSocketReady = Completer<WebSocket>();
+      final secondSocketReady = Completer<WebSocket>();
+      final firstRequestReady = Completer<void>();
+      final resentInputReady = Completer<void>();
+      var connectionCount = 0;
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        connectionCount++;
+        if (connectionCount == 1) {
+          firstSocketReady.complete(socket);
+        } else if (connectionCount == 2) {
+          secondSocketReady.complete(socket);
+        }
+        final socketNumber = connectionCount;
+        socket.listen((event) {
+          final json = jsonDecode(event as String) as Map<String, dynamic>;
+          if (json['type'] == 'resolve_session_link') {
+            if (socketNumber == 1 && !firstRequestReady.isCompleted) {
+              firstRequestReady.complete();
+            } else if (socketNumber == 2) {
+              socket.add(
+                jsonEncode({
+                  'type': 'session_link_resolution',
+                  'requestId': json['requestId'],
+                  'sourceSessionId': 'claude-uuid',
+                  'status': 'live',
+                  'bridgeSessionId': 'bridge-1',
+                  'provider': 'claude',
+                }),
+              );
+            }
+          }
+          if (socketNumber == 2 &&
+              json['type'] == 'input' &&
+              json['clientMessageId'] == 'cm-during-reconnect' &&
+              !resentInputReady.isCompleted) {
+            resentInputReady.complete();
+          }
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await firstSocketReady.future;
+
+      final resolutionFuture = bridge.resolveSessionLink(
+        'claude-uuid',
+        provider: 'claude',
+        timeout: const Duration(seconds: 2),
+      );
+      await firstRequestReady.future.timeout(const Duration(seconds: 1));
+      bridge.send(
+        ClientMessage.input(
+          'keep this input',
+          sessionId: 's1',
+          clientMessageId: 'cm-during-reconnect',
+        ),
+      );
+
+      // The first socket deliberately never answers. The resolver should
+      // replace it, repeat the request, and preserve other in-flight input.
+      final secondSocket = await secondSocketReady.future.timeout(
+        const Duration(seconds: 2),
+      );
+      await resentInputReady.future.timeout(const Duration(seconds: 1));
+
+      final result = await resolutionFuture.timeout(const Duration(seconds: 2));
+      expect(result.support, SessionLinkResolveSupport.resolved);
+      expect(result.resolution?.bridgeSessionId, 'bridge-1');
+      expect(connectionCount, 2);
+
+      bridge.disconnect();
+      await secondSocket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('stale reconnect does not interrupt an unresolved approval', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requestReady = Completer<void>();
+      final approvalReady = Completer<void>();
+      var connectionCount = 0;
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        connectionCount++;
+        socket.listen((event) {
+          final json = jsonDecode(event as String) as Map<String, dynamic>;
+          if (json['type'] == 'resolve_session_link' &&
+              !requestReady.isCompleted) {
+            requestReady.complete();
+          }
+          if (json['type'] == 'approve' && !approvalReady.isCompleted) {
+            approvalReady.complete();
+            socket.add(
+              jsonEncode({
+                'type': 'permission_resolved',
+                'sessionId': 's2',
+                'toolUseId': 'tool-1',
+              }),
+            );
+          }
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final resolutionFuture = bridge.resolveSessionLink(
+        'claude-uuid',
+        timeout: const Duration(milliseconds: 700),
+      );
+      await requestReady.future.timeout(const Duration(seconds: 1));
+      bridge.send(ClientMessage.approve('tool-1', sessionId: 's1'));
+      await approvalReady.future.timeout(const Duration(seconds: 1));
+
+      // A different session may legitimately reuse the same toolUseId. Its
+      // response must not clear the guard for s1's unresolved approval.
+      final result = await resolutionFuture;
+      expect(result.support, SessionLinkResolveSupport.unavailable);
+      expect(connectionCount, 1);
+
+      bridge.disconnect();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'clear-context session creation releases stale reconnect guard',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final firstRequestReady = Completer<void>();
+        final clearContextReady = Completer<void>();
+        var connectionCount = 0;
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          final socketNumber = connectionCount;
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] == 'resolve_session_link') {
+              if (socketNumber == 1 && !firstRequestReady.isCompleted) {
+                firstRequestReady.complete();
+              } else if (socketNumber == 2) {
+                socket.add(
+                  jsonEncode({
+                    'type': 'session_link_resolution',
+                    'requestId': json['requestId'],
+                    'sourceSessionId': 'claude-uuid',
+                    'status': 'live',
+                    'bridgeSessionId': 'bridge-after-clear',
+                    'provider': 'claude',
+                  }),
+                );
+              }
+            }
+            if (socketNumber == 1 && json['type'] == 'approve') {
+              socket.add(
+                jsonEncode({
+                  'type': 'system',
+                  'subtype': 'session_created',
+                  'sessionId': 's2',
+                  'sourceSessionId': 's1',
+                  'clearContext': true,
+                  'provider': 'claude',
+                }),
+              );
+              if (!clearContextReady.isCompleted) {
+                clearContextReady.complete();
+              }
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final resolutionFuture = bridge.resolveSessionLink(
+          'claude-uuid',
+          timeout: const Duration(seconds: 2),
+        );
+        await firstRequestReady.future.timeout(const Duration(seconds: 1));
+        bridge.send(
+          ClientMessage.approve('tool-1', sessionId: 's1', clearContext: true),
+        );
+        await clearContextReady.future.timeout(const Duration(seconds: 1));
+
+        final result = await resolutionFuture.timeout(
+          const Duration(seconds: 3),
+        );
+        expect(result.support, SessionLinkResolveSupport.resolved);
+        expect(result.resolution?.bridgeSessionId, 'bridge-after-clear');
+        expect(connectionCount, 2);
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'correlated tool action error releases stale reconnect guard',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final firstRequestReady = Completer<void>();
+        final actionErrorReady = Completer<void>();
+        var connectionCount = 0;
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          final socketNumber = connectionCount;
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] == 'resolve_session_link') {
+              if (socketNumber == 1 && !firstRequestReady.isCompleted) {
+                firstRequestReady.complete();
+              } else if (socketNumber == 2) {
+                socket.add(
+                  jsonEncode({
+                    'type': 'session_link_resolution',
+                    'requestId': json['requestId'],
+                    'sourceSessionId': 'claude-uuid',
+                    'status': 'live',
+                    'bridgeSessionId': 'bridge-after-error',
+                    'provider': 'claude',
+                  }),
+                );
+              }
+            }
+            if (socketNumber == 1 && json['type'] == 'approve') {
+              socket.add(
+                jsonEncode({
+                  'type': 'error',
+                  'message': 'No matching pending tool action.',
+                  'sessionId': 's1',
+                  'toolUseId': 'tool-1',
+                }),
+              );
+              if (!actionErrorReady.isCompleted) actionErrorReady.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final resolutionFuture = bridge.resolveSessionLink(
+          'claude-uuid',
+          timeout: const Duration(seconds: 2),
+        );
+        await firstRequestReady.future.timeout(const Duration(seconds: 1));
+        bridge.send(ClientMessage.approve('tool-1', sessionId: 's1'));
+        await actionErrorReady.future.timeout(const Duration(seconds: 1));
+
+        final result = await resolutionFuture.timeout(
+          const Duration(seconds: 3),
+        );
+        expect(result.support, SessionLinkResolveSupport.resolved);
+        expect(result.resolution?.bridgeSessionId, 'bridge-after-error');
+        expect(connectionCount, 2);
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'concurrent session link resolutions share one stale reconnect',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final twoInitialRequestsReady = Completer<void>();
+        final secondSocketReady = Completer<WebSocket>();
+        var connectionCount = 0;
+        var initialRequestCount = 0;
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          final socketNumber = connectionCount;
+          if (socketNumber == 2) secondSocketReady.complete(socket);
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] != 'resolve_session_link') return;
+            if (socketNumber == 1) {
+              initialRequestCount++;
+              if (initialRequestCount == 2 &&
+                  !twoInitialRequestsReady.isCompleted) {
+                twoInitialRequestsReady.complete();
+              }
+              return;
+            }
+            socket.add(
+              jsonEncode({
+                'type': 'session_link_resolution',
+                'requestId': json['requestId'],
+                'sourceSessionId': json['sessionId'],
+                'status': 'live',
+                'bridgeSessionId': 'bridge-retried',
+                'provider': 'claude',
+              }),
+            );
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final first = bridge.resolveSessionLink(
+          'claude-one',
+          timeout: const Duration(seconds: 2),
+        );
+        final second = bridge.resolveSessionLink(
+          'claude-two',
+          timeout: const Duration(seconds: 2),
+        );
+        await twoInitialRequestsReady.future.timeout(
+          const Duration(seconds: 1),
+        );
+
+        final results = await Future.wait([first, second]);
+        expect(
+          results.map((result) => result.support),
+          unorderedEquals([
+            SessionLinkResolveSupport.resolved,
+            SessionLinkResolveSupport.unavailable,
+          ]),
+        );
+        expect(connectionCount, 2);
+
+        bridge.disconnect();
+        await (await secondSocketReady.future).close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'resolveSessionLink keeps a responsive socket while resolution is slow',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        var connectionCount = 0;
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          if (!socketReady.isCompleted) socketReady.complete(socket);
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            switch (json['type']) {
+              case 'list_sessions':
+                socket.add(
+                  jsonEncode({
+                    'type': 'session_list',
+                    'sessions': <Object>[],
+                    'allowedDirs': <Object>[],
+                  }),
+                );
+              case 'resolve_session_link':
+                Timer(const Duration(milliseconds: 550), () {
+                  socket.add(
+                    jsonEncode({
+                      'type': 'session_link_resolution',
+                      'requestId': json['requestId'],
+                      'sourceSessionId': 'claude-uuid',
+                      'status': 'live',
+                      'bridgeSessionId': 'bridge-slow',
+                      'provider': 'claude',
+                    }),
+                  );
+                });
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+
+        final result = await bridge.resolveSessionLink(
+          'claude-uuid',
+          provider: 'claude',
+          timeout: const Duration(milliseconds: 900),
+        );
+
+        expect(result.support, SessionLinkResolveSupport.resolved);
+        expect(result.resolution?.bridgeSessionId, 'bridge-slow');
+        expect(connectionCount, 1);
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test('resolveSessionLink respects an intentional disconnect', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      var connectionCount = 0;
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        connectionCount++;
+        if (!socketReady.isCompleted) socketReady.complete(socket);
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      bridge.disconnect();
+
+      final result = await bridge.resolveSessionLink(
+        'claude-uuid',
+        timeout: const Duration(milliseconds: 100),
+      );
+
+      expect(result.support, SessionLinkResolveSupport.unavailable);
+      expect(connectionCount, 1);
+
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'resolveSessionLink does not replace a newly selected Bridge',
+      () async {
+        final firstServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final secondServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final firstSocketReady = Completer<WebSocket>();
+        final secondSocketReady = Completer<WebSocket>();
+        final firstRequestReady = Completer<void>();
+        var secondResolveRequests = 0;
+
+        firstServer.transform(WebSocketTransformer()).listen((socket) {
+          if (!firstSocketReady.isCompleted) {
+            firstSocketReady.complete(socket);
+          }
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] == 'resolve_session_link' &&
+                !firstRequestReady.isCompleted) {
+              firstRequestReady.complete();
+            }
+          });
+        });
+        secondServer.transform(WebSocketTransformer()).listen((socket) {
+          if (!secondSocketReady.isCompleted) {
+            secondSocketReady.complete(socket);
+          }
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] == 'resolve_session_link') {
+              secondResolveRequests++;
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${firstServer.port}');
+        final firstSocket = await firstSocketReady.future;
+        final resolutionFuture = bridge.resolveSessionLink(
+          'claude-uuid',
+          timeout: const Duration(milliseconds: 600),
+        );
+        await firstRequestReady.future.timeout(const Duration(seconds: 1));
+
+        bridge.connect('ws://127.0.0.1:${secondServer.port}');
+        final secondSocket = await secondSocketReady.future;
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+
+        final result = await resolutionFuture;
+        expect(result.support, SessionLinkResolveSupport.unavailable);
+        expect(secondResolveRequests, 0);
+        expect(bridge.isConnected, isTrue);
+
+        bridge.disconnect();
+        await firstSocket.close();
+        await secondSocket.close();
+        await firstServer.close(force: true);
+        await secondServer.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'resolveSessionLink revalidates the Bridge after reconnect waiting',
+      () async {
+        final staleServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final selectedServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final firstSocketReady = Completer<WebSocket>();
+        final firstRequestReady = Completer<void>();
+        final reconnectAttemptStarted = Completer<void>();
+        final allowStaleUpgrade = Completer<void>();
+        final selectedSocketReady = Completer<WebSocket>();
+        var staleConnectionCount = 0;
+        var selectedResolveRequests = 0;
+
+        staleServer.listen((request) async {
+          staleConnectionCount++;
+          final connectionNumber = staleConnectionCount;
+          if (connectionNumber == 2) {
+            reconnectAttemptStarted.complete();
+            await allowStaleUpgrade.future;
+          }
+          try {
+            final socket = await WebSocketTransformer.upgrade(request);
+            if (connectionNumber == 1) firstSocketReady.complete(socket);
+            socket.listen((event) {
+              final json = jsonDecode(event as String) as Map<String, dynamic>;
+              if (json['type'] == 'resolve_session_link' &&
+                  !firstRequestReady.isCompleted) {
+                firstRequestReady.complete();
+              }
+            });
+          } on Object {
+            // The delayed stale handshake may be cancelled by the switch.
+          }
+        });
+        selectedServer.transform(WebSocketTransformer()).listen((socket) {
+          if (!selectedSocketReady.isCompleted) {
+            selectedSocketReady.complete(socket);
+          }
+          socket.listen((event) {
+            final json = jsonDecode(event as String) as Map<String, dynamic>;
+            if (json['type'] == 'resolve_session_link') {
+              selectedResolveRequests++;
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${staleServer.port}');
+        final firstSocket = await firstSocketReady.future;
+        final resolutionFuture = bridge.resolveSessionLink(
+          'claude-uuid',
+          timeout: const Duration(seconds: 2),
+        );
+        await firstRequestReady.future.timeout(const Duration(seconds: 1));
+        await reconnectAttemptStarted.future.timeout(
+          const Duration(seconds: 2),
+        );
+
+        bridge.connect('ws://127.0.0.1:${selectedServer.port}');
+        final selectedSocket = await selectedSocketReady.future;
+        allowStaleUpgrade.complete();
+
+        final result = await resolutionFuture;
+        expect(result.support, SessionLinkResolveSupport.unavailable);
+        expect(selectedResolveRequests, 0);
+        expect(bridge.isConnected, isTrue);
+
+        bridge.disconnect();
+        await firstSocket.close();
+        await selectedSocket.close();
+        await staleServer.close(force: true);
+        await selectedServer.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'resolveSessionLink returns unavailable when disposed while waiting',
+      () async {
+        final bridge = BridgeService();
+        final resolutionFuture = bridge.resolveSessionLink(
+          'claude-uuid',
+          timeout: const Duration(seconds: 1),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        bridge.dispose();
+
+        final result = await resolutionFuture;
+        expect(result.support, SessionLinkResolveSupport.unavailable);
+      },
+    );
 
     test('resolveSessionLink waits for a connection without queueing a stale request', () async {
       final bridge = BridgeService();

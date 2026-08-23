@@ -209,12 +209,13 @@ describe("parseClientMessage", () => {
 
   it("parses push_register message", () => {
     const msg = parseClientMessage(
-      '{"type":"push_register","token":"t1","platform":"ios"}',
+      '{"type":"push_register","token":"t1","platform":"ios","requestId":"req-1"}',
     );
     expect(msg).toEqual({
       type: "push_register",
       token: "t1",
       platform: "ios",
+      requestId: "req-1",
     });
   });
 
@@ -222,6 +223,14 @@ describe("parseClientMessage", () => {
     expect(
       parseClientMessage(
         '{"type":"push_register","token":"t1","platform":"desktop"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects push_register with invalid requestId", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"push_register","token":"t1","platform":"ios","requestId":1}',
       ),
     ).toBeNull();
   });
@@ -640,12 +649,13 @@ describe("parseClientMessage", () => {
 
   it("parses list_directory message", () => {
     const msg = parseClientMessage(
-      '{"type":"list_directory","path":"/workspace","requestId":"dir-1"}',
+      '{"type":"list_directory","path":"/workspace","requestId":"dir-1","includeHidden":true}',
     );
     expect(msg).toEqual({
       type: "list_directory",
       path: "/workspace",
       requestId: "dir-1",
+      includeHidden: true,
     });
   });
 
@@ -660,6 +670,11 @@ describe("parseClientMessage", () => {
     expect(
       parseClientMessage(
         '{"type":"list_directory","path":"/workspace","requestId":123}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"list_directory","path":"/workspace","includeHidden":"yes"}',
       ),
     ).toBeNull();
   });

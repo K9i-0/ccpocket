@@ -164,6 +164,7 @@ export type ClientMessage =
       type: "push_register";
       token: string;
       platform: "ios" | "android" | "web";
+      requestId?: string;
       locale?: string;
       privacyMode?: boolean;
     }
@@ -271,7 +272,12 @@ export type ClientMessage =
       maxLines?: number;
     }
   | { type: "list_files"; projectPath: string }
-  | { type: "list_directory"; path: string; requestId?: string }
+  | {
+      type: "list_directory";
+      path: string;
+      requestId?: string;
+      includeHidden?: boolean;
+    }
   | { type: "get_diff"; projectPath: string; staged?: boolean }
   | {
       type: "get_diff_image";
@@ -509,6 +515,11 @@ export type ServerMessage =
       toolUseId: string;
       content: string;
       toolName?: string;
+      permissionOutcome?:
+        | "approved"
+        | "approved_for_session"
+        | "rejected"
+        | "answered";
       images?: ImageRef[];
       userMessageUuid?: string;
       rawContentBlocks?: unknown[];
@@ -539,8 +550,16 @@ export type ServerMessage =
       message: string;
       errorCode?: string;
       sessionId?: string;
+      toolUseId?: string;
       path?: string;
       requestId?: string;
+    }
+  | {
+      type: "push_registration_result";
+      token: string;
+      requestId: string;
+      success: boolean;
+      error?: string;
     }
   | {
       type: "session_link_resolution";
@@ -1123,6 +1142,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "push_register":
         if (typeof msg.token !== "string") return null;
+        if (msg.requestId != null && typeof msg.requestId !== "string")
+          return null;
         if (
           msg.platform !== "ios" &&
           msg.platform !== "android" &&
@@ -1413,7 +1434,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "list_directory":
-        if (!hasOnlyKeys(["type", "path", "requestId"])) return null;
+        if (!hasOnlyKeys(["type", "path", "requestId", "includeHidden"]))
+          return null;
         if (
           typeof msg.path !== "string" ||
           msg.path.trim().length === 0
@@ -1422,6 +1444,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.requestId !== undefined &&
           (typeof msg.requestId !== "string" || msg.requestId.trim().length === 0)
+        )
+          return null;
+        if (
+          msg.includeHidden !== undefined &&
+          typeof msg.includeHidden !== "boolean"
         )
           return null;
         break;

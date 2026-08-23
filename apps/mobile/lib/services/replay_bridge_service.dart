@@ -265,7 +265,11 @@ class ReplayBridgeService extends BridgeService {
   void requestFileList(String projectPath) {}
 
   @override
-  void requestDirectoryListing(String path, {String? requestId}) {
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) {
     _emit(
       DirectoryListingMessage(
         path: path,

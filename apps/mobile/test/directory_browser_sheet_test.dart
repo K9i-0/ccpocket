@@ -13,6 +13,7 @@ class _DirectoryBrowserBridge extends BridgeService {
   final _messages = StreamController<ServerMessage>.broadcast();
   final requests = <String>[];
   final requestIds = <String?>[];
+  final includeHiddenRequests = <bool>[];
 
   _DirectoryBrowserBridge({this.autoRespond = true});
 
@@ -20,9 +21,14 @@ class _DirectoryBrowserBridge extends BridgeService {
   Stream<ServerMessage> get messages => _messages.stream;
 
   @override
-  void requestDirectoryListing(String path, {String? requestId}) {
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) {
     requests.add(path);
     requestIds.add(requestId);
+    includeHiddenRequests.add(includeHidden);
     if (!autoRespond) return;
     scheduleMicrotask(() {
       if (_messages.isClosed) return;
@@ -102,6 +108,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
+    expect(bridge.includeHiddenRequests, [isFalse]);
     var upButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('directory_browser_up_button')),
     );
@@ -121,6 +128,30 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(await result, '/workspace/alpha');
+  });
+
+  testWidgets('requests hidden directories when enabled', (tester) async {
+    final bridge = _DirectoryBrowserBridge();
+    addTearDown(bridge.dispose);
+
+    await tester.pumpWidget(
+      _testApp(
+        onOpen: () {
+          showDirectoryBrowserSheet(
+            context: tester.element(find.text('Open browser')),
+            bridge: bridge,
+            initialPath: '/workspace',
+            allowedRoots: const ['/workspace'],
+            includeHidden: true,
+          );
+        },
+      ),
+    );
+
+    await tester.tap(find.text('Open browser'));
+    await tester.pumpAndSettle();
+
+    expect(bridge.includeHiddenRequests, [isTrue]);
   });
 
   testWidgets('shows a bridge security error and keeps selection disabled', (
@@ -205,52 +236,55 @@ void main() {
     expect(find.text('current'), findsOneWidget);
   });
 
-  testWidgets('shows an update hint only for a legacy list request error', (
-    tester,
-  ) async {
-    final bridge = _DirectoryBrowserBridge(autoRespond: false);
-    addTearDown(bridge.dispose);
+  testWidgets(
+    'shows an update hint when a legacy bridge rejects hidden listing',
+    (tester) async {
+      final bridge = _DirectoryBrowserBridge(autoRespond: false);
+      addTearDown(bridge.dispose);
 
-    await tester.pumpWidget(
-      _testApp(
-        onOpen: () {
-          showDirectoryBrowserSheet(
-            context: tester.element(find.text('Open browser')),
-            bridge: bridge,
-            initialPath: '/workspace',
-            allowedRoots: const ['/workspace'],
-          );
-        },
-      ),
-    );
-    await tester.tap(find.text('Open browser'));
-    await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(
+        _testApp(
+          onOpen: () {
+            showDirectoryBrowserSheet(
+              context: tester.element(find.text('Open browser')),
+              bridge: bridge,
+              initialPath: '/workspace',
+              allowedRoots: const ['/workspace'],
+              includeHidden: true,
+            );
+          },
+        ),
+      );
+      await tester.tap(find.text('Open browser'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(bridge.includeHiddenRequests, [isTrue]);
 
-    bridge.emit(
-      const ErrorMessage(
-        message: 'another_action',
-        errorCode: 'unsupported_message',
-      ),
-    );
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      bridge.emit(
+        const ErrorMessage(
+          message: 'another_action',
+          errorCode: 'unsupported_message',
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    bridge.emit(
-      const ErrorMessage(
-        message: 'list_directory',
-        errorCode: 'unsupported_message',
-      ),
-    );
-    await tester.pump();
-    expect(
-      find.text(
-        'This feature requires a newer Bridge server. '
-        'Update Bridge and try again.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-  });
+      bridge.emit(
+        const ErrorMessage(
+          message: 'list_directory',
+          errorCode: 'unsupported_message',
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.text(
+          'This feature requires a newer Bridge server. '
+          'Update Bridge and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 
   testWidgets('compares UNC allowed roots case-insensitively', (tester) async {
     final bridge = _DirectoryBrowserBridge(autoRespond: false);

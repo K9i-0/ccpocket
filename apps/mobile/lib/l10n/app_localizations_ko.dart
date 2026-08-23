@@ -848,6 +848,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get approvalRequired => '승인 필요';
 
   @override
+  String get approvalStatusPending => '승인 대기 중';
+
+  @override
+  String get approvalStatusApproved => '승인됨';
+
+  @override
+  String get approvalStatusApprovedForSession => '세션 동안 승인됨';
+
+  @override
+  String get approvalStatusRejected => '거부됨';
+
+  @override
+  String get approvalStatusResolved => '해결됨';
+
+  @override
   String get viewEditPlan => '계획 보기';
 
   @override
@@ -1956,6 +1971,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fcmTokenFailed => 'FCM 토큰을 가져오지 못했습니다';
 
   @override
+  String get fcmRegistrationFailed => 'Bridge에 알림을 등록하지 못했습니다';
+
+  @override
   String get fcmEnabled => '알림 활성화됨';
 
   @override
@@ -2023,6 +2041,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
+
+  @override
+  String get showHiddenDirectories => '숨김 디렉터리 표시';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      '새 세션 디렉터리 브라우저에 .으로 시작하는 폴더를 표시합니다.';
 
   @override
   String get showBridgeNameInSessionList => 'Bridge 이름 표시';

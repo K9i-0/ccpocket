@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
@@ -459,6 +460,188 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     vi.unstubAllEnvs();
     vi.useRealTimers();
     httpServer.close();
+  });
+
+  it("acknowledges push registration only after relay success", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const registerToken = vi.fn().mockResolvedValue(undefined);
+    (bridge as any).pushRelay = { isConfigured: true, registerToken };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["push_registration_result"],
+      },
+      ws,
+    );
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "push_register",
+        token: "token-1",
+        platform: "ios",
+        requestId: "request-1",
+        locale: "ja",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(registerToken).toHaveBeenCalledWith("token-1", "ios", "ja");
+    expect(ws.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "push_registration_result",
+      token: "token-1",
+      requestId: "request-1",
+      success: true,
+    });
+    expect((bridge as any).tokenLocales.get("token-1")).toBe("ja");
+  });
+
+  it("reports relay registration failure to capable clients", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).pushRelay = {
+      isConfigured: true,
+      registerToken: vi.fn().mockRejectedValue(new Error("relay offline")),
+    };
+    (bridge as any).tokenLocales.set("token-1", "en");
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["push_registration_result"],
+      },
+      ws,
+    );
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "push_register",
+        token: "token-1",
+        platform: "ios",
+        requestId: "request-1",
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(ws.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "push_registration_result",
+      token: "token-1",
+      requestId: "request-1",
+      success: false,
+      error: "Failed to register push token: relay offline",
+    });
+    expect((bridge as any).tokenLocales.has("token-1")).toBe(false);
+  });
+
+  it("serializes same-token registration updates and ignores stale completion", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    let completeFirst!: () => void;
+    const firstRegistration = new Promise<void>((resolve) => {
+      completeFirst = resolve;
+    });
+    const registerToken = vi
+      .fn()
+      .mockImplementationOnce(() => firstRegistration)
+      .mockResolvedValueOnce(undefined);
+    (bridge as any).pushRelay = { isConfigured: true, registerToken };
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["push_registration_result"],
+      },
+      ws,
+    );
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "push_register",
+        token: "token-1",
+        platform: "ios",
+        requestId: "request-1",
+        locale: "en",
+        privacyMode: false,
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "push_register",
+        token: "token-1",
+        platform: "ios",
+        requestId: "request-2",
+        locale: "ja",
+        privacyMode: true,
+      },
+      ws,
+    );
+    expect(registerToken).toHaveBeenCalledTimes(1);
+
+    completeFirst();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(registerToken).toHaveBeenCalledTimes(2);
+    expect(ws.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+      type: "push_registration_result",
+      token: "token-1",
+      requestId: "request-2",
+      success: true,
+    });
+    expect((bridge as any).tokenLocales.get("token-1")).toBe("ja");
+    expect((bridge as any).tokenPrivacyMode.get("token-1")).toBe(true);
+  });
+
+  it("does not revive a token when an older registration finishes after unregister", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    let completeRegistration!: () => void;
+    const registration = new Promise<void>((resolve) => {
+      completeRegistration = resolve;
+    });
+    const unregisterToken = vi.fn().mockResolvedValue(undefined);
+    (bridge as any).pushRelay = {
+      isConfigured: true,
+      registerToken: vi.fn(() => registration),
+      unregisterToken,
+    };
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["push_registration_result"],
+      },
+      ws,
+    );
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      { type: "push_register", token: "token-1", platform: "ios" },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      { type: "push_unregister", token: "token-1" },
+      ws,
+    );
+    expect(unregisterToken).not.toHaveBeenCalled();
+
+    completeRegistration();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(unregisterToken).toHaveBeenCalledTimes(1);
+    expect(ws.send).not.toHaveBeenCalled();
+    expect((bridge as any).tokenLocales.has("token-1")).toBe(false);
   });
 
   it("echoes recent session request metadata for project scoped requests", async () => {
@@ -1224,6 +1407,36 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
             { name: "zeta", path: resolve(root, "zeta") },
           ],
           requestId: "dir-success",
+        }),
+      );
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lists hidden allowed directories when requested", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-directory-hidden-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [root],
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      mkdirSync(resolve(root, ".hidden"));
+
+      await (bridge as any).handleClientMessage(
+        { type: "list_directory", path: root, includeHidden: true },
+        ws,
+      );
+
+      expect(ws.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "directory_listing",
+          path: root,
+          directories: [
+            { name: ".hidden", path: resolve(root, ".hidden") },
+          ],
         }),
       );
     } finally {
@@ -6128,6 +6341,100 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("correlates tool action errors with their session and tool", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const missingSessionActions = [
+      { type: "approve", id: "approve-1", sessionId: "missing" },
+      {
+        type: "approve_always",
+        id: "approve-always-1",
+        sessionId: "missing",
+      },
+      { type: "reject", id: "reject-1", sessionId: "missing" },
+      {
+        type: "answer",
+        toolUseId: "answer-1",
+        result: "yes",
+        sessionId: "missing",
+      },
+      {
+        type: "install_tool_suggestion",
+        toolUseId: "install-1",
+        sessionId: "missing",
+      },
+    ] as const;
+
+    for (const action of missingSessionActions) {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(action, ws);
+      const response = JSON.parse(ws.send.mock.calls.at(-1)[0] as string);
+      expect(response).toMatchObject({
+        type: "error",
+        message: "No active session.",
+        sessionId: "missing",
+        toolUseId: "toolUseId" in action ? action.toolUseId : action.id,
+      });
+    }
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-action-errors",
+        provider: "codex",
+      },
+      ws,
+    );
+    const sends = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    const created = sends.find(
+      (message: any) =>
+        message.type === "system" && message.subtype === "session_created",
+    );
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+
+    ws.send.mockClear();
+    session.process.approve.mockReturnValueOnce(false);
+    await (bridge as any).handleClientMessage(
+      {
+        type: "approve",
+        id: "invalid-approval",
+        sessionId: created.sessionId,
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)[0] as string)).toMatchObject({
+      type: "error",
+      message: "No matching pending tool action.",
+      sessionId: created.sessionId,
+      toolUseId: "invalid-approval",
+    });
+
+    ws.send.mockClear();
+    session.process.installToolSuggestion.mockRejectedValueOnce(
+      new Error("installation failed"),
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "install_tool_suggestion",
+        toolUseId: "install-failed",
+        sessionId: created.sessionId,
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)[0] as string)).toMatchObject({
+      type: "error",
+      message: "installation failed",
+      sessionId: created.sessionId,
+      toolUseId: "install-failed",
+    });
+    bridge.close();
+  });
+
   it("batches deltas for clients that were connected when each delta arrived", () => {
     vi.useFakeTimers();
     const bridge = new BridgeWebSocketServer({
@@ -6463,6 +6770,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     };
 
     const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: mockAuth as any });
+    (bridge as any).tokenLocales.set("token-1", "en");
     (bridge as any).broadcastSessionMessage("s-1", {
       type: "permission_request",
       toolUseId: "tool-1",
@@ -6501,6 +6809,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     };
 
     const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: mockAuth as any });
+    (bridge as any).tokenLocales.set("token-1", "en");
     (bridge as any).broadcastSessionMessage("s-1", {
       type: "result",
       subtype: "success",
@@ -6524,6 +6833,65 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       eventType: "session_completed",
     });
 
+    bridge.close();
+  });
+
+  it("does not notify the relay without an active token registration", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const mockAuth = {
+      uid: "bridge-test",
+      getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      firebaseAuth: mockAuth as any,
+    });
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "success",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    bridge.close();
+  });
+
+  it("excludes pending tokens from relay notification allowlists", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const mockAuth = {
+      uid: "bridge-test",
+      getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      firebaseAuth: mockAuth as any,
+    });
+    (bridge as any).tokenLocales.set("active-token", "en");
+    // A relay registration may still exist for this token, but the Bridge map
+    // excludes it while a newer registration operation is pending.
+    (bridge as any).pushTokenGeneration.set("pending-token", 2);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "success",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(payload.tokenHashes).toEqual([
+      createHash("sha256").update("active-token").digest("hex"),
+    ]);
+    expect(payload.tokenHashes).not.toContain(
+      createHash("sha256").update("pending-token").digest("hex"),
+    );
     bridge.close();
   });
 

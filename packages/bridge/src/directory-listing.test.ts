@@ -48,6 +48,42 @@ describe("listAllowedDirectories", () => {
     ]);
   });
 
+  it("includes hidden directories when requested", async () => {
+    const root = makeTempDirectory();
+    mkdirSync(resolve(root, "visible"));
+    mkdirSync(resolve(root, ".hidden"));
+
+    const result = await listAllowedDirectories(
+      root,
+      [root],
+      process.platform,
+      true,
+    );
+
+    expect(result.directories).toEqual([
+      { name: ".hidden", path: resolve(root, ".hidden") },
+      { name: "visible", path: resolve(root, "visible") },
+    ]);
+  });
+
+  it("still omits hidden symlinked directories when requested", async () => {
+    const root = makeTempDirectory();
+    const outside = makeTempDirectory();
+    mkdirSync(resolve(root, ".real"));
+    symlinkSync(outside, resolve(root, ".outside-link"), "dir");
+
+    const result = await listAllowedDirectories(
+      root,
+      [root],
+      process.platform,
+      true,
+    );
+
+    expect(result.directories).toEqual([
+      { name: ".real", path: resolve(root, ".real") },
+    ]);
+  });
+
   it("returns an empty listing for an empty allowed directory", async () => {
     const root = makeTempDirectory();
 

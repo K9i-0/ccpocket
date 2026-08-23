@@ -875,12 +875,15 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * Approve a pending permission request.
    * With the SDK, this actually blocks tool execution until approved.
    */
-  approve(toolUseId?: string, updatedInput?: Record<string, unknown>): void {
+  approve(
+    toolUseId?: string,
+    updatedInput?: Record<string, unknown>,
+  ): boolean {
     const id = toolUseId ?? this.firstPendingId();
     const pending = id ? this.pendingPermissions.get(id) : undefined;
     if (!pending) {
       console.log("[sdk-process] approve() called but no pending permission requests");
-      return;
+      return false;
     }
 
     const mergedInput = updatedInput
@@ -896,17 +899,18 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     if (this.pendingPermissions.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
   /**
    * Approve a pending permission request and add a session-scoped allow rule.
    */
-  approveAlways(toolUseId?: string): void {
+  approveAlways(toolUseId?: string): boolean {
     const id = toolUseId ?? this.firstPendingId();
     const pending = id ? this.pendingPermissions.get(id) : undefined;
     if (!pending) {
       console.log("[sdk-process] approveAlways() called but no pending permission requests");
-      return;
+      return false;
     }
 
     const rule = buildSessionRule(pending.toolName, pending.input);
@@ -941,18 +945,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     if (this.pendingPermissions.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
   /**
    * Reject a pending permission request.
    * The SDK's canUseTool will return deny, which tells Claude the tool was rejected.
    */
-  reject(toolUseId?: string, message?: string): void {
+  reject(toolUseId?: string, message?: string): boolean {
     const id = toolUseId ?? this.firstPendingId();
     const pending = id ? this.pendingPermissions.get(id) : undefined;
     if (!pending) {
       console.log("[sdk-process] reject() called but no pending permission requests");
-      return;
+      return false;
     }
 
     this.pendingPermissions.delete(id!);
@@ -964,17 +969,18 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     if (this.pendingPermissions.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
   /**
    * Answer an AskUserQuestion tool call.
    * The SDK handles this through canUseTool with updatedInput.
    */
-  answer(toolUseId: string, result: string): void {
+  answer(toolUseId: string, result: string): boolean {
     const pending = this.pendingPermissions.get(toolUseId);
     if (!pending || pending.toolName !== "AskUserQuestion") {
       console.log("[sdk-process] answer() called but no pending AskUserQuestion");
-      return;
+      return false;
     }
 
     this.pendingPermissions.delete(toolUseId);
@@ -990,6 +996,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     if (this.pendingPermissions.size === 0) {
       this.setStatus("running");
     }
+    return true;
   }
 
   /**

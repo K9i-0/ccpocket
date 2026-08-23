@@ -866,6 +866,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalRequired => 'Approval Required';
 
   @override
+  String get approvalStatusPending => 'Pending';
+
+  @override
+  String get approvalStatusApproved => 'Approved';
+
+  @override
+  String get approvalStatusApprovedForSession => 'Approved for session';
+
+  @override
+  String get approvalStatusRejected => 'Rejected';
+
+  @override
+  String get approvalStatusResolved => 'Resolved';
+
+  @override
   String get viewEditPlan => 'View Plan';
 
   @override
@@ -2014,6 +2029,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fcmTokenFailed => 'Failed to get FCM token';
 
   @override
+  String get fcmRegistrationFailed =>
+      'Failed to register notifications with Bridge';
+
+  @override
   String get fcmEnabled => 'Notifications enabled';
 
   @override
@@ -2084,6 +2103,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsNewSessionTabsDescription =>
       'Choose which AI tools appear for new sessions and change their order.';
+
+  @override
+  String get showHiddenDirectories => 'Show Hidden Directories';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      'Include folders beginning with . in the new session directory browser.';
 
   @override
   String get showBridgeNameInSessionList => 'Show Bridge name';

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _DirectoryBrowserBridge extends BridgeService {
   final _messages = StreamController<ServerMessage>.broadcast();
+  final includeHiddenRequests = <bool>[];
 
   @override
   List<String> get allowedDirs => const ['/workspace'];
@@ -19,7 +20,12 @@ class _DirectoryBrowserBridge extends BridgeService {
   Stream<ServerMessage> get messages => _messages.stream;
 
   @override
-  void requestDirectoryListing(String path, {String? requestId}) {
+  void requestDirectoryListing(
+    String path, {
+    String? requestId,
+    bool includeHidden = false,
+  }) {
+    includeHiddenRequests.add(includeHidden);
     scheduleMicrotask(() {
       if (_messages.isClosed) return;
       _messages.add(
@@ -78,6 +84,7 @@ void main() {
                     projectPath: '/workspace',
                     provider: Provider.codex,
                   ),
+                  showHiddenDirectories: true,
                 );
               },
               child: const Text('Open'),
@@ -93,6 +100,7 @@ void main() {
       find.byKey(const ValueKey('dialog_project_path_browse_button')),
     );
     await tester.pumpAndSettle();
+    expect(bridge.includeHiddenRequests, [isTrue]);
     await tester.tap(find.text('ccpocket'));
     await tester.pumpAndSettle();
     await tester.tap(

@@ -10,6 +10,7 @@ import '../../../core/logger.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
+import '../permission_transcript.dart';
 import 'chat_session_state.dart';
 import 'streaming_state_cubit.dart';
 
@@ -569,7 +570,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // --- Update hidden tool use IDs (for subagent summary compression) ---
     var hiddenToolUseIds = current.hiddenToolUseIds;
-    if (update.toolUseIdsToHide.isNotEmpty) {
+    if (update.replaceEntries) {
+      hiddenToolUseIds = _hiddenToolUseIdsFromEntries(entries);
+    } else if (update.toolUseIdsToHide.isNotEmpty) {
       hiddenToolUseIds = {...hiddenToolUseIds, ...update.toolUseIdsToHide};
     }
 
@@ -750,6 +753,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           ? Duration(milliseconds: durationMs.round())
           : null,
     );
+  }
+
+  Set<String> _hiddenToolUseIdsFromEntries(List<ChatEntry> entries) {
+    final hiddenIds = <String>{};
+    for (final entry in entries) {
+      if (entry case ServerChatEntry(
+        message: ToolUseSummaryMessage(:final precedingToolUseIds),
+      )) {
+        hiddenIds.addAll(precedingToolUseIds);
+      }
+    }
+    return hiddenIds;
   }
 
   List<ChatEntry> _entriesToPreserveAfterHistoryReplace({
@@ -978,6 +993,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         }
         if (message.id.isNotEmpty) return 'assistant:id:${message.id}';
         return null;
+      case final ToolResultMessage result
+          when isSyntheticPermissionOutcome(result):
+        return 'permission_outcome:${result.toolUseId}:${result.content.trim()}';
       case ToolResultMessage(:final toolUseId):
         return 'tool_result:$toolUseId';
       case PermissionRequestMessage(:final toolUseId):

@@ -4,6 +4,39 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('parses explicit permission outcomes on synthetic tool results', () {
+    final message = ServerMessage.fromJson({
+      'type': 'tool_result',
+      'toolUseId': 'command-1',
+      'content': 'Approved (always)',
+      'permissionOutcome': 'approved_for_session',
+    }) as ToolResultMessage;
+
+    expect(message.permissionOutcome, PermissionOutcome.approvedForSession);
+
+    final legacyMessage = ServerMessage.fromJson({
+      'type': 'tool_result',
+      'toolUseId': 'command-1',
+      'content': 'Approved',
+    }) as ToolResultMessage;
+    expect(legacyMessage.permissionOutcome, isNull);
+  });
+
+  test('parses push registration acknowledgements', () {
+    final message = ServerMessage.fromJson({
+      'type': 'push_registration_result',
+      'token': 'token-1',
+      'requestId': 'push-request-1',
+      'success': false,
+      'error': 'relay offline',
+    }) as PushRegistrationResultMessage;
+
+    expect(message.token, 'token-1');
+    expect(message.requestId, 'push-request-1');
+    expect(message.success, isFalse);
+    expect(message.error, 'relay offline');
+  });
+
   test(
     'serializes directory listing requests and parses directory entries',
     () {
@@ -15,6 +48,15 @@ void main() {
           ).toJson(),
         ),
         {'type': 'list_directory', 'path': '/workspace', 'requestId': 'dir-1'},
+      );
+      expect(
+        jsonDecode(
+          ClientMessage.listDirectory(
+            '/workspace',
+            includeHidden: true,
+          ).toJson(),
+        ),
+        {'type': 'list_directory', 'path': '/workspace', 'includeHidden': true},
       );
 
       final message = ServerMessage.fromJson({
@@ -447,6 +489,7 @@ void main() {
         'history_snapshot',
         'git_status_result',
         'prompt_history_status',
+        'push_registration_result',
       ]);
     });
 

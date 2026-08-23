@@ -5,6 +5,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 
+bool shouldUseLocalNotificationFallback({
+  required bool isBackground,
+  required bool remoteNotificationsReady,
+}) => isBackground && !remoteNotificationsReady;
+
 class NotificationService extends ChangeNotifier {
   NotificationService._();
   static final NotificationService instance = NotificationService._();

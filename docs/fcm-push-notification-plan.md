@@ -89,13 +89,17 @@ Flutter App                         Bridge Server                        Cloud F
 - `push_register`
   - `token: string`
   - `platform: "ios" | "android" | "web"`
+  - `requestId?: string`（対応 Bridge では登録結果との対応付けに使用）
 - `push_unregister`
   - `token: string`
 
 ### Server → Client
 
-- 既存の `error` を利用（登録失敗時）
-- 成功時は基本 silent（必要なら将来 `push_status` を追加）
+- `push_registration_result`（capability を広告したクライアントのみ）
+  - `token`, `requestId`, `success`, `error?`
+  - クライアントは最新の `requestId` と一致した成功結果を受け取るまで、
+    ローカル通知を fallback として維持する
+- 未対応クライアントには登録失敗を既存の `error` で返す
 
 ## Cloud Relay API（Bridge → Cloud Functions）
 
@@ -107,6 +111,15 @@ Bridge は単一の Relay URL に `op` を付けて POST する。
   - `bridgeId`, `token`
 - `op: "notify"`
   - `bridgeId`, `eventType`, `title`, `body`, `data?`
+  - `tokenHashes?`: Bridge が ACK 済みと判断している token document ID の allowlist
+
+同一 token の再登録は Bridge 上で直列化し、世代が古い完了結果は破棄する。
+さらに relay は `tokenHashes` で送信先を絞り、別 token が有効な場合でも
+再登録中・無効化中の端末へ remote 通知が届かないようにする。
+
+> ロールアウト時は Cloud Function を新しい Bridge より先にデプロイする。
+> 旧 Function は未知の `tokenHashes` を無視するため、順序を逆にすると移行中だけ
+> 複数 token 環境で pending token の除外が保証されない。
 
 ### 認証
 

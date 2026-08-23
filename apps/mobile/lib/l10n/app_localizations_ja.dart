@@ -849,6 +849,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get approvalRequired => '承認が必要';
 
   @override
+  String get approvalStatusPending => '承認待ち';
+
+  @override
+  String get approvalStatusApproved => '承認済み';
+
+  @override
+  String get approvalStatusApprovedForSession => 'セッション中承認済み';
+
+  @override
+  String get approvalStatusRejected => '拒否済み';
+
+  @override
+  String get approvalStatusResolved => '解決済み';
+
+  @override
   String get viewEditPlan => 'プランを表示';
 
   @override
@@ -1941,6 +1956,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fcmTokenFailed => 'FCM token を取得できませんでした';
 
   @override
+  String get fcmRegistrationFailed => 'Bridge への通知登録に失敗しました';
+
+  @override
   String get fcmEnabled => '通知を有効化しました';
 
   @override
@@ -2009,6 +2027,13 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get settingsNewSessionTabsDescription =>
       '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
+
+  @override
+  String get showHiddenDirectories => '隠しディレクトリを表示';
+
+  @override
+  String get showHiddenDirectoriesSubtitle =>
+      '新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。';
 
   @override
   String get showBridgeNameInSessionList => 'Bridge名を表示';

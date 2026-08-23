@@ -8,6 +8,8 @@ export interface PushNotifyPayload {
   body: string;
   /** When set, only tokens registered with this locale receive the notification. */
   locale?: string;
+  /** SHA-256 token document IDs currently enabled by this Bridge process. */
+  tokenHashes?: string[];
   data?: Record<string, string>;
 }
 
@@ -21,7 +23,7 @@ export interface PushRelayClientOptions {
 type PushRelayOpPayload =
   | { op: "register"; token: string; platform: PushPlatform; locale?: string }
   | { op: "unregister"; token: string }
-  | { op: "notify"; eventType: string; title: string; body: string; locale?: string; data?: Record<string, string> };
+  | { op: "notify"; eventType: string; title: string; body: string; locale?: string; tokenHashes?: string[]; data?: Record<string, string> };
 
 type PushRelayRequestPayload = PushRelayOpPayload & { bridgeId: string };
 
@@ -66,6 +68,7 @@ export class PushRelayClient {
       title: payload.title,
       body: payload.body,
       locale: payload.locale,
+      tokenHashes: payload.tokenHashes,
       data: payload.data,
     });
   }
