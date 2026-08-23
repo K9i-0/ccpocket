@@ -82,6 +82,39 @@ void main() {
     expect(message, containsPair('resumeRequestId', 'link-request-1'));
   });
 
+  test('resumes a Codex profile without stale permission overrides', () async {
+    const codexSession = RecentSession(
+      sessionId: 'codex-thread',
+      provider: 'codex',
+      firstPrompt: 'Continue',
+      created: '2026-07-24T00:00:00Z',
+      modified: '2026-07-24T01:00:00Z',
+      gitBranch: 'main',
+      projectPath: '/workspace/app',
+      isSidechain: false,
+      codexApprovalPolicy: 'on-request',
+      codexApprovalsReviewer: 'user',
+      codexPermissionsMode: 'custom',
+      codexSandboxMode: 'workspace-write',
+      codexProfile: 'unrestricted',
+    );
+
+    final result = await SessionResumeCoordinator(bridge: bridge)
+        .resume(codexSession);
+
+    expect(result.disposition, SessionResumeDisposition.dispatched);
+    final message =
+        jsonDecode(bridge.sentMessages.single.toJson()) as Map<String, dynamic>;
+    expect(message, containsPair('type', 'resume_session'));
+    expect(message, containsPair('sessionId', 'codex-thread'));
+    expect(message, containsPair('provider', 'codex'));
+    expect(message, containsPair('profile', 'unrestricted'));
+    expect(message, isNot(contains('approvalPolicy')));
+    expect(message, isNot(contains('approvalsReviewer')));
+    expect(message, isNot(contains('codexPermissionsMode')));
+    expect(message, isNot(contains('sandboxMode')));
+  });
+
   test('does not enqueue the same offline resume twice', () async {
     bridge.pendingActions = [
       OfflinePendingAction(
