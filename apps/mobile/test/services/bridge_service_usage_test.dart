@@ -505,7 +505,10 @@ void main() {
 
       bridge.disconnect();
       bridge.dispose();
-      await server.close(force: true);
+      await Future.any<void>([
+        server.close(force: true).then<void>((_) {}),
+        Future<void>.delayed(const Duration(seconds: 1)),
+      ]);
     });
 
     test('resolveSessionLink degrades for an older Bridge', () async {
@@ -977,7 +980,10 @@ void main() {
       expect(connectionCount, 1);
 
       bridge.dispose();
-      await server.close(force: true);
+      await Future.any<void>([
+        server.close(force: true).then<void>((_) {}),
+        Future<void>.delayed(const Duration(seconds: 1)),
+      ]);
     });
 
     test(
@@ -1042,8 +1048,14 @@ void main() {
 
         bridge.disconnect();
         bridge.dispose();
-        await firstServer.close(force: true);
-        await secondServer.close(force: true);
+        await Future.any<void>([
+          firstServer.close(force: true).then<void>((_) {}),
+          Future<void>.delayed(const Duration(seconds: 1)),
+        ]);
+        await Future.any<void>([
+          secondServer.close(force: true).then<void>((_) {}),
+          Future<void>.delayed(const Duration(seconds: 1)),
+        ]);
       },
     );
 
