@@ -145,6 +145,8 @@ class BridgeService implements BridgeServiceBase {
   final Map<String, Timer> _deliveryPendingVisibilityTimers = {};
   final Map<String, Completer<SessionLinkResolveResult>>
   _pendingSessionLinkResolutions = {};
+  final Set<({String? sessionId, String toolUseId})>
+  _inFlightNonReplayableToolActions = {};
   int _nextSessionLinkRequestId = 0;
   final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
@@ -396,6 +398,7 @@ class BridgeService implements BridgeServiceBase {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
+            _clearDeliveredNonReplayableToolAction(msg, sessionId: sessionId);
             if (sessionId != null && msg is HistoryDeltaMessage) {
               _handleHistoryDelta(sessionId, msg);
               return;
@@ -724,7 +727,9 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _clearBridgeScopedState({required bool clearOfflineQueue}) {
-    _completePendingSessionLinkResolutionsAsUnsupported();
+    _completePendingSessionLinkResolutions(
+      const SessionLinkResolveResult.unavailable(),
+    );
     _sessions = const [];
     _recentSessions = const [];
     _lastRecentSessionsMessage = null;
@@ -746,6 +751,7 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _pendingHistoryDeltaSinceSeq.clear();
+    _inFlightNonReplayableToolActions.clear();
     _respondedToolUseIds.clear();
     _deliveryPendingInputs.clear();
     for (final timer in _deliveryPendingVisibilityTimers.values) {
@@ -891,9 +897,11 @@ class BridgeService implements BridgeServiceBase {
     if (_channel != null && isConnected) {
       if (!_trackInFlightPendingMessage(message)) return;
       _trackInFlightInputMessage(message);
+      _trackNonReplayableToolAction(message);
       try {
         _channel!.sink.add(message.toJson());
       } catch (error, stackTrace) {
+        _clearNonReplayableToolAction(message);
         logger.warning('WS send failed; queued message', error, stackTrace);
         _queueOfflineMessage(message);
         _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -972,6 +980,52 @@ class BridgeService implements BridgeServiceBase {
     final dedupeKey = _offlineMessageDedupeKey(message);
     if (dedupeKey == null) return;
     _inFlightInputMessages[dedupeKey] = message;
+  }
+
+  void _trackNonReplayableToolAction(ClientMessage message) {
+    if (message.type != 'approve' &&
+        message.type != 'approve_always' &&
+        message.type != 'reject' &&
+        message.type != 'answer' &&
+        message.type != 'install_tool_suggestion') {
+      return;
+    }
+    final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    final toolUseId = (json['toolUseId'] ?? json['id']) as String?;
+    if (toolUseId != null && toolUseId.isNotEmpty) {
+      _inFlightNonReplayableToolActions.add((
+        sessionId: json['sessionId'] as String?,
+        toolUseId: toolUseId,
+      ));
+    }
+  }
+
+  void _clearNonReplayableToolAction(ClientMessage message) {
+    final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    final toolUseId = (json['toolUseId'] ?? json['id']) as String?;
+    if (toolUseId != null) {
+      _inFlightNonReplayableToolActions.remove((
+        sessionId: json['sessionId'] as String?,
+        toolUseId: toolUseId,
+      ));
+    }
+  }
+
+  void _clearDeliveredNonReplayableToolAction(
+    ServerMessage message, {
+    required String? sessionId,
+  }) {
+    final toolUseId = switch (message) {
+      PermissionResolvedMessage(:final toolUseId) => toolUseId,
+      ToolResultMessage(:final toolUseId) => toolUseId,
+      _ => null,
+    };
+    if (toolUseId != null) {
+      _inFlightNonReplayableToolActions.remove((
+        sessionId: sessionId,
+        toolUseId: toolUseId,
+      ));
+    }
   }
 
   void _cacheAcceptedInFlightInput(
@@ -1535,23 +1589,25 @@ class BridgeService implements BridgeServiceBase {
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final deadline = DateTime.now().add(timeout);
-    if (!isConnected) {
-      try {
-        await connectionStatus
-            .firstWhere((state) => state == BridgeConnectionState.connected)
-            .timeout(timeout);
-      } on TimeoutException {
-        return const SessionLinkResolveResult.unavailable();
-      }
-      if (!isConnected) {
-        return const SessionLinkResolveResult.unavailable();
-      }
+    if (!_prepareSessionLinkConnection()) {
+      return const SessionLinkResolveResult.unavailable();
     }
+    if (!await _waitForConnection(deadline)) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    final initialUrl = _lastUrl;
+    final initialEpoch = _connectionEpoch;
 
-    final remaining = deadline.difference(DateTime.now());
+    var remaining = deadline.difference(DateTime.now());
     if (remaining <= Duration.zero) {
       return const SessionLinkResolveResult.unavailable();
     }
+    final firstAttemptTimeout = Duration(
+      microseconds: min(
+        remaining.inMicroseconds ~/ 2,
+        const Duration(seconds: 3).inMicroseconds,
+      ),
+    );
     final requestId = 'session-link-${++_nextSessionLinkRequestId}';
     final completer = Completer<SessionLinkResolveResult>();
     _pendingSessionLinkResolutions[requestId] = completer;
@@ -1563,10 +1619,164 @@ class BridgeService implements BridgeServiceBase {
       ),
     );
     try {
-      return await completer.future.timeout(
-        remaining,
-        onTimeout: () => const SessionLinkResolveResult.unavailable(),
-      );
+      try {
+        return await completer.future.timeout(firstAttemptTimeout);
+      } on TimeoutException {
+        // Probe the same WebSocket with an established lightweight request.
+        // If it responds, keep waiting for the original resolution instead of
+        // replacing a healthy socket whose lookup is merely slow.
+      }
+
+      final currentUrl = _lastUrl;
+      if (_intentionalDisconnect ||
+          _connectionEpoch != initialEpoch ||
+          initialUrl == null ||
+          currentUrl == null ||
+          !_sameBridgeTarget(initialUrl, currentUrl)) {
+        return const SessionLinkResolveResult.unavailable();
+      }
+
+      final probeOutcome = await Future.any<Object>([
+        completer.future,
+        _probeSessionLinkSocket(deadline),
+      ]);
+      if (probeOutcome is SessionLinkResolveResult) return probeOutcome;
+      if (probeOutcome == true) {
+        remaining = deadline.difference(DateTime.now());
+        if (remaining <= Duration.zero) {
+          return const SessionLinkResolveResult.unavailable();
+        }
+        try {
+          return await completer.future.timeout(remaining);
+        } on TimeoutException {
+          return const SessionLinkResolveResult.unavailable();
+        }
+      }
+    } finally {
+      _pendingSessionLinkResolutions.remove(requestId);
+      _messageQueue.removeWhere((message) {
+        final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+        return json['type'] == 'resolve_session_link' &&
+            json['requestId'] == requestId;
+      });
+    }
+
+    // A connected WebSocket can remain marked open after the app was
+    // suspended even though it no longer delivers messages. A timed-out
+    // resolution request is safe to retry after replacing that stale socket.
+    final reconnectUrl = _lastUrl;
+    if (_intentionalDisconnect ||
+        reconnectUrl == null ||
+        !_sameBridgeTarget(initialUrl, reconnectUrl)) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    if (_connectionEpoch != initialEpoch) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    if (_inFlightNonReplayableToolActions.isNotEmpty) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    _requeueInFlightInputMessages();
+    _requeueInFlightPendingMessages();
+    _completePendingSessionLinkResolutions(
+      const SessionLinkResolveResult.unavailable(),
+    );
+    connect(reconnectUrl);
+    final reconnectEpoch = _connectionEpoch;
+    if (!await _waitForConnection(deadline)) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    final connectedUrl = _lastUrl;
+    if (_intentionalDisconnect ||
+        _connectionEpoch != reconnectEpoch ||
+        connectedUrl == null ||
+        !_sameBridgeTarget(reconnectUrl, connectedUrl)) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+
+    remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      return const SessionLinkResolveResult.unavailable();
+    }
+    final retryResult = await _requestSessionLinkResolution(
+      sessionId,
+      provider: provider,
+      timeout: remaining,
+    );
+    return retryResult ?? const SessionLinkResolveResult.unavailable();
+  }
+
+  bool _prepareSessionLinkConnection() {
+    if (_intentionalDisconnect) return false;
+    if (_connectionState == BridgeConnectionState.reconnecting &&
+        _lastUrl != null) {
+      // A notification tap is an active foreground request, so do not make
+      // the user wait for an exponential background reconnect delay.
+      connect(_lastUrl!);
+      return true;
+    }
+    ensureConnected();
+    return true;
+  }
+
+  Future<bool> _probeSessionLinkSocket(DateTime deadline) async {
+    if (!isConnected || _intentionalDisconnect) return false;
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) return false;
+    final probeTimeout = Duration(
+      microseconds: min(
+        remaining.inMicroseconds ~/ 3,
+        const Duration(seconds: 1).inMicroseconds,
+      ),
+    );
+    if (probeTimeout <= Duration.zero) return false;
+    final response = _sessionListController.stream.first;
+    send(ClientMessage.listSessions());
+    try {
+      await response.timeout(probeTimeout);
+      return isConnected && !_intentionalDisconnect;
+    } on TimeoutException {
+      return false;
+    } on StateError {
+      return false;
+    }
+  }
+
+  Future<bool> _waitForConnection(DateTime deadline) async {
+    if (isConnected) return true;
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) return false;
+    try {
+      await connectionStatus
+          .firstWhere((state) => state == BridgeConnectionState.connected)
+          .timeout(remaining);
+    } on TimeoutException {
+      return false;
+    } on StateError {
+      return false;
+    }
+    return isConnected;
+  }
+
+  Future<SessionLinkResolveResult?> _requestSessionLinkResolution(
+    String sessionId, {
+    required String provider,
+    required Duration timeout,
+  }) async {
+    final requestId = 'session-link-${++_nextSessionLinkRequestId}';
+    final completer = Completer<SessionLinkResolveResult>();
+    _pendingSessionLinkResolutions[requestId] = completer;
+    send(
+      ClientMessage.resolveSessionLink(
+        requestId: requestId,
+        sessionId: sessionId,
+        provider: provider,
+      ),
+    );
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      return null;
     } finally {
       _pendingSessionLinkResolutions.remove(requestId);
       _messageQueue.removeWhere((message) {
@@ -1578,11 +1788,17 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _completePendingSessionLinkResolutionsAsUnsupported() {
+    _completePendingSessionLinkResolutions(
+      const SessionLinkResolveResult.unsupported(),
+    );
+  }
+
+  void _completePendingSessionLinkResolutions(SessionLinkResolveResult result) {
     final pending = _pendingSessionLinkResolutions.values.toList();
     _pendingSessionLinkResolutions.clear();
     for (final completer in pending) {
       if (!completer.isCompleted) {
-        completer.complete(const SessionLinkResolveResult.unsupported());
+        completer.complete(result);
       }
     }
   }
@@ -2466,7 +2682,7 @@ class BridgeService implements BridgeServiceBase {
   /// Call this when the app returns to foreground — iOS may silently kill
   /// background WebSocket connections without triggering [onDone]/[onError].
   void ensureConnected() {
-    if (_lastUrl == null) return;
+    if (_intentionalDisconnect || _lastUrl == null) return;
     if (_connectionState == BridgeConnectionState.connected) {
       // The channel may appear "connected" but the underlying socket is dead.
       // A non-null closeCode means the socket has already been closed.
@@ -2521,7 +2737,9 @@ class BridgeService implements BridgeServiceBase {
 
   void dispose() {
     _intentionalDisconnect = true;
-    _completePendingSessionLinkResolutionsAsUnsupported();
+    _completePendingSessionLinkResolutions(
+      const SessionLinkResolveResult.unavailable(),
+    );
     _reconnectTimer?.cancel();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
       timer.cancel();
