@@ -858,6 +858,12 @@ sealed class ServerMessage {
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
       ),
+      'push_registration_result' => PushRegistrationResultMessage(
+        token: json['token'] as String,
+        requestId: json['requestId'] as String,
+        success: json['success'] as bool,
+        error: json['error'] as String?,
+      ),
       'session_link_resolution' => SessionLinkResolutionMessage(
         requestId: json['requestId'] as String,
         sourceSessionId: json['sourceSessionId'] as String,
@@ -1629,6 +1635,20 @@ class ErrorMessage implements ServerMessage {
     this.sessionId,
     this.path,
     this.requestId,
+  });
+}
+
+class PushRegistrationResultMessage implements ServerMessage {
+  final String token;
+  final String requestId;
+  final bool success;
+  final String? error;
+
+  const PushRegistrationResultMessage({
+    required this.token,
+    required this.requestId,
+    required this.success,
+    this.error,
   });
 }
 
@@ -3945,6 +3965,7 @@ class ClientMessage {
       'history_snapshot',
       'git_status_result',
       'prompt_history_status',
+      'push_registration_result',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{
@@ -4086,12 +4107,14 @@ class ClientMessage {
   factory ClientMessage.pushRegister({
     required String token,
     required String platform,
+    required String requestId,
     String? locale,
     bool? privacyMode,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'push_register',
     'token': token,
     'platform': platform,
+    'requestId': requestId,
     'locale': ?locale,
     'privacyMode': ?privacyMode,
   });

@@ -68,6 +68,28 @@ describe("PushRelayClient", () => {
     })).rejects.toThrow("Push relay returned 500");
   });
 
+  it("forwards the active token hash allowlist for notifications", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    const client = new PushRelayClient({
+      firebaseAuth: createMockAuth("bridge-uid", "id-token"),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    const tokenHash = "a".repeat(64);
+
+    await client.notify({
+      eventType: "session_completed",
+      title: "done",
+      body: "ok",
+      tokenHashes: [tokenHash],
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      op: "notify",
+      tokenHashes: [tokenHash],
+    });
+  });
+
   it("uses default relay URL when not specified", async () => {
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     const mockAuth = createMockAuth();

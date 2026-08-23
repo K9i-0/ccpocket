@@ -209,12 +209,13 @@ describe("parseClientMessage", () => {
 
   it("parses push_register message", () => {
     const msg = parseClientMessage(
-      '{"type":"push_register","token":"t1","platform":"ios"}',
+      '{"type":"push_register","token":"t1","platform":"ios","requestId":"req-1"}',
     );
     expect(msg).toEqual({
       type: "push_register",
       token: "t1",
       platform: "ios",
+      requestId: "req-1",
     });
   });
 
@@ -222,6 +223,14 @@ describe("parseClientMessage", () => {
     expect(
       parseClientMessage(
         '{"type":"push_register","token":"t1","platform":"desktop"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects push_register with invalid requestId", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"push_register","token":"t1","platform":"ios","requestId":1}',
       ),
     ).toBeNull();
   });

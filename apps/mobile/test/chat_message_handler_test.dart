@@ -1789,6 +1789,20 @@ void main() {
     });
   });
 
+  test('push registration results are not retained in chat history', () {
+    final update = handler.handle(
+      const PushRegistrationResultMessage(
+        token: 'sensitive-fcm-token',
+        requestId: 'push-request-1',
+        success: true,
+      ),
+      isBackground: true,
+    );
+
+    expect(update.entriesToAdd, isEmpty);
+    expect(update.sideEffects, isEmpty);
+  });
+
   group('Unsupported message handling', () {
     test('set_codex_model shows bridge update hint', () {
       final update = handler.handle(

@@ -15,6 +15,7 @@ enum FcmStatusKey {
   unavailable,
   bridgeNotInitialized,
   tokenFailed,
+  registrationFailed,
   enabled,
   enabledPending,
   disabled,
@@ -123,6 +124,10 @@ abstract class SettingsState with _$SettingsState {
   /// Whether push notifications are enabled for the currently connected machine.
   bool get fcmEnabled =>
       activeMachineId != null && fcmEnabledMachines.contains(activeMachineId);
+
+  /// Whether this Bridge has acknowledged the active token registration.
+  bool get fcmReady =>
+      fcmAvailable && fcmEnabled && fcmStatusKey == FcmStatusKey.enabled;
 
   /// Whether privacy mode is enabled for the currently connected machine.
   bool get fcmPrivacy =>

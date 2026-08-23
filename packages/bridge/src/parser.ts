@@ -164,6 +164,7 @@ export type ClientMessage =
       type: "push_register";
       token: string;
       platform: "ios" | "android" | "web";
+      requestId?: string;
       locale?: string;
       privacyMode?: boolean;
     }
@@ -551,6 +552,13 @@ export type ServerMessage =
       sessionId?: string;
       path?: string;
       requestId?: string;
+    }
+  | {
+      type: "push_registration_result";
+      token: string;
+      requestId: string;
+      success: boolean;
+      error?: string;
     }
   | {
       type: "session_link_resolution";
@@ -1133,6 +1141,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "push_register":
         if (typeof msg.token !== "string") return null;
+        if (msg.requestId != null && typeof msg.requestId !== "string")
+          return null;
         if (
           msg.platform !== "ios" &&
           msg.platform !== "android" &&

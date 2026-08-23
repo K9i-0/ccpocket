@@ -1934,6 +1934,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fcmTokenFailed => '获取 FCM Token 失败';
 
   @override
+  String get fcmRegistrationFailed => '向 Bridge 注册通知失败';
+
+  @override
   String get fcmEnabled => '通知已启用';
 
   @override

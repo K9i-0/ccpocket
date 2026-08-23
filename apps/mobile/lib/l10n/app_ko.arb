@@ -724,6 +724,7 @@
   "changelogFetchError": "변경 로그를 불러오지 못했습니다",
   "fcmBridgeNotInitialized": "Bridge가 초기화되지 않음",
   "fcmTokenFailed": "FCM 토큰을 가져오지 못했습니다",
+  "fcmRegistrationFailed": "Bridge에 알림을 등록하지 못했습니다",
   "fcmEnabled": "알림 활성화됨",
   "fcmEnabledPending": "Bridge 재연결 후 등록됩니다",
   "fcmDisabled": "알림 비활성화됨",

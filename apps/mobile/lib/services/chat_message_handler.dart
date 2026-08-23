@@ -321,6 +321,10 @@ class ChatMessageHandler {
           );
         }
         return const ChatStateUpdate();
+      case PushRegistrationResultMessage():
+        // Consumed globally by SettingsCubit. Never retain the FCM token in a
+        // per-session chat transcript.
+        return const ChatStateUpdate();
       case ErrorMessage(:final message, :final errorCode):
         if (errorCode == 'goal_get_failed') {
           logger.warning('[handler] goal lookup unavailable: $message');

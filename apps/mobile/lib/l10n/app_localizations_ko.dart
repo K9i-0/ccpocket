@@ -1971,6 +1971,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fcmTokenFailed => 'FCM 토큰을 가져오지 못했습니다';
 
   @override
+  String get fcmRegistrationFailed => 'Bridge에 알림을 등록하지 못했습니다';
+
+  @override
   String get fcmEnabled => '알림 활성화됨';
 
   @override

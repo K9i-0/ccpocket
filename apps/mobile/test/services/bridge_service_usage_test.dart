@@ -469,6 +469,46 @@ void main() {
       bridge.dispose();
     });
 
+    test('push registration result stays out of session streams', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final globalResult = bridge.messages
+          .where((message) => message is PushRegistrationResultMessage)
+          .cast<PushRegistrationResultMessage>()
+          .first;
+      final sessionResult = bridge
+          .messagesForSession('s1')
+          .where((message) => message is PushRegistrationResultMessage)
+          .cast<PushRegistrationResultMessage>()
+          .first
+          .timeout(const Duration(milliseconds: 100));
+
+      socket.add(
+        jsonEncode({
+          'type': 'push_registration_result',
+          'token': 'sensitive-fcm-token',
+          'requestId': 'push-request-1',
+          'success': true,
+        }),
+      );
+
+      expect((await globalResult).token, 'sensitive-fcm-token');
+      await expectLater(sessionResult, throwsA(isA<TimeoutException>()));
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test('resolveSessionLink degrades for an older Bridge', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();

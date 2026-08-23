@@ -1,5 +1,5 @@
 import type { Server as HttpServer } from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { lstat, readFile, readlink, stat, unlink } from "node:fs/promises";
@@ -219,6 +219,7 @@ const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "goal_state",
   "guardian_approval",
   "prompt_history_status",
+  "push_registration_result",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -737,6 +738,9 @@ export class BridgeWebSocketServer {
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
+  private pushTokenGeneration = new Map<string, number>();
+  private pushTokenOperations = new Map<string, Promise<void>>();
+  private nextPushTokenGeneration = 0;
   private failSetPermissionMode = envFlagEnabled(
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
@@ -3011,36 +3015,74 @@ export class BridgeWebSocketServer {
       case "push_register": {
         const locale = normalizePushLocale(msg.locale);
         const privacyMode = msg.privacyMode === true;
+        const supportsRegistrationResult =
+          this.clientSupportedServerMessages
+            .get(ws)
+            ?.has("push_registration_result") ?? false;
         console.log(
           `[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${this.pushRelay.isConfigured})`,
         );
+        const generation = this.beginPushTokenOperation(msg.token);
         if (!this.pushRelay.isConfigured) {
-          this.send(ws, {
-            type: "error",
-            message: "Push relay is not configured on bridge",
-          });
+          const error = "Push relay is not configured on bridge";
+          this.send(
+            ws,
+            supportsRegistrationResult
+              ? {
+                  type: "push_registration_result",
+                  token: msg.token,
+                  requestId: msg.requestId ?? "",
+                  success: false,
+                  error,
+                }
+              : { type: "error", message: error },
+          );
           return;
         }
-        this.tokenLocales.set(msg.token, locale);
-        this.tokenPrivacyMode.set(msg.token, privacyMode);
-        this.pushRelay
-          .registerToken(msg.token, msg.platform, locale)
+        const operation = this.enqueuePushTokenOperation(msg.token, () =>
+          this.pushRelay.registerToken(msg.token, msg.platform, locale),
+        );
+        operation
           .then(() => {
+            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
             console.log("[ws] push_register: token registered successfully");
+            if (supportsRegistrationResult) {
+              this.send(ws, {
+                type: "push_registration_result",
+                token: msg.token,
+                requestId: msg.requestId ?? "",
+                success: true,
+              });
+            }
+            // Enable delivery only after the acknowledgement has been queued
+            // on the WebSocket, keeping the app on local fallback until then.
+            this.tokenLocales.set(msg.token, locale);
+            this.tokenPrivacyMode.set(msg.token, privacyMode);
           })
           .catch((err) => {
+            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
             const detail = err instanceof Error ? err.message : String(err);
             console.error(`[ws] push_register failed: ${detail}`);
-            this.send(ws, {
-              type: "error",
-              message: `Failed to register push token: ${detail}`,
-            });
+            const error = `Failed to register push token: ${detail}`;
+            this.send(
+              ws,
+              supportsRegistrationResult
+                ? {
+                    type: "push_registration_result",
+                    token: msg.token,
+                    requestId: msg.requestId ?? "",
+                    success: false,
+                    error,
+                  }
+                : { type: "error", message: error },
+            );
           });
         break;
       }
 
       case "push_unregister": {
         console.log("[ws] push_unregister received");
+        const generation = this.beginPushTokenOperation(msg.token);
         if (!this.pushRelay.isConfigured) {
           this.send(ws, {
             type: "error",
@@ -3048,16 +3090,17 @@ export class BridgeWebSocketServer {
           });
           return;
         }
-        this.tokenLocales.delete(msg.token);
-        this.tokenPrivacyMode.delete(msg.token);
-        this.pushRelay
-          .unregisterToken(msg.token)
+        this.enqueuePushTokenOperation(msg.token, () =>
+          this.pushRelay.unregisterToken(msg.token),
+        )
           .then(() => {
+            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
             console.log(
               "[ws] push_unregister: token unregistered successfully",
             );
           })
           .catch((err) => {
+            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
             const detail = err instanceof Error ? err.message : String(err);
             console.error(`[ws] push_unregister failed: ${detail}`);
             this.send(ws, {
@@ -7516,10 +7559,52 @@ export class BridgeWebSocketServer {
     return parts[parts.length - 1] || "";
   }
 
-  /** Get unique locales from registered tokens. Falls back to ["en"] if none registered. */
+  private beginPushTokenOperation(token: string): number {
+    const generation = ++this.nextPushTokenGeneration;
+    this.pushTokenGeneration.set(token, generation);
+    // Local delivery is disabled synchronously while the relay operation is
+    // pending. The app stays on local fallback until a successful ACK.
+    this.tokenLocales.delete(token);
+    this.tokenPrivacyMode.delete(token);
+    return generation;
+  }
+
+  private enqueuePushTokenOperation(
+    token: string,
+    operation: () => Promise<void>,
+  ): Promise<void> {
+    const previous = this.pushTokenOperations.get(token);
+    const pending = (previous?.catch(() => {}) ?? Promise.resolve()).then(
+      operation,
+    );
+    this.pushTokenOperations.set(token, pending);
+    const cleanup = () => {
+      if (this.pushTokenOperations.get(token) === pending) {
+        this.pushTokenOperations.delete(token);
+      }
+    };
+    void pending.then(cleanup, cleanup);
+    return pending;
+  }
+
+  private isCurrentPushTokenOperation(
+    token: string,
+    generation: number,
+  ): boolean {
+    return this.pushTokenGeneration.get(token) === generation;
+  }
+
+  /** Get unique locales from tokens acknowledged by the push relay. */
   private getRegisteredLocales(): PushLocale[] {
     const locales = new Set(this.tokenLocales.values());
-    return locales.size > 0 ? [...locales] : ["en"];
+    return [...locales];
+  }
+
+  /** Hashes of relay tokens that are currently safe for remote delivery. */
+  private getActivePushTokenHashes(locale: PushLocale): string[] {
+    return [...this.tokenLocales]
+      .filter(([, tokenLocale]) => tokenLocale === locale)
+      .map(([token]) => createHash("sha256").update(token).digest("hex"));
   }
 
   /** Whether any registered token has privacy mode enabled (conservative: privacy wins). */
@@ -7545,6 +7630,7 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
   ): void {
     if (!this.pushRelay.isConfigured) return;
+    if (this.tokenLocales.size === 0) return;
 
     const privacy = this.isPrivacyMode();
     const label = privacy ? "" : this.sessionLabel(sessionId);
@@ -7616,6 +7702,7 @@ export class BridgeWebSocketServer {
             title,
             body,
             locale,
+            tokenHashes: this.getActivePushTokenHashes(locale),
             data,
           })
           .catch((err) => {
@@ -7688,6 +7775,7 @@ export class BridgeWebSocketServer {
           title,
           body,
           locale,
+          tokenHashes: this.getActivePushTokenHashes(locale),
           data,
         })
         .catch((err) => {

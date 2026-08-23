@@ -602,6 +602,7 @@ class _CodexChatBody extends HookWidget {
     final showRemoteGitStatusBadge = context.select(
       (SettingsCubit cubit) => cubit.state.showRemoteGitStatusBadge,
     );
+    final settingsCubit = context.read<SettingsCubit>();
 
     // Custom hooks
     final lifecycleState = useAppLifecycleState();
@@ -742,6 +743,7 @@ class _CodexChatBody extends HookWidget {
           effects,
           sessionId: sessionId,
           isBackground: isBackgroundRef.value,
+          remoteNotificationsReady: settingsCubit.state.fcmReady,
           approval: chatSessionCubit.state.approval,
           l: l,
           collapseToolResults: collapseToolResults,
@@ -1655,12 +1657,17 @@ void _executeSideEffects(
   Set<ChatSideEffect> effects, {
   required String sessionId,
   required bool isBackground,
+  required bool remoteNotificationsReady,
   required ApprovalState approval,
   required AppLocalizations l,
   required TextEditingController planFeedbackController,
   required ValueNotifier<int> collapseToolResults,
   required bool Function() isReadingHistory,
 }) {
+  final useLocalNotification = shouldUseLocalNotificationFallback(
+    isBackground: isBackground,
+    remoteNotificationsReady: remoteNotificationsReady,
+  );
   for (final effect in effects) {
     switch (effect) {
       case ChatSideEffect.heavyHaptic:
@@ -1676,7 +1683,7 @@ void _executeSideEffects(
       case ChatSideEffect.clearPlanFeedback:
         planFeedbackController.clear();
       case ChatSideEffect.notifyApprovalRequired:
-        if (isBackground) {
+        if (useLocalNotification) {
           final permission = _notificationPermissionFor(approval);
           if (permission != null) {
             NotificationService.instance.showApprovalNotification(
@@ -1688,7 +1695,7 @@ void _executeSideEffects(
           }
         }
       case ChatSideEffect.notifyAskQuestion:
-        if (isBackground) {
+        if (useLocalNotification) {
           final permission = _notificationPermissionFor(approval);
           if (permission != null) {
             NotificationService.instance.showApprovalNotification(
@@ -1700,7 +1707,7 @@ void _executeSideEffects(
           }
         }
       case ChatSideEffect.notifySessionComplete:
-        if (isBackground) {
+        if (useLocalNotification) {
           NotificationService.instance.showSessionCompleteNotification(
             body: 'Codex session done',
             id: 3,

@@ -650,6 +650,10 @@ class BridgeService implements BridgeServiceBase {
                 if (completer != null && !completer.isCompleted) {
                   completer.complete(SessionLinkResolveResult.resolved(msg));
                 }
+              case PushRegistrationResultMessage():
+                // Global settings state consumes this acknowledgement. Do not
+                // route its token through per-session chat streams.
+                _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -2228,6 +2232,7 @@ class BridgeService implements BridgeServiceBase {
   void registerPushToken({
     required String token,
     required String platform,
+    required String requestId,
     String? locale,
     bool? privacyMode,
   }) {
@@ -2235,6 +2240,7 @@ class BridgeService implements BridgeServiceBase {
       ClientMessage.pushRegister(
         token: token,
         platform: platform,
+        requestId: requestId,
         locale: locale,
         privacyMode: privacyMode,
       ),

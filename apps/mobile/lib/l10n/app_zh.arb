@@ -847,6 +847,7 @@
 
   "fcmBridgeNotInitialized": "Bridge 尚未初始化",
   "fcmTokenFailed": "获取 FCM Token 失败",
+  "fcmRegistrationFailed": "向 Bridge 注册通知失败",
   "fcmEnabled": "通知已启用",
   "fcmEnabledPending": "Bridge 重新连接后将自动注册",
   "fcmDisabled": "通知已禁用",

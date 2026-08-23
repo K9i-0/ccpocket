@@ -1579,6 +1579,7 @@ class _PushNotificationTile extends StatelessWidget {
       FcmStatusKey.unavailable => l.pushNotificationsUnavailable,
       FcmStatusKey.bridgeNotInitialized => l.fcmBridgeNotInitialized,
       FcmStatusKey.tokenFailed => l.fcmTokenFailed,
+      FcmStatusKey.registrationFailed => l.fcmRegistrationFailed,
       FcmStatusKey.enabled => l.fcmEnabled,
       FcmStatusKey.enabledPending => l.fcmEnabledPending,
       FcmStatusKey.disabled => l.fcmDisabled,

@@ -3702,6 +3702,12 @@ abstract class AppLocalizations {
   /// **'FCM token を取得できませんでした'**
   String get fcmTokenFailed;
 
+  /// No description provided for @fcmRegistrationFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge への通知登録に失敗しました'**
+  String get fcmRegistrationFailed;
+
   /// No description provided for @fcmEnabled.
   ///
   /// In ja, this message translates to:

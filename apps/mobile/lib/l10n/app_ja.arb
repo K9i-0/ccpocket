@@ -813,6 +813,7 @@
 
   "fcmBridgeNotInitialized": "Bridge が未初期化です",
   "fcmTokenFailed": "FCM token を取得できませんでした",
+  "fcmRegistrationFailed": "Bridge への通知登録に失敗しました",
   "fcmEnabled": "通知を有効化しました",
   "fcmEnabledPending": "Bridge 再接続後に通知登録します",
   "fcmDisabled": "通知を無効化しました",

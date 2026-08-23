@@ -22,6 +22,21 @@ void main() {
     expect(legacyMessage.permissionOutcome, isNull);
   });
 
+  test('parses push registration acknowledgements', () {
+    final message = ServerMessage.fromJson({
+      'type': 'push_registration_result',
+      'token': 'token-1',
+      'requestId': 'push-request-1',
+      'success': false,
+      'error': 'relay offline',
+    }) as PushRegistrationResultMessage;
+
+    expect(message.token, 'token-1');
+    expect(message.requestId, 'push-request-1');
+    expect(message.success, isFalse);
+    expect(message.error, 'relay offline');
+  });
+
   test(
     'serializes directory listing requests and parses directory entries',
     () {
@@ -474,6 +489,7 @@ void main() {
         'history_snapshot',
         'git_status_result',
         'prompt_history_status',
+        'push_registration_result',
       ]);
     });
 

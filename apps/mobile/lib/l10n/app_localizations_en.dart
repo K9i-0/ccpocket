@@ -2029,6 +2029,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fcmTokenFailed => 'Failed to get FCM token';
 
   @override
+  String get fcmRegistrationFailed =>
+      'Failed to register notifications with Bridge';
+
+  @override
   String get fcmEnabled => 'Notifications enabled';
 
   @override

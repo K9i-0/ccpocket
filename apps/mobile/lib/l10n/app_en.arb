@@ -783,6 +783,7 @@
 
   "fcmBridgeNotInitialized": "Bridge not initialized",
   "fcmTokenFailed": "Failed to get FCM token",
+  "fcmRegistrationFailed": "Failed to register notifications with Bridge",
   "fcmEnabled": "Notifications enabled",
   "fcmEnabledPending": "Will register after Bridge reconnects",
   "fcmDisabled": "Notifications disabled",

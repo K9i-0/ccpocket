@@ -1956,6 +1956,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fcmTokenFailed => 'FCM token を取得できませんでした';
 
   @override
+  String get fcmRegistrationFailed => 'Bridge への通知登録に失敗しました';
+
+  @override
   String get fcmEnabled => '通知を有効化しました';
 
   @override
