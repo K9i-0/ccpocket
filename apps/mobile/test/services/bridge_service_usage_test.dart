@@ -504,9 +504,8 @@ void main() {
       await expectLater(sessionResult, throwsA(isA<TimeoutException>()));
 
       bridge.disconnect();
-      await socket.close();
-      await server.close(force: true);
       bridge.dispose();
+      await server.close(force: true);
     });
 
     test('resolveSessionLink degrades for an older Bridge', () async {
@@ -963,7 +962,7 @@ void main() {
 
       final bridge = BridgeService();
       bridge.connect('ws://127.0.0.1:${server.port}');
-      final socket = await socketReady.future;
+      await socketReady.future;
       await bridge.connectionStatus.firstWhere(
         (state) => state == BridgeConnectionState.connected,
       );
@@ -977,9 +976,8 @@ void main() {
       expect(result.support, SessionLinkResolveSupport.unavailable);
       expect(connectionCount, 1);
 
-      await socket.close();
-      await server.close(force: true);
       bridge.dispose();
+      await server.close(force: true);
     });
 
     test(
@@ -1024,7 +1022,7 @@ void main() {
 
         final bridge = BridgeService();
         bridge.connect('ws://127.0.0.1:${firstServer.port}');
-        final firstSocket = await firstSocketReady.future;
+        await firstSocketReady.future;
         final resolutionFuture = bridge.resolveSessionLink(
           'claude-uuid',
           timeout: const Duration(milliseconds: 600),
@@ -1032,7 +1030,7 @@ void main() {
         await firstRequestReady.future.timeout(const Duration(seconds: 1));
 
         bridge.connect('ws://127.0.0.1:${secondServer.port}');
-        final secondSocket = await secondSocketReady.future;
+        await secondSocketReady.future;
         await bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
@@ -1043,11 +1041,9 @@ void main() {
         expect(bridge.isConnected, isTrue);
 
         bridge.disconnect();
-        await firstSocket.close();
-        await secondSocket.close();
+        bridge.dispose();
         await firstServer.close(force: true);
         await secondServer.close(force: true);
-        bridge.dispose();
       },
     );
 
