@@ -83,6 +83,21 @@ enum BridgeConnectionState { disconnected, connecting, connected, reconnecting }
 
 enum MessageStatus { sending, sent, queued, failed }
 
+enum PermissionOutcome {
+  approved,
+  approvedForSession,
+  rejected,
+  answered;
+
+  static PermissionOutcome? fromString(String? value) => switch (value) {
+    'approved' => PermissionOutcome.approved,
+    'approved_for_session' => PermissionOutcome.approvedForSession,
+    'rejected' => PermissionOutcome.rejected,
+    'answered' => PermissionOutcome.answered,
+    _ => null,
+  };
+}
+
 // ---- Process status ----
 
 enum ProcessStatus {
@@ -807,6 +822,9 @@ sealed class ServerMessage {
         toolUseId: json['toolUseId'] as String,
         content: _normalizeToolResultContent(json['content']),
         toolName: json['toolName'] as String?,
+        permissionOutcome: PermissionOutcome.fromString(
+          json['permissionOutcome'] as String?,
+        ),
         images:
             (json['images'] as List?)
                 ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
@@ -1556,12 +1574,14 @@ class ToolResultMessage implements ServerMessage {
   final String toolUseId;
   final String content;
   final String? toolName;
+  final PermissionOutcome? permissionOutcome;
   final List<ImageRef> images;
   final String? userMessageUuid;
   const ToolResultMessage({
     required this.toolUseId,
     required this.content,
     this.toolName,
+    this.permissionOutcome,
     this.images = const [],
     this.userMessageUuid,
   });

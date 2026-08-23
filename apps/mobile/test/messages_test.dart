@@ -4,6 +4,24 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('parses explicit permission outcomes on synthetic tool results', () {
+    final message = ServerMessage.fromJson({
+      'type': 'tool_result',
+      'toolUseId': 'command-1',
+      'content': 'Approved (always)',
+      'permissionOutcome': 'approved_for_session',
+    }) as ToolResultMessage;
+
+    expect(message.permissionOutcome, PermissionOutcome.approvedForSession);
+
+    final legacyMessage = ServerMessage.fromJson({
+      'type': 'tool_result',
+      'toolUseId': 'command-1',
+      'content': 'Approved',
+    }) as ToolResultMessage;
+    expect(legacyMessage.permissionOutcome, isNull);
+  });
+
   test(
     'serializes directory listing requests and parses directory entries',
     () {

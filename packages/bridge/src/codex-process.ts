@@ -1014,7 +1014,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       pending.requestId,
       buildApprovalResponse(pending, "accept"),
     );
-    this.emitToolResult(pending.toolUseId, "Approved");
+    this.emitToolResult(pending.toolUseId, "Approved", "approved");
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -1037,7 +1037,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       pending.requestId,
       buildApprovalResponse(pending, "acceptForSession"),
     );
-    this.emitToolResult(pending.toolUseId, "Approved (always)");
+    this.emitToolResult(
+      pending.toolUseId,
+      "Approved (always)",
+      "approved_for_session",
+    );
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -1069,7 +1073,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       pending.requestId,
       buildApprovalResponse(pending, resolveApprovalRejectDecision(pending)),
     );
-    this.emitToolResult(pending.toolUseId, "Rejected");
+    this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -1091,7 +1095,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       buildUserInputResponse(pending, result),
     );
 
-    this.emitToolResult(pending.toolUseId, "Answered");
+    this.emitToolResult(pending.toolUseId, "Answered", "answered");
 
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("running");
@@ -1231,11 +1235,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   /** Emit a synthetic tool_result so history replay can match it to a permission_request. */
-  private emitToolResult(toolUseId: string, content: string): void {
+  private emitToolResult(
+    toolUseId: string,
+    content: string,
+    permissionOutcome?:
+      | "approved"
+      | "approved_for_session"
+      | "rejected"
+      | "answered",
+  ): void {
     this.emitMessage({
       type: "tool_result",
       toolUseId,
       content,
+      ...(permissionOutcome ? { permissionOutcome } : {}),
     });
   }
 
@@ -1282,7 +1295,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       pending.requestId,
       buildUserInputResponse(pending, result),
     );
-    this.emitToolResult(pending.toolUseId, "Approved");
+    this.emitToolResult(
+      pending.toolUseId,
+      "Approved",
+      result === "Allow for this session"
+        ? "approved_for_session"
+        : "approved",
+    );
 
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("running");
@@ -1341,7 +1360,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         resolveUserInputRejectResult(pending, result),
       ),
     );
-    this.emitToolResult(pending.toolUseId, "Rejected");
+    this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("running");

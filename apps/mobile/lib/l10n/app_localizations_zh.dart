@@ -843,6 +843,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get approvalRequired => '需要批准';
 
   @override
+  String get approvalStatusPending => '待批准';
+
+  @override
+  String get approvalStatusApproved => '已批准';
+
+  @override
+  String get approvalStatusApprovedForSession => '本次会话已批准';
+
+  @override
+  String get approvalStatusRejected => '已拒绝';
+
+  @override
+  String get approvalStatusResolved => '已解决';
+
+  @override
   String get viewEditPlan => '查看计划';
 
   @override

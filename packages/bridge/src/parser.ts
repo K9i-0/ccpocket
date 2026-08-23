@@ -514,6 +514,11 @@ export type ServerMessage =
       toolUseId: string;
       content: string;
       toolName?: string;
+      permissionOutcome?:
+        | "approved"
+        | "approved_for_session"
+        | "rejected"
+        | "answered";
       images?: ImageRef[];
       userMessageUuid?: string;
       rawContentBlocks?: unknown[];

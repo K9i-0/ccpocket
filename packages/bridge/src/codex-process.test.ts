@@ -1908,6 +1908,12 @@ describe("CodexProcess (app-server)", () => {
       id: "req-approval-1",
       result: { decision: "accept" },
     });
+    expect(messages).toContainEqual({
+      type: "tool_result",
+      toolUseId: "item_cmd_1",
+      content: "Approved",
+      permissionOutcome: "approved",
+    });
 
     child.stdout.emit(
       "data",
@@ -2012,6 +2018,12 @@ describe("CodexProcess (app-server)", () => {
         },
       },
     });
+    expect(messages).toContainEqual({
+      type: "tool_result",
+      toolUseId: "item_user_input_1",
+      content: "Answered",
+      permissionOutcome: "answered",
+    });
 
     child.stdout.emit(
       "data",
@@ -2100,7 +2112,6 @@ describe("CodexProcess (app-server)", () => {
         },
       },
     });
-
     proc.stop();
   });
 
@@ -2748,6 +2759,12 @@ describe("CodexProcess (app-server)", () => {
         _meta: null,
       },
     });
+    expect(messages).toContainEqual({
+      type: "tool_result",
+      toolUseId: "req-mcp-approval-2",
+      content: "Rejected",
+      permissionOutcome: "rejected",
+    });
 
     proc.stop();
   });
@@ -2896,6 +2913,8 @@ describe("CodexProcess (app-server)", () => {
 
   it("uses acceptForSession for command approvals", async () => {
     const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-approve-always");
     const child = fakeChildren[0];
@@ -2936,6 +2955,12 @@ describe("CodexProcess (app-server)", () => {
     expect(response).toMatchObject({
       id: "req-always-1",
       result: { decision: "acceptForSession" },
+    });
+    expect(messages).toContainEqual({
+      type: "tool_result",
+      toolUseId: "item_always_1",
+      content: "Approved (always)",
+      permissionOutcome: "approved_for_session",
     });
 
     proc.stop();
