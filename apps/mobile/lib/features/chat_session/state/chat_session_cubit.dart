@@ -72,6 +72,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   Map<String, List<String>> get codexModelServiceTiers =>
       _bridge.codexModelServiceTiers;
 
+  bool get hasOlderHistory => _bridge.hasOlderSessionHistory(sessionId);
+
+  void loadOlderHistory() => _bridge.requestOlderSessionHistory(sessionId);
+
   String _nextOptimisticCodexUserTurnUuid() {
     final userTurnCount = state.entries.whereType<UserChatEntry>().length;
     return 'codex:user-turn:${userTurnCount + 1}';
@@ -309,6 +313,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // --- Build new entries list ---
     var entries = current.entries;
     var didModifyEntries = false;
+
+    if (update.resetPrependedEntries && _pastEntryCount > 0) {
+      entries = entries.skip(_pastEntryCount).toList();
+      _pastEntryCount = 0;
+      didModifyEntries = true;
+    }
 
     // When assistant message arrives and streaming was active, reset streaming
     if (originalMsg is AssistantServerMessage &&

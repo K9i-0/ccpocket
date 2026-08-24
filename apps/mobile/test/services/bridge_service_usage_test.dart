@@ -415,7 +415,11 @@ void main() {
           ),
           isTrue,
         );
-        expect(requests.last, {'type': 'get_history', 'sessionId': 's1'});
+        expect(requests.last, {
+          'type': 'get_history',
+          'sessionId': 's1',
+          'limit': 200,
+        });
 
         bridge.disconnect();
         await socket.close();
@@ -423,6 +427,150 @@ void main() {
         bridge.dispose();
       },
     );
+
+    test(
+      'large legacy history is decoded without exposing an unbounded list',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+        final bridge = BridgeService();
+        final received = <ServerMessage>[];
+        final subscription = bridge
+            .messagesForSession('s1')
+            .listen(received.add);
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        final padding = 'x' * 1024;
+        socket.add(
+          jsonEncode({
+            'type': 'history',
+            'sessionId': 's1',
+            'messages': List.generate(450, (index) {
+              return {
+                'type': 'user_input',
+                'text': 'synthetic-$index-$padding',
+              };
+            }),
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+
+        final initial = received.whereType<HistoryMessage>().single;
+        expect(initial.messages, hasLength(200));
+        expect(
+          (initial.messages.first as UserInputMessage).text,
+          startsWith('synthetic-250-'),
+        );
+        expect(bridge.hasOlderSessionHistory('s1'), isTrue);
+
+        bridge.requestOlderSessionHistory('s1');
+        await Future<void>.delayed(Duration.zero);
+        final firstOlder = received.whereType<HistoryPrependMessage>().single;
+        expect(firstOlder.messages, hasLength(200));
+        expect(
+          (firstOlder.messages.first as UserInputMessage).text,
+          startsWith('synthetic-50-'),
+        );
+        expect(bridge.hasOlderSessionHistory('s1'), isTrue);
+
+        bridge.requestOlderSessionHistory('s1');
+        await Future<void>.delayed(Duration.zero);
+        final olderPages = received.whereType<HistoryPrependMessage>().toList();
+        expect(olderPages.last.messages, hasLength(50));
+        expect(bridge.hasOlderSessionHistory('s1'), isFalse);
+
+        await subscription.cancel();
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test('history page requests only the next older window', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final outgoing = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          outgoing.add(jsonDecode(data as String) as Map<String, dynamic>);
+        });
+      });
+
+      final bridge = BridgeService();
+      final received = <ServerMessage>[];
+      final subscription = bridge.messagesForSession('s1').listen(received.add);
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      socket.add(
+        jsonEncode({
+          'type': 'history_page',
+          'sessionId': 's1',
+          'fromSeq': 201,
+          'toSeq': 400,
+          'initial': true,
+          'hasOlder': true,
+          'status': 'idle',
+          'messages': [
+            {
+              'seq': 400,
+              'message': {'type': 'user_input', 'text': 'latest'},
+            },
+          ],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        received.whereType<HistoryMessage>().single.messages,
+        hasLength(1),
+      );
+      bridge.requestOlderSessionHistory('s1');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final request = outgoing.lastWhere(
+        (message) => message['type'] == 'get_history',
+      );
+      expect(request, {
+        'type': 'get_history',
+        'sessionId': 's1',
+        'limit': 200,
+        'beforeSeq': 201,
+      });
+
+      socket.add(
+        jsonEncode({
+          'type': 'history_page',
+          'sessionId': 's1',
+          'fromSeq': 1,
+          'toSeq': 200,
+          'initial': false,
+          'hasOlder': false,
+          'status': 'idle',
+          'messages': [
+            {
+              'seq': 1,
+              'message': {'type': 'user_input', 'text': 'older'},
+            },
+          ],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        received.whereType<HistoryPrependMessage>().single.messages,
+        hasLength(1),
+      );
+      expect(bridge.hasOlderSessionHistory('s1'), isFalse);
+
+      await subscription.cancel();
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
 
     test('resolveSessionLink completes with the matching response', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

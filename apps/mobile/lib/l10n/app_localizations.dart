@@ -4925,6 +4925,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'このコンテンツを表示できませんでした'**
   String get renderErrorFallback;
+
+  /// No description provided for @loadEarlierMessages.
+  ///
+  /// In ja, this message translates to:
+  /// **'以前のメッセージを読み込む'**
+  String get loadEarlierMessages;
 }
 
 class _AppLocalizationsDelegate

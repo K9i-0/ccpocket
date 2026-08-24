@@ -219,7 +219,12 @@ export type ClientMessage =
       providerSessionId?: string;
       projectPath?: string;
     }
-  | { type: "get_history"; sessionId: string }
+  | {
+      type: "get_history";
+      sessionId: string;
+      limit?: number;
+      beforeSeq?: number;
+    }
   | { type: "get_history_delta"; sessionId: string; sinceSeq: number }
   | {
       type: "resolve_session_link";
@@ -572,6 +577,16 @@ export type ServerMessage =
     }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
+  | {
+      type: "history_page";
+      sessionId: string;
+      fromSeq: number;
+      toSeq: number;
+      messages: Array<{ seq: number; message: ServerMessage }>;
+      hasOlder: boolean;
+      initial: boolean;
+      status?: ProcessStatus;
+    }
   | {
       type: "history_delta";
       sessionId?: string;
@@ -1275,6 +1290,21 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_history":
         if (typeof msg.sessionId !== "string") return null;
+        if (
+          msg.limit !== undefined &&
+          (typeof msg.limit !== "number" ||
+            !Number.isInteger(msg.limit) ||
+            msg.limit < 1 ||
+            msg.limit > 500)
+        )
+          return null;
+        if (
+          msg.beforeSeq !== undefined &&
+          (typeof msg.beforeSeq !== "number" ||
+            !Number.isInteger(msg.beforeSeq) ||
+            msg.beforeSeq < 1)
+        )
+          return null;
         break;
       case "get_history_delta":
         if (typeof msg.sessionId !== "string") return null;

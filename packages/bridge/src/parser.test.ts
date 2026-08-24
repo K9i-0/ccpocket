@@ -483,6 +483,31 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "get_history", sessionId: "s2" });
   });
 
+  it("parses bounded get_history page options", () => {
+    const msg = parseClientMessage(
+      '{"type":"get_history","sessionId":"s2","limit":200,"beforeSeq":401}',
+    );
+    expect(msg).toEqual({
+      type: "get_history",
+      sessionId: "s2",
+      limit: 200,
+      beforeSeq: 401,
+    });
+  });
+
+  it("rejects invalid get_history page options", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"get_history","sessionId":"s2","limit":0}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"get_history","sessionId":"s2","beforeSeq":-1}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses resolve_session_link message", () => {
     const msg = parseClientMessage(
       '{"type":"resolve_session_link","requestId":"req-1","sessionId":"session-1","provider":"claude"}',

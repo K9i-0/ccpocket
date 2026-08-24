@@ -1091,5 +1091,6 @@
   "approvalQuestionNotificationTitle": "Question - ccpocket",
   "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
   "exitPlanModeNotificationBody": "The generated plan needs your review",
-  "renderErrorFallback": "This content couldn't be displayed."
+  "renderErrorFallback": "This content couldn't be displayed.",
+  "loadEarlierMessages": "Load earlier messages"
 }

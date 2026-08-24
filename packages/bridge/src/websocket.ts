@@ -218,6 +218,7 @@ const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "conversation_queue",
   "goal_state",
   "guardian_approval",
+  "history_page",
   "prompt_history_status",
   "push_registration_result",
 ]);
@@ -752,6 +753,7 @@ export class BridgeWebSocketServer {
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  private codexHistoryPageCache = new Map<string, HistoryEntry[]>();
   private pendingClaudeResumeInputs = new WeakMap<
     WebSocket,
     Map<string, InputClientMessage[]>
@@ -1836,6 +1838,61 @@ export class BridgeWebSocketServer {
         message: `Failed to read Codex thread history: ${
           err instanceof Error ? err.message : String(err)
         }`,
+      });
+      return true;
+    }
+  }
+
+  private async sendCodexCanonicalHistoryPage(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+    options: { beforeSeq?: number; limit?: number } = {},
+  ): Promise<boolean> {
+    try {
+      const initial = options.beforeSeq === undefined;
+      let entries = initial
+        ? await this.codexCanonicalHistoryEntries(session)
+        : this.codexHistoryPageCache.get(sessionId);
+      if (!entries) {
+        entries = await this.codexCanonicalHistoryEntries(session);
+      }
+      if (!entries) return false;
+      this.codexHistoryPageCache.set(sessionId, entries);
+
+      const limit = Math.min(Math.max(options.limit ?? 200, 1), 500);
+      let end = entries.length;
+      if (options.beforeSeq !== undefined) {
+        end = entries.findIndex((entry) => entry.seq >= options.beforeSeq!);
+        if (end === -1) end = entries.length;
+      }
+      const start = Math.max(0, end - limit);
+      const page = entries.slice(start, end);
+      this.send(ws, {
+        type: "history_page",
+        sessionId,
+        fromSeq: page[0]?.seq ?? options.beforeSeq ?? 0,
+        toSeq: page.at(-1)?.seq ?? Math.max((options.beforeSeq ?? 1) - 1, 0),
+        messages: page,
+        hasOlder: start > 0,
+        initial,
+        status: session.status,
+      } satisfies Extract<ServerMessage, { type: "history_page" }>);
+
+      if (initial) {
+        this.sendCodexCurrentSettings(ws, sessionId, session);
+        this.sendCodexQueueState(ws, sessionId, session);
+        this.sendCodexGoalState(ws, sessionId, session);
+        this.sendCachedCommands(ws, sessionId, session);
+      }
+      return true;
+    } catch (err) {
+      this.send(ws, {
+        type: "error",
+        message: `Failed to read Codex thread history: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        sessionId,
       });
       return true;
     }
@@ -4264,6 +4321,21 @@ export class BridgeWebSocketServer {
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
           if (session.provider === "codex") {
+            const supportsPages =
+              this.clientSupportedServerMessages
+                .get(ws)
+                ?.has("history_page") ?? false;
+            if (supportsPages) {
+              const handled = await this.sendCodexCanonicalHistoryPage(
+                ws,
+                msg.sessionId,
+                session,
+                { beforeSeq: msg.beforeSeq, limit: msg.limit },
+              );
+              if (handled) {
+                break;
+              }
+            }
             const handled = await this.sendCodexCanonicalLegacyHistory(
               ws,
               msg.sessionId,
@@ -7148,6 +7220,7 @@ export class BridgeWebSocketServer {
 
   private destroySession(sessionId: string): void {
     this.flushSessionDeltaBatches(sessionId);
+    this.codexHistoryPageCache.delete(sessionId);
     this.sessionManager.destroy(sessionId);
   }
 
@@ -7899,7 +7972,11 @@ export class BridgeWebSocketServer {
         ),
       };
     }
-    if (msg.type === "history_delta" || msg.type === "history_snapshot") {
+    if (
+      msg.type === "history_delta" ||
+      msg.type === "history_snapshot" ||
+      msg.type === "history_page"
+    ) {
       return {
         ...(msg as unknown as Record<string, unknown>),
         messages: messages.filter((entry) => {

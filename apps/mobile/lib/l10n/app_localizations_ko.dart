@@ -2645,4 +2645,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get renderErrorFallback => '이 콘텐츠를 표시할 수 없습니다.';
+
+  @override
+  String get loadEarlierMessages => '이전 메시지 불러오기';
 }

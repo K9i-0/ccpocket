@@ -886,6 +886,19 @@ sealed class ServerMessage {
             .map((m) => ServerMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
       ),
+      'history_page' => HistoryPageMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        fromSeq: json['fromSeq'] as int? ?? 0,
+        toSeq: json['toSeq'] as int? ?? 0,
+        entries: (json['messages'] as List)
+            .map((m) => HistoryEntry.fromJson(m as Map<String, dynamic>))
+            .toList(),
+        hasOlder: json['hasOlder'] as bool? ?? false,
+        initial: json['initial'] as bool? ?? false,
+        status: json['status'] != null
+            ? ProcessStatus.fromString(json['status'] as String)
+            : null,
+      ),
       'history_delta' => HistoryDeltaMessage(
         sessionId: json['sessionId'] as String?,
         fromSeq: json['fromSeq'] as int? ?? 0,
@@ -1715,7 +1728,42 @@ class StatusMessage implements ServerMessage {
 
 class HistoryMessage implements ServerMessage {
   final List<ServerMessage> messages;
-  const HistoryMessage({required this.messages});
+
+  /// Internal marker for a newly restored bounded window. Older pages that
+  /// were prepended to the previous window must not survive this replacement.
+  final bool resetPrependedEntries;
+
+  const HistoryMessage({
+    required this.messages,
+    this.resetPrependedEntries = false,
+  });
+}
+
+/// A bounded slice of canonical history returned by a paging-capable Bridge.
+class HistoryPageMessage implements ServerMessage {
+  final String sessionId;
+  final int fromSeq;
+  final int toSeq;
+  final List<HistoryEntry> entries;
+  final bool hasOlder;
+  final bool initial;
+  final ProcessStatus? status;
+
+  const HistoryPageMessage({
+    required this.sessionId,
+    required this.fromSeq,
+    required this.toSeq,
+    required this.entries,
+    required this.hasOlder,
+    required this.initial,
+    this.status,
+  });
+}
+
+/// Internal app event used to prepend an older bounded history page.
+class HistoryPrependMessage implements ServerMessage {
+  final List<ServerMessage> messages;
+  const HistoryPrependMessage({required this.messages});
 }
 
 class HistoryEntry {
@@ -3965,6 +4013,7 @@ class ClientMessage {
       'goal_state',
       'guardian_approval',
       'history_delta',
+      'history_page',
       'history_snapshot',
       'git_status_result',
       'prompt_history_status',
@@ -4261,8 +4310,16 @@ class ClientMessage {
     });
   }
 
-  factory ClientMessage.getHistory(String sessionId) =>
-      ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
+  factory ClientMessage.getHistory(
+    String sessionId, {
+    int? limit,
+    int? beforeSeq,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_history',
+    'sessionId': sessionId,
+    'limit': ?limit,
+    'beforeSeq': ?beforeSeq,
+  });
 
   factory ClientMessage.getHistoryDelta(
     String sessionId, {

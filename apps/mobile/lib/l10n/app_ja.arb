@@ -1121,5 +1121,6 @@
   "approvalQuestionNotificationTitle": "質問があります - ccpocket",
   "approvalRequiredNotificationTitle": "承認待ち - ccpocket",
   "exitPlanModeNotificationBody": "作成したプランの確認が必要です",
-  "renderErrorFallback": "このコンテンツを表示できませんでした"
+  "renderErrorFallback": "このコンテンツを表示できませんでした",
+  "loadEarlierMessages": "以前のメッセージを読み込む"
 }

@@ -2590,4 +2590,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get renderErrorFallback => '无法显示此内容。';
+
+  @override
+  String get loadEarlierMessages => '加载更早的消息';
 }

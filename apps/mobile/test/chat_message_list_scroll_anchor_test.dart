@@ -233,10 +233,62 @@ void main() {
     expect(tester.takeException(), isNull);
     await gesture.up();
   });
+
+  testWidgets('offers older history without building it into the first page', (
+    tester,
+  ) async {
+    final bridge = _ScrollTestBridge()..hasOlder = true;
+    final streamingCubit = StreamingStateCubit();
+    final chatCubit = ChatSessionCubit(
+      sessionId: 'scroll-anchor',
+      bridge: bridge,
+      streamingCubit: streamingCubit,
+    );
+    final controller = AnchorMaintainingAutoScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(chatCubit.close);
+    addTearDown(streamingCubit.close);
+    addTearDown(bridge.dispose);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [RepositoryProvider<BridgeService>.value(value: bridge)],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<ChatSessionCubit>.value(value: chatCubit),
+            BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            home: Scaffold(
+              body: ChatMessageList(
+                sessionId: 'scroll-anchor',
+                scrollController: controller,
+                httpBaseUrl: null,
+                onRetryMessage: null,
+                collapseToolResults: null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    bridge.emit(const StatusMessage(status: ProcessStatus.idle));
+    await tester.pump();
+
+    expect(find.text('Load earlier messages'), findsOneWidget);
+    await tester.tap(find.text('Load earlier messages'));
+    expect(bridge.olderHistoryRequests, 1);
+  });
 }
 
 class _ScrollTestBridge extends BridgeService {
   final _messages = StreamController<(ServerMessage, String?)>.broadcast();
+  bool hasOlder = false;
+  int olderHistoryRequests = 0;
 
   void emit(ServerMessage message) => _messages.add((message, 'scroll-anchor'));
 
@@ -247,6 +299,14 @@ class _ScrollTestBridge extends BridgeService {
 
   @override
   void requestSessionHistory(String sessionId) {}
+
+  @override
+  bool hasOlderSessionHistory(String sessionId) => hasOlder;
+
+  @override
+  void requestOlderSessionHistory(String sessionId) {
+    olderHistoryRequests++;
+  }
 
   @override
   void send(ClientMessage message) {}

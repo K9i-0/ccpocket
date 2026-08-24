@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart'
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
@@ -461,7 +462,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
   Widget build(BuildContext context) {
     chatListPerformanceProbe.recordBuild();
     _notifyScrollMetricsAfterLayout();
-    final chatState = context.watch<ChatSessionCubit>().state;
+    final sessionCubit = context.watch<ChatSessionCubit>();
+    final chatState = sessionCubit.state;
     final hiddenToolUseIds = chatState.hiddenToolUseIds;
     final allEntries = chatState.entries;
     final activePermissionId = switch (chatState.approval) {
@@ -476,11 +478,15 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final hasStreaming = context.select<StreamingStateCubit, bool>(
       (cubit) => cubit.state.isStreaming,
     );
-    final totalCount = allEntries.length + (hasStreaming ? 1 : 0);
+    final hasOlderHistory = sessionCubit.hasOlderHistory;
+    final historyLoaderCount = hasOlderHistory ? 1 : 0;
+    final totalCount =
+        allEntries.length + (hasStreaming ? 1 : 0) + historyLoaderCount;
     final entryKeys = _entryKeys(allEntries);
     final childIndexByEntryKey = <String, int>{
       for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
-        entryKeys[entryIndex]: totalCount - 1 - entryIndex,
+        entryKeys[entryIndex]:
+            totalCount - 1 - (entryIndex + historyLoaderCount),
     };
     final derivedData = _deriveData(
       chatState,
@@ -531,9 +537,27 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 return childIndexByEntryKey[key.value];
               },
               itemBuilder: (context, index) {
-                // index 0 = newest entry (bottom of chat)
-                // Map to actual entry index:
-                final entryIndex = totalCount - 1 - index;
+                // index 0 = newest item (bottom of chat). The optional older
+                // history loader occupies the logical slot before entry 0.
+                final logicalIndex = totalCount - 1 - index;
+
+                if (hasOlderHistory && logicalIndex == 0) {
+                  return Padding(
+                    key: const ValueKey('load-older-history'),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    child: Center(
+                      child: OutlinedButton.icon(
+                        onPressed: sessionCubit.loadOlderHistory,
+                        icon: const Icon(Icons.history, size: 18),
+                        label: Text(
+                          AppLocalizations.of(context).loadEarlierMessages,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final entryIndex = logicalIndex - historyLoaderCount;
 
                 // Streaming entry is at totalCount - 1 (index 0 in reverse)
                 if (hasStreaming && entryIndex == allEntries.length) {

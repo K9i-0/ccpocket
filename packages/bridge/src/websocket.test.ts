@@ -2813,6 +2813,87 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("pages long Codex history for capable clients", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue(
+      Array.from({ length: 6 }, (_, index) => ({
+        role: index.isEven ? "user" : "assistant",
+        uuid: `history-${index + 1}`,
+        content: [{ type: "text", text: `synthetic-${index + 1}` }],
+      })),
+    );
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["history_page"],
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find((message: any) => message.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_paged";
+    session.process.readThread.mockResolvedValue({
+      id: "thr_paged",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history", sessionId, limit: 2 },
+      ws,
+    );
+    const initial = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find((message: any) => message.type === "history_page");
+    expect(initial).toMatchObject({
+      type: "history_page",
+      sessionId,
+      initial: true,
+      hasOlder: true,
+    });
+    expect(initial.messages).toHaveLength(2);
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history",
+        sessionId,
+        limit: 2,
+        beforeSeq: initial.fromSeq,
+      },
+      ws,
+    );
+    const older = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find((message: any) => message.type === "history_page");
+    expect(older).toMatchObject({
+      type: "history_page",
+      sessionId,
+      initial: false,
+    });
+    expect(older.messages).toHaveLength(2);
+    expect(older.toSeq).toBeLessThan(initial.fromSeq);
+    expect(session.process.readThread).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
   it("replays cached Codex goal state with history responses", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

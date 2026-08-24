@@ -482,6 +482,30 @@ void main() {
     });
   });
 
+  test('older history pages prepend visible entries', () {
+    final update = handler.handle(
+      const HistoryPrependMessage(
+        messages: [
+          UserInputMessage(text: 'older user message'),
+          AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'older-assistant',
+              role: 'assistant',
+              content: [TextContent(text: 'older assistant message')],
+              model: 'synthetic',
+            ),
+          ),
+        ],
+      ),
+      isBackground: false,
+    );
+
+    expect(update.entriesToAdd, isEmpty);
+    expect(update.entriesToPrepend, hasLength(2));
+    expect(update.entriesToPrepend.first, isA<UserChatEntry>());
+    expect(update.entriesToPrepend.last, isA<ServerChatEntry>());
+  });
+
   group('ResultMessage handling', () {
     test('stopped resets all state', () {
       final update = handler.handle(

@@ -2720,4 +2720,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get renderErrorFallback => 'This content couldn\'t be displayed.';
+
+  @override
+  String get loadEarlierMessages => 'Load earlier messages';
 }

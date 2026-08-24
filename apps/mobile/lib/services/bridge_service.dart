@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter/services.dart';
@@ -16,6 +17,53 @@ import 'bridge_service_base.dart';
 import 'session_runtime_store.dart';
 
 enum SessionLinkResolveSupport { resolved, unsupported, unavailable }
+
+const _largeBridgeFrameDecodeThreshold = 256 * 1024;
+
+class _DecodedBridgeFrame {
+  const _DecodedBridgeFrame.success(this.json, this.message)
+    : error = null,
+      stackTrace = null;
+
+  const _DecodedBridgeFrame.failure(this.error, this.stackTrace)
+    : json = null,
+      message = null;
+
+  final Map<String, dynamic>? json;
+  final ServerMessage? message;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
+_DecodedBridgeFrame _parseBridgeFrame(String data) {
+  final json = jsonDecode(data) as Map<String, dynamic>;
+  return _DecodedBridgeFrame.success(json, ServerMessage.fromJson(json));
+}
+
+Future<_DecodedBridgeFrame> _parseLargeBridgeFrame(String data) async {
+  try {
+    return await Isolate.run(() => _parseBridgeFrame(data));
+  } catch (error, stackTrace) {
+    return _DecodedBridgeFrame.failure(error, stackTrace);
+  }
+}
+
+FutureOr<_DecodedBridgeFrame> _decodeBridgeFrame(Object? data) {
+  if (data is! String) {
+    return _DecodedBridgeFrame.failure(
+      FormatException('Expected a text WebSocket frame'),
+      StackTrace.current,
+    );
+  }
+  if (data.length >= _largeBridgeFrameDecodeThreshold) {
+    return _parseLargeBridgeFrame(data);
+  }
+  try {
+    return _parseBridgeFrame(data);
+  } catch (error, stackTrace) {
+    return _DecodedBridgeFrame.failure(error, stackTrace);
+  }
+}
 
 class SessionLinkResolveResult {
   final SessionLinkResolveSupport support;
@@ -137,6 +185,8 @@ class BridgeService implements BridgeServiceBase {
   UsageResultMessage? _lastUsageResult;
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
   final Map<String, int> _pendingHistoryDeltaSinceSeq = {};
+  final Map<String, List<ServerMessage>> _legacyOlderHistory = {};
+  final Map<String, _RemoteHistoryCursor> _remoteHistoryCursors = {};
   final Map<String, ClientMessage> _inFlightPendingMessages = {};
   final Map<String, ClientMessage> _inFlightInputMessages = {};
   final Map<String, Timer> _inFlightPendingVisibilityTimers = {};
@@ -391,13 +441,26 @@ class BridgeService implements BridgeServiceBase {
     try {
       final channel = WebSocketChannel.connect(Uri.parse(url));
       _channel = channel;
-      _channelSub = channel.stream.listen(
-        (data) {
+      final decodedStream = channel.stream.asyncMap(_decodeBridgeFrame);
+      _channelSub = decodedStream.listen(
+        (frame) {
           if (epoch != _connectionEpoch) return;
+          if (frame.error != null) {
+            logger.error('WS parse error', frame.error, frame.stackTrace);
+            final errorMsg = ErrorMessage(
+              message: 'Parse error: ${frame.error}',
+            );
+            _taggedMessageController.add((errorMsg, null));
+            _messageController.add(errorMsg);
+            return;
+          }
           try {
-            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            final json = frame.json!;
             final sessionId = json['sessionId'] as String?;
-            final msg = ServerMessage.fromJson(json);
+            final msg = frame.message!;
+            if (sessionId != null && msg is ErrorMessage) {
+              _remoteHistoryCursors[sessionId]?.loading = false;
+            }
             _clearDeliveredNonReplayableToolAction(msg, sessionId: sessionId);
             if (sessionId != null && msg is HistoryDeltaMessage) {
               _handleHistoryDelta(sessionId, msg);
@@ -405,6 +468,14 @@ class BridgeService implements BridgeServiceBase {
             }
             if (sessionId != null && msg is HistorySnapshotMessage) {
               _handleHistorySnapshot(sessionId, msg);
+              return;
+            }
+            if (sessionId != null && msg is HistoryPageMessage) {
+              _handleHistoryPage(sessionId, msg);
+              return;
+            }
+            if (sessionId != null && msg is HistoryMessage) {
+              _handleLegacyHistory(sessionId, msg);
               return;
             }
             if (sessionId != null) {
@@ -755,6 +826,8 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _pendingHistoryDeltaSinceSeq.clear();
+    _legacyOlderHistory.clear();
+    _remoteHistoryCursors.clear();
     _inFlightNonReplayableToolActions.clear();
     _respondedToolUseIds.clear();
     _deliveryPendingInputs.clear();
@@ -812,6 +885,30 @@ class BridgeService implements BridgeServiceBase {
     return null;
   }
 
+  static const _restoredHistoryPageSize = 200;
+
+  void _emitSessionMessage(String sessionId, ServerMessage message) {
+    _taggedMessageController.add((message, sessionId));
+    _messageController.add(message);
+  }
+
+  void _handleLegacyHistory(String sessionId, HistoryMessage msg) {
+    _remoteHistoryCursors.remove(sessionId);
+    final split = max(0, msg.messages.length - _restoredHistoryPageSize);
+    final visible = msg.messages.sublist(split);
+    if (split > 0) {
+      _legacyOlderHistory[sessionId] = msg.messages.sublist(0, split);
+    } else {
+      _legacyOlderHistory.remove(sessionId);
+    }
+    final bounded = HistoryMessage(
+      messages: visible,
+      resetPrependedEntries: true,
+    );
+    _runtimeStore.applyServerMessage(sessionId, bounded);
+    _emitSessionMessage(sessionId, bounded);
+  }
+
   void _handleHistoryDelta(String sessionId, HistoryDeltaMessage msg) {
     final previousSnapshot = _runtimeStore.snapshot(sessionId);
     final hadCachedTimeline = previousSnapshot.messages.isNotEmpty;
@@ -851,21 +948,75 @@ class BridgeService implements BridgeServiceBase {
 
   void _handleHistorySnapshot(String sessionId, HistorySnapshotMessage msg) {
     _pendingHistoryDeltaSinceSeq.remove(sessionId);
-    _runtimeStore.applyServerMessage(sessionId, msg);
+    _remoteHistoryCursors.remove(sessionId);
+    final split = max(0, msg.entries.length - _restoredHistoryPageSize);
+    final visibleEntries = msg.entries.sublist(split);
+    if (split > 0) {
+      _legacyOlderHistory[sessionId] = msg.entries
+          .sublist(0, split)
+          .map((entry) => entry.message)
+          .toList();
+    } else {
+      _legacyOlderHistory.remove(sessionId);
+    }
+    final bounded = HistorySnapshotMessage(
+      sessionId: msg.sessionId,
+      fromSeq: visibleEntries.firstOrNull?.seq ?? msg.fromSeq,
+      toSeq: msg.toSeq,
+      entries: visibleEntries,
+      status: msg.status,
+      reason: msg.reason,
+    );
+    _runtimeStore.applyServerMessage(sessionId, bounded);
 
     final history = HistoryMessage(
-      messages: msg.entries.map((entry) => entry.message).toList(),
+      messages: visibleEntries.map((entry) => entry.message).toList(),
+      resetPrependedEntries: true,
     );
-    _taggedMessageController.add((history, sessionId));
-    _messageController.add(history);
+    _emitSessionMessage(sessionId, history);
 
     final status = msg.status;
     if (status != null) {
       _patchSessionStatus(sessionId, status);
       final statusMessage = StatusMessage(status: status);
       _runtimeStore.applyServerMessage(sessionId, statusMessage);
-      _taggedMessageController.add((statusMessage, sessionId));
-      _messageController.add(statusMessage);
+      _emitSessionMessage(sessionId, statusMessage);
+    }
+  }
+
+  void _handleHistoryPage(String sessionId, HistoryPageMessage msg) {
+    final messages = msg.entries.map((entry) => entry.message).toList();
+    _legacyOlderHistory.remove(sessionId);
+    _remoteHistoryCursors[sessionId] = _RemoteHistoryCursor(
+      beforeSeq: msg.fromSeq,
+      hasOlder: msg.hasOlder,
+    );
+
+    if (msg.initial) {
+      _pendingHistoryDeltaSinceSeq.remove(sessionId);
+      final snapshot = HistorySnapshotMessage(
+        sessionId: sessionId,
+        fromSeq: msg.fromSeq,
+        toSeq: msg.toSeq,
+        entries: msg.entries,
+        status: msg.status,
+        reason: 'reset',
+      );
+      _runtimeStore.applyServerMessage(sessionId, snapshot);
+      _emitSessionMessage(
+        sessionId,
+        HistoryMessage(messages: messages, resetPrependedEntries: true),
+      );
+    } else {
+      _emitSessionMessage(sessionId, HistoryPrependMessage(messages: messages));
+    }
+
+    final status = msg.status;
+    if (status != null) {
+      _patchSessionStatus(sessionId, status);
+      final statusMessage = StatusMessage(status: status);
+      _runtimeStore.applyServerMessage(sessionId, statusMessage);
+      _emitSessionMessage(sessionId, statusMessage);
     }
   }
 
@@ -874,7 +1025,9 @@ class BridgeService implements BridgeServiceBase {
     final sessionIds = List<String>.from(_pendingHistoryDeltaSinceSeq.keys);
     _pendingHistoryDeltaSinceSeq.clear();
     for (final sessionId in sessionIds) {
-      send(ClientMessage.getHistory(sessionId));
+      send(
+        ClientMessage.getHistory(sessionId, limit: _restoredHistoryPageSize),
+      );
     }
   }
 
@@ -1922,7 +2075,40 @@ class BridgeService implements BridgeServiceBase {
       );
       return;
     }
-    send(ClientMessage.getHistory(sessionId));
+    _legacyOlderHistory.remove(sessionId);
+    _remoteHistoryCursors.remove(sessionId);
+    send(ClientMessage.getHistory(sessionId, limit: _restoredHistoryPageSize));
+  }
+
+  bool hasOlderSessionHistory(String sessionId) {
+    if (_legacyOlderHistory[sessionId]?.isNotEmpty ?? false) return true;
+    return _remoteHistoryCursors[sessionId]?.hasOlder ?? false;
+  }
+
+  void requestOlderSessionHistory(String sessionId) {
+    final legacy = _legacyOlderHistory[sessionId];
+    if (legacy != null && legacy.isNotEmpty) {
+      final start = max(0, legacy.length - _restoredHistoryPageSize);
+      final page = legacy.sublist(start);
+      if (start == 0) {
+        _legacyOlderHistory.remove(sessionId);
+      } else {
+        _legacyOlderHistory[sessionId] = legacy.sublist(0, start);
+      }
+      _emitSessionMessage(sessionId, HistoryPrependMessage(messages: page));
+      return;
+    }
+
+    final cursor = _remoteHistoryCursors[sessionId];
+    if (cursor == null || !cursor.hasOlder || cursor.loading) return;
+    cursor.loading = true;
+    send(
+      ClientMessage.getHistory(
+        sessionId,
+        limit: _restoredHistoryPageSize,
+        beforeSeq: cursor.beforeSeq,
+      ),
+    );
   }
 
   void refreshBranch(String sessionId) {
@@ -2118,6 +2304,8 @@ class BridgeService implements BridgeServiceBase {
   void clearExplorerHistory(String sessionId) {
     _runtimeStore.clearSession(sessionId);
     _respondedToolUseIds.remove(sessionId);
+    _legacyOlderHistory.remove(sessionId);
+    _remoteHistoryCursors.remove(sessionId);
   }
 
   /// Rename a session. For running sessions, [sessionId] is the bridge id.
@@ -2832,6 +3020,14 @@ class _DeliveryPendingInputState {
 
   final QueuedInputItem item;
   bool visible = false;
+}
+
+class _RemoteHistoryCursor {
+  _RemoteHistoryCursor({required this.beforeSeq, required this.hasOlder});
+
+  final int beforeSeq;
+  final bool hasOlder;
+  bool loading = false;
 }
 
 /// Cached diff image data for a single file.

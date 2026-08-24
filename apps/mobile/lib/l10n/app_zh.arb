@@ -1196,5 +1196,6 @@
   "approvalQuestionNotificationTitle": "有一个问题 - ccpocket",
   "approvalRequiredNotificationTitle": "等待审批 - ccpocket",
   "exitPlanModeNotificationBody": "生成的计划需要你确认",
-  "renderErrorFallback": "无法显示此内容。"
+  "renderErrorFallback": "无法显示此内容。",
+  "loadEarlierMessages": "加载更早的消息"
 }

@@ -2187,6 +2187,67 @@ void main() {
       expect(cubit.state.entries.first, isA<UserChatEntry>());
     });
 
+    test('prepends older bounded history before the visible window', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const HistoryMessage(messages: [UserInputMessage(text: 'newer')]),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      mockBridge.emitMessage(
+        const HistoryPrependMessage(
+          messages: [UserInputMessage(text: 'older')],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(
+        cubit.state.entries.whereType<UserChatEntry>().map(
+          (entry) => entry.text,
+        ),
+        ['older', 'newer'],
+      );
+    });
+
+    test('fresh bounded window discards prepended pages from prior load', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const HistoryMessage(messages: [UserInputMessage(text: 'newer')]),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      mockBridge.emitMessage(
+        const HistoryPrependMessage(
+          messages: [UserInputMessage(text: 'stale older')],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [UserInputMessage(text: 'fresh')],
+          resetPrependedEntries: true,
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(
+        cubit.state.entries.whereType<UserChatEntry>().map(
+          (entry) => entry.text,
+        ),
+        ['fresh', 'newer'],
+      );
+    });
+
     test('refresh replaces the previous past-history snapshot', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);

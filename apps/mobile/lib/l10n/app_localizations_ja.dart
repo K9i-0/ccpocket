@@ -2620,4 +2620,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get renderErrorFallback => 'このコンテンツを表示できませんでした';
+
+  @override
+  String get loadEarlierMessages => '以前のメッセージを読み込む';
 }

@@ -486,6 +486,7 @@ void main() {
         'goal_state',
         'guardian_approval',
         'history_delta',
+        'history_page',
         'history_snapshot',
         'git_status_result',
         'prompt_history_status',
@@ -501,6 +502,43 @@ void main() {
         'sessionId': 's1',
         'sinceSeq': 42,
       });
+    });
+
+    test('ClientMessage.getHistory serializes paging options', () {
+      final msg = ClientMessage.getHistory('s1', limit: 200, beforeSeq: 401);
+
+      expect(jsonDecode(msg.toJson()), {
+        'type': 'get_history',
+        'sessionId': 's1',
+        'limit': 200,
+        'beforeSeq': 401,
+      });
+    });
+
+    test('ServerMessage parses a bounded history page', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'history_page',
+        'sessionId': 's1',
+        'fromSeq': 201,
+        'toSeq': 400,
+        'hasOlder': true,
+        'initial': true,
+        'status': 'idle',
+        'messages': [
+          {
+            'seq': 201,
+            'message': {'type': 'status', 'status': 'running'},
+          },
+        ],
+      });
+
+      expect(msg, isA<HistoryPageMessage>());
+      final page = msg as HistoryPageMessage;
+      expect(page.sessionId, 's1');
+      expect(page.entries.single.seq, 201);
+      expect(page.hasOlder, isTrue);
+      expect(page.initial, isTrue);
+      expect(page.status, ProcessStatus.idle);
     });
 
     test('ClientMessage.input serializes strict ack metadata', () {

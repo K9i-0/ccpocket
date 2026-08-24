@@ -39,6 +39,7 @@ class ChatStateUpdate {
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
+  final bool resetPrependedEntries;
   final String? pendingToolUseId;
   final PermissionRequestMessage? pendingPermission;
   final String? askToolUseId;
@@ -98,6 +99,7 @@ class ChatStateUpdate {
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
+    this.resetPrependedEntries = false,
     this.pendingToolUseId,
     this.pendingPermission,
     this.askToolUseId,
@@ -198,8 +200,20 @@ class ChatMessageHandler {
         );
       case PastHistoryMessage(:final claudeSessionId, :final messages):
         return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
-      case HistoryMessage(:final messages):
-        return _handleHistory(messages, ignoredToolUseIds: ignoredToolUseIds);
+      case HistoryMessage(:final messages, :final resetPrependedEntries):
+        return _handleHistory(
+          messages,
+          ignoredToolUseIds: ignoredToolUseIds,
+          resetPrependedEntries: resetPrependedEntries,
+        );
+      case HistoryPrependMessage(:final messages):
+        final history = _handleHistory(
+          messages,
+          ignoredToolUseIds: ignoredToolUseIds,
+        );
+        return ChatStateUpdate(entriesToPrepend: history.entriesToAdd);
+      case HistoryPageMessage():
+        return const ChatStateUpdate();
       case ConversationQueueMessage(:final items):
         return ChatStateUpdate(
           queuedInput: items.isNotEmpty ? items.first : null,
@@ -568,6 +582,7 @@ class ChatMessageHandler {
   ChatStateUpdate _handleHistory(
     List<ServerMessage> messages, {
     Set<String> ignoredToolUseIds = const {},
+    bool resetPrependedEntries = false,
   }) {
     final entries = <ChatEntry>[];
     ProcessStatus? lastStatus;
@@ -745,6 +760,7 @@ class ChatMessageHandler {
       status: lastStatus,
       entriesToAdd: entries,
       replaceEntries: true,
+      resetPrependedEntries: resetPrependedEntries,
       slashCommands: commands,
       pendingToolUseId: isWaiting ? lastPermission?.toolUseId : null,
       pendingPermission: isWaiting ? lastPermission : null,
