@@ -18,6 +18,7 @@ import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/prompt_history_service.dart';
+import '../../../services/native_file_picker.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
@@ -33,6 +34,12 @@ import '../../../widgets/slash_command_sheet.dart'
         fallbackCodexSlashCommands,
         fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
+
+String _safeAttachmentName(String name) {
+  var value = name.replaceAll(RegExp(r'[\\/\x00-\x1f\x7f]'), '_').trim();
+  if (value.isEmpty) value = 'attachment';
+  return value.length <= 120 ? value : value.substring(0, 120);
+}
 
 enum _CompletionOverlay { slash, dollar, file }
 
@@ -119,6 +126,7 @@ class ChatInputWithOverlays extends HookWidget {
     final attachedImages = useState<List<({Uint8List bytes, String mimeType})>>(
       [],
     );
+    final attachedFiles = useState<List<PendingFileAttachment>>([]);
 
     // Restore image draft on mount
     useEffect(() {
@@ -593,6 +601,7 @@ class ChatInputWithOverlays extends HookWidget {
       final text = inputController.text.trim();
       if (text.isEmpty &&
           attachedImages.value.isEmpty &&
+          attachedFiles.value.isEmpty &&
           attachedDiffSelection.value == null) {
         return;
       }
@@ -605,6 +614,12 @@ class ChatInputWithOverlays extends HookWidget {
       if (attachedImages.value.isNotEmpty) {
         images = List.of(attachedImages.value);
         attachedImages.value = [];
+      }
+
+      List<PendingFileAttachment>? files;
+      if (attachedFiles.value.isNotEmpty) {
+        files = List.of(attachedFiles.value);
+        attachedFiles.value = [];
       }
 
       // Capture and clear diff selection
@@ -624,12 +639,22 @@ class ChatInputWithOverlays extends HookWidget {
         }
       }
 
-      final messageToSend = finalText.isEmpty
-          ? 'What is in this image?'
-          : finalText;
+      String messageToSend;
+      if (files != null && files.isNotEmpty) {
+        final names = files.map((file) => file.name).join(', ');
+        final fileLabel = 'Attached files: $names';
+        messageToSend = finalText.isEmpty
+            ? '$fileLabel\n\nPlease review the attached files.'
+            : '$fileLabel\n\n$finalText';
+      } else {
+        messageToSend = finalText.isEmpty
+            ? 'What is in this image?'
+            : finalText;
+      }
       cubit.sendMessage(
         messageToSend,
         images: images,
+        files: files,
         mentionablePaths: projectFiles,
       );
       inputController.clear();
@@ -705,6 +730,100 @@ class ChatInputWithOverlays extends HookWidget {
                   picked.length - filesToAdd.length,
                 ),
               ),
+            ),
+          );
+        }
+      }
+    }
+
+    Future<void> pickFiles() async {
+      const maxFiles = 5;
+      const maxFileBytes = 10 * 1024 * 1024;
+      const maxTotalBytes = 20 * 1024 * 1024;
+      final remaining = maxFiles - attachedFiles.value.length;
+      if (remaining <= 0) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).fileLimitReached(maxFiles),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      try {
+        final picked = await NativeFilePicker.instance.pickFiles();
+        if (picked.isEmpty || !context.mounted) return;
+
+        final additions = <PendingFileAttachment>[];
+        var totalBytes = attachedFiles.value.fold<int>(
+          0,
+          (total, file) => total + file.bytes.length,
+        );
+        for (final file in picked.take(remaining)) {
+          final length = file.bytes.length;
+          final name = _safeAttachmentName(file.name);
+          if (length > maxFileBytes) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context).fileTooLarge(name, 10),
+                ),
+              ),
+            );
+            continue;
+          }
+          if (totalBytes + length > maxTotalBytes) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context).filesTooLarge(20)),
+              ),
+            );
+            break;
+          }
+          additions.add((
+            bytes: file.bytes,
+            mimeType: file.mimeType,
+            name: name,
+          ));
+          totalBytes += file.bytes.length;
+        }
+
+        if (additions.isNotEmpty) {
+          attachedFiles.value = [...attachedFiles.value, ...additions];
+        }
+        if (picked.length > remaining && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).fileLimitReached(maxFiles),
+              ),
+            ),
+          );
+        }
+      } on PlatformException catch (error) {
+        if (context.mounted) {
+          final details = error.details is Map
+              ? Map<Object?, Object?>.from(error.details as Map)
+              : const <Object?, Object?>{};
+          final message = switch (error.code) {
+            'file_too_large' => AppLocalizations.of(
+              context,
+            ).fileTooLarge(details['name'] as String? ?? 'File', 10),
+            'files_too_large' => AppLocalizations.of(context).filesTooLarge(20),
+            _ => AppLocalizations.of(context).failedToLoadFile,
+          };
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).failedToLoadFile),
             ),
           );
         }
@@ -864,6 +983,16 @@ class ChatInputWithOverlays extends HookWidget {
                   pickImageFromGallery();
                 },
               ),
+              if (NativeFilePicker.isSupported)
+                ListTile(
+                  key: const ValueKey('attach_files'),
+                  leading: const Icon(Icons.attach_file),
+                  title: Text(AppLocalizations.of(context).selectFiles),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    pickFiles();
+                  },
+                ),
               ListTile(
                 key: const ValueKey('attach_from_clipboard'),
                 leading: Icon(
@@ -907,6 +1036,11 @@ class ChatInputWithOverlays extends HookWidget {
         attachedImages.value = [];
         context.read<DraftService>().deleteImageDraft(sessionId);
       }
+    }
+
+    void clearFileAttachment(int index) {
+      if (index < 0 || index >= attachedFiles.value.length) return;
+      attachedFiles.value = [...attachedFiles.value]..removeAt(index);
     }
 
     void clearDiffSelection() {
@@ -1022,6 +1156,7 @@ class ChatInputWithOverlays extends HookWidget {
                     !inputBlocked &&
                     (hasInputText.value ||
                         attachedImages.value.isNotEmpty ||
+                        attachedFiles.value.isNotEmpty ||
                         attachedDiffSelection.value != null),
                 isInputEmpty: isInputEmpty.value,
                 isVoiceAvailable:
@@ -1044,6 +1179,8 @@ class ChatInputWithOverlays extends HookWidget {
                 onAttachImage: showAttachOptions,
                 attachedImages: attachedImages.value,
                 onClearImage: clearAttachment,
+                attachedFiles: attachedFiles.value,
+                onClearFile: clearFileAttachment,
                 attachedDiffSelection: attachedDiffSelection.value,
                 onClearDiffSelection: clearDiffSelection,
                 onTapDiffPreview: onOpenGitScreen != null

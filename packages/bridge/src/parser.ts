@@ -143,6 +143,7 @@ export type ClientMessage =
       clientMessageId?: string;
       baseSeq?: number;
       images?: Array<{ base64: string; mimeType: string }>;
+      files?: Array<{ base64: string; mimeType: string; name: string }>;
       imageId?: string;
       imageBase64?: string;
       mimeType?: string;
@@ -1071,6 +1072,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
             if (
               typeof img?.base64 !== "string" ||
               typeof img?.mimeType !== "string"
+            )
+              return null;
+          }
+        }
+        if (msg.files !== undefined) {
+          if (!Array.isArray(msg.files)) return null;
+          for (const file of msg.files) {
+            if (
+              typeof file?.base64 !== "string" ||
+              typeof file?.mimeType !== "string" ||
+              typeof file?.name !== "string"
             )
               return null;
           }

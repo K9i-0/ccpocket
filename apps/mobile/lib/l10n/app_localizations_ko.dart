@@ -2165,6 +2165,27 @@ class AppLocalizationsKo extends AppLocalizations {
   String get selectFromGallery => '갤러리에서 선택';
 
   @override
+  String get selectFiles => '파일 선택';
+
+  @override
+  String get failedToLoadFile => '파일을 불러오지 못했습니다';
+
+  @override
+  String fileLimitReached(int max) {
+    return '파일은 최대 $max개까지 첨부할 수 있습니다';
+  }
+
+  @override
+  String fileTooLarge(String name, int maxMb) {
+    return '$name 파일은 ${maxMb}MB보다 큽니다';
+  }
+
+  @override
+  String filesTooLarge(int maxMb) {
+    return '첨부 파일은 총 ${maxMb}MB까지 허용됩니다';
+  }
+
+  @override
   String get pasteFromClipboard => '클립보드에서 붙여넣기';
 
   @override
@@ -2240,6 +2261,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get tooltipAttachImage => '이미지 첨부';
 
   @override
+  String get tooltipAttachFiles => '이미지 또는 파일 첨부';
+
+  @override
   String get tooltipPromptHistory => '프롬프트 기록 열기';
 
   @override
@@ -2253,6 +2277,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get tooltipRemoveImage => '이미지 제거';
+
+  @override
+  String get tooltipRemoveFile => '파일 제거';
 
   @override
   String get tooltipClearDiff => 'diff 선택 지우기';

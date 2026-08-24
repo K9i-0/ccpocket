@@ -1195,14 +1195,21 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // Commands (Path B: UI → Cubit → Bridge)
   // ---------------------------------------------------------------------------
 
-  /// Send a user message, optionally with image attachments.
+  /// Send a user message, optionally with image or file attachments.
   void sendMessage(
     String text, {
     List<({Uint8List bytes, String mimeType})>? images,
+    List<PendingFileAttachment>? files,
     Iterable<String>? mentionablePaths,
   }) {
-    if (text.trim().isEmpty && (images == null || images.isEmpty)) return;
-    if (isCodex && (images == null || images.isEmpty)) {
+    if (text.trim().isEmpty &&
+        (images == null || images.isEmpty) &&
+        (files == null || files.isEmpty)) {
+      return;
+    }
+    if (isCodex &&
+        (images == null || images.isEmpty) &&
+        (files == null || files.isEmpty)) {
       final command = text.trim();
       switch (command) {
         case '/goal':
@@ -1278,6 +1285,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           .toList();
     }
 
+    List<Map<String, String>>? filePayloads;
+    if (files != null && files.isNotEmpty) {
+      filePayloads = files
+          .map(
+            (file) => {
+              'base64': base64Encode(file.bytes),
+              'mimeType': file.mimeType,
+              'name': file.name,
+            },
+          )
+          .toList();
+    }
+
     final deliveryPendingItem = isCodex && !isOffline
         ? QueuedInputItem(
             itemId: '$deliveryPendingQueuedInputPrefix$clientMessageId',
@@ -1304,6 +1324,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         clientMessageId: clientMessageId,
         baseSeq: baseSeq,
         images: imagePayloads,
+        files: filePayloads,
         skill: structuredMentions.skills.isNotEmpty
             ? structuredMentions.skills.first
             : null,

@@ -3,6 +3,12 @@ import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
 
+typedef PendingFileAttachment = ({
+  Uint8List bytes,
+  String mimeType,
+  String name,
+});
+
 bool isCodexAutoReviewApprovalsReviewer(String? value) {
   return value == 'auto_review' || value == 'guardian_subagent';
 }
@@ -4051,6 +4057,7 @@ class ClientMessage {
     String? clientMessageId,
     int? baseSeq,
     List<Map<String, String>>? images,
+    List<Map<String, String>>? files,
     Map<String, String>? skill,
     List<Map<String, String>>? skills,
     List<Map<String, String>>? mentions,
@@ -4062,6 +4069,7 @@ class ClientMessage {
       'clientMessageId': ?clientMessageId,
       'baseSeq': ?baseSeq,
       if (images != null && images.isNotEmpty) 'images': images,
+      if (files != null && files.isNotEmpty) 'files': files,
       'skill': ?skill,
       if (skills != null && skills.isNotEmpty) 'skills': skills,
       if (mentions != null && mentions.isNotEmpty) 'mentions': mentions,

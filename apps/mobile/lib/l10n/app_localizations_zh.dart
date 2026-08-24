@@ -2126,6 +2126,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectFromGallery => '从图库选择';
 
   @override
+  String get selectFiles => '选择文件';
+
+  @override
+  String get failedToLoadFile => '无法加载文件';
+
+  @override
+  String fileLimitReached(int max) {
+    return '最多可附加 $max 个文件';
+  }
+
+  @override
+  String fileTooLarge(String name, int maxMb) {
+    return '$name 超过 $maxMb MB';
+  }
+
+  @override
+  String filesTooLarge(int maxMb) {
+    return '附件总大小不能超过 $maxMb MB';
+  }
+
+  @override
   String get pasteFromClipboard => '从剪贴板粘贴';
 
   @override
@@ -2200,6 +2221,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tooltipAttachImage => '附加图片';
 
   @override
+  String get tooltipAttachFiles => '附加图片或文件';
+
+  @override
   String get tooltipPromptHistory => '打开提示词历史';
 
   @override
@@ -2213,6 +2237,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tooltipRemoveImage => '移除图片';
+
+  @override
+  String get tooltipRemoveFile => '移除文件';
 
   @override
   String get tooltipClearDiff => '清除 diff 选择';

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_state.dart';
@@ -364,6 +365,30 @@ void main() {
       ) as Map<String, dynamic>;
       expect(payload['clientMessageId'], entry.clientMessageId);
       expect(payload.containsKey('baseSeq'), isFalse);
+    });
+
+    test('sendMessage sends named file bytes to the bridge', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      cubit.sendMessage(
+        'Attached files: synthetic.txt\n\nReview it',
+        files: [
+          (
+            bytes: Uint8List.fromList([104, 105]),
+            mimeType: 'text/plain',
+            name: 'synthetic.txt',
+          ),
+        ],
+      );
+
+      final payload = jsonDecode(
+        mockBridge.sentMessages.single.toJson(),
+      ) as Map<String, dynamic>;
+      expect(payload['files'], [
+        {'name': 'synthetic.txt', 'mimeType': 'text/plain', 'base64': 'aGk='},
+      ]);
     });
 
     test('Codex /goal command sets goal without creating a chat turn', () {

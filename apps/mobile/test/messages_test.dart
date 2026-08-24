@@ -520,6 +520,31 @@ void main() {
       });
     });
 
+    test('ClientMessage.input serializes named file attachments', () {
+      final msg = ClientMessage.input(
+        'review',
+        files: [
+          {
+            'name': 'synthetic.txt',
+            'mimeType': 'text/plain',
+            'base64': 'aGVsbG8=',
+          },
+        ],
+      );
+
+      expect(jsonDecode(msg.toJson()), {
+        'type': 'input',
+        'text': 'review',
+        'files': [
+          {
+            'name': 'synthetic.txt',
+            'mimeType': 'text/plain',
+            'base64': 'aGVsbG8=',
+          },
+        ],
+      });
+    });
+
     test('ClientMessage.setCodexModel serializes model settings', () {
       final msg = ClientMessage.setCodexModel(
         'gpt-5.4-mini',

@@ -879,6 +879,23 @@
     }
   },
   "selectFromGallery": "Select from Gallery",
+  "selectFiles": "Select Files",
+  "failedToLoadFile": "Failed to load file",
+  "fileLimitReached": "Maximum {max} files allowed",
+  "@fileLimitReached": {
+    "placeholders": {"max": {"type": "int"}}
+  },
+  "fileTooLarge": "{name} is larger than {maxMb} MB",
+  "@fileTooLarge": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "maxMb": {"type": "int"}
+    }
+  },
+  "filesTooLarge": "Attached files are limited to {maxMb} MB total",
+  "@filesTooLarge": {
+    "placeholders": {"maxMb": {"type": "int"}}
+  },
   "pasteFromClipboard": "Paste from Clipboard",
 
   "voiceInputLanguage": "Voice Input Language",
@@ -911,11 +928,13 @@
   "tooltipDollarMention": "Insert skill or app",
   "tooltipPermissionMode": "Permission mode",
   "tooltipAttachImage": "Attach image",
+  "tooltipAttachFiles": "Attach images or files",
   "tooltipPromptHistory": "Open prompt history",
   "tooltipVoiceInput": "Start voice input",
   "tooltipStopRecording": "Stop recording",
   "tooltipSendMessage": "Send message",
   "tooltipRemoveImage": "Remove image",
+  "tooltipRemoveFile": "Remove file",
   "tooltipClearDiff": "Clear diff selection",
 
   "showMore": "Show more",

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -6970,6 +6971,59 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.process.sendInput).toHaveBeenCalledWith("interrupt this");
     expect(session.process.interrupt).toHaveBeenCalledTimes(1);
 
+    bridge.close();
+  });
+
+  it("materializes file attachments and gives Claude readable local paths", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" && message.subtype === "session_created",
+      );
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: created.sessionId,
+        text: "Review the attachment",
+        files: [
+          {
+            name: "synthetic-notes.txt",
+            mimeType: "text/plain",
+            base64: Buffer.from("synthetic file body").toString("base64"),
+          },
+        ],
+      },
+      ws,
+    );
+
+    const path = session.inputAttachmentPaths[0] as string;
+    expect(readFileSync(path, "utf8")).toBe("synthetic file body");
+    expect(session.process.sendInput).toHaveBeenCalledWith(
+      expect.stringContaining(JSON.stringify(path)),
+    );
+    expect(session.process.sendInput.mock.calls[0][0]).toContain(
+      '"synthetic-notes.txt"',
+    );
+
+    rmSync(path, { force: true });
     bridge.close();
   });
 

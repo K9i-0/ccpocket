@@ -179,6 +179,43 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "input", text: "hello" });
   });
 
+  it("parses named file attachments and rejects malformed entries", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "input",
+          text: "Review this",
+          files: [
+            {
+              name: "notes.txt",
+              mimeType: "text/plain",
+              base64: "aGVsbG8=",
+            },
+          ],
+        }),
+      ),
+    ).toEqual({
+      type: "input",
+      text: "Review this",
+      files: [
+        {
+          name: "notes.txt",
+          mimeType: "text/plain",
+          base64: "aGVsbG8=",
+        },
+      ],
+    });
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "input",
+          text: "Review this",
+          files: [{ name: "notes.txt", base64: "aGVsbG8=" }],
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it("parses input strict ack metadata", () => {
     const msg = parseClientMessage(
       '{"type":"input","sessionId":"s1","text":"hello","clientMessageId":"cm-1","baseSeq":42}',

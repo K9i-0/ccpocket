@@ -93,6 +93,10 @@ import {
 import { generateCommitMessage } from "./git-assist.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
+import {
+  appendInputAttachmentContext,
+  materializeInputFiles,
+} from "./input-attachments.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
@@ -2616,6 +2620,7 @@ export class BridgeWebSocketServer {
           return;
         }
         const text = msg.text;
+        const inputFiles = msg.files ?? [];
         const clientMessageId = msg.clientMessageId;
         const baseSeq = msg.baseSeq;
         const codexSkills = msg.skills ?? (msg.skill ? [msg.skill] : []);
@@ -2677,23 +2682,55 @@ export class BridgeWebSocketServer {
 
         if (
           session.provider === "codex" &&
-          !session.process.isWaitingForInput
+          !session.process.isWaitingForInput &&
+          session.codexQueuedInput
         ) {
-          if (session.codexQueuedInput) {
+          this.send(ws, {
+            type: "input_rejected",
+            sessionId: session.id,
+            ...(clientMessageId ? { clientMessageId } : {}),
+            reason: "Queue is full",
+          });
+          break;
+        }
+
+        let attachmentFiles: Awaited<
+          ReturnType<typeof materializeInputFiles>
+        > = [];
+        if (inputFiles.length > 0) {
+          try {
+            attachmentFiles = await materializeInputFiles(inputFiles);
+          } catch (error) {
             this.send(ws, {
               type: "input_rejected",
               sessionId: session.id,
               ...(clientMessageId ? { clientMessageId } : {}),
-              reason: "Queue is full",
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to prepare attached files.",
             });
             break;
           }
+        }
+        if (attachmentFiles.length > 0) {
+          session.inputAttachmentPaths = [
+            ...(session.inputAttachmentPaths ?? []),
+            ...attachmentFiles.map((file) => file.path),
+          ];
+        }
+        const agentText = appendInputAttachmentContext(text, attachmentFiles);
 
+        if (
+          session.provider === "codex" &&
+          !session.process.isWaitingForInput
+        ) {
           const queued = this.sessionManager.queueCodexInput(session.id, {
             itemId: randomUUID(),
             text,
             createdAt: new Date().toISOString(),
             userMessageUuid: nextCodexUserTurnUuid(session),
+            ...(attachmentFiles.length > 0 ? { attachmentFiles } : {}),
             ...(images.length > 0 ? { imageCount: images.length, images } : {}),
             ...(imageRefs ? { imageRefs } : {}),
             ...(codexSkills.length > 0 ? { skills: codexSkills } : {}),
@@ -2793,7 +2830,7 @@ export class BridgeWebSocketServer {
           });
           const codexProc = session.process as CodexProcess;
           if (images.length > 0) {
-            codexProc.sendInputStructured(text, {
+            codexProc.sendInputStructured(agentText, {
               images,
               skills: codexSkills,
               mentions: codexMentions,
@@ -2803,14 +2840,14 @@ export class BridgeWebSocketServer {
               .getImageAsBase64(msg.imageId)
               .then((imageData) => {
                 if (imageData) {
-                  codexProc.sendInputStructured(text, {
+                  codexProc.sendInputStructured(agentText, {
                     images: [imageData],
                     skills: codexSkills,
                     mentions: codexMentions,
                   });
                 } else {
                   console.warn(`[ws] Image not found: ${msg.imageId}`);
-                  codexProc.sendInputStructured(text, {
+                  codexProc.sendInputStructured(agentText, {
                     skills: codexSkills,
                     mentions: codexMentions,
                   });
@@ -2818,18 +2855,18 @@ export class BridgeWebSocketServer {
               })
               .catch((err) => {
                 console.error(`[ws] Failed to load image: ${err}`);
-                codexProc.sendInputStructured(text, {
+                codexProc.sendInputStructured(agentText, {
                   skills: codexSkills,
                   mentions: codexMentions,
                 });
               });
           } else if (codexSkills.length > 0 || codexMentions.length > 0) {
-            codexProc.sendInputStructured(text, {
+            codexProc.sendInputStructured(agentText, {
               skills: codexSkills,
               mentions: codexMentions,
             });
           } else {
-            codexProc.sendInput(text);
+            codexProc.sendInput(agentText);
           }
           break;
         }
@@ -2843,11 +2880,11 @@ export class BridgeWebSocketServer {
             `[ws] Sending message with ${images.length} inline Base64 image(s)`,
           );
           if (typeof claudeProc.dispatchInputWithImages === "function") {
-            const result = claudeProc.dispatchInputWithImages(text, images);
+            const result = claudeProc.dispatchInputWithImages(agentText, images);
             wasQueued = result.queued;
             shouldInterrupt = result.shouldInterrupt;
           } else {
-            const result = claudeProc.sendInputWithImages(text, images);
+            const result = claudeProc.sendInputWithImages(agentText, images);
             wasQueued =
               typeof result === "boolean" ? result : isAgentBusySnapshot;
             shouldInterrupt = wasQueued;
@@ -2868,13 +2905,13 @@ export class BridgeWebSocketServer {
               let queuedAfterResolve = false;
               if (imageData) {
                 if (typeof claudeProc.dispatchInputWithImages === "function") {
-                  const result = claudeProc.dispatchInputWithImages(text, [
+                  const result = claudeProc.dispatchInputWithImages(agentText, [
                     imageData,
                   ]);
                   queuedAfterResolve = result.queued;
                   if (result.shouldInterrupt) claudeProc.interrupt();
                 } else {
-                  const result = claudeProc.sendInputWithImages(text, [
+                  const result = claudeProc.sendInputWithImages(agentText, [
                     imageData,
                   ]);
                   queuedAfterResolve =
@@ -2886,11 +2923,11 @@ export class BridgeWebSocketServer {
               } else {
                 console.warn(`[ws] Image not found: ${msg.imageId}`);
                 if (typeof claudeProc.dispatchInput === "function") {
-                  const result = claudeProc.dispatchInput(text);
+                  const result = claudeProc.dispatchInput(agentText);
                   queuedAfterResolve = result.queued;
                   if (result.shouldInterrupt) claudeProc.interrupt();
                 } else {
-                  const result = session.process.sendInput(text);
+                  const result = session.process.sendInput(agentText);
                   queuedAfterResolve =
                     typeof result === "boolean"
                       ? result
@@ -2902,10 +2939,10 @@ export class BridgeWebSocketServer {
             .catch((err) => {
               console.error(`[ws] Failed to load image: ${err}`);
               if (typeof claudeProc.dispatchInput === "function") {
-                const result = claudeProc.dispatchInput(text);
+                const result = claudeProc.dispatchInput(agentText);
                 if (result.shouldInterrupt) claudeProc.interrupt();
               } else {
-                const result = session.process.sendInput(text);
+                const result = session.process.sendInput(agentText);
                 const queuedAfterResolve =
                   typeof result === "boolean" ? result : isAgentBusySnapshot;
                 if (queuedAfterResolve) claudeProc.interrupt();
@@ -2916,11 +2953,11 @@ export class BridgeWebSocketServer {
         // Text-only message
         else {
           if (typeof claudeProc.dispatchInput === "function") {
-            const result = claudeProc.dispatchInput(text);
+            const result = claudeProc.dispatchInput(agentText);
             wasQueued = result.queued;
             shouldInterrupt = result.shouldInterrupt;
           } else {
-            const result = session.process.sendInput(text);
+            const result = session.process.sendInput(agentText);
             wasQueued =
               typeof result === "boolean" ? result : isAgentBusySnapshot;
             shouldInterrupt = wasQueued;

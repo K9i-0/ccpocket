@@ -35,6 +35,11 @@ import {
   buildAutoRenameTranscript,
   generateAutoRenameName,
 } from "./auto-rename.js";
+import {
+  appendInputAttachmentContext,
+  removeInputAttachmentFiles,
+  type MaterializedInputFile,
+} from "./input-attachments.js";
 
 export interface WorktreeOptions {
   useWorktree?: boolean;
@@ -89,6 +94,8 @@ export interface SessionInfo {
   sandboxEnabled?: boolean;
   /** Codex-only pending input waiting for the next turn. */
   codexQueuedInput?: QueuedCodexInput;
+  /** Temporary files uploaded from the mobile composer. */
+  inputAttachmentPaths?: string[];
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
   /** Synthetic Codex user UUIDs waiting for their app-server echo. */
@@ -133,6 +140,7 @@ export type HistoryDeltaResult =
 
 export interface QueuedCodexInput extends QueuedInputItem {
   userMessageUuid?: string;
+  attachmentFiles?: MaterializedInputFile[];
   images?: Array<{
     base64: string;
     mimeType: string;
@@ -1343,11 +1351,14 @@ export class SessionManager {
     }
 
     try {
-      await session.process.steerInputStructured(queued.text, {
+      await session.process.steerInputStructured(
+        appendInputAttachmentContext(queued.text, queued.attachmentFiles ?? []),
+        {
         images: queued.images,
         skills: queued.skills,
         mentions: queued.mentions,
-      });
+        },
+      );
     } catch (err) {
       return {
         ok: false,
@@ -1390,11 +1401,14 @@ export class SessionManager {
     this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
 
-    session.process.sendInputStructured(queued.text, {
+    session.process.sendInputStructured(
+      appendInputAttachmentContext(queued.text, queued.attachmentFiles ?? []),
+      {
       images: queued.images,
       skills: queued.skills,
       mentions: queued.mentions,
-    });
+      },
+    );
   }
 
   private buildQueuedUserInputMessage(queued: QueuedCodexInput): ServerMessage {
@@ -1704,6 +1718,10 @@ export class SessionManager {
     this.sessions.delete(id);
     session.process.stop();
     session.process.removeAllListeners();
+    if (session.inputAttachmentPaths?.length) {
+      void removeInputAttachmentFiles(session.inputAttachmentPaths);
+      session.inputAttachmentPaths = [];
+    }
     console.log(`[session] Destroyed session ${id}`);
     return true;
   }

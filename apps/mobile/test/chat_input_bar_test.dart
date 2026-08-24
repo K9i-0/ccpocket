@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -58,6 +60,8 @@ void main() {
     Future<bool> Function()? onPasteImage,
     ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
     KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
+    List<PendingFileAttachment> attachedFiles = const [],
+    void Function(int index)? onClearFile,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -87,6 +91,8 @@ void main() {
           onPasteImage: onPasteImage,
           imagePasteShortcut: imagePasteShortcut,
           onCompletionKeyEvent: onCompletionKeyEvent,
+          attachedFiles: attachedFiles,
+          onClearFile: onClearFile,
         ),
       ),
     );
@@ -569,6 +575,29 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+    });
+
+    testWidgets('shows attached file name and removes the selected file', (
+      tester,
+    ) async {
+      int? removedIndex;
+      await tester.pumpWidget(
+        buildSubject(
+          attachedFiles: [
+            (
+              bytes: Uint8List.fromList([1, 2, 3]),
+              mimeType: 'application/pdf',
+              name: 'synthetic-report.pdf',
+            ),
+          ],
+          onClearFile: (index) => removedIndex = index,
+        ),
+      );
+
+      expect(find.text('synthetic-report.pdf'), findsOneWidget);
+      expect(find.byIcon(Icons.attach_file), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('remove_file_0')));
+      expect(removedIndex, 0);
     });
 
     group('mention button (@)', () {

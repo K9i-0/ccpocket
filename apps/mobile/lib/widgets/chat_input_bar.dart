@@ -43,6 +43,8 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback? onAttachImage;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
   final void Function([int? index])? onClearImage;
+  final List<PendingFileAttachment> attachedFiles;
+  final void Function(int index)? onClearFile;
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
   final VoidCallback? onTapDiffPreview;
@@ -83,6 +85,8 @@ class ChatInputBar extends StatelessWidget {
     this.onAttachImage,
     this.attachedImages = const [],
     this.onClearImage,
+    this.attachedFiles = const [],
+    this.onClearFile,
     this.attachedDiffSelection,
     this.onClearDiffSelection,
     this.onTapDiffPreview,
@@ -123,6 +127,8 @@ class ChatInputBar extends StatelessWidget {
             ),
           if (attachedImages.isNotEmpty)
             _ImagePreview(images: attachedImages, onClearImage: onClearImage),
+          if (attachedFiles.isNotEmpty)
+            _FilePreview(files: attachedFiles, onClearFile: onClearFile),
           _InputTextField(
             controller: inputController,
             status: status,
@@ -161,8 +167,9 @@ class ChatInputBar extends StatelessWidget {
               ],
               const SizedBox(width: 8),
               _AttachButton(
-                hasAttachment: attachedImages.isNotEmpty,
-                imageCount: attachedImages.length,
+                hasAttachment:
+                    attachedImages.isNotEmpty || attachedFiles.isNotEmpty,
+                attachmentCount: attachedImages.length + attachedFiles.length,
                 onTap: onAttachImage,
               ),
               if (onShowPromptHistory != null) ...[
@@ -372,11 +379,11 @@ class _DollarButton extends StatelessWidget {
 class _AttachButton extends StatelessWidget {
   const _AttachButton({
     required this.hasAttachment,
-    required this.imageCount,
+    required this.attachmentCount,
     required this.onTap,
   });
   final bool hasAttachment;
-  final int imageCount;
+  final int attachmentCount;
   final VoidCallback? onTap;
 
   @override
@@ -384,7 +391,7 @@ class _AttachButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return Tooltip(
-      message: l.tooltipAttachImage,
+      message: l.tooltipAttachFiles,
       child: Material(
         color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
@@ -400,8 +407,12 @@ class _AttachButton extends StatelessWidget {
                 ? Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
-                      if (imageCount > 1)
+                      Icon(
+                        Icons.attach_file,
+                        size: 18,
+                        color: cs.onPrimaryContainer,
+                      ),
+                      if (attachmentCount > 1)
                         Positioned(
                           top: -6,
                           right: -8,
@@ -415,7 +426,7 @@ class _AttachButton extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '$imageCount',
+                              '$attachmentCount',
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
@@ -426,7 +437,7 @@ class _AttachButton extends StatelessWidget {
                         ),
                     ],
                   )
-                : Icon(Icons.image_outlined, size: 18, color: cs.primary),
+                : Icon(Icons.attach_file, size: 18, color: cs.primary),
           ),
         ),
       ),
@@ -526,6 +537,64 @@ class _ImagePreview extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _FilePreview extends StatelessWidget {
+  const _FilePreview({required this.files, required this.onClearFile});
+
+  final List<PendingFileAttachment> files;
+  final void Function(int index)? onClearFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: files.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final file = files[index];
+          return Container(
+            constraints: const BoxConstraints(maxWidth: 220),
+            padding: const EdgeInsets.only(left: 10, right: 4),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.insert_drive_file_outlined,
+                  size: 18,
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey('remove_file_$index'),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: AppLocalizations.of(context).tooltipRemoveFile,
+                  onPressed: () => onClearFile?.call(index),
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

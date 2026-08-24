@@ -2151,6 +2151,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get selectFromGallery => 'ギャラリーから選択';
 
   @override
+  String get selectFiles => 'ファイルを選択';
+
+  @override
+  String get failedToLoadFile => 'ファイルの読み込みに失敗しました';
+
+  @override
+  String fileLimitReached(int max) {
+    return 'ファイルは最大$max個までです';
+  }
+
+  @override
+  String fileTooLarge(String name, int maxMb) {
+    return '$nameは$maxMb MBを超えています';
+  }
+
+  @override
+  String filesTooLarge(int maxMb) {
+    return '添付ファイルの合計は$maxMb MBまでです';
+  }
+
+  @override
   String get pasteFromClipboard => 'クリップボードから貼付';
 
   @override
@@ -2226,6 +2247,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipAttachImage => '画像を添付';
 
   @override
+  String get tooltipAttachFiles => '画像またはファイルを添付';
+
+  @override
   String get tooltipPromptHistory => 'プロンプト履歴を開く';
 
   @override
@@ -2239,6 +2263,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tooltipRemoveImage => '画像を削除';
+
+  @override
+  String get tooltipRemoveFile => 'ファイルを削除';
 
   @override
   String get tooltipClearDiff => 'Diff選択を解除';

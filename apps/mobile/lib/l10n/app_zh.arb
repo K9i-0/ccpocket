@@ -955,6 +955,11 @@
     }
   },
   "selectFromGallery": "从图库选择",
+  "selectFiles": "选择文件",
+  "failedToLoadFile": "无法加载文件",
+  "fileLimitReached": "最多可附加 {max} 个文件",
+  "fileTooLarge": "{name} 超过 {maxMb} MB",
+  "filesTooLarge": "附件总大小不能超过 {maxMb} MB",
   "pasteFromClipboard": "从剪贴板粘贴",
 
   "voiceInputLanguage": "语音输入语言",
@@ -989,11 +994,13 @@
   "tooltipDollarMention": "输入技能或应用",
   "tooltipPermissionMode": "权限模式",
   "tooltipAttachImage": "附加图片",
+  "tooltipAttachFiles": "附加图片或文件",
   "tooltipPromptHistory": "打开提示词历史",
   "tooltipVoiceInput": "开始语音输入",
   "tooltipStopRecording": "停止录音",
   "tooltipSendMessage": "发送消息",
   "tooltipRemoveImage": "移除图片",
+  "tooltipRemoveFile": "移除文件",
   "tooltipClearDiff": "清除 diff 选择",
   "messageHistoryCount": "{count} 条消息",
   "@messageHistoryCount": {
