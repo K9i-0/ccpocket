@@ -88,7 +88,7 @@ class FakeFcmService extends FcmService {
     this.platformName = 'ios',
   });
 
-  final bool available;
+  bool available;
   String? token;
   final String platformName;
   final _tokenRefreshController = StreamController<String>.broadcast();
@@ -439,6 +439,47 @@ void main() {
       expect(bridge.registerCalls.length, 2);
       expect(bridge.registerCalls.first.token, 'old-token');
       expect(bridge.registerCalls.last.token, 'new-token');
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
+    test('subscribes to token refresh after registration recovers', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      final bridge = FakeBridgeService()
+        ..emitConnection(BridgeConnectionState.connected, url: _testUrl);
+      final fcm = FakeFcmService(available: false, token: 'token-1');
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      await _flushAsync();
+      await cubit.toggleFcm(true);
+      expect(bridge.registerCalls, isEmpty);
+
+      await cubit.toggleFcm(false);
+      bridge.unregisterCalls.clear();
+      fcm.available = true;
+      await cubit.toggleFcm(true);
+      expect(bridge.registerCalls.map((call) => call.token), ['token-1']);
+
+      fcm.emitTokenRefresh('token-2');
+      await _flushAsync();
+      expect(bridge.unregisterCalls, ['token-1']);
+      expect(bridge.registerCalls.map((call) => call.token), [
+        'token-1',
+        'token-2',
+      ]);
 
       await cubit.close();
       await fcm.disposeFake();

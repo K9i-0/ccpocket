@@ -68,6 +68,7 @@ dependencies:
   uuid: ^4.5.1
   super_clipboard: ^0.9.1
   firebase_core: ^4.4.0
+  firebase_app_installations: ^0.4.2+7
   firebase_messaging: ^16.1.1
   shorebird_code_push: ^2.0.5
   purchases_flutter: ^9.13.1
