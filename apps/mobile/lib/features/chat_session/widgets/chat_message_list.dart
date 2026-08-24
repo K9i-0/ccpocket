@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show
         RenderBox,
+        RenderProxyBox,
         RenderSliverMultiBoxAdaptor,
         RenderViewportBase,
         ScrollDirection,
@@ -193,6 +194,8 @@ class ChatMessageList extends StatefulWidget {
 }
 
 class _ChatMessageListState extends State<ChatMessageList> {
+  static const _streamingEntryKey = ValueKey<String>('streaming');
+
   final _viewportKey = GlobalKey();
   final _generatedImageItemCache =
       <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
@@ -205,6 +208,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   _VisibleAnchor? _pendingAnchor;
   bool _anchorCorrectionScheduled = false;
   bool _metricsNotificationScheduled = false;
+  double? _streamingRowHeight;
 
   void _notifyScrollMetricsAfterLayout() {
     if (_metricsNotificationScheduled ||
@@ -288,7 +292,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   /// Records one measured, visible message before a state change. After the
   /// next layout, the same keyed message is restored to the same screen Y.
   /// This avoids relying on the lazy list's estimated maxScrollExtent.
-  void _captureVisibleAnchor({bool allowStreamingExtentFallback = false}) {
+  void _captureVisibleAnchor() {
     if (!widget.isReadingHistory ||
         !widget.scrollController.hasClients ||
         widget.scrollController.isAutoScrolling ||
@@ -296,9 +300,6 @@ class _ChatMessageListState extends State<ChatMessageList> {
       return;
     }
     if (widget.scrollController.position.isScrollingNotifier.value) {
-      if (allowStreamingExtentFallback) {
-        _scheduleStreamingExtentCorrection();
-      }
       return;
     }
 
@@ -326,32 +327,20 @@ class _ChatMessageListState extends State<ChatMessageList> {
       final distance = ((top + bottom) / 2 - viewportCenter).abs();
       if (distance < bestDistance) {
         bestDistance = distance;
+        final isStreaming = tagState.widget.key == _streamingEntryKey;
         best = _VisibleAnchor(
           key: tagState.widget.key,
           bottom: _sliverChildBottomInViewport(renderObject) ?? bottom,
+          streamingHeight: isStreaming ? _streamingRowHeight : null,
         );
       }
     }
-    if (best == null) {
-      if (allowStreamingExtentFallback) {
-        _scheduleStreamingExtentCorrection();
-      }
-      return;
-    }
+    if (best == null) return;
 
     _pendingAnchor = best;
     _anchorCorrectionScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _restoreVisibleAnchor(),
-    );
-  }
-
-  void _scheduleStreamingExtentCorrection() {
-    final controller = widget.scrollController;
-    if (controller is! AnchorMaintainingAutoScrollController) return;
-    final generation = controller.requestStreamingExtentCorrection();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => controller.clearStreamingExtentCorrection(generation),
     );
   }
 
@@ -389,10 +378,32 @@ class _ChatMessageListState extends State<ChatMessageList> {
       return null;
     }
     final anchor = _pendingAnchor;
-    return anchor == null ? null : _anchorCorrection(anchor);
+    if (anchor == null) return null;
+    final correction = _anchorCorrection(anchor);
+    final currentStreamingHeight = _streamingRowHeight;
+    if (correction != null &&
+        anchor.streamingHeight != null &&
+        currentStreamingHeight != null) {
+      // correctForNewDimensions can run more than once for one layout. Mark
+      // this exact height as consumed so the same growth is not applied twice.
+      _pendingAnchor = _VisibleAnchor(
+        key: anchor.key,
+        bottom: anchor.bottom,
+        streamingHeight: currentStreamingHeight,
+      );
+    }
+    return correction;
   }
 
   double? _anchorCorrection(_VisibleAnchor anchor) {
+    final previousStreamingHeight = anchor.streamingHeight;
+    if (previousStreamingHeight != null) {
+      final currentStreamingHeight = _streamingRowHeight;
+      return currentStreamingHeight == null
+          ? null
+          : currentStreamingHeight - previousStreamingHeight;
+    }
+
     AutoScrollTagState? matchingState;
     for (final state in widget.scrollController.tagMap.values) {
       if (state.mounted && state.widget.key == anchor.key) {
@@ -481,6 +492,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final childIndexByEntryKey = <String, int>{
       for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
         entryKeys[entryIndex]: totalCount - 1 - entryIndex,
+      if (hasStreaming) 'streaming': 0,
     };
     final derivedData = _deriveData(
       chatState,
@@ -498,8 +510,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           listener: (_, _) => _captureVisibleAnchor(),
         ),
         BlocListener<StreamingStateCubit, StreamingState>(
-          listener: (_, _) =>
-              _captureVisibleAnchor(allowStreamingExtentFallback: true),
+          listener: (_, _) => _captureVisibleAnchor(),
         ),
       ],
       child: NotificationListener<ScrollMetricsNotification>(
@@ -538,25 +549,32 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 // Streaming entry is at totalCount - 1 (index 0 in reverse)
                 if (hasStreaming && entryIndex == allEntries.length) {
                   // Scoped BlocBuilder: only this widget rebuilds on streaming deltas
-                  return BlocBuilder<StreamingStateCubit, StreamingState>(
-                    builder: (context, streamingState) {
-                      if (!streamingState.isStreaming) {
-                        return const SizedBox.shrink();
-                      }
-                      return ChatEntryWidget(
-                        entry: StreamingChatEntry(text: streamingState.text),
-                        previous: null,
-                        httpBaseUrl: widget.httpBaseUrl,
-                        onRetryMessage: null,
-                        collapseToolResults: null,
-                        hiddenToolUseIds: const {},
-                        isCodex: widget.isCodex,
-                        onBeforeStreamingTextUpdate: () =>
-                            _captureVisibleAnchor(
-                              allowStreamingExtentFallback: true,
+                  return AutoScrollTag(
+                    key: _streamingEntryKey,
+                    controller: widget.scrollController,
+                    index: entryIndex,
+                    child: _LayoutSizeReporter(
+                      onLayout: (size) => _streamingRowHeight = size.height,
+                      child: BlocBuilder<StreamingStateCubit, StreamingState>(
+                        builder: (context, streamingState) {
+                          if (!streamingState.isStreaming) {
+                            return const SizedBox.shrink();
+                          }
+                          return ChatEntryWidget(
+                            entry: StreamingChatEntry(
+                              text: streamingState.text,
                             ),
-                      );
-                    },
+                            previous: null,
+                            httpBaseUrl: widget.httpBaseUrl,
+                            onRetryMessage: null,
+                            collapseToolResults: null,
+                            hiddenToolUseIds: const {},
+                            isCodex: widget.isCodex,
+                            onBeforeStreamingTextUpdate: _captureVisibleAnchor,
+                          );
+                        },
+                      ),
+                    ),
                   );
                 }
 
@@ -830,8 +848,43 @@ class _ChatMessageListState extends State<ChatMessageList> {
 class _VisibleAnchor {
   final Key? key;
   final double bottom;
+  final double? streamingHeight;
 
-  const _VisibleAnchor({required this.key, required this.bottom});
+  const _VisibleAnchor({
+    required this.key,
+    required this.bottom,
+    this.streamingHeight,
+  });
+}
+
+class _LayoutSizeReporter extends SingleChildRenderObjectWidget {
+  const _LayoutSizeReporter({required this.onLayout, required super.child});
+
+  final ValueChanged<Size> onLayout;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _LayoutSizeReporterRenderBox(onLayout);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _LayoutSizeReporterRenderBox renderObject,
+  ) {
+    renderObject.onLayout = onLayout;
+  }
+}
+
+class _LayoutSizeReporterRenderBox extends RenderProxyBox {
+  _LayoutSizeReporterRenderBox(this.onLayout);
+
+  ValueChanged<Size> onLayout;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    onLayout(size);
+  }
 }
 
 class _ChatListDerivedData {
