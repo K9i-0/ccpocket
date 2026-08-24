@@ -336,6 +336,41 @@ describe("sdkMessageToServerMessage", () => {
       });
     });
 
+    it("suppresses Claude's internal EDE diagnostic result", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "error_during_execution",
+        errors: [
+          "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+        ],
+        stop_reason: "tool_use",
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
+    });
+
+    it("keeps a real error while removing its internal EDE diagnostic", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "error_during_execution",
+        errors: [
+          "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+          "MCP server disconnected",
+        ],
+        stop_reason: "tool_use",
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toEqual({
+        type: "result",
+        subtype: "error",
+        error: "MCP server disconnected",
+        sessionId: "test-session",
+        stopReason: "tool_use",
+      });
+    });
+
     it("omits stopReason when not present in SDK message", () => {
       const sdkMsg = {
         type: "result" as const,
