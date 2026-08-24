@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.117.0] - 2026-08-24
+
+### Added
+- Select and copy part of a user message with the native text-selection gesture, while keeping whole-message copy and rewind actions in a compact menu.
+
+### Changed
+- Reduce repeated Markdown parsing work while assistant responses stream.
+
 ## [1.116.1] - 2026-08-23
 
 ### Fixed
