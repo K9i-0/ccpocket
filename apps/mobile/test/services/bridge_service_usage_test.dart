@@ -1781,6 +1781,12 @@ void main() {
       bridge.send(ClientMessage.start('/home/user/app', provider: 'codex'));
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getStringList('bridge_offline_pending_messages_v1'),
+        hasLength(1),
+      );
+
       expect(bridge.offlinePendingActions, isEmpty);
       expect(
         received.where((message) => message['type'] == 'start'),
@@ -1808,6 +1814,12 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       expect(bridge.offlinePendingActions, isEmpty);
+      expect(prefs.getStringList('bridge_offline_pending_messages_v1'), isNull);
+
+      final restoredBridge = BridgeService();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(restoredBridge.offlinePendingActions, isEmpty);
+      restoredBridge.dispose();
 
       bridge.disconnect();
       await socket.close();

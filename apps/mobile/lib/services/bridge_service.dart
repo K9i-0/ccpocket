@@ -361,6 +361,7 @@ class BridgeService implements BridgeServiceBase {
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
 
   Future<void>? _offlineQueueRestore;
+  Future<void> _offlinePendingPersistence = Future<void>.value();
   int _offlineQueueGeneration = 0;
 
   void _setBridgeConnectionState(BridgeConnectionState state) {
@@ -804,20 +805,7 @@ class BridgeService implements BridgeServiceBase {
     _offlinePendingActions = const [];
     _offlinePendingActionsController.add(_offlinePendingActions);
     _offlineQueueRestore = Future.value();
-    unawaited(_clearPersistedOfflinePendingMessages());
-  }
-
-  Future<void> _clearPersistedOfflinePendingMessages() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_prefKeyOfflinePendingMessages);
-    } catch (error, stackTrace) {
-      logger.warning(
-        'Failed to clear offline pending messages',
-        error,
-        stackTrace,
-      );
-    }
+    unawaited(_persistOfflinePendingMessages());
   }
 
   int? _readHistorySeq(Object? value) {
@@ -976,7 +964,7 @@ class BridgeService implements BridgeServiceBase {
     }
     _inFlightPendingMessages[dedupeKey] = message;
     if (pendingAction != null) {
-    _scheduleInFlightPendingVisibility(dedupeKey);
+      _scheduleInFlightPendingVisibility(dedupeKey);
     }
     if (_isPersistableOfflineMessage(message)) {
       unawaited(_persistOfflinePendingMessages());
@@ -1429,12 +1417,10 @@ class BridgeService implements BridgeServiceBase {
         return true;
       });
       removed = before != _messageQueue.length;
-      if (removed) {
-        unawaited(_persistOfflinePendingMessages());
-      }
     }
     if (removed) {
       _publishOfflinePendingActions();
+      unawaited(_persistOfflinePendingMessages());
     }
   }
 
@@ -1491,12 +1477,10 @@ class BridgeService implements BridgeServiceBase {
         return true;
       });
       removed = didRemove;
-      if (removed) {
-        unawaited(_persistOfflinePendingMessages());
-      }
     }
     if (removed) {
       _publishOfflinePendingActions();
+      unawaited(_persistOfflinePendingMessages());
     }
   }
 
@@ -1558,10 +1542,8 @@ class BridgeService implements BridgeServiceBase {
     removed = removed || removedQueued;
 
     if (!removed) return;
-    if (removedQueued) {
-      unawaited(_persistOfflinePendingMessages());
-    }
     _publishOfflinePendingActions();
+    unawaited(_persistOfflinePendingMessages());
   }
 
   Future<void> _restoreOfflinePendingMessages() async {
@@ -1621,18 +1603,26 @@ class BridgeService implements BridgeServiceBase {
     return message.contains('Binding has not yet been initialized');
   }
 
-  Future<void> _persistOfflinePendingMessages() async {
-    await _ensureOfflineQueueRestored();
-    final pendingByKey = <String, String>{};
-    for (final message in [
-      ..._messageQueue,
-      ..._inFlightPendingMessages.values,
-    ].where(_isPersistableOfflineMessage)) {
-      pendingByKey[_offlineMessageDedupeKey(message) ?? message.toJson()] =
-          message.toJson();
-    }
-    final pending = pendingByKey.values.toList();
+  Future<void> _persistOfflinePendingMessages() {
+    final persistence = _offlinePendingPersistence.then(
+      (_) => _writeOfflinePendingMessages(),
+    );
+    _offlinePendingPersistence = persistence;
+    return persistence;
+  }
+
+  Future<void> _writeOfflinePendingMessages() async {
     try {
+      await _ensureOfflineQueueRestored();
+      final pendingByKey = <String, String>{};
+      for (final message in [
+        ..._messageQueue,
+        ..._inFlightPendingMessages.values,
+      ].where(_isPersistableOfflineMessage)) {
+        pendingByKey[_offlineMessageDedupeKey(message) ?? message.toJson()] =
+            message.toJson();
+      }
+      final pending = pendingByKey.values.toList();
       final prefs = await SharedPreferences.getInstance();
       if (pending.isEmpty) {
         await prefs.remove(_prefKeyOfflinePendingMessages);
