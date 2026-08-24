@@ -376,6 +376,16 @@ export interface RewindFilesResult {
   deletions?: number;
 }
 
+const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
+  /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+
+function isClaudeSystemInjectedUserText(text: string): boolean {
+  const normalized = text.trimStart();
+  return (
+    CLAUDE_SYSTEM_INJECTED_USER_TEXT.test(normalized) ||
+    normalized.startsWith("Base directory for this skill:")
+  );
+}
 /**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
@@ -440,11 +450,14 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         .filter((c: unknown) => (c as Record<string, unknown>).type === "text")
         .map((c: unknown) => (c as Record<string, unknown>).text as string);
       if (texts.length > 0) {
+        const isSynthetic =
+          usr.isSynthetic === true ||
+          texts.every(isClaudeSystemInjectedUserText);
         return {
           type: "user_input",
           text: texts.join("\n"),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
-          ...(usr.isSynthetic ? { isSynthetic: true } : {}),
+          ...(isSynthetic ? { isSynthetic: true } : {}),
           ...(usr.isMeta ? { isMeta: true } : {}),
         } as ServerMessage;
       }
@@ -1227,7 +1240,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       if (serverMsg) {
         this.emitMessage(serverMsg);
       }
-
       // Extract session ID and model from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
         if (this.initTimeoutId) {

@@ -580,6 +580,30 @@ describe("sdkMessageToServerMessage", () => {
       });
     });
 
+    it("marks internal task notifications as synthetic when the SDK omits the flag", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "<task-notification>\n<status>killed</status>\n</task-notification>",
+            },
+          ],
+        },
+        uuid: "usr-task-111" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        isSynthetic: true,
+      });
+    });
+
     it("omits isSynthetic when not set on user message", () => {
       const sdkMsg = {
         type: "user" as const,
