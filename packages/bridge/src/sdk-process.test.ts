@@ -636,6 +636,30 @@ describe("sdkMessageToServerMessage", () => {
       });
     });
 
+    it("marks internal task notifications as synthetic when the SDK omits the flag", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "<task-notification>\n<status>killed</status>\n</task-notification>",
+            },
+          ],
+        },
+        uuid: "usr-task-111" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        isSynthetic: true,
+      });
+    });
+
     it("omits isSynthetic when not set on user message", () => {
       const sdkMsg = {
         type: "user" as const,
@@ -1164,6 +1188,64 @@ describe("SdkProcess Claude authentication", () => {
       message: "Claude reached the maximum response length before finishing.",
       errorCode: "claude_max_output_tokens",
     });
+  });
+
+  it("does not duplicate an invalid request already explained by Claude", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "image-error-session",
+          model: "claude-opus-4-1",
+          apiKeySource: "api_key",
+        };
+        yield {
+          type: "assistant",
+          session_id: "image-error-session",
+          uuid: "assistant-image-error",
+          error: "invalid_request",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "API Error: an image in the conversation could not be processed and was removed.",
+              },
+            ],
+          },
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+    });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [
+            expect.objectContaining({
+              type: "text",
+              text: expect.stringContaining("image in the conversation"),
+            }),
+          ],
+        }),
+      }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ errorCode: "claude_invalid_request" }),
+    );
   });
 
   it("rejects an unexpected OAuth init when only an API key was configured", async () => {

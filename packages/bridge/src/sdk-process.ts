@@ -388,6 +388,17 @@ const CLAUDE_ASSISTANT_ERROR_MESSAGES: Record<string, string> = {
   max_output_tokens: "Claude reached the maximum response length before finishing.",
 };
 
+const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
+  /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+
+function isClaudeSystemInjectedUserText(text: string): boolean {
+  const normalized = text.trimStart();
+  return (
+    CLAUDE_SYSTEM_INJECTED_USER_TEXT.test(normalized) ||
+    normalized.startsWith("Base directory for this skill:")
+  );
+}
+
 function claudeAssistantErrorMessage(error: string): ServerMessage {
   return {
     type: "error",
@@ -399,6 +410,24 @@ function claudeAssistantErrorMessage(error: string): ServerMessage {
         ? "auth_token_expired"
         : `claude_${error}`,
   };
+}
+
+function assistantAlreadyExplainsInvalidRequest(message: SDKMessage): boolean {
+  if (message.type !== "assistant") return false;
+  const rawContent = (
+    message as unknown as { message?: { content?: unknown } }
+  ).message?.content;
+  if (!Array.isArray(rawContent)) return false;
+
+  return rawContent.some((item) => {
+    if (!item || typeof item !== "object") return false;
+    const block = item as Record<string, unknown>;
+    return (
+      block.type === "text" &&
+      typeof block.text === "string" &&
+      /^API Error:/i.test(block.text.trimStart())
+    );
+  });
 }
 
 /**
@@ -487,11 +516,14 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         .filter((c: unknown) => (c as Record<string, unknown>).type === "text")
         .map((c: unknown) => (c as Record<string, unknown>).text as string);
       if (texts.length > 0) {
+        const isSynthetic =
+          usr.isSynthetic === true ||
+          texts.every(isClaudeSystemInjectedUserText);
         return {
           type: "user_input",
           text: texts.join("\n"),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
-          ...(usr.isSynthetic ? { isSynthetic: true } : {}),
+          ...(isSynthetic ? { isSynthetic: true } : {}),
           ...(usr.isMeta ? { isMeta: true } : {}),
         } as ServerMessage;
       }
@@ -1286,7 +1318,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       }
       if (message.type === "assistant") {
         const assistantError = (message as Record<string, unknown>).error;
-        if (typeof assistantError === "string" && assistantError) {
+        if (
+          typeof assistantError === "string" &&
+          assistantError &&
+          !(
+            assistantError === "invalid_request" &&
+            assistantAlreadyExplainsInvalidRequest(message)
+          )
+        ) {
           this.emitMessage(claudeAssistantErrorMessage(assistantError));
         }
       }
