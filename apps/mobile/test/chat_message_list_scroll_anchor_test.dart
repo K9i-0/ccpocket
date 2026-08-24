@@ -116,6 +116,21 @@ void main() {
     await tester.pump();
     expect(tester.getTopLeft(target).dy, closeTo(before, 1));
 
+    final beforeDelayedUpdate = tester.getTopLeft(target).dy;
+    final heightBeforeDelayedUpdate = tester.getSize(streamingEntry).height;
+    streamingCubit.appendText('\n\nsmall line one\n\nsmall line two');
+    await tester.pump();
+    expect(
+      tester.getSize(streamingEntry).height,
+      closeTo(heightBeforeDelayedUpdate, 0.1),
+    );
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(
+      tester.getSize(streamingEntry).height,
+      greaterThan(heightBeforeDelayedUpdate),
+    );
+    expect(tester.getTopLeft(target).dy, closeTo(beforeDelayedUpdate, 1));
+
     final beforeCombinedResize = tester.getTopLeft(target).dy;
     streamingCubit.appendText('\n\nmore content during keyboard resize');
     tester.view.viewInsets = const FakeViewPadding(bottom: 120);

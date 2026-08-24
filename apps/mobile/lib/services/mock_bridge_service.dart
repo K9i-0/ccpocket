@@ -497,6 +497,8 @@ class MockBridgeService extends BridgeService {
       _playStreamingScenario(
         scenario.streamingText!,
         startDelay: lastStepDelay + const Duration(milliseconds: 300),
+        chunkSize: scenario.streamingChunkSize,
+        chunkDelay: scenario.streamingChunkDelay,
       );
     } else {
       for (final step in scenario.steps) {
@@ -508,17 +510,22 @@ class MockBridgeService extends BridgeService {
   void _playStreamingScenario(
     String text, {
     Duration startDelay = Duration.zero,
+    int chunkSize = 1,
+    Duration chunkDelay = const Duration(milliseconds: 20),
   }) {
-    const charDelay = Duration(milliseconds: 20);
-    for (var i = 0; i < text.length; i++) {
+    assert(chunkSize > 0);
+    var chunkIndex = 0;
+    for (var start = 0; start < text.length; start += chunkSize) {
+      final end = (start + chunkSize).clamp(0, text.length);
       _scheduleMessage(
-        startDelay + charDelay * i,
-        StreamDeltaMessage(text: text[i]),
+        startDelay + chunkDelay * chunkIndex,
+        StreamDeltaMessage(text: text.substring(start, end)),
       );
+      chunkIndex++;
     }
     // Final assistant message after streaming completes
     _scheduleMessage(
-      startDelay + charDelay * text.length + const Duration(milliseconds: 100),
+      startDelay + chunkDelay * chunkIndex + const Duration(milliseconds: 100),
       AssistantServerMessage(
         message: AssistantMessage(
           id: 'mock-stream-final',
@@ -529,7 +536,7 @@ class MockBridgeService extends BridgeService {
       ),
     );
     _scheduleMessage(
-      startDelay + charDelay * text.length + const Duration(milliseconds: 200),
+      startDelay + chunkDelay * chunkIndex + const Duration(milliseconds: 200),
       const StatusMessage(status: ProcessStatus.idle),
     );
   }

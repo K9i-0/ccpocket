@@ -36,6 +36,8 @@ class MockScenario {
 
   /// If non-null, a streaming scenario is played after the steps.
   final String? streamingText;
+  final int streamingChunkSize;
+  final Duration streamingChunkDelay;
 
   const MockScenario({
     required this.name,
@@ -45,6 +47,8 @@ class MockScenario {
     this.section = MockScenarioSection.chat,
     this.provider = MockScenarioProvider.claude,
     this.streamingText,
+    this.streamingChunkSize = 1,
+    this.streamingChunkDelay = const Duration(milliseconds: 20),
   });
 }
 
@@ -61,6 +65,7 @@ final List<MockScenario> mockScenarios = [
   _todoWrite,
   _imageResult,
   _streaming,
+  _longStreamingMarkdown,
   _markdownCodeBlocks,
   _markdownMixedContent,
   _thinkingBlock,
@@ -1228,6 +1233,24 @@ final _streaming = MockScenario(
       '}\n'
       '```\n\n'
       'Streaming complete!',
+);
+
+final _longStreamingMarkdown = MockScenario(
+  name: 'Perf Long Streaming Markdown',
+  icon: Icons.speed,
+  description: 'Long Markdown streamed in small, high-frequency chunks',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+  ],
+  streamingText: List.generate(
+    10,
+    (index) => _heavyMarkdownText(index, codeLines: 18, bullets: 8),
+  ).join('\n\n'),
+  streamingChunkSize: 12,
+  streamingChunkDelay: const Duration(milliseconds: 4),
 );
 
 // ---------------------------------------------------------------------------

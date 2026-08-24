@@ -551,6 +551,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
                         collapseToolResults: null,
                         hiddenToolUseIds: const {},
                         isCodex: widget.isCodex,
+                        onBeforeStreamingTextUpdate: () =>
+                            _captureVisibleAnchor(
+                              allowStreamingExtentFallback: true,
+                            ),
                       );
                     },
                   );

@@ -41,6 +41,7 @@ class ChatEntryWidget extends StatelessWidget {
 
   /// Callback for tapping file paths in assistant messages.
   final FilePathTapCallback? onFileTap;
+  final VoidCallback? onBeforeStreamingTextUpdate;
   final bool isCodex;
 
   const ChatEntryWidget({
@@ -58,6 +59,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.hiddenToolUseIds = const {},
     this.onImageTap,
     this.onFileTap,
+    this.onBeforeStreamingTextUpdate,
     this.isCodex = false,
   });
 
@@ -97,6 +99,7 @@ class ChatEntryWidget extends StatelessWidget {
           StreamingChatEntry(:final text) => StreamingBubble(
             text: text,
             onFileTap: onFileTap,
+            onBeforeTextUpdate: onBeforeStreamingTextUpdate,
           ),
         },
         // Image attachment tap button — placed below the bubble to avoid
