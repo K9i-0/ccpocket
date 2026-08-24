@@ -97,6 +97,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copy => 'Copy';
 
   @override
+  String get copyEntireMessage => 'Copy entire message';
+
+  @override
   String get markdownLinkOpenFailed => 'Could not open this link.';
 
   @override

@@ -96,6 +96,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get copy => 'コピー';
 
   @override
+  String get copyEntireMessage => 'メッセージ全体をコピー';
+
+  @override
   String get markdownLinkOpenFailed => 'リンクを開けませんでした。';
 
   @override

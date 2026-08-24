@@ -35,6 +35,7 @@
   "toolSuggestionFailed": "安装失败",
   "toolSuggestionOpenFailed": "无法打开连接页面。",
   "copy": "复制",
+  "copyEntireMessage": "复制整条消息",
   "markdownLinkOpenFailed": "无法打开此链接。",
   "markdownLinkUnsupported": "不支持此类型的链接。",
   "markdownFileUnavailable": "无法在此处预览此文件。",

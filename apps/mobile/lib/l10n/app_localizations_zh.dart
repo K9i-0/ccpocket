@@ -96,6 +96,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copy => '复制';
 
   @override
+  String get copyEntireMessage => '复制整条消息';
+
+  @override
   String get markdownLinkOpenFailed => '无法打开此链接。';
 
   @override

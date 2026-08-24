@@ -96,6 +96,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get copy => '복사';
 
   @override
+  String get copyEntireMessage => '메시지 전체 복사';
+
+  @override
   String get markdownLinkOpenFailed => '링크를 열 수 없습니다.';
 
   @override

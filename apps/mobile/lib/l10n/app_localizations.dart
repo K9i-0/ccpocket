@@ -258,6 +258,12 @@ abstract class AppLocalizations {
   /// **'コピー'**
   String get copy;
 
+  /// No description provided for @copyEntireMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージ全体をコピー'**
+  String get copyEntireMessage;
+
   /// No description provided for @markdownLinkOpenFailed.
   ///
   /// In ja, this message translates to:

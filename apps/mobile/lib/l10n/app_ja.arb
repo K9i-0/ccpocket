@@ -28,6 +28,7 @@
   "toolSuggestionFailed": "インストールに失敗しました",
   "toolSuggestionOpenFailed": "接続ページを開けませんでした。",
   "copy": "コピー",
+  "copyEntireMessage": "メッセージ全体をコピー",
   "markdownLinkOpenFailed": "リンクを開けませんでした。",
   "markdownLinkUnsupported": "この種類のリンクには対応していません。",
   "markdownFileUnavailable": "このファイルはここではプレビューできません。",
