@@ -846,6 +846,7 @@
   "changelogFetchError": "加载更新日志失败",
 
   "fcmBridgeNotInitialized": "Bridge 尚未初始化",
+  "fcmPermissionDenied": "通知权限已被拒绝 — 请在 Android 设置中允许",
   "fcmTokenFailed": "获取 FCM Token 失败",
   "fcmRegistrationFailed": "向 Bridge 注册通知失败",
   "fcmEnabled": "通知已启用",
@@ -856,6 +857,7 @@
   "pushPrivacyModeSubtitle": "在通知中隐藏项目名称和内容",
   "updateNotificationLanguage": "更新通知语言",
   "notificationLanguageUpdated": "通知语言已更新",
+  "openNotificationSettings": "打开通知设置",
 
   "defaultNotRecommended": "默认（不推荐）",
 
@@ -1196,5 +1198,8 @@
   "approvalQuestionNotificationTitle": "有一个问题 - ccpocket",
   "approvalRequiredNotificationTitle": "等待审批 - ccpocket",
   "exitPlanModeNotificationBody": "生成的计划需要你确认",
+  "notificationPrivateBody": "请打开 CC Pocket 查看详情",
+  "sessionCompleteNotificationTitle": "会话已完成 - ccpocket",
+  "sessionCompleteNotificationBody": "会话已完成",
   "renderErrorFallback": "无法显示此内容。"
 }

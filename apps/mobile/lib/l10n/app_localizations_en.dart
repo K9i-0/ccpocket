@@ -2026,6 +2026,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fcmBridgeNotInitialized => 'Bridge not initialized';
 
   @override
+  String get fcmPermissionDenied =>
+      'Notification permission denied — allow it in Android Settings';
+
+  @override
   String get fcmTokenFailed => 'Failed to get FCM token';
 
   @override
@@ -2056,6 +2060,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationLanguageUpdated => 'Notification language updated';
+
+  @override
+  String get openNotificationSettings => 'Open notification settings';
 
   @override
   String get defaultNotRecommended => 'Default (not recommended)';
@@ -2717,6 +2724,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get exitPlanModeNotificationBody =>
       'The generated plan needs your review';
+
+  @override
+  String get notificationPrivateBody => 'Open CC Pocket to view details';
+
+  @override
+  String get sessionCompleteNotificationTitle => 'Session Complete - ccpocket';
+
+  @override
+  String get sessionCompleteNotificationBody => 'Your session has finished';
 
   @override
   String get renderErrorFallback => 'This content couldn\'t be displayed.';

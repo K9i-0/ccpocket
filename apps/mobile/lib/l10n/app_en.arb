@@ -782,6 +782,7 @@
   "changelogFetchError": "Failed to load changelog",
 
   "fcmBridgeNotInitialized": "Bridge not initialized",
+  "fcmPermissionDenied": "Notification permission denied — allow it in Android Settings",
   "fcmTokenFailed": "Failed to get FCM token",
   "fcmRegistrationFailed": "Failed to register notifications with Bridge",
   "fcmEnabled": "Notifications enabled",
@@ -792,6 +793,7 @@
   "pushPrivacyModeSubtitle": "Hide project names and content from notifications",
   "updateNotificationLanguage": "Update notification language",
   "notificationLanguageUpdated": "Notification language updated",
+  "openNotificationSettings": "Open notification settings",
 
   "defaultNotRecommended": "Default (not recommended)",
 
@@ -1091,5 +1093,8 @@
   "approvalQuestionNotificationTitle": "Question - ccpocket",
   "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
   "exitPlanModeNotificationBody": "The generated plan needs your review",
+  "notificationPrivateBody": "Open CC Pocket to view details",
+  "sessionCompleteNotificationTitle": "Session Complete - ccpocket",
+  "sessionCompleteNotificationBody": "Your session has finished",
   "renderErrorFallback": "This content couldn't be displayed."
 }

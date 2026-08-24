@@ -723,6 +723,7 @@
   "showAllMain": "모두 보기(main)",
   "changelogFetchError": "변경 로그를 불러오지 못했습니다",
   "fcmBridgeNotInitialized": "Bridge가 초기화되지 않음",
+  "fcmPermissionDenied": "알림 권한이 거부되었습니다. Android 설정에서 허용해 주세요",
   "fcmTokenFailed": "FCM 토큰을 가져오지 못했습니다",
   "fcmRegistrationFailed": "Bridge에 알림을 등록하지 못했습니다",
   "fcmEnabled": "알림 활성화됨",
@@ -733,6 +734,7 @@
   "pushPrivacyModeSubtitle": "알림에서 프로젝트 이름과 내용을 숨깁니다",
   "updateNotificationLanguage": "알림 언어 업데이트",
   "notificationLanguageUpdated": "알림 언어가 업데이트됨",
+  "openNotificationSettings": "알림 설정 열기",
   "defaultNotRecommended": "기본값(권장하지 않음)",
   "imageAttached": "이미지 첨부됨",
   "usageConnectToView": "사용량을 보려면 Bridge에 연결하세요",
@@ -1055,5 +1057,8 @@
   "approvalQuestionNotificationTitle": "질문이 있습니다 - ccpocket",
   "approvalRequiredNotificationTitle": "승인 대기 중 - ccpocket",
   "exitPlanModeNotificationBody": "작성된 계획을 확인해야 합니다",
+  "notificationPrivateBody": "자세한 내용은 CC Pocket에서 확인하세요",
+  "sessionCompleteNotificationTitle": "세션 완료 - ccpocket",
+  "sessionCompleteNotificationBody": "세션이 완료되었습니다",
   "renderErrorFallback": "이 콘텐츠를 표시할 수 없습니다."
 }

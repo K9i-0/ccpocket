@@ -24,6 +24,7 @@ import '../../services/bridge_service.dart';
 import '../../services/in_app_review_service.dart';
 import '../../services/machine_manager_service.dart';
 import '../../services/platform_environment_service.dart';
+import '../../services/platform_settings_service.dart';
 import '../../services/prompt_history_service.dart';
 import '../../services/revenuecat_service.dart';
 import '../../services/support_banner_service.dart';
@@ -63,7 +64,8 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _connectionSectionKey = GlobalKey();
   final _supportSectionKey = GlobalKey();
@@ -150,6 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_loadPlatformEnvironment());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -157,6 +160,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context.read<MachineManagerCubit>().refreshLatestBridgeVersionIfStale(),
       );
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted || !isAndroidPlatform) {
+      return;
+    }
+    final settings = context.read<SettingsCubit>();
+    if (settings.state.fcmStatusKey == FcmStatusKey.permissionDenied) {
+      unawaited(settings.retryFcmPermission());
+    }
   }
 
   Future<void> _loadPlatformEnvironment() async {
@@ -186,6 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectionHighlightTimer?.cancel();
     _supportHighlightTimer?.cancel();
     _scrollController.dispose();
@@ -706,6 +721,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         state: state,
                         onChanged: (enabled) =>
                             context.read<SettingsCubit>().toggleFcm(enabled),
+                        onOpenSettings: isAndroidPlatform
+                            ? () => unawaited(
+                                PlatformSettingsService.openNotificationSettings(),
+                              )
+                            : null,
                       ),
                       if (state.fcmEnabled) ...[
                         Divider(
@@ -1570,13 +1590,19 @@ class _BridgeUpdateSetupStep extends StatelessWidget {
 class _PushNotificationTile extends StatelessWidget {
   final SettingsState state;
   final ValueChanged<bool> onChanged;
+  final VoidCallback? onOpenSettings;
 
-  const _PushNotificationTile({required this.state, required this.onChanged});
+  const _PushNotificationTile({
+    required this.state,
+    required this.onChanged,
+    this.onOpenSettings,
+  });
 
   static String? _resolveFcmStatus(AppLocalizations l, FcmStatusKey? key) {
     if (key == null) return null;
     return switch (key) {
       FcmStatusKey.unavailable => l.pushNotificationsUnavailable,
+      FcmStatusKey.permissionDenied => l.fcmPermissionDenied,
       FcmStatusKey.bridgeNotInitialized => l.fcmBridgeNotInitialized,
       FcmStatusKey.tokenFailed => l.fcmTokenFailed,
       FcmStatusKey.registrationFailed => l.fcmRegistrationFailed,
@@ -1595,11 +1621,25 @@ class _PushNotificationTile extends StatelessWidget {
         : l.pushNotificationsUnavailable;
     final subtitle = _resolveFcmStatus(l, state.fcmStatusKey) ?? baseSubtitle;
 
+    final permissionDenied =
+        state.fcmStatusKey == FcmStatusKey.permissionDenied;
+
     return SwitchListTile(
       value: state.fcmEnabled,
       onChanged: state.fcmSyncInProgress ? null : onChanged,
       title: Text(l.pushNotifications),
-      subtitle: Text(subtitle),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(subtitle),
+          if (permissionDenied && onOpenSettings != null)
+            TextButton(
+              key: const ValueKey('open_notification_settings_button'),
+              onPressed: onOpenSettings,
+              child: Text(l.openNotificationSettings),
+            ),
+        ],
+      ),
       secondary: state.fcmSyncInProgress
           ? const SizedBox(
               width: 20,

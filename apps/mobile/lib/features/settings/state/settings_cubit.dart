@@ -305,7 +305,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         fcmAvailable: available,
-        fcmStatusKey: available ? null : FcmStatusKey.unavailable,
+        fcmStatusKey: available
+            ? null
+            : _fcmService.permissionDenied
+            ? FcmStatusKey.permissionDenied
+            : FcmStatusKey.unavailable,
       ),
     );
     if (!available) return;
@@ -512,12 +516,19 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusKey: FcmStatusKey.unavailable,
+          fcmStatusKey: _fcmService.permissionDenied
+              ? FcmStatusKey.permissionDenied
+              : FcmStatusKey.unavailable,
         ),
       );
       return;
     }
     await _syncPushRegistration();
+  }
+
+  Future<void> retryFcmPermission() async {
+    if (!state.fcmEnabled || state.fcmSyncInProgress) return;
+    await toggleFcm(true);
   }
 
   Future<void> toggleFcmPrivacy(bool enabled) async {
@@ -586,7 +597,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusKey: FcmStatusKey.tokenFailed,
+          fcmStatusKey: _fcmService.permissionDenied
+              ? FcmStatusKey.permissionDenied
+              : FcmStatusKey.tokenFailed,
         ),
       );
       return;

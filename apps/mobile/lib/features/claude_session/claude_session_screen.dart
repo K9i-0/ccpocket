@@ -23,6 +23,7 @@ import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
 import '../../utils/network_endpoint.dart';
+import '../../utils/platform_helper.dart';
 import '../../utils/terminal_launcher.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../session_link/widgets/session_unavailable_view.dart';
@@ -673,7 +674,10 @@ class _ChatScreenBody extends HookWidget {
           effects,
           sessionId: sessionId,
           isBackground: isBackgroundRef.value,
+          localNotificationsAllowed:
+              !isAndroidPlatform || settingsCubit.state.fcmEnabled,
           remoteNotificationsReady: settingsCubit.state.fcmReady,
+          privacyMode: settingsCubit.state.fcmPrivacy,
           approval: chatSessionCubit.state.approval,
           l: l,
           collapseToolResults: collapseToolResults,
@@ -1491,7 +1495,9 @@ void _executeSideEffects(
   Set<ChatSideEffect> effects, {
   required String sessionId,
   required bool isBackground,
+  required bool localNotificationsAllowed,
   required bool remoteNotificationsReady,
+  required bool privacyMode,
   required ApprovalState approval,
   required AppLocalizations l,
   required ValueNotifier<int> collapseToolResults,
@@ -1500,7 +1506,12 @@ void _executeSideEffects(
 }) {
   final useLocalNotification = shouldUseLocalNotificationFallback(
     isBackground: isBackground,
+    localNotificationsAllowed: localNotificationsAllowed,
     remoteNotificationsReady: remoteNotificationsReady,
+  );
+  final payload = sessionNotificationPayload(
+    sessionId: sessionId,
+    provider: 'claude',
   );
   for (final effect in effects) {
     switch (effect) {
@@ -1523,8 +1534,13 @@ void _executeSideEffects(
             NotificationService.instance.showApprovalNotification(
               permission,
               l: l,
-              id: 1,
-              payload: sessionId,
+              privacyMode: privacyMode,
+              id: sessionNotificationId(
+                sessionId: sessionId,
+                provider: 'claude',
+                eventType: SessionNotificationEvent.approval,
+              ),
+              payload: payload,
             );
           }
         }
@@ -1535,17 +1551,27 @@ void _executeSideEffects(
             NotificationService.instance.showApprovalNotification(
               permission,
               l: l,
-              id: 2,
-              payload: sessionId,
+              privacyMode: privacyMode,
+              id: sessionNotificationId(
+                sessionId: sessionId,
+                provider: 'claude',
+                eventType: SessionNotificationEvent.question,
+              ),
+              payload: payload,
             );
           }
         }
       case ChatSideEffect.notifySessionComplete:
         if (useLocalNotification) {
           NotificationService.instance.showSessionCompleteNotification(
-            body: 'Session done',
-            id: 3,
-            payload: sessionId,
+            l: l,
+            privacyMode: privacyMode,
+            id: sessionNotificationId(
+              sessionId: sessionId,
+              provider: 'claude',
+              eventType: SessionNotificationEvent.complete,
+            ),
+            payload: payload,
           );
         }
     }

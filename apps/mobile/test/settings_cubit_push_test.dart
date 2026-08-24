@@ -86,15 +86,20 @@ class FakeFcmService extends FcmService {
     required this.available,
     this.token,
     this.platformName = 'ios',
+    this.permissionDeniedValue = false,
   });
 
   bool available;
   String? token;
   final String platformName;
+  bool permissionDeniedValue;
   final _tokenRefreshController = StreamController<String>.broadcast();
 
   @override
   bool get isAvailable => available;
+
+  @override
+  bool get permissionDenied => permissionDeniedValue;
 
   @override
   Stream<String> get onTokenRefresh => _tokenRefreshController.stream;
@@ -171,6 +176,47 @@ class FakeSecureStorage extends Fake implements FlutterSecureStorage {
 
 void main() {
   group('SettingsCubit push sync', () {
+    test('reports notification permission denial instead of enabled', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      final bridge = FakeBridgeService()
+        ..emitConnection(BridgeConnectionState.connected, url: _testUrl);
+      final fcm = FakeFcmService(available: false, permissionDeniedValue: true);
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      await _flushAsync();
+      await cubit.toggleFcm(true);
+
+      expect(cubit.state.fcmEnabled, isTrue);
+      expect(cubit.state.fcmAvailable, isFalse);
+      expect(cubit.state.fcmReady, isFalse);
+      expect(cubit.state.fcmStatusKey, FcmStatusKey.permissionDenied);
+      expect(bridge.registerCalls, isEmpty);
+
+      fcm.available = true;
+      fcm.permissionDeniedValue = false;
+      fcm.token = 'recovered-token';
+      await cubit.retryFcmPermission();
+
+      expect(cubit.state.fcmAvailable, isTrue);
+      expect(cubit.state.fcmStatusKey, FcmStatusKey.enabledPending);
+      expect(bridge.registerCalls.single.token, 'recovered-token');
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
     test('auto registers token on init when machine is enabled', () async {
       SharedPreferences.setMockInitialValues({
         'settings_fcm_machines': '["$_testMachineId"]',

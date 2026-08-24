@@ -1931,6 +1931,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fcmBridgeNotInitialized => 'Bridge 尚未初始化';
 
   @override
+  String get fcmPermissionDenied => '通知权限已被拒绝 — 请在 Android 设置中允许';
+
+  @override
   String get fcmTokenFailed => '获取 FCM Token 失败';
 
   @override
@@ -1959,6 +1962,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationLanguageUpdated => '通知语言已更新';
+
+  @override
+  String get openNotificationSettings => '打开通知设置';
 
   @override
   String get defaultNotRecommended => '默认（不推荐）';
@@ -2587,6 +2593,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '生成的计划需要你确认';
+
+  @override
+  String get notificationPrivateBody => '请打开 CC Pocket 查看详情';
+
+  @override
+  String get sessionCompleteNotificationTitle => '会话已完成 - ccpocket';
+
+  @override
+  String get sessionCompleteNotificationBody => '会话已完成';
 
   @override
   String get renderErrorFallback => '无法显示此内容。';

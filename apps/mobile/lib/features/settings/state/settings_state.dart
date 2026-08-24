@@ -13,6 +13,7 @@ part 'settings_state.freezed.dart';
 /// Keys for FCM status messages (resolved to localized strings in the UI).
 enum FcmStatusKey {
   unavailable,
+  permissionDenied,
   bridgeNotInitialized,
   tokenFailed,
   registrationFailed,

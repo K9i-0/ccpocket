@@ -18,8 +18,10 @@ class FcmService {
   Future<bool>? _initInProgress;
   bool _available = false;
   String? _cachedToken;
+  bool _permissionDenied = false;
 
   bool get isAvailable => _available;
+  bool get permissionDenied => _permissionDenied;
 
   bool get isSupportedPlatform {
     if (kIsWeb) return false;
@@ -66,7 +68,11 @@ class FcmService {
     try {
       final token = (await initializeMessaging())?.trim();
       if (token == null || token.isEmpty) {
-        logger.warning('[fcm] registration returned no token');
+        if (_permissionDenied) {
+          logger.warning('[fcm] notification permission denied');
+        } else {
+          logger.warning('[fcm] registration returned no token');
+        }
         _cachedToken = null;
         _available = false;
         return false;
@@ -85,22 +91,35 @@ class FcmService {
   @visibleForTesting
   @protected
   Future<String?> initializeMessaging() async {
-    await prepareMessaging();
+    _permissionDenied = false;
+    if (!await prepareMessaging()) {
+      _permissionDenied = true;
+      return null;
+    }
     return _requestTokenWithRecovery();
   }
 
   @visibleForTesting
   @protected
-  Future<void> prepareMessaging() async {
+  Future<bool> prepareMessaging() async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
-    await _instance.requestPermission(alert: true, badge: true, sound: true);
+    final settings = await _instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    final authorized =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+    if (!authorized) return false;
     await _instance.setForegroundNotificationPresentationOptions(
       alert: false,
       badge: true,
       sound: true,
     );
+    return true;
   }
 
   @visibleForTesting

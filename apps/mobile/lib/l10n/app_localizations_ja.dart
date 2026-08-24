@@ -1953,6 +1953,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fcmBridgeNotInitialized => 'Bridge が未初期化です';
 
   @override
+  String get fcmPermissionDenied => '通知の権限が拒否されました — Android の設定で許可してください';
+
+  @override
   String get fcmTokenFailed => 'FCM token を取得できませんでした';
 
   @override
@@ -1981,6 +1984,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get notificationLanguageUpdated => '通知言語を更新しました';
+
+  @override
+  String get openNotificationSettings => '通知設定を開く';
 
   @override
   String get defaultNotRecommended => 'Default（非推奨）';
@@ -2617,6 +2623,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '作成したプランの確認が必要です';
+
+  @override
+  String get notificationPrivateBody => '詳細は CC Pocket で確認してください';
+
+  @override
+  String get sessionCompleteNotificationTitle => 'セッション完了 - ccpocket';
+
+  @override
+  String get sessionCompleteNotificationBody => 'セッションが完了しました';
 
   @override
   String get renderErrorFallback => 'このコンテンツを表示できませんでした';

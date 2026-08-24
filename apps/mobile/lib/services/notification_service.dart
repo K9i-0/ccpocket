@@ -1,14 +1,104 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 
 bool shouldUseLocalNotificationFallback({
   required bool isBackground,
+  required bool localNotificationsAllowed,
   required bool remoteNotificationsReady,
-}) => isBackground && !remoteNotificationsReady;
+}) => isBackground && localNotificationsAllowed && !remoteNotificationsReady;
+
+class SessionNotificationEvent {
+  static const approval = 'approval_required';
+  static const question = 'ask_user_question';
+  static const complete = 'session_completed';
+}
+
+class NotificationSessionTarget {
+  const NotificationSessionTarget({
+    required this.sessionId,
+    required this.provider,
+  });
+
+  final String sessionId;
+  final String provider;
+}
+
+String sessionNotificationPayload({
+  required String sessionId,
+  required String provider,
+}) => jsonEncode({
+  'sessionId': sessionId,
+  'provider': provider == 'codex' ? 'codex' : 'claude',
+});
+
+NotificationSessionTarget? parseSessionNotificationPayload(String? payload) {
+  if (payload == null || payload.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      final sessionId = decoded['sessionId']?.toString();
+      if (sessionId == null || sessionId.isEmpty) return null;
+      return NotificationSessionTarget(
+        sessionId: sessionId,
+        provider: decoded['provider'] == 'codex' ? 'codex' : 'claude',
+      );
+    }
+  } catch (_) {
+    // Legacy notifications stored the Claude session ID as plain text.
+  }
+  return NotificationSessionTarget(sessionId: payload, provider: 'claude');
+}
+
+int sessionNotificationId({
+  required String sessionId,
+  required String provider,
+  required String eventType,
+}) {
+  final raw = '$provider:$sessionId:$eventType';
+  var hash = 0;
+  for (final code in raw.codeUnits) {
+    hash = ((hash * 31) + code) & 0x7fffffff;
+  }
+  return hash;
+}
+
+String localNotificationBody({
+  required String standardBody,
+  required bool privacyMode,
+  required AppLocalizations l,
+}) => privacyMode ? l.notificationPrivateBody : standardBody;
+
+class NotificationTapDispatcher {
+  final List<String> _pendingPayloads = [];
+  void Function(String? payload)? _handler;
+
+  set handler(void Function(String? payload)? value) {
+    _handler = value;
+    if (value == null || _pendingPayloads.isEmpty) return;
+    final pending = List<String>.from(_pendingPayloads);
+    _pendingPayloads.clear();
+    for (final payload in pending) {
+      value(payload);
+    }
+  }
+
+  void dispatch(String? payload) {
+    if (payload == null || payload.isEmpty) return;
+    final handler = _handler;
+    if (handler == null) {
+      _pendingPayloads.add(payload);
+      return;
+    }
+    handler(payload);
+  }
+}
 
 class NotificationService extends ChangeNotifier {
   NotificationService._();
@@ -21,21 +111,22 @@ class NotificationService extends ChangeNotifier {
   String? _activeSessionId;
   String? _activeProvider;
   bool _notifyScheduled = false;
+  final NotificationTapDispatcher _tapDispatcher = NotificationTapDispatcher();
 
   String? get activeSessionId => _activeSessionId;
   String? get activeProvider => _activeProvider;
 
-  /// Called when the user taps a notification. The [payload] string
-  /// (typically a sessionId) is forwarded.
-  void Function(String? payload)? onNotificationTap;
+  /// Called when the user taps a notification. A cold-launch tap is retained
+  /// until the app router installs this callback.
+  set onNotificationTap(void Function(String? payload)? callback) {
+    _tapDispatcher.handler = callback;
+  }
 
   Future<void> init() async {
     if (kIsWeb) return;
     if (_initialized) return;
 
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/launcher_icon',
-    );
+    const androidSettings = AndroidInitializationSettings('ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -56,10 +147,24 @@ class NotificationService extends ChangeNotifier {
       linux: linuxSettings,
     );
 
-    await _plugin.initialize(
+    final initialized = await _plugin.initialize(
       settings: settings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
+    if (initialized == false) return;
+
+    try {
+      final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp == true) {
+        _tapDispatcher.dispatch(launchDetails?.notificationResponse?.payload);
+      }
+    } catch (error, stackTrace) {
+      logger.warning(
+        '[notifications] failed to read launch notification',
+        error,
+        stackTrace,
+      );
+    }
 
     // Create the notification channel eagerly so FCM uses it instead of
     // the low-priority fcm_fallback_notification_channel.
@@ -71,8 +176,8 @@ class NotificationService extends ChangeNotifier {
       await androidPlugin.createNotificationChannel(
         const AndroidNotificationChannel(
           'ccpocket_channel',
-          'ccpocket',
-          description: 'Claude Code session notifications',
+          'CC Pocket sessions',
+          description: 'Session updates from CC Pocket',
           importance: Importance.high,
         ),
       );
@@ -82,7 +187,7 @@ class NotificationService extends ChangeNotifier {
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    onNotificationTap?.call(response.payload);
+    _tapDispatcher.dispatch(response.payload);
   }
 
   void setActiveSession({required String sessionId, required String provider}) {
@@ -138,8 +243,9 @@ class NotificationService extends ChangeNotifier {
 
     const androidDetails = AndroidNotificationDetails(
       'ccpocket_channel',
-      'ccpocket',
-      channelDescription: 'Claude Code session notifications',
+      'CC Pocket sessions',
+      channelDescription: 'Session updates from CC Pocket',
+      icon: 'ic_notification',
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -165,21 +271,36 @@ class NotificationService extends ChangeNotifier {
   Future<void> showApprovalNotification(
     PermissionRequestMessage permission, {
     required AppLocalizations l,
+    required bool privacyMode,
     int id = 1,
     String? payload,
   }) {
     final copy = ApprovalNotificationCopy.from(permission, l: l);
-    return show(title: copy.title, body: copy.body, id: id, payload: payload);
+    return show(
+      title: copy.title,
+      body: localNotificationBody(
+        standardBody: copy.body,
+        privacyMode: privacyMode,
+        l: l,
+      ),
+      id: id,
+      payload: payload,
+    );
   }
 
   Future<void> showSessionCompleteNotification({
-    required String body,
+    required AppLocalizations l,
+    required bool privacyMode,
     int id = 3,
     String? payload,
   }) {
     return show(
-      title: 'Session Complete',
-      body: body,
+      title: l.sessionCompleteNotificationTitle,
+      body: localNotificationBody(
+        standardBody: l.sessionCompleteNotificationBody,
+        privacyMode: privacyMode,
+        l: l,
+      ),
       id: id,
       payload: payload,
     );

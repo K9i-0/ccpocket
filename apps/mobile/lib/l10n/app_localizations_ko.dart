@@ -1968,6 +1968,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fcmBridgeNotInitialized => 'Bridge가 초기화되지 않음';
 
   @override
+  String get fcmPermissionDenied => '알림 권한이 거부되었습니다. Android 설정에서 허용해 주세요';
+
+  @override
   String get fcmTokenFailed => 'FCM 토큰을 가져오지 못했습니다';
 
   @override
@@ -1996,6 +1999,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get notificationLanguageUpdated => '알림 언어가 업데이트됨';
+
+  @override
+  String get openNotificationSettings => '알림 설정 열기';
 
   @override
   String get defaultNotRecommended => '기본값(권장하지 않음)';
@@ -2642,6 +2648,15 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '작성된 계획을 확인해야 합니다';
+
+  @override
+  String get notificationPrivateBody => '자세한 내용은 CC Pocket에서 확인하세요';
+
+  @override
+  String get sessionCompleteNotificationTitle => '세션 완료 - ccpocket';
+
+  @override
+  String get sessionCompleteNotificationBody => '세션이 완료되었습니다';
 
   @override
   String get renderErrorFallback => '이 콘텐츠를 표시할 수 없습니다.';

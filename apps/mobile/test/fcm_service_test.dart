@@ -18,8 +18,9 @@ class _ScriptedFcmService extends FcmService {
   String get platform => 'android';
 
   @override
-  Future<void> prepareMessaging() async {
+  Future<bool> prepareMessaging() async {
     preparationAttempts++;
+    return true;
   }
 
   @override
@@ -129,6 +130,29 @@ void main() {
     expect(await second, isTrue);
     expect(service.attempts, 1);
   });
+
+  test(
+    'does not request a token when notification permission is denied',
+    () async {
+      final service = _PermissionDeniedFcmService();
+
+      expect(await service.init(), isFalse);
+      expect(service.isAvailable, isFalse);
+      expect(service.permissionDenied, isTrue);
+      expect(service.tokenRequests, 0);
+    },
+  );
+
+  test('recovers after notification permission is granted later', () async {
+    final service = _PermissionSequenceFcmService();
+
+    expect(await service.init(), isFalse);
+    expect(service.permissionDenied, isTrue);
+
+    expect(await service.init(), isTrue);
+    expect(service.permissionDenied, isFalse);
+    expect(await service.getToken(), 'granted-token');
+  });
 }
 
 class _BlockingFcmService extends FcmService {
@@ -141,11 +165,40 @@ class _BlockingFcmService extends FcmService {
   bool get isSupportedPlatform => true;
 
   @override
-  Future<void> prepareMessaging() async {}
+  Future<bool> prepareMessaging() async => true;
 
   @override
   Future<String?> requestToken() {
     attempts++;
     return token;
   }
+}
+
+class _PermissionDeniedFcmService extends FcmService {
+  var tokenRequests = 0;
+
+  @override
+  bool get isSupportedPlatform => true;
+
+  @override
+  Future<bool> prepareMessaging() async => false;
+
+  @override
+  Future<String?> requestToken() async {
+    tokenRequests++;
+    return 'should-not-be-requested';
+  }
+}
+
+class _PermissionSequenceFcmService extends FcmService {
+  var permissionAttempts = 0;
+
+  @override
+  bool get isSupportedPlatform => true;
+
+  @override
+  Future<bool> prepareMessaging() async => permissionAttempts++ > 0;
+
+  @override
+  Future<String?> requestToken() async => 'granted-token';
 }

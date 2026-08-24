@@ -812,6 +812,7 @@
   "changelogFetchError": "変更履歴の取得に失敗しました",
 
   "fcmBridgeNotInitialized": "Bridge が未初期化です",
+  "fcmPermissionDenied": "通知の権限が拒否されました — Android の設定で許可してください",
   "fcmTokenFailed": "FCM token を取得できませんでした",
   "fcmRegistrationFailed": "Bridge への通知登録に失敗しました",
   "fcmEnabled": "通知を有効化しました",
@@ -822,6 +823,7 @@
   "pushPrivacyModeSubtitle": "通知にプロジェクト名や内容を含めない",
   "updateNotificationLanguage": "通知言語を更新",
   "notificationLanguageUpdated": "通知言語を更新しました",
+  "openNotificationSettings": "通知設定を開く",
 
   "defaultNotRecommended": "Default（非推奨）",
 
@@ -1121,5 +1123,8 @@
   "approvalQuestionNotificationTitle": "質問があります - ccpocket",
   "approvalRequiredNotificationTitle": "承認待ち - ccpocket",
   "exitPlanModeNotificationBody": "作成したプランの確認が必要です",
+  "notificationPrivateBody": "詳細は CC Pocket で確認してください",
+  "sessionCompleteNotificationTitle": "セッション完了 - ccpocket",
+  "sessionCompleteNotificationBody": "セッションが完了しました",
   "renderErrorFallback": "このコンテンツを表示できませんでした"
 }

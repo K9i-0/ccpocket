@@ -3696,6 +3696,12 @@ abstract class AppLocalizations {
   /// **'Bridge が未初期化です'**
   String get fcmBridgeNotInitialized;
 
+  /// No description provided for @fcmPermissionDenied.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知の権限が拒否されました — Android の設定で許可してください'**
+  String get fcmPermissionDenied;
+
   /// No description provided for @fcmTokenFailed.
   ///
   /// In ja, this message translates to:
@@ -3755,6 +3761,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'通知言語を更新しました'**
   String get notificationLanguageUpdated;
+
+  /// No description provided for @openNotificationSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知設定を開く'**
+  String get openNotificationSettings;
 
   /// No description provided for @defaultNotRecommended.
   ///
@@ -4919,6 +4931,24 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'作成したプランの確認が必要です'**
   String get exitPlanModeNotificationBody;
+
+  /// No description provided for @notificationPrivateBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細は CC Pocket で確認してください'**
+  String get notificationPrivateBody;
+
+  /// No description provided for @sessionCompleteNotificationTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション完了 - ccpocket'**
+  String get sessionCompleteNotificationTitle;
+
+  /// No description provided for @sessionCompleteNotificationBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションが完了しました'**
+  String get sessionCompleteNotificationBody;
 
   /// No description provided for @renderErrorFallback.
   ///

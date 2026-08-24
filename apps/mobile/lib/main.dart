@@ -13,7 +13,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -406,28 +405,30 @@ class _CcpocketAppState extends State<CcpocketApp> {
         data['body']?.toString() ??
         'New update available';
     final eventType = data['eventType']?.toString() ?? '';
-    final payload = jsonEncode({'sessionId': sessionId, 'provider': provider});
+    final payload = sessionNotificationPayload(
+      sessionId: sessionId,
+      provider: provider,
+    );
 
     await NotificationService.instance.show(
       title: title,
       body: body,
       payload: payload,
-      id: _notificationId(sessionId, provider, eventType),
+      id: sessionNotificationId(
+        sessionId: sessionId,
+        provider: provider,
+        eventType: eventType,
+      ),
     );
   }
 
   void _openSessionFromPayload(String? payload) {
-    if (payload == null || payload.isEmpty) return;
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) {
-        _openSessionFromData(decoded);
-        return;
-      }
-    } catch (_) {
-      // Backward compatibility: payload may be plain sessionId text.
-    }
-    _openSessionFromData({'sessionId': payload, 'provider': 'claude'});
+    final target = parseSessionNotificationPayload(payload);
+    if (target == null) return;
+    _openSessionFromData({
+      'sessionId': target.sessionId,
+      'provider': target.provider,
+    });
   }
 
   void _openSessionFromData(Map<String, dynamic> data) {
@@ -461,15 +462,6 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   String _normalizeProvider(String? provider) {
     return provider == 'codex' ? 'codex' : 'claude';
-  }
-
-  int _notificationId(String sessionId, String provider, String eventType) {
-    final raw = '$provider:$sessionId:$eventType';
-    var hash = 0;
-    for (final code in raw.codeUnits) {
-      hash = ((hash * 31) + code) & 0x7fffffff;
-    }
-    return hash;
   }
 
   void _initDeepLinks() {
