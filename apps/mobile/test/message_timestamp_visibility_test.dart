@@ -1,5 +1,6 @@
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/message_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ void main() {
 
   Widget buildSubject(ChatEntry entry, {Set<String> hiddenIds = const {}}) {
     return MaterialApp(
+      theme: AppTheme.darkTheme,
       home: Scaffold(
         body: ChatEntryWidget(entry: entry, hiddenToolUseIds: hiddenIds),
       ),
