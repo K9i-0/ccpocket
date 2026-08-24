@@ -589,7 +589,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * can be archived without requiring a running process.
    */
   async archiveThread(threadId: string): Promise<void> {
-    await this.request("thread/archive", { threadId });
+    await this.request("thread/archive", { threadId }, 15_000);
   }
 
   async readThread(
@@ -3297,17 +3297,39 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private request(
     method: string,
     params?: Record<string, unknown>,
+    timeoutMs?: number,
   ): Promise<unknown> {
     const id = this.rpcSeq++;
     const envelope =
       params === undefined ? { id, method } : { id, method, params };
 
     return new Promise<unknown>((resolve, reject) => {
-      this.pendingRpc.set(id, { resolve, reject, method });
+      let timeout: NodeJS.Timeout | undefined;
+      const clearRequestTimeout = () => {
+        if (timeout) clearTimeout(timeout);
+      };
+      this.pendingRpc.set(id, {
+        resolve: (value) => {
+          clearRequestTimeout();
+          resolve(value);
+        },
+        reject: (error) => {
+          clearRequestTimeout();
+          reject(error);
+        },
+        method,
+      });
+      if (timeoutMs != null) {
+        timeout = setTimeout(() => {
+          if (!this.pendingRpc.delete(id)) return;
+          reject(new Error(`Codex RPC ${method} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
       try {
         this.writeEnvelope(envelope);
       } catch (err) {
         this.pendingRpc.delete(id);
+        clearRequestTimeout();
         reject(err instanceof Error ? err : new Error(String(err)));
       }
     });

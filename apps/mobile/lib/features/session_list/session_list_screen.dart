@@ -32,6 +32,7 @@ import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
+import 'state/archive_request_tracker.dart';
 import 'state/session_list_cubit.dart';
 import 'state/session_list_state.dart';
 import 'widgets/connect_form.dart';
@@ -229,7 +230,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
-  final Set<String> _archivingSessionIds = <String>{};
+  late final ArchiveRequestTracker _archiveRequests;
 
   // macOS app update
   AppUpdateInfo? _appUpdateInfo;
@@ -255,6 +256,10 @@ class _SessionListScreenState extends State<SessionListScreen>
   @override
   void initState() {
     super.initState();
+    _archiveRequests = ArchiveRequestTracker(
+      timeout: const Duration(seconds: 20),
+      onTimeout: _handleArchiveTimeout,
+    );
     WidgetsBinding.instance.addObserver(this);
     // session_created navigation (the only manual subscription)
     final bridge = context.read<BridgeService>();
@@ -312,8 +317,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
 
       if (msg is ArchiveResultMessage) {
-        if (_archivingSessionIds.contains(msg.sessionId) && mounted) {
-          setState(() => _archivingSessionIds.remove(msg.sessionId));
+        if (_archiveRequests.complete(msg.sessionId) && mounted) {
+          setState(() {});
         }
         if (!mounted) return;
         final l = AppLocalizations.of(context);
@@ -660,6 +665,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   @override
   void dispose() {
+    _archiveRequests.dispose();
     WidgetsBinding.instance.removeObserver(this);
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
@@ -1354,12 +1360,22 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   void _archiveSession(RecentSession session) {
-    if (_archivingSessionIds.contains(session.sessionId)) return;
-    setState(() => _archivingSessionIds.add(session.sessionId));
+    if (_archiveRequests.contains(session.sessionId)) return;
+    setState(() => _archiveRequests.start(session.sessionId));
     context.read<BridgeService>().archiveSession(
       sessionId: session.sessionId,
       provider: session.provider ?? 'claude',
       projectPath: session.projectPath,
+    );
+  }
+
+  void _handleArchiveTimeout(String _) {
+    if (!mounted) return;
+    setState(() {});
+    final bridge = context.read<BridgeService>();
+    bridge.requestRecentSessions(projectPath: bridge.currentProjectFilter);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).responseTimedOut)),
     );
   }
 
@@ -1901,7 +1917,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               isLoadingMore: slState.isLoadingMore,
               isInitialLoading: slState.isInitialLoading,
               hasMoreSessions: slState.hasMore,
-              archivingSessionIds: _archivingSessionIds,
+              archivingSessionIds: _archiveRequests.pendingSessionIds,
               unseenSessionIds: unseenSessionIds,
               currentProjectFilter: bridge.currentProjectFilter,
               onNewSession: _showNewSessionDialog,
