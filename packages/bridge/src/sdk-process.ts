@@ -467,8 +467,24 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           ...tokenUsage,
         };
       }
+      // Claude Code can misclassify a routine interrupt as
+      // error_during_execution and prepend an internal-only EDE diagnostic.
+      // Its own terminal renderer filters these records, so keep the same
+      // boundary here while preserving any accompanying real error.
+      const rawErrors = Array.isArray(res.errors)
+        ? (res.errors as unknown[]).filter(
+            (error): error is string => typeof error === "string",
+          )
+        : [];
+      const visibleErrors = rawErrors.filter(
+        (error) => !error.startsWith("[ede_diagnostic]"),
+      );
+      if (rawErrors.length > 0 && visibleErrors.length === 0) {
+        return null;
+      }
       // All other result subtypes are errors
-      const errorText = Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error";
+      const errorText =
+        visibleErrors.length > 0 ? visibleErrors.join("\n") : "Unknown error";
       // Suppress spurious CLI runtime errors (SDK bug: Bun API referenced on Node.js)
       if (errorText.includes("Bun is not defined")) {
         return null;
