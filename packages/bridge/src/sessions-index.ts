@@ -3128,6 +3128,7 @@ export async function getSessionHistory(
   }
 
   const messages: SessionHistoryMessage[] = [];
+  const toolNamesById = new Map<string, string>();
   const lines = raw.split("\n");
 
   for (const line of lines) {
@@ -3178,8 +3179,12 @@ export async function getSessionHistory(
 
     if (!Array.isArray(message.content)) continue;
 
-    // Filter content to only text and tool_use (skip tool_result for cleaner display)
     const content: SessionHistoryContentItem[] = [];
+    const toolResults: Array<{
+      id: string;
+      content: string;
+      timestamp?: string;
+    }> = [];
     let imageCount = 0;
     for (const c of message.content) {
       if (typeof c !== "object" || c === null) continue;
@@ -3188,12 +3193,33 @@ export async function getSessionHistory(
 
       if (contentType === "text" && item.text) {
         content.push({ type: "text", text: item.text as string });
+      } else if (
+        contentType === "thinking" &&
+        typeof item.thinking === "string" &&
+        item.thinking.trim().length > 0
+      ) {
+        content.push({ type: "thinking", thinking: item.thinking });
       } else if (contentType === "tool_use") {
+        const id = typeof item.id === "string" ? item.id : "";
+        const name = typeof item.name === "string" ? item.name : "";
+        if (!id || !name) continue;
+        toolNamesById.set(id, name);
         content.push({
           type: "tool_use",
-          id: item.id as string,
-          name: item.name as string,
+          id,
+          name,
           input: (item.input as Record<string, unknown>) ?? {},
+        });
+      } else if (contentType === "tool_result") {
+        const id =
+          typeof item.tool_use_id === "string" ? item.tool_use_id : "";
+        if (!id) continue;
+        toolResults.push({
+          id,
+          content: historyToolResultContent(item.content),
+          ...(typeof entry.timestamp === "string"
+            ? { timestamp: entry.timestamp }
+            : {}),
         });
       } else if (contentType === "image") {
         imageCount++;
@@ -3219,9 +3245,38 @@ export async function getSessionHistory(
         ...(imageCount > 0 ? { imageCount } : {}),
       });
     }
+
+    for (const result of toolResults) {
+      appendToolResultMessage(
+        messages,
+        result.id,
+        toolNamesById.get(result.id),
+        result.content,
+        result.timestamp ? { timestamp: result.timestamp } : undefined,
+      );
+    }
   }
 
-  return messages;
+  // Claude transcripts can become very large. Use the same tested tail and
+  // per-message safety budget as Codex before serializing history to mobile.
+  return boundCodexSessionHistory(messages);
+}
+
+function historyToolResultContent(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return value == null ? "" : String(value);
+
+  return value
+    .map((entry) => {
+      const item = asObject(entry);
+      if (!item) return "";
+      if (item.type === "text" && typeof item.text === "string") {
+        return item.text;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 // ---- Extract full image data from JSONL for a specific message ----

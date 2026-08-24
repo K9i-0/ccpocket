@@ -678,12 +678,10 @@ export class SessionManager {
 
     proc.on("exit", () => {
       session.status = "idle";
-      // Keep an accepted queued prompt until it has actually been handed to
-      // Codex. Any unexpected Codex exit remains restartable, including when
-      // the next prompt is only queued after the process has already exited.
-      if (session.provider === "codex") {
-        session.dormant = true;
-      }
+      // An exited provider process cannot accept another prompt. Keep the
+      // logical session dormant so the next input restarts and resumes it.
+      // Codex also retains any accepted queued prompt until handoff.
+      session.dormant = true;
       // Add status message to history so it stays in sync with session.status
       this.appendHistoryToSession(session, {
         type: "status",
@@ -759,11 +757,11 @@ export class SessionManager {
     }
 
     if (!deferProcessStart) {
-    if (effectiveProvider === "codex") {
-      (proc as CodexProcess).start(effectiveCwd, codexOptions);
-    } else {
-      (proc as SdkProcess).start(effectiveCwd, options);
-    }
+      if (effectiveProvider === "codex") {
+        (proc as CodexProcess).start(effectiveCwd, codexOptions);
+      } else {
+        (proc as SdkProcess).start(effectiveCwd, options);
+      }
     }
 
     // Add session to Map only after proc.start() succeeds.

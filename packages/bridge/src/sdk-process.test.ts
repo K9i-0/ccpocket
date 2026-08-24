@@ -432,6 +432,26 @@ describe("sdkMessageToServerMessage", () => {
     });
   });
 
+  describe("Claude status handling", () => {
+    it("surfaces context compaction failures", () => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          compact_error: "summary request timed out",
+          session_id: "test-session",
+        } as any),
+      ).toEqual({
+        type: "error",
+        message:
+          "Claude context compaction failed: summary request timed out",
+        errorCode: "claude_compaction_failed",
+      });
+    });
+  });
+
   describe("UUID tracking", () => {
     it("removes empty thinking blocks from assistant messages", () => {
       const sdkMsg = {
@@ -858,6 +878,26 @@ describe("SdkProcess input dispatch", () => {
     ).toEqual({ queued: true, shouldInterrupt: true });
     expect(resolve).not.toHaveBeenCalled();
   });
+
+  it("tracks Claude compaction and request status messages", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+
+    internal.updateStatusFromMessage({
+      type: "system",
+      subtype: "status",
+      status: "compacting",
+    });
+    expect(proc.status).toBe("compacting");
+
+    internal.updateStatusFromMessage({
+      type: "system",
+      subtype: "status",
+      status: "requesting",
+    });
+    expect(proc.status).toBe("running");
+  });
 });
 
 describe("SdkProcess Claude authentication", () => {
@@ -1021,6 +1061,64 @@ describe("SdkProcess Claude authentication", () => {
       expect.objectContaining({ type: "result", cost: expect.any(Number) }),
     );
     expect(exits).toEqual([0]);
+  });
+
+  it("shows explicit Claude assistant errors without dropping partial text", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "partial-error-session",
+          model: "claude-sonnet-4-6",
+          apiKeySource: "api_key",
+        };
+        yield {
+          type: "assistant",
+          session_id: "partial-error-session",
+          uuid: "assistant-error",
+          error: "max_output_tokens",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial useful response" }],
+          },
+        };
+        yield {
+          type: "result",
+          subtype: "error_during_execution",
+          errors: [
+            "[ede_diagnostic] result_type=assistant last_content_type=text stop_reason=max_tokens",
+          ],
+          session_id: "partial-error-session",
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+    });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Partial useful response" }],
+        }),
+      }),
+    );
+    expect(messages).toContainEqual({
+      type: "error",
+      message: "Claude reached the maximum response length before finishing.",
+      errorCode: "claude_max_output_tokens",
+    });
   });
 
   it("rejects an unexpected OAuth init when only an API key was configured", async () => {

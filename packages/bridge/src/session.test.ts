@@ -781,6 +781,30 @@ describe("SessionManager codex path", () => {
     });
   });
 
+  it("restarts and resumes Claude after its SDK process exits", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-claude",
+      { sessionId: "claude-thread-exited" },
+      undefined,
+      undefined,
+      "claude",
+    );
+    const process = sdkInstances[0];
+
+    process.emit("exit", 1);
+    expect(manager.get(sessionId)?.dormant).toBe(true);
+
+    manager.activate(sessionId);
+
+    expect(process.start).toHaveBeenCalledTimes(2);
+    expect(process.start).toHaveBeenLastCalledWith(
+      "/tmp/project-claude",
+      expect.objectContaining({ sessionId: "claude-thread-exited" }),
+    );
+    expect(manager.get(sessionId)?.dormant).toBe(false);
+  });
+
   it("evicts the least recently active idle session above the retention limit", () => {
     const onSessionUpdated = vi.fn();
     const manager = new SessionManager(

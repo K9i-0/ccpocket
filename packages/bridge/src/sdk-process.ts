@@ -376,6 +376,31 @@ export interface RewindFilesResult {
   deletions?: number;
 }
 
+const CLAUDE_ASSISTANT_ERROR_MESSAGES: Record<string, string> = {
+  authentication_failed: "Claude authentication failed. Sign in again on the Bridge machine.",
+  oauth_org_not_allowed: "This Claude subscription organization cannot be used by the Agent SDK.",
+  billing_error: "Claude could not continue because of an account billing error.",
+  rate_limit: "Claude is temporarily rate limited. Try again shortly.",
+  invalid_request: "Claude rejected this request as invalid.",
+  model_not_found: "The selected Claude model is not available for this account.",
+  server_error: "Claude encountered a server error.",
+  unknown: "Claude stopped because of an unknown request error.",
+  max_output_tokens: "Claude reached the maximum response length before finishing.",
+};
+
+function claudeAssistantErrorMessage(error: string): ServerMessage {
+  return {
+    type: "error",
+    message:
+      CLAUDE_ASSISTANT_ERROR_MESSAGES[error] ??
+      `Claude stopped: ${error.replaceAll("_", " ")}.`,
+    errorCode:
+      error === "authentication_failed"
+        ? "auth_token_expired"
+        : `claude_${error}`,
+  };
+}
+
 /**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
@@ -396,6 +421,16 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       }
       if (sys.subtype === "compact_boundary") {
         return { type: "status", status: "compacting" as ProcessStatus };
+      }
+      if (sys.subtype === "status" && sys.compact_result === "failed") {
+        return {
+          type: "error",
+          message:
+            typeof sys.compact_error === "string" && sys.compact_error
+              ? `Claude context compaction failed: ${sys.compact_error}`
+              : "Claude context compaction failed.",
+          errorCode: "claude_compaction_failed",
+        };
       }
       return null;
     }
@@ -1230,6 +1265,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       if (serverMsg) {
         this.emitMessage(serverMsg);
       }
+      if (message.type === "assistant") {
+        const assistantError = (message as Record<string, unknown>).error;
+        if (typeof assistantError === "string" && assistantError) {
+          this.emitMessage(claudeAssistantErrorMessage(assistantError));
+        }
+      }
 
       // Extract session ID and model from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
@@ -1348,9 +1389,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private updateStatusFromMessage(msg: SDKMessage): void {
     switch (msg.type) {
-      case "system":
-        // Already handled in processMessages for init
+      case "system": {
+        const sys = msg as Record<string, unknown>;
+        if (sys.subtype === "status") {
+          if (sys.status === "compacting") {
+            this.setStatus("compacting");
+          } else if (sys.status === "requesting") {
+            this.setStatus("running");
+          } else if (sys.status === null && this._status === "compacting") {
+            this.setStatus("running");
+          }
+        }
         break;
+      }
       case "assistant":
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");

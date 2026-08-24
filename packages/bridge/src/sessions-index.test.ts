@@ -17,6 +17,7 @@ import {
   getAllRecentSessions,
   getCodexSessionIndexMetadata,
   getCodexSessionHistory,
+  getSessionHistory,
   CODEX_HISTORY_MAX_BYTES,
   CODEX_HISTORY_MAX_MESSAGES,
   extractMessageImages,
@@ -2203,6 +2204,98 @@ describe("codex sessions integration", () => {
     await expect(
       extractMessageImages(sessionId, "uuid-malformed-image"),
     ).resolves.toEqual([]);
+  });
+
+  it("restores non-empty Claude thinking and tool results", async () => {
+    const sessionId = "claude-complete-history";
+    const claudeDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, `${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "assistant-tool",
+          timestamp: "2026-08-24T08:00:00.000Z",
+          message: {
+            role: "assistant",
+            content: [
+              { type: "thinking", thinking: "Check the project state." },
+              { type: "thinking", thinking: "  \n " },
+              {
+                type: "tool_use",
+                id: "tool-1",
+                name: "Bash",
+                input: { command: "git status" },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "tool-result-message",
+          timestamp: "2026-08-24T08:00:01.000Z",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "tool-1",
+                content: [{ type: "text", text: "working tree clean" }],
+              },
+            ],
+          },
+        }),
+      ].join("\n"),
+    );
+
+    await expect(getSessionHistory(sessionId)).resolves.toEqual([
+      {
+        role: "assistant",
+        uuid: "assistant-tool",
+        timestamp: "2026-08-24T08:00:00.000Z",
+        content: [
+          { type: "thinking", thinking: "Check the project state." },
+          {
+            type: "tool_use",
+            id: "tool-1",
+            name: "Bash",
+            input: { command: "git status" },
+          },
+        ],
+      },
+      {
+        role: "tool_result",
+        toolUseId: "tool-1",
+        toolName: "Bash",
+        timestamp: "2026-08-24T08:00:01.000Z",
+        content: "working tree clean",
+      },
+    ]);
+  });
+
+  it("bounds restored Claude history before sending it to clients", async () => {
+    const sessionId = "claude-bounded-history";
+    const claudeDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, `${sessionId}.jsonl`),
+      Array.from({ length: CODEX_HISTORY_MAX_MESSAGES + 5 }, (_, index) =>
+        JSON.stringify({
+          type: "user",
+          uuid: `user-${index}`,
+          message: { role: "user", content: `message ${index}` },
+        }),
+      ).join("\n"),
+    );
+
+    const history = await getSessionHistory(sessionId);
+
+    expect(history).toHaveLength(CODEX_HISTORY_MAX_MESSAGES);
+    expect(history[0].uuid).toBe("user-5");
+    expect(history.at(-1)?.uuid).toBe(
+      `user-${CODEX_HISTORY_MAX_MESSAGES + 4}`,
+    );
   });
 
   it("reuses a fresh Claude image index and invalidates it on file changes", async () => {
