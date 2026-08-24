@@ -141,6 +141,31 @@ Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
   return fallbackIndices;
 }
 
+@visibleForTesting
+({List<ChatEntry?> previousEntries, ChatEntry? lastVisibleEntry})
+deriveVisibleChatSequence(
+  List<ChatEntry> entries, {
+  Set<String> hiddenToolUseIds = const {},
+  Set<int> externallyHiddenIndices = const {},
+  Set<int> externallyVisibleIndices = const {},
+}) {
+  final previousEntries = List<ChatEntry?>.filled(entries.length, null);
+  ChatEntry? previousVisibleEntry;
+  for (var index = 0; index < entries.length; index++) {
+    previousEntries[index] = previousVisibleEntry;
+    if (externallyHiddenIndices.contains(index)) continue;
+    final entry = entries[index];
+    if (externallyVisibleIndices.contains(index) ||
+        chatEntryHasVisibleContent(entry, hiddenToolUseIds: hiddenToolUseIds)) {
+      previousVisibleEntry = entry;
+    }
+  }
+  return (
+    previousEntries: previousEntries,
+    lastVisibleEntry: previousVisibleEntry,
+  );
+}
+
 /// Displays the chat message list with [ListView.builder] (reverse: true).
 ///
 /// Reads entries directly from [ChatSessionCubit] state (SSOT).
@@ -201,6 +226,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   String? _derivedForHttpBaseUrl;
   ProcessStatus? _derivedForProcessStatus;
   String? _derivedForActivePermissionId;
+  Set<String>? _derivedForHiddenToolUseIds;
   _ChatListDerivedData? _derivedData;
   _VisibleAnchor? _pendingAnchor;
   bool _anchorCorrectionScheduled = false;
@@ -545,7 +571,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                       }
                       return ChatEntryWidget(
                         entry: StreamingChatEntry(text: streamingState.text),
-                        previous: null,
+                        previous: derivedData.lastVisibleEntry,
                         httpBaseUrl: widget.httpBaseUrl,
                         onRetryMessage: null,
                         collapseToolResults: null,
@@ -557,9 +583,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 }
 
                 final entry = allEntries[entryIndex];
-                final previous = entryIndex > 0
-                    ? allEntries[entryIndex - 1]
-                    : null;
+                final previous = derivedData.previousVisibleEntries[entryIndex];
                 final onForkMessage =
                     widget.isCodex &&
                         derivedData.forkableAssistantEntryIndices.contains(
@@ -675,7 +699,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
       if (previousEntries != null &&
           listEquals(previousEntries, entries) &&
           _derivedForProcessStatus == chatState.status &&
-          _derivedForActivePermissionId == activePermissionId) {
+          _derivedForActivePermissionId == activePermissionId &&
+          setEquals(_derivedForHiddenToolUseIds, chatState.hiddenToolUseIds)) {
         _derivedForState = chatState;
         return cached;
       }
@@ -694,21 +719,47 @@ class _ChatMessageListState extends State<ChatMessageList> {
       imageItemsByAnchor[group.anchorEntryIndex] = items;
       imageGroupMemberIndices.addAll(group.memberEntryIndices);
     }
+    final completedImageToolUseIds = completedGeneratedImageToolUseIds(entries);
+    final permissionTranscriptStatuses = derivePermissionTranscriptStatuses(
+      entries,
+      processStatus: chatState.status,
+      activeToolUseId: activePermissionId,
+    );
+    final externallyHiddenIndices = <int>{};
+    for (var index = 0; index < entries.length; index++) {
+      if (imageGroupMemberIndices.contains(index) &&
+          !imageItemsByAnchor.containsKey(index)) {
+        externallyHiddenIndices.add(index);
+        continue;
+      }
+      final entry = entries[index];
+      if (entry case ServerChatEntry(message: final ToolResultMessage result)) {
+        if (permissionTranscriptStatuses.containsKey(result.toolUseId) &&
+            isSyntheticPermissionOutcome(result)) {
+          externallyHiddenIndices.add(index);
+        }
+      }
+    }
+    final visibleSequence = deriveVisibleChatSequence(
+      entries,
+      hiddenToolUseIds: {
+        ...chatState.hiddenToolUseIds,
+        ...completedImageToolUseIds,
+      },
+      externallyHiddenIndices: externallyHiddenIndices,
+      externallyVisibleIndices: imageItemsByAnchor.keys.toSet(),
+    );
     final next = _ChatListDerivedData(
       imageGroupMemberIndices: imageGroupMemberIndices,
       imageItemsByAnchor: imageItemsByAnchor,
-      completedGeneratedImageToolUseIds: completedGeneratedImageToolUseIds(
-        entries,
-      ),
+      completedGeneratedImageToolUseIds: completedImageToolUseIds,
+      previousVisibleEntries: visibleSequence.previousEntries,
+      lastVisibleEntry: visibleSequence.lastVisibleEntry,
       forkableAssistantEntryIndices: forkableAssistantEntryIndices(entries),
       successResultFallbackEntryIndices: successResultFallbackEntryIndices(
         entries,
       ),
-      permissionTranscriptStatuses: derivePermissionTranscriptStatuses(
-        entries,
-        processStatus: chatState.status,
-        activeToolUseId: activePermissionId,
-      ),
+      permissionTranscriptStatuses: permissionTranscriptStatuses,
       latestPlanText: _findPlanFromWriteTool(entries),
     );
     _derivedForState = chatState;
@@ -716,6 +767,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _derivedForHttpBaseUrl = widget.httpBaseUrl;
     _derivedForProcessStatus = chatState.status;
     _derivedForActivePermissionId = activePermissionId;
+    _derivedForHiddenToolUseIds = Set.of(chatState.hiddenToolUseIds);
     _derivedData = next;
     stopwatch?.stop();
     if (stopwatch != null) {
@@ -834,6 +886,8 @@ class _ChatListDerivedData {
   final Set<int> imageGroupMemberIndices;
   final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
+  final List<ChatEntry?> previousVisibleEntries;
+  final ChatEntry? lastVisibleEntry;
   final Set<int> forkableAssistantEntryIndices;
   final Set<int> successResultFallbackEntryIndices;
   final Map<String, PermissionTranscriptStatus> permissionTranscriptStatuses;
@@ -843,6 +897,8 @@ class _ChatListDerivedData {
     required this.imageGroupMemberIndices,
     required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
+    required this.previousVisibleEntries,
+    required this.lastVisibleEntry,
     required this.forkableAssistantEntryIndices,
     required this.successResultFallbackEntryIndices,
     required this.permissionTranscriptStatuses,

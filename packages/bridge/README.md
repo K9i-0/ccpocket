@@ -50,6 +50,8 @@ ccpocket-bridge --version
 | `BRIDGE_DISABLE_MDNS` | (none) | Disable mDNS auto-discovery advertisement (macOS disables it automatically) |
 | `BRIDGE_ALLOW_CLAUDE_OAUTH` | (none) | Set exactly to `1` to explicitly enable experimental Claude subscription authentication |
 | `BRIDGE_PROMPT_HISTORY_FILE` | `$HOME/.ccpocket/prompt-history-v2.json` | Custom prompt history store path |
+| `BRIDGE_ACTIVE_SESSIONS_FILE` | `$HOME/.ccpocket/active-sessions.json` | Custom active-session recovery store path |
+| `BRIDGE_DISABLE_ACTIVE_SESSIONS` | (none) | Set exactly to `1` to disable active-session recovery for an ephemeral Bridge |
 | `BRIDGE_RECENT_SESSIONS_PROFILE` | (none) | Log recent-session index timing when set to `1` or `true` |
 | `BRIDGE_FILE_LIST_MAX_ENTRIES` | `5000` | Maximum file and directory entries returned to a client; non-positive or invalid values use the default |
 | `BRIDGE_FILE_LIST_MAX_BYTES` | `524288` | Maximum serialized path bytes returned in a client file list; non-positive or invalid values use the default |
@@ -66,6 +68,9 @@ Lowercase proxy variables (`https_proxy`, `http_proxy`, `all_proxy`) are also
 supported. When `BRIDGE_PROMPT_HISTORY_FILE` is not set and `BRIDGE_PORT` is not
 `8765`, prompt history is stored in
 `$HOME/.ccpocket/prompt-history-v2-<port>.json`.
+Active-session recovery is similarly scoped by port as
+`$HOME/.ccpocket/active-sessions-<port>.json`, preventing a secondary test
+Bridge from restoring or overwriting the production Bridge's sessions.
 
 Push relay uses Firebase Anonymous Auth automatically; no FCM environment
 variables are required.

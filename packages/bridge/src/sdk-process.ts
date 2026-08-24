@@ -625,6 +625,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this._permissionMode,
       options?.permissionMode,
     );
+    // Keep the requested model visible before the SDK's init event. This is
+    // also the value the Bridge persists if it restarts while Claude is idle.
+    this._model = options?.model;
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;

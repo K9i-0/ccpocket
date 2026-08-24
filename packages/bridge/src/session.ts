@@ -67,6 +67,22 @@ export interface SessionInfo {
   createdAt: Date;
   lastActivityAt: Date;
   gitBranch: string;
+  /** Last assistant preview restored from the active-session registry. */
+  restoredLastMessage?: string;
+  /** Claude launch settings that must survive a Bridge restart. */
+  claudeSettings?: {
+    model?: string;
+    effort?: StartOptions["effort"];
+    maxTurns?: number;
+    maxBudgetUsd?: number;
+    fallbackModel?: string;
+    persistSession?: boolean;
+  };
+  /** Restored sessions stay process-free until the user interacts with them. */
+  dormant?: boolean;
+  /** Internal launch options retained only while a restored session is dormant. */
+  claudeStartOptions?: StartOptions;
+  codexStartOptions?: CodexStartOptions;
   /** If this session uses a worktree, the path to it. */
   worktreePath?: string;
   /** Branch name of the worktree. */
@@ -158,6 +174,7 @@ export interface SessionSummary {
   executionMode?: string;
   planMode?: boolean;
   model?: string;
+  claudeSettings?: SessionInfo["claudeSettings"];
   codexSettings?: {
     profile?: string;
     approvalPolicy?: string;
@@ -218,9 +235,7 @@ function mergeCodexSettings(
     ...(msg.modelReasoningEffort !== undefined
       ? { modelReasoningEffort: msg.modelReasoningEffort }
       : {}),
-    ...(msg.serviceTier !== undefined
-      ? { serviceTier: msg.serviceTier }
-      : {}),
+    ...(msg.serviceTier !== undefined ? { serviceTier: msg.serviceTier } : {}),
     ...(msg.networkAccessEnabled !== undefined
       ? { networkAccessEnabled: msg.networkAccessEnabled }
       : {}),
@@ -244,7 +259,9 @@ function sanitizeCodexModel(model: unknown): string | undefined {
   return normalized;
 }
 
-function publicQueuedInput(item?: QueuedCodexInput): QueuedInputItem | undefined {
+function publicQueuedInput(
+  item?: QueuedCodexInput,
+): QueuedInputItem | undefined {
   if (!item) return undefined;
   return {
     itemId: item.itemId,
@@ -303,8 +320,13 @@ export class SessionManager {
     worktreeOpts?: WorktreeOptions,
     provider?: Provider,
     codexOptions?: CodexStartOptions,
+    restoredBridgeSessionId?: string,
+    deferProcessStart = false,
   ): string {
-    const id = randomUUID().slice(0, 8);
+    const id =
+      restoredBridgeSessionId && !this.sessions.has(restoredBridgeSessionId)
+        ? restoredBridgeSessionId
+        : randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
     const proc =
       effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
@@ -356,7 +378,7 @@ export class SessionManager {
       pastMessages:
         pastMessages && pastMessages.length > 0 ? pastMessages : undefined,
       projectPath,
-      status: "starting",
+      status: deferProcessStart ? "idle" : "starting",
       createdAt: new Date(),
       lastActivityAt: new Date(),
       gitBranch,
@@ -370,7 +392,32 @@ export class SessionManager {
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
+      dormant: deferProcessStart,
+      claudeStartOptions:
+        deferProcessStart && effectiveProvider === "claude"
+          ? { ...options }
+          : undefined,
+      codexStartOptions:
+        deferProcessStart && effectiveProvider === "codex"
+          ? {
+              ...codexOptions,
+              additionalWritableRoots:
+                codexOptions?.additionalWritableRoots == null
+                  ? undefined
+                  : [...codexOptions.additionalWritableRoots],
+            }
+          : undefined,
     };
+    if (effectiveProvider === "claude" && options) {
+      session.claudeSettings = {
+        model: options.model,
+        effort: options.effort,
+        maxTurns: options.maxTurns,
+        maxBudgetUsd: options.maxBudgetUsd,
+        fallbackModel: options.fallbackModel,
+        persistSession: options.persistSession,
+      };
+    }
     if (effectiveProvider === "codex") {
       this.seedCodexPastUserTurnUuidMap(session);
     }
@@ -411,20 +458,16 @@ export class SessionManager {
             skills: msg.skills ?? previousCommands?.skills ?? [],
             skillMetadata:
               (msg.skillMetadata as
-                | Array<Record<string, unknown>>
-                | undefined) ??
+                Array<Record<string, unknown>> | undefined) ??
               previousCommands?.skillMetadata,
             apps: msg.apps ?? previousCommands?.apps ?? [],
             appMetadata:
-              (msg.appMetadata as
-                | Array<Record<string, unknown>>
-                | undefined) ??
+              (msg.appMetadata as Array<Record<string, unknown>> | undefined) ??
               previousCommands?.appMetadata,
             plugins: msg.plugins ?? previousCommands?.plugins ?? [],
             pluginMetadata:
               (msg.pluginMetadata as
-                | Array<Record<string, unknown>>
-                | undefined) ??
+                Array<Record<string, unknown>> | undefined) ??
               previousCommands?.pluginMetadata,
           });
         }
@@ -635,7 +678,12 @@ export class SessionManager {
 
     proc.on("exit", () => {
       session.status = "idle";
-      session.codexQueuedInput = undefined;
+      // Keep an accepted queued prompt until it has actually been handed to
+      // Codex. Any unexpected Codex exit remains restartable, including when
+      // the next prompt is only queued after the process has already exited.
+      if (session.provider === "codex") {
+        session.dormant = true;
+      }
       // Add status message to history so it stays in sync with session.status
       this.appendHistoryToSession(session, {
         type: "status",
@@ -696,7 +744,10 @@ export class SessionManager {
         session.claudeSessionId = codexOptions.threadId;
         this.saveWorktreeMapping(session);
         if (codexOptions.profile) {
-          void saveCodexSessionProfile(codexOptions.threadId, codexOptions.profile);
+          void saveCodexSessionProfile(
+            codexOptions.threadId,
+            codexOptions.profile,
+          );
         }
         if (codexOptions.additionalWritableRoots) {
           void saveCodexSessionAdditionalWritableRoots(
@@ -707,10 +758,12 @@ export class SessionManager {
       }
     }
 
+    if (!deferProcessStart) {
     if (effectiveProvider === "codex") {
       (proc as CodexProcess).start(effectiveCwd, codexOptions);
     } else {
       (proc as SdkProcess).start(effectiveCwd, options);
+    }
     }
 
     // Add session to Map only after proc.start() succeeds.
@@ -728,7 +781,50 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
-  appendHistory(sessionId: string, msg: ServerMessage): HistoryEntry | undefined {
+  activate(id: string): SessionInfo | undefined {
+    const session = this.sessions.get(id);
+    if (!session || !session.dormant) return session;
+    const effectiveCwd = session.worktreePath ?? session.projectPath;
+    session.status = "starting";
+    session.dormant = false;
+    try {
+      if (session.provider === "codex") {
+        const process = session.process as CodexProcess;
+        process.start(effectiveCwd, {
+          ...(session.codexStartOptions ?? {}),
+          ...(session.codexSettings ?? {}),
+          threadId: session.claudeSessionId,
+          collaborationMode:
+            session.codexStartOptions?.collaborationMode ??
+            process.collaborationMode,
+        } as CodexStartOptions);
+      } else {
+        const process = session.process as SdkProcess;
+        process.start(effectiveCwd, {
+          ...(session.claudeStartOptions ?? {}),
+          sessionId: session.claudeSessionId,
+          permissionMode:
+            process.permissionMode ??
+            session.claudeStartOptions?.permissionMode,
+          sandboxEnabled: session.sandboxEnabled,
+        });
+      }
+      session.claudeStartOptions = undefined;
+      if (!session.codexQueuedInput) {
+        session.codexStartOptions = undefined;
+      }
+      return session;
+    } catch (err) {
+      session.dormant = true;
+      session.status = "idle";
+      throw err;
+    }
+  }
+
+  appendHistory(
+    sessionId: string,
+    msg: ServerMessage,
+  ): HistoryEntry | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
     const entry = this.appendHistoryToSession(session, msg);
@@ -776,7 +872,8 @@ export class SessionManager {
 
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
-      const codexSettings = s.process instanceof CodexProcess
+      const codexSettings =
+        s.process instanceof CodexProcess
         ? withDerivedCodexPermissionsMode(
             s.codexSettings ??
               (s.process.codexPermissionsMode
@@ -797,11 +894,18 @@ export class SessionManager {
         s.status === "waiting_approval"
           ? processWithPending.getPendingPermission?.()
           : undefined;
+      const codexCollaborationMode =
+        s.process instanceof CodexProcess
+          ? (s.codexStartOptions?.collaborationMode ??
+            s.process.collaborationMode)
+          : undefined;
       const executionMode =
         s.process instanceof SdkProcess
-          ? s.process.permissionMode === "bypassPermissions"
+          ? (s.process.permissionMode ??
+              s.claudeStartOptions?.permissionMode) === "bypassPermissions"
             ? "fullAccess"
-            : s.process.permissionMode === "acceptEdits"
+            : (s.process.permissionMode ??
+                  s.claudeStartOptions?.permissionMode) === "acceptEdits"
               ? "acceptEdits"
               : "default"
           : s.process instanceof CodexProcess
@@ -812,9 +916,10 @@ export class SessionManager {
             : undefined;
       const planMode =
         s.process instanceof SdkProcess
-          ? s.process.permissionMode === "plan"
+          ? (s.process.permissionMode ??
+              s.claudeStartOptions?.permissionMode) === "plan"
           : s.process instanceof CodexProcess
-            ? s.process.collaborationMode === "plan"
+            ? codexCollaborationMode === "plan"
             : undefined;
       return {
         id: s.id,
@@ -831,9 +936,9 @@ export class SessionManager {
         worktreeBranch: s.worktreeBranch,
         permissionMode:
           s.process instanceof SdkProcess
-            ? s.process.permissionMode
+            ? (s.process.permissionMode ?? s.claudeStartOptions?.permissionMode)
             : s.process instanceof CodexProcess
-              ? s.process.collaborationMode === "plan"
+              ? codexCollaborationMode === "plan"
                 ? "plan"
                 : (codexSettings?.approvalPolicy ??
                     s.process.approvalPolicy) === "never"
@@ -842,7 +947,11 @@ export class SessionManager {
               : undefined,
         executionMode,
         planMode,
-        model: s.process instanceof SdkProcess ? s.process.model : undefined,
+        model:
+          s.process instanceof SdkProcess
+            ? (s.process.model ?? s.claudeSettings?.model)
+            : undefined,
+        claudeSettings: s.claudeSettings,
         codexSettings,
         agentNickname:
           s.process instanceof CodexProcess
@@ -971,10 +1080,7 @@ export class SessionManager {
     }
   }
 
-  private hasPastCodexUserMessage(
-    session: SessionInfo,
-    uuid: string,
-  ): boolean {
+  private hasPastCodexUserMessage(session: SessionInfo, uuid: string): boolean {
     return (session.pastMessages ?? []).some((message) => {
       if (!message || typeof message !== "object") return false;
       const item = message as {
@@ -1036,7 +1142,10 @@ export class SessionManager {
       const incomingImages = incoming.imageCount ?? 0;
       if (existingImages !== incomingImages) return false;
     }
-    if (isCodexUserTurnUuid(existingUuid) || isCodexUserTurnUuid(incomingUuid)) {
+    if (
+      isCodexUserTurnUuid(existingUuid) ||
+      isCodexUserTurnUuid(incomingUuid)
+    ) {
       return (
         this.isPendingCodexUserEcho(session, existingUuid) ||
         this.isPendingCodexUserEcho(session, incomingUuid)
@@ -1265,8 +1374,7 @@ export class SessionManager {
             return msg.content.replace(/\s+/g, " ").trim().slice(0, 100);
           }
           const content = msg.content as
-            | Array<Record<string, unknown>>
-            | undefined;
+            Array<Record<string, unknown>> | undefined;
           const textBlock = content?.find((c) => c.type === "text");
           if (textBlock?.text)
             return (textBlock.text as string)
@@ -1276,7 +1384,7 @@ export class SessionManager {
         }
       }
     }
-    return "";
+    return s.restoredLastMessage ?? "";
   }
 
   queueCodexInput(id: string, input: QueuedCodexInput): boolean {
@@ -1317,7 +1425,10 @@ export class SessionManager {
   cancelCodexQueuedInput(id: string, itemId: string): boolean {
     const session = this.sessions.get(id);
     if (!session || session.provider !== "codex") return false;
-    if (!session.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+    if (
+      !session.codexQueuedInput ||
+      session.codexQueuedInput.itemId !== itemId
+    ) {
       return false;
     }
     session.codexQueuedInput = undefined;
@@ -1382,26 +1493,30 @@ export class SessionManager {
     if (!queued || !(session.process instanceof CodexProcess)) return;
     if (!session.process.isWaitingForInput) return;
 
+    const handedOff = session.process.sendInputStructured(queued.text, {
+      images: queued.images,
+      skills: queued.skills,
+      mentions: queued.mentions,
+    });
+    if (!handedOff) return;
+
     session.codexQueuedInput = undefined;
+    session.codexStartOptions = undefined;
     this.broadcastCodexQueue(session);
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
     this.appendHistoryToSession(session, userMsg);
     this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
-
-    session.process.sendInputStructured(queued.text, {
-      images: queued.images,
-      skills: queued.skills,
-      mentions: queued.mentions,
-    });
   }
 
   private buildQueuedUserInputMessage(queued: QueuedCodexInput): ServerMessage {
     return {
       type: "user_input",
       text: queued.text,
-      ...(queued.userMessageUuid ? { userMessageUuid: queued.userMessageUuid } : {}),
+      ...(queued.userMessageUuid
+        ? { userMessageUuid: queued.userMessageUuid }
+        : {}),
       timestamp: new Date().toISOString(),
       ...(queued.imageCount ? { imageCount: queued.imageCount } : {}),
       ...(queued.imageRefs ? { images: queued.imageRefs } : {}),
@@ -1710,7 +1825,7 @@ export class SessionManager {
 
   private evictStaleIdleSessions(): void {
     const staleIdleSessions = Array.from(this.sessions.values())
-      .filter((session) => session.status === "idle")
+      .filter((session) => session.status === "idle" && !session.dormant)
       .sort(
         (left, right) =>
           left.lastActivityAt.getTime() - right.lastActivityAt.getTime(),
@@ -1731,7 +1846,7 @@ export class SessionManager {
   private idleSessionCount(): number {
     let count = 0;
     for (const session of this.sessions.values()) {
-      if (session.status === "idle") count += 1;
+      if (session.status === "idle" && !session.dormant) count += 1;
     }
     return count;
   }

@@ -339,8 +339,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
     final totalPages = _isMultiQuestion ? questions.length + 1 : 1;
 
-    final availableHeight = MediaQuery.of(context).size.height;
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final availableHeight = MediaQuery.sizeOf(context).height;
+    final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -157,6 +157,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                .take(10)
                .toList(),
            projectPath: initialProjectPath,
+           bulkLoading: true,
          ),
        ) {
     _respondedToolUseIds.addAll(_bridge.respondedToolUseIds(sessionId));
@@ -184,7 +185,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   void _startStatusRefreshTimer() {
     _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (state.status != ProcessStatus.starting) {
+      if (state.status != ProcessStatus.starting && !state.bulkLoading) {
         _statusRefreshTimer?.cancel();
         _statusRefreshTimer = null;
         return;
@@ -208,7 +209,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         isCodex: isCodex,
         ignoredToolUseIds: _respondedToolUseIds,
       );
-      _applyUpdate(update, history);
+      _applyUpdate(update, history, isCachedRestore: true);
     } catch (e, st) {
       logger.error(
         '[session:$sessionId] Failed to restore cached runtime messages',
@@ -241,7 +242,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       if (_isSessionNotFound(msg)) {
         _statusRefreshTimer?.cancel();
         _statusRefreshTimer = null;
-        emit(state.copyWith(sessionUnavailable: true));
+        emit(state.copyWith(sessionUnavailable: true, bulkLoading: false));
         return;
       }
     }
@@ -287,7 +288,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
   }
 
-  void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
+  void _applyUpdate(
+    ChatStateUpdate update,
+    ServerMessage originalMsg, {
+    bool isCachedRestore = false,
+  }) {
     final current = state;
 
     // --- Streaming state (separate cubit) ---
@@ -563,7 +568,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     // Stop status refresh timer when status changes from starting
-    if (update.status != null && update.status != ProcessStatus.starting) {
+    if (!isCachedRestore &&
+        update.status != null &&
+        update.status != ProcessStatus.starting) {
       _statusRefreshTimer?.cancel();
       _statusRefreshTimer = null;
     }
@@ -571,6 +578,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // --- Update hidden tool use IDs (for subagent summary compression) ---
     var hiddenToolUseIds = current.hiddenToolUseIds;
     if (update.replaceEntries) {
+      // A history snapshot is authoritative. Rebuild the derived hidden IDs
+      // from the final merged entries so restored summaries hide their tool
+      // results and rewinds do not leave stale IDs behind.
       hiddenToolUseIds = _hiddenToolUseIdsFromEntries(entries);
     } else if (update.toolUseIdsToHide.isNotEmpty) {
       hiddenToolUseIds = {...hiddenToolUseIds, ...update.toolUseIdsToHide};
@@ -685,6 +695,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         status: update.status ?? current.status,
         entries: nextEntries,
         approval: approval,
+        // The Bridge sends the authoritative status after restored history.
+        // Until then, the state's default `starting` value only means that
+        // the screen is waiting for its session baseline.
+        bulkLoading: isCachedRestore || update.status == null
+            ? current.bulkLoading
+            : false,
         totalCost: usage.totalCost,
         totalDuration: usage.totalDuration,
         inPlanMode: update.inPlanMode ?? current.inPlanMode,

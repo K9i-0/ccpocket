@@ -1,4 +1,11 @@
-import { readdir, readFile, writeFile, appendFile, stat, open } from "node:fs/promises";
+import {
+  readdir,
+  readFile,
+  writeFile,
+  appendFile,
+  stat,
+  open,
+} from "node:fs/promises";
 import { createReadStream, type Dirent } from "node:fs";
 import { createInterface } from "node:readline";
 import { basename, extname, join } from "node:path";
@@ -16,6 +23,8 @@ export interface SessionIndexEntry {
   summary?: string;
   firstPrompt: string;
   lastPrompt?: string;
+  /** Last assistant response text shown by recent-session cards. */
+  lastResponse?: string;
   created: string;
   modified: string;
   gitBranch: string;
@@ -71,7 +80,7 @@ export interface GetRecentSessionsOptions {
   provider?: "claude" | "codex";
   /** Show only sessions with a non-empty name. */
   namedOnly?: boolean;
-  /** Free-text search across name, firstPrompt, lastPrompt and summary. */
+  /** Free-text search across name and recent-session preview fields. */
   searchQuery?: string;
 }
 
@@ -272,7 +281,10 @@ const RE_SYSTEM_INJECTED =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
 
 function isSystemInjectedText(text: string): boolean {
-  return RE_SYSTEM_INJECTED.test(text) || text.startsWith("Base directory for this skill:");
+  return (
+    RE_SYSTEM_INJECTED.test(text) ||
+    text.startsWith("Base directory for this skill:")
+  );
 }
 
 function isCodexAutoRenameSession(firstPrompt: string): boolean {
@@ -335,6 +347,20 @@ function extractUserPromptText(entry: Record<string, unknown>): string {
   return "";
 }
 
+/** Extract all text blocks from a Claude assistant entry. */
+function extractAssistantResponseText(entry: Record<string, unknown>): string {
+  const message = entry.message as { content?: unknown } | undefined;
+  if (typeof message?.content === "string") return message.content.trim();
+  if (!Array.isArray(message?.content)) return "";
+  return (message.content as Array<{ type?: unknown; text?: unknown }>)
+    .filter(
+      (content) => content.type === "text" && typeof content.text === "string",
+    )
+    .map((content) => content.text as string)
+    .join("\n")
+    .trim();
+}
+
 /**
  * Parse head and optional tail text chunks to build a SessionIndexEntry.
  * Uses regex for most fields, JSON.parse only for first/last user lines.
@@ -353,6 +379,7 @@ function parseFromChunks(
 ): ParsedClaudeChunks {
   let firstPrompt = "";
   let lastPrompt = "";
+  let lastResponse = "";
   let created = "";
   let modified = "";
   let gitBranch = "";
@@ -416,21 +443,35 @@ function parseFromChunks(
       if (pmMatch) permissionMode = pmMatch[1];
     }
 
-    if (isUser && !firstPrompt) {
-      // JSON.parse only user lines to extract prompt text, skipping
-      // system-injected messages (e.g. <local-command-caveat>)
+    if (isUser) {
+      // Extract prompt text while skipping system-injected messages (e.g.
+      // <local-command-caveat>). For small files this also captures the last
+      // prompt without a separate tail read.
       try {
         const entry = JSON.parse(line) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) {
-          if (isAutoRenamePromptText(text)) {
+          if (!firstPrompt && isAutoRenamePromptText(text)) {
             isInternalAutoRename = true;
             break;
           }
+          if (!firstPrompt) {
           firstPrompt = text;
           headFoundFirstPrompt = true;
         }
-      } catch { /* skip */ }
+          lastPrompt = text;
+        }
+      } catch {
+        /* skip */
+      }
+    } else if (isAssistant) {
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        const text = extractAssistantResponseText(entry);
+        if (text) lastResponse = text;
+      } catch {
+        /* skip */
+      }
     }
   }
 
@@ -447,9 +488,11 @@ function parseFromChunks(
   if (tail) {
     const tailLines = tail.split("\n");
 
-    // Find last timestamp and last user prompt from tail (scan in reverse)
+    // Find last timestamp, user prompt, and assistant response from the tail.
     let lastUserLine: string | null = null;
+    let lastAssistantLine: string | null = null;
     let tailCustomTitle = "";
+    let foundTailTimestamp = false;
     for (let i = tailLines.length - 1; i >= 0; i--) {
       const line = tailLines[i];
       if (!line.trim()) continue;
@@ -468,29 +511,18 @@ function parseFromChunks(
       if (!isUser && !isAssistant) continue;
       hasAnyMessage = true;
 
-      // Get the last modified timestamp
-      if (!modified || true) {
-        // Always update modified from tail (tail is later in file)
+      if (!lastUserLine && isUser) lastUserLine = line;
+      if (!lastAssistantLine && isAssistant) lastAssistantLine = line;
+
+      // The first message found in reverse order is the last modified one.
+      if (!foundTailTimestamp) {
         const tsMatch = line.match(RE_TIMESTAMP);
         if (tsMatch) {
           modified = tsMatch[1];
-          // We found the last message — we're done with timestamps
-          if (isUser && !lastUserLine) lastUserLine = line;
-          break;
+          foundTailTimestamp = true;
         }
       }
-    }
-
-    // Also find last user line if not found in reverse timestamp scan
-    if (!lastUserLine) {
-      for (let i = tailLines.length - 1; i >= 0; i--) {
-        const line = tailLines[i];
-        if (!line.trim()) continue;
-        if (RE_TYPE_USER.test(line)) {
-          lastUserLine = line;
-          break;
-        }
-      }
+      if (lastUserLine && lastAssistantLine) break;
     }
 
     // JSON.parse only the last user line for lastPrompt
@@ -499,7 +531,18 @@ function parseFromChunks(
         const entry = JSON.parse(lastUserLine) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) lastPrompt = text;
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
+    }
+    if (lastAssistantLine) {
+      try {
+        const entry = JSON.parse(lastAssistantLine) as Record<string, unknown>;
+        const text = extractAssistantResponseText(entry);
+        if (text) lastResponse = text;
+      } catch {
+        /* skip */
+      }
     }
 
     // Fill in metadata from tail if head didn't have it
@@ -547,6 +590,7 @@ function parseFromChunks(
       provider: "claude",
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+      ...(lastResponse ? { lastResponse } : {}),
       ...(customTitle ? { name: customTitle } : {}),
       created,
       modified,
@@ -615,12 +659,10 @@ async function parseClaudeJsonlFileFast(
   // from the start whenever head parsing missed these fields so resume uses
   // the original session cwd rather than a later in-session directory.
   if (
-    result
-    && (
-      !result.firstPrompt
-      || !parsedChunks.headFoundProjectPath
-      || !parsedChunks.headFoundGitBranch
-    )
+    result &&
+    (!result.firstPrompt ||
+      !parsedChunks.headFoundProjectPath ||
+      !parsedChunks.headFoundGitBranch)
   ) {
     const missing = await extractMissingFieldsStreaming(
       filePath,
@@ -668,7 +710,9 @@ async function hydrateClaudeIndexedEntry(
     modified: entry.modified ?? "",
     gitBranch: entry.gitBranch ?? "",
     projectPath: normalizedPath,
-    ...(rawProjectPath && rawProjectPath !== normalizedPath ? { resumeCwd: rawProjectPath } : {}),
+    ...(rawProjectPath && rawProjectPath !== normalizedPath
+      ? { resumeCwd: rawProjectPath }
+      : {}),
     isSidechain: entry.isSidechain ?? false,
   };
 
@@ -682,7 +726,8 @@ async function hydrateClaudeIndexedEntry(
 
   if (!needsJsonlRepair) return base;
 
-  const fallbackPath = entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
+  const fallbackPath =
+    entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
   const parsed = await parseClaudeJsonlFileFast(entry.sessionId, fallbackPath);
   if (!parsed) return base;
   if (isAutoRenamePromptText(parsed.firstPrompt)) return null;
@@ -690,14 +735,25 @@ async function hydrateClaudeIndexedEntry(
   return {
     ...base,
     firstPrompt: base.firstPrompt || parsed.firstPrompt,
-    ...(parsed.name ? { name: parsed.name } : base.name ? { name: base.name } : {}),
+    ...(parsed.name
+      ? { name: parsed.name }
+      : base.name
+        ? { name: base.name }
+        : {}),
     created: base.created || parsed.created,
     modified: base.modified || parsed.modified,
     gitBranch: base.gitBranch || parsed.gitBranch,
     projectPath: base.projectPath || parsed.projectPath,
     isSidechain: base.isSidechain || parsed.isSidechain,
-    ...(base.lastPrompt || !parsed.lastPrompt ? {} : { lastPrompt: parsed.lastPrompt }),
-    ...(base.permissionMode || !parsed.permissionMode ? {} : { permissionMode: parsed.permissionMode }),
+    ...(base.lastPrompt || !parsed.lastPrompt
+      ? {}
+      : { lastPrompt: parsed.lastPrompt }),
+    ...(base.lastResponse || !parsed.lastResponse
+      ? {}
+      : { lastResponse: parsed.lastResponse }),
+    ...(base.permissionMode || !parsed.permissionMode
+      ? {}
+      : { permissionMode: parsed.permissionMode }),
   };
 }
 
@@ -713,7 +769,12 @@ async function extractMissingFieldsStreaming(
   needFirstPrompt: boolean,
   needProjectPath: boolean,
   needGitBranch: boolean,
-): Promise<{ firstPrompt: string; projectPath: string; rawCwd: string; gitBranch: string }> {
+): Promise<{
+  firstPrompt: string;
+  projectPath: string;
+  rawCwd: string;
+  gitBranch: string;
+}> {
   return new Promise((resolve) => {
     const stream = createReadStream(filePath, { encoding: "utf-8" });
     const rl = createInterface({ input: stream, crlfDelay: Infinity });
@@ -781,36 +842,36 @@ async function extractMissingFieldsStreaming(
 }
 
 /**
- * Maximum bytes to read from file tail when searching for lastPrompt.
+ * Maximum bytes to read from a file tail when searching for recent text.
  * Claude sessions often have large tool-result lines (diffs, etc.) near the
  * end, so 8KB is rarely enough.  We grow the read window in steps up to this
  * cap to balance speed and coverage.
  */
-const LAST_PROMPT_MAX_TAIL = 131072; // 128KB
+const RECENT_TEXT_MAX_TAIL = 131072; // 128KB
 
 /**
- * Fast tail-read to extract the last user prompt from a JSONL file.
- * Starts at TAIL_BYTES and doubles up to LAST_PROMPT_MAX_TAIL until a real
- * user text prompt is found.  No full-file scan is ever performed.
- * Used to supplement sessions-index.json entries that lack lastPrompt.
+ * Fast tail-read to extract the last user prompt and assistant response from
+ * a JSONL file. The read window grows until both are found or the cap is hit.
  */
-async function extractLastPromptFromTail(
+async function extractRecentTextFromTail(
   filePath: string,
-): Promise<string> {
+): Promise<{ lastPrompt: string; lastResponse: string }> {
   let fh;
   try {
     fh = await open(filePath, "r");
   } catch {
-    return "";
+    return { lastPrompt: "", lastResponse: "" };
   }
   try {
     const fileSize = (await fh.stat()).size;
-    if (fileSize === 0) return "";
+    if (fileSize === 0) return { lastPrompt: "", lastResponse: "" };
+    let lastPrompt = "";
+    let lastResponse = "";
 
     // Grow tail window: 8KB → 16KB → 32KB → 64KB → 128KB
     for (
       let tailSize = TAIL_BYTES;
-      tailSize <= LAST_PROMPT_MAX_TAIL;
+      tailSize <= RECENT_TEXT_MAX_TAIL;
       tailSize *= 2
     ) {
       const readSize = Math.min(fileSize, tailSize);
@@ -825,28 +886,69 @@ async function extractLastPromptFromTail(
         if (nl >= 0) raw = raw.slice(nl + 1);
       }
 
-      // Scan in reverse to find the last user line with real text
+      // Scan in reverse to find the latest real user and assistant texts.
       const lines = raw.split("\n");
       for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
         if (!line.trim()) continue;
-        if (!RE_TYPE_USER.test(line)) continue;
+        if (!lastPrompt && RE_TYPE_USER.test(line)) {
         try {
           const entry = JSON.parse(line) as Record<string, unknown>;
           const text = extractUserPromptText(entry);
-          if (text && !isSystemInjectedText(text)) return text;
+            if (text && !isSystemInjectedText(text)) lastPrompt = text;
+          } catch {
+            // Truncated line — retry with a larger window.
+          }
+        } else if (!lastResponse && RE_TYPE_ASSISTANT.test(line)) {
+          try {
+            const entry = JSON.parse(line) as Record<string, unknown>;
+            const text = extractAssistantResponseText(entry);
+            if (text) lastResponse = text;
         } catch {
-          // Truncated line — skip
+            // Truncated line — retry with a larger window.
+          }
+        }
+        if (lastPrompt && lastResponse) {
+          return { lastPrompt, lastResponse };
         }
       }
 
       // If we already read the entire file, stop
       if (readSize >= fileSize) break;
     }
-    return "";
+    return { lastPrompt, lastResponse };
   } finally {
     await fh.close();
   }
+}
+
+async function supplementClaudeRecentText(
+  entries: SessionIndexEntry[],
+): Promise<void> {
+  const targets = entries.filter(
+    (entry) =>
+      entry.provider === "claude" &&
+      (!entry.lastPrompt || !entry.lastResponse) &&
+      entry.projectPath,
+  );
+  if (targets.length === 0) return;
+
+  const projectsDir = join(homedir(), ".claude", "projects");
+  await parallelMap(targets, PARALLEL_FILE_READ_LIMIT, async (entry) => {
+    const slug = pathToSlug(entry.projectPath);
+    const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
+    const recentText = await extractRecentTextFromTail(jsonlPath);
+    if (
+      !entry.lastPrompt &&
+      recentText.lastPrompt &&
+      recentText.lastPrompt !== entry.firstPrompt
+    ) {
+      entry.lastPrompt = recentText.lastPrompt;
+    }
+    if (!entry.lastResponse && recentText.lastResponse) {
+      entry.lastResponse = recentText.lastResponse;
+    }
+  });
 }
 
 /**
@@ -928,9 +1030,7 @@ export async function getAllRecentSessions(
   markDuration(durations, "loadClaudeProjectDirs", loadProjectDirsStartedAt);
 
   // Compute worktree slug prefix for projectPath filtering
-  const projectSlug = filterProjectPath
-    ? pathToSlug(filterProjectPath)
-    : null;
+  const projectSlug = filterProjectPath ? pathToSlug(filterProjectPath) : null;
 
   // --- Load Claude and Codex sessions in parallel ---
 
@@ -976,7 +1076,12 @@ export async function getAllRecentSessions(
           indexDirs: 0,
           indexEntries: 0,
           jsonlOnlyDirs: 0,
-          jsonlStats: { filesTotal: 0, filesExcluded: 0, filesRead: 0, entriesReturned: 0 },
+          jsonlStats: {
+            filesTotal: 0,
+            filesExcluded: 0,
+            filesRead: 0,
+            entriesReturned: 0,
+          },
         };
 
         if (raw !== null) {
@@ -1023,7 +1128,9 @@ export async function getAllRecentSessions(
           }
 
           result.jsonlOnlyDirs = 1;
-          const scanned = await scanJsonlDir(dirPath, { stats: result.jsonlStats });
+          const scanned = await scanJsonlDir(dirPath, {
+            stats: result.jsonlStats,
+          });
           result.entries.push(...scanned);
         }
 
@@ -1091,7 +1198,8 @@ export async function getAllRecentSessions(
         (e.modified ? 1 : 0) +
         (e.name ? 1 : 0) +
         (e.summary ? 1 : 0) +
-        (e.lastPrompt ? 1 : 0);
+        (e.lastPrompt ? 1 : 0) +
+        (e.lastResponse ? 1 : 0);
       if (score(entry) > score(existing)) {
         seen.set(entry.sessionId, entry);
       }
@@ -1125,7 +1233,20 @@ export async function getAllRecentSessions(
   }
   perfStats.counts.afterNamedOnly = filtered.length;
 
-  // Filter by search query (name, firstPrompt, lastPrompt, summary)
+  // Claude's index does not include recent prompt/response text. Hydrate all
+  // remaining Claude candidates before server-side search so a phrase visible
+  // on a recent-session card is searchable too.
+  if (options.searchQuery) {
+    const supplementSearchStartedAt = process.hrtime.bigint();
+    await supplementClaudeRecentText(filtered);
+    markDuration(
+      durations,
+      "supplementSearchRecentText",
+      supplementSearchStartedAt,
+    );
+  }
+
+  // Filter by search query across every visible preview field.
   if (options.searchQuery) {
     const q = options.searchQuery.toLowerCase();
     filtered = filtered.filter(
@@ -1133,6 +1254,7 @@ export async function getAllRecentSessions(
         e.name?.toLowerCase().includes(q) ||
         e.firstPrompt?.toLowerCase().includes(q) ||
         e.lastPrompt?.toLowerCase().includes(q) ||
+        e.lastResponse?.toLowerCase().includes(q) ||
         e.summary?.toLowerCase().includes(q),
     );
   }
@@ -1153,25 +1275,11 @@ export async function getAllRecentSessions(
   perfStats.counts.returned = sliced.length;
   markDuration(durations, "paginate", paginateStartedAt);
 
-  // Supplement missing lastPrompt for Claude sessions (sessions-index.json
-  // doesn't include lastPrompt).  Only the paginated page is processed so at
-  // most `limit` tail reads are needed — lightweight enough to keep inline.
+  // Supplement recent text for Claude sessions. sessions-index.json doesn't
+  // include the last prompt or response, so only the paginated page is read.
   const supplementStartedAt = process.hrtime.bigint();
-  const needLastPrompt = sliced.filter(
-    (e) => e.provider === "claude" && !e.lastPrompt && e.projectPath,
-  );
-  if (needLastPrompt.length > 0) {
-    const projectsDir = join(homedir(), ".claude", "projects");
-    await parallelMap(needLastPrompt, PARALLEL_FILE_READ_LIMIT, async (entry) => {
-      const slug = pathToSlug(entry.projectPath);
-      const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
-      const lp = await extractLastPromptFromTail(jsonlPath);
-      if (lp && lp !== entry.firstPrompt) {
-        entry.lastPrompt = lp;
-      }
-    });
-  }
-  markDuration(durations, "supplementLastPrompt", supplementStartedAt);
+  await supplementClaudeRecentText(sliced);
+  markDuration(durations, "supplementRecentText", supplementStartedAt);
 
   markDuration(durations, "total", totalStartedAt);
   logRecentSessionsPerf(options, durations, perfStats);
@@ -1201,6 +1309,8 @@ export interface CodexSessionIndexMetadata {
   lastPrompt?: string;
   /** Last assistant message text — the closest thing to a session summary. */
   summary?: string;
+  /** Last assistant response text for the recent-session card. */
+  lastResponse?: string;
 }
 
 interface CodexSessionParseResult {
@@ -1234,7 +1344,10 @@ async function listCodexSessionFiles(): Promise<string[]> {
   return files;
 }
 
-function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSessionParseResult | null {
+function parseCodexSessionJsonl(
+  raw: string,
+  fallbackSessionId: string,
+): CodexSessionParseResult | null {
   const lines = raw.split("\n");
   let threadId = fallbackSessionId;
   let projectPath = "";
@@ -1305,10 +1418,16 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         if (git && typeof git.branch === "string") {
           gitBranch = git.branch;
         }
-        if (typeof payload.agent_nickname === "string" && payload.agent_nickname.length > 0) {
+        if (
+          typeof payload.agent_nickname === "string" &&
+          payload.agent_nickname.length > 0
+        ) {
           agentNickname = payload.agent_nickname;
         }
-        if (typeof payload.agent_role === "string" && payload.agent_role.length > 0) {
+        if (
+          typeof payload.agent_role === "string" &&
+          payload.agent_role.length > 0
+        ) {
           agentRole = payload.agent_role;
         }
       }
@@ -1327,15 +1446,18 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         if (typeof payload.approvals_reviewer === "string") {
           approvalsReviewer = payload.approvals_reviewer;
         }
-        const sp = payload.sandbox_policy as Record<string, unknown> | undefined;
+        const sp = payload.sandbox_policy as
+          Record<string, unknown> | undefined;
         if (sp && typeof sp.type === "string") {
           sandboxMode = sp.type;
         }
         if (typeof payload.model === "string") {
           model = payload.model;
         }
-        const collaborationMode = payload.collaboration_mode as Record<string, unknown> | undefined;
-        const collaborationSettings = collaborationMode?.settings as Record<string, unknown> | undefined;
+        const collaborationMode = payload.collaboration_mode as
+          Record<string, unknown> | undefined;
+        const collaborationSettings = collaborationMode?.settings as
+          Record<string, unknown> | undefined;
         if (typeof collaborationSettings?.reasoning_effort === "string") {
           modelReasoningEffort = collaborationSettings.reasoning_effort;
         }
@@ -1360,14 +1482,17 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
 
     if (entry.type === "event_msg") {
       const payload = entry.payload as Record<string, unknown> | undefined;
-      if (payload?.type === "user_message" && typeof payload.message === "string") {
+      if (
+        payload?.type === "user_message" &&
+        typeof payload.message === "string"
+      ) {
         hasMessages = true;
         if (!firstPrompt) firstPrompt = payload.message;
         lastPrompt = payload.message;
       } else if (
-        payload?.type === "agent_message"
-        && typeof payload.message === "string"
-        && payload.message.trim().length > 0
+        payload?.type === "agent_message" &&
+        typeof payload.message === "string" &&
+        payload.message.trim().length > 0
       ) {
         hasMessages = true;
         lastAssistantText = payload.message;
@@ -1377,13 +1502,20 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
 
     if (entry.type === "response_item") {
       const payload = entry.payload as Record<string, unknown> | undefined;
-      if (!payload || payload.type !== "message" || payload.role !== "assistant") {
+      if (
+        !payload ||
+        payload.type !== "message" ||
+        payload.role !== "assistant"
+      ) {
         continue;
       }
       const content = payload.content;
       if (!Array.isArray(content)) continue;
       const text = (content as Array<Record<string, unknown>>)
-        .filter((item) => item.type === "output_text" && typeof item.text === "string")
+        .filter(
+          (item) =>
+            item.type === "output_text" && typeof item.text === "string",
+        )
         .map((item) => item.text as string)
         .join("\n")
         .trim();
@@ -1399,16 +1531,15 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   if (!projectPath || !hasMessages) return null;
   summary = lastAssistantText || summary;
 
-  const codexSettings = (
-    approvalPolicy
-    || approvalsReviewer
-    || sandboxMode
-    || model
-    || modelReasoningEffort
-    || serviceTier
-    || networkAccessEnabled !== undefined
-    || webSearchMode
-  )
+  const codexSettings =
+    approvalPolicy ||
+    approvalsReviewer ||
+    sandboxMode ||
+    model ||
+    modelReasoningEffort ||
+    serviceTier ||
+    networkAccessEnabled !== undefined ||
+    webSearchMode
     ? {
         approvalPolicy,
         approvalsReviewer,
@@ -1429,6 +1560,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       ...(agentNickname ? { agentNickname } : {}),
       ...(agentRole ? { agentRole } : {}),
       summary: summary || undefined,
+      lastResponse: lastAssistantText || undefined,
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
       created,
@@ -1500,7 +1632,9 @@ function extractClaudeCustomTitleFromText(text: string): string | undefined {
   return customTitle || undefined;
 }
 
-async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | undefined> {
+async function getClaudeJsonlCustomTitle(
+  filePath: string,
+): Promise<string | undefined> {
   let fh;
   try {
     fh = await open(filePath, "r");
@@ -1520,7 +1654,9 @@ async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | und
 
     const headBuf = Buffer.alloc(HEAD_BYTES);
     await fh.read(headBuf, 0, HEAD_BYTES, 0);
-    const headTitle = extractClaudeCustomTitleFromText(headBuf.toString("utf-8"));
+    const headTitle = extractClaudeCustomTitleFromText(
+      headBuf.toString("utf-8"),
+    );
 
     const tailBuf = Buffer.alloc(TAIL_BYTES);
     await fh.read(tailBuf, 0, TAIL_BYTES, fileSize - TAIL_BYTES);
@@ -1565,8 +1701,12 @@ export async function getClaudeSessionName(
 
   const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
   return (
-    await getClaudeJsonlCustomTitle(entry?.fullPath || join(dirPath, `${claudeSessionId}.jsonl`))
-  ) ?? entry?.customTitle ?? undefined;
+    (await getClaudeJsonlCustomTitle(
+      entry?.fullPath || join(dirPath, `${claudeSessionId}.jsonl`),
+    )) ??
+    entry?.customTitle ??
+    undefined
+  );
 }
 
 /**
@@ -1611,7 +1751,13 @@ export async function renameClaudeSession(
   }
 
   const slug = pathToSlug(projectPath);
-  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
+  const indexPath = join(
+    homedir(),
+    ".claude",
+    "projects",
+    slug,
+    "sessions-index.json",
+  );
 
   let index: RawSessionIndexFile | null = null;
   try {
@@ -1801,7 +1947,9 @@ export async function renameCodexSession(
   }
 }
 
-async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
+async function getAllRecentCodexSessions(
+  options: CodexRecentOptions = {},
+): Promise<SessionIndexEntry[]> {
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
   options.perfStats && (options.perfStats.filesTotal = files.length);
@@ -1827,7 +1975,10 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   for (const parsed of parsedResults) {
     options.perfStats && (options.perfStats.filesRead += 1);
     if (!parsed) continue;
-    if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
+    if (
+      normalizedProjectPath &&
+      parsed.entry.projectPath !== normalizedProjectPath
+    ) {
       continue;
     }
     // Attach thread name if available
@@ -1881,7 +2032,10 @@ export async function getCodexSessionIndexMetadata(
   const targets: string[] = [];
   const matchedThreadIds = new Set<string>();
   for (const filePath of files) {
-    const threadId = matchingCodexThreadIdFromFilePath(filePath, wantedThreadIds);
+    const threadId = matchingCodexThreadIdFromFilePath(
+      filePath,
+      wantedThreadIds,
+    );
     if (!threadId || matchedThreadIds.has(threadId)) continue;
     targets.push(filePath);
     matchedThreadIds.add(threadId);
@@ -1904,9 +2058,16 @@ export async function getCodexSessionIndexMetadata(
         ? { codexSettings: parsed.entry.codexSettings }
         : {}),
       ...(parsed.entry.resumeCwd ? { resumeCwd: parsed.entry.resumeCwd } : {}),
-      ...(parsed.entry.firstPrompt ? { firstPrompt: parsed.entry.firstPrompt } : {}),
-      ...(parsed.entry.lastPrompt ? { lastPrompt: parsed.entry.lastPrompt } : {}),
+      ...(parsed.entry.firstPrompt
+        ? { firstPrompt: parsed.entry.firstPrompt }
+        : {}),
+      ...(parsed.entry.lastPrompt
+        ? { lastPrompt: parsed.entry.lastPrompt }
+        : {}),
       ...(parsed.entry.summary ? { summary: parsed.entry.summary } : {}),
+      ...(parsed.entry.lastResponse
+        ? { lastResponse: parsed.entry.lastResponse }
+        : {}),
     });
   }
 
@@ -1939,6 +2100,189 @@ export interface SessionHistoryMessage {
   imagePaths?: string[];
   imageBase64?: Array<{ data: string; mimeType: string }>;
   content: string | SessionHistoryContentItem[];
+}
+
+export const CODEX_HISTORY_MAX_MESSAGES = 2000;
+export const CODEX_HISTORY_MAX_BYTES = 16 * 1024 * 1024;
+const CODEX_HISTORY_MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
+const CODEX_HISTORY_MAX_TEXT_CHARS = 512 * 1024;
+
+function truncateHistoryText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  const marker = "\n…[older output truncated while restoring this session]…\n";
+  const headChars = Math.max(0, Math.floor((maxChars - marker.length) * 0.75));
+  const tailChars = Math.max(0, maxChars - marker.length - headChars);
+  return `${value.slice(0, headChars)}${marker}${value.slice(-tailChars)}`;
+}
+
+function serializedByteLength(value: unknown): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf-8");
+  } catch {
+    return CODEX_HISTORY_MAX_MESSAGE_BYTES;
+  }
+}
+
+function compactCodexHistoryMessage(
+  message: SessionHistoryMessage,
+): SessionHistoryMessage {
+  const content =
+    typeof message.content === "string"
+      ? truncateHistoryText(message.content, CODEX_HISTORY_MAX_TEXT_CHARS)
+      : message.content.map((item) => {
+          const next = { ...item };
+          if (typeof next.text === "string") {
+            next.text = truncateHistoryText(
+              next.text,
+              CODEX_HISTORY_MAX_TEXT_CHARS,
+            );
+          }
+          if (typeof next.thinking === "string") {
+            next.thinking = truncateHistoryText(
+              next.thinking,
+              CODEX_HISTORY_MAX_TEXT_CHARS,
+            );
+          }
+          if (
+            next.input &&
+            serializedByteLength(next.input) > CODEX_HISTORY_MAX_TEXT_CHARS
+          ) {
+            next.input = {
+              truncated: true,
+              preview: truncateHistoryText(
+                JSON.stringify(next.input),
+                CODEX_HISTORY_MAX_TEXT_CHARS,
+              ),
+            };
+          }
+          return next;
+        });
+  let imageBytes = 0;
+  const imageBase64 = message.imageBase64?.filter((image) => {
+    imageBytes += Buffer.byteLength(image.data, "utf-8");
+    return imageBytes <= CODEX_HISTORY_MAX_MESSAGE_BYTES;
+  });
+  let compacted: SessionHistoryMessage = {
+    ...message,
+    content,
+    ...(imageBase64 && imageBase64.length > 0
+      ? { imageBase64 }
+      : { imageBase64: undefined }),
+  };
+  if (serializedByteLength(compacted) <= CODEX_HISTORY_MAX_MESSAGE_BYTES) {
+    return compacted;
+  }
+
+  compacted = {
+    ...compacted,
+    imageBase64: undefined,
+    content:
+      typeof compacted.content === "string"
+        ? truncateHistoryText(compacted.content, 128 * 1024)
+        : compacted.content.map((item) => ({
+            ...item,
+            ...(typeof item.text === "string"
+              ? { text: truncateHistoryText(item.text, 128 * 1024) }
+              : {}),
+            ...(typeof item.thinking === "string"
+              ? {
+                  thinking: truncateHistoryText(item.thinking, 128 * 1024),
+                }
+              : {}),
+            ...(item.input ? { input: { truncated: true } } : {}),
+          })),
+  };
+  if (serializedByteLength(compacted) <= CODEX_HISTORY_MAX_MESSAGE_BYTES) {
+    return compacted;
+  }
+
+  const base: SessionHistoryMessage = {
+    role: compacted.role,
+    content: typeof compacted.content === "string" ? compacted.content : [],
+    ...(compacted.uuid ? { uuid: compacted.uuid } : {}),
+    ...(compacted.rawItemId ? { rawItemId: compacted.rawItemId } : {}),
+    ...(compacted.timestamp ? { timestamp: compacted.timestamp } : {}),
+    ...(compacted.isMeta ? { isMeta: true } : {}),
+    ...(compacted.imageCount ? { imageCount: compacted.imageCount } : {}),
+    ...(compacted.toolUseId ? { toolUseId: compacted.toolUseId } : {}),
+    ...(compacted.toolName ? { toolName: compacted.toolName } : {}),
+  };
+  if (!Array.isArray(compacted.content)) return base;
+
+  const boundedContent: SessionHistoryContentItem[] = [];
+  let totalBytes = serializedByteLength(base);
+  for (const item of compacted.content) {
+    const itemBytes = serializedByteLength(item) + 1;
+    if (totalBytes + itemBytes > CODEX_HISTORY_MAX_MESSAGE_BYTES) break;
+    boundedContent.push(item);
+    totalBytes += itemBytes;
+  }
+  return {
+    ...base,
+    content:
+      boundedContent.length > 0
+        ? boundedContent
+        : [{ type: "text", text: "[older content omitted while restoring]" }],
+  };
+}
+
+export function boundCodexSessionHistory(
+  history: SessionHistoryMessage[],
+): SessionHistoryMessage[] {
+  const tail: SessionHistoryMessage[] = [];
+  let totalBytes = 0;
+  for (let index = history.length - 1; index >= 0; index--) {
+    const message = compactCodexHistoryMessage(history[index]);
+    const messageBytes = serializedByteLength(message);
+    if (
+      tail.length >= CODEX_HISTORY_MAX_MESSAGES ||
+      (tail.length > 0 && totalBytes + messageBytes > CODEX_HISTORY_MAX_BYTES)
+    ) {
+      break;
+    }
+    tail.push(message);
+    totalBytes += messageBytes;
+  }
+  return tail.reverse();
+}
+
+interface IncrementalCodexHistoryBudget {
+  bytesByMessage: number[];
+  totalBytes: number;
+}
+
+function compactAndBoundCodexHistoryInPlace(
+  messages: SessionHistoryMessage[],
+  budget: IncrementalCodexHistoryBudget,
+): void {
+  while (budget.bytesByMessage.length > messages.length) {
+    budget.totalBytes -= budget.bytesByMessage.pop() ?? 0;
+  }
+  for (
+    let index = budget.bytesByMessage.length;
+    index < messages.length;
+    index++
+  ) {
+    const compacted = compactCodexHistoryMessage(messages[index]);
+    messages[index] = compacted;
+    const messageBytes = serializedByteLength(compacted);
+    budget.bytesByMessage.push(messageBytes);
+    budget.totalBytes += messageBytes;
+  }
+
+  let dropCount = 0;
+  while (
+    messages.length - dropCount > CODEX_HISTORY_MAX_MESSAGES ||
+    (messages.length - dropCount > 1 &&
+      budget.totalBytes > CODEX_HISTORY_MAX_BYTES)
+  ) {
+    budget.totalBytes -= budget.bytesByMessage[dropCount] ?? 0;
+    dropCount += 1;
+  }
+  if (dropCount > 0) {
+    messages.splice(0, dropCount);
+    budget.bytesByMessage.splice(0, dropCount);
+  }
 }
 
 export function codexUserTurnUuid(ordinal: number): string {
@@ -2135,10 +2479,12 @@ export function codexThreadToSessionHistory(
         }
 
         case "reasoning": {
-          const summary = arrayValue(item.summary)
-            .filter((value): value is string => typeof value === "string");
-          const content = arrayValue(item.content)
-            .filter((value): value is string => typeof value === "string");
+          const summary = arrayValue(item.summary).filter(
+            (value): value is string => typeof value === "string",
+          );
+          const content = arrayValue(item.content).filter(
+            (value): value is string => typeof value === "string",
+          );
           appendCodexThinkingMessage(
             messages,
             [...summary, ...content].join("\n"),
@@ -2195,7 +2541,9 @@ export function codexThreadToSessionHistory(
             ...(typeof item.status === "string" ? { status: item.status } : {}),
           });
           if (item.result != null || item.error != null) {
-            const normalized = normalizeCodexMcpResult(item.result ?? item.error);
+            const normalized = normalizeCodexMcpResult(
+              item.result ?? item.error,
+            );
             appendToolResultMessage(
               messages,
               itemId,
@@ -2328,14 +2676,14 @@ function appendTextMessage(
 
   const last = messages.at(-1);
   if (
-    last
-    && last.role === role
-    && Array.isArray(last.content)
-    && last.content.length === 1
-    && last.content[0].type === "text"
-    && typeof last.content[0].text === "string"
-    && last.content[0].text.trim() === normalized
-    && (!uuid || last.uuid === uuid)
+    last &&
+    last.role === role &&
+    Array.isArray(last.content) &&
+    last.content.length === 1 &&
+    last.content[0].type === "text" &&
+    typeof last.content[0].text === "string" &&
+    last.content[0].text.trim() === normalized &&
+    (!uuid || last.uuid === uuid)
   ) {
     return false;
   }
@@ -2350,8 +2698,9 @@ function appendTextMessage(
 }
 
 function countCodexUserTurns(messages: SessionHistoryMessage[]): number {
-  return messages.filter((message) => message.role === "user" && !message.isMeta)
-    .length;
+  return messages.filter(
+    (message) => message.role === "user" && !message.isMeta,
+  ).length;
 }
 
 function applyCodexThreadRollback(
@@ -2392,7 +2741,8 @@ function appendImageGenerationResult(
     return;
   }
 
-  const status = typeof payload.status === "string" ? payload.status : undefined;
+  const status =
+    typeof payload.status === "string" ? payload.status : undefined;
   const revisedPrompt =
     typeof payload.revised_prompt === "string"
       ? payload.revised_prompt
@@ -2405,7 +2755,8 @@ function appendImageGenerationResult(
       : typeof payload.savedPath === "string"
         ? payload.savedPath
         : undefined;
-  const result = typeof payload.result === "string" ? payload.result : undefined;
+  const result =
+    typeof payload.result === "string" ? payload.result : undefined;
   const base64Image =
     !savedPath && result
       ? { data: stripImageDataUrlPrefix(result), mimeType: "image/png" }
@@ -2470,13 +2821,13 @@ function appendToolUseMessage(
 
   const last = messages.at(-1);
   if (
-    last
-    && last.role === "assistant"
-    && Array.isArray(last.content)
-    && last.content.length === 1
-    && last.content[0].type === "tool_use"
-    && last.content[0].id === id
-    && last.content[0].name === normalizedName
+    last &&
+    last.role === "assistant" &&
+    Array.isArray(last.content) &&
+    last.content.length === 1 &&
+    last.content[0].type === "tool_use" &&
+    last.content[0].id === id &&
+    last.content[0].name === normalizedName
   ) {
     return;
   }
@@ -2601,18 +2952,20 @@ function normalizeCodexMcpResult(result: unknown): {
 function isCodexInjectedUserContext(text: string): boolean {
   const normalized = text.trimStart();
   return (
-    normalized.startsWith("# AGENTS.md instructions for ")
-    || normalized.startsWith("<environment_context>")
-    || normalized.startsWith("<permissions instructions>")
-    || normalized.startsWith("<collaboration_mode>")
-    || normalized.startsWith("<personality_spec>")
-    || normalized.startsWith("<skills_instructions>")
-    || normalized.startsWith("<plugins_instructions>")
-    || normalized.startsWith("<skill>")
+    normalized.startsWith("# AGENTS.md instructions for ") ||
+    normalized.startsWith("<environment_context>") ||
+    normalized.startsWith("<permissions instructions>") ||
+    normalized.startsWith("<collaboration_mode>") ||
+    normalized.startsWith("<personality_spec>") ||
+    normalized.startsWith("<skills_instructions>") ||
+    normalized.startsWith("<plugins_instructions>") ||
+    normalized.startsWith("<skill>")
   );
 }
 
-function getCodexSearchInput(payload: Record<string, unknown>): Record<string, unknown> {
+function getCodexSearchInput(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
   const action = asObject(payload.action);
   const input: Record<string, unknown> = {};
   if (typeof action?.query === "string") {
@@ -2688,26 +3041,71 @@ async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
   return null;
 }
 
-async function findCodexSessionJsonlPath(threadId: string): Promise<string | null> {
+async function findCodexSessionJsonlPath(
+  threadId: string,
+): Promise<string | null> {
   const files = await listCodexSessionFiles();
-  for (const filePath of files) {
-    const fallbackSessionId = basename(filePath, ".jsonl");
-    if (
-      fallbackSessionId === threadId ||
-      fallbackSessionId.endsWith(`-${threadId}`)
-    ) {
+  const exactFilenameMatch = files.find(
+    (filePath) => basename(filePath, ".jsonl") === threadId,
+  );
+  if (exactFilenameMatch) return exactFilenameMatch;
+
+  const rolloutFilenameMatches = files.filter((filePath) =>
+    basename(filePath, ".jsonl").endsWith(`-${threadId}`),
+  );
+  let filenameMatchWithoutMetadata: string | null = null;
+  for (const filePath of rolloutFilenameMatches) {
+    const metadataThreadId = await readCodexSessionMetaThreadId(filePath);
+    if (metadataThreadId === threadId) {
       return filePath;
     }
-    let raw: string;
+    if (metadataThreadId === null && filenameMatchWithoutMetadata === null) {
+      filenameMatchWithoutMetadata = filePath;
+    }
+  }
+  if (filenameMatchWithoutMetadata) return filenameMatchWithoutMetadata;
+
+  const filenameMatches = new Set(rolloutFilenameMatches);
+  for (const filePath of files) {
+    if (filenameMatches.has(filePath)) continue;
+    if ((await readCodexSessionMetaThreadId(filePath)) === threadId) {
+      return filePath;
+    }
+  }
+  return null;
+}
+
+const CODEX_SESSION_META_SCAN_MAX_BYTES = 64 * 1024;
+
+async function readCodexSessionMetaThreadId(
+  filePath: string,
+): Promise<string | null> {
+  let handle;
+  try {
+    handle = await open(filePath, "r");
+    const buffer = Buffer.alloc(CODEX_SESSION_META_SCAN_MAX_BYTES);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    let head = buffer.toString("utf-8", 0, bytesRead);
+    if (bytesRead === buffer.length && !head.endsWith("\n")) {
+      const finalNewline = head.lastIndexOf("\n");
+      head = finalNewline >= 0 ? head.slice(0, finalNewline) : "";
+    }
+    for (const line of head.split("\n")) {
+      if (!line.trim()) continue;
+      let entry: Record<string, unknown>;
     try {
-      raw = await readFile(filePath, "utf-8");
+        entry = JSON.parse(line) as Record<string, unknown>;
     } catch {
       continue;
     }
-    const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
-    if (parsed?.threadId === threadId) {
-      return filePath;
+      if (entry.type !== "session_meta") continue;
+      const payload = asObject(entry.payload);
+      return typeof payload?.id === "string" ? payload.id : null;
     }
+  } catch {
+    return null;
+  } finally {
+    await handle?.close().catch(() => {});
   }
   return null;
 }
@@ -2747,14 +3145,16 @@ export async function getSessionHistory(
 
     // Skip context compaction and transcript-only messages (not real user input)
     if (type === "user") {
-      if (entry.isCompactSummary === true || entry.isVisibleInTranscriptOnly === true) {
+      if (
+        entry.isCompactSummary === true ||
+        entry.isVisibleInTranscriptOnly === true
+      ) {
         continue;
       }
     }
 
     const message = entry.message as
-      | { role: string; content: unknown[] | string }
-      | undefined;
+      { role: string; content: unknown[] | string } | undefined;
     if (!message?.content) continue;
 
     const role = message.role as "user" | "assistant";
@@ -2831,17 +3231,17 @@ export interface ExtractedImage {
   mimeType: string;
 }
 
-interface CodexMessageImageIndex {
+interface CodexMessageImagesCacheEntry {
   jsonlPath: string;
   size: number;
   mtimeMs: number;
-  imagesByUuid: Map<string, ExtractedImage[]>;
+  images: ExtractedImage[];
 }
 
-const CODEX_IMAGE_INDEX_CACHE_LIMIT = 8;
-const codexMessageImageIndexCache = new Map<
+const CODEX_MESSAGE_IMAGE_CACHE_LIMIT = 64;
+const codexMessageImageCache = new Map<
   string,
-  Promise<CodexMessageImageIndex | null>
+  Promise<CodexMessageImagesCacheEntry | null>
 >();
 
 interface ClaudeMessageImageIndex {
@@ -2984,7 +3384,8 @@ async function buildClaudeMessageImageIndex(
     if (entry.type !== "user") continue;
     if (typeof entry.uuid !== "string") continue;
 
-    const message = entry.message as { content: unknown[] | string } | undefined;
+    const message = entry.message as
+      { content: unknown[] | string } | undefined;
     if (!message?.content || !Array.isArray(message.content)) continue;
 
     const images: ExtractedImage[] = [];
@@ -3023,11 +3424,25 @@ async function buildClaudeMessageImageIndex(
 }
 
 async function extractCodexMessageImages(
-  sessionId: string,
+  threadId: string,
   messageUuid: string,
 ): Promise<ExtractedImage[]> {
-  const index = await getCodexMessageImageIndex(sessionId);
-  return index?.imagesByUuid.get(messageUuid) ?? [];
+  const cacheKey = `${threadId}\u0000${messageUuid}`;
+  const cached = codexMessageImageCache.get(cacheKey);
+  if (cached) {
+    const entry = await cached;
+    if (entry && (await isFreshCodexMessageImagesEntry(entry))) {
+      codexMessageImageCache.delete(cacheKey);
+      codexMessageImageCache.set(cacheKey, cached);
+      return entry.images;
+    }
+    codexMessageImageCache.delete(cacheKey);
+  }
+
+  const promise = buildCodexMessageImagesEntry(threadId, messageUuid);
+  codexMessageImageCache.set(cacheKey, promise);
+  trimCodexMessageImageCache();
+  return (await promise)?.images ?? [];
 }
 
 function isCodexMessageImageUuid(messageUuid: string): boolean {
@@ -3037,103 +3452,120 @@ function isCodexMessageImageUuid(messageUuid: string): boolean {
   );
 }
 
-async function getCodexMessageImageIndex(
-  threadId: string,
-): Promise<CodexMessageImageIndex | null> {
-  const cached = codexMessageImageIndexCache.get(threadId);
-  if (cached) {
-    const index = await cached;
-    if (index && (await isFreshCodexMessageImageIndex(index))) {
-      return index;
-    }
-    codexMessageImageIndexCache.delete(threadId);
-  }
-
-  const promise = buildCodexMessageImageIndex(threadId);
-  codexMessageImageIndexCache.set(threadId, promise);
-  trimCodexMessageImageIndexCache();
-  return promise;
-}
-
-async function isFreshCodexMessageImageIndex(
-  index: CodexMessageImageIndex,
+async function isFreshCodexMessageImagesEntry(
+  entry: CodexMessageImagesCacheEntry,
 ): Promise<boolean> {
   try {
-    const current = await stat(index.jsonlPath);
-    return current.size === index.size && current.mtimeMs === index.mtimeMs;
+    const current = await stat(entry.jsonlPath);
+    return current.size === entry.size && current.mtimeMs === entry.mtimeMs;
   } catch {
     return false;
   }
 }
 
-function trimCodexMessageImageIndexCache() {
-  while (codexMessageImageIndexCache.size > CODEX_IMAGE_INDEX_CACHE_LIMIT) {
-    const oldest = codexMessageImageIndexCache.keys().next().value;
+function trimCodexMessageImageCache(): void {
+  while (codexMessageImageCache.size > CODEX_MESSAGE_IMAGE_CACHE_LIMIT) {
+    const oldest = codexMessageImageCache.keys().next().value;
     if (!oldest) return;
-    codexMessageImageIndexCache.delete(oldest);
+    codexMessageImageCache.delete(oldest);
   }
 }
 
-async function buildCodexMessageImageIndex(
+async function buildCodexMessageImagesEntry(
   threadId: string,
-): Promise<CodexMessageImageIndex | null> {
+  messageUuid: string,
+): Promise<CodexMessageImagesCacheEntry | null> {
   const jsonlPath = await findCodexSessionJsonlPath(threadId);
   if (!jsonlPath) return null;
 
-  let fileStat;
-  let raw: string;
   try {
-    fileStat = await stat(jsonlPath);
-    raw = await readFile(jsonlPath, "utf-8");
-  } catch {
-    return null;
-  }
-
-  const imagesByUuid = await collectCodexMessageImages(raw.split("\n"));
+    const fileStat = await stat(jsonlPath);
+    const images = await scanCodexMessageImages(jsonlPath, messageUuid);
   return {
     jsonlPath,
     size: fileStat.size,
     mtimeMs: fileStat.mtimeMs,
-    imagesByUuid,
+      images,
   };
+  } catch {
+    return null;
+  }
 }
 
-async function collectCodexMessageImages(
-  lines: string[],
-): Promise<Map<string, ExtractedImage[]>> {
-  const imagesByUuid = new Map<string, ExtractedImage[]>();
-  const responseItemImagesByOrdinal =
-    collectCodexUserResponseItemImagesByOrdinal(lines);
-  let ordinal = 0;
+async function scanCodexMessageImages(
+  jsonlPath: string,
+  messageUuid: string,
+): Promise<ExtractedImage[]> {
+  const lineMatch = /^codex-line-(\d+)$/.exec(messageUuid);
+  const ordinalMatch = /^codex:user-turn:(\d+)$/.exec(messageUuid);
+  const targetLineIndex = lineMatch ? Number(lineMatch[1]) : undefined;
+  const targetOrdinal = ordinalMatch ? Number(ordinalMatch[1]) : undefined;
+  if (
+    (targetLineIndex === undefined || !Number.isSafeInteger(targetLineIndex)) &&
+    (targetOrdinal === undefined ||
+      !Number.isSafeInteger(targetOrdinal) ||
+      targetOrdinal < 1)
+  ) {
+    return [];
+  }
 
-  for (const [lineIndex, line] of lines.entries()) {
-    if (!line.trim()) continue;
+  let lineIndex = 0;
+  let eventOrdinal = 0;
+  let responseOrdinal = 0;
+  let eventTargetSeen = false;
+  let responseFallback: ExtractedImage[] | undefined;
+  const lines = createInterface({
+    input: createReadStream(jsonlPath, { encoding: "utf-8" }),
+    crlfDelay: Infinity,
+  });
 
+  try {
+    for await (const line of lines) {
+      const currentLineIndex = lineIndex++;
+      if (!line.trim()) continue;
     let entry: Record<string, unknown>;
     try {
       entry = JSON.parse(line) as Record<string, unknown>;
     } catch {
       continue;
     }
-
-    if (entry.type !== "event_msg") continue;
     const payload = asObject(entry.payload);
-    if (!payload || payload.type !== "user_message") continue;
+      if (!payload) continue;
 
-    const lineImages = await extractCodexUserMessagePayloadImages(payload);
-    imagesByUuid.set(`codex-line-${lineIndex}`, lineImages);
+      if (
+        entry.type === "response_item" &&
+        payload.type === "message" &&
+        payload.role === "user" &&
+        codexUserResponseItemHasDisplayContent(payload)
+      ) {
+        responseOrdinal += 1;
+        if (responseOrdinal === targetOrdinal) {
+          const images = extractCodexUserResponseItemImages(payload);
+          if (images.length > 0) responseFallback = images;
+          if (eventTargetSeen) return responseFallback ?? [];
+        }
+        continue;
+      }
 
+      if (entry.type !== "event_msg" || payload.type !== "user_message") {
+        continue;
+      }
+      if (currentLineIndex === targetLineIndex) {
+        return extractCodexUserMessagePayloadImages(payload);
+      }
     if (!codexUserMessagePayloadHasDisplayContent(payload)) continue;
-    ordinal += 1;
-    imagesByUuid.set(
-      `codex:user-turn:${ordinal}`,
-      lineImages.length > 0
-        ? lineImages
-        : (responseItemImagesByOrdinal.get(ordinal) ?? []),
-    );
+      eventOrdinal += 1;
+      if (eventOrdinal !== targetOrdinal) continue;
+      eventTargetSeen = true;
+      const images = await extractCodexUserMessagePayloadImages(payload);
+      if (images.length > 0) return images;
+      if (responseFallback) return responseFallback;
+    }
+  } finally {
+    lines.close();
   }
 
-  return imagesByUuid;
+  return responseFallback ?? [];
 }
 
 async function extractCodexUserMessagePayloadImages(
@@ -3178,40 +3610,6 @@ async function extractCodexUserMessagePayloadImages(
     }
   }
   return images;
-}
-
-function collectCodexUserResponseItemImagesByOrdinal(
-  lines: string[],
-): Map<number, ExtractedImage[]> {
-  const imagesByOrdinal = new Map<number, ExtractedImage[]>();
-  let ordinal = 0;
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    let entry: Record<string, unknown>;
-    try {
-      entry = JSON.parse(line) as Record<string, unknown>;
-    } catch {
-      continue;
-    }
-    if (entry.type !== "response_item") continue;
-    const payload = asObject(entry.payload);
-    if (
-      !payload ||
-      payload.type !== "message" ||
-      payload.role !== "user" ||
-      !codexUserResponseItemHasDisplayContent(payload)
-    ) {
-      continue;
-    }
-    ordinal += 1;
-    const images = extractCodexUserResponseItemImages(payload);
-    if (images.length > 0) {
-      imagesByOrdinal.set(ordinal, images);
-    }
-  }
-
-  return imagesByOrdinal;
 }
 
 function codexUserResponseItemHasDisplayContent(
@@ -3313,18 +3711,22 @@ export async function getCodexSessionHistory(
   const jsonlPath = await findCodexSessionJsonlPath(threadId);
   if (!jsonlPath) return [];
 
-  let raw: string;
-  try {
-    raw = await readFile(jsonlPath, "utf-8");
-  } catch {
-    return [];
-  }
-
   const messages: SessionHistoryMessage[] = [];
-  const lines = raw.split("\n");
+  const historyBudget: IncrementalCodexHistoryBudget = {
+    bytesByMessage: [],
+    totalBytes: 0,
+  };
   let userTurnOrdinal = 0;
+  let index = 0;
+  const lines = createInterface({
+    input: createReadStream(jsonlPath, { encoding: "utf-8" }),
+    crlfDelay: Infinity,
+  });
 
-  for (const [index, line] of lines.entries()) {
+  try {
+    for await (const line of lines) {
+      try {
+        const entryIndex = index++;
     if (!line.trim()) continue;
     let entry: Record<string, unknown>;
     try {
@@ -3342,21 +3744,29 @@ export async function getCodexSessionHistory(
       if (payload.type === "thread_rolled_back") {
         const rawNumTurns = payload.num_turns ?? payload.numTurns;
         const numTurns =
-          typeof rawNumTurns === "number" ? rawNumTurns : Number(rawNumTurns);
+              typeof rawNumTurns === "number"
+                ? rawNumTurns
+                : Number(rawNumTurns);
         applyCodexThreadRollback(messages, numTurns);
-        userTurnOrdinal = countCodexUserTurns(messages);
+            if (Number.isFinite(numTurns) && numTurns > 0) {
+              userTurnOrdinal = Math.max(0, userTurnOrdinal - numTurns);
+            }
         continue;
       }
 
       if (payload.type === "user_message") {
-        const rawMessage = typeof payload.message === "string" ? payload.message : "";
-        const images = Array.isArray(payload.images) ? payload.images.length : 0;
+            const rawMessage =
+              typeof payload.message === "string" ? payload.message : "";
+            const images = Array.isArray(payload.images)
+              ? payload.images.length
+              : 0;
         const localImages = Array.isArray(payload.local_images)
           ? payload.local_images.length
           : 0;
         const imageCount = images + localImages;
 
-        const text = rawMessage.trim().length > 0
+            const text =
+              rawMessage.trim().length > 0
           ? rawMessage
           : imageCount > 0
             ? `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`
@@ -3374,28 +3784,38 @@ export async function getCodexSessionHistory(
             });
           }
         } else {
-          if (appendTextMessage(
+              if (
+                appendTextMessage(
             messages,
             "user",
             text,
             entryTimestamp,
             codexUserTurnUuid(userTurnOrdinal + 1),
-          )) {
+                )
+              ) {
             userTurnOrdinal += 1;
           }
         }
         continue;
       }
 
-      if (payload.type === "agent_message" && typeof payload.message === "string") {
-        appendTextMessage(messages, "assistant", payload.message, entryTimestamp);
+          if (
+            payload.type === "agent_message" &&
+            typeof payload.message === "string"
+          ) {
+            appendTextMessage(
+              messages,
+              "assistant",
+              payload.message,
+              entryTimestamp,
+            );
       }
 
       if (payload.type === "image_generation_end") {
         appendImageGenerationResult(
           messages,
           payload,
-          `image-generation-${index}`,
+              `image-generation-${entryIndex}`,
           entryTimestamp,
         );
       }
@@ -3405,9 +3825,11 @@ export async function getCodexSessionHistory(
         const id =
           typeof payload.call_id === "string"
             ? payload.call_id
-            : `mcp-result-${index}`;
+                : `mcp-result-${entryIndex}`;
         const server =
-          typeof invocation?.server === "string" ? invocation.server : "mcp";
+              typeof invocation?.server === "string"
+                ? invocation.server
+                : "mcp";
         const tool =
           typeof invocation?.tool === "string" ? invocation.tool : "tool";
         const normalized = normalizeCodexMcpResult(payload.result);
@@ -3436,7 +3858,11 @@ export async function getCodexSessionHistory(
 
         if (payload.role === "assistant") {
           const text = content
-            .filter((item) => item.type === "output_text" && typeof item.text === "string")
+                .filter(
+                  (item) =>
+                    item.type === "output_text" &&
+                    typeof item.text === "string",
+                )
             .map((item) => item.text as string)
             .join("\n");
           appendTextMessage(messages, "assistant", text, entryTimestamp);
@@ -3448,17 +3874,22 @@ export async function getCodexSessionHistory(
             continue;
           }
           const text = content
-            .filter((item) => item.type === "input_text" && typeof item.text === "string")
+                .filter(
+                  (item) =>
+                    item.type === "input_text" && typeof item.text === "string",
+                )
             .map((item) => item.text as string)
             .join("\n");
           if (!isCodexInjectedUserContext(text)) {
-            if (appendTextMessage(
+                if (
+                  appendTextMessage(
               messages,
               "user",
               text,
               entryTimestamp,
               codexUserTurnUuid(userTurnOrdinal + 1),
-            )) {
+                  )
+                ) {
               userTurnOrdinal += 1;
             }
           }
@@ -3467,8 +3898,12 @@ export async function getCodexSessionHistory(
       }
 
       if (payload.type === "function_call") {
-        const id = typeof payload.call_id === "string" ? payload.call_id : `tool-${index}`;
-        const rawName = typeof payload.name === "string" ? payload.name : "tool";
+            const id =
+              typeof payload.call_id === "string"
+                ? payload.call_id
+                : `tool-${entryIndex}`;
+            const rawName =
+              typeof payload.name === "string" ? payload.name : "tool";
         appendToolUseMessage(
           messages,
           id,
@@ -3479,8 +3914,12 @@ export async function getCodexSessionHistory(
       }
 
       if (payload.type === "custom_tool_call") {
-        const id = typeof payload.call_id === "string" ? payload.call_id : `tool-${index}`;
-        const rawName = typeof payload.name === "string" ? payload.name : "custom_tool";
+            const id =
+              typeof payload.call_id === "string"
+                ? payload.call_id
+                : `tool-${entryIndex}`;
+            const rawName =
+              typeof payload.name === "string" ? payload.name : "custom_tool";
         appendToolUseMessage(
           messages,
           id,
@@ -3493,7 +3932,9 @@ export async function getCodexSessionHistory(
       if (payload.type === "web_search_call") {
         appendToolUseMessage(
           messages,
-          typeof payload.call_id === "string" ? payload.call_id : `web-search-${index}`,
+              typeof payload.call_id === "string"
+                ? payload.call_id
+                : `web-search-${entryIndex}`,
           "WebSearch",
           getCodexSearchInput(payload),
         );
@@ -3504,7 +3945,7 @@ export async function getCodexSessionHistory(
         appendImageGenerationResult(
           messages,
           payload,
-          `image-generation-${index}`,
+              `image-generation-${entryIndex}`,
           entryTimestamp,
         );
         continue;
@@ -3512,12 +3953,14 @@ export async function getCodexSessionHistory(
 
       // Backward/forward compatibility with older/newer Codex JSONL schemas.
       if (payload.type === "command_execution") {
-        const id = typeof payload.id === "string"
+            const id =
+              typeof payload.id === "string"
           ? payload.id
           : typeof payload.call_id === "string"
             ? payload.call_id
-            : `cmd-${index}`;
-        const input = typeof payload.command === "string"
+                  : `cmd-${entryIndex}`;
+            const input =
+              typeof payload.command === "string"
           ? { command: payload.command }
           : parseObjectLike(payload);
         appendToolUseMessage(messages, id, "Bash", input);
@@ -3525,13 +3968,16 @@ export async function getCodexSessionHistory(
       }
 
       if (payload.type === "mcp_tool_call") {
-        const id = typeof payload.id === "string"
+            const id =
+              typeof payload.id === "string"
           ? payload.id
           : typeof payload.call_id === "string"
             ? payload.call_id
-            : `mcp-${index}`;
-        const server = typeof payload.server === "string" ? payload.server : "unknown";
-        const tool = typeof payload.tool === "string" ? payload.tool : "tool";
+                  : `mcp-${entryIndex}`;
+            const server =
+              typeof payload.server === "string" ? payload.server : "unknown";
+            const tool =
+              typeof payload.tool === "string" ? payload.tool : "tool";
         appendToolUseMessage(
           messages,
           id,
@@ -3542,11 +3988,12 @@ export async function getCodexSessionHistory(
       }
 
       if (payload.type === "file_change") {
-        const id = typeof payload.id === "string"
+            const id =
+              typeof payload.id === "string"
           ? payload.id
           : typeof payload.call_id === "string"
             ? payload.call_id
-            : `file-change-${index}`;
+                  : `file-change-${entryIndex}`;
         const input = Array.isArray(payload.changes)
           ? { changes: payload.changes as unknown[] }
           : parseObjectLike(payload.changes);
@@ -3555,17 +4002,26 @@ export async function getCodexSessionHistory(
       }
 
       if (payload.type === "web_search") {
-        const id = typeof payload.id === "string"
+            const id =
+              typeof payload.id === "string"
           ? payload.id
           : typeof payload.call_id === "string"
             ? payload.call_id
-            : `web-search-${index}`;
-        const input = typeof payload.query === "string"
+                  : `web-search-${entryIndex}`;
+            const input =
+              typeof payload.query === "string"
           ? { query: payload.query }
           : getCodexSearchInput(payload);
         appendToolUseMessage(messages, id, "WebSearch", input);
       }
     }
+      } finally {
+        compactAndBoundCodexHistoryInPlace(messages, historyBudget);
+      }
+    }
+  } catch {
+    // A partially written rollout can disappear or be replaced during a
+    // restart. Return the bounded history parsed so far.
   }
 
   return messages;
@@ -3578,10 +4034,24 @@ export async function getCodexSessionHistory(
  */
 export async function findSessionsByClaudeIds(
   ids: Set<string>,
-): Promise<Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>> {
+): Promise<
+  Map<
+    string,
+    Pick<
+      SessionIndexEntry,
+      "summary" | "firstPrompt" | "lastPrompt" | "lastResponse" | "projectPath"
+    >
+  >
+> {
   if (ids.size === 0) return new Map();
 
-  const result = new Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>();
+  const result = new Map<
+    string,
+    Pick<
+      SessionIndexEntry,
+      "summary" | "firstPrompt" | "lastPrompt" | "lastResponse" | "projectPath"
+    >
+  >();
   const remaining = new Set(ids);
 
   const projectsDir = join(homedir(), ".claude", "projects");
@@ -3621,6 +4091,7 @@ export async function findSessionsByClaudeIds(
         summary: entry.summary as string | undefined,
         firstPrompt: (entry.firstPrompt as string) ?? "",
         lastPrompt: entry.lastPrompt as string | undefined,
+        lastResponse: entry.lastResponse as string | undefined,
         projectPath: normalizeWorktreePath((entry.projectPath as string) ?? ""),
       });
       remaining.delete(sid);

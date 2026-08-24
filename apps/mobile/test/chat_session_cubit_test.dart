@@ -157,6 +157,7 @@ void main() {
       expect(cubit.state.entries, isEmpty);
       expect(cubit.state.approval, isA<ApprovalNone>());
       expect(cubit.state.totalCost, 0.0);
+      expect(cubit.state.bulkLoading, isTrue);
     });
 
     test('status message updates state.status', () async {
@@ -171,6 +172,7 @@ void main() {
       await Future.microtask(() {});
 
       expect(cubit.state.status, ProcessStatus.running);
+      expect(cubit.state.bulkLoading, isFalse);
     });
 
     test(
@@ -942,22 +944,19 @@ void main() {
       },
     );
 
-    test('stale history keeps live summary tool results hidden', () async {
+    test('history replace rebuilds summarized tool visibility', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);
 
       mockBridge.emitMessage(
-        const HistoryMessage(
-          messages: [
-            UserInputMessage(
-              text: 'Previous turn',
-              userMessageUuid: 'previous-turn',
-            ),
-          ],
+        const ToolUseSummaryMessage(
+          summary: 'Old summary',
+          precedingToolUseIds: ['old-tool'],
         ),
         sessionId: 's1',
       );
       await pumpEventQueue();
+      expect(cubit.state.hiddenToolUseIds, {'old-tool'});
 
       mockBridge.emitMessage(
         const UserInputMessage(
@@ -966,26 +965,19 @@ void main() {
         ),
         sessionId: 's1',
       );
-      mockBridge.emitMessage(
-        const ToolResultMessage(toolUseId: 'live-tool', content: 'live result'),
-        sessionId: 's1',
-      );
-      mockBridge.emitMessage(
-        const ToolUseSummaryMessage(
-          summary: 'Live summary',
-          precedingToolUseIds: ['live-tool'],
-        ),
-        sessionId: 's1',
-      );
       await pumpEventQueue();
-      expect(cubit.state.hiddenToolUseIds, {'live-tool'});
 
       mockBridge.emitMessage(
         const HistoryMessage(
           messages: [
             UserInputMessage(
-              text: 'Previous turn',
-              userMessageUuid: 'previous-turn',
+              text: 'Current turn',
+              userMessageUuid: 'current-turn',
+            ),
+            ToolResultMessage(toolUseId: 'new-tool', content: 'new result'),
+            ToolUseSummaryMessage(
+              summary: 'Restored summary',
+              precedingToolUseIds: ['new-tool'],
             ),
           ],
         ),
@@ -993,11 +985,7 @@ void main() {
       );
       await pumpEventQueue();
 
-      final messages = cubit.state.entries.whereType<ServerChatEntry>().map(
-        (entry) => entry.message,
-      );
-      expect(messages.whereType<ToolUseSummaryMessage>(), hasLength(1));
-      expect(cubit.state.hiddenToolUseIds, {'live-tool'});
+      expect(cubit.state.hiddenToolUseIds, {'new-tool'});
     });
 
     test(
@@ -1988,7 +1976,9 @@ void main() {
       expect(cubit.state.status, ProcessStatus.idle);
     });
 
-    test('restores cached runtime messages before requesting history', () {
+    test(
+      'restores cached runtime messages before requesting history',
+      () async {
       mockBridge.cachedMessagesBySession['s1'] = [
         const StatusMessage(status: ProcessStatus.running),
         AssistantServerMessage(
@@ -2006,6 +1996,7 @@ void main() {
 
       expect(mockBridge.requestSessionHistoryCallCount, 1);
       expect(cubit.state.status, ProcessStatus.running);
+        expect(cubit.state.bulkLoading, isTrue);
       expect(cubit.state.entries, hasLength(1));
       final entry = cubit.state.entries.single as ServerChatEntry;
       final msg = entry.message as AssistantServerMessage;
@@ -2013,7 +2004,16 @@ void main() {
         (msg.message.content.single as TextContent).text,
         'Cached response',
       );
-    });
+
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.running),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.bulkLoading, isFalse);
+      },
+    );
 
     test('restores cached queue state without visible ack entries', () {
       mockBridge.cachedMessagesBySession['s1'] = [
@@ -2104,6 +2104,33 @@ void main() {
     );
 
     test(
+      'cached running status keeps retrying until live history status arrives',
+      () async {
+        mockBridge.cachedMessagesBySession['s1'] = [
+          const StatusMessage(status: ProcessStatus.running),
+        ];
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+
+        expect(cubit.state.status, ProcessStatus.running);
+        expect(cubit.state.bulkLoading, isTrue);
+        expect(mockBridge.requestSessionHistoryCallCount, 1);
+
+        await Future<void>.delayed(const Duration(milliseconds: 3100));
+
+        expect(mockBridge.requestSessionHistoryCallCount, greaterThan(1));
+        expect(cubit.state.bulkLoading, isTrue);
+
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.running),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.bulkLoading, isFalse);
+      },
+    );
+
+    test(
       'session-not-found stops history refresh and marks session unavailable',
       () async {
         final cubit = createCubit('missing-session');
@@ -2122,6 +2149,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 3100));
 
         expect(cubit.state.sessionUnavailable, isTrue);
+        expect(cubit.state.bulkLoading, isFalse);
         expect(mockBridge.requestSessionHistoryCallCount, 1);
       },
     );

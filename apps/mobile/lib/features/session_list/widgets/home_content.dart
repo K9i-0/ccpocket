@@ -206,7 +206,7 @@ class HomeContentState extends State<HomeContent> {
   bool _showSupportBanner = false;
   bool _groupRecentSessions = true;
   final _searchController = TextEditingController();
-  SessionDisplayMode _displayMode = SessionDisplayMode.first;
+  SessionDisplayMode _displayMode = SessionDisplayMode.last;
   RevenueCatService? _revenueCatService;
   VoidCallback? _catalogStateListener;
   SupportBannerService? _supportBannerService;
@@ -228,7 +228,7 @@ class HomeContentState extends State<HomeContent> {
       if (modeStr != null) {
         _displayMode = SessionDisplayMode.values.firstWhere(
           (m) => m.name == modeStr,
-          orElse: () => SessionDisplayMode.first,
+          orElse: () => SessionDisplayMode.last,
         );
       }
       _groupRecentSessions = groupRecentSessions;

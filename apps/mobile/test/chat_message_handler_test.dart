@@ -1107,6 +1107,25 @@ void main() {
       expect(update.entriesToAdd, hasLength(1));
       expect(update.toolUseIdsToHide, isEmpty);
     });
+
+    test('history restores the tool uses hidden by summaries', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            ToolResultMessage(toolUseId: 'tu-1', content: 'first'),
+            ToolResultMessage(toolUseId: 'tu-2', content: 'second'),
+            ToolUseSummaryMessage(
+              summary: 'Read two files',
+              precedingToolUseIds: ['tu-1', 'tu-2'],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.replaceEntries, isTrue);
+      expect(update.toolUseIdsToHide, {'tu-1', 'tu-2'});
+    });
   });
 
   group('PermissionRequestMessage for AskUserQuestion', () {

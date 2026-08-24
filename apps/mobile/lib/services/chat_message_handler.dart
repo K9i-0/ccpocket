@@ -586,6 +586,7 @@ class ChatMessageHandler {
     CodexSpeed? codexSpeed;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
+    final toolUseIdsToHide = <String>{};
 
     // Track last known timestamp from user messages so server entries
     // (which don't carry timestamps) inherit a realistic time instead of
@@ -731,6 +732,9 @@ class ChatMessageHandler {
           lastAskToolUseId = null;
           lastAskInput = null;
         }
+        if (m case ToolUseSummaryMessage(:final precedingToolUseIds)) {
+          toolUseIdsToHide.addAll(precedingToolUseIds);
+        }
       }
     }
 
@@ -757,6 +761,7 @@ class ChatMessageHandler {
       codexSpeed: codexSpeed,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
+      toolUseIdsToHide: toolUseIdsToHide,
     );
   }
 

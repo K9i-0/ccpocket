@@ -534,8 +534,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (!this._threadId) {
       throw new Error("No thread ID available for rename");
     }
+    await this.renameThreadById(this._threadId, name);
+  }
+
+  async renameThreadById(threadId: string, name: string): Promise<void> {
     await this.request("thread/name/set", {
-      threadId: this._threadId,
+      threadId,
       name,
     });
   }
@@ -545,8 +549,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (!this._threadId) {
       throw new Error("No thread ID available for goal lookup");
     }
+    return this.getGoalByThreadId(this._threadId);
+  }
+
+  async getGoalByThreadId(threadId: string): Promise<CodexGoal | null> {
     const response = (await this.request("thread/goal/get", {
-      threadId: this._threadId,
+      threadId,
     })) as Record<string, unknown>;
     return response.goal == null ? null : parseCodexGoal(response.goal);
   }
@@ -559,8 +567,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (!this._threadId) {
       throw new Error("No thread ID available for goal update");
     }
+    return this.setGoalByThreadId(this._threadId, update);
+  }
+
+  async setGoalByThreadId(
+    threadId: string,
+    update: { objective?: string; status?: CodexGoalStatus },
+  ): Promise<CodexGoal> {
     const response = (await this.request("thread/goal/set", {
-      threadId: this._threadId,
+      threadId,
       ...(update.objective !== undefined
         ? { objective: update.objective.trim() }
         : {}),
@@ -574,8 +589,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (!this._threadId) {
       throw new Error("No thread ID available for goal clear");
     }
+    return this.clearGoalByThreadId(this._threadId);
+  }
+
+  async clearGoalByThreadId(threadId: string): Promise<boolean> {
     const response = (await this.request("thread/goal/clear", {
-      threadId: this._threadId,
+      threadId,
     })) as Record<string, unknown>;
     if (typeof response.cleared !== "boolean") {
       throw new Error("thread/goal/clear returned an invalid response");
@@ -636,16 +655,24 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (!this._threadId) {
       throw new Error("No thread ID available for fork");
     }
+    return this.forkThreadById(this._threadId);
+  }
+
+  async forkThreadById(threadId: string): Promise<{
+    threadId: string;
+    thread: Record<string, unknown>;
+  }> {
     const response = (await this.request("thread/fork", {
-      threadId: this._threadId,
+      threadId,
       persistExtendedHistory: true,
     })) as Record<string, unknown>;
     const thread = response.thread as Record<string, unknown> | undefined;
-    const threadId = typeof thread?.id === "string" ? thread.id : undefined;
-    if (!thread || !threadId) {
+    const forkedThreadId =
+      typeof thread?.id === "string" ? thread.id : undefined;
+    if (!thread || !forkedThreadId) {
       throw new Error("thread/fork returned no thread id");
     }
-    return { threadId, thread };
+    return { threadId: forkedThreadId, thread };
   }
 
   async listThreads(
@@ -943,12 +970,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       skills?: Array<{ name: string; path: string }>;
       mentions?: Array<{ name: string; path: string }>;
     },
-  ): void {
+  ): boolean {
     if (!this.inputResolve) {
       console.error(
         "[codex-process] No pending input resolver for sendInputStructured",
       );
-      return;
+      return false;
     }
     const resolve = this.inputResolve;
     this.inputResolve = null;
@@ -958,6 +985,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       skills: options?.skills,
       mentions: options?.mentions,
     });
+    return true;
   }
 
   async steerInputStructured(

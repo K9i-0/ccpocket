@@ -3525,6 +3525,7 @@ class RecentSession {
   final String? summary;
   final String firstPrompt;
   final String? lastPrompt;
+  final String? lastResponse;
   final String created;
   final String modified;
   final String gitBranch;
@@ -3555,6 +3556,7 @@ class RecentSession {
     this.summary,
     required this.firstPrompt,
     this.lastPrompt,
+    this.lastResponse,
     required this.created,
     required this.modified,
     required this.gitBranch,
@@ -3607,6 +3609,7 @@ class RecentSession {
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
       lastPrompt: json['lastPrompt'] as String?,
+      lastResponse: json['lastResponse'] as String?,
       created: json['created'] as String? ?? '',
       modified: json['modified'] as String? ?? '',
       gitBranch: json['gitBranch'] as String? ?? '',
@@ -3669,6 +3672,7 @@ class RecentSession {
       summary: summary,
       firstPrompt: firstPrompt,
       lastPrompt: lastPrompt,
+      lastResponse: lastResponse,
       created: created,
       modified: modified,
       gitBranch: gitBranch,
@@ -3705,6 +3709,7 @@ class RecentSession {
       summary: summary,
       firstPrompt: firstPrompt,
       lastPrompt: lastPrompt,
+      lastResponse: lastResponse,
       created: created,
       modified: modified,
       gitBranch: gitBranch,

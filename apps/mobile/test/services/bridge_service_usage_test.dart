@@ -291,6 +291,113 @@ void main() {
       },
     );
 
+    test(
+      'requestSessionHistory coalesces requests until history arrives',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+        });
+
+        final outgoing = <ClientMessage>[];
+        final bridge = BridgeService()..onOutgoingMessage = outgoing.add;
+        final connected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        final socket = await socketReady.future;
+        await connected;
+        bridge.requestSessionHistory('s1');
+        bridge.requestSessionHistory('s1');
+
+        expect(
+          outgoing.where((message) => message.type == 'get_history'),
+          hasLength(1),
+        );
+
+        socket.add(
+          jsonEncode({
+            'type': 'history',
+            'sessionId': 's1',
+            'messages': <Map<String, dynamic>>[],
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.requestSessionHistory('s1');
+        expect(
+          outgoing.where((message) => message.type == 'get_history'),
+          hasLength(2),
+        );
+
+        socket.add(
+          jsonEncode({
+            'type': 'error',
+            'sessionId': 's1',
+            'message': 'history read failed',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.requestSessionHistory('s1');
+        expect(
+          outgoing.where(
+            (message) =>
+                message.type == 'get_history' ||
+                message.type == 'get_history_delta',
+          ),
+          hasLength(3),
+        );
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test('malformed history does not block the next retry', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+      });
+
+      final outgoing = <ClientMessage>[];
+      final bridge = BridgeService()..onOutgoingMessage = outgoing.add;
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+
+      final socket = await socketReady.future;
+      await connected;
+      bridge.requestSessionHistory('s1');
+      socket.add(
+        jsonEncode({
+          'type': 'history',
+          'sessionId': 's1',
+          'messages': 'malformed',
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      bridge.requestSessionHistory('s1');
+      expect(
+        outgoing.where((message) => message.type == 'get_history'),
+        hasLength(2),
+      );
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test('requestSessionHistory uses last complete cached sequence', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();
@@ -1982,6 +2089,82 @@ void main() {
       await server.close(force: true);
       bridge.dispose();
     });
+
+    test('keeps an unacknowledged stop durable across a socket drop', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      bridge.stopSession('session-to-stop');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      var prefs = await SharedPreferences.getInstance();
+      var raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+      expect(raw, hasLength(1));
+      expect(jsonDecode(raw!.single), {
+        'type': 'stop_session',
+        'sessionId': 'session-to-stop',
+      });
+
+      await socket.close();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      prefs = await SharedPreferences.getInstance();
+      raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+      expect(raw, hasLength(1));
+      expect(jsonDecode(raw!.single), containsPair('type', 'stop_session'));
+
+      bridge.disconnect();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'clears a durable stop only after the Bridge acknowledges it',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.stopSession('session-to-stop');
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        socket.add(
+          jsonEncode({
+            'type': 'result',
+            'subtype': 'stopped',
+            'sessionId': 'session-to-stop',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getStringList('bridge_offline_pending_messages_v1'),
+          isNull,
+        );
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
 
     test(
       'cancelOfflinePendingAction removes queued action and persistence',

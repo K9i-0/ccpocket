@@ -19,6 +19,10 @@ import {
   promptHistoryStoreFileForPort,
   PromptHistoryStore,
 } from "./prompt-history-store.js";
+import {
+  activeSessionStoreFileForPort,
+  ActiveSessionStore,
+} from "./active-session-store.js";
 import { parseAllowedDirectories } from "./path-utils.js";
 import { parseBridgePort } from "./bridge-port.js";
 import { listenForStartup } from "./server-listen.js";
@@ -87,6 +91,15 @@ export async function startServer() {
       process.env.BRIDGE_PROMPT_HISTORY_FILE,
     ),
   );
+  const activeSessionStore =
+    process.env.BRIDGE_DISABLE_ACTIVE_SESSIONS === "1"
+      ? null
+      : new ActiveSessionStore(
+          activeSessionStoreFileForPort(
+            PORT,
+            process.env.BRIDGE_ACTIVE_SESSIONS_FILE,
+          ),
+        );
   const mdns = MDNS_ENABLED ? new MdnsAdvertiser() : undefined;
 
   // Initialize stores (async)
@@ -223,6 +236,7 @@ export async function startServer() {
     firebaseAuth,
     promptHistoryBackup,
     promptHistoryStore,
+    activeSessionStore,
   });
 
   function shutdown() {

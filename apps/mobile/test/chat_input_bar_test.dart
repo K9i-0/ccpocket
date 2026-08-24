@@ -8,6 +8,7 @@ import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
+import 'package:ccpocket/widgets/composer_activity_indicator.dart';
 
 void main() {
   const nativePasteBridgeChannel = MethodChannel(
@@ -67,6 +68,7 @@ void main() {
         body: ChatInputBar(
           inputController: inputController,
           status: status,
+          activityIndicator: ComposerActivityIndicator(status: status),
           hasInputText: hasInputText,
           isInputEmpty: isInputEmpty,
           isVoiceAvailable: isVoiceAvailable,
@@ -106,6 +108,15 @@ void main() {
 
       expect(find.byKey(const ValueKey('stop_button')), findsOneWidget);
       expect(find.byKey(const ValueKey('send_button')), findsNothing);
+      final activity = find.byKey(
+        const ValueKey('composer_activity_indicator'),
+      );
+      final input = find.byKey(const ValueKey('message_input'));
+      expect(activity, findsOneWidget);
+      expect(
+        tester.getBottomLeft(activity).dy,
+        lessThanOrEqualTo(tester.getTopLeft(input).dy),
+      );
     });
 
     testWidgets('shows voice button when idle, no text, and voice available', (

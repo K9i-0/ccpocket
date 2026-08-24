@@ -63,9 +63,13 @@ class ChatEntryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasVisibleContent = chatEntryHasVisibleContent(
+      entry,
+      hiddenToolUseIds: hiddenToolUseIds,
+    );
     return Column(
       children: [
-        if (_shouldShowTimestamp())
+        if (hasVisibleContent && _shouldShowTimestamp())
           _TimestampWidget(timestamp: entry.timestamp),
         switch (entry) {
           ServerChatEntry(:final message) => ServerMessageWidget(
@@ -124,6 +128,92 @@ class ChatEntryWidget extends StatelessWidget {
     return diff.inMinutes >= 2;
   }
 }
+
+/// Whether [entry] produces visible chat content for layout and timestamping.
+bool chatEntryHasVisibleContent(
+  ChatEntry entry, {
+  Set<String> hiddenToolUseIds = const {},
+}) => switch (entry) {
+  UserChatEntry() => true,
+  StreamingChatEntry(:final text) => text.trim().isNotEmpty,
+  ServerChatEntry(:final message) => switch (message) {
+    AssistantServerMessage(:final message) => message.content.any(
+      (content) => switch (content) {
+        ToolUseContent(:final id, :final name) =>
+          name != 'ImageGeneration' || !hiddenToolUseIds.contains(id),
+        _ => true,
+      },
+    ),
+    ToolResultMessage(:final toolUseId) => !hiddenToolUseIds.contains(
+      toolUseId,
+    ),
+    PermissionRequestMessage(:final toolName) =>
+      toolName != 'ExitPlanMode' &&
+          toolName != 'AskUserQuestion' &&
+          toolName != 'McpElicitation' &&
+          toolName != 'ToolSuggestion',
+    PushRegistrationResultMessage() ||
+    SessionLinkResolutionMessage() ||
+    StatusMessage() ||
+    HistoryMessage() ||
+    HistoryDeltaMessage() ||
+    HistorySnapshotMessage() ||
+    PermissionResolvedMessage() ||
+    StreamDeltaMessage() ||
+    ThinkingDeltaMessage() ||
+    RecentSessionsMessage() ||
+    PastHistoryMessage() ||
+    SessionListMessage() ||
+    GalleryListMessage() ||
+    GalleryNewImageMessage() ||
+    FileListMessage() ||
+    FileContentMessage() ||
+    ProjectHistoryMessage() ||
+    DirectoryListingMessage() ||
+    DiffResultMessage() ||
+    DiffImageResultMessage() ||
+    WorktreeListMessage() ||
+    WorktreeRemovedMessage() ||
+    WindowListMessage() ||
+    ScreenshotResultMessage() ||
+    DebugBundleMessage() ||
+    RewindPreviewMessage() ||
+    RewindResultMessage() ||
+    UserInputMessage() ||
+    InputAckMessage() ||
+    InputRejectedMessage() ||
+    ConversationQueueMessage() ||
+    GoalStateMessage() ||
+    UsageResultMessage() ||
+    RecordingListMessage() ||
+    RecordingContentMessage() ||
+    MessageImagesResultMessage() ||
+    PromptHistoryBackupResultMessage() ||
+    PromptHistoryRestoreResultMessage() ||
+    PromptHistoryBackupInfoMessage() ||
+    PromptHistorySyncResultMessage() ||
+    PromptHistoryMutationResultMessage() ||
+    PromptHistoryStatusMessage() ||
+    RenameResultMessage() ||
+    ArchiveResultMessage() ||
+    BranchUpdateMessage() ||
+    GitStageResultMessage() ||
+    GitUnstageResultMessage() ||
+    GitUnstageHunksResultMessage() ||
+    GitCommitResultMessage() ||
+    GitPushResultMessage() ||
+    GitBranchesResultMessage() ||
+    GitCreateBranchResultMessage() ||
+    GitCheckoutBranchResultMessage() ||
+    GitRevertFileResultMessage() ||
+    GitRevertHunksResultMessage() ||
+    GitFetchResultMessage() ||
+    GitPullResultMessage() ||
+    GitStatusResultMessage() ||
+    GitRemoteStatusResultMessage() => false,
+    _ => true,
+  },
+};
 
 class _TimestampWidget extends StatelessWidget {
   final DateTime timestamp;

@@ -47,6 +47,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback? onClearDiffSelection;
   final VoidCallback? onTapDiffPreview;
   final String? hintText;
+  final Widget? activityIndicator;
 
   /// Callback to paste an image from clipboard (desktop only).
   /// When set, [imagePasteShortcut] attempts image paste.
@@ -87,6 +88,7 @@ class ChatInputBar extends StatelessWidget {
     this.onClearDiffSelection,
     this.onTapDiffPreview,
     this.hintText,
+    this.activityIndicator,
     this.onPasteImage,
     this.imagePasteShortcut = ImagePasteShortcut.ctrlV,
     this.onCompletionKeyEvent,
@@ -123,6 +125,7 @@ class ChatInputBar extends StatelessWidget {
             ),
           if (attachedImages.isNotEmpty)
             _ImagePreview(images: attachedImages, onClearImage: onClearImage),
+          ?activityIndicator,
           _InputTextField(
             controller: inputController,
             status: status,

@@ -17,7 +17,7 @@ const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
       emit: (event: string, ...args: unknown[]) => boolean;
     }>,
     sdkInstances: [] as Array<{
-      permissionMode: string;
+      permissionMode: string | undefined;
       start: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
       rewindFiles: ReturnType<typeof vi.fn>;
@@ -78,7 +78,7 @@ vi.mock("./codex-process.js", () => ({
     public isWaitingForInput = false;
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
-    public sendInputStructured = vi.fn();
+    public sendInputStructured = vi.fn(() => true);
     public steerInputStructured = vi.fn(async () => {});
 
     constructor() {
@@ -90,8 +90,10 @@ vi.mock("./codex-process.js", () => ({
 
 vi.mock("./sdk-process.js", () => ({
   SdkProcess: class MockSdkProcess extends EventEmitter {
-    public permissionMode = "default";
-    public start = vi.fn((_: string, __?: unknown) => {});
+    public permissionMode: string | undefined;
+    public start = vi.fn((_: string, options?: { permissionMode?: string }) => {
+      this.permissionMode = options?.permissionMode;
+    });
     public stop = vi.fn(() => {});
     public rewindFiles = vi.fn(async () => ({ canRewind: false }));
 
@@ -152,6 +154,105 @@ describe("SessionManager codex path", () => {
     );
   });
 
+  it("keeps restored sessions dormant and activates only the selected one", () => {
+    const manager = new SessionManager(() => {});
+    const codexSessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        threadId: "thread-restored",
+        approvalPolicy: "on-request",
+        collaborationMode: "plan",
+      },
+      "bridge-codex-restored",
+      true,
+    );
+    const claudeSessionId = manager.create(
+      "/tmp/project-claude",
+      {
+        sessionId: "claude-restored",
+        permissionMode: "acceptEdits",
+        model: "claude-opus-4-7",
+      },
+      undefined,
+      undefined,
+      "claude",
+      undefined,
+      "bridge-claude-restored",
+      true,
+    );
+
+    expect(codexInstances[0].start).not.toHaveBeenCalled();
+    expect(sdkInstances[0].start).not.toHaveBeenCalled();
+    expect(manager.get(codexSessionId)?.dormant).toBe(true);
+    expect(manager.get(claudeSessionId)?.dormant).toBe(true);
+    expect(manager.list()).toMatchObject([
+      {
+        id: "bridge-codex-restored",
+        status: "idle",
+        permissionMode: "plan",
+        planMode: true,
+      },
+      {
+        id: "bridge-claude-restored",
+        status: "idle",
+        permissionMode: "acceptEdits",
+        model: "claude-opus-4-7",
+      },
+    ]);
+
+    manager.activate(claudeSessionId);
+
+    expect(sdkInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(sdkInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-claude",
+      expect.objectContaining({
+        sessionId: "claude-restored",
+        permissionMode: "acceptEdits",
+        model: "claude-opus-4-7",
+      }),
+    );
+    expect(codexInstances[0].start).not.toHaveBeenCalled();
+    expect(manager.get(claudeSessionId)?.dormant).toBe(false);
+
+    manager.activate(codexSessionId);
+
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-codex",
+      expect.objectContaining({
+        threadId: "thread-restored",
+        approvalPolicy: "on-request",
+        collaborationMode: "plan",
+      }),
+    );
+    expect(manager.get(codexSessionId)?.dormant).toBe(false);
+  });
+
+  it("does not evict dormant restored sessions from the active set", () => {
+    const manager = new SessionManager(() => {});
+
+    for (let index = 0; index < 31; index += 1) {
+      manager.create(
+        `/tmp/project-restored-${index}`,
+        undefined,
+        undefined,
+        undefined,
+        "codex",
+        { threadId: `thread-restored-${index}` },
+        `bridge-restored-${index}`,
+        true,
+      );
+    }
+
+    expect(manager.list()).toHaveLength(31);
+    expect(
+      codexInstances.every((process) => !process.start.mock.calls.length),
+    ).toBe(true);
+  });
+
   it("re-derives permissions after incremental runtime settings", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(
@@ -174,8 +275,9 @@ describe("SessionManager codex path", () => {
       sandboxMode: "read-only",
     });
 
-    expect(manager.get(sessionId)?.codexSettings?.codexPermissionsMode)
-      .toBeUndefined();
+    expect(
+      manager.get(sessionId)?.codexSettings?.codexPermissionsMode,
+    ).toBeUndefined();
     expect(manager.list()[0].codexSettings?.codexPermissionsMode).toBe(
       "custom",
     );
@@ -252,8 +354,7 @@ describe("SessionManager codex path", () => {
       manager.getCachedCommands("codex", "/tmp/shared-project")?.skills,
     ).toEqual(["codex-skill"]);
     expect(
-      manager.getCachedCommands("claude", "/tmp/shared-project")
-        ?.slashCommands,
+      manager.getCachedCommands("claude", "/tmp/shared-project")?.slashCommands,
     ).toEqual(["claude-command"]);
   });
 
@@ -467,8 +568,9 @@ describe("SessionManager codex path", () => {
 
     const session = manager.get(sessionId);
     expect(session?.history).toHaveLength(100);
-    expect(session?.history.some((message) => message.type === "user_input"))
-      .toBe(false);
+    expect(
+      session?.history.some((message) => message.type === "user_input"),
+    ).toBe(false);
     expect(session?.codexLatestUserInput).toMatchObject({
       type: "user_input",
       text: "delegate this task",
@@ -836,6 +938,83 @@ describe("SessionManager codex path", () => {
     ).toBe(true);
   });
 
+  it("keeps a restored queued input retryable when startup exits", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        threadId: "thread-restored-queue",
+        collaborationMode: "plan",
+      },
+      "bridge-restored-queue",
+      true,
+    );
+    const session = manager.get(sessionId)!;
+    session.codexQueuedInput = {
+      itemId: "queued-restored",
+      text: "Do not lose this",
+      createdAt: "2026-08-23T10:00:00.000Z",
+    };
+    const process = codexInstances[0];
+
+    manager.activate(sessionId);
+    process.emit("exit", 1);
+
+    expect(session.dormant).toBe(true);
+    expect(session.codexQueuedInput?.text).toBe("Do not lose this");
+    expect(session.codexStartOptions?.collaborationMode).toBe("plan");
+
+    manager.activate(sessionId);
+    process.isWaitingForInput = true;
+    process.emit("input_ready");
+
+    expect(process.start).toHaveBeenCalledTimes(2);
+    expect(process.sendInputStructured).toHaveBeenCalledWith(
+      "Do not lose this",
+      { images: undefined, skills: undefined, mentions: undefined },
+    );
+    expect(session.codexQueuedInput).toBeUndefined();
+  });
+
+  it("restarts Codex when input arrives after an empty process exit", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      { threadId: "thread-exited-empty" },
+    );
+    const session = manager.get(sessionId)!;
+    const process = codexInstances[0];
+
+    process.emit("exit", 1);
+    expect(session.dormant).toBe(true);
+    expect(
+      manager.queueCodexInput(sessionId, {
+        itemId: "queued-after-exit",
+        text: "Retry after exit",
+        createdAt: "2026-08-23T10:00:00.000Z",
+      }),
+    ).toBe(true);
+
+    manager.activate(sessionId);
+    process.isWaitingForInput = true;
+    process.emit("input_ready");
+
+    expect(process.start).toHaveBeenCalledTimes(2);
+    expect(process.sendInputStructured).toHaveBeenCalledWith(
+      "Retry after exit",
+      { images: undefined, skills: undefined, mentions: undefined },
+    );
+    expect(session.codexQueuedInput).toBeUndefined();
+  });
+
   it("steers queued codex input and broadcasts the promoted user message", async () => {
     const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
     const manager = new SessionManager((sessionId, msg) => {
@@ -961,8 +1140,7 @@ describe("SessionManager codex path", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const forwardedMsg = forwarded.at(-1)?.msg as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(forwardedMsg).toBeDefined();
     expect(forwardedMsg?.type).toBe("tool_result");
     expect(forwardedMsg?.images).toEqual([
@@ -975,8 +1153,7 @@ describe("SessionManager codex path", () => {
     expect(forwardedMsg).not.toHaveProperty("rawContentBlocks");
 
     const historyMsg = manager.get(sessionId)?.history.at(-1) as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(historyMsg).toBeDefined();
     expect(historyMsg?.images).toEqual([
       {
@@ -1126,7 +1303,9 @@ describe("SessionManager claude UUID backfill", () => {
       userMessageUuid: "uuid-text",
     } as ServerMessage);
 
-    const userInputs = session.history.filter((msg) => msg.type === "user_input");
+    const userInputs = session.history.filter(
+      (msg) => msg.type === "user_input",
+    );
     expect(userInputs).toHaveLength(1);
     const merged = userInputs[0] as Record<string, unknown> | undefined;
     expect(merged).toBeDefined();
@@ -1164,9 +1343,7 @@ describe("SessionManager claude UUID backfill", () => {
       userMessageUuid: "item-real-1",
     } as ServerMessage);
 
-    let userInputs = session.history.filter(
-      (msg) => msg.type === "user_input",
-    );
+    let userInputs = session.history.filter((msg) => msg.type === "user_input");
     expect(userInputs).toHaveLength(1);
     expect(userInputs[0]).toMatchObject({
       type: "user_input",
@@ -1245,9 +1422,7 @@ describe("SessionManager claude UUID backfill", () => {
         text: "repeat",
       },
     });
-    expect(
-      "userMessageUuid" in (broadcasts.at(-1)?.msg ?? {}),
-    ).toBe(false);
+    expect("userMessageUuid" in (broadcasts.at(-1)?.msg ?? {})).toBe(false);
   });
 
   it("counts resumed Codex past messages when assigning remote user turn UUIDs", () => {
@@ -1293,9 +1468,7 @@ describe("SessionManager claude UUID backfill", () => {
         text: "remote after resume",
       },
     });
-    expect(
-      "userMessageUuid" in (broadcasts.at(-1)?.msg ?? {}),
-    ).toBe(false);
+    expect("userMessageUuid" in (broadcasts.at(-1)?.msg ?? {})).toBe(false);
   });
 
   it("suppresses Codex raw user echo already restored from canonical history", () => {

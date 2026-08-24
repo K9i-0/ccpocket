@@ -137,6 +137,7 @@ class BridgeService implements BridgeServiceBase {
   UsageResultMessage? _lastUsageResult;
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
   final Map<String, int> _pendingHistoryDeltaSinceSeq = {};
+  final Set<String> _sessionHistoryRequestsInFlight = {};
   final Map<String, ClientMessage> _inFlightPendingMessages = {};
   final Map<String, ClientMessage> _inFlightInputMessages = {};
   final Map<String, Timer> _inFlightPendingVisibilityTimers = {};
@@ -399,6 +400,9 @@ class BridgeService implements BridgeServiceBase {
             final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
             _clearDeliveredNonReplayableToolAction(msg, sessionId: sessionId);
+            if (sessionId != null && msg is HistoryMessage) {
+              _sessionHistoryRequestsInFlight.remove(sessionId);
+            }
             if (sessionId != null && msg is HistoryDeltaMessage) {
               _handleHistoryDelta(sessionId, msg);
               return;
@@ -620,6 +624,7 @@ class BridgeService implements BridgeServiceBase {
                 _messageController.add(msg);
               case ResultMessage(:final subtype) when subtype == 'stopped':
                 if (sessionId != null) {
+                  _clearPendingStop(sessionId);
                   clearExplorerHistory(sessionId);
                   _sessions = _sessions
                       .where((session) => session.id != sessionId)
@@ -631,6 +636,11 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case ErrorMessage(:final message):
+                if (sessionId == null) {
+                  _sessionHistoryRequestsInFlight.clear();
+                } else {
+                  _sessionHistoryRequestsInFlight.remove(sessionId);
+                }
                 if (msg.errorCode == 'unsupported_message' &&
                     message == 'get_history_delta') {
                   _fallbackPendingHistoryDeltaRequests();
@@ -660,6 +670,7 @@ class BridgeService implements BridgeServiceBase {
             }
           } catch (e, st) {
             logger.error('WS parse error', e, st);
+            _sessionHistoryRequestsInFlight.clear();
             final errorMsg = ErrorMessage(message: 'Parse error: $e');
             _taggedMessageController.add((errorMsg, null));
             _messageController.add(errorMsg);
@@ -668,6 +679,7 @@ class BridgeService implements BridgeServiceBase {
         onError: (error, stackTrace) {
           if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
+          _sessionHistoryRequestsInFlight.clear();
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
           _requeueInFlightInputMessages();
           _requeueInFlightPendingMessages();
@@ -676,6 +688,7 @@ class BridgeService implements BridgeServiceBase {
         onDone: () {
           if (epoch != _connectionEpoch) return;
           _channel = null;
+          _sessionHistoryRequestsInFlight.clear();
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
             _requeueInFlightInputMessages();
@@ -755,6 +768,7 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _pendingHistoryDeltaSinceSeq.clear();
+    _sessionHistoryRequestsInFlight.clear();
     _inFlightNonReplayableToolActions.clear();
     _respondedToolUseIds.clear();
     _deliveryPendingInputs.clear();
@@ -822,6 +836,7 @@ class BridgeService implements BridgeServiceBase {
         ((previousCachedSeq == 0 && msg.fromSeq <= 1) ||
             (msg.fromSeq <= previousCachedSeq + 1 &&
                 msg.fromSeq <= previousLatestSeq));
+    _sessionHistoryRequestsInFlight.remove(sessionId);
     _pendingHistoryDeltaSinceSeq.remove(sessionId);
     _runtimeStore.applyServerMessage(sessionId, msg);
 
@@ -850,6 +865,7 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _handleHistorySnapshot(String sessionId, HistorySnapshotMessage msg) {
+    _sessionHistoryRequestsInFlight.remove(sessionId);
     _pendingHistoryDeltaSinceSeq.remove(sessionId);
     _runtimeStore.applyServerMessage(sessionId, msg);
 
@@ -874,6 +890,7 @@ class BridgeService implements BridgeServiceBase {
     final sessionIds = List<String>.from(_pendingHistoryDeltaSinceSeq.keys);
     _pendingHistoryDeltaSinceSeq.clear();
     for (final sessionId in sessionIds) {
+      _sessionHistoryRequestsInFlight.add(sessionId);
       send(ClientMessage.getHistory(sessionId));
     }
   }
@@ -945,7 +962,9 @@ class BridgeService implements BridgeServiceBase {
 
   bool _trackInFlightPendingMessage(ClientMessage message) {
     final dedupeKey = _offlineMessageDedupeKey(message);
-    if (dedupeKey == null || _offlinePendingActionFor(message) == null) {
+    final pendingAction = _offlinePendingActionFor(message);
+    if (dedupeKey == null ||
+        (pendingAction == null && message.type != 'stop_session')) {
       return true;
     }
     final isQueued = _messageQueue.any((queued) {
@@ -956,7 +975,12 @@ class BridgeService implements BridgeServiceBase {
       return false;
     }
     _inFlightPendingMessages[dedupeKey] = message;
+    if (pendingAction != null) {
     _scheduleInFlightPendingVisibility(dedupeKey);
+    }
+    if (_isPersistableOfflineMessage(message)) {
+      unawaited(_persistOfflinePendingMessages());
+    }
     return true;
   }
 
@@ -1199,6 +1223,7 @@ class BridgeService implements BridgeServiceBase {
       'rename_session' ||
       'update_queued_input' ||
       'cancel_queued_input' => true,
+      'stop_session' => true,
       _ => false,
     };
   }
@@ -1211,8 +1236,22 @@ class BridgeService implements BridgeServiceBase {
       'resume_session' =>
         'resume:${json['provider'] ?? 'claude'}:${json['sessionId']}',
       'start' => 'start:${_canonicalJson(json)}',
+      'stop_session' => 'stop:${json['sessionId']}',
       _ => null,
     };
+  }
+
+  void _clearPendingStop(String sessionId) {
+    final dedupeKey = 'stop:$sessionId';
+    final removedInFlight = _inFlightPendingMessages.containsKey(dedupeKey);
+    if (removedInFlight) _clearInFlightPendingMessage(dedupeKey);
+    final before = _messageQueue.length;
+    _messageQueue.removeWhere(
+      (message) => _offlineMessageDedupeKey(message) == dedupeKey,
+    );
+    if (removedInFlight || before != _messageQueue.length) {
+      unawaited(_persistOfflinePendingMessages());
+    }
   }
 
   String _offlinePendingActionId(ClientMessage message) {
@@ -1584,10 +1623,15 @@ class BridgeService implements BridgeServiceBase {
 
   Future<void> _persistOfflinePendingMessages() async {
     await _ensureOfflineQueueRestored();
-    final pending = _messageQueue
-        .where(_isPersistableOfflineMessage)
-        .map((message) => message.toJson())
-        .toList();
+    final pendingByKey = <String, String>{};
+    for (final message in [
+      ..._messageQueue,
+      ..._inFlightPendingMessages.values,
+    ].where(_isPersistableOfflineMessage)) {
+      pendingByKey[_offlineMessageDedupeKey(message) ?? message.toJson()] =
+          message.toJson();
+    }
+    final pending = pendingByKey.values.toList();
     try {
       final prefs = await SharedPreferences.getInstance();
       if (pending.isEmpty) {
@@ -1911,6 +1955,7 @@ class BridgeService implements BridgeServiceBase {
 
   @override
   void requestSessionHistory(String sessionId) {
+    if (!_sessionHistoryRequestsInFlight.add(sessionId)) return;
     final snapshot = _runtimeStore.snapshot(sessionId);
     if (snapshot.messages.isNotEmpty) {
       _pendingHistoryDeltaSinceSeq[sessionId] = snapshot.cachedHistorySeq;

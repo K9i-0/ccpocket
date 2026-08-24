@@ -142,7 +142,7 @@ class _StandardBubble extends StatelessWidget {
                 ),
                 constraints: BoxConstraints(
                   maxWidth:
-                      MediaQuery.of(context).size.width *
+                      MediaQuery.sizeOf(context).width *
                       AppSpacing.maxBubbleWidthFraction,
                 ),
                 decoration: BoxDecoration(
@@ -266,7 +266,7 @@ class _CommandBubble extends StatelessWidget {
                 ),
                 constraints: BoxConstraints(
                   maxWidth:
-                      MediaQuery.of(context).size.width *
+                      MediaQuery.sizeOf(context).width *
                       AppSpacing.maxBubbleWidthFraction,
                 ),
                 decoration: BoxDecoration(
