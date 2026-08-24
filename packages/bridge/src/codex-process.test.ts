@@ -1600,6 +1600,28 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
+  it("times out a stalled thread/archive RPC", async () => {
+    vi.useFakeTimers();
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    try {
+      const archiveResult = expect(
+        proc.archiveThread("thread-stalled"),
+      ).rejects.toThrow(
+        "Codex RPC thread/archive timed out after 15000ms",
+      );
+
+      await vi.advanceTimersByTimeAsync(15_000);
+      await archiveResult;
+      expect((proc as any).pendingRpc.size).toBe(0);
+    } finally {
+      proc.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it("sends thread/read with includeTurns", async () => {
     const proc = new CodexProcess("linux");
     const initializePromise = proc.initializeOnly("/tmp/project-a");
