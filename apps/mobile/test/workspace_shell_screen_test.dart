@@ -147,7 +147,7 @@ class _MockBridgeService extends BridgeService {
   }) {}
 
   @override
-  void requestGallery({String? project, String? sessionId}) {
+  void requestGallery({String? project, String? sessionId, String? requestId}) {
     _galleryController.add(_images);
   }
 

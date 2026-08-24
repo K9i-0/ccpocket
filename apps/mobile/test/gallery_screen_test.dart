@@ -15,12 +15,27 @@ import 'package:ccpocket/theme/app_theme.dart';
 class _MockBridgeService extends BridgeService {
   final _galleryStreamController =
       StreamController<List<GalleryImage>>.broadcast();
+  final _galleryResultController =
+      StreamController<GalleryListMessage>.broadcast();
+  final _galleryNewImageController = StreamController<GalleryImage>.broadcast();
   List<GalleryImage> _mockImages = [];
   bool galleryRequested = false;
+  bool autoRespond = true;
+  String? requestedProject;
+  String? requestedSessionId;
+  String? requestedRequestId;
 
   @override
   Stream<List<GalleryImage>> get galleryStream =>
       _galleryStreamController.stream;
+
+  @override
+  Stream<GalleryListMessage> get galleryResults =>
+      _galleryResultController.stream;
+
+  @override
+  Stream<GalleryImage> get galleryNewImages =>
+      _galleryNewImageController.stream;
 
   @override
   List<GalleryImage> get galleryImages => _mockImages;
@@ -29,15 +44,43 @@ class _MockBridgeService extends BridgeService {
   String? get httpBaseUrl => 'http://localhost:8765';
 
   @override
-  void requestGallery({String? project, String? sessionId}) {
+  void requestGallery({String? project, String? sessionId, String? requestId}) {
     galleryRequested = true;
-    // Immediately emit the mock images
-    _galleryStreamController.add(_mockImages);
+    requestedProject = project;
+    requestedSessionId = sessionId;
+    requestedRequestId = requestId;
+    if (!autoRespond) return;
+    if (sessionId == null && project == null) {
+      _galleryStreamController.add(_mockImages);
+    }
+    _galleryResultController.add(
+      GalleryListMessage(
+        images: _mockImages,
+        project: project,
+        sessionId: sessionId,
+        requestId: requestId,
+      ),
+    );
   }
 
   void setImages(List<GalleryImage> images) {
     _mockImages = images;
     _galleryStreamController.add(images);
+  }
+
+  void emitGalleryResult(GalleryListMessage result) {
+    _galleryResultController.add(result);
+  }
+
+  void emitNewImage(GalleryImage image) {
+    _galleryNewImageController.add(image);
+  }
+
+  @override
+  void dispose() {
+    _galleryStreamController.close();
+    _galleryResultController.close();
+    _galleryNewImageController.close();
   }
 }
 
@@ -169,6 +212,129 @@ void main() {
       // But should show image
       expect(find.text('project-a'), findsWidgets);
     });
+
+    testWidgets(
+      'session gallery hides cached images and ignores stale replies',
+      (tester) async {
+        final mock = _MockBridgeService()..autoRespond = false;
+        mock.setImages([
+          const GalleryImage(
+            id: 'session-a-image',
+            url: '/api/gallery/session-a-image',
+            mimeType: 'image/png',
+            projectPath: '/Users/demo/project-a',
+            projectName: 'project-a',
+            sessionId: 'session-a',
+            addedAt: '2025-01-15T10:30:00Z',
+            sizeBytes: 100,
+          ),
+        ]);
+
+        await tester.pumpWidget(
+          _wrapWithTheme(const GalleryScreen(sessionId: 'session-b'), mock),
+        );
+        await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('gallery_scope_loading')),
+        findsOneWidget,
+      );
+        expect(find.text('project-a'), findsNothing);
+        expect(mock.requestedSessionId, 'session-b');
+
+        mock.emitGalleryResult(
+          const GalleryListMessage(
+            images: [
+              GalleryImage(
+                id: 'stale',
+                url: '/api/gallery/stale',
+                mimeType: 'image/png',
+                projectPath: '/Users/demo/project-a',
+                projectName: 'project-a',
+                sessionId: 'session-a',
+                addedAt: '2025-01-15T10:30:00Z',
+                sizeBytes: 100,
+              ),
+            ],
+            sessionId: 'session-a',
+            requestId: 'older-request',
+          ),
+        );
+        await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('gallery_scope_loading')),
+        findsOneWidget,
+      );
+        expect(find.text('project-a'), findsNothing);
+
+        mock.emitGalleryResult(
+          GalleryListMessage(
+            images: const [
+              GalleryImage(
+                id: 'session-b-image',
+                url: '/api/gallery/session-b-image',
+                mimeType: 'image/png',
+                projectPath: '/Users/demo/project-b',
+                projectName: 'project-b',
+                sessionId: 'session-b',
+                addedAt: '2025-01-15T10:31:00Z',
+                sizeBytes: 200,
+              ),
+            ],
+            sessionId: 'session-b',
+            requestId: mock.requestedRequestId,
+          ),
+        );
+        await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('gallery_scope_loading')),
+        findsNothing,
+      );
+        expect(find.text('project-b'), findsWidgets);
+        expect(find.text('project-a'), findsNothing);
+      },
+    );
+
+    testWidgets('session gallery accepts new images only for its session', (
+      tester,
+    ) async {
+      final mock = _MockBridgeService();
+      await tester.pumpWidget(
+        _wrapWithTheme(const GalleryScreen(sessionId: 'session-b'), mock),
+      );
+      await tester.pump();
+
+      mock.emitNewImage(
+        const GalleryImage(
+          id: 'wrong-session',
+          url: '/api/gallery/wrong-session',
+          mimeType: 'image/png',
+          projectPath: '/Users/demo/project-a',
+          projectName: 'project-a',
+          sessionId: 'session-a',
+          addedAt: '2025-01-15T10:30:00Z',
+          sizeBytes: 100,
+        ),
+      );
+      mock.emitNewImage(
+        const GalleryImage(
+          id: 'right-session',
+          url: '/api/gallery/right-session',
+          mimeType: 'image/png',
+          projectPath: '/Users/demo/project-b',
+          projectName: 'project-b',
+          sessionId: 'session-b',
+          addedAt: '2025-01-15T10:31:00Z',
+          sizeBytes: 200,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('project-b'), findsWidgets);
+      expect(find.text('project-a'), findsNothing);
+    });
   });
 
   group('GalleryImage model', () {
@@ -211,6 +377,8 @@ void main() {
     test('gallery_list parses correctly', () {
       final json = {
         'type': 'gallery_list',
+        'sessionId': 'session-a',
+        'requestId': 'gallery-1',
         'images': [
           {
             'id': 'img-1',
@@ -228,6 +396,8 @@ void main() {
       final gm = msg as GalleryListMessage;
       expect(gm.images.length, 1);
       expect(gm.images[0].id, 'img-1');
+      expect(gm.sessionId, 'session-a');
+      expect(gm.requestId, 'gallery-1');
     });
 
     test('gallery_new_image parses correctly', () {
@@ -257,10 +427,14 @@ void main() {
     });
 
     test('listGallery with project generates correct JSON', () {
-      final msg = ClientMessage.listGallery(project: '/path/to/proj');
+      final msg = ClientMessage.listGallery(
+        project: '/path/to/proj',
+        requestId: 'gallery-1',
+      );
       final json = msg.toJson();
       expect(json, contains('"type":"list_gallery"'));
       expect(json, contains('"project":"/path/to/proj"'));
+      expect(json, contains('"requestId":"gallery-1"'));
     });
   });
 }

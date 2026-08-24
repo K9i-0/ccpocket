@@ -633,9 +633,25 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
-  it("parses list_gallery message", () => {
-    const msg = parseClientMessage('{"type":"list_gallery"}');
-    expect(msg).toEqual({ type: "list_gallery" });
+  it("parses scoped list_gallery message", () => {
+    const msg = parseClientMessage(
+      '{"type":"list_gallery","project":"/p","sessionId":"session-1","requestId":"gallery-1"}',
+    );
+    expect(msg).toEqual({
+      type: "list_gallery",
+      project: "/p",
+      sessionId: "session-1",
+      requestId: "gallery-1",
+    });
+  });
+
+  it("rejects invalid list_gallery correlation metadata", () => {
+    expect(
+      parseClientMessage('{"type":"list_gallery","requestId":""}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage('{"type":"list_gallery","sessionId":42}'),
+    ).toBeNull();
   });
 
   it("parses list_files message", () => {

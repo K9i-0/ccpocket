@@ -462,6 +462,42 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     httpServer.close();
   });
 
+  it("echoes gallery request scope and correlation metadata", async () => {
+    const list = vi.fn().mockReturnValue([]);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      galleryStore: { list } as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "list_gallery",
+        project: "/tmp/project-a",
+        sessionId: "session-a",
+        requestId: "gallery-1",
+      },
+      ws,
+    );
+
+    expect(list).toHaveBeenCalledWith({
+      projectPath: "/tmp/project-a",
+      sessionId: "session-a",
+    });
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "gallery_list",
+      images: [],
+      project: "/tmp/project-a",
+      sessionId: "session-a",
+      requestId: "gallery-1",
+    });
+
+    bridge.close();
+  });
+
   it("acknowledges push registration only after relay success", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

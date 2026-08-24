@@ -5157,15 +5157,21 @@ export class BridgeWebSocketServer {
             projectPath: msg.project,
             sessionId: msg.sessionId,
           });
-          this.send(ws, { type: "gallery_list", images } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images,
+            project: msg.project,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         } else {
-          this.send(ws, { type: "gallery_list", images: [] } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images: [],
+            project: msg.project,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         }
         break;
       }

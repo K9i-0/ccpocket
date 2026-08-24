@@ -13,6 +13,7 @@ class GalleryContent extends StatelessWidget {
   final bool isSessionMode;
   final String httpBaseUrl;
   final ValueChanged<String?> onProjectSelected;
+  final ValueChanged<String>? onImageDeleted;
 
   const GalleryContent({
     super.key,
@@ -21,6 +22,7 @@ class GalleryContent extends StatelessWidget {
     required this.isSessionMode,
     required this.httpBaseUrl,
     required this.onProjectSelected,
+    this.onImageDeleted,
   });
 
   Map<String, int> _projectCounts() {
@@ -59,7 +61,11 @@ class GalleryContent extends StatelessWidget {
           images: filtered,
           initialIndex: index,
           httpBaseUrl: httpBaseUrl,
-          onDelete: (id) => bridge.deleteGalleryImage(id),
+          onDelete: (id) async {
+            final success = await bridge.deleteGalleryImage(id);
+            if (success) onImageDeleted?.call(id);
+            return success;
+          },
         ),
       ),
     );
@@ -75,6 +81,7 @@ class GalleryContent extends StatelessWidget {
     final bridge = context.read<BridgeService>();
     final success = await bridge.deleteGalleryImage(image.id);
     if (!context.mounted) return;
+    if (success) onImageDeleted?.call(image.id);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

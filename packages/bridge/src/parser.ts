@@ -264,7 +264,12 @@ export type ClientMessage =
       additionalWritableRoots?: string[];
       resumeRequestId?: string;
     }
-  | { type: "list_gallery"; project?: string; sessionId?: string }
+  | {
+      type: "list_gallery";
+      project?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
   | {
       type: "read_file";
       projectPath: string;
@@ -629,6 +634,14 @@ export type ServerMessage =
       truncated?: boolean;
     }
   | { type: "project_history"; projects: string[] }
+  | {
+      type: "gallery_list";
+      images: GalleryImageInfo[];
+      project?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
+  | { type: "gallery_new_image"; image: GalleryImageInfo }
   | {
       type: "directory_listing";
       path: string;
@@ -1425,6 +1438,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
         }
         break;
       case "list_gallery":
+        if (!hasOnlyKeys(["type", "project", "sessionId", "requestId"]))
+          return null;
+        if (msg.project !== undefined && typeof msg.project !== "string")
+          return null;
+        if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" || msg.requestId.trim().length === 0)
+        )
+          return null;
         break;
       case "read_file":
         if (typeof msg.projectPath !== "string") return null;

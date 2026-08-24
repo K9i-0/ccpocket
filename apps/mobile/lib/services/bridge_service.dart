@@ -51,6 +51,9 @@ class BridgeService implements BridgeServiceBase {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
+  final _galleryResultController =
+      StreamController<GalleryListMessage>.broadcast();
+  final _galleryNewImageController = StreamController<GalleryImage>.broadcast();
   final _fileListController = StreamController<List<String>>.broadcast();
   final _fileListMessageController =
       StreamController<FileListMessage>.broadcast();
@@ -183,6 +186,10 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
+  Stream<GalleryListMessage> get galleryResults =>
+      _galleryResultController.stream;
+  Stream<GalleryImage> get galleryNewImages =>
+      _galleryNewImageController.stream;
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
   Stream<bool> get codexAutoReviewPolicyStream =>
@@ -474,10 +481,18 @@ class BridgeService implements BridgeServiceBase {
               case PastHistoryMessage():
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
-              case GalleryListMessage(:final images):
-                _galleryImages = images;
-                _galleryController.add(images);
+              case GalleryListMessage(
+                :final images,
+                :final project,
+                :final sessionId,
+              ):
+                _galleryResultController.add(msg);
+                if (project == null && sessionId == null) {
+                  _galleryImages = images;
+                  _galleryController.add(images);
+                }
               case GalleryNewImageMessage(:final image):
+                _galleryNewImageController.add(image);
                 _galleryImages = [image, ..._galleryImages];
                 _galleryController.add(_galleryImages);
               case FileContentMessage():
@@ -2202,8 +2217,14 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.removeWorktree(projectPath, worktreePath));
   }
 
-  void requestGallery({String? project, String? sessionId}) {
-    send(ClientMessage.listGallery(project: project, sessionId: sessionId));
+  void requestGallery({String? project, String? sessionId, String? requestId}) {
+    send(
+      ClientMessage.listGallery(
+        project: project,
+        sessionId: sessionId,
+        requestId: requestId,
+      ),
+    );
   }
 
   void requestWindowList() {
@@ -2790,6 +2811,8 @@ class BridgeService implements BridgeServiceBase {
     _sessionStoppedController.close();
     _recentSessionsController.close();
     _galleryController.close();
+    _galleryResultController.close();
+    _galleryNewImageController.close();
     _fileListController.close();
     _fileListMessageController.close();
     _projectHistoryController.close();

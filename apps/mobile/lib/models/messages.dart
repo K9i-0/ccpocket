@@ -1004,6 +1004,9 @@ sealed class ServerMessage {
         images: (json['images'] as List)
             .map((i) => GalleryImage.fromJson(i as Map<String, dynamic>))
             .toList(),
+        project: json['project'] as String?,
+        sessionId: json['sessionId'] as String?,
+        requestId: json['requestId'] as String?,
       ),
       'gallery_new_image' => GalleryNewImageMessage(
         image: GalleryImage.fromJson(json['image'] as Map<String, dynamic>),
@@ -2466,7 +2469,15 @@ class PastHistoryMessage implements ServerMessage {
 
 class GalleryListMessage implements ServerMessage {
   final List<GalleryImage> images;
-  const GalleryListMessage({required this.images});
+  final String? project;
+  final String? sessionId;
+  final String? requestId;
+  const GalleryListMessage({
+    required this.images,
+    this.project,
+    this.sessionId,
+    this.requestId,
+  });
 }
 
 class GalleryNewImageMessage implements ServerMessage {
@@ -4400,12 +4411,16 @@ class ClientMessage {
     });
   }
 
-  factory ClientMessage.listGallery({String? project, String? sessionId}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'list_gallery',
-        'project': ?project,
-        'sessionId': ?sessionId,
-      });
+  factory ClientMessage.listGallery({
+    String? project,
+    String? sessionId,
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'list_gallery',
+    'project': ?project,
+    'sessionId': ?sessionId,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.readFile(
     String projectPath,
