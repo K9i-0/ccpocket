@@ -633,6 +633,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
   private usesSubscriptionAuth = false;
+  private subscriptionAuthResolution: Promise<void> | null = null;
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -682,6 +683,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.stopped = false;
     this._sessionId = null;
     this.usesSubscriptionAuth = false;
+    this.subscriptionAuthResolution = null;
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this.permissionModeGeneration += 1;
@@ -787,6 +789,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         },
       },
     });
+
+    const queryInstance = this.queryInstance;
+    if (queryInstance && typeof queryInstance.initializationResult === "function") {
+      this.subscriptionAuthResolution = queryInstance.initializationResult()
+        .then((initialization) => {
+          if (this.queryInstance === queryInstance) {
+            this.usesSubscriptionAuth ||=
+              initialization.account.apiKeySource === "oauth";
+          }
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            `[sdk-process] Could not resolve Claude auth source: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+    }
 
     // Background message processing
     this.processMessages().catch((err) => {
@@ -1244,6 +1262,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
       if (serverMsg?.type === "result") {
+        await this.subscriptionAuthResolution;
         if (this.usesSubscriptionAuth) {
           const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
           serverMsg = withoutCost as ServerMessage;
@@ -1279,7 +1298,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           this.initTimeoutId = null;
         }
         this._sessionId = message.session_id;
-        this.usesSubscriptionAuth =
+        this.usesSubscriptionAuth ||=
           (message as Record<string, unknown>).apiKeySource === "oauth";
         const initModel = (message as Record<string, unknown>).model;
         if (typeof initModel === "string" && initModel) {

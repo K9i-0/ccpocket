@@ -541,6 +541,31 @@ void main() {
   });
 
   group('History handling — pending state restoration', () {
+    test('hides Claude init metadata but preserves Codex init history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'init',
+              provider: 'claude',
+              sessionId: 'claude-session',
+            ),
+            SystemMessage(subtype: 'init', provider: 'codex'),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      final visibleMessages = update.entriesToAdd
+          .whereType<ServerChatEntry>()
+          .map((entry) => entry.message)
+          .toList();
+      expect(visibleMessages, hasLength(1));
+      expect(visibleMessages.single, isA<SystemMessage>());
+      expect((visibleMessages.single as SystemMessage).provider, 'codex');
+      expect(update.claudeSessionId, 'claude-session');
+    });
+
     test('restores project path from session metadata in history', () {
       final update = handler.handle(
         const HistoryMessage(

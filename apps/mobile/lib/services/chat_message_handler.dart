@@ -630,7 +630,8 @@ class ChatMessageHandler {
         if (m is! SystemMessage ||
             (m.subtype != 'supported_commands' &&
                 m.subtype != 'session_created' &&
-                m.subtype != 'codex_settings')) {
+                m.subtype != 'codex_settings' &&
+                (m.subtype != 'init' || m.provider == Provider.codex.value))) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
         // Restore slash commands from history (init, supported_commands, or

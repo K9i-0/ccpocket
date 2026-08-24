@@ -1063,6 +1063,51 @@ describe("SdkProcess Claude authentication", () => {
     expect(exits).toEqual([0]);
   });
 
+  it("suppresses estimated API cost when resumed OAuth auth is resolved separately", async () => {
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "resumed-oauth-session",
+          model: "claude-opus-4-6",
+          apiKeySource: "api_key",
+        };
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          total_cost_usd: 3.029,
+          duration_ms: 156300,
+          session_id: "resumed-oauth-session",
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiKeySource: "oauth", subscriptionType: "max" },
+        models: [],
+      }),
+    });
+
+    proc.start(process.cwd(), { sessionId: "resumed-oauth-session" });
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success" }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
+  });
+
   it("shows explicit Claude assistant errors without dropping partial text", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
     const proc = new SdkProcess();
