@@ -433,6 +433,42 @@ describe("sdkMessageToServerMessage", () => {
   });
 
   describe("UUID tracking", () => {
+    it("removes empty thinking blocks from assistant messages", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: " \n " },
+            { type: "text", text: "Visible response" },
+          ],
+        },
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "assistant",
+        message: {
+          content: [{ type: "text", text: "Visible response" }],
+        },
+      });
+    });
+
+    it("drops assistant messages containing only empty thinking", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "" }],
+        },
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
+    });
+
     it("includes messageUuid for assistant messages with uuid", () => {
       const sdkMsg = {
         type: "assistant" as const,
@@ -751,6 +787,31 @@ describe("SdkProcess input dispatch", () => {
     expect(proc.hasInputQueue).toBe(true);
   });
 
+  it("delivers the queued follow-up when an interrupted turn completes", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    proc.dispatchInput("follow up");
+    internal.updateStatusFromMessage({
+      type: "result",
+      subtype: "error_during_execution",
+    });
+
+    expect(resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "follow up" }],
+        },
+      }),
+    );
+    expect(proc.hasInputQueue).toBe(false);
+  });
+
   it("queues without interrupting while approval is pending", () => {
     const proc = new SdkProcess();
     const resolve = vi.fn();
@@ -927,6 +988,14 @@ describe("SdkProcess Claude authentication", () => {
     mockSdkQuery.mockReturnValueOnce({
       async *[Symbol.asyncIterator]() {
         yield initMessage;
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          total_cost_usd: 4.7011,
+          duration_ms: 26400,
+          session_id: "oauth-session",
+        };
       },
       close,
       supportedCommands: vi.fn().mockResolvedValue([]),
@@ -945,6 +1014,12 @@ describe("SdkProcess Claude authentication", () => {
     expect(messages).not.toContainEqual(expect.objectContaining({
       type: "error",
     }));
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success" }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
     expect(exits).toEqual([0]);
   });
 

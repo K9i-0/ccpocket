@@ -402,9 +402,21 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
 
     case "assistant": {
       const ast = msg as unknown as { message: Record<string, unknown>; uuid?: string };
+      const rawContent = ast.message.content;
+      const content = Array.isArray(rawContent)
+        ? rawContent.filter((item) => {
+            const block = item as Record<string, unknown>;
+            return block.type !== "thinking" ||
+              (typeof block.thinking === "string" && block.thinking.trim().length > 0);
+          })
+        : rawContent;
+      if (Array.isArray(content) && content.length === 0) return null;
       return {
         type: "assistant",
-        message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
+        message: {
+          ...ast.message,
+          content,
+        } as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
         ...(ast.uuid ? { messageUuid: ast.uuid } : {}),
       } as ServerMessage;
     }
@@ -585,6 +597,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private usesSubscriptionAuth = false;
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -633,6 +646,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.stopped = false;
     this._sessionId = null;
+    this.usesSubscriptionAuth = false;
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this.permissionModeGeneration += 1;
@@ -801,6 +815,44 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this.pendingInputQueue.length > 0;
   }
 
+  private buildUserMessage(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): SDKUserMsg {
+    const content: SDKUserMsg["message"]["content"] = [];
+    for (const image of images ?? []) {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mimeType as ImageMediaType,
+          data: image.base64,
+        },
+      });
+    }
+    content.push({ type: "text", text });
+    return {
+      type: "user",
+      session_id: this._sessionId ?? "",
+      message: { role: "user", content },
+      parent_tool_use_id: null,
+    };
+  }
+
+  private deliverQueuedInputIfWaiting(): void {
+    const resolve = this.userMessageResolve;
+    const queued = this.pendingInputQueue.shift();
+    if (!resolve || !queued) {
+      if (queued) this.pendingInputQueue.unshift(queued);
+      return;
+    }
+    this.userMessageResolve = null;
+    console.log(
+      `[sdk-process] Delivering queued input after turn completion (remaining: ${this.pendingInputQueue.length})`,
+    );
+    resolve(this.buildUserMessage(queued.text, queued.images));
+  }
+
   dispatchInput(text: string): { queued: boolean; shouldInterrupt: boolean } {
     const shouldInterrupt =
       this._status === "running" || this._status === "compacting";
@@ -815,15 +867,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content: [{ type: "text", text }],
-      },
-      parent_tool_use_id: null,
-    });
+    resolve(this.buildUserMessage(text));
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -851,35 +895,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
 
-    const content: SDKUserMsg["message"]["content"] = [];
-
-    // Add image blocks first (Claude processes images before text)
-    for (const image of images) {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: image.mimeType as ImageMediaType,
-          data: image.base64,
-        },
-      });
-    }
-
-    // Add text block
-    content.push({ type: "text", text });
-
     const totalKB = images.reduce((sum, img) => sum + Math.round(img.base64.length / 1024), 0);
     console.log(`[sdk-process] Sending message with ${images.length} image(s) (${totalKB}KB base64 total)`);
-
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content,
-      },
-      parent_tool_use_id: null,
-    });
+    resolve(this.buildUserMessage(text, images));
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -1153,29 +1171,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       if (this.pendingInputQueue.length > 0) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
-        const content: SDKUserMsg["message"]["content"] = [];
-        if (images) {
-          for (const image of images) {
-            content.push({
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: image.mimeType as ImageMediaType,
-                data: image.base64,
-              },
-            });
-          }
-        }
-        content.push({ type: "text", text });
-        yield {
-          type: "user",
-          session_id: this._sessionId ?? "",
-          message: {
-            role: "user",
-            content,
-          },
-          parent_tool_use_id: null,
-        };
+        yield this.buildUserMessage(text, images);
         continue;
       }
       const msg = await new Promise<SDKUserMsg>((resolve) => {
@@ -1213,6 +1209,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
       if (serverMsg?.type === "result") {
+        if (this.usesSubscriptionAuth) {
+          const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
+          serverMsg = withoutCost as ServerMessage;
+        }
         if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
           serverMsg = {
             ...serverMsg,
@@ -1238,6 +1238,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           this.initTimeoutId = null;
         }
         this._sessionId = message.session_id;
+        this.usesSubscriptionAuth =
+          (message as Record<string, unknown>).apiKeySource === "oauth";
         const initModel = (message as Record<string, unknown>).model;
         if (typeof initModel === "string" && initModel) {
           this._model = initModel;
@@ -1362,6 +1364,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       case "result":
         this.pendingPermissions.clear();
         this.setStatus("idle");
+        this.deliverQueuedInputIfWaiting();
         break;
     }
   }

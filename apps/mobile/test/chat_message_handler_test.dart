@@ -338,6 +338,20 @@ void main() {
   });
 
   group('SystemMessage handling', () {
+    test('Claude init updates metadata without adding a transcript chip', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          provider: 'claude',
+          sessionId: 'claude-session',
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.claudeSessionId, 'claude-session');
+    });
+
     test('Codex init applies approval policy without permission mode', () {
       final update = handler.handle(
         const SystemMessage(
@@ -1018,10 +1032,11 @@ void main() {
   });
 
   group('SystemMessage slash command handling', () {
-    test('init with slashCommands populates commands and adds entry', () {
+    test('Codex init with slashCommands populates commands and adds entry', () {
       final update = handler.handle(
         const SystemMessage(
           subtype: 'init',
+          provider: 'codex',
           slashCommands: ['compact', 'review', 'test-flutter'],
           skills: ['test-flutter'],
         ),

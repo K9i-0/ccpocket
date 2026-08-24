@@ -2049,7 +2049,8 @@ export class BridgeWebSocketServer {
         items.push({ type: "text", text: item.text });
       } else if (
         item.type === "thinking" &&
-        typeof item.thinking === "string"
+        typeof item.thinking === "string" &&
+        item.thinking.trim().length > 0
       ) {
         items.push({ type: "thinking", thinking: item.thinking });
       } else if (

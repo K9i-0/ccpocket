@@ -425,7 +425,7 @@ class ChatMessageHandler {
 
     // Inject accumulated thinking text
     ServerMessage displayMsg = msg;
-    if (currentThinkingText.isNotEmpty) {
+    if (currentThinkingText.trim().isNotEmpty) {
       final hasThinking = message.content.any((c) => c is ThinkingContent);
       if (!hasThinking) {
         displayMsg = AssistantServerMessage(
@@ -440,8 +440,8 @@ class ChatMessageHandler {
           ),
         );
       }
-      currentThinkingText = '';
     }
+    currentThinkingText = '';
 
     // Build entry — replace streaming if present
     final entry = ServerChatEntry(displayMsg);
@@ -902,9 +902,13 @@ class ChatMessageHandler {
         msg.tipCode == 'git_not_available') {
       _gitTipShown = true;
     }
-    // Add init and tip as visible chat entries; session_created and
-    // supported_commands are internal metadata messages.
-    final addEntry = subtype == 'init' || subtype == 'tip';
+    // Claude init is internal session plumbing. Codex init carries the useful
+    // environment summary shown at the start of its transcript.
+    final addEntry =
+        subtype == 'tip' ||
+        (subtype == 'init' &&
+            msg is SystemMessage &&
+            msg.provider == Provider.codex.value);
     return ChatStateUpdate(
       entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
       permissionMode: permissionMode,

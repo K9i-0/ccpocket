@@ -236,5 +236,24 @@ void main() {
 
       expect(captured.last, equals('First\n\nSecond'));
     });
+
+    testWidgets('does not render an empty thinking card', (tester) async {
+      const message = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'msg-empty-thinking',
+          role: 'assistant',
+          content: [
+            ThinkingContent(thinking: ' \n '),
+            TextContent(text: 'Visible response'),
+          ],
+          model: 'claude-opus-4-5-20251101',
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(const AssistantBubble(message: message)));
+
+      expect(find.text('Thinking'), findsNothing);
+      expect(find.text('Visible response'), findsOneWidget);
+    });
   });
 }

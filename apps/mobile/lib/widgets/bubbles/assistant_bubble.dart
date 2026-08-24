@@ -69,7 +69,12 @@ class _AssistantBubbleState extends State<AssistantBubble> {
 
   @override
   Widget build(BuildContext context) {
-    final contents = widget.message.message.content;
+    final contents = widget.message.message.content
+        .where(
+          (content) =>
+              content is! ThinkingContent || content.thinking.trim().isNotEmpty,
+        )
+        .toList(growable: false);
     final hasTextContent = contents.any((c) => c is TextContent);
     final hasPlanExit = contents.any(
       (c) => c is ToolUseContent && c.name == 'ExitPlanMode',
