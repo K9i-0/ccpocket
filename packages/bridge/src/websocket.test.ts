@@ -2708,6 +2708,115 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("shows cached codex history while a canonical refresh is still pending", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:stored",
+        content: [{ type: "text", text: "stored transcript" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_slow_history";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "cached-live",
+        role: "assistant",
+        content: [{ type: "text", text: "already visible on the session card" }],
+        model: "gpt-5.3-codex",
+      },
+      messageUuid: "cached-live",
+    });
+
+    let resolveRead!: (thread: unknown) => void;
+    const pendingRead = new Promise((resolve) => {
+      resolveRead = resolve;
+    });
+    session.process.readThread.mockReturnValue(pendingRead);
+
+    ws.send.mockClear();
+    const firstRequest = (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const earlyHistory = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "history_delta" ||
+          message.type === "history_snapshot",
+      );
+    expect(earlyHistory).toMatchObject({ sessionId });
+    expect(earlyHistory.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.objectContaining({
+            type: "assistant",
+            messageUuid: "cached-live",
+          }),
+        }),
+      ]),
+    );
+
+    const duplicateRequest = (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+    await duplicateRequest;
+    expect(session.process.readThread).toHaveBeenCalledTimes(1);
+
+    resolveRead({ id: "thr_codex_slow_history", turns: [] });
+    await firstRequest;
+
+    const finalHistory = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .filter((message: any) => message.type === "history_snapshot")
+      .at(-1);
+    expect(finalHistory).toMatchObject({
+      sessionId,
+      reason: "reset",
+    });
+
+    bridge.close();
+  });
+
   it("serves codex get_history as legacy history from canonical thread/read", async () => {
     codexThreadToSessionHistoryMock.mockReturnValue([
       {
@@ -3192,7 +3301,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) =>
       JSON.parse(c[0] as string),
     );
-    expect(sends[0]).toMatchObject({
+    const snapshot = sends.find(
+      (message: any) => message.type === "history_snapshot",
+    );
+    expect(snapshot).toMatchObject({
       type: "history_snapshot",
       sessionId,
       reason: "reset",
@@ -3218,22 +3330,22 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
-    expect(sends[0].fromSeq).toBe(sends[0].messages[0].seq);
-    expect(sends[0].toSeq).toBe(sends[0].messages[1].seq);
-    expect(sends[0].fromSeq).toBeGreaterThan(1);
+    expect(snapshot.fromSeq).toBe(snapshot.messages[0].seq);
+    expect(snapshot.toSeq).toBe(snapshot.messages[1].seq);
+    expect(snapshot.fromSeq).toBeGreaterThan(1);
     expect(session.codexCanonicalHistoryRevision).toBe(
-      sends[0].messages[0].seq,
+      snapshot.messages[0].seq,
     );
     expect(session.historyEntries).toMatchObject([
       {
-        seq: sends[0].messages[1].seq,
+        seq: snapshot.messages[1].seq,
         message: {
           type: "assistant",
           messageUuid: "live-assistant-1",
         },
       },
     ]);
-    expect(session.historyRevision).toBe(sends[0].toSeq);
+    expect(session.historyRevision).toBe(snapshot.toSeq);
 
     bridge.close();
   });
@@ -3508,7 +3620,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) =>
       JSON.parse(c[0] as string),
     );
-    expect(sends[0]).toMatchObject({
+    const snapshot = sends.find(
+      (message: any) => message.type === "history_snapshot",
+    );
+    expect(snapshot).toMatchObject({
       type: "history_snapshot",
       sessionId,
       messages: [
@@ -3537,12 +3652,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
-    expect(sends[0].fromSeq).toBe(sends[0].messages[0].seq);
-    expect(sends[0].toSeq).toBe(sends[0].messages[1].seq);
-    expect(sends[0].fromSeq).toBeGreaterThan(1);
+    expect(snapshot.fromSeq).toBe(snapshot.messages[0].seq);
+    expect(snapshot.toSeq).toBe(snapshot.messages[1].seq);
+    expect(snapshot.fromSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toMatchObject([
       {
-        seq: sends[0].messages[1].seq,
+        seq: snapshot.messages[1].seq,
         message: {
           type: "assistant",
           message: {
@@ -3771,7 +3886,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) =>
       JSON.parse(c[0] as string),
     );
-    expect(sends[0]).toMatchObject({
+    const snapshot = sends.find(
+      (message: any) => message.type === "history_snapshot",
+    );
+    expect(snapshot).toMatchObject({
       type: "history_snapshot",
       sessionId,
       messages: [
@@ -3792,11 +3910,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
-    expect(sends[0].fromSeq).toBe(sends[0].toSeq);
-    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
-    expect(sends[0].toSeq).toBeGreaterThan(1);
+    expect(snapshot.fromSeq).toBe(snapshot.toSeq);
+    expect(snapshot.messages[0].seq).toBe(snapshot.toSeq);
+    expect(snapshot.toSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toEqual([]);
-    expect(session.historyRevision).toBe(sends[0].toSeq);
+    expect(session.historyRevision).toBe(snapshot.toSeq);
 
     bridge.close();
   });
@@ -3861,7 +3979,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) =>
       JSON.parse(c[0] as string),
     );
-    expect(sends[0]).toMatchObject({
+    const snapshot = sends.find(
+      (message: any) => message.type === "history_snapshot",
+    );
+    expect(snapshot).toMatchObject({
       type: "history_snapshot",
       sessionId,
       messages: [
@@ -3875,11 +3996,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
-    expect(sends[0].fromSeq).toBe(sends[0].toSeq);
-    expect(sends[0].messages[0].seq).toBe(sends[0].toSeq);
-    expect(sends[0].toSeq).toBeGreaterThan(1);
+    expect(snapshot.fromSeq).toBe(snapshot.toSeq);
+    expect(snapshot.messages[0].seq).toBe(snapshot.toSeq);
+    expect(snapshot.toSeq).toBeGreaterThan(1);
     expect(session.historyEntries).toEqual([]);
-    expect(session.historyRevision).toBe(sends[0].toSeq);
+    expect(session.historyRevision).toBe(snapshot.toSeq);
 
     bridge.close();
   });

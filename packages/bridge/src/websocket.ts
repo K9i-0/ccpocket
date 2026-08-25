@@ -753,6 +753,11 @@ export class BridgeWebSocketServer {
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  private codexHistoryResponsesInFlight = new WeakMap<WebSocket, Set<string>>();
+  private codexCanonicalHistoryInFlight = new Map<
+    string,
+    Promise<HistoryEntry[] | null>
+  >();
   private codexHistoryPageCache = new Map<string, HistoryEntry[]>();
   private pendingClaudeResumeInputs = new WeakMap<
     WebSocket,
@@ -1454,7 +1459,44 @@ export class BridgeWebSocketServer {
     return undefined;
   }
 
+  private beginCodexHistoryResponse(ws: WebSocket, sessionId: string): boolean {
+    let sessionIds = this.codexHistoryResponsesInFlight.get(ws);
+    if (!sessionIds) {
+      sessionIds = new Set<string>();
+      this.codexHistoryResponsesInFlight.set(ws, sessionIds);
+    }
+    if (sessionIds.has(sessionId)) return false;
+    sessionIds.add(sessionId);
+    return true;
+  }
+
+  private endCodexHistoryResponse(ws: WebSocket, sessionId: string): void {
+    const sessionIds = this.codexHistoryResponsesInFlight.get(ws);
+    if (!sessionIds) return;
+    sessionIds.delete(sessionId);
+    if (sessionIds.size === 0) {
+      this.codexHistoryResponsesInFlight.delete(ws);
+    }
+  }
+
   private async codexCanonicalHistoryEntries(
+    session: SessionInfo,
+  ): Promise<HistoryEntry[] | null> {
+    const existing = this.codexCanonicalHistoryInFlight.get(session.id);
+    if (existing) return existing;
+
+    const request = this.loadCodexCanonicalHistoryEntries(session);
+    this.codexCanonicalHistoryInFlight.set(session.id, request);
+    try {
+      return await request;
+    } finally {
+      if (this.codexCanonicalHistoryInFlight.get(session.id) === request) {
+        this.codexCanonicalHistoryInFlight.delete(session.id);
+      }
+    }
+  }
+
+  private async loadCodexCanonicalHistoryEntries(
     session: SessionInfo,
   ): Promise<HistoryEntry[] | null> {
     const threadId = this.codexThreadIdForSession(session);
@@ -4321,28 +4363,33 @@ export class BridgeWebSocketServer {
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
           if (session.provider === "codex") {
-            const supportsPages =
-              this.clientSupportedServerMessages
-                .get(ws)
-                ?.has("history_page") ?? false;
-            if (supportsPages) {
-              const handled = await this.sendCodexCanonicalHistoryPage(
+            if (!this.beginCodexHistoryResponse(ws, msg.sessionId)) break;
+            try {
+              const supportsPages =
+                this.clientSupportedServerMessages
+                  .get(ws)
+                  ?.has("history_page") ?? false;
+              if (supportsPages) {
+                const handled = await this.sendCodexCanonicalHistoryPage(
+                  ws,
+                  msg.sessionId,
+                  session,
+                  { beforeSeq: msg.beforeSeq, limit: msg.limit },
+                );
+                if (handled) {
+                  break;
+                }
+              }
+              const handled = await this.sendCodexCanonicalLegacyHistory(
                 ws,
                 msg.sessionId,
                 session,
-                { beforeSeq: msg.beforeSeq, limit: msg.limit },
               );
               if (handled) {
                 break;
               }
-            }
-            const handled = await this.sendCodexCanonicalLegacyHistory(
-              ws,
-              msg.sessionId,
-              session,
-            );
-            if (handled) {
-              break;
+            } finally {
+              this.endCodexHistoryResponse(ws, msg.sessionId);
             }
           }
 
@@ -4462,11 +4509,39 @@ export class BridgeWebSocketServer {
               result.kind,
             )
           ) {
-            await this.sendCodexCanonicalHistorySnapshot(
-              ws,
-              msg.sessionId,
-              session,
-            );
+            if (!this.beginCodexHistoryResponse(ws, msg.sessionId)) break;
+            try {
+              // The canonical thread/read can take several seconds while a
+              // turn is active. Show the Bridge's sequenced live cache first
+              // so reopening a working session never presents a blank chat.
+              // The canonical snapshot below then reconciles the full thread.
+              const hasCachedConversation = result.entries.some(
+                ({ message }) => message.type !== "system",
+              );
+              if (hasCachedConversation) {
+                this.send(ws, {
+                  type:
+                    result.kind === "snapshot"
+                      ? "history_snapshot"
+                      : "history_delta",
+                  sessionId: msg.sessionId,
+                  fromSeq: result.fromSeq,
+                  toSeq: result.toSeq,
+                  messages: result.entries,
+                  status: session.status,
+                  ...(result.kind === "snapshot"
+                    ? { reason: result.reason }
+                    : {}),
+                } as ServerMessage);
+              }
+              await this.sendCodexCanonicalHistorySnapshot(
+                ws,
+                msg.sessionId,
+                session,
+              );
+            } finally {
+              this.endCodexHistoryResponse(ws, msg.sessionId);
+            }
             break;
           }
 
