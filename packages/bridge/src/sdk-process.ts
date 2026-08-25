@@ -7,6 +7,7 @@ import {
   query,
   type Query,
   type SDKMessage,
+  type SDKAssistantMessageError,
   type PermissionResult,
   type ModelInfo,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -379,6 +380,67 @@ export interface RewindFilesResult {
 const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
 
+interface ClaudeAssistantErrorDetails {
+  message: string;
+  errorCode: string;
+}
+
+const UNKNOWN_CLAUDE_ASSISTANT_ERROR: ClaudeAssistantErrorDetails = {
+  message: "Claude stopped because of an unknown request error.",
+  errorCode: "claude_assistant_error",
+};
+
+const CLAUDE_ASSISTANT_ERRORS = {
+  authentication_failed: {
+    message: "Claude authentication failed. Sign in again on the Bridge machine.",
+    errorCode: "auth_token_expired",
+  },
+  oauth_org_not_allowed: {
+    message: "This Claude subscription organization cannot be used by the Agent SDK.",
+    errorCode: "claude_oauth_org_not_allowed",
+  },
+  billing_error: {
+    message: "Claude could not continue because of an account billing error.",
+    errorCode: "claude_billing_error",
+  },
+  rate_limit: {
+    message: "Claude is temporarily rate limited. Try again shortly.",
+    errorCode: "claude_rate_limit",
+  },
+  invalid_request: {
+    message: "Claude rejected this request as invalid.",
+    errorCode: "claude_invalid_request",
+  },
+  model_not_found: {
+    message: "The selected Claude model is not available for this account.",
+    errorCode: "claude_model_not_found",
+  },
+  server_error: {
+    message: "Claude encountered a server error.",
+    errorCode: "claude_server_error",
+  },
+  unknown: UNKNOWN_CLAUDE_ASSISTANT_ERROR,
+  max_output_tokens: {
+    message: "Claude reached the maximum response length before finishing.",
+    errorCode: "claude_max_output_tokens",
+  },
+} satisfies Record<SDKAssistantMessageError, ClaudeAssistantErrorDetails>;
+
+function claudeAssistantErrorMessage(error: unknown): ServerMessage | null {
+  if (typeof error !== "string" || error.length === 0) return null;
+  const details = Object.hasOwn(CLAUDE_ASSISTANT_ERRORS, error)
+    ? CLAUDE_ASSISTANT_ERRORS[error as SDKAssistantMessageError]
+    : UNKNOWN_CLAUDE_ASSISTANT_ERROR;
+  return { type: "error", ...details };
+}
+
+function isInternalClaudeResultError(error: string): boolean {
+  return (
+    error.startsWith("[ede_diagnostic]") ||
+    error.includes("Bun is not defined")
+  );
+}
+
 function isClaudeSystemInjectedUserText(text: string): boolean {
   const normalized = text.trimStart();
   return (
@@ -406,6 +468,17 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       }
       if (sys.subtype === "compact_boundary") {
         return { type: "status", status: "compacting" as ProcessStatus };
+      }
+      if (sys.subtype === "status" && sys.compact_result === "failed") {
+        const compactError =
+          typeof sys.compact_error === "string" ? sys.compact_error.trim() : "";
+        return {
+          type: "error",
+          message: compactError
+            ? `Claude context compaction failed: ${compactError}`
+            : "Claude context compaction failed.",
+          errorCode: "claude_compaction_failed",
+        };
       }
       return null;
     }
@@ -506,7 +579,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           )
         : [];
       const visibleErrors = rawErrors.filter(
-        (error) => !error.startsWith("[ede_diagnostic]"),
+        (error) => !isInternalClaudeResultError(error),
       );
       if (rawErrors.length > 0 && visibleErrors.length === 0) {
         return null;
@@ -514,10 +587,6 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       // All other result subtypes are errors
       const errorText =
         visibleErrors.length > 0 ? visibleErrors.join("\n") : "Unknown error";
-      // Suppress spurious CLI runtime errors (SDK bug: Bun API referenced on Node.js)
-      if (errorText.includes("Bun is not defined")) {
-        return null;
-      }
       return {
         type: "result",
         subtype: "error",
@@ -627,6 +696,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
+  private pendingAssistantError: ServerMessage | null = null;
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -673,6 +743,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    this.pendingAssistantError = null;
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
@@ -772,7 +843,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         return;
       }
       console.error("[sdk-process] Message processing error:", err);
-      this.emitMessage({ type: "error", message: `SDK error: ${err instanceof Error ? err.message : String(err)}` });
+      if (!this.flushPendingAssistantError()) {
+        this.emitMessage({ type: "error", message: `SDK error: ${err instanceof Error ? err.message : String(err)}` });
+      }
       this.stop();
       this.emit("exit", 1);
     });
@@ -797,6 +870,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.userMessageResolve = null;
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    this.pendingAssistantError = null;
 
     // Emit session_end so listeners can re-persist metadata before cleanup.
     // processMessages() won't reach its session_end emit because close()
@@ -1189,6 +1263,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
+      if (message.type === "assistant" && this.pendingAssistantError === null) {
+        this.pendingAssistantError = claudeAssistantErrorMessage(
+          (message as Record<string, unknown>).error,
+        );
+      }
       if (serverMsg?.type === "result") {
         if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
           serverMsg = {
@@ -1203,6 +1282,27 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
         this.toolCallsSinceLastResult = 0;
         this.fileEditsSinceLastResult = 0;
+      }
+
+      if (message.type === "result" && this.pendingAssistantError) {
+        const result = message as Record<string, unknown>;
+        const hasRealResultError =
+          serverMsg?.type === "result" &&
+          serverMsg.subtype === "error" &&
+          Array.isArray(result.errors) &&
+          result.errors.some(
+            (error) =>
+              typeof error === "string" &&
+              !isInternalClaudeResultError(error),
+          );
+        if (!hasRealResultError) {
+          this.flushPendingAssistantError();
+          if (serverMsg?.type === "result" && serverMsg.subtype === "error") {
+            serverMsg = null;
+          }
+        } else {
+          this.pendingAssistantError = null;
+        }
       }
       if (serverMsg) {
         this.emitMessage(serverMsg);
@@ -1246,6 +1346,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.updateStatusFromMessage(message);
     }
 
+    this.flushPendingAssistantError();
+
     // Query finished — CLI has completed shutdown including file writes.
     this.queryInstance = null;
 
@@ -1255,6 +1357,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.setStatus("idle");
     this.emit("exit", 0);
+  }
+
+  private flushPendingAssistantError(): boolean {
+    if (!this.pendingAssistantError) return false;
+    const message = this.pendingAssistantError;
+    this.pendingAssistantError = null;
+    this.emitMessage(message);
+    return true;
   }
 
   /**
@@ -1322,9 +1432,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private updateStatusFromMessage(msg: SDKMessage): void {
     switch (msg.type) {
-      case "system":
-        // Already handled in processMessages for init
+      case "system": {
+        const system = msg as Record<string, unknown>;
+        if (system.subtype === "status") {
+          if (system.status === "compacting") {
+            this.setStatus("compacting");
+          } else if (system.status === "requesting") {
+            this.setStatus("running");
+          } else if (system.status === null && this._status === "compacting") {
+            this.setStatus("running");
+          }
+        }
         break;
+      }
       case "assistant":
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");

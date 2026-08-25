@@ -455,6 +455,41 @@ describe("sdkMessageToServerMessage", () => {
     });
   });
 
+  describe("Claude status handling", () => {
+    it("surfaces context compaction failures", () => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          compact_error: "summary request timed out",
+          session_id: "test-session",
+        } as any),
+      ).toEqual({
+        type: "error",
+        message: "Claude context compaction failed: summary request timed out",
+        errorCode: "claude_compaction_failed",
+      });
+    });
+
+    it("uses a stable fallback when compaction has no error detail", () => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          session_id: "test-session",
+        } as any),
+      ).toEqual({
+        type: "error",
+        message: "Claude context compaction failed.",
+        errorCode: "claude_compaction_failed",
+      });
+    });
+  });
+
   describe("returns null for unhandled message types", () => {
     it("returns null for unknown message type", () => {
       const sdkMsg = {
@@ -965,6 +1000,7 @@ describe("SdkProcess input dispatch", () => {
 
     await stream.return(undefined);
   });
+
 });
 
 describe("SdkProcess Claude authentication", () => {
@@ -978,6 +1014,33 @@ describe("SdkProcess Claude authentication", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
+
+  async function runSdkMessages(
+    sdkMessages: unknown[],
+    permissionMode?: "acceptEdits",
+    iteratorError?: Error,
+  ) {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const statuses: string[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("status", (status) => statuses.push(status));
+    proc.on("exit", (code) => exits.push(code));
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield* sdkMessages;
+        if (iteratorError) throw iteratorError;
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+    });
+
+    proc.start(process.cwd(), { permissionMode });
+    await vi.waitFor(() => expect(exits).toEqual([iteratorError ? 1 : 0]));
+    return { proc, messages, statuses };
+  }
 
   it("requires the exact OAuth opt-in value", () => {
     expect(isClaudeOAuthOptInEnabled({ BRIDGE_ALLOW_CLAUDE_OAUTH: "1" })).toBe(true);
@@ -1115,6 +1178,248 @@ describe("SdkProcess Claude authentication", () => {
     }));
     expect(exits).toEqual([0]);
   });
+
+  it("tracks compaction lifecycle and emits one failure without changing permission mode", async () => {
+    const { proc, messages, statuses } = await runSdkMessages(
+      [
+        {
+          type: "system",
+          subtype: "init",
+          session_id: "compaction-session",
+          model: "claude-sonnet-4-6",
+          apiKeySource: "api_key",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "compacting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "requesting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "compacting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          compact_error: "summary request timed out",
+          session_id: "compaction-session",
+        },
+      ],
+      "acceptEdits",
+    );
+
+    expect(statuses).toEqual([
+      "starting",
+      "idle",
+      "compacting",
+      "running",
+      "compacting",
+      "running",
+      "idle",
+    ]);
+    expect(proc.permissionMode).toBe("acceptEdits");
+    expect(
+      messages.filter(
+        (message) =>
+          message.type === "error" &&
+          message.errorCode === "claude_compaction_failed",
+      ),
+    ).toEqual([
+      {
+        type: "error",
+        message: "Claude context compaction failed: summary request timed out",
+        errorCode: "claude_compaction_failed",
+      },
+    ]);
+  });
+
+  it("preserves partial assistant text and surfaces its typed error once", async () => {
+    const { messages } = await runSdkMessages([
+      {
+          type: "system",
+          subtype: "init",
+          session_id: "partial-error-session",
+          model: "claude-sonnet-4-6",
+          apiKeySource: "api_key",
+      },
+      {
+          type: "assistant",
+          session_id: "partial-error-session",
+          uuid: "assistant-error",
+          error: "max_output_tokens",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial useful response" }],
+          },
+      },
+      {
+          type: "result",
+          subtype: "error_during_execution",
+          errors: [
+            "[ede_diagnostic] result_type=assistant last_content_type=text stop_reason=max_tokens",
+          ],
+          session_id: "partial-error-session",
+      },
+    ]);
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Partial useful response" }],
+        }),
+      }),
+    );
+    expect(
+      messages.filter(
+        (message) =>
+          message.type === "error" &&
+          message.errorCode === "claude_max_output_tokens",
+      ),
+    ).toEqual([
+      {
+        type: "error",
+        message: "Claude reached the maximum response length before finishing.",
+        errorCode: "claude_max_output_tokens",
+      },
+    ]);
+  });
+
+  it("prefers a real result error over a pending assistant error", async () => {
+    const { messages } = await runSdkMessages([
+      {
+          type: "assistant",
+          session_id: "real-result-error-session",
+          uuid: "assistant-error",
+          error: "server_error",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial response" }],
+          },
+      },
+      {
+          type: "result",
+          subtype: "error_during_execution",
+          errors: [
+            "Bun is not defined",
+            "[ede_diagnostic] internal context",
+            "Upstream request failed with status 503",
+          ],
+          session_id: "real-result-error-session",
+      },
+    ]);
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([]);
+    expect(
+      messages.filter(
+        (message) => message.type === "result" && message.subtype === "error",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        type: "result",
+        subtype: "error",
+        error: "Upstream request failed with status 503",
+      }),
+    ]);
+  });
+
+  it("flushes a typed assistant error when the SDK stream ends without a result", async () => {
+    const { messages } = await runSdkMessages([
+      {
+        type: "assistant",
+        session_id: "ended-error-session",
+        uuid: "assistant-error",
+        error: "authentication_failed",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Partial response" }],
+        },
+      },
+    ]);
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([
+      expect.objectContaining({ errorCode: "auth_token_expired" }),
+    ]);
+  });
+
+  it("flushes a typed assistant error instead of duplicating an iterator failure", async () => {
+    const { messages } = await runSdkMessages(
+      [
+        {
+          type: "assistant",
+          session_id: "thrown-error-session",
+          uuid: "assistant-error",
+          error: "authentication_failed",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial response" }],
+          },
+        },
+      ],
+      undefined,
+      new Error("transport closed"),
+    );
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([
+      expect.objectContaining({ errorCode: "auth_token_expired" }),
+    ]);
+  });
+
+  it.each([
+    {
+      assistantError: "authentication_failed",
+      expectedMessage:
+        "Claude authentication failed. Sign in again on the Bridge machine.",
+      expectedCode: "auth_token_expired",
+    },
+    {
+      assistantError: "unexpected_secret_runtime_value",
+      expectedMessage: "Claude stopped because of an unknown request error.",
+      expectedCode: "claude_assistant_error",
+    },
+  ])(
+    "maps assistant error $assistantError to a safe structured error",
+    async ({ assistantError, expectedMessage, expectedCode }) => {
+      const { messages } = await runSdkMessages([
+        {
+            type: "assistant",
+            session_id: "mapped-error-session",
+            uuid: "assistant-error",
+            error: assistantError,
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "Partial response" }],
+            },
+        },
+        {
+            type: "result",
+            subtype: "error_during_execution",
+            errors: [
+              "[ede_diagnostic] result_type=assistant last_content_type=text",
+            ],
+            session_id: "mapped-error-session",
+        },
+      ]);
+
+      expect(messages).toContainEqual({
+        type: "error",
+        message: expectedMessage,
+        errorCode: expectedCode,
+      });
+      expect(messages.filter((message) => message.type === "error")).toHaveLength(1);
+    },
+  );
 
   it("rejects an unexpected OAuth init when only an API key was configured", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
