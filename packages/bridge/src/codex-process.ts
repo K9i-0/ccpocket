@@ -2657,10 +2657,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       case "error": {
         const error = asRecord(params.error);
         const message = stringValue(error?.message) ?? "Codex runtime error";
+        if (params.willRetry === true) {
+          console.warn(`[codex-process] Codex will retry: ${message}`);
+          break;
+        }
         this.emitMessage({
           type: "error",
-          errorCode: params.willRetry ? "codex_warning" : "codex_runtime_error",
-          message: params.willRetry ? `${message}\nCodex will retry.` : message,
+          errorCode: "codex_runtime_error",
+          message,
         });
         break;
       }
