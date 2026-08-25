@@ -1600,7 +1600,7 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
-  it("times out a stalled thread/archive RPC", async () => {
+  it("ignores a late archive reply and allows retry after timeout", async () => {
     vi.useFakeTimers();
     const proc = new CodexProcess("linux");
     const child = new FakeChildProcess();
@@ -1612,9 +1612,19 @@ describe("CodexProcess (app-server)", () => {
       ).rejects.toThrow(
         "Codex RPC thread/archive timed out after 15000ms",
       );
+      const stalledRequest = nextOutgoingRequest(child);
 
       await vi.advanceTimersByTimeAsync(15_000);
       await archiveResult;
+      expect((proc as any).pendingRpc.size).toBe(0);
+
+      (proc as any).handleRpcEnvelope({ id: stalledRequest.id, result: {} });
+      expect((proc as any).pendingRpc.size).toBe(0);
+
+      const retry = proc.archiveThread("thread-retry");
+      const retryRequest = nextOutgoingRequest(child);
+      (proc as any).handleRpcEnvelope({ id: retryRequest.id, result: {} });
+      await expect(retry).resolves.toBeUndefined();
       expect((proc as any).pendingRpc.size).toBe(0);
     } finally {
       proc.stop();
