@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.118.0] - 2026-08-25
+
+### Added
+- Paste supported clipboard images from the native iOS text-field context menu, with the action shown only when an image is available.
+- Add an opt-in setting to open the gallery directly from the chat image button while preserving the attachment menu by default.
+
+### Changed
+- Support GIF and WebP alongside PNG and JPEG across clipboard paste and drag-and-drop image attachment flows.
+
 ## [1.117.1] - 2026-08-25
 
 ### Changed
