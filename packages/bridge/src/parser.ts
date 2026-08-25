@@ -233,6 +233,7 @@ export type ClientMessage =
       offset?: number;
       projectPath?: string;
       requestScope?: "list" | "project";
+      requestId?: string;
       provider?: "claude" | "codex";
       namedOnly?: boolean;
       searchQuery?: string;
@@ -553,6 +554,8 @@ export type ServerMessage =
       toolUseId?: string;
       path?: string;
       requestId?: string;
+      requestScope?: "list" | "project";
+      offset?: number;
     }
   | {
       type: "push_registration_result";
@@ -980,6 +983,10 @@ function hasValidStartOptions(msg: Record<string, unknown>): boolean {
 
 // ---- Parser ----
 
+const RECENT_SESSIONS_MAX_LIMIT = 500;
+const RECENT_SESSIONS_MAX_OFFSET = 100_000;
+const RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH = 128;
+
 export function parseClientMessage(data: string): ClientMessage | null {
   try {
     const msg = JSON.parse(data) as Record<string, unknown>;
@@ -1269,6 +1276,56 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "list_recent_sessions":
+        if (
+          msg.limit !== undefined &&
+          (typeof msg.limit !== "number" ||
+            !Number.isInteger(msg.limit) ||
+            msg.limit < 1 ||
+            msg.limit > RECENT_SESSIONS_MAX_LIMIT)
+        )
+          return null;
+        if (
+          msg.offset !== undefined &&
+          (typeof msg.offset !== "number" ||
+            !Number.isInteger(msg.offset) ||
+            msg.offset < 0 ||
+            msg.offset > RECENT_SESSIONS_MAX_OFFSET)
+        )
+          return null;
+        if (
+          msg.projectPath !== undefined &&
+          typeof msg.projectPath !== "string"
+        )
+          return null;
+        if (
+          msg.requestScope !== undefined &&
+          msg.requestScope !== "list" &&
+          msg.requestScope !== "project"
+        )
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" ||
+            msg.requestId.trim().length === 0 ||
+            msg.requestId.length > RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH)
+        )
+          return null;
+        if (
+          msg.provider !== undefined &&
+          msg.provider !== "claude" &&
+          msg.provider !== "codex"
+        )
+          return null;
+        if (
+          msg.namedOnly !== undefined &&
+          typeof msg.namedOnly !== "boolean"
+        )
+          return null;
+        if (
+          msg.searchQuery !== undefined &&
+          typeof msg.searchQuery !== "string"
+        )
+          return null;
         break;
       case "resume_session":
         if (

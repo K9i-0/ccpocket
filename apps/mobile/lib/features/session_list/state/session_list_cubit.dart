@@ -66,6 +66,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   final BridgeService _bridge;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
+  StreamSubscription<ServerMessage>? _messageSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
 
@@ -76,6 +77,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _projectHistorySub = _bridge.projectHistoryStream.listen(
       _onProjectHistoryUpdate,
     );
+    _messageSub = _bridge.messages.listen(_onBridgeMessage);
     _preferencesLoaded = _loadPreferences();
   }
 
@@ -168,6 +170,27 @@ class SessionListCubit extends Cubit<SessionListState> {
     if (newPaths.difference(current).isNotEmpty) {
       emit(state.copyWith(accumulatedProjectPaths: {...current, ...newPaths}));
     }
+  }
+
+  void _onBridgeMessage(ServerMessage message) {
+    if (message is! ErrorMessage ||
+        message.errorCode != 'recent_sessions_failed' ||
+        isClosed) {
+      return;
+    }
+    final projectPath = message.path;
+    if (message.requestScope == 'project' &&
+        projectPath != null &&
+        projectPath.isNotEmpty) {
+      emit(
+        state.copyWith(
+          loadingProjectPaths: {...state.loadingProjectPaths}
+            ..remove(projectPath),
+        ),
+      );
+      return;
+    }
+    emit(state.copyWith(isInitialLoading: false, isLoadingMore: false));
   }
 
   // ---- Filter commands (all trigger server re-fetch) ----
@@ -401,6 +424,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _searchDebounce?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
+    _messageSub?.cancel();
     return super.close();
   }
 }

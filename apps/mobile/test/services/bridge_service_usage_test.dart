@@ -2127,5 +2127,255 @@ void main() {
         bridge.dispose();
       },
     );
+
+    test('recent sessions ignores an older correlated response after the latest response', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      final twoRequestsReady = Completer<void>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        if (!socketReady.isCompleted) socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] != 'list_recent_sessions') return;
+          requests.add(json);
+          if (requests.length == 2 && !twoRequestsReady.isCompleted) {
+            twoRequestsReady.complete();
+          }
+        });
+      });
+
+      final bridge = BridgeService();
+      final updates = <List<RecentSession>>[];
+      final subscription = bridge.recentSessionsStream.listen(updates.add);
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+
+      bridge.switchFilter(searchQuery: 'first');
+      bridge.switchFilter(searchQuery: 'second');
+      await twoRequestsReady.future.timeout(const Duration(seconds: 1));
+
+      socket.add(
+        jsonEncode({
+          'type': 'recent_sessions',
+          'sessions': [
+            {'sessionId': 'fresh', 'projectPath': '/tmp/project'},
+          ],
+          'hasMore': false,
+          'offset': 0,
+          'requestScope': 'list',
+          'requestId': requests[1]['requestId'],
+        }),
+      );
+      await bridge.recentSessionsStream.first;
+
+      socket.add(
+        jsonEncode({
+          'type': 'recent_sessions',
+          'sessions': [
+            {'sessionId': 'stale', 'projectPath': '/tmp/project'},
+          ],
+          'hasMore': false,
+          'offset': 0,
+          'requestScope': 'list',
+          'requestId': requests[0]['requestId'],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      expect(requests[0]['requestId'], isNotNull);
+      expect(requests[1]['requestId'], isNot(requests[0]['requestId']));
+      expect(bridge.recentSessions.single.sessionId, 'fresh');
+      expect(updates, hasLength(1));
+
+      bridge.disconnect();
+      await subscription.cancel();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('recent sessions timeout preserves rows and allows the same query to retry', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      final firstRequestReady = Completer<void>();
+      final timedOutRequestReady = Completer<void>();
+      final retryRequestReady = Completer<void>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        if (!socketReady.isCompleted) socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] != 'list_recent_sessions') return;
+          requests.add(json);
+          switch (requests.length) {
+            case 1:
+              firstRequestReady.complete();
+              socket.add(
+                jsonEncode({
+                  'type': 'recent_sessions',
+                  'sessions': [
+                    {'sessionId': 'existing', 'projectPath': '/tmp/project'},
+                  ],
+                  'hasMore': true,
+                  'offset': 0,
+                  'requestScope': 'list',
+                  'requestId': json['requestId'],
+                }),
+              );
+              break;
+            case 2:
+              timedOutRequestReady.complete();
+              break;
+            case 3:
+              retryRequestReady.complete();
+              socket.add(
+                jsonEncode({
+                  'type': 'recent_sessions',
+                  'sessions': [
+                    {'sessionId': 'recovered', 'projectPath': '/tmp/project'},
+                  ],
+                  'hasMore': false,
+                  'offset': 0,
+                  'requestScope': 'list',
+                  'requestId': json['requestId'],
+                }),
+              );
+              break;
+          }
+        });
+      });
+
+      final bridge = BridgeService(
+        recentSessionsRequestTimeout: const Duration(milliseconds: 20),
+      );
+      final timeoutMessage = bridge.messages
+          .where(
+            (message) =>
+                message is ErrorMessage &&
+                message.errorCode == 'recent_sessions_failed',
+          )
+          .cast<ErrorMessage>()
+          .first;
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+
+      bridge.requestRecentSessions();
+      await firstRequestReady.future.timeout(const Duration(seconds: 1));
+      await bridge.recentSessionsStream.first;
+      expect(bridge.recentSessions.single.sessionId, 'existing');
+
+      bridge.switchFilter(searchQuery: 'slow');
+      await timedOutRequestReady.future.timeout(const Duration(seconds: 1));
+      final error = await timeoutMessage.timeout(const Duration(seconds: 1));
+      expect(error.requestId, requests[1]['requestId']);
+      expect(bridge.recentSessions.single.sessionId, 'existing');
+
+      bridge.switchFilter(searchQuery: 'slow');
+      await retryRequestReady.future.timeout(const Duration(seconds: 1));
+      await bridge.recentSessionsStream.firstWhere(
+        (sessions) =>
+            sessions.any((session) => session.sessionId == 'recovered'),
+      );
+      expect(requests[2]['requestId'], isNot(requests[1]['requestId']));
+      expect(bridge.recentSessions.single.sessionId, 'recovered');
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'legacy recent sessions response must match pending project and offset',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final requests = <Map<String, dynamic>>[];
+        final threeRequestsReady = Completer<void>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          if (!socketReady.isCompleted) socketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] != 'list_recent_sessions') return;
+            requests.add(json);
+            if (requests.length == 3 && !threeRequestsReady.isCompleted) {
+              threeRequestsReady.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        final updates = <List<RecentSession>>[];
+        final subscription = bridge.recentSessionsStream.listen(updates.add);
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final socket = await socketReady.future;
+
+        bridge.switchProjectFilter('/tmp/old');
+        bridge.switchProjectFilter('/tmp/current');
+        bridge.loadMoreRecentSessions(projectPath: '/tmp/current', offset: 20);
+        await threeRequestsReady.future.timeout(const Duration(seconds: 1));
+
+        void sendLegacyResponse({
+          required String sessionId,
+          required String projectPath,
+          required int offset,
+        }) {
+          socket.add(
+            jsonEncode({
+              'type': 'recent_sessions',
+              'sessions': [
+                {'sessionId': sessionId, 'projectPath': projectPath},
+              ],
+              'hasMore': false,
+              'projectPath': projectPath,
+              'offset': offset,
+              'requestScope': 'list',
+            }),
+          );
+        }
+
+        sendLegacyResponse(
+          sessionId: 'wrong-project',
+          projectPath: '/tmp/old',
+          offset: 0,
+        );
+        sendLegacyResponse(
+          sessionId: 'wrong-offset',
+          projectPath: '/tmp/current',
+          offset: 0,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        expect(updates, isEmpty);
+
+        sendLegacyResponse(
+          sessionId: 'matching',
+          projectPath: '/tmp/current',
+          offset: 20,
+        );
+        await bridge.recentSessionsStream.first;
+
+        expect(bridge.recentSessions.single.sessionId, 'matching');
+        expect(updates, hasLength(1));
+
+        bridge.disconnect();
+        await subscription.cancel();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
   });
 }

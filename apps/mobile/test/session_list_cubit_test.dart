@@ -13,6 +13,7 @@ class MockBridgeService extends BridgeService {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
+  final _messageController = StreamController<ServerMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   bool _hasMore = false;
@@ -26,6 +27,9 @@ class MockBridgeService extends BridgeService {
   @override
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
+
+  @override
+  Stream<ServerMessage> get messages => _messageController.stream;
 
   @override
   bool get recentSessionsHasMore => _hasMore;
@@ -63,6 +67,20 @@ class MockBridgeService extends BridgeService {
 
   void emitProjectHistory(List<String> paths) {
     _projectHistoryController.add(paths);
+  }
+
+  void emitRecentSessionsFailure({
+    String requestScope = 'list',
+    String? projectPath,
+  }) {
+    _messageController.add(
+      ErrorMessage(
+        message: 'Recent sessions failed',
+        errorCode: 'recent_sessions_failed',
+        path: projectPath,
+        requestScope: requestScope,
+      ),
+    );
   }
 
   @override
@@ -134,6 +152,7 @@ class MockBridgeService extends BridgeService {
   void dispose() {
     _recentSessionsController.close();
     _projectHistoryController.close();
+    _messageController.close();
   }
 }
 
@@ -437,6 +456,44 @@ void main() {
 
       expect(cubit.state.isLoadingMore, isFalse);
     });
+
+    test(
+      'recent sessions failure stops loading without clearing rows',
+      () async {
+        mockBridge.emitSessions([_session(id: 'existing')], hasMore: true);
+        await Future.microtask(() {});
+        cubit.loadMore();
+        expect(cubit.state.isLoadingMore, isTrue);
+
+        mockBridge.emitRecentSessionsFailure();
+        await Future.microtask(() {});
+
+        expect(cubit.state.isInitialLoading, isFalse);
+        expect(cubit.state.isLoadingMore, isFalse);
+        expect(cubit.state.sessions.single.sessionId, 'existing');
+      },
+    );
+
+    test(
+      'project recent sessions failure only clears that project loader',
+      () async {
+        mockBridge.emitSessions([
+          _session(id: 'one', projectPath: '/a/project'),
+        ], hasMore: true);
+        await Future.microtask(() {});
+        cubit.loadMoreProject('/a/project');
+        expect(cubit.state.loadingProjectPaths, contains('/a/project'));
+
+        mockBridge.emitRecentSessionsFailure(
+          requestScope: 'project',
+          projectPath: '/a/project',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.loadingProjectPaths, isNot(contains('/a/project')));
+        expect(cubit.state.sessions.single.sessionId, 'one');
+      },
+    );
 
     test(
       'loadMoreProject requests project-scoped page from current count',

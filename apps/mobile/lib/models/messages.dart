@@ -858,6 +858,8 @@ sealed class ServerMessage {
         toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
+        requestScope: json['requestScope'] as String?,
+        offset: json['offset'] as int?,
       ),
       'push_registration_result' => PushRegistrationResultMessage(
         token: json['token'] as String,
@@ -993,6 +995,7 @@ sealed class ServerMessage {
         offset: json['offset'] as int?,
         projectPath: json['projectPath'] as String?,
         requestScope: json['requestScope'] as String?,
+        requestId: json['requestId'] as String?,
       ),
       'past_history' => PastHistoryMessage(
         claudeSessionId: json['claudeSessionId'] as String? ?? '',
@@ -1630,6 +1633,8 @@ class ErrorMessage implements ServerMessage {
   final String? toolUseId;
   final String? path;
   final String? requestId;
+  final String? requestScope;
+  final int? offset;
 
   const ErrorMessage({
     required this.message,
@@ -1638,6 +1643,8 @@ class ErrorMessage implements ServerMessage {
     this.toolUseId,
     this.path,
     this.requestId,
+    this.requestScope,
+    this.offset,
   });
 }
 
@@ -2445,6 +2452,7 @@ class RecentSessionsMessage implements ServerMessage {
   final int? offset;
   final String? projectPath;
   final String? requestScope;
+  final String? requestId;
   const RecentSessionsMessage({
     required this.sessions,
     this.hasMore = false,
@@ -2452,6 +2460,7 @@ class RecentSessionsMessage implements ServerMessage {
     this.offset,
     this.projectPath,
     this.requestScope,
+    this.requestId,
   });
 }
 
@@ -4328,6 +4337,7 @@ class ClientMessage {
     int? offset,
     String? projectPath,
     String? requestScope,
+    String? requestId,
     String? provider,
     bool? namedOnly,
     String? searchQuery,
@@ -4338,6 +4348,7 @@ class ClientMessage {
       'offset': ?offset,
       'projectPath': ?projectPath,
       'requestScope': ?requestScope,
+      'requestId': ?requestId,
       'provider': ?provider,
       'namedOnly': ?namedOnly,
       'searchQuery': ?searchQuery,
