@@ -2368,11 +2368,14 @@ void main() {
             .cast<ErrorMessage>()
             .listen(errors.add);
         final url = 'ws://127.0.0.1:${server.port}';
-        bridge.connect(url);
-        await bridge.connectionStatus.firstWhere(
+        final connected = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
-        final firstSocket = await firstSocketReady.future;
+        bridge.connect(url);
+        await connected.timeout(const Duration(seconds: 2));
+        final firstSocket = await firstSocketReady.future.timeout(
+          const Duration(seconds: 2),
+        );
 
         bridge.switchFilter(searchQuery: 'same-query');
         final firstRequest = await firstRequestReady.future.timeout(
@@ -2387,11 +2390,12 @@ void main() {
         unawaited(firstSocket.close());
         await reconnecting.timeout(const Duration(seconds: 1));
 
-        bridge.connect(url);
-        await secondSocketReady.future.timeout(const Duration(seconds: 1));
-        await bridge.connectionStatus.firstWhere(
+        final connectedAgain = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
+        bridge.connect(url);
+        await secondSocketReady.future.timeout(const Duration(seconds: 1));
+        await connectedAgain.timeout(const Duration(seconds: 2));
         bridge.switchFilter(searchQuery: 'same-query');
         final secondRequest = await secondRequestReady.future.timeout(
           const Duration(milliseconds: 200),
