@@ -14,7 +14,7 @@ import '../../../widgets/workspace_pane_chrome.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
-/// Full-screen gallery image viewer with PageView swipe, double-tap zoom,
+/// Full-screen gallery image viewer with coordinated swipe, pinch/pan zoom,
 /// image info overlay, and delete/share actions.
 class GalleryImageViewer extends HookWidget {
   final List<GalleryImage> images;
@@ -34,10 +34,15 @@ class GalleryImageViewer extends HookWidget {
   Widget build(BuildContext context) {
     // Mutable image list for in-viewer deletion
     final imageList = useState(List<GalleryImage>.from(images));
-    final pageController = usePageController(initialPage: initialIndex);
+    final pageController = useMemoized(
+      () => ExtendedPageController(initialPage: initialIndex),
+      [initialIndex],
+    );
     final currentPage = useState(initialIndex);
     final chromeVisible = useState(true);
     final isDeleting = useState(false);
+
+    useEffect(() => pageController.dispose, [pageController]);
 
     // Hide system UI when chrome is hidden
     useEffect(() {
@@ -177,18 +182,59 @@ class GalleryImageViewer extends HookWidget {
           : null,
       body: Stack(
         children: [
-          // PageView with images
-          PageView.builder(
+          // This page view and ExtendedImage's gesture mode coordinate their
+          // recognizers, so a zoomed image keeps horizontal pans and a second
+          // pointer can begin pinch zoom without the carousel stealing it.
+          ExtendedImageGesturePageView.builder(
             controller: pageController,
             itemCount: imageList.value.length,
             onPageChanged: (index) => currentPage.value = index,
             itemBuilder: (context, index) {
               final image = imageList.value[index];
               final imageUrl = '$httpBaseUrl${image.url}';
-              return _ZoomableImage(
+              return GestureDetector(
                 key: ValueKey(image.id),
-                imageUrl: imageUrl,
+                behavior: HitTestBehavior.opaque,
                 onTap: () => chromeVisible.value = !chromeVisible.value,
+                child: ExtendedImage.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  cache: true,
+                  cacheMaxAge: _kCacheMaxAge,
+                  mode: ExtendedImageMode.gesture,
+                  initGestureConfigHandler: (_) => GestureConfig(
+                    inPageView: true,
+                    initialScale: 1,
+                    minScale: 1,
+                    maxScale: 5,
+                    animationMaxScale: 6,
+                    initialAlignment: InitialAlignment.center,
+                    cacheGesture: false,
+                    hitTestBehavior: HitTestBehavior.opaque,
+                  ),
+                  onDoubleTap: (state) {
+                    final scale = state.gestureDetails?.totalScale ?? 1;
+                    state.handleDoubleTap(scale: scale > 1.01 ? 1 : 2.5);
+                  },
+                  loadStateChanged: (state) {
+                    switch (state.extendedImageLoadState) {
+                      case LoadState.loading:
+                        return const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        );
+                      case LoadState.completed:
+                        return state.completedWidget;
+                      case LoadState.failed:
+                        return const Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                        );
+                    }
+                  },
+                ),
               );
             },
           ),
@@ -205,118 +251,6 @@ class GalleryImageViewer extends HookWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Image widget with double-tap-to-zoom and single-tap chrome toggle.
-class _ZoomableImage extends StatefulWidget {
-  final String imageUrl;
-  final VoidCallback? onTap;
-
-  const _ZoomableImage({super.key, required this.imageUrl, this.onTap});
-
-  @override
-  State<_ZoomableImage> createState() => _ZoomableImageState();
-}
-
-class _ZoomableImageState extends State<_ZoomableImage>
-    with SingleTickerProviderStateMixin {
-  final _transformController = TransformationController();
-  late final AnimationController _animController;
-  Animation<Matrix4>? _animation;
-  TapDownDetails? _doubleTapDetails;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _animController.addListener(() {
-      if (_animation != null) {
-        _transformController.value = _animation!.value;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    _transformController.dispose();
-    super.dispose();
-  }
-
-  void _handleDoubleTapDown(TapDownDetails details) {
-    _doubleTapDetails = details;
-  }
-
-  void _handleDoubleTap() {
-    final position = _doubleTapDetails?.localPosition ?? Offset.zero;
-    final currentScale = _transformController.value.getMaxScaleOnAxis();
-
-    Matrix4 endMatrix;
-    if (currentScale > 1.1) {
-      // Zoom out to identity
-      endMatrix = Matrix4.identity();
-    } else {
-      // Zoom in to 2x centered on tap position
-      const scale = 2.5;
-      final dx = -position.dx * (scale - 1);
-      final dy = -position.dy * (scale - 1);
-      // ignore: deprecated_member_use
-      endMatrix = Matrix4.identity()
-        // ignore: deprecated_member_use
-        ..translate(dx, dy)
-        // ignore: deprecated_member_use
-        ..scale(scale);
-    }
-
-    _animation = Matrix4Tween(begin: _transformController.value, end: endMatrix)
-        .animate(
-          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
-        );
-    _animController.forward(from: 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onDoubleTapDown: _handleDoubleTapDown,
-      onDoubleTap: _handleDoubleTap,
-      child: InteractiveViewer(
-        transformationController: _transformController,
-        minScale: 0.5,
-        maxScale: 5.0,
-        child: Center(
-          child: ExtendedImage.network(
-            widget.imageUrl,
-            fit: BoxFit.contain,
-            cache: true,
-            cacheMaxAge: _kCacheMaxAge,
-            loadStateChanged: (state) {
-              switch (state.extendedImageLoadState) {
-                case LoadState.loading:
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  );
-                case LoadState.completed:
-                  return state.completedWidget;
-                case LoadState.failed:
-                  return const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: Colors.white54,
-                      size: 48,
-                    ),
-                  );
-              }
-            },
-          ),
-        ),
       ),
     );
   }
