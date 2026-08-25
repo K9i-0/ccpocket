@@ -2331,6 +2331,102 @@ void main() {
     });
 
     test(
+      'recent sessions can retry the same query after socket reconnect',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final sockets = <WebSocket>[];
+        final firstSocketReady = Completer<WebSocket>();
+        final secondSocketReady = Completer<WebSocket>();
+        final firstRequestReady = Completer<Map<String, dynamic>>();
+        final secondRequestReady = Completer<Map<String, dynamic>>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          sockets.add(socket);
+          final socketIndex = sockets.length;
+          if (socketIndex == 1) {
+            firstSocketReady.complete(socket);
+          } else if (socketIndex == 2) {
+            secondSocketReady.complete(socket);
+          }
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] != 'list_recent_sessions') return;
+            if (socketIndex == 1 && !firstRequestReady.isCompleted) {
+              firstRequestReady.complete(json);
+            } else if (socketIndex == 2 && !secondRequestReady.isCompleted) {
+              secondRequestReady.complete(json);
+            }
+          });
+        });
+
+        final bridge = BridgeService(
+          recentSessionsRequestTimeout: const Duration(milliseconds: 80),
+        );
+        final errors = <ErrorMessage>[];
+        final errorSub = bridge.messages
+            .where((message) => message is ErrorMessage)
+            .cast<ErrorMessage>()
+            .listen(errors.add);
+        final url = 'ws://127.0.0.1:${server.port}';
+        bridge.connect(url);
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final firstSocket = await firstSocketReady.future;
+
+        bridge.switchFilter(searchQuery: 'same-query');
+        final firstRequest = await firstRequestReady.future.timeout(
+          const Duration(seconds: 1),
+        );
+        final reconnecting = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.reconnecting,
+        );
+        await firstSocket.close();
+        await reconnecting.timeout(const Duration(seconds: 1));
+
+        bridge.connect(url);
+        await secondSocketReady.future.timeout(const Duration(seconds: 1));
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.switchFilter(searchQuery: 'same-query');
+        final secondRequest = await secondRequestReady.future.timeout(
+          const Duration(milliseconds: 200),
+        );
+        expect(secondRequest['requestId'], isNot(firstRequest['requestId']));
+
+        sockets[1].add(
+          jsonEncode({
+            'type': 'recent_sessions',
+            'sessions': [
+              {'sessionId': 'recovered', 'projectPath': '/tmp/project'},
+            ],
+            'hasMore': false,
+            'offset': 0,
+            'requestScope': 'list',
+            'requestId': secondRequest['requestId'],
+          }),
+        );
+        await bridge.recentSessionsStream.first;
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        expect(bridge.recentSessions.single.sessionId, 'recovered');
+        expect(
+          errors.where((error) => error.errorCode == 'recent_sessions_failed'),
+          isEmpty,
+        );
+
+        bridge.disconnect();
+        await errorSub.cancel();
+        for (final socket in sockets) {
+          await socket.close();
+        }
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
       'legacy recent sessions response must match pending project and offset',
       () async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -2614,13 +2710,26 @@ void main() {
           jsonEncode({
             'type': 'gallery_list',
             'images': [_galleryImageJson('legacy-a', sessionId: 'session-a')],
-            'sessionId': 'session-a',
           }),
         );
         await Future<void>.delayed(const Duration(milliseconds: 20));
         expect(sessionAUpdates.single.single.id, 'legacy-a');
 
         bridge.requestGallery(sessionId: 'session-a');
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        socket.add(
+          jsonEncode({
+            'type': 'gallery_list',
+            'images': [
+              _galleryImageJson('wrong-session', sessionId: 'session-b'),
+            ],
+            'sessionId': 'session-b',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(sessionAUpdates, hasLength(1));
+        expect(sessionBUpdates, isEmpty);
+
         bridge.requestGallery(sessionId: 'session-b');
         await Future<void>.delayed(const Duration(milliseconds: 10));
         socket.add(

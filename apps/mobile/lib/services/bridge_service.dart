@@ -715,6 +715,7 @@ class BridgeService implements BridgeServiceBase {
           if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
+          _clearRecentSessionsRequestState();
           _clearPendingGalleryRequests();
           _requeueInFlightInputMessages();
           _requeueInFlightPendingMessages();
@@ -723,6 +724,7 @@ class BridgeService implements BridgeServiceBase {
         onDone: () {
           if (epoch != _connectionEpoch) return;
           _channel = null;
+          _clearRecentSessionsRequestState();
           _clearPendingGalleryRequests();
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -787,8 +789,7 @@ class BridgeService implements BridgeServiceBase {
     _lastRecentSessionsMessage = null;
     _recentSessionsHasMore = false;
     _appendMode = false;
-    _clearPendingRecentSessionsRequests();
-    _latestRecentSessionsRequestIds.clear();
+    _clearRecentSessionsRequestState();
     _clearPendingGalleryRequests();
     _currentProjectFilter = null;
     _galleryImages = const [];
@@ -2019,6 +2020,11 @@ class BridgeService implements BridgeServiceBase {
     _pendingRecentSessionsRequests.clear();
   }
 
+  void _clearRecentSessionsRequestState() {
+    _clearPendingRecentSessionsRequests();
+    _latestRecentSessionsRequestIds.clear();
+  }
+
   void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
     if (offset == null || offset == 0) {
       _appendMode = false;
@@ -2415,9 +2421,17 @@ class BridgeService implements BridgeServiceBase {
       pending = _pendingGalleryRequestsById.values.single;
     }
     if (pending == null ||
-        pending.projectPath != message.projectPath ||
-        pending.sessionId != message.sessionId ||
         !identical(_pendingGalleryRequestsByScope[pending.scopeKey], pending)) {
+      return false;
+    }
+    final responseProjectPath = requestId == null
+        ? message.projectPath ?? pending.projectPath
+        : message.projectPath;
+    final responseSessionId = requestId == null
+        ? message.sessionId ?? pending.sessionId
+        : message.sessionId;
+    if (pending.projectPath != responseProjectPath ||
+        pending.sessionId != responseSessionId) {
       return false;
     }
 
@@ -3081,8 +3095,7 @@ class BridgeService implements BridgeServiceBase {
       const SessionLinkResolveResult.unavailable(),
     );
     _reconnectTimer?.cancel();
-    _clearPendingRecentSessionsRequests();
-    _latestRecentSessionsRequestIds.clear();
+    _clearRecentSessionsRequestState();
     _clearPendingGalleryRequests();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
       timer.cancel();
