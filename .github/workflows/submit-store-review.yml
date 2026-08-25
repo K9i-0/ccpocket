@@ -124,7 +124,7 @@ jobs:
       - name: Set up asc
         uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d # v1
         with:
-          version: 3.5.1
+          version: 4.9.2
 
       - name: Verify asc version
         run: asc --version
