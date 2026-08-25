@@ -247,72 +247,64 @@ void main() {
       expect(find.byType(TextField), findsNothing);
     });
 
-    testWidgets(
-      'scrollable constrained area reaches final option when parent disables scroll',
-      (tester) async {
-        String? answeredResult;
+    testWidgets('bounded area reaches the final option', (tester) async {
+      String? answeredResult;
 
-        await tester.pumpWidget(
-          _wrap(
-            AskUserQuestionWidget(
-              toolUseId: 'test-overflow',
-              scrollable: false,
-              input: {
-                'questions': [
-                  {
-                    'question': 'Which onboarding strategy should I implement for the next release, given that first-time users need setup guidance while returning users want shortcuts?',
-                    'header': 'Onboarding',
-                    'options': [
-                      {
-                        'label': 'Guided setup',
-                        'description': 'Connection setup, project selection, permission guidance, first prompt education, and recovery hints shown in sequence before the first chat.',
-                      },
-                      {
-                        'label': 'Progressive disclosure',
-                        'description': 'Minimum setup first, then reveal permissions, prompt tips, workspace switching, and recovery actions as users encounter each feature.',
-                      },
-                      {
-                        'label': 'Power-user shortcuts',
-                        'description': 'Quick connect, recent projects, direct session start, saved machines, and compact troubleshooting entry points for returning users.',
-                      },
-                      {
-                        'label': 'Diagnostic-first flow',
-                        'description': 'Environment checks and remediation steps for Bridge, network, shell path, and permission issues before creating a session.',
-                      },
-                    ],
-                    'multiSelect': false,
-                  },
-                ],
-              },
-              onAnswer: (_, result) {
-                answeredResult = result;
-              },
-            ),
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-overflow',
+            maxHeight: 360,
+            input: {
+              'questions': [
+                {
+                  'question': 'Which onboarding strategy should I implement for the next release, given that first-time users need setup guidance while returning users want shortcuts?',
+                  'header': 'Onboarding',
+                  'options': [
+                    {
+                      'label': 'Guided setup',
+                      'description': 'Connection setup, project selection, permission guidance, first prompt education, and recovery hints shown in sequence before the first chat.',
+                    },
+                    {
+                      'label': 'Progressive disclosure',
+                      'description': 'Minimum setup first, then reveal permissions, prompt tips, workspace switching, and recovery actions as users encounter each feature.',
+                    },
+                    {
+                      'label': 'Power-user shortcuts',
+                      'description': 'Quick connect, recent projects, direct session start, saved machines, and compact troubleshooting entry points for returning users.',
+                    },
+                    {
+                      'label': 'Diagnostic-first flow',
+                      'description': 'Environment checks and remediation steps for Bridge, network, shell path, and permission issues before creating a session.',
+                    },
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (_, result) {
+              answeredResult = result;
+            },
           ),
-        );
+        ),
+      );
 
-        final scrollView = find.byKey(
-          const ValueKey('ask_single_question_scroll_view'),
-        );
-        expect(scrollView, findsOneWidget);
-        final screenHeight =
-            tester.view.physicalSize.height / tester.view.devicePixelRatio;
-        expect(
-          tester.getSize(scrollView).height,
-          closeTo(screenHeight * 0.42, 0.1),
-        );
+      final scrollView = find.byKey(
+        const ValueKey('ask_single_question_scroll_view'),
+      );
+      expect(scrollView, findsOneWidget);
+      expect(tester.getSize(scrollView).height, lessThanOrEqualTo(360));
 
-        await tester.drag(scrollView, const Offset(0, -420));
-        await tester.pumpAndSettle();
+      await tester.drag(scrollView, const Offset(0, -420));
+      await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.byKey(const ValueKey('ask_option_0_Diagnostic-first flow')),
-        );
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('ask_option_0_Diagnostic-first flow')),
+      );
+      await tester.pumpAndSettle();
 
-        expect(answeredResult, 'Diagnostic-first flow');
-      },
-    );
+      expect(answeredResult, 'Diagnostic-first flow');
+    });
   });
 
   group('AskUserQuestionWidget - multiple questions', () {
@@ -452,6 +444,63 @@ void main() {
       expect(find.text('Size?'), findsOneWidget);
       expect(find.text('Color?'), findsNothing);
     });
+
+    testWidgets('long summary stays scrollable inside a bounded parent', (
+      tester,
+    ) async {
+      var answered = false;
+      final longAnswer = List.filled(
+        12,
+        'A detailed answer that must remain reviewable before submission.',
+      ).join(' ');
+
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-long-summary',
+            maxHeight: 360,
+            input: {
+              'questions': [
+                for (var i = 0; i < 3; i++)
+                  {
+                    'question': 'Question ${i + 1}?',
+                    'header': 'Section ${i + 1}',
+                    'options': [
+                      {
+                        'label': 'Answer ${i + 1}',
+                        'value': '$longAnswer ${i + 1}',
+                        'description': '',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+              ],
+            },
+            onAnswer: (_, _) => answered = true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(
+          find.byKey(ValueKey('ask_option_${i}_Answer ${i + 1}')),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final summaryScrollView = find.byKey(
+        const ValueKey('ask_summary_scroll_view'),
+      );
+      expect(summaryScrollView, findsOneWidget);
+      await tester.drag(summaryScrollView, const Offset(0, -1000));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ask_submit_summary_button')));
+      await tester.pumpAndSettle();
+
+      expect(answered, isTrue);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('AskUserQuestionWidget - multiSelect', () {
@@ -587,6 +636,106 @@ void main() {
       // After answering
       expect(find.text('Answered'), findsOneWidget);
       expect(find.text('Claude is asking'), findsNothing);
+    });
+
+    testWidgets('question identity controls whether local state is reset', (
+      tester,
+    ) async {
+      Widget question(String toolUseId, String prompt, String option) => _wrap(
+        AskUserQuestionWidget(
+          toolUseId: toolUseId,
+          input: {
+            'questions': [
+              {
+                'question': prompt,
+                'header': 'Choice',
+                'options': [
+                  {'label': option, 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+          onAnswer: (_, _) {},
+        ),
+      );
+
+      await tester.pumpWidget(question('tool-old', 'Old question?', 'Old'));
+      await tester.tap(find.text('Old'));
+      await tester.pumpAndSettle();
+      expect(find.text('Answered'), findsOneWidget);
+
+      await tester.pumpWidget(
+        question('tool-old', 'Updated old question?', 'Updated'),
+      );
+      await tester.pump();
+      expect(find.text('Answered'), findsOneWidget);
+
+      await tester.pumpWidget(question('tool-new', 'New question?', 'New'));
+      await tester.pump();
+      expect(find.text('Answered'), findsNothing);
+      expect(find.text('New question?'), findsOneWidget);
+    });
+
+    testWidgets('new identity clears page, choices, and custom input', (
+      tester,
+    ) async {
+      Map<String, dynamic> input(String prefix) => {
+        'questions': [
+          {
+            'question': '$prefix first?',
+            'header': 'First',
+            'options': [
+              {'label': '$prefix choice', 'description': ''},
+            ],
+            'multiSelect': true,
+          },
+          {
+            'question': '$prefix second?',
+            'header': 'Second',
+            'options': [
+              {'label': '$prefix next', 'description': ''},
+            ],
+            'multiSelect': false,
+          },
+        ],
+      };
+
+      Widget question(String id, String prefix) => _wrap(
+        AskUserQuestionWidget(
+          toolUseId: id,
+          input: input(prefix),
+          onAnswer: (_, _) {},
+        ),
+      );
+
+      await tester.pumpWidget(question('tool-old', 'Old'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ask_option_0_Old choice')));
+      await tester.tap(find.widgetWithText(TextButton, 'Other answer...'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('ask_custom_text_input')),
+        'stale custom answer',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(question('tool-old', 'Old'));
+      await tester.pump();
+      expect(find.text('stale custom answer'), findsOneWidget);
+      expect(find.byIcon(Icons.check_box), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Old second?'), findsOneWidget);
+
+      await tester.pumpWidget(question('tool-new', 'New'));
+      await tester.pump();
+      expect(find.text('New first?'), findsOneWidget);
+      expect(find.text('New second?'), findsNothing);
+      expect(find.text('stale custom answer'), findsNothing);
+      expect(find.byIcon(Icons.check_box), findsNothing);
+      expect(find.text('1/3'), findsOneWidget);
     });
   });
 

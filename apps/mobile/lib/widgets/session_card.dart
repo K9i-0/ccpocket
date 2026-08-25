@@ -1241,6 +1241,28 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   @override
+  void didUpdateWidget(covariant _AskUserArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.permission.toolUseId == widget.permission.toolUseId) return;
+    _resetForQuestionIdentity();
+  }
+
+  void _resetForQuestionIdentity() {
+    _singleAnswers.clear();
+    _multiAnswers.clear();
+    _customInputs.clear();
+    for (final controller in _customControllers.values) {
+      controller.clear();
+    }
+    _currentPage = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     for (var c in _customControllers.values) {
       c.dispose();

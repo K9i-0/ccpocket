@@ -1321,7 +1321,6 @@ class _CodexChatBody extends HookWidget {
                                       input: askInput,
                                       agentName: 'Codex',
                                       onAnswer: answerQuestion,
-                                      scrollable: false,
                                     ),
                                   if (pendingToolUseId != null &&
                                       isToolSuggestion &&
