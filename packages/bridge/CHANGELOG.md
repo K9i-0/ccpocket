@@ -2,6 +2,16 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.72.3] - 2026-08-25
+
+### Fixed
+- Keep Claude queued input FIFO and recover interrupted turns without duplicate delivery, while surfacing compaction and typed response failures cleanly.
+- Classify Claude API-key and subscription authentication across delayed initialization without leaking estimated subscription cost or accepting subscription login without explicit opt-in.
+- Correlate recent-session and scoped gallery requests across concurrent clients, retries, disconnects, and legacy responses.
+- Bound archive requests with recoverable timeouts and ignore late RPC replies after retry.
+- Keep internal Claude diagnostics, injected task notifications, and retryable Codex runtime warnings out of user transcripts.
+- Derive automatic session titles from the user's actual text.
+
 ## [1.72.2] - 2026-08-25
 
 ### Changed
