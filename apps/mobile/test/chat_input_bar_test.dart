@@ -63,6 +63,7 @@ void main() {
     bool supportsShowingSystemContextMenu = false,
     ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
     KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
+    Widget? activityIndicator,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -76,6 +77,7 @@ void main() {
           body: ChatInputBar(
             inputController: inputController,
             status: status,
+            activityIndicator: activityIndicator,
             hasInputText: hasInputText,
             isInputEmpty: isInputEmpty,
             isVoiceAvailable: isVoiceAvailable,
@@ -122,10 +124,24 @@ void main() {
     });
 
     testWidgets('shows stop button when running and no text', (tester) async {
-      await tester.pumpWidget(buildSubject(status: ProcessStatus.running));
+      await tester.pumpWidget(
+        buildSubject(
+          status: ProcessStatus.running,
+          activityIndicator: const SizedBox(
+            key: ValueKey('test_activity_indicator'),
+          ),
+        ),
+      );
 
       expect(find.byKey(const ValueKey('stop_button')), findsOneWidget);
       expect(find.byKey(const ValueKey('send_button')), findsNothing);
+      final activity = find.byKey(const ValueKey('test_activity_indicator'));
+      final input = find.byKey(const ValueKey('message_input'));
+      expect(activity, findsOneWidget);
+      expect(
+        tester.getBottomLeft(activity).dy,
+        lessThanOrEqualTo(tester.getTopLeft(input).dy),
+      );
     });
 
     testWidgets('shows voice button when idle, no text, and voice available', (

@@ -34,6 +34,7 @@ import '../../../widgets/slash_command_sheet.dart'
         fallbackCodexSlashCommands,
         fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
+import 'session_composer_activity_indicator.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
 
@@ -1026,6 +1027,10 @@ class ChatInputWithOverlays extends HookWidget {
               child: ChatInputBar(
                 inputController: inputController,
                 status: status,
+                activityIndicator: SessionComposerActivityIndicator(
+                  key: const ValueKey('composer_activity_state'),
+                  status: status,
+                ),
                 hasInputText:
                     !inputBlocked &&
                     (hasInputText.value ||
