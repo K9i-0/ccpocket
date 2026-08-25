@@ -12,13 +12,10 @@ import '../../theme/markdown_style.dart';
 ///
 /// Shows a preview of the plan text with a header and optional "View Full Plan"
 /// button when the content exceeds [_maxPreviewHeight].
-class PlanCard extends StatelessWidget {
+class PlanCard extends StatefulWidget {
   final String planText;
   final VoidCallback onViewFullPlan;
   final FilePathTapCallback? onFileTap;
-
-  /// Lines threshold below which the full plan is shown without a button.
-  static const int _shortPlanLineThreshold = 10;
 
   /// Max height for the preview area before fade-out is applied.
   static const double _maxPreviewHeight = 200;
@@ -30,10 +27,23 @@ class PlanCard extends StatelessWidget {
     this.onFileTap,
   });
 
-  bool get _isLongPlan => planText.split('\n').length > _shortPlanLineThreshold;
+  @override
+  State<PlanCard> createState() => _PlanCardState();
+}
+
+class _PlanCardState extends State<PlanCard> {
+  bool _isLongPlan = false;
 
   int get _sectionCount {
-    return RegExp(r'^#{1,3}\s', multiLine: true).allMatches(planText).length;
+    return RegExp(
+      r'^#{1,3}\s',
+      multiLine: true,
+    ).allMatches(widget.planText).length;
+  }
+
+  void _handleOverflowChanged(bool isLongPlan) {
+    if (_isLongPlan == isLongPlan) return;
+    setState(() => _isLongPlan = isLongPlan);
   }
 
   @override
@@ -41,7 +51,7 @@ class PlanCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return GestureDetector(
-      onTap: _isLongPlan ? onViewFullPlan : null,
+      onTap: _isLongPlan ? widget.onViewFullPlan : null,
       child: Container(
         margin: const EdgeInsets.symmetric(
           vertical: AppSpacing.bubbleMarginV,
@@ -59,11 +69,11 @@ class PlanCard extends StatelessWidget {
             _PlanHeader(sectionCount: _sectionCount),
             Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
             _PlanBody(
-              planText: planText,
-              isLongPlan: _isLongPlan,
-              onFileTap: onFileTap,
+              planText: widget.planText,
+              onOverflowChanged: _handleOverflowChanged,
+              onFileTap: widget.onFileTap,
             ),
-            if (_isLongPlan) _PlanFooter(onViewFullPlan: onViewFullPlan),
+            if (_isLongPlan) _PlanFooter(onViewFullPlan: widget.onViewFullPlan),
           ],
         ),
       ),
@@ -86,15 +96,19 @@ class _PlanHeader extends StatelessWidget {
         children: [
           Icon(Icons.assignment, size: 18, color: cs.primary),
           const SizedBox(width: 8),
-          Text(
-            'Implementation Plan',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: cs.primary,
+          Expanded(
+            child: Text(
+              'Implementation Plan',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           if (sectionCount > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -117,72 +131,110 @@ class _PlanHeader extends StatelessWidget {
   }
 }
 
-class _PlanBody extends StatelessWidget {
+class _PlanBody extends StatefulWidget {
   final String planText;
-  final bool isLongPlan;
+  final ValueChanged<bool> onOverflowChanged;
   final FilePathTapCallback? onFileTap;
 
   const _PlanBody({
     required this.planText,
-    required this.isLongPlan,
+    required this.onOverflowChanged,
     this.onFileTap,
   });
 
   @override
+  State<_PlanBody> createState() => _PlanBodyState();
+}
+
+class _PlanBodyState extends State<_PlanBody> {
+  final ScrollController _scrollController = ScrollController();
+  bool _checkScheduled = false;
+  bool _overflows = false;
+
+  void _scheduleOverflowCheck() {
+    if (_checkScheduled) return;
+    _checkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScheduled = false;
+      if (!mounted || !_scrollController.hasClients) return;
+      final overflows = _scrollController.position.maxScrollExtent > 0.5;
+      if (_overflows != overflows) {
+        setState(() => _overflows = overflows);
+      }
+      widget.onOverflowChanged(overflows);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final fileSuffixes = onFileTap != null
+    final fileSuffixes = widget.onFileTap != null
         ? FilePathSyntax.cachedSuffixSet(context.watch<FileListCubit>().state)
         : const <String>{};
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: MarkdownBody(
-        data: planText,
+        data: widget.planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
         onTapLink: buildChatMarkdownLinkHandler(
           context,
-          onFileTap: onFileTap,
+          onFileTap: widget.onFileTap,
           knownPathSuffixes: fileSuffixes,
         ),
         inlineSyntaxes: [
-          if (onFileTap != null) ...[
+          if (widget.onFileTap != null) ...[
             FilePathSyntax(knownPathSuffixes: fileSuffixes),
             BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
           ],
           ...colorCodeInlineSyntaxes,
         ],
         builders: {
-          if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),
+          if (widget.onFileTap != null)
+            'filePath': FilePathBuilder(onTap: widget.onFileTap),
           ...markdownBuilders,
         },
       ),
     );
 
-    if (!isLongPlan) return markdownWidget;
-
-    return ClipRect(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxHeight: PlanCard._maxPreviewHeight,
-        ),
-        child: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Colors.white,
-              Colors.white.withValues(alpha: 0),
-            ],
-            stops: const [0.0, 0.7, 1.0],
-          ).createShader(bounds),
-          blendMode: BlendMode.dstIn,
-          child: SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            child: markdownWidget,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _scheduleOverflowCheck();
+        Widget preview = SingleChildScrollView(
+          controller: _scrollController,
+          physics: const NeverScrollableScrollPhysics(),
+          child: markdownWidget,
+        );
+        if (_overflows) {
+          preview = ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white,
+                Colors.white,
+                Colors.white.withValues(alpha: 0),
+              ],
+              stops: const [0.0, 0.7, 1.0],
+            ).createShader(bounds),
+            blendMode: BlendMode.dstIn,
+            child: preview,
+          );
+        }
+        return ClipRect(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxHeight: PlanCard._maxPreviewHeight,
+            ),
+            child: preview,
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

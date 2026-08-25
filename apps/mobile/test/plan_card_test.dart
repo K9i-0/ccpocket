@@ -34,18 +34,22 @@ void main() {
   Widget buildSubject({
     required String planText,
     VoidCallback? onViewFullPlan,
+    double? width,
   }) {
+    Widget card = PlanCard(
+      planText: planText,
+      onViewFullPlan: onViewFullPlan ?? () {},
+    );
+    if (width != null) card = SizedBox(width: width, child: card);
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
       theme: AppTheme.darkTheme,
       home: Scaffold(
-        body: SingleChildScrollView(
-          child: PlanCard(
-            planText: planText,
-            onViewFullPlan: onViewFullPlan ?? () {},
-          ),
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SingleChildScrollView(child: card),
         ),
       ),
     );
@@ -74,6 +78,7 @@ void main() {
 
     testWidgets('long plan: shows View Full Plan button', (tester) async {
       await tester.pumpWidget(buildSubject(planText: longPlan));
+      await tester.pumpAndSettle();
 
       expect(
         find.byKey(const ValueKey('view_full_plan_button')),
@@ -89,6 +94,7 @@ void main() {
       await tester.pumpWidget(
         buildSubject(planText: longPlan, onViewFullPlan: () => tapped = true),
       );
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('view_full_plan_button')));
       expect(tapped, isTrue);
@@ -100,6 +106,45 @@ void main() {
       // Markdown renders "Step 1" and "Step 2" as headings
       expect(find.textContaining('Step 1'), findsOneWidget);
       expect(find.textContaining('Step 2'), findsOneWidget);
+    });
+
+    testWidgets('wrapped single-paragraph plan is collapsed on Android width', (
+      tester,
+    ) async {
+      final wrappedPlan = List.filled(
+        80,
+        'This plan text must wrap naturally on a narrow phone.',
+      ).join(' ');
+
+      await tester.pumpWidget(buildSubject(planText: wrappedPlan, width: 320));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('view_full_plan_button')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('source line count alone does not collapse a short plan', (
+      tester,
+    ) async {
+      const shortElevenLinePlan = 'a\n\nb\n\nc\n\nd\n\ne\n\nf';
+
+      await tester.pumpWidget(
+        buildSubject(planText: shortElevenLinePlan, width: 320),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('view_full_plan_button')), findsNothing);
+    });
+
+    testWidgets('header does not overflow at narrow Android width', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject(planText: longPlan, width: 280));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
     });
   });
 }
