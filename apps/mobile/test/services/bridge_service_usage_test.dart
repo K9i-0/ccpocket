@@ -2596,6 +2596,63 @@ void main() {
       },
     );
 
+    test('queued gallery survives socket replacement during flush', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final sockets = <WebSocket>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        sockets.add(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] != 'list_gallery') return;
+          final sessionId = json['sessionId'] as String?;
+          socket.add(
+            jsonEncode({
+              'type': 'gallery_list',
+              'images': [
+                _galleryImageJson('image-$sessionId', sessionId: sessionId),
+              ],
+              'sessionId': sessionId,
+              'requestId': json['requestId'],
+            }),
+          );
+        });
+      });
+
+      final bridge = BridgeService(
+        galleryRequestTimeout: const Duration(seconds: 2),
+      );
+      final url = 'ws://127.0.0.1:${server.port}';
+      var replacedDuringFlush = false;
+      bridge.onOutgoingMessage = (message) {
+        if (message.type != 'list_gallery' || replacedDuringFlush) return;
+        replacedDuringFlush = true;
+        bridge.connect(url);
+      };
+      final sessionAUpdate = bridge
+          .galleryStreamFor(sessionId: 'session-a')
+          .first;
+      final sessionBUpdate = bridge
+          .galleryStreamFor(sessionId: 'session-b')
+          .first;
+      bridge.requestGallery(sessionId: 'session-a');
+      bridge.requestGallery(sessionId: 'session-b');
+      bridge.connect(url);
+
+      final updates = await Future.wait([sessionAUpdate, sessionBUpdate])
+          .timeout(const Duration(seconds: 3));
+      expect(replacedDuringFlush, isTrue);
+      expect(sockets, hasLength(2));
+      expect(updates[0].single.id, 'image-session-a');
+      expect(updates[1].single.id, 'image-session-b');
+
+      bridge.disconnect();
+      for (final socket in sockets) {
+        await socket.close();
+      }
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test(
       'legacy recent sessions response must match pending project and offset',
       () async {

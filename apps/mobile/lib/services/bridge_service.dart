@@ -119,6 +119,7 @@ class BridgeService implements BridgeServiceBase {
       StreamController<GitRemoteStatusResultMessage>.broadcast();
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
+  final List<ClientMessage> _flushingMessageQueue = [];
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
   RecentSessionsMessage? _lastRecentSessionsMessage;
@@ -841,6 +842,7 @@ class BridgeService implements BridgeServiceBase {
   void _clearOfflinePendingState() {
     _offlineQueueGeneration++;
     _messageQueue.clear();
+    _flushingMessageQueue.clear();
     _inFlightPendingMessages.clear();
     _inFlightInputMessages.clear();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
@@ -1233,12 +1235,42 @@ class BridgeService implements BridgeServiceBase {
   Future<void> _flushMessageQueueAsync() async {
     await _ensureOfflineQueueRestored();
     if (_messageQueue.isEmpty || !isConnected) return;
+    final generation = _offlineQueueGeneration;
     final queued = List<ClientMessage>.from(_messageQueue);
     _messageQueue.clear();
-    await _persistOfflinePendingMessages();
-    _publishOfflinePendingActions();
-    for (final msg in queued) {
-      send(msg);
+    _flushingMessageQueue.addAll(queued);
+    try {
+      await _persistOfflinePendingMessages();
+      if (generation != _offlineQueueGeneration) return;
+      _publishOfflinePendingActions();
+      for (final msg in queued) {
+        if (generation != _offlineQueueGeneration) return;
+        send(msg);
+        _flushingMessageQueue.removeWhere(
+          (candidate) => identical(candidate, msg),
+        );
+      }
+    } finally {
+      final unsent = queued.where((message) {
+        return _flushingMessageQueue.any(
+          (candidate) => identical(candidate, message),
+        );
+      }).toList();
+      if (generation == _offlineQueueGeneration) {
+        var didRequeue = false;
+        for (final message in unsent) {
+          didRequeue = _addQueuedMessageIfAbsent(message) || didRequeue;
+        }
+        if (didRequeue) {
+          _publishOfflinePendingActions();
+          unawaited(_persistOfflinePendingMessages());
+        }
+      }
+      for (final message in unsent) {
+        _flushingMessageQueue.removeWhere(
+          (candidate) => identical(candidate, message),
+        );
+      }
     }
   }
 
@@ -2040,7 +2072,7 @@ class BridgeService implements BridgeServiceBase {
 
   Set<String> _queuedRequestIds(String messageType) {
     final requestIds = <String>{};
-    for (final message in _messageQueue) {
+    for (final message in [..._messageQueue, ..._flushingMessageQueue]) {
       if (message.type != messageType) continue;
       final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
       final requestId = json['requestId'];
