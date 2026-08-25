@@ -312,7 +312,7 @@ export type ClientMessage =
       traceLimit?: number;
       includeDiff?: boolean;
     }
-  | { type: "get_usage" }
+  | { type: "get_usage"; requestId?: string }
   | { type: "list_recordings" }
   | { type: "get_recording"; sessionId: string }
   | { type: "get_message_images"; claudeSessionId: string; messageUuid: string }
@@ -719,7 +719,11 @@ export type ServerMessage =
       diffError?: string;
       savedBundlePath?: string;
     }
-  | { type: "usage_result"; providers: UsageInfoPayload[] }
+  | {
+      type: "usage_result";
+      providers: UsageInfoPayload[];
+      requestId?: string;
+    }
   | { type: "message_images_result"; messageUuid: string; images: ImageRef[] }
   | {
       type: "prompt_history_backup_result";
@@ -1387,6 +1391,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "get_usage":
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" || msg.requestId.trim() === "")
+        )
+          return null;
         break;
       case "list_recordings":
         break;

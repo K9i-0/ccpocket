@@ -16,6 +16,21 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
+    test('usage requests include unique correlation IDs', () {
+      final outgoing = <ClientMessage>[];
+      final bridge = BridgeService()..onOutgoingMessage = outgoing.add;
+
+      final firstRequestId = bridge.requestUsage();
+      final secondRequestId = bridge.requestUsage();
+
+      expect(firstRequestId, isNot(secondRequestId));
+      expect(outgoing.map((message) => jsonDecode(message.toJson())), [
+        {'type': 'get_usage', 'requestId': firstRequestId},
+        {'type': 'get_usage', 'requestId': secondRequestId},
+      ]);
+      bridge.dispose();
+    });
+
     test('auto-connect cancellation skips the saved Bridge URL', () async {
       SharedPreferences.setMockInitialValues({
         'bridge_url': 'ws://127.0.0.1:8765',
@@ -96,6 +111,7 @@ void main() {
         socket.add(
           jsonEncode({
             'type': 'usage_result',
+            'requestId': 'usage-1',
             'providers': [
               {
                 'provider': 'codex',
@@ -116,7 +132,7 @@ void main() {
       await socketReady.future;
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      expect(bridge.lastUsageResult, isNotNull);
+      expect(bridge.lastUsageResult?.requestId, 'usage-1');
 
       bridge.disconnect();
 

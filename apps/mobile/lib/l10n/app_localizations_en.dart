@@ -2091,6 +2091,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usageDisplayModeUsed => 'Used';
 
   @override
+  String get showCodexUsageInChatHeader => 'Show weekly usage in chat header';
+
+  @override
+  String get showCodexUsageInChatHeaderSubtitle =>
+      'Show the percentage of weekly Codex quota remaining in Codex chats.';
+
+  @override
+  String codexWeeklyUsageRemaining(int percent) {
+    return 'Codex weekly quota: $percent% remaining';
+  }
+
+  @override
   String get settingsClaudeUsageDescription =>
       'Open Claude\'s official billing pages in your browser.';
 

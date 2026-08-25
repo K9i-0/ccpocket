@@ -870,6 +870,14 @@
   "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
   "usageDisplayModeRemaining": "剩余",
   "usageDisplayModeUsed": "已用",
+  "showCodexUsageInChatHeader": "在聊天标题栏显示每周用量",
+  "showCodexUsageInChatHeaderSubtitle": "在 Codex 聊天中显示每周配额的剩余百分比。",
+  "codexWeeklyUsageRemaining": "Codex 每周配额：剩余 {percent}%",
+  "@codexWeeklyUsageRemaining": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
   "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
   "settingsClaudeApiBilling": "API Key 计费",
   "settingsClaudeSubscriptionUsage": "订阅用量",

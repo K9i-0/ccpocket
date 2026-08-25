@@ -1994,6 +1994,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get usageDisplayModeUsed => '已用';
 
   @override
+  String get showCodexUsageInChatHeader => '在聊天标题栏显示每周用量';
+
+  @override
+  String get showCodexUsageInChatHeaderSubtitle => '在 Codex 聊天中显示每周配额的剩余百分比。';
+
+  @override
+  String codexWeeklyUsageRemaining(int percent) {
+    return 'Codex 每周配额：剩余 $percent%';
+  }
+
+  @override
   String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
 
   @override

@@ -2016,6 +2016,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usageDisplayModeUsed => '使用量';
 
   @override
+  String get showCodexUsageInChatHeader => 'チャットヘッダーに週間利用量を表示';
+
+  @override
+  String get showCodexUsageInChatHeaderSubtitle =>
+      'Codex チャットに週間利用枠の残りの割合を表示します。';
+
+  @override
+  String codexWeeklyUsageRemaining(int percent) {
+    return 'Codex の週間利用枠: 残り $percent%';
+  }
+
+  @override
   String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
 
   @override

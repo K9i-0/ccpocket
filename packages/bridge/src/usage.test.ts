@@ -1,5 +1,12 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isGlobalCodexRateLimit, mapCodexRateLimits } from "./usage.js";
+import {
+  findLatestTokenCount,
+  isGlobalCodexRateLimit,
+  mapCodexRateLimits,
+} from "./usage.js";
 
 const fiveHourWindow = {
   used_percent: 35,
@@ -66,5 +73,48 @@ describe("isGlobalCodexRateLimit", () => {
     expect(isGlobalCodexRateLimit({ limit_id: "codex_bengalfox" })).toBe(
       false,
     );
+  });
+});
+
+describe("findLatestTokenCount", () => {
+  it("does not read a token event outside the bounded tail", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ccpocket-usage-tail-"));
+    const filePath = join(directory, "rollout.jsonl");
+    const event = JSON.stringify({
+      timestamp: "2026-08-24T00:00:00.000Z",
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        rate_limits: { limit_id: "codex", primary: fiveHourWindow },
+      },
+    });
+
+    try {
+      await writeFile(filePath, `${event}\n${"x".repeat(1024)}\n`, "utf-8");
+      await expect(findLatestTokenCount(filePath, 128)).resolves.toBeNull();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("returns a complete token event inside the bounded tail", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ccpocket-usage-tail-"));
+    const filePath = join(directory, "rollout.jsonl");
+    const event = JSON.stringify({
+      timestamp: "2026-08-24T00:00:00.000Z",
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        rate_limits: { limit_id: "codex", primary: fiveHourWindow },
+      },
+    });
+
+    try {
+      await writeFile(filePath, `${"x".repeat(1024)}\n${event}\n`, "utf-8");
+      const result = await findLatestTokenCount(filePath, event.length + 2);
+      expect(result?.payload.rate_limits?.primary?.used_percent).toBe(35);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

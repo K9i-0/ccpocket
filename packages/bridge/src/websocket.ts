@@ -715,6 +715,7 @@ export class BridgeWebSocketServer {
   private codexAutoReviewDisabled = false;
   private codexAutoReviewPolicyLoaded = false;
   private codexMetadataRequest: Promise<void> | null = null;
+  private usageRequest: ReturnType<typeof fetchAllUsage> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
   private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
   private claudeModelEfforts: Record<string, ClaudeEffortLevel[]> = {
@@ -4558,17 +4559,20 @@ export class BridgeWebSocketServer {
       }
 
       case "get_usage": {
-        fetchAllUsage()
+        this.fetchUsage()
           .then((providers) => {
-            this.send(ws, { type: "usage_result", providers } as Record<
-              string,
-              unknown
-            >);
+            this.send(ws, {
+              type: "usage_result",
+              providers,
+              requestId: msg.requestId,
+            } as Record<string, unknown>);
           })
           .catch((err) => {
             this.send(ws, {
               type: "error",
               message: `Failed to fetch usage: ${err}`,
+              errorCode: "usage_fetch_failed",
+              requestId: msg.requestId,
             });
           });
         break;
@@ -7280,6 +7284,18 @@ export class BridgeWebSocketServer {
         archivedSessionIds: this.archiveStore.archivedIds(),
       });
     }
+  }
+
+  private fetchUsage(): ReturnType<typeof fetchAllUsage> {
+    if (this.usageRequest) return this.usageRequest;
+
+    const request = fetchAllUsage();
+    this.usageRequest = request;
+    const clearRequest = () => {
+      if (this.usageRequest === request) this.usageRequest = null;
+    };
+    request.then(clearRequest, clearRequest);
+    return request;
   }
 
   private async refreshCodexMetadata(projectPath?: string): Promise<void> {

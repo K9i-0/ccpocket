@@ -1148,6 +1148,7 @@ sealed class ServerMessage {
         providers: (json['providers'] as List)
             .map((p) => UsageInfo.fromJson(p as Map<String, dynamic>))
             .toList(),
+        requestId: json['requestId'] as String?,
       ),
       'recording_list' => RecordingListMessage(
         recordings: (json['recordings'] as List)
@@ -2938,7 +2939,8 @@ class InputRejectedMessage implements ServerMessage {
 
 class UsageResultMessage implements ServerMessage {
   final List<UsageInfo> providers;
-  const UsageResultMessage({required this.providers});
+  final String? requestId;
+  const UsageResultMessage({required this.providers, this.requestId});
 }
 
 class RecordingListMessage implements ServerMessage {
@@ -4503,7 +4505,8 @@ class ClientMessage {
   factory ClientMessage.listWindows() =>
       ClientMessage._({'type': 'list_windows'});
 
-  factory ClientMessage.getUsage() => ClientMessage._({'type': 'get_usage'});
+  factory ClientMessage.getUsage({String? requestId}) =>
+      ClientMessage._({'type': 'get_usage', 'requestId': ?requestId});
 
   factory ClientMessage.listRecordings() =>
       ClientMessage._({'type': 'list_recordings'});

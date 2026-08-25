@@ -806,6 +806,14 @@
   "settingsUsageNoCodexData": "No Codex usage data found.",
   "usageDisplayModeRemaining": "Remaining",
   "usageDisplayModeUsed": "Used",
+  "showCodexUsageInChatHeader": "Show weekly usage in chat header",
+  "showCodexUsageInChatHeaderSubtitle": "Show the percentage of weekly Codex quota remaining in Codex chats.",
+  "codexWeeklyUsageRemaining": "Codex weekly quota: {percent}% remaining",
+  "@codexWeeklyUsageRemaining": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
   "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
   "settingsClaudeApiBilling": "API Key billing",
   "settingsClaudeSubscriptionUsage": "Subscription usage",

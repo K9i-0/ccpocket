@@ -790,6 +790,18 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"get_debug_bundle"}')).toBeNull();
   });
 
+  it("parses get_usage with a correlation ID", () => {
+    expect(
+      parseClientMessage('{"type":"get_usage","requestId":"usage-1"}'),
+    ).toEqual({ type: "get_usage", requestId: "usage-1" });
+  });
+
+  it("rejects get_usage with an empty correlation ID", () => {
+    expect(
+      parseClientMessage('{"type":"get_usage","requestId":""}'),
+    ).toBeNull();
+  });
+
   it("parses remove_project_history message", () => {
     const msg = parseClientMessage(
       '{"type":"remove_project_history","projectPath":"/p"}',

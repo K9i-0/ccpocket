@@ -63,6 +63,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
   static const _keyShowHiddenDirectories = 'settings_show_hidden_directories';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
+  static const _keyShowCodexUsageInChatHeader =
+      'settings_show_codex_usage_in_chat_header';
   static const _keyAutoRenameCodexSessions = 'autoRenameCodexSessions';
   static const _keyShowExtendedCodexEfforts =
       'settings_show_extended_codex_efforts';
@@ -225,6 +227,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     final usageDisplayMode = _usageDisplayModeFromRaw(
       prefs.getString(_keyUsageDisplayMode),
     );
+    final showCodexUsageInChatHeader =
+        prefs.getBool(_keyShowCodexUsageInChatHeader) ?? false;
     final autoRenameCodexSessions =
         prefs.getBool(_keyAutoRenameCodexSessions) ?? true;
     final showExtendedCodexEfforts =
@@ -281,6 +285,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       newSessionTabs: newSessionTabs,
       showHiddenDirectories: showHiddenDirectories,
       usageDisplayMode: usageDisplayMode,
+      showCodexUsageInChatHeader: showCodexUsageInChatHeader,
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
@@ -456,6 +461,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setUsageDisplayMode(UsageDisplayMode mode) {
     _prefs.setString(_keyUsageDisplayMode, mode.name);
     emit(state.copyWith(usageDisplayMode: mode));
+  }
+
+  void setShowCodexUsageInChatHeader(bool show) {
+    _prefs.setBool(_keyShowCodexUsageInChatHeader, show);
+    emit(state.copyWith(showCodexUsageInChatHeader: show));
   }
 
   void setAutoRenameCodexSessions(bool enabled) {

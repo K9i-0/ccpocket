@@ -63,7 +63,7 @@ class _FakeBridgeService extends BridgeService {
   UsageResultMessage? get lastUsageResult => cachedUsage;
 
   @override
-  void requestUsage() {}
+  String requestUsage({String? requestId}) => requestId ?? 'usage-test-1';
 
   @override
   void disconnect() {
@@ -1071,7 +1071,7 @@ void main() {
       bridge.dispose();
     });
 
-    testWidgets('shows weekly-only Codex usage without a five-hour row', (
+    testWidgets('shows weekly-only Codex usage and header toggle', (
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({});
@@ -1121,6 +1121,21 @@ void main() {
       expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
       expect(find.text(l.usageSevenDay), findsOneWidget);
       expect(find.text(l.usageFiveHour), findsNothing);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('codex_usage_chat_header_toggle')),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+
+      final toggleFinder = find.byKey(
+        const ValueKey('codex_usage_chat_header_toggle'),
+      );
+      expect(tester.widget<SwitchListTile>(toggleFinder).value, isFalse);
+      await tester.tap(toggleFinder);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(toggleFinder).value, isTrue);
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -1202,6 +1217,22 @@ void main() {
 
       final secondCubit = SettingsCubit(prefs);
       expect(secondCubit.state.usageDisplayMode, UsageDisplayMode.used);
+
+      await secondCubit.close();
+    });
+
+    test('Codex header usage setting persists through reload', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final firstCubit = SettingsCubit(prefs);
+
+      expect(firstCubit.state.showCodexUsageInChatHeader, isFalse);
+
+      firstCubit.setShowCodexUsageInChatHeader(true);
+      await firstCubit.close();
+
+      final secondCubit = SettingsCubit(prefs);
+      expect(secondCubit.state.showCodexUsageInChatHeader, isTrue);
 
       await secondCubit.close();
     });

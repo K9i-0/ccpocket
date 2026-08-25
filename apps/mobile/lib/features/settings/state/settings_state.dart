@@ -114,6 +114,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether Codex usage limits are shown as remaining quota or used quota.
     @Default(UsageDisplayMode.remaining) UsageDisplayMode usageDisplayMode,
 
+    /// Whether the remaining weekly Codex quota is shown in Codex chat headers.
+    @Default(false) bool showCodexUsageInChatHeader,
+
     /// Whether new Codex sessions should be automatically named after the first turn.
     @Default(true) bool autoRenameCodexSessions,
 

@@ -23,6 +23,7 @@ const {
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
+  fetchAllUsageMock,
 } = vi.hoisted(() => ({
   getSessionHistoryMock: vi.fn(),
   getCodexSessionHistoryMock: vi.fn(),
@@ -33,6 +34,7 @@ const {
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
+  fetchAllUsageMock: vi.fn(),
 }));
 
 vi.mock("./sessions-index.js", () => ({
@@ -74,6 +76,10 @@ vi.mock("./debug-trace-store.js", () => ({
 
 vi.mock("./git-assist.js", () => ({
   generateCommitMessage: generateCommitMessageMock,
+}));
+
+vi.mock("./usage.js", () => ({
+  fetchAllUsage: fetchAllUsageMock,
 }));
 
 vi.mock("./git-operations.js", async () => {
@@ -447,12 +453,14 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
+    fetchAllUsageMock.mockReset();
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
     getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
     getCodexSessionHistoryMock.mockResolvedValue([]);
     codexThreadToSessionHistoryMock.mockReturnValue([]);
     extractMessageImagesMock.mockResolvedValue([]);
     saveCodexSessionProfileMock.mockResolvedValue(undefined);
+    fetchAllUsageMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -460,6 +468,64 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     vi.unstubAllEnvs();
     vi.useRealTimers();
     httpServer.close();
+  });
+
+  it("coalesces concurrent usage reads and preserves correlation IDs", async () => {
+    let resolveUsage!: (providers: unknown[]) => void;
+    fetchAllUsageMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUsage = resolve;
+      }),
+    );
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      { type: "get_usage", requestId: "usage-1" },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      { type: "get_usage", requestId: "usage-2" },
+      ws,
+    );
+
+    expect(fetchAllUsageMock).toHaveBeenCalledTimes(1);
+    resolveUsage([]);
+    await Promise.resolve();
+
+    expect(
+      ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      ),
+    ).toEqual([
+      { type: "usage_result", providers: [], requestId: "usage-1" },
+      { type: "usage_result", providers: [], requestId: "usage-2" },
+    ]);
+  });
+
+  it("correlates usage failures", async () => {
+    fetchAllUsageMock.mockRejectedValue(new Error("rollout unavailable"));
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      { type: "get_usage", requestId: "usage-1" },
+      ws,
+    );
+    await Promise.resolve();
+
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "error",
+      message: "Failed to fetch usage: Error: rollout unavailable",
+      errorCode: "usage_fetch_failed",
+      requestId: "usage-1",
+    });
   });
 
   it("acknowledges push registration only after relay success", async () => {

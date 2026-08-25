@@ -2031,6 +2031,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get usageDisplayModeUsed => '사용량';
 
   @override
+  String get showCodexUsageInChatHeader => '채팅 헤더에 주간 사용량 표시';
+
+  @override
+  String get showCodexUsageInChatHeaderSubtitle =>
+      'Codex 채팅에 남은 주간 사용량의 백분율을 표시합니다.';
+
+  @override
+  String codexWeeklyUsageRemaining(int percent) {
+    return 'Codex 주간 사용량: $percent% 남음';
+  }
+
+  @override
   String get settingsClaudeUsageDescription => '브라우저에서 Claude 공식 결제 페이지를 엽니다.';
 
   @override

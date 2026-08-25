@@ -43,6 +43,7 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/codex_weekly_usage_badge.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
 import '../chat_session/widgets/session_mode_bar.dart';
@@ -602,6 +603,9 @@ class _CodexChatBody extends HookWidget {
     final showRemoteGitStatusBadge = context.select(
       (SettingsCubit cubit) => cubit.state.showRemoteGitStatusBadge,
     );
+    final showCodexUsageInChatHeader = context.select(
+      (SettingsCubit cubit) => cubit.state.showCodexUsageInChatHeader,
+    );
     final settingsCubit = context.read<SettingsCubit>();
 
     // Custom hooks
@@ -1029,6 +1033,11 @@ class _CodexChatBody extends HookWidget {
                       inPlanMode: inPlanMode,
                     ),
                     actions: [
+                      if (showCodexUsageInChatHeader)
+                        CodexWeeklyUsageBadge(
+                          bridgeService: bridge,
+                          sessionId: sessionId,
+                        ),
                       if (effectiveProjectPath != null)
                         IconButton(
                           key: const ValueKey('appbar_explore_button'),

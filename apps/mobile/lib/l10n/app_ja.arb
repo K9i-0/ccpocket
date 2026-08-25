@@ -836,6 +836,14 @@
   "settingsUsageNoCodexData": "Codex の利用量データが見つかりませんでした。",
   "usageDisplayModeRemaining": "残量",
   "usageDisplayModeUsed": "使用量",
+  "showCodexUsageInChatHeader": "チャットヘッダーに週間利用量を表示",
+  "showCodexUsageInChatHeaderSubtitle": "Codex チャットに週間利用枠の残りの割合を表示します。",
+  "codexWeeklyUsageRemaining": "Codex の週間利用枠: 残り {percent}%",
+  "@codexWeeklyUsageRemaining": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
   "settingsClaudeUsageDescription": "Claude の公式課金ページをブラウザで開きます。",
   "settingsClaudeApiBilling": "API キーの課金",
   "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",

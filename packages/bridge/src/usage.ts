@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -207,10 +207,34 @@ async function findRecentSessionFiles(sessionsDir: string, maxDays: number): Pro
 /**
  * Read a JSONL file from the end and find the latest token_count event.
  */
-async function findLatestTokenCount(filePath: string): Promise<CodexTokenCountEvent | null> {
+export async function findLatestTokenCount(
+  filePath: string,
+  maxBytes = 8 * 1024 * 1024,
+): Promise<CodexTokenCountEvent | null> {
+  let file: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    const content = await readFile(filePath, "utf-8");
-    const lines = content.trim().split("\n");
+    file = await open(filePath, "r");
+    const { size } = await file.stat();
+    const boundedMaxBytes = Number.isFinite(maxBytes)
+      ? Math.max(1, Math.floor(maxBytes))
+      : 8 * 1024 * 1024;
+    const tailStart = Math.max(0, size - boundedMaxBytes);
+
+    // Include the byte immediately before the tail so an exact line boundary
+    // can be distinguished from a partial first line.
+    const readStart = tailStart > 0 ? tailStart - 1 : 0;
+    const buffer = Buffer.alloc(size - readStart);
+    const { bytesRead } = await file.read(buffer, 0, buffer.length, readStart);
+    let contentStart = tailStart - readStart;
+
+    if (tailStart > 0 && buffer[contentStart - 1] !== 0x0a) {
+      const firstNewline = buffer.indexOf(0x0a, contentStart);
+      if (firstNewline < 0 || firstNewline >= bytesRead) return null;
+      contentStart = firstNewline + 1;
+    }
+
+    const content = buffer.subarray(contentStart, bytesRead).toString("utf-8");
+    const lines = content.split("\n");
 
     // Search from the end for the most recent token_count
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -232,6 +256,8 @@ async function findLatestTokenCount(filePath: string): Promise<CodexTokenCountEv
     }
   } catch {
     // File not readable
+  } finally {
+    await file?.close().catch(() => undefined);
   }
   return null;
 }

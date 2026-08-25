@@ -3822,6 +3822,24 @@ abstract class AppLocalizations {
   /// **'使用量'**
   String get usageDisplayModeUsed;
 
+  /// No description provided for @showCodexUsageInChatHeader.
+  ///
+  /// In ja, this message translates to:
+  /// **'チャットヘッダーに週間利用量を表示'**
+  String get showCodexUsageInChatHeader;
+
+  /// No description provided for @showCodexUsageInChatHeaderSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex チャットに週間利用枠の残りの割合を表示します。'**
+  String get showCodexUsageInChatHeaderSubtitle;
+
+  /// No description provided for @codexWeeklyUsageRemaining.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex の週間利用枠: 残り {percent}%'**
+  String codexWeeklyUsageRemaining(int percent);
+
   /// No description provided for @settingsClaudeUsageDescription.
   ///
   /// In ja, this message translates to:

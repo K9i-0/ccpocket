@@ -22,12 +22,16 @@ class UsageSection extends StatefulWidget {
 
 class _UsageSectionState extends State<UsageSection> {
   static const _autoRefreshCooldown = Duration(minutes: 2);
+  static const _requestTimeout = Duration(seconds: 15);
 
   List<UsageInfo>? _providers;
   bool _loading = false;
   StreamSubscription<UsageResultMessage>? _sub;
+  StreamSubscription<ServerMessage>? _messageSub;
   StreamSubscription<BridgeConnectionState>? _connSub;
+  Timer? _requestTimer;
   DateTime? _lastFetchAt;
+  String? _activeRequestId;
 
   UsageInfo? get _codexInfo {
     final providers = _providers;
@@ -47,17 +51,14 @@ class _UsageSectionState extends State<UsageSection> {
     if (widget.bridgeService.isConnected && cached != null) {
       _providers = cached.providers;
     }
-    _sub = widget.bridgeService.usageResults.listen((msg) {
-      if (mounted) {
-        setState(() {
-          _providers = msg.providers;
-          _loading = false;
-        });
-      }
-    });
+    _sub = widget.bridgeService.usageResults.listen(_handleUsageResult);
+    _messageSub = widget.bridgeService.messages.listen(_handleServerMessage);
     _connSub = widget.bridgeService.connectionStatus.listen((state) {
-      if (mounted && state == BridgeConnectionState.connected) {
+      if (!mounted) return;
+      if (state == BridgeConnectionState.connected) {
         _fetchUsage(onlyIfMissing: true);
+      } else {
+        _finishLoadingAsFailed();
       }
     });
     _fetchUsage(onlyIfMissing: true);
@@ -66,8 +67,49 @@ class _UsageSectionState extends State<UsageSection> {
   @override
   void dispose() {
     _sub?.cancel();
+    _messageSub?.cancel();
     _connSub?.cancel();
+    _requestTimer?.cancel();
     super.dispose();
+  }
+
+  bool _matchesActiveRequest(String? requestId) {
+    if (!_loading) return false;
+    return requestId == null ||
+        _activeRequestId == null ||
+        requestId == _activeRequestId;
+  }
+
+  void _handleUsageResult(UsageResultMessage message) {
+    if (!mounted) return;
+    final completesRequest = _matchesActiveRequest(message.requestId);
+    if (completesRequest) {
+      _requestTimer?.cancel();
+      _requestTimer = null;
+      _activeRequestId = null;
+    }
+    setState(() {
+      _providers = message.providers;
+      if (completesRequest) _loading = false;
+    });
+  }
+
+  void _handleServerMessage(ServerMessage message) {
+    if (message is! ErrorMessage || !mounted) return;
+    final isUsageError =
+        message.errorCode == 'usage_fetch_failed' ||
+        message.message.startsWith('Failed to fetch usage:');
+    if (!isUsageError || !_matchesActiveRequest(message.requestId)) return;
+    _finishLoadingAsFailed();
+  }
+
+  void _finishLoadingAsFailed() {
+    if (!_loading) return;
+    _requestTimer?.cancel();
+    _requestTimer = null;
+    _activeRequestId = null;
+    _lastFetchAt = null;
+    setState(() => _loading = false);
   }
 
   void _fetchUsage({bool onlyIfMissing = false, bool force = false}) {
@@ -84,7 +126,11 @@ class _UsageSectionState extends State<UsageSection> {
 
     _lastFetchAt = now;
     setState(() => _loading = true);
-    widget.bridgeService.requestUsage();
+    _activeRequestId = widget.bridgeService.requestUsage();
+    _requestTimer?.cancel();
+    _requestTimer = Timer(_requestTimeout, () {
+      if (mounted) _finishLoadingAsFailed();
+    });
   }
 
   @override
@@ -126,6 +172,7 @@ class _UsageSectionState extends State<UsageSection> {
                 )
               else
                 GestureDetector(
+                  key: const ValueKey('usage_refresh_button'),
                   onTap: () => _fetchUsage(force: true),
                   child: Icon(
                     Icons.refresh,
@@ -183,6 +230,22 @@ class _UsageSectionState extends State<UsageSection> {
               ),
             ),
           ),
+        const SizedBox(height: 8),
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: SwitchListTile(
+            key: const ValueKey('codex_usage_chat_header_toggle'),
+            secondary: const Icon(Icons.web_asset_outlined),
+            title: Text(l.showCodexUsageInChatHeader),
+            subtitle: Text(l.showCodexUsageInChatHeaderSubtitle),
+            value: context.select(
+              (SettingsCubit cubit) => cubit.state.showCodexUsageInChatHeader,
+            ),
+            onChanged: context
+                .read<SettingsCubit>()
+                .setShowCodexUsageInChatHeader,
+          ),
+        ),
         const SizedBox(height: 8),
         const _ClaudeUsageLinksCard(),
       ],

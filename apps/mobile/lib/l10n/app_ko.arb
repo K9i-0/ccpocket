@@ -744,6 +744,14 @@
   "settingsUsageNoCodexData": "Codex 사용량 데이터를 찾을 수 없습니다.",
   "usageDisplayModeRemaining": "남은 양",
   "usageDisplayModeUsed": "사용량",
+  "showCodexUsageInChatHeader": "채팅 헤더에 주간 사용량 표시",
+  "showCodexUsageInChatHeaderSubtitle": "Codex 채팅에 남은 주간 사용량의 백분율을 표시합니다.",
+  "codexWeeklyUsageRemaining": "Codex 주간 사용량: {percent}% 남음",
+  "@codexWeeklyUsageRemaining": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
   "settingsClaudeUsageDescription": "브라우저에서 Claude 공식 결제 페이지를 엽니다.",
   "settingsClaudeApiBilling": "API 키 결제",
   "settingsClaudeSubscriptionUsage": "구독 사용량",

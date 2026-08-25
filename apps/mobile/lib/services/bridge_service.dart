@@ -148,6 +148,7 @@ class BridgeService implements BridgeServiceBase {
   final Set<({String? sessionId, String toolUseId})>
   _inFlightNonReplayableToolActions = {};
   int _nextSessionLinkRequestId = 0;
+  int _nextUsageRequestId = 0;
   final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
 
@@ -2172,8 +2173,10 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
-  void requestUsage() {
-    send(ClientMessage.getUsage());
+  String requestUsage({String? requestId}) {
+    final resolvedRequestId = requestId ?? 'usage-${++_nextUsageRequestId}';
+    send(ClientMessage.getUsage(requestId: resolvedRequestId));
+    return resolvedRequestId;
   }
 
   void requestPromptHistorySync({
