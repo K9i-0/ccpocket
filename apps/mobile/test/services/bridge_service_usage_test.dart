@@ -2653,6 +2653,34 @@ void main() {
       bridge.dispose();
     });
 
+    test('dispose invalidates an active scoped queue flush', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final sockets = <WebSocket>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        sockets.add(socket);
+        socket.listen((_) {});
+      });
+
+      final bridge = BridgeService();
+      final disposed = Completer<void>();
+      bridge.requestGallery(sessionId: 'session-a');
+      bridge.requestGallery(sessionId: 'session-b');
+      bridge.onOutgoingMessage = (message) {
+        if (message.type != 'list_gallery' || disposed.isCompleted) return;
+        bridge.dispose();
+        disposed.complete();
+      };
+      bridge.connect('ws://127.0.0.1:${server.port}');
+
+      await disposed.future.timeout(const Duration(seconds: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      for (final socket in sockets) {
+        await socket.close();
+      }
+      await server.close(force: true);
+    });
+
     test(
       'legacy recent sessions response must match pending project and offset',
       () async {

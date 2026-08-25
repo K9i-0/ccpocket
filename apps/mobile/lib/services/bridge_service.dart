@@ -179,6 +179,7 @@ class BridgeService implements BridgeServiceBase {
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
   bool _intentionalDisconnect = false;
+  bool _disposed = false;
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
@@ -408,6 +409,7 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void connect(String url) {
+    if (_disposed) return;
     final previousUrl = _lastUrl;
     final isBridgeSwitch =
         previousUrl != null && !_sameBridgeTarget(previousUrl, url);
@@ -947,7 +949,9 @@ class BridgeService implements BridgeServiceBase {
 
   @override
   void send(ClientMessage message) {
+    if (_disposed) return;
     onOutgoingMessage?.call(message);
+    if (_disposed) return;
     if (_channel != null && isConnected) {
       if (!_trackInFlightPendingMessage(message)) return;
       _trackInFlightInputMessage(message);
@@ -3197,7 +3201,13 @@ class BridgeService implements BridgeServiceBase {
   void clearDiffImageCache() => _diffImageCache.clear();
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _connectionEpoch++;
     _intentionalDisconnect = true;
+    // Dispose explicitly discards unsent work and invalidates any flush that
+    // is suspended on persistence before controllers are closed.
+    _clearOfflinePendingState();
     _completePendingSessionLinkResolutions(
       const SessionLinkResolveResult.unavailable(),
     );
