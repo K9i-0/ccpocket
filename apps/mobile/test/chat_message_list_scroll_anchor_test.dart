@@ -187,6 +187,18 @@ void main() {
       ),
     );
     await tester.pump();
+    bridge.emit(
+      PastHistoryMessage(
+        claudeSessionId: 'past',
+        messages: List.generate(
+          40,
+          (index) => PastMessage(
+            role: 'user',
+            content: [TextContent(text: 'older message $index')],
+          ),
+        ),
+      ),
+    );
     bridge.emit(const StatusMessage(status: ProcessStatus.idle));
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -200,13 +212,18 @@ void main() {
 
     final topBefore = tester.getTopLeft(streamingEntry).dy;
     final offsetBefore = controller.offset;
+    final streamingHeightBefore = tester.getSize(streamingEntry).height;
     streamingCubit.appendText(
       List.generate(12, (index) => '\n\nnew line $index').join(),
     );
     await tester.pump();
 
+    final streamingHeightAfter = tester.getSize(streamingEntry).height;
     expect(tester.getTopLeft(streamingEntry).dy, closeTo(topBefore, 1));
-    expect(controller.offset, greaterThan(offsetBefore));
+    expect(
+      controller.offset - offsetBefore,
+      closeTo(streamingHeightAfter - streamingHeightBefore, 1),
+    );
 
     final heightBeforeInlineDelta = tester.getSize(streamingEntry).height;
     final offsetBeforeInlineDelta = controller.offset;
@@ -222,14 +239,16 @@ void main() {
     final gesture = await tester.startGesture(const Offset(200, 300));
     await gesture.moveBy(const Offset(0, -24));
     await tester.pump();
-    final topDuringDrag = tester.getTopLeft(streamingEntry).dy;
-    tester.view.viewInsets = const FakeViewPadding(bottom: 120);
+    final offsetDuringDrag = controller.offset;
+    final correctionsDuringDrag = <double>[];
+    controller.onLayoutAnchorCorrected = correctionsDuringDrag.add;
     streamingCubit.appendText(
       List.generate(8, (index) => '\n\nmore line $index').join(),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
 
-    expect(tester.getTopLeft(streamingEntry).dy, closeTo(topDuringDrag, 1));
+    expect(controller.offset, closeTo(offsetDuringDrag, 0.1));
+    expect(correctionsDuringDrag, isEmpty);
     expect(tester.takeException(), isNull);
     await gesture.up();
   });
