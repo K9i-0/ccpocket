@@ -423,25 +423,47 @@ class ChatMessageHandler {
   }) {
     final effects = <ChatSideEffect>{ChatSideEffect.collapseToolResults};
 
-    // Inject accumulated thinking text
-    ServerMessage displayMsg = msg;
-    if (currentThinkingText.isNotEmpty) {
-      final hasThinking = message.content.any((c) => c is ThinkingContent);
-      if (!hasThinking) {
-        displayMsg = AssistantServerMessage(
-          message: AssistantMessage(
+    // Blank thinking blocks carry no UI value and must not suppress a real
+    // accumulated thinking stream.
+    final filteredContent = message.content
+        .where(
+          (content) =>
+              content is! ThinkingContent || content.thinking.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    var displayMessage = filteredContent.length == message.content.length
+        ? message
+        : AssistantMessage(
             id: message.id,
             role: message.role,
-            content: [
-              ThinkingContent(thinking: currentThinkingText),
-              ...message.content,
-            ],
+            content: filteredContent,
             model: message.model,
-          ),
+          );
+
+    // Inject accumulated thinking text.
+    if (currentThinkingText.trim().isNotEmpty) {
+      final hasThinking = displayMessage.content.any(
+        (content) => content is ThinkingContent,
+      );
+      if (!hasThinking) {
+        displayMessage = AssistantMessage(
+          id: displayMessage.id,
+          role: displayMessage.role,
+          content: [
+            ThinkingContent(thinking: currentThinkingText),
+            ...displayMessage.content,
+          ],
+          model: displayMessage.model,
         );
       }
-      currentThinkingText = '';
     }
+    final displayMsg = identical(displayMessage, message)
+        ? msg
+        : AssistantServerMessage(
+            message: displayMessage,
+            messageUuid: msg.messageUuid,
+          );
+    currentThinkingText = '';
 
     // Build entry — replace streaming if present
     final entry = ServerChatEntry(displayMsg);
@@ -627,7 +649,9 @@ class ChatMessageHandler {
         // Don't add internal metadata messages as visible entries.
         // codex_settings is re-sent after every history sync.
         if (m is! SystemMessage ||
-            (m.subtype != 'supported_commands' &&
+            (m.subtype == 'init' && m.provider == Provider.codex.value) ||
+            (m.subtype != 'init' &&
+                m.subtype != 'supported_commands' &&
                 m.subtype != 'session_created' &&
                 m.subtype != 'codex_settings')) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
@@ -897,9 +921,12 @@ class ChatMessageHandler {
         msg.tipCode == 'git_not_available') {
       _gitTipShown = true;
     }
-    // Add init and tip as visible chat entries; session_created and
-    // supported_commands are internal metadata messages.
-    final addEntry = subtype == 'init' || subtype == 'tip';
+    // Claude init is metadata only. Codex init and tips remain visible.
+    final addEntry =
+        subtype == 'tip' ||
+        (subtype == 'init' &&
+            msg is SystemMessage &&
+            msg.provider == Provider.codex.value);
     return ChatStateUpdate(
       entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
       permissionMode: permissionMode,

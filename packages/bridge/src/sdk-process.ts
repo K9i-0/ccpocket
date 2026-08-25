@@ -412,9 +412,25 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
 
     case "assistant": {
       const ast = msg as unknown as { message: Record<string, unknown>; uuid?: string };
+      const rawContent = ast.message.content;
+      const content = Array.isArray(rawContent)
+        ? rawContent.filter((block) => {
+            if (!block || typeof block !== "object") return true;
+            const candidate = block as Record<string, unknown>;
+            return !(
+              candidate.type === "thinking" &&
+              typeof candidate.thinking === "string" &&
+              candidate.thinking.trim().length === 0
+            );
+          })
+        : rawContent;
+      if (Array.isArray(content) && content.length === 0) return null;
       return {
         type: "assistant",
-        message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
+        message: {
+          ...ast.message,
+          content,
+        } as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
         ...(ast.uuid ? { messageUuid: ast.uuid } : {}),
       } as ServerMessage;
     }
@@ -825,15 +841,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content: [{ type: "text", text }],
-      },
-      parent_tool_use_id: null,
-    });
+    this.resolveUserMessage(resolve, text);
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -861,35 +869,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
 
-    const content: SDKUserMsg["message"]["content"] = [];
-
-    // Add image blocks first (Claude processes images before text)
-    for (const image of images) {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: image.mimeType as ImageMediaType,
-          data: image.base64,
-        },
-      });
-    }
-
-    // Add text block
-    content.push({ type: "text", text });
-
     const totalKB = images.reduce((sum, img) => sum + Math.round(img.base64.length / 1024), 0);
     console.log(`[sdk-process] Sending message with ${images.length} image(s) (${totalKB}KB base64 total)`);
 
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content,
-      },
-      parent_tool_use_id: null,
-    });
+    this.resolveUserMessage(resolve, text, images);
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -1159,33 +1142,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
-      // Drain queued messages first (FIFO order)
-      if (this.pendingInputQueue.length > 0) {
+      // A queued mid-turn input must wait for result so it cannot overtake
+      // the interrupted turn. Once idle, each consumer request drains FIFO.
+      const turnInProgress =
+        this._status === "running" ||
+        this._status === "compacting" ||
+        this._status === "waiting_approval";
+      if (this.pendingInputQueue.length > 0 && !turnInProgress) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
-        const content: SDKUserMsg["message"]["content"] = [];
-        if (images) {
-          for (const image of images) {
-            content.push({
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: image.mimeType as ImageMediaType,
-                data: image.base64,
-              },
-            });
-          }
-        }
-        content.push({ type: "text", text });
-        yield {
-          type: "user",
-          session_id: this._sessionId ?? "",
-          message: {
-            role: "user",
-            content,
-          },
-          parent_tool_use_id: null,
-        };
+        this.setStatus("running");
+        yield this.buildUserMessage(text, images);
         continue;
       }
       const msg = await new Promise<SDKUserMsg>((resolve) => {
@@ -1371,8 +1338,54 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       case "result":
         this.pendingPermissions.clear();
         this.setStatus("idle");
+        this.deliverQueuedInputIfWaiting();
         break;
     }
+  }
+
+  private buildUserMessage(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): SDKUserMsg {
+    const content: SDKUserMsg["message"]["content"] = [];
+    if (images) {
+      for (const image of images) {
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: image.mimeType as ImageMediaType,
+            data: image.base64,
+          },
+        });
+      }
+    }
+    content.push({ type: "text", text });
+    return {
+      type: "user",
+      session_id: this._sessionId ?? "",
+      message: { role: "user", content },
+      parent_tool_use_id: null,
+    };
+  }
+
+  private deliverQueuedInputIfWaiting(): void {
+    const resolve = this.userMessageResolve;
+    const queued = this.pendingInputQueue[0];
+    if (!resolve || !queued) return;
+
+    this.userMessageResolve = null;
+    this.pendingInputQueue.shift();
+    this.resolveUserMessage(resolve, queued.text, queued.images);
+  }
+
+  private resolveUserMessage(
+    resolve: (message: SDKUserMsg) => void,
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): void {
+    this.setStatus("running");
+    resolve(this.buildUserMessage(text, images));
   }
 
   private handlePostToolUseHook(input: unknown): void {

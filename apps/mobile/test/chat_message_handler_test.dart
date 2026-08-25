@@ -183,6 +183,60 @@ void main() {
       expect(handler.currentThinkingText, isEmpty);
     });
 
+    test('drops whitespace thinking and always clears its accumulator', () {
+      handler.handle(
+        const ThinkingDeltaMessage(text: ' \n\t '),
+        isBackground: false,
+      );
+
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-blank-thinking',
+            role: 'assistant',
+            content: [const TextContent(text: 'Response')],
+            model: 'test',
+          ),
+        ),
+        isBackground: false,
+      );
+
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      final assistant = entry.message as AssistantServerMessage;
+      expect(assistant.message.content.whereType<ThinkingContent>(), isEmpty);
+      expect(handler.currentThinkingText, isEmpty);
+    });
+
+    test('replaces blank final thinking with accumulated real thinking', () {
+      handler.handle(
+        const ThinkingDeltaMessage(text: 'Real thinking'),
+        isBackground: false,
+      );
+
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-blank-final-thinking',
+            role: 'assistant',
+            content: [
+              const ThinkingContent(thinking: ' \n '),
+              const TextContent(text: 'Response'),
+            ],
+            model: 'test',
+          ),
+        ),
+        isBackground: false,
+      );
+
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      final assistant = entry.message as AssistantServerMessage;
+      expect(
+        assistant.message.content.whereType<ThinkingContent>().single.thinking,
+        'Real thinking',
+      );
+      expect(handler.currentThinkingText, isEmpty);
+    });
+
     test('detects AskUserQuestion tool use', () {
       final update = handler.handle(
         AssistantServerMessage(
@@ -338,6 +392,20 @@ void main() {
   });
 
   group('SystemMessage handling', () {
+    test('Claude init updates metadata without adding a visible entry', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          provider: 'claude',
+          sessionId: 'claude-session',
+        ),
+        isBackground: false,
+      );
+
+      expect(update.claudeSessionId, 'claude-session');
+      expect(update.entriesToAdd, isEmpty);
+    });
+
     test('Codex init applies approval policy without permission mode', () {
       final update = handler.handle(
         const SystemMessage(
@@ -527,6 +595,27 @@ void main() {
   });
 
   group('History handling — pending state restoration', () {
+    test('hides Claude init but keeps Codex init visible in history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'init',
+              provider: 'claude',
+              sessionId: 'claude-session',
+            ),
+            SystemMessage(subtype: 'init', provider: 'codex'),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.claudeSessionId, 'claude-session');
+      expect(update.entriesToAdd, hasLength(1));
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      expect((entry.message as SystemMessage).provider, 'codex');
+    });
+
     test('restores project path from session metadata in history', () {
       final update = handler.handle(
         const HistoryMessage(
@@ -1018,10 +1107,11 @@ void main() {
   });
 
   group('SystemMessage slash command handling', () {
-    test('init with slashCommands populates commands and adds entry', () {
+    test('Codex init with slashCommands populates commands and adds entry', () {
       final update = handler.handle(
         const SystemMessage(
           subtype: 'init',
+          provider: 'codex',
           slashCommands: ['compact', 'review', 'test-flutter'],
           skills: ['test-flutter'],
         ),

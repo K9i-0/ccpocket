@@ -148,6 +148,25 @@ void main() {
   });
 
   group('AssistantBubble with MessageActionBar', () {
+    testWidgets('does not render whitespace-only thinking', (tester) async {
+      final message = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'msg-blank-thinking',
+          role: 'assistant',
+          content: [
+            const ThinkingContent(thinking: ' \n\t '),
+            const TextContent(text: 'Visible response'),
+          ],
+          model: 'test',
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(AssistantBubble(message: message)));
+
+      expect(find.text('Thinking'), findsNothing);
+      expect(find.text('Visible response'), findsOneWidget);
+    });
+
     testWidgets('shows action bar when message has TextContent', (
       tester,
     ) async {

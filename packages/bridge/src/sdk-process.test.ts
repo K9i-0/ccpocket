@@ -251,6 +251,42 @@ describe("buildThinkingOptions", () => {
 // ---- sdkMessageToServerMessage ----
 
 describe("sdkMessageToServerMessage", () => {
+  describe("assistant thinking filtering", () => {
+    it("removes whitespace-only thinking while preserving visible content", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: " \n\t " },
+            { type: "text", text: "Visible response" },
+          ],
+        },
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toMatchObject({
+        type: "assistant",
+        message: {
+          content: [{ type: "text", text: "Visible response" }],
+        },
+      });
+    });
+
+    it("drops assistant messages containing only whitespace thinking", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "\n  " }],
+        },
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
+    });
+  });
+
   describe("tool_use_summary handling", () => {
     it("converts SDKToolUseSummaryMessage to ServerMessage", () => {
       const sdkMsg = {
@@ -804,6 +840,7 @@ describe("SdkProcess input dispatch", () => {
       });
       expect(resolve).toHaveBeenCalledTimes(1);
       expect(proc.hasInputQueue).toBe(false);
+      expect(proc.status).toBe("running");
     },
   );
 
@@ -820,6 +857,113 @@ describe("SdkProcess input dispatch", () => {
       ]),
     ).toEqual({ queued: true, shouldInterrupt: true });
     expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("marks directly delivered image input as running", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.userMessageResolve = resolve;
+
+    expect(
+      proc.dispatchInputWithImages("inspect", [
+        { base64: "aW1hZ2U=", mimeType: "image/png" },
+      ]),
+    ).toEqual({ queued: false, shouldInterrupt: false });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(proc.status).toBe("running");
+  });
+
+  it("drains queued input FIFO one item per result when a consumer is waiting", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const firstResolve = vi.fn();
+    internal._status = "running";
+    internal.userMessageResolve = firstResolve;
+
+    proc.dispatchInput("first");
+    proc.dispatchInput("second");
+    internal.updateStatusFromMessage({
+      type: "result",
+      subtype: "error_during_execution",
+    });
+
+    expect(firstResolve).toHaveBeenCalledTimes(1);
+    expect(firstResolve.mock.calls[0][0].message.content).toEqual([
+      { type: "text", text: "first" },
+    ]);
+    expect(proc.hasInputQueue).toBe(true);
+
+    const secondResolve = vi.fn();
+    internal.userMessageResolve = secondResolve;
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+
+    expect(firstResolve).toHaveBeenCalledTimes(1);
+    expect(secondResolve).toHaveBeenCalledTimes(1);
+    expect(secondResolve.mock.calls[0][0].message.content).toEqual([
+      { type: "text", text: "second" },
+    ]);
+    expect(proc.hasInputQueue).toBe(false);
+  });
+
+  it("keeps queued input until a consumer is waiting", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+
+    proc.dispatchInput("later");
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+
+    expect(proc.hasInputQueue).toBe(true);
+  });
+
+  it("drains only one queued item per result with a greedy stream consumer", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+
+    proc.dispatchInput("first");
+    proc.dispatchInput("second");
+
+    const stream = internal.createUserMessageStream();
+    const firstRequest = stream.next();
+    let secondResolved = false;
+    const secondRequest = stream.next().then((result: any) => {
+      secondResolved = true;
+      return result;
+    });
+    await Promise.resolve();
+
+    expect(internal.userMessageResolve).toEqual(expect.any(Function));
+    expect(proc.hasInputQueue).toBe(true);
+
+    internal.updateStatusFromMessage({
+      type: "result",
+      subtype: "error_during_execution",
+    });
+    const first = await firstRequest;
+
+    expect(first.value.message.content).toEqual([
+      { type: "text", text: "first" },
+    ]);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(secondResolved).toBe(false);
+    expect(internal.userMessageResolve).toEqual(expect.any(Function));
+    expect(proc.hasInputQueue).toBe(true);
+    expect(proc.status).toBe("running");
+
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    const second = await secondRequest;
+    expect(second.value.message.content).toEqual([
+      { type: "text", text: "second" },
+    ]);
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("running");
+
+    await stream.return(undefined);
   });
 });
 
