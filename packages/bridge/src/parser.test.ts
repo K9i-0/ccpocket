@@ -174,6 +174,56 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"start"}')).toBeNull();
   });
 
+  it.each([
+    ["provider", "other"],
+    ["sandboxMode", 1],
+    ["model", 1],
+    ["effort", "turbo"],
+    ["maxTurns", 0],
+    ["maxBudgetUsd", -1],
+    ["fallbackModel", false],
+    ["forkSession", "true"],
+    ["persistSession", 1],
+    ["profile", false],
+    ["modelReasoningEffort", ""],
+    ["serviceTier", ""],
+    ["networkAccessEnabled", "true"],
+    ["permissionMode", "unrestricted"],
+    ["executionMode", "unrestricted"],
+    ["approvalPolicy", "always"],
+    ["approvalsReviewer", "bot"],
+    ["codexPermissionsMode", "reviewEverything"],
+    ["planMode", "true"],
+    ["webSearchMode", "auto"],
+    ["additionalWritableRoots", [42]],
+  ])("rejects invalid shared session option %s", (field, value) => {
+    const start = { type: "start", projectPath: "/p", [field]: value };
+    const resume = {
+      type: "resume_session",
+      sessionId: "s1",
+      projectPath: "/p",
+      [field]: value,
+    };
+
+    expect(parseClientMessage(JSON.stringify(start))).toBeNull();
+    expect(parseClientMessage(JSON.stringify(resume))).toBeNull();
+  });
+
+  it.each([
+    ["sessionId", 1],
+    ["continue", "true"],
+    ["useWorktree", "true"],
+    ["worktreeBranch", false],
+    ["existingWorktreePath", false],
+    ["autoRename", "true"],
+  ])("rejects invalid start option %s", (field, value) => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({ type: "start", projectPath: "/p", [field]: value }),
+      ),
+    ).toBeNull();
+  });
+
   it("parses input message", () => {
     const msg = parseClientMessage('{"type":"input","text":"hello"}');
     expect(msg).toEqual({ type: "input", text: "hello" });

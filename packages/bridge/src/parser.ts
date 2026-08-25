@@ -873,6 +873,111 @@ export function normalizeToolResultContent(
   return typeof content === "string" ? content : String(content ?? "");
 }
 
+const PROVIDERS = ["claude", "codex"] as const;
+const CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+const PERMISSION_MODES = [
+  "default",
+  "auto",
+  "acceptEdits",
+  "bypassPermissions",
+  "plan",
+] as const;
+const EXECUTION_MODES = ["default", "acceptEdits", "fullAccess"] as const;
+const APPROVAL_POLICIES = [
+  "untrusted",
+  "on-request",
+  "on-failure",
+  "never",
+] as const;
+const APPROVAL_REVIEWERS = [
+  "user",
+  "auto_review",
+  "guardian_subagent",
+] as const;
+const CODEX_PERMISSION_MODES = [
+  "default",
+  "autoReview",
+  "fullAccess",
+  "custom",
+] as const;
+const WEB_SEARCH_MODES = ["disabled", "cached", "live"] as const;
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
+function isOptionalNonEmptyString(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === "string" && value.trim().length > 0)
+  );
+}
+
+function isEnum(value: unknown, allowed: readonly string[]): boolean {
+  return typeof value === "string" && allowed.includes(value);
+}
+
+function isOptionalEnum(
+  value: unknown,
+  allowed: readonly string[],
+): boolean {
+  return value === undefined || isEnum(value, allowed);
+}
+
+function isOptionalStringArray(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
+  );
+}
+
+/** Options shared by new and resumed sessions must follow one contract. */
+function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
+  return (
+    isOptionalEnum(msg.provider, PROVIDERS) &&
+    isOptionalString(msg.sandboxMode) &&
+    isOptionalString(msg.model) &&
+    isOptionalEnum(msg.effort, CLAUDE_EFFORTS) &&
+    (msg.maxTurns === undefined ||
+      (Number.isInteger(msg.maxTurns) && Number(msg.maxTurns) >= 1)) &&
+    (msg.maxBudgetUsd === undefined ||
+      (typeof msg.maxBudgetUsd === "number" &&
+        Number.isFinite(msg.maxBudgetUsd) &&
+        msg.maxBudgetUsd >= 0)) &&
+    isOptionalString(msg.fallbackModel) &&
+    isOptionalBoolean(msg.forkSession) &&
+    isOptionalBoolean(msg.persistSession) &&
+    isOptionalString(msg.profile) &&
+    isOptionalNonEmptyString(msg.modelReasoningEffort) &&
+    isOptionalNonEmptyString(msg.serviceTier) &&
+    isOptionalBoolean(msg.networkAccessEnabled) &&
+    isOptionalEnum(msg.permissionMode, PERMISSION_MODES) &&
+    isOptionalEnum(msg.executionMode, EXECUTION_MODES) &&
+    isOptionalEnum(msg.approvalPolicy, APPROVAL_POLICIES) &&
+    isOptionalEnum(msg.approvalsReviewer, APPROVAL_REVIEWERS) &&
+    isOptionalEnum(msg.codexPermissionsMode, CODEX_PERMISSION_MODES) &&
+    isOptionalBoolean(msg.planMode) &&
+    isOptionalEnum(msg.webSearchMode, WEB_SEARCH_MODES) &&
+    isOptionalStringArray(msg.additionalWritableRoots)
+  );
+}
+
+function hasValidStartOptions(msg: Record<string, unknown>): boolean {
+  return (
+    hasValidSessionOptions(msg) &&
+    isOptionalString(msg.sessionId) &&
+    isOptionalBoolean(msg.continue) &&
+    isOptionalBoolean(msg.useWorktree) &&
+    isOptionalString(msg.worktreeBranch) &&
+    isOptionalString(msg.existingWorktreePath) &&
+    isOptionalBoolean(msg.autoRename)
+  );
+}
+
 // ---- Parser ----
 
 export function parseClientMessage(data: string): ClientMessage | null {
@@ -937,118 +1042,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         }
         break;
       case "start":
-        if (typeof msg.projectPath !== "string") return null;
-        if (msg.model !== undefined && typeof msg.model !== "string")
-          return null;
         if (
-          msg.effort !== undefined &&
-          !["low", "medium", "high", "xhigh", "max"].includes(
-            String(msg.effort),
-          )
+          typeof msg.projectPath !== "string" ||
+          !hasValidStartOptions(msg)
         )
           return null;
-        if (
-          msg.maxTurns !== undefined &&
-          (!Number.isInteger(msg.maxTurns) || Number(msg.maxTurns) < 1)
-        )
-          return null;
-        if (
-          msg.maxBudgetUsd !== undefined &&
-          (typeof msg.maxBudgetUsd !== "number" ||
-            !Number.isFinite(msg.maxBudgetUsd) ||
-            msg.maxBudgetUsd < 0)
-        )
-          return null;
-        if (
-          msg.fallbackModel !== undefined &&
-          typeof msg.fallbackModel !== "string"
-        )
-          return null;
-        if (
-          msg.forkSession !== undefined &&
-          typeof msg.forkSession !== "boolean"
-        )
-          return null;
-        if (
-          msg.persistSession !== undefined &&
-          typeof msg.persistSession !== "boolean"
-        )
-          return null;
-        if (msg.profile !== undefined && typeof msg.profile !== "string")
-          return null;
-        if (
-          msg.networkAccessEnabled !== undefined &&
-          typeof msg.networkAccessEnabled !== "boolean"
-        )
-          return null;
-        if (
-          msg.modelReasoningEffort !== undefined &&
-          (typeof msg.modelReasoningEffort !== "string" ||
-            msg.modelReasoningEffort.trim().length === 0)
-        )
-          return null;
-        if (
-          msg.serviceTier !== undefined &&
-          (typeof msg.serviceTier !== "string" ||
-            msg.serviceTier.trim().length === 0)
-        )
-          return null;
-        if (
-          msg.permissionMode !== undefined &&
-          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
-            String(msg.permissionMode),
-          )
-        )
-          return null;
-        if (
-          msg.executionMode !== undefined &&
-          !["default", "acceptEdits", "fullAccess"].includes(
-            String(msg.executionMode),
-          )
-        )
-          return null;
-        if (
-          msg.approvalPolicy !== undefined &&
-          !["untrusted", "on-request", "on-failure", "never"].includes(
-            String(msg.approvalPolicy),
-          )
-        )
-          return null;
-        if (
-          msg.approvalsReviewer !== undefined &&
-          !["user", "auto_review", "guardian_subagent"].includes(
-            String(msg.approvalsReviewer),
-          )
-        )
-          return null;
-        if (
-          msg.codexPermissionsMode !== undefined &&
-          !["default", "autoReview", "fullAccess", "custom"].includes(
-            String(msg.codexPermissionsMode),
-          )
-        )
-          return null;
-        if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
-          return null;
-        if (
-          msg.autoRename !== undefined &&
-          typeof msg.autoRename !== "boolean"
-        )
-          return null;
-        if (
-          msg.webSearchMode !== undefined &&
-          !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
-        )
-          return null;
-        if (msg.additionalWritableRoots !== undefined) {
-          if (!Array.isArray(msg.additionalWritableRoots)) return null;
-          if (
-            msg.additionalWritableRoots.some(
-              (root) => typeof root !== "string",
-            )
-          )
-            return null;
-        }
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
@@ -1156,41 +1154,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "set_permission_mode":
         if (
-          typeof msg.mode !== "string" ||
-          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
-            msg.mode,
-          )
+          !isEnum(msg.mode, PERMISSION_MODES) ||
+          !isOptionalEnum(msg.executionMode, EXECUTION_MODES) ||
+          !isOptionalEnum(msg.approvalPolicy, APPROVAL_POLICIES) ||
+          !isOptionalEnum(msg.approvalsReviewer, APPROVAL_REVIEWERS) ||
+          !isOptionalEnum(msg.codexPermissionsMode, CODEX_PERMISSION_MODES) ||
+          !isOptionalBoolean(msg.planMode)
         )
-          return null;
-        if (
-          msg.executionMode !== undefined &&
-          !["default", "acceptEdits", "fullAccess"].includes(
-            String(msg.executionMode),
-          )
-        )
-          return null;
-        if (
-          msg.approvalPolicy !== undefined &&
-          !["untrusted", "on-request", "on-failure", "never"].includes(
-            String(msg.approvalPolicy),
-          )
-        )
-          return null;
-        if (
-          msg.approvalsReviewer !== undefined &&
-          !["user", "auto_review", "guardian_subagent"].includes(
-            String(msg.approvalsReviewer),
-          )
-        )
-          return null;
-        if (
-          msg.codexPermissionsMode !== undefined &&
-          !["default", "autoReview", "fullAccess", "custom"].includes(
-            String(msg.codexPermissionsMode),
-          )
-        )
-          return null;
-        if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
           return null;
         break;
       case "set_codex_model":
@@ -1311,118 +1281,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
           typeof msg.resumeRequestId !== "string"
         )
           return null;
-        if (
-          msg.provider &&
-          msg.provider !== "claude" &&
-          msg.provider !== "codex"
-        )
-          return null;
-        if (msg.model !== undefined && typeof msg.model !== "string")
-          return null;
-        if (
-          msg.effort !== undefined &&
-          !["low", "medium", "high", "xhigh", "max"].includes(
-            String(msg.effort),
-          )
-        )
-          return null;
-        if (
-          msg.maxTurns !== undefined &&
-          (!Number.isInteger(msg.maxTurns) || Number(msg.maxTurns) < 1)
-        )
-          return null;
-        if (
-          msg.maxBudgetUsd !== undefined &&
-          (typeof msg.maxBudgetUsd !== "number" ||
-            !Number.isFinite(msg.maxBudgetUsd) ||
-            msg.maxBudgetUsd < 0)
-        )
-          return null;
-        if (
-          msg.fallbackModel !== undefined &&
-          typeof msg.fallbackModel !== "string"
-        )
-          return null;
-        if (
-          msg.forkSession !== undefined &&
-          typeof msg.forkSession !== "boolean"
-        )
-          return null;
-        if (
-          msg.persistSession !== undefined &&
-          typeof msg.persistSession !== "boolean"
-        )
-          return null;
-        if (msg.profile !== undefined && typeof msg.profile !== "string")
-          return null;
-        if (
-          msg.networkAccessEnabled !== undefined &&
-          typeof msg.networkAccessEnabled !== "boolean"
-        )
-          return null;
-        if (
-          msg.modelReasoningEffort !== undefined &&
-          (typeof msg.modelReasoningEffort !== "string" ||
-            msg.modelReasoningEffort.trim().length === 0)
-        )
-          return null;
-        if (
-          msg.serviceTier !== undefined &&
-          (typeof msg.serviceTier !== "string" ||
-            msg.serviceTier.trim().length === 0)
-        )
-          return null;
-        if (
-          msg.permissionMode !== undefined &&
-          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
-            String(msg.permissionMode),
-          )
-        )
-          return null;
-        if (
-          msg.executionMode !== undefined &&
-          !["default", "acceptEdits", "fullAccess"].includes(
-            String(msg.executionMode),
-          )
-        )
-          return null;
-        if (
-          msg.approvalPolicy !== undefined &&
-          !["untrusted", "on-request", "on-failure", "never"].includes(
-            String(msg.approvalPolicy),
-          )
-        )
-          return null;
-        if (
-          msg.approvalsReviewer !== undefined &&
-          !["user", "auto_review", "guardian_subagent"].includes(
-            String(msg.approvalsReviewer),
-          )
-        )
-          return null;
-        if (
-          msg.codexPermissionsMode !== undefined &&
-          !["default", "autoReview", "fullAccess", "custom"].includes(
-            String(msg.codexPermissionsMode),
-          )
-        )
-          return null;
-        if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
-          return null;
-        if (
-          msg.webSearchMode !== undefined &&
-          !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
-        )
-          return null;
-        if (msg.additionalWritableRoots !== undefined) {
-          if (!Array.isArray(msg.additionalWritableRoots)) return null;
-          if (
-            msg.additionalWritableRoots.some(
-              (root) => typeof root !== "string",
-            )
-          )
-            return null;
-        }
+        if (!hasValidSessionOptions(msg)) return null;
         break;
       case "list_gallery":
         break;

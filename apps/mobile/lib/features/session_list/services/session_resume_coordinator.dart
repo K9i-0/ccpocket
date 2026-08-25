@@ -6,43 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../models/offline_pending_action.dart';
 import '../../../services/bridge_service.dart';
-import '../../../widgets/new_session_sheet.dart';
+import 'codex_project_profile_store.dart';
+import 'session_start_defaults_store.dart';
 
-const _legacySessionStartDefaultsKey = 'session_start_defaults_v1';
-const _claudeSessionStartDefaultsKey = 'session_start_defaults_claude_v1';
-const _codexSessionStartDefaultsKey = 'session_start_defaults_codex_v1';
 const _claudeSessionSettingsPrefix = 'claude_session_settings_';
-const _codexProfileByProjectKey = 'codex_profile_by_project_v1';
-
-class SessionStartDefaultsStore {
-  const SessionStartDefaultsStore();
-
-  Future<NewSessionParams?> load({required Provider provider}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final scoped = _decode(
-      prefs.getString(
-        provider == Provider.claude
-            ? _claudeSessionStartDefaultsKey
-            : _codexSessionStartDefaultsKey,
-      ),
-    );
-    if (scoped != null) return scoped;
-
-    final legacy = _decode(prefs.getString(_legacySessionStartDefaultsKey));
-    return legacy?.provider == provider ? legacy : null;
-  }
-
-  NewSessionParams? _decode(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      return sessionStartDefaultsFromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-}
 
 class ClaudeSessionSettingsStore {
   const ClaudeSessionSettingsStore();
@@ -173,13 +140,17 @@ class SessionResumeCoordinator {
     SessionStartDefaultsStore defaultsStore = const SessionStartDefaultsStore(),
     ClaudeSessionSettingsStore claudeSettingsStore =
         const ClaudeSessionSettingsStore(),
+    CodexProjectProfileStore codexProfileStore =
+        const CodexProjectProfileStore(),
   }) : _bridge = bridge,
        _defaultsStore = defaultsStore,
-       _claudeSettingsStore = claudeSettingsStore;
+       _claudeSettingsStore = claudeSettingsStore,
+       _codexProfileStore = codexProfileStore;
 
   final BridgeService _bridge;
   final SessionStartDefaultsStore _defaultsStore;
   final ClaudeSessionSettingsStore _claudeSettingsStore;
+  final CodexProjectProfileStore _codexProfileStore;
 
   Future<SessionResumeDispatch> resume(
     RecentSession session, {
@@ -203,7 +174,7 @@ class SessionResumeCoordinator {
         : await _claudeSettingsStore.load(session.sessionId);
     final claudeDefaults = isCodex
         ? null
-        : await _defaultsStore.load(provider: Provider.claude);
+        : await _defaultsStore.loadFor(Provider.claude);
     final permissionMode =
         sessionSettings?['permissionMode'] as String? ??
         session.effectivePermissionMode;
@@ -278,7 +249,9 @@ class SessionResumeCoordinator {
     );
 
     if (isCodex) {
-      unawaited(_saveCodexProfile(session.projectPath, session.codexProfile));
+      unawaited(
+        _codexProfileStore.save(session.projectPath, session.codexProfile),
+      );
     } else {
       unawaited(
         _claudeSettingsStore.save(session.sessionId, {
@@ -309,30 +282,5 @@ class SessionResumeCoordinator {
           action.sessionId == sessionId &&
           action.provider == provider,
     );
-  }
-
-  Future<void> _saveCodexProfile(String projectPath, String? profile) async {
-    final normalized = projectPath.trim();
-    if (normalized.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final saved = switch (prefs.getString(_codexProfileByProjectKey)) {
-      final String raw when raw.isNotEmpty => _decodeStringMap(raw),
-      _ => <String, String>{},
-    };
-    if (profile == null || profile.isEmpty) {
-      saved.remove(normalized);
-    } else {
-      saved[normalized] = profile;
-    }
-    await prefs.setString(_codexProfileByProjectKey, jsonEncode(saved));
-  }
-
-  Map<String, String> _decodeStringMap(String raw) {
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return json.map((key, value) => MapEntry(key, value?.toString() ?? ''));
-    } catch (_) {
-      return {};
-    }
   }
 }

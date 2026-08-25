@@ -32,8 +32,10 @@ import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
+import 'services/codex_project_profile_store.dart';
 import 'state/session_list_cubit.dart';
 import 'state/session_list_state.dart';
+import 'services/session_start_defaults_store.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
 import 'widgets/machine_edit_sheet.dart';
@@ -242,15 +244,9 @@ class _SessionListScreenState extends State<SessionListScreen>
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyMacOSNativeAppBannerDismissed =
       'macos_native_app_banner.dismissed';
-  static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
-  static const _prefKeySessionStartDefaultsLastProvider =
-      'session_start_defaults_last_provider_v1';
-  static const _prefKeyCodexSessionStartDefaults =
-      'session_start_defaults_codex_v1';
-  static const _prefKeyClaudeSessionStartDefaults =
-      'session_start_defaults_claude_v1';
   static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
-  static const _prefKeyCodexProfileByProject = 'codex_profile_by_project_v1';
+  static const _codexProjectProfileStore = CodexProjectProfileStore();
+  static const _sessionStartDefaultsStore = SessionStartDefaultsStore();
 
   @override
   void initState() {
@@ -744,7 +740,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (!mounted) return;
     final result = await _openNewSessionSheet(initialParams: defaults);
     if (result == null || !mounted) return;
-    await _saveSessionStartDefaults(result);
+    await _sessionStartDefaultsStore.save(result);
     _trackPendingClaudeDefaultsCorrection(result);
     await _saveProjectCodexProfileFromParams(result);
     if (!mounted) return;
@@ -894,79 +890,6 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
-  static String _sessionStartDefaultsKeyForProvider(Provider provider) {
-    return switch (provider) {
-      Provider.codex => _prefKeyCodexSessionStartDefaults,
-      Provider.claude => _prefKeyClaudeSessionStartDefaults,
-    };
-  }
-
-  static Provider? _sessionStartDefaultsProviderFromRaw(String? raw) {
-    return switch (raw) {
-      'codex' => Provider.codex,
-      'claude' => Provider.claude,
-      _ => null,
-    };
-  }
-
-  NewSessionParams? _decodeSessionStartDefaults(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return sessionStartDefaultsFromJson(json);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<NewSessionParams?> _loadSessionStartDefaults({
-    Provider? provider,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (provider != null) {
-      final scoped = _decodeSessionStartDefaults(
-        prefs.getString(_sessionStartDefaultsKeyForProvider(provider)),
-      );
-      if (scoped != null) return scoped;
-
-      // Migration fallback from the old shared key. Only use it when the
-      // stored provider matches, so Claude defaults cannot affect Codex.
-      final legacy = _decodeSessionStartDefaults(
-        prefs.getString(_prefKeySessionStartDefaults),
-      );
-      return legacy?.provider == provider ? legacy : null;
-    }
-
-    final lastProvider = _sessionStartDefaultsProviderFromRaw(
-      prefs.getString(_prefKeySessionStartDefaultsLastProvider),
-    );
-    if (lastProvider != null) {
-      final scoped = await _loadSessionStartDefaults(provider: lastProvider);
-      if (scoped != null) return scoped;
-    }
-
-    final legacy = _decodeSessionStartDefaults(
-      prefs.getString(_prefKeySessionStartDefaults),
-    );
-    if (legacy != null) return legacy;
-
-    return await _loadSessionStartDefaults(provider: Provider.codex) ??
-        await _loadSessionStartDefaults(provider: Provider.claude);
-  }
-
-  Future<void> _saveSessionStartDefaults(NewSessionParams params) async {
-    final prefs = await SharedPreferences.getInstance();
-    final json = sessionStartDefaultsToJson(params);
-    await prefs.setString(
-      _sessionStartDefaultsKeyForProvider(params.provider),
-      jsonEncode(json),
-    );
-    await prefs.setString(
-      _prefKeySessionStartDefaultsLastProvider,
-      params.provider.value,
-    );
-  }
-
   void _trackPendingClaudeDefaultsCorrection(NewSessionParams params) {
     _pendingClaudeDefaultsCorrection = params.provider == Provider.claude
         ? params
@@ -985,15 +908,15 @@ class _SessionListScreenState extends State<SessionListScreen>
         permissionModeFromRaw(msg.permissionMode) ?? PermissionMode.defaultMode;
     if (actualMode == pending.permissionMode) return;
 
-    await _saveSessionStartDefaults(
+    await _sessionStartDefaultsStore.save(
       pending.copyWith(claudePermissionMode: actualMode),
     );
   }
 
   Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
-    final defaults = await _loadSessionStartDefaults();
-    final codexDefaults = await _loadSessionStartDefaults(
-      provider: Provider.codex,
+    final defaults = await _sessionStartDefaultsStore.loadInitial();
+    final codexDefaults = await _sessionStartDefaultsStore.loadFor(
+      Provider.codex,
     );
     final mergedDefaults = mergeCodexDefaultsIntoInitialSessionDefaults(
       defaults,
@@ -1015,42 +938,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     return mergedDefaults.copyWith(codexProfile: savedProfile);
   }
 
-  Future<Map<String, String>> _loadCodexProfilesByProject() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefKeyCodexProfileByProject);
-    if (raw == null || raw.isEmpty) return {};
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return json.map((key, value) => MapEntry(key, value?.toString() ?? ''));
-    } catch (_) {
-      return {};
-    }
-  }
-
-  Future<String?> _loadProjectCodexProfile(String projectPath) async {
-    final normalized = projectPath.trim();
-    if (normalized.isEmpty) return null;
-    final saved = await _loadCodexProfilesByProject();
-    final profile = saved[normalized];
-    if (profile == null || profile.isEmpty) return null;
-    return profile;
-  }
-
-  Future<void> _saveProjectCodexProfile(
-    String projectPath,
-    String? profile,
-  ) async {
-    final normalized = projectPath.trim();
-    if (normalized.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final saved = await _loadCodexProfilesByProject();
-    if (profile == null || profile.isEmpty) {
-      saved.remove(normalized);
-    } else {
-      saved[normalized] = profile;
-    }
-    await prefs.setString(_prefKeyCodexProfileByProject, jsonEncode(saved));
-  }
+  Future<String?> _loadProjectCodexProfile(String projectPath) =>
+      _codexProjectProfileStore.load(projectPath);
 
   Future<void> _saveProjectCodexProfileFromParams(NewSessionParams params) {
     if (params.provider != Provider.codex) {
@@ -1062,9 +951,9 @@ class _SessionListScreenState extends State<SessionListScreen>
         selected != null &&
         selected.isNotEmpty &&
         !available.contains(selected)) {
-      return _saveProjectCodexProfile(params.projectPath, null);
+      return _codexProjectProfileStore.save(params.projectPath, null);
     }
-    return _saveProjectCodexProfile(params.projectPath, selected);
+    return _codexProjectProfileStore.save(params.projectPath, selected);
   }
 
   List<RecentSession> _factualRecentSessions(List<RecentSession> sessions) {
@@ -1340,7 +1229,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         lockProvider: true,
       );
       if (edited == null || !mounted) return;
-      await _saveSessionStartDefaults(edited);
+      await _sessionStartDefaultsStore.save(edited);
       _trackPendingClaudeDefaultsCorrection(edited);
       await _saveProjectCodexProfileFromParams(edited);
       if (!mounted) return;
