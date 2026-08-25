@@ -2475,10 +2475,11 @@ void main() {
           recentSessionsRequestTimeout: const Duration(milliseconds: 80),
         );
         final url = 'ws://127.0.0.1:${server.port}';
-        bridge.connect(url);
-        await bridge.connectionStatus.firstWhere(
+        final connected = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
+        bridge.connect(url);
+        await connected.timeout(const Duration(seconds: 2));
         bridge.switchFilter(searchQuery: 'same-query');
         final firstRequest = await firstRequestReady.future.timeout(
           const Duration(seconds: 1),
@@ -2487,11 +2488,12 @@ void main() {
         final firstGalleryRequest = await firstGalleryRequestReady.future
             .timeout(const Duration(seconds: 1));
 
-        bridge.connect(url);
-        await secondSocketReady.future.timeout(const Duration(seconds: 1));
-        await bridge.connectionStatus.firstWhere(
+        final connectedAgain = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
+        bridge.connect(url);
+        await secondSocketReady.future.timeout(const Duration(seconds: 1));
+        await connectedAgain.timeout(const Duration(seconds: 2));
         bridge.switchFilter(searchQuery: 'same-query');
         bridge.requestGallery(sessionId: 'session-a');
         final secondRequest = await secondRequestReady.future.timeout(
