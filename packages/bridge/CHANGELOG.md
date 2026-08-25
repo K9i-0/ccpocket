@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.72.2] - 2026-08-25
+
+### Changed
+- Share one validation contract between new and resumed sessions to keep supported options consistent.
+
+### Fixed
+- Reject malformed optional session and permission values before they reach provider-specific process handling.
+
 ## [1.72.1] - 2026-08-23
 
 ### Fixed
