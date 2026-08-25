@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.117.1] - 2026-08-25
+
+### Changed
+- Centralize new-session defaults and project-specific Codex profile persistence so session creation and resume use the same settings contract.
+
+### Fixed
+- Preserve provider-specific new-session defaults during legacy migration without changing the user's most recently selected provider.
+- Ignore malformed saved Codex project profiles instead of coercing unsupported values into profile names.
+
 ## [1.117.0] - 2026-08-24
 
 ### Added
