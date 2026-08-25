@@ -2427,6 +2427,84 @@ void main() {
     );
 
     test(
+      'scoped requests can retry after replacing a same-target socket',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final sockets = <WebSocket>[];
+        final firstRequestReady = Completer<Map<String, dynamic>>();
+        final secondRequestReady = Completer<Map<String, dynamic>>();
+        final firstGalleryRequestReady = Completer<Map<String, dynamic>>();
+        final secondGalleryRequestReady = Completer<Map<String, dynamic>>();
+        final secondSocketReady = Completer<void>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          sockets.add(socket);
+          final socketIndex = sockets.length;
+          if (socketIndex == 2) secondSocketReady.complete();
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] == 'list_recent_sessions') {
+              if (socketIndex == 1 && !firstRequestReady.isCompleted) {
+                firstRequestReady.complete(json);
+              } else if (socketIndex == 2 && !secondRequestReady.isCompleted) {
+                secondRequestReady.complete(json);
+              }
+            } else if (json['type'] == 'list_gallery') {
+              if (socketIndex == 1 && !firstGalleryRequestReady.isCompleted) {
+                firstGalleryRequestReady.complete(json);
+              } else if (socketIndex == 2 &&
+                  !secondGalleryRequestReady.isCompleted) {
+                secondGalleryRequestReady.complete(json);
+              }
+            }
+          });
+        });
+
+        final bridge = BridgeService(
+          recentSessionsRequestTimeout: const Duration(milliseconds: 80),
+        );
+        final url = 'ws://127.0.0.1:${server.port}';
+        bridge.connect(url);
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.switchFilter(searchQuery: 'same-query');
+        final firstRequest = await firstRequestReady.future.timeout(
+          const Duration(seconds: 1),
+        );
+        bridge.requestGallery(sessionId: 'session-a');
+        final firstGalleryRequest = await firstGalleryRequestReady.future
+            .timeout(const Duration(seconds: 1));
+
+        bridge.connect(url);
+        await secondSocketReady.future.timeout(const Duration(seconds: 1));
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.switchFilter(searchQuery: 'same-query');
+        bridge.requestGallery(sessionId: 'session-a');
+        final secondRequest = await secondRequestReady.future.timeout(
+          const Duration(milliseconds: 200),
+        );
+        final secondGalleryRequest = await secondGalleryRequestReady.future
+            .timeout(const Duration(milliseconds: 200));
+
+        expect(secondRequest['requestId'], isNot(firstRequest['requestId']));
+        expect(
+          secondGalleryRequest['requestId'],
+          isNot(firstGalleryRequest['requestId']),
+        );
+
+        bridge.disconnect();
+        for (final socket in sockets) {
+          await socket.close();
+        }
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
       'legacy recent sessions response must match pending project and offset',
       () async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

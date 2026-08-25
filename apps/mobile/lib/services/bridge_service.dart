@@ -415,6 +415,11 @@ class BridgeService implements BridgeServiceBase {
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    // Replacing a socket invalidates requests already written to that
+    // transport. Clear their correlation and timeout state before the old
+    // callbacks become stale so callers can retry immediately.
+    _clearRecentSessionsRequestState();
+    _clearPendingGalleryRequests();
     _channelSub?.cancel();
     _channelSub = null;
     _channel?.sink.close();
