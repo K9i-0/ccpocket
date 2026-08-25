@@ -1019,6 +1019,8 @@ describe("SdkProcess Claude authentication", () => {
     sdkMessages: unknown[],
     permissionMode?: "acceptEdits",
     iteratorError?: Error,
+    initializationResult?: () => Promise<unknown>,
+    expectedExit = iteratorError ? 1 : 0,
   ) {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
     const proc = new SdkProcess();
@@ -1035,11 +1037,34 @@ describe("SdkProcess Claude authentication", () => {
       },
       close: vi.fn(),
       supportedCommands: vi.fn().mockResolvedValue([]),
+      ...(initializationResult ? { initializationResult } : {}),
     });
 
     proc.start(process.cwd(), { permissionMode });
-    await vi.waitFor(() => expect(exits).toEqual([iteratorError ? 1 : 0]));
+    await vi.waitFor(() => expect(exits).toEqual([expectedExit]), {
+      timeout: 2000,
+    });
     return { proc, messages, statuses };
+  }
+
+  function authTurn(apiKeySource: string, sessionId = "auth-session") {
+    return [
+      {
+        type: "system",
+        subtype: "init",
+        session_id: sessionId,
+        model: "claude-sonnet-4-6",
+        apiKeySource,
+      },
+      {
+        type: "result",
+        subtype: "success",
+        result: "Done",
+        total_cost_usd: 4.7011,
+        duration_ms: 100,
+        session_id: sessionId,
+      },
+    ];
   }
 
   it("requires the exact OAuth opt-in value", () => {
@@ -1139,7 +1164,7 @@ describe("SdkProcess Claude authentication", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("accepts an OAuth-authenticated SDK init message", async () => {
+  it("accepts fresh OAuth auth without exposing estimated API cost", async () => {
     vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
     const proc = new SdkProcess();
     const messages: ServerMessage[] = [];
@@ -1155,12 +1180,18 @@ describe("SdkProcess Claude authentication", () => {
       apiKeySource: "oauth",
     };
     const close = vi.fn();
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "user" },
+      models: [],
+    });
     mockSdkQuery.mockReturnValueOnce({
       async *[Symbol.asyncIterator]() {
         yield initMessage;
+        yield authTurn("oauth", "oauth-session")[1];
       },
       close,
       supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult,
     });
 
     proc.start(process.cwd());
@@ -1168,6 +1199,7 @@ describe("SdkProcess Claude authentication", () => {
 
     expect(proc.sessionId).toBe("oauth-session");
     expect(proc.model).toBe("claude-sonnet-4-6");
+    expect(initializationResult).toHaveBeenCalledOnce();
     expect(messages).toContainEqual(expect.objectContaining({
       type: "system",
       subtype: "init",
@@ -1176,7 +1208,138 @@ describe("SdkProcess Claude authentication", () => {
     expect(messages).not.toContainEqual(expect.objectContaining({
       type: "error",
     }));
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success" }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
     expect(exits).toEqual([0]);
+  });
+
+  it("classifies resumed OAuth from initializationResult and hides cost", async () => {
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "oauth" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "resumed-oauth-session"),
+      undefined,
+      undefined,
+      initializationResult,
+    );
+
+    expect(initializationResult).toHaveBeenCalledOnce();
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
+  });
+
+  it("keeps cost for API key authentication", async () => {
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "user" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "api-key-session"),
+      undefined,
+      undefined,
+      initializationResult,
+    );
+
+    expect(initializationResult).toHaveBeenCalledOnce();
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", cost: 4.7011 }),
+    );
+  });
+
+  it("rejects OAuth from initializationResult before emitting a result", async () => {
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "oauth" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "unapproved-oauth-session"),
+      undefined,
+      undefined,
+      initializationResult,
+      1,
+    );
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "claude_oauth_opt_in_required",
+      }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result" }),
+    );
+  });
+
+  it.each([
+    ["rejects", () => Promise.reject(new Error("init unavailable"))],
+    ["times out", () => new Promise<never>(() => {})],
+  ])(
+    "does not block a turn when initializationResult $0",
+    async (_label, initializationResult) => {
+      const init = vi.fn(initializationResult);
+      const { messages } = await runSdkMessages(
+        authTurn("user", "fallback-api-session"),
+        undefined,
+        undefined,
+        init,
+      );
+
+      expect(init).toHaveBeenCalledOnce();
+      expect(messages).toContainEqual(
+        expect.objectContaining({ type: "result", cost: 4.7011 }),
+      );
+    },
+  );
+
+  it("ignores a stale initializationResult after restart", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    let resolveStale!: (value: unknown) => void;
+    const staleInitialization = vi.fn(
+      () => new Promise((resolve) => { resolveStale = resolve; }),
+    );
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+    mockSdkQuery
+      .mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {},
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult: staleInitialization,
+      })
+      .mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() { yield* authTurn("user", "new-session"); },
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult: vi.fn().mockResolvedValue({
+          account: { apiKeySource: "user" },
+          models: [],
+        }),
+      });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(staleInitialization).toHaveBeenCalledOnce());
+    proc.stop();
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+    resolveStale({ account: { apiKeySource: "oauth" }, models: [] });
+    await Promise.resolve();
+
+    expect(staleInitialization).toHaveBeenCalledOnce();
+    expect(messages).not.toContainEqual(expect.objectContaining({ type: "error" }));
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", cost: 4.7011 }),
+    );
   });
 
   it("tracks compaction lifecycle and emits one failure without changing permission mode", async () => {

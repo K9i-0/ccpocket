@@ -145,6 +145,10 @@ function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return hasExplicitClaudeCredential(env) || isClaudeOAuthOptInEnabled(env);
 }
 
+type ClaudeAuthClassification = "unknown" | "api_key" | "subscription";
+
+const CLAUDE_AUTH_RESOLUTION_TIMEOUT_MS = 500;
+
 export async function listAvailableClaudeModels(
   projectPath?: string,
 ): Promise<ClaudeModelMetadata[]> {
@@ -683,6 +687,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private authClassification: ClaudeAuthClassification = "unknown";
+  private authGeneration = 0;
+  private authResolution: Promise<void> = Promise.resolve();
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -732,6 +739,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.stopped = false;
     this._sessionId = null;
+    this.authGeneration += 1;
+    this.authClassification = "unknown";
+    this.authResolution = Promise.resolve();
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this.permissionModeGeneration += 1;
@@ -836,9 +846,16 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
     });
 
+    const queryInstance = this.queryInstance;
+    const authGeneration = this.authGeneration;
+    this.authResolution = this.resolveAuthClassification(
+      queryInstance,
+      authGeneration,
+    );
+
     // Background message processing
-    this.processMessages().catch((err) => {
-      if (this.stopped) {
+    this.processMessages(authGeneration, this.authResolution).catch((err) => {
+      if (this.stopped || authGeneration !== this.authGeneration) {
         // Suppress errors from intentional stop (SDK bug: Bun API referenced on Node.js)
         return;
       }
@@ -860,6 +877,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.initTimeoutId = null;
     }
     this.stopped = true;
+    this.authGeneration += 1;
+    this.authClassification = "unknown";
+    this.authResolution = Promise.resolve();
     this.pendingInputQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
@@ -1237,27 +1257,91 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
-  private async processMessages(): Promise<void> {
+  private async resolveAuthClassification(
+    queryInstance: Query | null | undefined,
+    generation: number,
+  ): Promise<void> {
+    if (!queryInstance) return;
+    const initializationResult = (
+      queryInstance as Partial<Pick<Query, "initializationResult">>
+    ).initializationResult;
+    if (typeof initializationResult !== "function") return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(
+          () => resolve(null),
+          CLAUDE_AUTH_RESOLUTION_TIMEOUT_MS,
+        );
+      });
+      const initialization = await Promise.race([
+        initializationResult.call(queryInstance),
+        timeout,
+      ]);
+      if (initialization === null) {
+        console.warn("[sdk-process] Timed out resolving Claude auth source");
+        return;
+      }
+      this.applyAuthSource(
+        initialization.account?.apiKeySource,
+        generation,
+      );
+    } catch (error) {
+      console.warn(
+        `[sdk-process] Could not resolve Claude auth source: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  private applyAuthSource(source: unknown, generation: number): boolean {
+    if (generation !== this.authGeneration) return true;
+    if (source === "oauth") {
+      this.authClassification = "subscription";
+    } else if (
+      typeof source === "string" &&
+      this.authClassification === "unknown"
+    ) {
+      this.authClassification = "api_key";
+    }
+
+    if (
+      this.authClassification === "subscription" &&
+      !isClaudeOAuthOptInEnabled()
+    ) {
+      console.log("[sdk-process] OAuth auth source requires explicit opt-in");
+      this.emitMessage({
+        type: "error",
+        message: CLAUDE_OAUTH_OPT_IN_MESSAGE,
+        errorCode: CLAUDE_OAUTH_OPT_IN_ERROR_CODE,
+      });
+      this.stop();
+      this.emit("exit", 1);
+      return false;
+    }
+    return true;
+  }
+
+  private async processMessages(
+    authGeneration: number,
+    authResolution: Promise<void>,
+  ): Promise<void> {
     if (!this.queryInstance) return;
 
     for await (const message of this.queryInstance) {
-      if (this.stopped) break;
+      if (this.stopped || authGeneration !== this.authGeneration) break;
 
       if (
         message.type === "system" &&
         "subtype" in message &&
         (message as Record<string, unknown>).subtype === "init" &&
-        (message as Record<string, unknown>).apiKeySource === "oauth" &&
-        !isClaudeOAuthOptInEnabled()
+        !this.applyAuthSource(
+          (message as Record<string, unknown>).apiKeySource,
+          authGeneration,
+        )
       ) {
-        console.log("[sdk-process] OAuth auth source requires explicit opt-in");
-        this.emitMessage({
-          type: "error",
-          message: CLAUDE_OAUTH_OPT_IN_MESSAGE,
-          errorCode: CLAUDE_OAUTH_OPT_IN_ERROR_CODE,
-        });
-        this.stop();
-        this.emit("exit", 1);
         return;
       }
 
@@ -1269,6 +1353,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         );
       }
       if (serverMsg?.type === "result") {
+        if (this.authClassification !== "subscription") {
+          await authResolution;
+        }
+        if (this.stopped || authGeneration !== this.authGeneration) return;
+        if (this.authClassification === "subscription") {
+          const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
+          serverMsg = withoutCost as ServerMessage;
+        }
         if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
           serverMsg = {
             ...serverMsg,
@@ -1345,6 +1437,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       // Update status from message type
       this.updateStatusFromMessage(message);
     }
+
+    await authResolution;
+    if (this.stopped || authGeneration !== this.authGeneration) return;
 
     this.flushPendingAssistantError();
 
