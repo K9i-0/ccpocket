@@ -604,6 +604,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     _activeToken = token;
     emit(
       state.copyWith(
+        fcmAvailable: true,
         fcmSyncInProgress: false,
         fcmStatusKey: FcmStatusKey.enabledPending,
       ),
