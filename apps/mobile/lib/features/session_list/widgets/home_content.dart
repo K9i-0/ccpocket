@@ -542,7 +542,7 @@ class HomeContentState extends State<HomeContent> {
     final groupedRecentSessions = _groupSessionsByProject(
       projectPaths: allProjectPaths,
       sessions: filteredSessions,
-    );
+    ).where((group) => group.sessions.isNotEmpty).toList();
     final runningSessions = prioritizePinned(
       widget.sessions,
       isPinned: (session) {
@@ -802,7 +802,9 @@ class HomeContentState extends State<HomeContent> {
             )
           else ...[
             if ((!_groupRecentSessions && filteredSessions.isEmpty) ||
-                (_groupRecentSessions && groupedRecentSessions.isEmpty))
+                (_groupRecentSessions &&
+                    groupedRecentSessions.isEmpty &&
+                    !widget.hasMoreSessions))
               _RecentSessionsEmptyResult(
                 title: hasActiveFilter
                     ? l.noSessionsMatchFilters
@@ -867,8 +869,7 @@ class HomeContentState extends State<HomeContent> {
                   onToggleSessionPinned: widget.onToggleRecentSessionPinned,
                   onLongPressRecentSession: widget.onLongPressRecentSession,
                 ),
-            if (widget.currentProjectFilter != null &&
-                widget.hasMoreSessions) ...[
+            if (_groupRecentSessions && widget.hasMoreSessions) ...[
               const SizedBox(height: 8),
               _LoadMoreRecentSessionsButton(
                 isLoadingMore: widget.isLoadingMore,

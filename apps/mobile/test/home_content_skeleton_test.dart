@@ -93,6 +93,7 @@ Widget _buildHomeContent({
   List<SessionInfo> sessions = const [],
   List<OfflinePendingAction> offlinePendingActions = const [],
   List<RecentSession> recentSessions = const [],
+  Set<String> accumulatedProjectPaths = const {},
   Set<String> exhaustedProjectPaths = const {},
   Map<String, int> projectSessionDisplayLimits = const {},
   String? currentProjectFilter,
@@ -126,7 +127,7 @@ Widget _buildHomeContent({
             sessions: sessions,
             offlinePendingActions: offlinePendingActions,
             recentSessions: recentSessions,
-            accumulatedProjectPaths: const {},
+            accumulatedProjectPaths: accumulatedProjectPaths,
             exhaustedProjectPaths: exhaustedProjectPaths,
             projectSessionDisplayLimits: projectSessionDisplayLimits,
             searchQuery: '',
@@ -278,6 +279,82 @@ void main() {
       expect(find.text('test prompt for s1'), findsOneWidget);
       expect(find.text('test prompt for s2'), findsOneWidget);
     });
+
+    testWidgets('hides a project after its recent sessions are exhausted', (
+      tester,
+    ) async {
+      const emptyProject = '/home/user/empty-project';
+      const activeProject = '/home/user/active-project';
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1', projectPath: activeProject)],
+          accumulatedProjectPaths: const {emptyProject, activeProject},
+          exhaustedProjectPaths: const {emptyProject, activeProject},
+          isInitialLoading: false,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('project_header_$emptyProject')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('project_header_$activeProject')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('hides an unloaded project until it has a session', (
+      tester,
+    ) async {
+      const unloadedProject = '/home/user/unloaded-project';
+      await tester.pumpWidget(
+        _buildHomeContent(
+          accumulatedProjectPaths: const {unloadedProject},
+          isInitialLoading: false,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('project_header_$unloadedProject')),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+      'keeps global pagination when empty project headers are hidden',
+      (tester) async {
+        const unloadedProject = '/home/user/unloaded-project';
+        await tester.pumpWidget(
+          _buildHomeContent(
+            accumulatedProjectPaths: const {unloadedProject},
+            hasMoreSessions: true,
+            isInitialLoading: false,
+            cubit: cubit,
+            draftService: draftService,
+            revenueCatService: revenueCatService,
+            supportBannerService: supportBannerService,
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('project_header_$unloadedProject')),
+          findsNothing,
+        );
+        expect(find.byKey(const ValueKey('load_more_button')), findsOneWidget);
+      },
+    );
 
     testWidgets('shows only five sessions per project by default', (
       tester,
