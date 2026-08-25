@@ -2117,6 +2117,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get retry => '재시도';
 
   @override
+  String get recentSessionsLoadFailed =>
+      '최근 세션을 불러오지 못했습니다. 연결을 확인하고 다시 시도하세요.';
+
+  @override
   String get clipboardNotAvailable => '클립보드를 사용할 수 없습니다';
 
   @override

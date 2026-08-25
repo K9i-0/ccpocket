@@ -13,6 +13,7 @@ class MockBridgeService extends BridgeService {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
+  final _messagesController = StreamController<ServerMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   bool _hasMore = false;
@@ -26,6 +27,9 @@ class MockBridgeService extends BridgeService {
   @override
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
+
+  @override
+  Stream<ServerMessage> get messages => _messagesController.stream;
 
   @override
   bool get recentSessionsHasMore => _hasMore;
@@ -63,6 +67,17 @@ class MockBridgeService extends BridgeService {
 
   void emitProjectHistory(List<String> paths) {
     _projectHistoryController.add(paths);
+  }
+
+  void emitRecentSessionsError({String? projectPath, String? requestScope}) {
+    _messagesController.add(
+      ErrorMessage(
+        message: 'Failed to list recent sessions',
+        errorCode: 'recent_sessions_failed',
+        path: projectPath,
+        requestScope: requestScope,
+      ),
+    );
   }
 
   @override
@@ -134,6 +149,7 @@ class MockBridgeService extends BridgeService {
   void dispose() {
     _recentSessionsController.close();
     _projectHistoryController.close();
+    _messagesController.close();
   }
 }
 
@@ -439,6 +455,41 @@ void main() {
     });
 
     test(
+      'initial recent-session failure exits the skeleton with retry state',
+      () async {
+        expect(cubit.state.isInitialLoading, isTrue);
+
+        mockBridge.emitRecentSessionsError();
+        await Future.microtask(() {});
+
+        expect(cubit.state.isInitialLoading, isFalse);
+        expect(cubit.state.recentSessionsLoadFailed, isTrue);
+
+        mockBridge.sentMessages.clear();
+        cubit.retryRecentSessions();
+
+        expect(cubit.state.isInitialLoading, isTrue);
+        expect(cubit.state.recentSessionsLoadFailed, isFalse);
+        expect(mockBridge.sentMessages, hasLength(1));
+      },
+    );
+
+    test('pagination failure preserves rows and restores load more', () async {
+      mockBridge.emitSessions([_session(id: 's1')], hasMore: true);
+      await Future.microtask(() {});
+      cubit.loadMore();
+      expect(cubit.state.isLoadingMore, isTrue);
+
+      mockBridge.emitRecentSessionsError();
+      await Future.microtask(() {});
+
+      expect(cubit.state.sessions.single.sessionId, 's1');
+      expect(cubit.state.hasMore, isTrue);
+      expect(cubit.state.isLoadingMore, isFalse);
+      expect(cubit.state.recentSessionsLoadFailed, isTrue);
+    });
+
+    test(
       'loadMoreProject requests project-scoped page from current count',
       () async {
         mockBridge.emitSessions([
@@ -490,6 +541,25 @@ void main() {
         expect(cubit.state.exhaustedProjectPaths, contains('/a/proj1'));
       },
     );
+
+    test('project failure clears only that project loading state', () async {
+      mockBridge.emitSessions([
+        _session(id: 's1', projectPath: '/a/proj1'),
+      ], hasMore: true);
+      await Future.microtask(() {});
+      cubit.loadMoreProject('/a/proj1');
+      expect(cubit.state.loadingProjectPaths, contains('/a/proj1'));
+
+      mockBridge.emitRecentSessionsError(
+        projectPath: '/a/proj1',
+        requestScope: 'project',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.sessions.single.sessionId, 's1');
+      expect(cubit.state.loadingProjectPaths, isNot(contains('/a/proj1')));
+      expect(cubit.state.recentSessionsLoadFailed, isFalse);
+    });
 
     test('toggleProjectCollapsed persists collapsed project path', () async {
       cubit.toggleProjectCollapsed('/a/proj1');

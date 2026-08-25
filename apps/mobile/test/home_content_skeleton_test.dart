@@ -98,6 +98,8 @@ Widget _buildHomeContent({
   String? currentProjectFilter,
   bool hasMoreSessions = false,
   bool isInitialLoading = false,
+  bool recentSessionsLoadFailed = false,
+  VoidCallback? onRetryRecentSessions,
   bool showMacOSNativeAppBanner = false,
   VoidCallback? onDismissMacOSNativeAppBanner,
   required SessionListCubit cubit,
@@ -132,6 +134,7 @@ Widget _buildHomeContent({
             searchQuery: '',
             isLoadingMore: false,
             isInitialLoading: isInitialLoading,
+            recentSessionsLoadFailed: recentSessionsLoadFailed,
             hasMoreSessions: hasMoreSessions,
             currentProjectFilter: currentProjectFilter,
             onNewSession: () {},
@@ -153,6 +156,7 @@ Widget _buildHomeContent({
             onLongPressRunningSession: (_, _) {},
             onSelectProject: (_) {},
             onLoadMore: () {},
+            onRetryRecentSessions: onRetryRecentSessions,
             onLoadMoreProject: (_) {},
             providerFilter: ProviderFilter.all,
             namedOnly: false,
@@ -253,6 +257,35 @@ void main() {
       expect(find.byType(SkeletonizerScope), findsNothing);
       // Empty state should show the "New Session" button
       expect(find.text('New Session'), findsOneWidget);
+    });
+
+    testWidgets('replaces a timed-out skeleton with a retry action', (
+      tester,
+    ) async {
+      var retried = false;
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: const [],
+          isInitialLoading: false,
+          recentSessionsLoadFailed: true,
+          onRetryRecentSessions: () => retried = true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SkeletonizerScope), findsNothing);
+      expect(
+        find.byKey(const ValueKey('recent_sessions_load_error')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('retry_recent_sessions_button')),
+      );
+      expect(retried, isTrue);
     });
 
     testWidgets('shows real session cards (not skeleton) when sessions exist '

@@ -2078,6 +2078,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get recentSessionsLoadFailed => '无法加载最近的会话。请检查连接后重试。';
+
+  @override
   String get clipboardNotAvailable => '无法访问剪贴板';
 
   @override

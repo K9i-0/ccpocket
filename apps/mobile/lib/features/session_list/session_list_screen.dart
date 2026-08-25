@@ -1789,6 +1789,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               searchQuery: slState.searchQuery,
               isLoadingMore: slState.isLoadingMore,
               isInitialLoading: slState.isInitialLoading,
+              recentSessionsLoadFailed: slState.recentSessionsLoadFailed,
               hasMoreSessions: slState.hasMore,
               archivingSessionIds: _archivingSessionIds,
               unseenSessionIds: unseenSessionIds,
@@ -1873,6 +1874,8 @@ class _SessionListScreenState extends State<SessionListScreen>
               onSelectProject: (path) =>
                   context.read<SessionListCubit>().selectProject(path),
               onLoadMore: () => context.read<SessionListCubit>().loadMore(),
+              onRetryRecentSessions: () =>
+                  context.read<SessionListCubit>().retryRecentSessions(),
               onLoadMoreProject: (path) =>
                   context.read<SessionListCubit>().loadMoreProject(path),
               onToggleProjectCollapsed: (path) =>

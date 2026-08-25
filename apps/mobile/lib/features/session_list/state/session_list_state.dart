@@ -23,6 +23,9 @@ abstract class SessionListState with _$SessionListState {
     /// Initial loading (true until the first recent sessions response arrives).
     @Default(true) bool isInitialLoading,
 
+    /// The latest non-project recent-sessions request failed.
+    @Default(false) bool recentSessionsLoadFailed,
+
     /// Client-side text search query (bound to the TextField, sent to server
     /// after debounce).
     @Default('') String searchQuery,

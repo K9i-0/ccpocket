@@ -2179,6 +2179,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get recentSessionsLoadFailed =>
+      'Recent sessions didn’t load. Check the connection and try again.';
+
+  @override
   String get clipboardNotAvailable => 'Cannot access clipboard';
 
   @override

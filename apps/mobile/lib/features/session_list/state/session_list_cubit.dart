@@ -66,6 +66,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   final BridgeService _bridge;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
+  StreamSubscription<ServerMessage>? _messageSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
 
@@ -76,6 +77,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _projectHistorySub = _bridge.projectHistoryStream.listen(
       _onProjectHistoryUpdate,
     );
+    _messageSub = _bridge.messages.listen(_onBridgeMessage);
     _preferencesLoaded = _loadPreferences();
   }
 
@@ -151,6 +153,7 @@ class SessionListCubit extends Cubit<SessionListState> {
         hasMore: hasMore,
         isLoadingMore: false,
         isInitialLoading: false,
+        recentSessionsLoadFailed: false,
         accumulatedProjectPaths: merged,
         loadingProjectPaths: const {},
         exhaustedProjectPaths: hasMore ? const {} : merged,
@@ -170,12 +173,40 @@ class SessionListCubit extends Cubit<SessionListState> {
     }
   }
 
+  void _onBridgeMessage(ServerMessage message) {
+    if (message is! ErrorMessage ||
+        message.errorCode != 'recent_sessions_failed') {
+      return;
+    }
+    final projectPath = message.path;
+    if (message.requestScope == 'project' &&
+        projectPath != null &&
+        projectPath.isNotEmpty) {
+      emit(
+        state.copyWith(
+          loadingProjectPaths: {...state.loadingProjectPaths}
+            ..remove(projectPath),
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        isInitialLoading: false,
+        isLoadingMore: false,
+        recentSessionsLoadFailed: true,
+      ),
+    );
+  }
+
   // ---- Filter commands (all trigger server re-fetch) ----
 
   /// Switch project filter. Resets sessions on the server side and fetches
   /// from offset 0 for the selected project.
   void selectProject(String? projectPath) {
-    emit(state.copyWith(isInitialLoading: true));
+    emit(
+      state.copyWith(isInitialLoading: true, recentSessionsLoadFailed: false),
+    );
     _bridge.switchFilter(
       projectPath: projectPath,
       provider: _providerToString(state.providerFilter),
@@ -190,7 +221,9 @@ class SessionListCubit extends Cubit<SessionListState> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (isClosed) return;
-      emit(state.copyWith(isInitialLoading: true));
+      emit(
+        state.copyWith(isInitialLoading: true, recentSessionsLoadFailed: false),
+      );
       _requestWithCurrentFilters();
     });
   }
@@ -211,7 +244,13 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   void setProviderFilter(ProviderFilter next) {
     if (state.providerFilter == next) return;
-    emit(state.copyWith(providerFilter: next, isInitialLoading: true));
+    emit(
+      state.copyWith(
+        providerFilter: next,
+        isInitialLoading: true,
+        recentSessionsLoadFailed: false,
+      ),
+    );
     _requestWithCurrentFilters();
     // Persist preference in background (fire-and-forget).
     SharedPreferences.getInstance().then(
@@ -228,7 +267,13 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// Toggle named-only filter on/off.
   void toggleNamedOnly() async {
     final next = !state.namedOnly;
-    emit(state.copyWith(namedOnly: next, isInitialLoading: true));
+    emit(
+      state.copyWith(
+        namedOnly: next,
+        isInitialLoading: true,
+        recentSessionsLoadFailed: false,
+      ),
+    );
     _requestWithCurrentFilters();
     // Persist preference in background (fire-and-forget).
     SharedPreferences.getInstance().then(
@@ -238,7 +283,7 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   /// Load more sessions (pagination).
   void loadMore() {
-    emit(state.copyWith(isLoadingMore: true));
+    emit(state.copyWith(isLoadingMore: true, recentSessionsLoadFailed: false));
     _bridge.loadMoreRecentSessions();
   }
 
@@ -340,9 +385,25 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   /// Request fresh data from the server.
   void refresh() {
+    emit(
+      state.copyWith(
+        isInitialLoading: state.sessions.isEmpty,
+        recentSessionsLoadFailed: false,
+      ),
+    );
     _bridge.requestSessionList();
     _requestWithCurrentFilters();
     _bridge.requestProjectHistory();
+  }
+
+  void retryRecentSessions() {
+    emit(
+      state.copyWith(
+        isInitialLoading: state.sessions.isEmpty,
+        recentSessionsLoadFailed: false,
+      ),
+    );
+    _requestWithCurrentFilters();
   }
 
   /// Reset all filter state (used on disconnect).
@@ -358,6 +419,7 @@ class SessionListCubit extends Cubit<SessionListState> {
         projectSessionDisplayLimits: const {},
         isLoadingMore: false,
         isInitialLoading: true,
+        recentSessionsLoadFailed: false,
         providerFilter: ProviderFilter.all,
         namedOnly: false,
       ),
@@ -401,6 +463,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _searchDebounce?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
+    _messageSub?.cancel();
     return super.close();
   }
 }

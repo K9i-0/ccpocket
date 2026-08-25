@@ -148,6 +148,9 @@ class BridgeService implements BridgeServiceBase {
   final Set<({String? sessionId, String toolUseId})>
   _inFlightNonReplayableToolActions = {};
   int _nextSessionLinkRequestId = 0;
+  int _nextRecentSessionsRequestId = 0;
+  final Map<String, _PendingRecentSessionsRequest>
+  _pendingRecentSessionsRequests = {};
   final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
 
@@ -277,7 +280,9 @@ class BridgeService implements BridgeServiceBase {
   List<OfflinePendingAction> get offlinePendingActions =>
       _offlinePendingActions;
 
-  BridgeService() {
+  BridgeService({
+    this.recentSessionsRequestTimeout = const Duration(seconds: 10),
+  }) {
     unawaited(_ensureOfflineQueueRestored());
   }
 
@@ -358,6 +363,7 @@ class BridgeService implements BridgeServiceBase {
   static const _prefKeyOfflinePendingMessages =
       'bridge_offline_pending_messages_v1';
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
+  final Duration recentSessionsRequestTimeout;
 
   Future<void>? _offlineQueueRestore;
   int _offlineQueueGeneration = 0;
@@ -419,6 +425,11 @@ class BridgeService implements BridgeServiceBase {
             }
             _clearDeliveredDeliveryPendingInput(msg, sessionId: sessionId);
             _clearDeliveredInFlightInput(msg, sessionId: sessionId);
+            if (msg is ErrorMessage &&
+                msg.errorCode == 'recent_sessions_failed' &&
+                !_acceptRecentSessionsFailure(msg)) {
+              return;
+            }
             switch (msg) {
               case SessionListMessage(
                 :final sessions,
@@ -448,6 +459,7 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
               case RecentSessionsMessage(:final sessions, :final hasMore):
+                if (!_acceptRecentSessionsResponse(msg)) return;
                 _lastRecentSessionsMessage = msg;
                 final isProjectMerge =
                     msg.requestScope == 'project' &&
@@ -460,7 +472,8 @@ class BridgeService implements BridgeServiceBase {
                   );
                 } else {
                   _recentSessionsHasMore = hasMore;
-                  if (_appendMode) {
+                  final shouldAppend = (msg.offset ?? 0) > 0 || _appendMode;
+                  if (shouldAppend) {
                     _recentSessions = _mergeRecentSessions(
                       _recentSessions,
                       sessions,
@@ -739,6 +752,10 @@ class BridgeService implements BridgeServiceBase {
     _lastRecentSessionsMessage = null;
     _recentSessionsHasMore = false;
     _appendMode = false;
+    for (final pending in _pendingRecentSessionsRequests.values) {
+      pending.timeoutTimer?.cancel();
+    }
+    _pendingRecentSessionsRequests.clear();
     _currentProjectFilter = null;
     _galleryImages = const [];
     _projectHistory = const [];
@@ -1829,19 +1846,120 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
-  void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
-    if (offset == null || offset == 0) {
-      _appendMode = false;
-    }
+  String _recentSessionsScopeKey({
+    required String requestScope,
+    String? projectPath,
+  }) => requestScope == 'project' ? 'project:${projectPath ?? ''}' : 'list';
+
+  bool _acceptRecentSessionsResponse(RecentSessionsMessage message) {
+    return _acceptRecentSessionsResult(
+      requestScope: message.requestScope ?? 'list',
+      projectPath: message.projectPath,
+      requestId: message.requestId,
+    );
+  }
+
+  bool _acceptRecentSessionsFailure(ErrorMessage message) {
+    return _acceptRecentSessionsResult(
+      requestScope: message.requestScope ?? 'list',
+      projectPath: message.path,
+      requestId: message.requestId,
+    );
+  }
+
+  bool _acceptRecentSessionsResult({
+    required String requestScope,
+    required String? projectPath,
+    required String? requestId,
+  }) {
+    final scopeKey = _recentSessionsScopeKey(
+      requestScope: requestScope,
+      projectPath: projectPath,
+    );
+    final pending = _pendingRecentSessionsRequests[scopeKey];
+    if (pending == null) return true;
+    if (requestId != null && requestId != pending.requestId) return false;
+    pending.timeoutTimer?.cancel();
+    _pendingRecentSessionsRequests.remove(scopeKey);
+    return true;
+  }
+
+  void _sendRecentSessionsRequest({
+    required int? limit,
+    required int? offset,
+    required String? projectPath,
+    required String requestScope,
+    required String? provider,
+    required bool? namedOnly,
+    required String? searchQuery,
+  }) {
+    final scopeKey = _recentSessionsScopeKey(
+      requestScope: requestScope,
+      projectPath: projectPath,
+    );
+    final queryKey = jsonEncode([
+      limit,
+      offset,
+      projectPath,
+      requestScope,
+      provider,
+      namedOnly,
+      searchQuery,
+    ]);
+    final existing = _pendingRecentSessionsRequests[scopeKey];
+    if (existing?.queryKey == queryKey) return;
+    existing?.timeoutTimer?.cancel();
+
+    final requestId = 'recent-${++_nextRecentSessionsRequestId}';
+    final pending = _PendingRecentSessionsRequest(
+      requestId: requestId,
+      queryKey: queryKey,
+    );
+    _pendingRecentSessionsRequests[scopeKey] = pending;
+    pending.timeoutTimer = Timer(recentSessionsRequestTimeout, () {
+      if (!identical(_pendingRecentSessionsRequests[scopeKey], pending)) {
+        return;
+      }
+      _pendingRecentSessionsRequests.remove(scopeKey);
+      if (requestScope != 'project') _appendMode = false;
+      final error = ErrorMessage(
+        message: 'Recent sessions did not load in time',
+        errorCode: 'recent_sessions_failed',
+        path: projectPath,
+        requestId: requestId,
+        requestScope: requestScope,
+        offset: offset,
+      );
+      _taggedMessageController.add((error, null));
+      _messageController.add(error);
+    });
+
     send(
       ClientMessage.listRecentSessions(
         limit: limit,
         offset: offset,
         projectPath: projectPath,
-        provider: _currentProvider,
-        namedOnly: _currentNamedOnly,
-        searchQuery: _currentSearchQuery,
+        requestScope: requestScope,
+        requestId: requestId,
+        provider: provider,
+        namedOnly: namedOnly,
+        searchQuery: searchQuery,
       ),
+    );
+  }
+
+  void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
+    if (offset == null || offset == 0) {
+      _appendMode = false;
+    }
+    _sendRecentSessionsRequest(
+      limit: limit,
+      offset: offset,
+      projectPath: projectPath,
+      requestScope: 'list',
+      provider: _currentProvider,
+      namedOnly: _currentNamedOnly,
+      searchQuery: _currentSearchQuery,
     );
   }
 
@@ -1854,16 +1972,14 @@ class BridgeService implements BridgeServiceBase {
   }) {
     final requestedProjectPath = projectPath ?? _currentProjectFilter;
     _appendMode = true;
-    send(
-      ClientMessage.listRecentSessions(
-        limit: pageSize,
-        offset: offset ?? _recentSessions.length,
-        projectPath: requestedProjectPath,
-        requestScope: requestScope,
-        provider: _currentProvider,
-        namedOnly: _currentNamedOnly,
-        searchQuery: _currentSearchQuery,
-      ),
+    _sendRecentSessionsRequest(
+      limit: pageSize,
+      offset: offset ?? _recentSessions.length,
+      projectPath: requestedProjectPath,
+      requestScope: requestScope,
+      provider: _currentProvider,
+      namedOnly: _currentNamedOnly,
+      searchQuery: _currentSearchQuery,
     );
   }
 
@@ -1872,15 +1988,14 @@ class BridgeService implements BridgeServiceBase {
   void switchProjectFilter(String? projectPath, {int pageSize = 20}) {
     _currentProjectFilter = projectPath;
     _appendMode = false;
-    send(
-      ClientMessage.listRecentSessions(
-        limit: pageSize,
-        offset: 0,
-        projectPath: projectPath,
-        provider: _currentProvider,
-        namedOnly: _currentNamedOnly,
-        searchQuery: _currentSearchQuery,
-      ),
+    _sendRecentSessionsRequest(
+      limit: pageSize,
+      offset: 0,
+      projectPath: projectPath,
+      requestScope: 'list',
+      provider: _currentProvider,
+      namedOnly: _currentNamedOnly,
+      searchQuery: _currentSearchQuery,
     );
   }
 
@@ -1897,15 +2012,14 @@ class BridgeService implements BridgeServiceBase {
     _currentNamedOnly = namedOnly;
     _currentSearchQuery = searchQuery;
     _appendMode = false;
-    send(
-      ClientMessage.listRecentSessions(
-        limit: pageSize,
-        offset: 0,
-        projectPath: projectPath,
-        provider: provider,
-        namedOnly: namedOnly,
-        searchQuery: searchQuery,
-      ),
+    _sendRecentSessionsRequest(
+      limit: pageSize,
+      offset: 0,
+      projectPath: projectPath,
+      requestScope: 'list',
+      provider: provider,
+      namedOnly: namedOnly,
+      searchQuery: searchQuery,
     );
   }
 
@@ -2769,6 +2883,10 @@ class BridgeService implements BridgeServiceBase {
       const SessionLinkResolveResult.unavailable(),
     );
     _reconnectTimer?.cancel();
+    for (final pending in _pendingRecentSessionsRequests.values) {
+      pending.timeoutTimer?.cancel();
+    }
+    _pendingRecentSessionsRequests.clear();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
       timer.cancel();
     }
@@ -2832,6 +2950,17 @@ class _DeliveryPendingInputState {
 
   final QueuedInputItem item;
   bool visible = false;
+}
+
+class _PendingRecentSessionsRequest {
+  _PendingRecentSessionsRequest({
+    required this.requestId,
+    required this.queryKey,
+  });
+
+  final String requestId;
+  final String queryKey;
+  Timer? timeoutTimer;
 }
 
 /// Cached diff image data for a single file.

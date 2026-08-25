@@ -847,6 +847,7 @@
     }
   },
   "retry": "Retry",
+  "recentSessionsLoadFailed": "Recent sessions didn’t load. Check the connection and try again.",
 
   "clipboardNotAvailable": "Cannot access clipboard",
   "failedToLoadImage": "Failed to load image",

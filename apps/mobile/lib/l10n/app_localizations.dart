@@ -3972,6 +3972,12 @@ abstract class AppLocalizations {
   /// **'リトライ'**
   String get retry;
 
+  /// No description provided for @recentSessionsLoadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のセッションを読み込めませんでした。接続を確認して再試行してください。'**
+  String get recentSessionsLoadFailed;
+
   /// No description provided for @clipboardNotAvailable.
   ///
   /// In ja, this message translates to:

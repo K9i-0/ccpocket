@@ -877,6 +877,7 @@
     }
   },
   "retry": "リトライ",
+  "recentSessionsLoadFailed": "最近のセッションを読み込めませんでした。接続を確認して再試行してください。",
 
   "clipboardNotAvailable": "クリップボードにアクセスできません",
   "failedToLoadImage": "画像の読み込みに失敗しました",

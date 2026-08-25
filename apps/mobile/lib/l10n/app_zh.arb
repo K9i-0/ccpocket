@@ -917,6 +917,7 @@
     }
   },
   "retry": "重试",
+  "recentSessionsLoadFailed": "无法加载最近的会话。请检查连接后重试。",
 
   "clipboardNotAvailable": "无法访问剪贴板",
   "failedToLoadImage": "加载图片失败",

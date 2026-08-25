@@ -233,6 +233,7 @@ export type ClientMessage =
       offset?: number;
       projectPath?: string;
       requestScope?: "list" | "project";
+      requestId?: string;
       provider?: "claude" | "codex";
       namedOnly?: boolean;
       searchQuery?: string;
@@ -553,6 +554,8 @@ export type ServerMessage =
       toolUseId?: string;
       path?: string;
       requestId?: string;
+      requestScope?: "list" | "project";
+      offset?: number;
     }
   | {
       type: "push_registration_result";

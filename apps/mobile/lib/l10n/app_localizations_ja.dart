@@ -2103,6 +2103,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get retry => 'リトライ';
 
   @override
+  String get recentSessionsLoadFailed =>
+      '最近のセッションを読み込めませんでした。接続を確認して再試行してください。';
+
+  @override
   String get clipboardNotAvailable => 'クリップボードにアクセスできません';
 
   @override

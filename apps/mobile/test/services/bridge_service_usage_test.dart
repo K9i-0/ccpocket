@@ -86,6 +86,59 @@ void main() {
       },
     );
 
+    test('duplicate recent-session requests share one request and time out visibly', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final message = jsonDecode(data as String) as Map<String, dynamic>;
+          if (message['type'] == 'list_recent_sessions') {
+            requests.add(message);
+          }
+        });
+      });
+
+      final bridge = BridgeService(
+        recentSessionsRequestTimeout: const Duration(milliseconds: 80),
+      );
+      final timeoutError = bridge.messages
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .firstWhere(
+            (message) => message.errorCode == 'recent_sessions_failed',
+          );
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await connected.timeout(const Duration(seconds: 2));
+
+      bridge.requestRecentSessions(limit: 20, offset: 0);
+      bridge.requestRecentSessions(limit: 20, offset: 0);
+      for (var i = 0; i < 50 && requests.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(requests, hasLength(1));
+      expect(requests.single['requestId'], isA<String>());
+
+      final error = await timeoutError.timeout(const Duration(seconds: 2));
+      expect(error.requestId, requests.single['requestId']);
+
+      bridge.requestRecentSessions(limit: 20, offset: 0);
+      for (var i = 0; i < 50 && requests.length < 2; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(requests, hasLength(2));
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test('disconnect clears last usage result cache', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final sockets = <WebSocket>[];

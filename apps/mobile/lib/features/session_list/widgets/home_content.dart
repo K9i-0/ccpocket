@@ -83,6 +83,7 @@ class HomeContent extends StatefulWidget {
   final String searchQuery;
   final bool isLoadingMore;
   final bool isInitialLoading;
+  final bool recentSessionsLoadFailed;
   final bool hasMoreSessions;
   final Set<String> archivingSessionIds;
   final Set<String> unseenSessionIds;
@@ -119,6 +120,7 @@ class HomeContent extends StatefulWidget {
   final ValueChanged<SessionInfo>? onToggleRunningSessionPinned;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
+  final VoidCallback? onRetryRecentSessions;
   final ValueChanged<String>? onLoadMoreProject;
   final ValueChanged<String>? onToggleProjectCollapsed;
   final ValueChanged<String>? onToggleProjectPinned;
@@ -154,6 +156,7 @@ class HomeContent extends StatefulWidget {
     required this.searchQuery,
     required this.isLoadingMore,
     required this.isInitialLoading,
+    this.recentSessionsLoadFailed = false,
     required this.hasMoreSessions,
     this.archivingSessionIds = const {},
     this.unseenSessionIds = const {},
@@ -174,6 +177,7 @@ class HomeContent extends StatefulWidget {
     this.onToggleRunningSessionPinned,
     required this.onSelectProject,
     required this.onLoadMore,
+    this.onRetryRecentSessions,
     this.onLoadMoreProject,
     this.onToggleProjectCollapsed,
     this.onToggleProjectPinned,
@@ -589,6 +593,29 @@ class HomeContentState extends State<HomeContent> {
         );
       }
 
+      if (widget.recentSessionsLoadFailed) {
+        return ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          children: [
+            if (isReconnecting) const SessionReconnectBanner(),
+            ?connectedBridgeBanner,
+            ?updateBanner,
+            ?supportBanner,
+            ?appUpdateBanner,
+            ?macOSNativeAppBanner,
+            SectionHeader(
+              icon: Icons.history,
+              label: l.recentSessions,
+              color: appColors.subtleText,
+            ),
+            const SizedBox(height: 8),
+            _RecentSessionsLoadError(onRetry: widget.onRetryRecentSessions),
+          ],
+        );
+      }
+
       return ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -801,8 +828,11 @@ class HomeContentState extends State<HomeContent> {
               ],
             )
           else ...[
-            if ((!_groupRecentSessions && filteredSessions.isEmpty) ||
-                (_groupRecentSessions && groupedRecentSessions.isEmpty))
+            if (widget.recentSessionsLoadFailed)
+              _RecentSessionsLoadError(onRetry: widget.onRetryRecentSessions),
+            if (((!_groupRecentSessions && filteredSessions.isEmpty) ||
+                    (_groupRecentSessions && groupedRecentSessions.isEmpty)) &&
+                !widget.recentSessionsLoadFailed)
               _RecentSessionsEmptyResult(
                 title: hasActiveFilter
                     ? l.noSessionsMatchFilters
@@ -879,6 +909,46 @@ class HomeContentState extends State<HomeContent> {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _RecentSessionsLoadError extends StatelessWidget {
+  final VoidCallback? onRetry;
+
+  const _RecentSessionsLoadError({this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('recent_sessions_load_error'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 18, color: cs.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l.recentSessionsLoadFailed,
+              style: TextStyle(fontSize: 13, color: cs.onSurface),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              key: const ValueKey('retry_recent_sessions_button'),
+              onPressed: onRetry,
+              child: Text(l.retry),
+            ),
+        ],
+      ),
     );
   }
 }

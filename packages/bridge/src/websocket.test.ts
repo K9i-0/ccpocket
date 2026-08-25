@@ -1094,6 +1094,104 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("shares identical recent-session scans without clients cancelling each other", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const firstClient = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const secondClient = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    let resolveScan!: (value: {
+      sessions: any[];
+      hasMore: boolean;
+    }) => void;
+    const scan = new Promise<{ sessions: any[]; hasMore: boolean }>(
+      (resolve) => {
+        resolveScan = resolve;
+      },
+    );
+    getAllRecentSessionsMock.mockReturnValue(scan);
+
+    const request = {
+      type: "list_recent_sessions",
+      limit: 20,
+      offset: 0,
+      provider: "claude",
+    };
+    void (bridge as any).handleClientMessage(request, firstClient);
+    void (bridge as any).handleClientMessage(request, secondClient);
+    await Promise.resolve();
+
+    expect(getAllRecentSessionsMock).toHaveBeenCalledTimes(1);
+
+    resolveScan({
+      sessions: [{ sessionId: "shared-result", projectPath: "/tmp/project" }],
+      hasMore: false,
+    });
+    await vi.waitFor(() => {
+      expect(
+        firstClient.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .some((message: any) => message.type === "recent_sessions"),
+      ).toBe(true);
+      expect(
+        secondClient.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .some((message: any) => message.type === "recent_sessions"),
+      ).toBe(true);
+    });
+
+    bridge.close();
+  });
+
+  it("returns correlated recent-session failures so loading UI can recover", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    getAllRecentSessionsMock.mockRejectedValueOnce(new Error("scan failed"));
+
+    void (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 40,
+        projectPath: "/tmp/project",
+        requestScope: "project",
+        requestId: "recent-failure-1",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        ws.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .some((message: any) =>
+            message.errorCode === "recent_sessions_failed"
+          ),
+      ).toBe(true);
+    });
+    const error = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find((message: any) => message.errorCode === "recent_sessions_failed");
+    expect(error).toMatchObject({
+      type: "error",
+      errorCode: "recent_sessions_failed",
+      path: "/tmp/project",
+      requestScope: "project",
+      offset: 40,
+      requestId: "recent-failure-1",
+    });
+
+    bridge.close();
+  });
+
   it("sends codex model list without deprecated models", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
