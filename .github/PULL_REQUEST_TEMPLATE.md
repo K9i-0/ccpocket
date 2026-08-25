@@ -1,18 +1,16 @@
 ## Summary
 
-<!-- What does this PR do? Keep it brief. -->
+<!-- What does this PR do? Keep it brief and describe the user-visible outcome. -->
 
 ## Why This Is A PR
 
 <!--
-For non-trivial changes, we prefer a Prompt Request or Issue first.
-If you are sending code directly, explain why this is ready for PR review now.
-If this PR depends on another open PR, link it here.
+For non-trivial changes, open a Prompt Request or Issue first.
+Write "None — <reason>" only for a small, self-contained change.
 -->
 
-- Why PR instead of Issue / Prompt Request first:
-- Related Issue / Prompt Request:
-- Base PR (if stacked on another open PR):
+- Related Issue / Prompt Request: <!-- Link or "None — <reason>" -->
+- Why this is ready for PR review:
 
 ## Changes
 
@@ -22,29 +20,47 @@ If this PR depends on another open PR, link it here.
 
 ## Scope Check
 
-<!-- Help reviewers decide whether this should be split before review. -->
+<!-- One user-visible goal per PR. PRs over 150 changed files are closed. -->
 
-- Single primary goal of this PR:
-- What is intentionally out of scope:
-- Can this be split into smaller PRs? If not, why not:
+- Single primary goal:
+- Intentionally out of scope:
+- Split plan or why this cannot be split:
 
-## Test plan
+## Test Evidence
 
-<!-- How was this tested? -->
+<!-- Include exact commands and results. Write "N/A — <reason>" when needed. -->
 
-- [ ] Bridge Server tests pass (`npm run test:bridge`)
-- [ ] Flutter tests pass (`cd apps/mobile && flutter test`)
-- [ ] Manual testing done
+- Automated tests (command and result):
+- Manual validation:
+- Target platform and version:
 
-## Platform validation
+## Risk and Rollback
 
-<!-- Required for platform-specific fixes, especially experimental / best-effort platforms like Windows Bridge or macOS mobile. -->
+<!-- Select exactly one risk level. -->
 
-- Target platform:
-- Platform version:
-- What I validated on that platform:
-- Logs / screenshots / notes:
+- [ ] Low
+- [ ] Medium
+- [ ] High
+- Main risks:
+- Rollback plan:
 
-## Notes
+## UI Evidence
 
-<!-- Anything reviewers should know? Breaking changes, migration steps, etc. -->
+<!--
+Select exactly one option.
+For visible changes, upload images directly to GitHub. An After image or
+recording is required. Before may be "N/A — <reason>" only for a new UI.
+-->
+
+- [ ] No user-visible UI change
+- [ ] User-visible UI change
+- No-visual-change reason:
+- Before:
+- After:
+- Device / platform:
+
+## Author Checklist
+
+- [ ] I reviewed the complete diff and can explain and maintain this change.
+- [ ] This PR contains no unrelated changes.
+- [ ] User-facing or breaking changes are documented, or documentation is not applicable.

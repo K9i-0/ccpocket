@@ -4,6 +4,16 @@ on:
   push:
     branches: [main]
 jobs:
+  repository:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Test PR readiness policy
+        run: node --test scripts/pr-readiness.test.mjs
+
   mobile:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +35,7 @@ jobs:
         run: docker compose -f tools/ssh-jump-smoke/docker-compose.yml up -d --build
       - name: Wait for SSH jump host
         run: |
-          for i in {1..30}; do
+          for _ in {1..30}; do
             nc -z 127.0.0.1 22220 && exit 0
             sleep 1
           done

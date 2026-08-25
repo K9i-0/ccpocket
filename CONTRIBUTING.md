@@ -84,6 +84,7 @@ For most contributions, the easiest PR to review is:
 - Small enough that the intent is obvious from the diff
 - Built on `main`, not on top of another open PR
 - Accompanied by tests or concrete validation notes
+- Titled with Conventional Commits syntax: `type(scope): concise description`
 
 As a rule of thumb, if your change introduces a new feature, a new package,
 multiple architectural ideas at once, or a large amount of design/docs/code in
@@ -108,6 +109,42 @@ Large PRs may remain untouched until:
 
 If a PR is large, stacked, or architectural, silence usually means "not ready
 for review yet" rather than "merged soon."
+
+### Automated Review Readiness
+
+Maintainer review starts only after all of these gates pass:
+
+1. The PR is marked ready for review and its template is complete
+2. The scope and validation evidence pass the `PR Readiness` check
+3. The `Test` workflow passes
+4. CodeRabbit approves the latest commit and its conversations are resolved
+
+PR Readiness adds `ready-for-maintainer-review` and requests maintainer review
+only after every gate passes. A new commit clears readiness until CI and
+CodeRabbit approve the new head commit.
+
+The file-count policy is intentionally strict:
+
+- 1-50 changed files: normal intake
+- 51-150 changed files: a prior Issue or Prompt Request is required, and the PR
+  may still be returned for splitting
+- More than 150 changed files: the PR is labeled `status:needs-split`, given a
+  split request, and closed without a detailed review
+
+Generated files count toward the hard limit. A maintainer may apply
+`review:override` only for exceptional repository maintenance; it is not a way
+for contributors to bypass the review policy.
+
+Changes to CodeRabbit configuration, GitHub workflows, the PR template, the PR
+readiness checker, or agent instructions/configuration do not enter the
+automated maintainer queue when authored externally. They require a
+maintainer-authored PR or an explicit `review:override`, because those files
+define the review gate itself.
+
+For user-visible UI changes, attach Before and After evidence in the PR body.
+An After image or recording is always required. Before may be written as
+`N/A — <reason>` only for a new UI. Changes under the mobile UI area that are
+not visible must explain why no visual evidence is needed.
 
 ### Environment-Dependent PRs — Especially Welcome
 
@@ -175,6 +212,11 @@ Maintainers may apply labels like these when triaging Issues and PRs:
 - `needs-repro` — more precise reproduction details are needed
 - `needs-test` — automated tests or validation evidence are needed
 - `help wanted` — contributions are welcome
+- `status:needs-author` — the automated intake, CI, or CodeRabbit gate needs author action
+- `status:needs-split` — the PR is too large and must be split
+- `review:coderabbit` — intake passed and CodeRabbit review is enabled
+- `ready-for-maintainer-review` — intake, CI, and CodeRabbit approval all passed
+- `risk:high` — the PR touches a security, protocol, process, or release boundary
 
 ## Security
 
@@ -243,6 +285,7 @@ PR を送っていただいた場合でも、コードベースの規約やア�
 - 差分を読むだけで意図が追える規模
 - `main` ベースで、未マージPRの上に積まない
 - テストまたは具体的な検証結果が付いている
+- PRタイトルがConventional Commits形式: `type(scope): concise description`
 
 未マージPRに依存する場合は、そのことを本文に明記して base PR をリンクしてください。
 明記がない stacked PR については、`main` に積み直すか、分割するか、Issue での相談に
@@ -262,6 +305,39 @@ PR を開いただけでは、すぐにレビューが始まるとは限りま�
 
 大規模・stacked・アーキテクチャ寄りの PR に対して反応がない場合、それは
 「近いうちに取り込む予定」ではなく、「まだレビュー可能な状態ではない」という意味です。
+
+#### 自動レビュー準備判定
+
+メンテナによるレビューは、次の条件がすべて揃ってから開始します。
+
+1. Draft が解除され、PR テンプレートが記入済み
+2. スコープと検証証拠が `PR Readiness` を通過
+3. `Test` Workflow が成功
+4. 最新コミットを CodeRabbit が Approve し、指摘が解決済み
+
+すべて通過すると `ready-for-maintainer-review` が付き、メンテナへレビューが
+依頼されます。新しいコミットを push すると、CI と CodeRabbit がそのコミットを
+確認するまで Ready 状態は解除されます。
+
+変更ファイル数は次の基準で扱います。
+
+- 1〜50ファイル: 通常受付
+- 51〜150ファイル: 事前の Issue / Prompt Request が必須。さらに分割をお願いする場合があります
+- 150ファイル超: `status:needs-split` を付け、詳細レビューを行わず分割依頼とともにクローズ
+
+生成ファイルも上限に含みます。例外的なリポジトリ保守ではメンテナが
+`review:override` を付けられますが、通常のコントリビューションで上限を回避する
+ためのものではありません。
+
+CodeRabbit 設定、GitHub Workflow、PR テンプレート、PR Readiness checker、
+エージェントの指示・設定はレビューゲート自体を定義します。これらを変更する
+外部PRは自動でメンテナレビュー待ちには進まず、メンテナ作成のPRまたは明示的な
+`review:override` が必要です。
+
+ユーザーに見える UI 変更では PR 本文に Before / After を添付してください。
+After の画像または動画は必須です。新規 UI に限り、Before は
+`N/A — <理由>` と記載できます。mobile UI 領域を変更して見た目が変わらない場合は、
+スクリーンショットが不要な理由を記載してください。
 
 ### バグ報告・機能提案
 
@@ -326,6 +402,11 @@ Issue / PR には次のようなラベルを付けることがあります:
 - `needs-repro` — 再現手順の追加が必要
 - `needs-test` — 自動テストや検証結果の追加が必要
 - `help wanted` — コントリビューション歓迎
+- `status:needs-author` — 自動受付、CI、CodeRabbit のいずれかで投稿者の対応が必要
+- `status:needs-split` — PR が大きすぎるため分割が必要
+- `review:coderabbit` — 受付条件を満たし、CodeRabbit レビュー対象になった
+- `ready-for-maintainer-review` — 受付、CI、CodeRabbit Approve をすべて通過
+- `risk:high` — セキュリティ、プロトコル、プロセス、リリース境界を変更
 
 ### セキュリティ
 

@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+
+  # PR Readiness adds this label only after the author-facing intake gate passes.
+  auto_review:
+    enabled: false
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+    drafts: false
+    labels:
+      - review:coderabbit
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+
+  pre_merge_checks:
+    override_requested_reviewers_only: true
+    docstrings:
+      mode: "off"
+    title:
+      mode: error
+      requirements: >-
+        Follow Conventional Commits: type(scope): concise description. The scope
+        may be omitted when it does not add useful context.
+    description:
+      mode: error
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - name: UI evidence
+        mode: error
+        instructions: >-
+          Pass when the PR template's UI Evidence section is internally
+          consistent. User-visible UI changes must include a GitHub-uploaded
+          Before image, or "N/A — reason" for a new UI, plus an After image or
+          recording and the tested device/platform. When mobile UI-area files
+          change without a visible effect, the author must explain why.
+      - name: Validation evidence
+        mode: error
+        instructions: >-
+          Pass only when the PR description gives the exact automated test
+          commands and results, manual validation performed, and target platform
+          and version. "N/A" is acceptable only with a concrete reason.
+      - name: Breaking change documentation
+        mode: error
+        instructions: >-
+          Pass when user-facing changes and breaking changes to the WebSocket
+          protocol, public APIs, CLI flags, environment variables, configuration,
+          or release workflows are documented in the PR and CHANGELOG.md when
+          applicable. Internal changes may explicitly state that this is not
+          applicable.
+
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 900000
+
+  path_filters:
+    - "!apps/mobile/lib/**/*.g.dart"
+    - "!apps/mobile/lib/**/*.gr.dart"
+    - "!apps/mobile/lib/**/*.freezed.dart"
+    - "!apps/mobile/lib/l10n/app_localizations*.dart"
+    - "!**/build/**"
+    - "!**/coverage/**"
+
+  path_instructions:
+    - path: "packages/bridge/src/**"
+      instructions: |
+        Focus on authentication and authorization boundaries, allowed-directory
+        enforcement, path traversal, process lifecycle and cleanup, WebSocket
+        compatibility, session isolation, and regression tests. Flag protocol
+        changes that are not coordinated with the Flutter client.
+    - path: "apps/mobile/lib/**"
+      instructions: |
+        Follow the project's feature-first Flutter architecture and existing
+        Bloc/Cubit patterns. Check async lifecycle and disposal, mounted checks,
+        loading/empty/error states, accessibility, and relevant widget or unit
+        tests. For visible changes, verify the PR includes Before/After evidence.
+    - path: ".github/workflows/**"
+      instructions: |
+        Treat workflow changes as security-sensitive. Require least-privilege
+        permissions, full-SHA action pinning, safe handling of untrusted PR data,
+        and no execution of contributor-controlled code with write tokens.
+    - path: "functions/**"
+      instructions: |
+        Focus on authentication, authorization, token and secret handling,
+        Firestore access boundaries, input validation, abuse resistance, and
+        backward compatibility with released clients.
+    - path: "{scripts/**,.github/workflows/*release*,firestore.rules,firebase.json}"
+      instructions: |
+        Review release, signing, deployment, and production configuration changes
+        as high risk. Flag secret exposure, overly broad permissions, destructive
+        operations, and missing rollback or validation steps.
+
+chat:
+  auto_reply: true

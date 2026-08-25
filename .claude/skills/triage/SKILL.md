@@ -1,306 +1,291 @@
 ---
 name: triage
-description: "GitHub Issue・PRのトリアージ。番号を渡すと、要望の要約・実現難易度・既存機能との重複チェック・対応判断を調査してレポートする。Issue/PRの番号が出てきたとき、トリアージ、優先度判断、対応判断と言われたときに使用する。"
+description: "GitHub Issue・PRを低トークンでトリアージし、要望、実現難易度、重複、リスク、対応判断をレポートする。Issue/PR番号、トリアージ、優先度、対応判断、PRレビュー準備判定を依頼されたときに使用する。PRはReadiness、CI、CodeRabbitを先に確認し、未通過ならdiffを読まず終了する。"
 ---
 
-# Issue / PR トリアージ
+# Issue / PR Triage
 
-GitHub Issue または PR の番号を受け取り、コードベースを調査して対応判断に必要な情報をレポートする。
+番号からIssueまたはPRを判定し、対応判断に必要な最小限の調査を行う。
 
-## 使い方
-
-```
+```text
 /triage 42
 /triage #8
+/triage #8 --force  # CodeRabbit障害や緊急時のメンテナ例外
 ```
 
-## トリアージ手順
+## 原則
 
-### Phase 1: 情報収集
+- PRでは必ずReadiness判定を最初に行う。
+- ReadyでないPRのdiff、全コメント、コードベースを読まない。
+- CodeRabbitの指摘を再レビューせず、製品判断・設計・高リスク箇所に集中する。
+- サブエージェントはMedium/High以上で独立した調査面がある場合だけ使う。
+- `--force`時は、バイパスした条件と理由をレポートする。
+- コメント投稿、ラベル変更、クローズなどのGitHub更新は、ユーザーが依頼した場合だけ行う。
 
-#### 1-1. Issue/PR の取得
+## Phase 0: 種別判定
 
-番号からIssueかPRかを自動判定する。
+まずIssueとして取得し、取得できなければPRとして扱う。
 
 ```bash
-# まずIssueとして取得を試みる
-gh issue view <番号> --json number,title,body,labels,state,comments,author,createdAt
-
-# 404なら PRとして取得
-gh pr view <番号> --json number,title,body,labels,state,files,comments,author,reviews,createdAt
+gh issue view <number> --json number,title,body,labels,state,comments,author,createdAt
+gh pr view <number> --json number,title,body,labels,state,isDraft,author,createdAt,changedFiles,additions,deletions,headRefOid,reviewDecision,statusCheckRollup
 ```
 
-#### 1-2. コメント・議論の確認
+Issueなら「Issueフロー」、PRなら「PRフロー」へ進む。
+
+## PRフロー
+
+### Phase 1: Intake / Ready判定
+
+このPhaseではPR本文、件数、ラベル、チェック状態だけを見る。ファイル内容や全diffは取得しない。
+
+次を順番に確認する。
+
+1. **ファイル数**
+   - 1〜50: 通常
+   - 51〜150: 関連Issue / Prompt Requestと分割不能理由を必須とする
+   - 150超: `NOT READY`。Size以外のgateは判定せず、分割依頼とクローズだけを推奨して、ここで終了する
+2. **Draft**: Draftなら`NOT READY`
+3. **レビュー基盤**: 外部PRが`.coderabbit.yaml`、`.github/workflows/**`、PRテンプレート、PR Readiness checker、エージェント指示・設定を変更する場合、メンテナの`review:override`がなければ`NOT READY`
+4. **PR本文**: テンプレートの必須欄とAuthor Checklistを確認する
+5. **UI証拠**
+   - visible UI変更: Before / Afterとdevice/platformを必須とする
+   - 新規UI: Beforeは`N/A — 理由`を許可する
+   - mobile UI領域の非表示変更: スクリーンショット不要理由を必須とする
+6. **PR Readiness status**: 最新head commitで成功していることを確認する
+7. **CI**: `Test` workflowが成功していることを確認する
+8. **CodeRabbit**: 最新head commitがApprove済みで、未解決のRequest Changesがないことを確認する
+9. **Ready label**: `ready-for-maintainer-review`が付いていることを確認する
+
+必要ならレビュー状態だけを小さく取得する。本文は取得しない。
 
 ```bash
-# Issueのコメント
-gh issue view <番号> --json comments --jq '.comments[].body'
-
-# PRのレビューコメント
-gh pr view <番号> --json reviews --jq '.reviews[].body'
+gh pr view <number> --json files --jq '[.files[].path]'
+gh pr view <number> --json statusCheckRollup --jq '.statusCheckRollup'
+gh api "repos/{owner}/{repo}/pulls/<number>/reviews?per_page=100" --paginate \
+  --jq '[.[] | {author: .user.login, state, commitId: .commit_id, submittedAt: .submitted_at}]'
 ```
 
-#### 1-3. 種別の判定
+いずれかが未通過なら、次の短い形式で終了する。diff取得、既存コード調査、サブエージェント起動を禁止する。
 
-IssueテンプレートやラベルからIssueの種別を判定する:
-
-| 種別 | 判定基準 |
-|------|---------|
-| Bug Report | `bug` ラベル、テンプレートのフィールド |
-| Feature Request | `enhancement` ラベル、Proposal セクション |
-| Prompt Request | テンプレートに「プロンプト」「AI tool」セクション |
-| Dependabot | author が `dependabot[bot]` |
-| 外部PR | authorがリポジトリオーナー以外 |
-
-#### 1-4. プラットフォームサポート状況の判定
-
-Issue / PR が以下に該当するかを確認する:
-
-- **正式サポート環境**: メンテナが普段利用・検証できる環境
-- **experimental / best-effort 環境**: 動作報告やPRは歓迎するが、メンテナが常時検証できない環境
-- **未サポート環境**: 再現・修正・保守を約束しない環境
-
-現時点では、少なくとも以下は `experimental / best-effort` または未サポート寄りとして扱う:
-
-- Bridge Server on Windows
-- Flutter mobile app on macOS
-
-この種のIssueでは、通常のバグ判定に加えて以下も見る:
-
-- メンテナがローカルで再現できるか
-- 自動テストで担保できる部分があるか
-- 投稿者側で動作検証済みか
-- OS依存分岐や外部プロセス起動など、実機検証なしでは危険な変更か
-
-### Phase 2: コードベース調査
-
-要望の内容に基づいて、関連するコードを調査する。
-Explore サブエージェントを活用して並列に調査を進める。
-
-#### 調査観点
-
-1. **関連コード**: 変更が必要になりそうなファイル・モジュール
-2. **既存機能**: 要望を既に満たしている（または部分的に満たしている）機能がないか
-3. **影響範囲**: 変更した場合に影響を受ける他の機能・モジュール
-4. **プロトコル変更**: WebSocketプロトコルの変更が必要か（Bridge + Flutter双方の変更が必要になる）
-
-#### PRの場合の追加調査
-
-```bash
-# 変更ファイル一覧
-gh pr view <番号> --json files --jq '.files[].path'
-
-# diff の取得
-gh pr diff <番号>
-```
-
-- 変更内容がプロジェクトの規約に沿っているか
-- テストが追加されているか
-- セキュリティ上の懸念はないか（特にBridge Serverのファイルシステムアクセス周り）
-
-### Phase 3: 難易度・工数の見積もり
-
-調査結果をもとに、実装の難易度を判定する。
-
-| 難易度 | 基準 | 工数目安 |
-|--------|------|---------|
-| **Low** | 単一ファイルの修正、UIの微調整、既存パターンの踏襲 | ~1時間 |
-| **Medium** | 複数ファイルの変更、新しいWidgetの追加、既存APIの拡張 | 数時間 |
-| **High** | プロトコル変更（Bridge + Flutter両方）、新機能のフルスタック実装 | 1日以上 |
-| **Very High** | アーキテクチャ変更、外部依存の追加、セキュリティモデルの変更 | 数日以上 |
-
-判定の根拠を具体的なファイルパスや変更箇所とともに示す。
-
-### Phase 4: レポート出力
-
-以下のフォーマットで会話内にレポートを出力する。
+150ファイル超では次の最小形式を使う。投稿者へCI、CodeRabbit、テンプレート、Ready labelの対応を同時に求めない。Ready labelは自動化が付けるため、投稿者に手動付与を求めない。
 
 ```markdown
-## Triage Report: #<番号> <タイトル>
+## PR Readiness: NOT READY — #<number> <title>
 
-### 概要
-[1-2文で要望の要約]
+- Size: ❌ <count> files（上限150超）
+- 対応: 現PRをクローズし、150ファイル以下に分割して再提出する
 
-### 種別
-[Bug / Feature / Prompt Request / Dependabot / 外部PR]
+Size gateで終了し、他のgateとdiffは確認していません。
+```
 
-### プラットフォーム状況
-[正式サポート / experimental / 未サポート]
+```markdown
+## PR Readiness: NOT READY — #<number> <title>
 
-### 推奨ラベル
-- [例: `platform:windows`]
-- [例: `status:experimental`]
-- [例: `help wanted`]
+| Gate | Status |
+| --- | --- |
+| Size | [status] |
+| Template | [status] |
+| UI evidence | [status] |
+| CI | [status] |
+| CodeRabbit | [status] |
 
-### 既存機能チェック
-- [既に実現済みの機能があれば記載]
-- [部分的に実現されている場合はその旨と差分]
-- [完全に新規の場合は「該当なし」]
+### 投稿者に必要な対応
+- [不足項目だけを列挙]
 
-### 実現難易度: [Low / Medium / High / Very High]
+深掘りレビューはまだ実施していません。
+```
 
-**根拠:**
-- [変更が必要なファイル・モジュール]
-- [プロトコル変更の有無]
-- [影響範囲]
+`--force`が指定された場合だけPhase 2へ進み、未通過条件を冒頭に残す。
+
+### Phase 2: Risk map
+
+ReadyなPRだけ、変更ファイル名とCodeRabbitのwalkthrough・指摘要約を確認する。
+
+```bash
+gh pr view <number> --json files --jq '.files[] | {path, additions, deletions}'
+gh pr view <number> --json comments,reviews --jq '{comments, reviews}'
+```
+
+変更を次のリスクに分類する。
+
+| リスク | 例 | 深掘り方針 |
+| --- | --- | --- |
+| Low | docs、単純UI、既存パターン | CodeRabbitとの差分だけ確認 |
+| Medium | 複数モジュール、状態管理、API拡張 | 関連patchとテストを確認 |
+| High | 認証、filesystem、process、protocol、Functions | 境界と失敗経路を詳細確認 |
+| Very High | release/signing、権限モデル、アーキテクチャ | メンテナ判断を優先し広く確認 |
+
+常に高リスクとして扱うパス:
+
+- Phase 1の「レビュー基盤」に該当する全パス（`.coderabbit.yaml`、PRテンプレート、PR Readiness checker、エージェント指示・設定）
+- `.github/workflows/**`
+- `packages/bridge/src/websocket.ts`
+- `packages/bridge/src/*process.ts`
+- `functions/**`
+- `firestore.rules`, `firebase.json`
+- release / patch / submit / signing関連スクリプト
+
+### Phase 3: Targeted review
+
+Risk mapで選んだファイルとテストから読む。REST APIのfile patchを優先し、必要な場合だけ全diffを取得する。
+
+```bash
+gh api "repos/{owner}/{repo}/pulls/<number>/files?per_page=100" --paginate --slurp \
+  --jq '.[][] | select(.filename == "<selected-path>") | {filename, status, additions, deletions, patch}'
+
+# patchが欠落・切り詰められ、判断できない場合のみ
+gh pr diff <number>
+```
+
+確認観点:
+
+- 変更の目的と実装が一致しているか
+- 既存機能との重複がないか
+- CodeRabbitが扱いにくい製品判断・UX・保守負荷
+- テストが意図と失敗経路を担保しているか
+- Bridge + Flutter間のプロトコル互換性
+- 認証、許可ディレクトリ、path traversal、process cleanup、secret
+- 正式サポート環境への回帰リスク
+
+Medium/High以上でBridgeとFlutterなど独立した調査面がある場合だけ、Exploreサブエージェントへ対象を限定して依頼する。Lowまたは単一ファイルでは使わない。
+
+### Phase 4: PRレポート
+
+```markdown
+## Triage Report: #<number> <title>
+
+### Review Readiness: READY / FORCED
+[CI、CodeRabbit、UI証拠、override理由]
+
+### 概要・種別・プラットフォーム
+[1〜3文]
+
+### 変更規模・リスク
+- Files: [count]
+- Risk: [Low / Medium / High / Very High]
+- High-risk areas: [paths or none]
+
+### 既存機能・重複
+[結果]
+
+### 主な確認結果
+- [CodeRabbitと重複しない重要事項]
 
 ### 対応判断
-
 | 観点 | 評価 |
-|------|------|
-| ユーザー価値 | [高/中/低] — [理由] |
-| 実装コスト | [高/中/低] — [理由] |
-| リスク | [高/中/低] — [理由] |
-| 推奨 | [対応する / 保留 / 見送り] |
+| --- | --- |
+| ユーザー価値 | [高/中/低 — 理由] |
+| 取り込みコスト | [高/中/低 — 理由] |
+| 回帰・保守リスク | [高/中/低 — 理由] |
+| 推奨 | [直接マージ / 修正依頼 / 部分取り込み / 再実装 / 見送り] |
 
 ### 推奨アクション
-- [具体的な次のステップ]
-- [必要なら「PRなら受け入れ可能な条件」]
+- [具体的な次の手順]
 ```
 
-## 種別ごとの判断基準
+## Issueフロー
 
-### Bug Report
-- 再現手順が明確か
-- 影響範囲（全ユーザー vs 特定環境）
-- ワークアラウンドの有無
-- 上流（Claude Code / Codex）起因かccpocket起因か
+### 情報収集
 
-#### experimental / 未サポート環境のBug Report
+- タイトル、本文、ラベル、コメントからBug / Feature / Prompt Requestを判定する。
+- 再現手順、期待結果、実際の結果、環境、ログを確認する。
+- 関連コードはキーワードと機能単位で絞って調査する。
+- 既存機能、重複Issue、上流のClaude Code / Codex起因を確認する。
 
-Windows や macOS版モバイルのように、メンテナが継続的に検証していない環境に関するIssueでは、次の基準を追加で適用する:
+### プラットフォーム判定
 
-- メンテナが再現できない場合、Issue単体では着手保証しない
-- 文字列ベースや純粋関数ベースで再現できる部分は、テスト追加前提なら受けやすい
-- 実環境依存（spawn, shell, filesystem, GUI, OS API）の変更は、投稿者側の検証結果がほぼ必須
-- 既存の正式サポート環境に影響しうる変更は慎重に扱う
-- 対応判断は `対応する` だけでなく、`外部PR待ち` や `best-effort` と明記してよい
+- 正式サポート: メンテナが日常的に検証できる
+- experimental / best-effort: Windows Bridge、macOS mobileなど
+- 未サポート: 再現・修正・保守を約束しない
 
-推奨ラベル例:
+experimental / 未サポート環境では次を追加で見る。
 
-- `platform:windows`
-- `platform:macos`
-- `status:experimental`
-- `status:unsupported`
-- `needs-repro`
-- `needs-test`
-- `help wanted`
+- 投稿者が対象環境で検証したか
+- 純粋関数や自動テストで担保できるか
+- spawn、shell、filesystem、GUI、OS APIに依存するか
+- 正式サポート環境へ影響するか
 
-推奨アクション例:
+### 難易度
 
-- Issueには「未サポート/experimental 環境のため、メンテナ側では再現・検証できない」旨を明記
-- 修正を歓迎する場合は「小さく閉じたPR」「自動テスト追加」「投稿者側の実機検証」を条件に案内
-- 変更が危険なら、テスト付きPRでも保留または見送りと判断する
+| 難易度 | 基準 | 目安 |
+| --- | --- | --- |
+| Low | 単一ファイル、既存パターン | 〜1時間 |
+| Medium | 複数ファイル、Widget/API拡張 | 数時間 |
+| High | Bridge + Flutter、protocol変更 | 1日以上 |
+| Very High | アーキテクチャ、外部依存、権限モデル | 数日以上 |
 
-### Feature Request
-- プロジェクトの方向性と合致するか
-- 実装コストに対するユーザー価値
-- 代替手段（既存機能で賄えないか）
-
-### Prompt Request
-- プロンプトの再現性
-- 変更がコードベースの規約に沿うか
-- そのまま適用可能か、調整が必要か
-
-### Dependabot PR
-- breaking changesの有無
-- CHANGELOGの確認
-- CI が通っているか
-
-### 外部PR
-- CONTRIBUTING.md の手順に沿っているか（Issue先行が推奨）
-- テストの追加
-- プロジェクト規約への準拠
-- セキュリティレビューの必要性
-
-#### experimental / 未サポート環境向けPRの受け入れ基準
-
-以下を満たすPRは `best-effort` でレビュー・取り込み候補にしてよい:
-
-- 変更範囲が限定的である
-- 正式サポート環境への影響が小さい
-- 自動テストを追加している
-- 投稿者が対象環境での動作確認結果を書いている
-- 失敗時の挙動やOS分岐が明示されている
-
-逆に、以下に当てはまるPRは慎重に扱う:
-
-- 実機検証なしでプロセス起動やパス処理を大きく変える
-- サポート済み環境の起動経路まで巻き込む
-- 再現条件や検証結果が曖昧
-- テスト不能で回帰リスクが高い
-
-## 外部PRの取り込み運用
-
-外部PRはそのままマージするのではなく、内容を精査してメンテナが取り込む方針を取っている。
-これは、PRの意図は良くても実装の一部を修正・調整したいケースが多いため。
-
-### 取り込みフロー
-
-1. **トリアージ**: 本スキルでPRの内容・品質・方向性を評価
-2. **取り込み判断**: レポートの推奨アクションに基づいて判断
-3. **実装**: PRの変更を参考に、メンテナが自分のブランチで実装する
-   - そのまま使える部分はチェリーピックまたはコピー
-   - 修正が必要な部分はメンテナ側で調整
-   - プロジェクト規約（Conventional Commits、コード構造等）に合わせる
-4. **クレジット**: コミットに `Co-authored-by` を付与して貢献者をクレジットする
-   ```
-   Co-authored-by: username <email>
-   ```
-   - PRのauthorのGitHub情報から取得: `gh api users/<username> --jq '.name, .email'`
-   - メールが非公開の場合は `<id>+<username>@users.noreply.github.com` を使用
-5. **PRクローズ**: 取り込み完了後、感謝のコメントとともにPRをクローズ
-   - 何を取り込み、何を変更したかを説明する
-   - Co-authored-by でクレジットした旨を伝える
-
-### レポートへの反映
-
-外部PRのトリアージレポートでは、推奨アクションに取り込み方針を含める:
+### Issueレポート
 
 ```markdown
+## Triage Report: #<number> <title>
+
+### 概要・種別・プラットフォーム
+[要約]
+
+### 推奨ラベル
+- [labels]
+
+### 既存機能・重複
+[結果]
+
+### 実現難易度: [Low / Medium / High / Very High]
+[根拠となるファイル、protocol変更、影響範囲]
+
+### 対応判断
+| 観点 | 評価 |
+| --- | --- |
+| ユーザー価値 | [高/中/低 — 理由] |
+| 実装コスト | [高/中/低 — 理由] |
+| リスク | [高/中/低 — 理由] |
+| 推奨 | [対応 / 外部PR待ち / 保留 / 見送り] |
+
 ### 推奨アクション
-- **取り込み方針**: [そのままマージ / 一部修正して取り込み / 参考にして再実装]
-- **修正が必要な点**: [具体的な修正箇所]
-- **Co-authored-by**: `Co-authored-by: Name <email>`
+- [具体的な次の手順]
 ```
 
-## 返信コメントの言語ルール
+## 種別ごとの補足
 
-Issue/PRにコメントを投稿する際は、投稿者の言語に合わせて対応する:
+### Bug
 
-- **英語で書かれている場合**: 英語のみで返信
-- **英語以外の言語で書かれている場合**: 元の言語 + 英語の両方で返信
+- 再現性、影響範囲、回避策、上流起因を確認する。
+- 未サポート環境で再現不能なら`needs-repro`、`needs-test`、`help wanted`を検討する。
+- 実環境依存の修正は投稿者側の検証結果を必須にする。
 
-Issue/PRのタイトル・本文・コメントから投稿者の言語を判定する。
-バイリンガル返信の場合は、元言語を先に書き、`---` で区切って英語を後に続ける。
+### Feature / Prompt Request
 
-**例: 日本語のIssueへの返信**
-```
-ご提案ありがとうございます！この機能は v1.5.0 で実装済みです。
-セッション一覧画面で未読インジケーターが表示されます。
+- 方向性、ユーザー価値、代替手段、プロンプトの再現性を確認する。
+- 大規模なコードPRより、Issue / Prompt Requestでの合意を優先する。
 
----
+### Dependabot
 
-Thank you for the suggestion! This feature has been implemented in v1.5.0.
-You'll see unread indicators on the session list screen.
-```
+- breaking changes、upstream changelog、CIを確認する。
+- major updateまたは高リスク依存だけ深掘りする。
 
-## コメント投稿時の注意
+### 外部PRの取り込み
 
-- `gh issue comment` / `gh pr comment` で複数段落の本文を投稿する場合は、シェルクォートで本文を直接 `--body` に埋め込まない
-- 改行・バッククォート・引用記号が崩れやすいため、**必ず一時ファイルを作って `--body-file` で渡す**
-- 既存コメントを修正する場合も同様に、本文ファイルを作ってから API 経由で更新する
-- 投稿後は `gh issue view` / `gh pr view` で最新コメントを取得し、改行や Markdown が崩れていないか確認する
+全PRを再実装しない。品質とリスクで選ぶ。
 
-例:
+- 小規模、Ready、規約準拠: 直接マージ候補
+- 一部調整が必要: 投稿者へ修正依頼または部分取り込み
+- 設計不一致、大規模、高リスク: Prompt Requestへ戻すか参考にして再実装
+
+投稿者のコードを部分取り込みまたは再実装した場合は`Co-authored-by`でクレジットし、取り込んだ点と調整点を説明する。
 
 ```bash
-cat <<'EOF' >/tmp/comment.md
-First paragraph.
+gh api users/<username> --jq '.name, .email, .id'
+```
 
-- bullet 1
-- bullet 2
-EOF
+公開メールがなければ`<id>+<username>@users.noreply.github.com`を使う。
 
-gh pr comment <number> --body-file /tmp/comment.md
+## コメント言語と投稿
+
+- 英語の投稿には英語だけで返信する。
+- 英語以外には元の言語を先に書き、`---`の後に英語を付ける。
+- 複数段落は一時ファイルを`--body-file`で渡す。
+- 投稿後に取得し直し、Markdownを確認する。
+
+```bash
+gh pr comment <number> --body-file /tmp/ccpocket-pr-comment.md
+gh issue comment <number> --body-file /tmp/ccpocket-issue-comment.md
 ```
