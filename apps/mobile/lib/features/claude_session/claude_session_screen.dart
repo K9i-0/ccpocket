@@ -1215,6 +1215,7 @@ class _ChatScreenBody extends HookWidget {
                                 children: [
                                   if (askToolUseId != null && askInput != null)
                                     AskUserQuestionWidget(
+                                      key: ValueKey('ask_user_$askToolUseId'),
                                       toolUseId: askToolUseId,
                                       input: askInput,
                                       agentName: 'Claude',

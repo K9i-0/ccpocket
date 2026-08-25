@@ -396,6 +396,121 @@ void main() {
       expect(answered, false);
     });
 
+    testWidgets(
+      'long summary remains scrollable when parent scrolling is disabled',
+      (tester) async {
+        var answered = false;
+        final longAnswer = List.filled(
+          12,
+          'A detailed answer that must remain reviewable before submission.',
+        ).join(' ');
+
+        await tester.pumpWidget(
+          _wrap(
+            AskUserQuestionWidget(
+              toolUseId: 'test-long-summary',
+              scrollable: false,
+              input: {
+                'questions': [
+                  for (var i = 0; i < 3; i++)
+                    {
+                      'question': 'Question ${i + 1}?',
+                      'header': 'Section ${i + 1}',
+                      'options': [
+                        {
+                          'label': 'Answer ${i + 1}',
+                          'value': '$longAnswer ${i + 1}',
+                          'description': '',
+                        },
+                      ],
+                      'multiSelect': false,
+                    },
+                ],
+              },
+              onAnswer: (_, _) => answered = true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(
+            find.byKey(ValueKey('ask_option_${i}_Answer ${i + 1}')),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        final summaryScrollView = find.byKey(
+          const ValueKey('ask_summary_scroll_view'),
+        );
+        expect(summaryScrollView, findsOneWidget);
+
+        await tester.drag(summaryScrollView, const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('ask_submit_summary_button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(answered, isTrue);
+      },
+    );
+
+    testWidgets(
+      'long option page remains scrollable when parent scrolling is disabled',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            AskUserQuestionWidget(
+              toolUseId: 'test-long-options',
+              scrollable: false,
+              input: {
+                'questions': [
+                  {
+                    'question': 'Choose an approach',
+                    'header': 'Approach',
+                    'options': [
+                      for (var i = 0; i < 5; i++)
+                        {
+                          'label': 'Approach ${i + 1}',
+                          'description': List.filled(
+                            3,
+                            'Detailed explanation for this approach.',
+                          ).join(' '),
+                        },
+                    ],
+                    'multiSelect': false,
+                  },
+                  {
+                    'question': 'Confirm?',
+                    'header': 'Confirm',
+                    'options': [
+                      {'label': 'Yes', 'description': ''},
+                    ],
+                    'multiSelect': false,
+                  },
+                ],
+              },
+              onAnswer: (_, _) {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final questionScrollView = find.byKey(
+          const ValueKey('ask_question_0_scroll_view'),
+        );
+        expect(questionScrollView, findsOneWidget);
+
+        await tester.drag(questionScrollView, const Offset(0, -800));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('ask_option_0_Approach 5')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Confirm?'), findsOneWidget);
+      },
+    );
+
     testWidgets('custom answer in multi-question uses Next button', (
       tester,
     ) async {
@@ -587,6 +702,50 @@ void main() {
       // After answering
       expect(find.text('Answered'), findsOneWidget);
       expect(find.text('Claude is asking'), findsNothing);
+    });
+
+    testWidgets('resets answered state when a new tool replaces it', (
+      tester,
+    ) async {
+      String? answeredId;
+      String? answeredResult;
+
+      Widget question(String toolUseId, String prompt, String option) => _wrap(
+        AskUserQuestionWidget(
+          toolUseId: toolUseId,
+          input: {
+            'questions': [
+              {
+                'question': prompt,
+                'header': 'Choice',
+                'options': [
+                  {'label': option, 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+          onAnswer: (id, result) {
+            answeredId = id;
+            answeredResult = result;
+          },
+        ),
+      );
+
+      await tester.pumpWidget(question('tool-old', 'Old question?', 'Old'));
+      await tester.tap(find.text('Old'));
+      await tester.pumpAndSettle();
+      expect(find.text('Answered'), findsOneWidget);
+
+      await tester.pumpWidget(question('tool-new', 'New question?', 'New'));
+      await tester.pump();
+
+      expect(find.text('Answered'), findsNothing);
+      expect(find.text('New question?'), findsOneWidget);
+      await tester.tap(find.text('New'));
+      await tester.pumpAndSettle();
+      expect(answeredId, 'tool-new');
+      expect(answeredResult, 'New');
     });
   });
 

@@ -791,6 +791,75 @@ void main() {
       );
     });
 
+    testWidgets('new pending question does not inherit prior selections', (
+      tester,
+    ) async {
+      SessionInfo session(PermissionRequestMessage permission) => SessionInfo(
+        id: 'ask-replaced',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: '2026-08-23T00:00:00Z',
+        lastActivityAt: '2026-08-23T00:00:00Z',
+        pendingPermission: permission,
+      );
+
+      const oldPermission = PermissionRequestMessage(
+        toolUseId: 'ask-old',
+        toolName: 'AskUserQuestion',
+        input: {
+          'questions': [
+            {
+              'question': 'Old question?',
+              'header': 'Old',
+              'options': [
+                {'label': 'Old choice', 'description': ''},
+              ],
+              'multiSelect': true,
+            },
+          ],
+        },
+      );
+      const newPermission = PermissionRequestMessage(
+        toolUseId: 'ask-new',
+        toolName: 'AskUserQuestion',
+        input: {
+          'questions': [
+            {
+              'question': 'New question?',
+              'header': 'New',
+              'options': [
+                {'label': 'New choice', 'description': ''},
+              ],
+              'multiSelect': true,
+            },
+          ],
+        },
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session(oldPermission), onTap: () {}),
+        ),
+      );
+      await tester.tap(find.text('Old choice'));
+      await tester.pump();
+      expect(find.text('Confirm (1)'), findsOneWidget);
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session(newPermission), onTap: () {}),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Old choice'), findsNothing);
+      expect(find.text('New question?'), findsOneWidget);
+      final confirm = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Confirm (0)'),
+      );
+      expect(confirm.onPressed, isNull);
+    });
+
     testWidgets('ask user custom input does not send on keyboard done', (
       tester,
     ) async {

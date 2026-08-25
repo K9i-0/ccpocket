@@ -64,6 +64,25 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant AskUserQuestionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.toolUseId == widget.toolUseId) return;
+    _singleAnswers.clear();
+    _multiAnswers.clear();
+    _customInputs.clear();
+    for (final controller in _customControllers.values) {
+      controller.clear();
+    }
+    _currentPage = 0;
+    _answered = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     for (final c in _customControllers.values) {
       c.dispose();
@@ -423,7 +442,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                     if (index == questions.length) {
                       return _AskSummaryPage(
                         questions: questions,
-                        scrollable: widget.scrollable,
+                        maxHeight: (availableHeight - keyboardHeight) * 0.42,
                         singleAnswers: _singleAnswers,
                         onResetAll: _resetAll,
                         onSubmitAll: _sendAllAnswers,
@@ -435,6 +454,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                       questionIndex: index,
                       isMultiQuestion: true,
                       scrollable: widget.scrollable,
+                      maxHeight: (availableHeight - keyboardHeight) * 0.42,
                       allowsCustomInput: true,
                       singleAnswers: _singleAnswers,
                       multiAnswers: _multiAnswers,
@@ -511,6 +531,7 @@ class _AskQuestionLayout extends StatelessWidget {
   final int questionIndex;
   final bool isMultiQuestion;
   final bool scrollable;
+  final double? maxHeight;
   final bool alwaysShowTextInput;
   final bool allowsCustomInput;
   final Map<int, String> singleAnswers;
@@ -541,6 +562,7 @@ class _AskQuestionLayout extends StatelessWidget {
     required this.onCustomTextChanged,
     required this.onShowCustomInput,
     this.alwaysShowTextInput = false,
+    this.maxHeight,
   });
 
   @override
@@ -647,9 +669,20 @@ class _AskQuestionLayout extends StatelessWidget {
       ],
     );
 
-    if (!scrollable) return content;
+    if (!scrollable && maxHeight == null) return content;
 
-    return SingleChildScrollView(child: content);
+    final scrollView = SingleChildScrollView(
+      key: maxHeight == null
+          ? null
+          : ValueKey('ask_question_${questionIndex}_scroll_view'),
+      child: content,
+    );
+    if (maxHeight == null) return scrollView;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight!),
+      child: scrollView,
+    );
   }
 }
 
@@ -875,7 +908,7 @@ class _AskTextInputRow extends StatelessWidget {
 
 class _AskSummaryPage extends StatelessWidget {
   final List<Map<String, dynamic>> questions;
-  final bool scrollable;
+  final double maxHeight;
   final Map<int, String> singleAnswers;
   final ValueChanged<int> onGoToPage;
   final VoidCallback onResetAll;
@@ -883,7 +916,7 @@ class _AskSummaryPage extends StatelessWidget {
 
   const _AskSummaryPage({
     required this.questions,
-    required this.scrollable,
+    required this.maxHeight,
     required this.singleAnswers,
     required this.onGoToPage,
     required this.onResetAll,
@@ -939,9 +972,13 @@ class _AskSummaryPage extends StatelessWidget {
       ],
     );
 
-    if (!scrollable) return content;
-
-    return SingleChildScrollView(child: content);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        key: const ValueKey('ask_summary_scroll_view'),
+        child: content,
+      ),
+    );
   }
 }
 

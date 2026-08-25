@@ -1317,6 +1317,7 @@ class _CodexChatBody extends HookWidget {
                                   if (askToolUseId case final askId?
                                       when askInput != null)
                                     AskUserQuestionWidget(
+                                      key: ValueKey('ask_user_$askId'),
                                       toolUseId: askId,
                                       input: askInput,
                                       agentName: 'Codex',

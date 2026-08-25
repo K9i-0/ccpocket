@@ -254,6 +254,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                           )
                         : hasQuestionPrompt
                         ? _AskUserArea(
+                            key: ValueKey(
+                              'session_question_${permission.toolUseId}',
+                            ),
                             permission: permission,
                             statusColor: statusColor,
                             onAnswer: (result) => widget.onAnswer?.call(
@@ -281,6 +284,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   : switch (permission.toolName) {
                       'AskUserQuestion' ||
                       'McpElicitation' when hasQuestionPrompt => _AskUserArea(
+                        key: ValueKey(
+                          'session_question_${permission.toolUseId}',
+                        ),
                         permission: permission,
                         statusColor: statusColor,
                         onAnswer: (result) =>
@@ -1200,6 +1206,7 @@ class _AskUserArea extends StatefulWidget {
   final VoidCallback onTap;
 
   const _AskUserArea({
+    super.key,
     required this.permission,
     required this.statusColor,
     required this.onAnswer,
@@ -1238,6 +1245,24 @@ class _AskUserAreaState extends State<_AskUserArea> {
   void initState() {
     super.initState();
     _pageController = PageController();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AskUserArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.permission.toolUseId == widget.permission.toolUseId) return;
+    _singleAnswers.clear();
+    _multiAnswers.clear();
+    _customInputs.clear();
+    for (final controller in _customControllers.values) {
+      controller.clear();
+    }
+    _currentPage = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    });
   }
 
   @override
