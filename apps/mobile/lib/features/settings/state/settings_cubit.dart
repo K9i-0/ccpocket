@@ -313,7 +313,18 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
     if (!available) return;
 
-    _tokenRefreshSub?.cancel();
+    _ensureTokenRefreshSubscription();
+
+    if (state.fcmEnabled) {
+      await _syncPushRegistration();
+    }
+  }
+
+  void _ensureTokenRefreshSubscription() {
+    if (_tokenRefreshSub != null) return;
+    final bridge = _bridge;
+    if (bridge == null) return;
+
     _tokenRefreshSub = _fcmService.onTokenRefresh.listen((token) {
       final previousToken = _fcmService.cacheToken(token);
       _activeToken = token;
@@ -327,10 +338,6 @@ class SettingsCubit extends Cubit<SettingsState> {
         unawaited(_syncPushRegistration());
       }
     });
-
-    if (state.fcmEnabled) {
-      await _syncPushRegistration();
-    }
   }
 
   void setThemeMode(ThemeMode mode) {
@@ -593,6 +600,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       return;
     }
 
+    _ensureTokenRefreshSubscription();
     _activeToken = token;
     emit(
       state.copyWith(
