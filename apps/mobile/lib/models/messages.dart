@@ -858,6 +858,8 @@ sealed class ServerMessage {
         toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
+        requestScope: json['requestScope'] as String?,
+        offset: json['offset'] as int?,
       ),
       'push_registration_result' => PushRegistrationResultMessage(
         token: json['token'] as String,
@@ -993,6 +995,7 @@ sealed class ServerMessage {
         offset: json['offset'] as int?,
         projectPath: json['projectPath'] as String?,
         requestScope: json['requestScope'] as String?,
+        requestId: json['requestId'] as String?,
       ),
       'past_history' => PastHistoryMessage(
         claudeSessionId: json['claudeSessionId'] as String? ?? '',
@@ -1004,6 +1007,9 @@ sealed class ServerMessage {
         images: (json['images'] as List)
             .map((i) => GalleryImage.fromJson(i as Map<String, dynamic>))
             .toList(),
+        projectPath: (json['projectPath'] ?? json['project']) as String?,
+        sessionId: json['sessionId'] as String?,
+        requestId: json['requestId'] as String?,
       ),
       'gallery_new_image' => GalleryNewImageMessage(
         image: GalleryImage.fromJson(json['image'] as Map<String, dynamic>),
@@ -1630,6 +1636,8 @@ class ErrorMessage implements ServerMessage {
   final String? toolUseId;
   final String? path;
   final String? requestId;
+  final String? requestScope;
+  final int? offset;
 
   const ErrorMessage({
     required this.message,
@@ -1638,6 +1646,8 @@ class ErrorMessage implements ServerMessage {
     this.toolUseId,
     this.path,
     this.requestId,
+    this.requestScope,
+    this.offset,
   });
 }
 
@@ -2445,6 +2455,7 @@ class RecentSessionsMessage implements ServerMessage {
   final int? offset;
   final String? projectPath;
   final String? requestScope;
+  final String? requestId;
   const RecentSessionsMessage({
     required this.sessions,
     this.hasMore = false,
@@ -2452,6 +2463,7 @@ class RecentSessionsMessage implements ServerMessage {
     this.offset,
     this.projectPath,
     this.requestScope,
+    this.requestId,
   });
 }
 
@@ -2466,7 +2478,16 @@ class PastHistoryMessage implements ServerMessage {
 
 class GalleryListMessage implements ServerMessage {
   final List<GalleryImage> images;
-  const GalleryListMessage({required this.images});
+  final String? projectPath;
+  final String? sessionId;
+  final String? requestId;
+
+  const GalleryListMessage({
+    required this.images,
+    this.projectPath,
+    this.sessionId,
+    this.requestId,
+  });
 }
 
 class GalleryNewImageMessage implements ServerMessage {
@@ -4328,6 +4349,7 @@ class ClientMessage {
     int? offset,
     String? projectPath,
     String? requestScope,
+    String? requestId,
     String? provider,
     bool? namedOnly,
     String? searchQuery,
@@ -4338,6 +4360,7 @@ class ClientMessage {
       'offset': ?offset,
       'projectPath': ?projectPath,
       'requestScope': ?requestScope,
+      'requestId': ?requestId,
       'provider': ?provider,
       'namedOnly': ?namedOnly,
       'searchQuery': ?searchQuery,
@@ -4400,12 +4423,18 @@ class ClientMessage {
     });
   }
 
-  factory ClientMessage.listGallery({String? project, String? sessionId}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'list_gallery',
-        'project': ?project,
-        'sessionId': ?sessionId,
-      });
+  factory ClientMessage.listGallery({
+    String? projectPath,
+    String? sessionId,
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'list_gallery',
+    // Keep the legacy alias so project filtering still reaches older Bridges.
+    'project': ?projectPath,
+    'projectPath': ?projectPath,
+    'sessionId': ?sessionId,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.readFile(
     String projectPath,

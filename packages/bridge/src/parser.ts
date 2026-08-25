@@ -233,6 +233,7 @@ export type ClientMessage =
       offset?: number;
       projectPath?: string;
       requestScope?: "list" | "project";
+      requestId?: string;
       provider?: "claude" | "codex";
       namedOnly?: boolean;
       searchQuery?: string;
@@ -264,7 +265,14 @@ export type ClientMessage =
       additionalWritableRoots?: string[];
       resumeRequestId?: string;
     }
-  | { type: "list_gallery"; project?: string; sessionId?: string }
+  | {
+      type: "list_gallery";
+      /** Legacy alias retained for older app clients. */
+      project?: string;
+      projectPath?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
   | {
       type: "read_file";
       projectPath: string;
@@ -553,6 +561,8 @@ export type ServerMessage =
       toolUseId?: string;
       path?: string;
       requestId?: string;
+      requestScope?: "list" | "project";
+      offset?: number;
     }
   | {
       type: "push_registration_result";
@@ -629,6 +639,14 @@ export type ServerMessage =
       truncated?: boolean;
     }
   | { type: "project_history"; projects: string[] }
+  | {
+      type: "gallery_list";
+      images: GalleryImageInfo[];
+      projectPath?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
+  | { type: "gallery_new_image"; image: GalleryImageInfo }
   | {
       type: "directory_listing";
       path: string;
@@ -980,6 +998,13 @@ function hasValidStartOptions(msg: Record<string, unknown>): boolean {
 
 // ---- Parser ----
 
+const RECENT_SESSIONS_MAX_LIMIT = 500;
+const RECENT_SESSIONS_MAX_OFFSET = 100_000;
+const RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH = 128;
+const GALLERY_MAX_PROJECT_PATH_LENGTH = 4096;
+const GALLERY_MAX_SESSION_ID_LENGTH = 512;
+const GALLERY_MAX_REQUEST_ID_LENGTH = 128;
+
 export function parseClientMessage(data: string): ClientMessage | null {
   try {
     const msg = JSON.parse(data) as Record<string, unknown>;
@@ -1269,6 +1294,56 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "list_recent_sessions":
+        if (
+          msg.limit !== undefined &&
+          (typeof msg.limit !== "number" ||
+            !Number.isInteger(msg.limit) ||
+            msg.limit < 1 ||
+            msg.limit > RECENT_SESSIONS_MAX_LIMIT)
+        )
+          return null;
+        if (
+          msg.offset !== undefined &&
+          (typeof msg.offset !== "number" ||
+            !Number.isInteger(msg.offset) ||
+            msg.offset < 0 ||
+            msg.offset > RECENT_SESSIONS_MAX_OFFSET)
+        )
+          return null;
+        if (
+          msg.projectPath !== undefined &&
+          typeof msg.projectPath !== "string"
+        )
+          return null;
+        if (
+          msg.requestScope !== undefined &&
+          msg.requestScope !== "list" &&
+          msg.requestScope !== "project"
+        )
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" ||
+            msg.requestId.trim().length === 0 ||
+            msg.requestId.length > RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH)
+        )
+          return null;
+        if (
+          msg.provider !== undefined &&
+          msg.provider !== "claude" &&
+          msg.provider !== "codex"
+        )
+          return null;
+        if (
+          msg.namedOnly !== undefined &&
+          typeof msg.namedOnly !== "boolean"
+        )
+          return null;
+        if (
+          msg.searchQuery !== undefined &&
+          typeof msg.searchQuery !== "string"
+        )
+          return null;
         break;
       case "resume_session":
         if (
@@ -1284,6 +1359,50 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (!hasValidSessionOptions(msg)) return null;
         break;
       case "list_gallery":
+        if (
+          !hasOnlyKeys([
+            "type",
+            "project",
+            "projectPath",
+            "sessionId",
+            "requestId",
+          ])
+        )
+          return null;
+        if (
+          msg.project !== undefined &&
+          (typeof msg.project !== "string" ||
+            msg.project.trim().length === 0 ||
+            msg.project.length > GALLERY_MAX_PROJECT_PATH_LENGTH)
+        )
+          return null;
+        if (
+          msg.projectPath !== undefined &&
+          (typeof msg.projectPath !== "string" ||
+            msg.projectPath.trim().length === 0 ||
+            msg.projectPath.length > GALLERY_MAX_PROJECT_PATH_LENGTH)
+        )
+          return null;
+        if (
+          msg.project !== undefined &&
+          msg.projectPath !== undefined &&
+          msg.project !== msg.projectPath
+        )
+          return null;
+        if (
+          msg.sessionId !== undefined &&
+          (typeof msg.sessionId !== "string" ||
+            msg.sessionId.trim().length === 0 ||
+            msg.sessionId.length > GALLERY_MAX_SESSION_ID_LENGTH)
+        )
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" ||
+            msg.requestId.trim().length === 0 ||
+            msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH)
+        )
+          return null;
         break;
       case "read_file":
         if (typeof msg.projectPath !== "string") return null;

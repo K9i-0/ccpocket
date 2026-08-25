@@ -251,6 +251,42 @@ describe("buildThinkingOptions", () => {
 // ---- sdkMessageToServerMessage ----
 
 describe("sdkMessageToServerMessage", () => {
+  describe("assistant thinking filtering", () => {
+    it("removes whitespace-only thinking while preserving visible content", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: " \n\t " },
+            { type: "text", text: "Visible response" },
+          ],
+        },
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toMatchObject({
+        type: "assistant",
+        message: {
+          content: [{ type: "text", text: "Visible response" }],
+        },
+      });
+    });
+
+    it("drops assistant messages containing only whitespace thinking", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "\n  " }],
+        },
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
+    });
+  });
+
   describe("tool_use_summary handling", () => {
     it("converts SDKToolUseSummaryMessage to ServerMessage", () => {
       const sdkMsg = {
@@ -336,6 +372,41 @@ describe("sdkMessageToServerMessage", () => {
       });
     });
 
+    it("suppresses Claude's internal EDE diagnostic result", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "error_during_execution",
+        errors: [
+          "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+        ],
+        stop_reason: "tool_use",
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
+    });
+
+    it("keeps a real error while removing its internal EDE diagnostic", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "error_during_execution",
+        errors: [
+          "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+          "MCP server disconnected",
+        ],
+        stop_reason: "tool_use",
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toEqual({
+        type: "result",
+        subtype: "error",
+        error: "MCP server disconnected",
+        sessionId: "test-session",
+        stopReason: "tool_use",
+      });
+    });
+
     it("omits stopReason when not present in SDK message", () => {
       const sdkMsg = {
         type: "result" as const,
@@ -380,6 +451,41 @@ describe("sdkMessageToServerMessage", () => {
         inputTokens: 1234,
         cachedInputTokens: 321,
         outputTokens: 456,
+      });
+    });
+  });
+
+  describe("Claude status handling", () => {
+    it("surfaces context compaction failures", () => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          compact_error: "summary request timed out",
+          session_id: "test-session",
+        } as any),
+      ).toEqual({
+        type: "error",
+        message: "Claude context compaction failed: summary request timed out",
+        errorCode: "claude_compaction_failed",
+      });
+    });
+
+    it("uses a stable fallback when compaction has no error detail", () => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          session_id: "test-session",
+        } as any),
+      ).toEqual({
+        type: "error",
+        message: "Claude context compaction failed.",
+        errorCode: "claude_compaction_failed",
       });
     });
   });
@@ -541,6 +647,30 @@ describe("sdkMessageToServerMessage", () => {
         type: "user_input",
         text: "Plan approval prompt",
         userMessageUuid: "usr-syn-111",
+        isSynthetic: true,
+      });
+    });
+
+    it("marks internal task notifications as synthetic when the SDK omits the flag", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "<task-notification>\n<status>killed</status>\n</task-notification>",
+            },
+          ],
+        },
+        uuid: "usr-task-111" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
         isSynthetic: true,
       });
     });
@@ -745,6 +875,7 @@ describe("SdkProcess input dispatch", () => {
       });
       expect(resolve).toHaveBeenCalledTimes(1);
       expect(proc.hasInputQueue).toBe(false);
+      expect(proc.status).toBe("running");
     },
   );
 
@@ -762,6 +893,114 @@ describe("SdkProcess input dispatch", () => {
     ).toEqual({ queued: true, shouldInterrupt: true });
     expect(resolve).not.toHaveBeenCalled();
   });
+
+  it("marks directly delivered image input as running", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.userMessageResolve = resolve;
+
+    expect(
+      proc.dispatchInputWithImages("inspect", [
+        { base64: "aW1hZ2U=", mimeType: "image/png" },
+      ]),
+    ).toEqual({ queued: false, shouldInterrupt: false });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(proc.status).toBe("running");
+  });
+
+  it("drains queued input FIFO one item per result when a consumer is waiting", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const firstResolve = vi.fn();
+    internal._status = "running";
+    internal.userMessageResolve = firstResolve;
+
+    proc.dispatchInput("first");
+    proc.dispatchInput("second");
+    internal.updateStatusFromMessage({
+      type: "result",
+      subtype: "error_during_execution",
+    });
+
+    expect(firstResolve).toHaveBeenCalledTimes(1);
+    expect(firstResolve.mock.calls[0][0].message.content).toEqual([
+      { type: "text", text: "first" },
+    ]);
+    expect(proc.hasInputQueue).toBe(true);
+
+    const secondResolve = vi.fn();
+    internal.userMessageResolve = secondResolve;
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+
+    expect(firstResolve).toHaveBeenCalledTimes(1);
+    expect(secondResolve).toHaveBeenCalledTimes(1);
+    expect(secondResolve.mock.calls[0][0].message.content).toEqual([
+      { type: "text", text: "second" },
+    ]);
+    expect(proc.hasInputQueue).toBe(false);
+  });
+
+  it("keeps queued input until a consumer is waiting", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+
+    proc.dispatchInput("later");
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+
+    expect(proc.hasInputQueue).toBe(true);
+  });
+
+  it("drains only one queued item per result with a greedy stream consumer", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+
+    proc.dispatchInput("first");
+    proc.dispatchInput("second");
+
+    const stream = internal.createUserMessageStream();
+    const firstRequest = stream.next();
+    let secondResolved = false;
+    const secondRequest = stream.next().then((result: any) => {
+      secondResolved = true;
+      return result;
+    });
+    await Promise.resolve();
+
+    expect(internal.userMessageResolve).toEqual(expect.any(Function));
+    expect(proc.hasInputQueue).toBe(true);
+
+    internal.updateStatusFromMessage({
+      type: "result",
+      subtype: "error_during_execution",
+    });
+    const first = await firstRequest;
+
+    expect(first.value.message.content).toEqual([
+      { type: "text", text: "first" },
+    ]);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(secondResolved).toBe(false);
+    expect(internal.userMessageResolve).toEqual(expect.any(Function));
+    expect(proc.hasInputQueue).toBe(true);
+    expect(proc.status).toBe("running");
+
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    const second = await secondRequest;
+    expect(second.value.message.content).toEqual([
+      { type: "text", text: "second" },
+    ]);
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("running");
+
+    await stream.return(undefined);
+  });
+
 });
 
 describe("SdkProcess Claude authentication", () => {
@@ -775,6 +1014,58 @@ describe("SdkProcess Claude authentication", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
+
+  async function runSdkMessages(
+    sdkMessages: unknown[],
+    permissionMode?: "acceptEdits",
+    iteratorError?: Error,
+    initializationResult?: () => Promise<unknown>,
+    expectedExit = iteratorError ? 1 : 0,
+  ) {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const statuses: string[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("status", (status) => statuses.push(status));
+    proc.on("exit", (code) => exits.push(code));
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield* sdkMessages;
+        if (iteratorError) throw iteratorError;
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+      ...(initializationResult ? { initializationResult } : {}),
+    });
+
+    proc.start(process.cwd(), { permissionMode });
+    await vi.waitFor(() => expect(exits).toEqual([expectedExit]), {
+      timeout: 2000,
+    });
+    return { proc, messages, statuses };
+  }
+
+  function authTurn(apiKeySource: string, sessionId = "auth-session") {
+    return [
+      {
+        type: "system",
+        subtype: "init",
+        session_id: sessionId,
+        model: "claude-sonnet-4-6",
+        apiKeySource,
+      },
+      {
+        type: "result",
+        subtype: "success",
+        result: "Done",
+        total_cost_usd: 4.7011,
+        duration_ms: 100,
+        session_id: sessionId,
+      },
+    ];
+  }
 
   it("requires the exact OAuth opt-in value", () => {
     expect(isClaudeOAuthOptInEnabled({ BRIDGE_ALLOW_CLAUDE_OAUTH: "1" })).toBe(true);
@@ -873,7 +1164,7 @@ describe("SdkProcess Claude authentication", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("accepts an OAuth-authenticated SDK init message", async () => {
+  it("accepts fresh OAuth auth without exposing estimated API cost", async () => {
     vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
     const proc = new SdkProcess();
     const messages: ServerMessage[] = [];
@@ -889,12 +1180,18 @@ describe("SdkProcess Claude authentication", () => {
       apiKeySource: "oauth",
     };
     const close = vi.fn();
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "user" },
+      models: [],
+    });
     mockSdkQuery.mockReturnValueOnce({
       async *[Symbol.asyncIterator]() {
         yield initMessage;
+        yield authTurn("oauth", "oauth-session")[1];
       },
       close,
       supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult,
     });
 
     proc.start(process.cwd());
@@ -902,6 +1199,7 @@ describe("SdkProcess Claude authentication", () => {
 
     expect(proc.sessionId).toBe("oauth-session");
     expect(proc.model).toBe("claude-sonnet-4-6");
+    expect(initializationResult).toHaveBeenCalledOnce();
     expect(messages).toContainEqual(expect.objectContaining({
       type: "system",
       subtype: "init",
@@ -910,8 +1208,511 @@ describe("SdkProcess Claude authentication", () => {
     expect(messages).not.toContainEqual(expect.objectContaining({
       type: "error",
     }));
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success" }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
     expect(exits).toEqual([0]);
   });
+
+  it("classifies resumed OAuth from initializationResult and hides cost", async () => {
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "oauth" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "resumed-oauth-session"),
+      undefined,
+      undefined,
+      initializationResult,
+    );
+
+    expect(initializationResult).toHaveBeenCalledOnce();
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+    );
+  });
+
+  it("keeps cost for API key authentication", async () => {
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "user" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "api-key-session"),
+      undefined,
+      undefined,
+      initializationResult,
+    );
+
+    expect(initializationResult).toHaveBeenCalledOnce();
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", cost: 4.7011 }),
+    );
+  });
+
+  it("rejects OAuth from initializationResult before emitting a result", async () => {
+    const initializationResult = vi.fn().mockResolvedValue({
+      account: { apiKeySource: "oauth" },
+      models: [],
+    });
+    const { messages } = await runSdkMessages(
+      authTurn("user", "unapproved-oauth-session"),
+      undefined,
+      undefined,
+      initializationResult,
+      1,
+    );
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "claude_oauth_opt_in_required",
+      }),
+    );
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "result" }),
+    );
+  });
+
+  it("applies late OAuth classification after timeout without leaking cost", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+      let resolveInitialization!: (value: unknown) => void;
+      let finishQuery!: () => void;
+      const initializationResult = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInitialization = resolve;
+          }),
+      );
+      const queryFinished = new Promise<void>((resolve) => {
+        finishQuery = resolve;
+      });
+      const close = vi.fn();
+      mockSdkQuery.mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {
+          yield* authTurn("user", "late-oauth-session");
+          await queryFinished;
+        },
+        close,
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult,
+      });
+
+      const proc = new SdkProcess();
+      const messages: ServerMessage[] = [];
+      const exits: Array<number | null> = [];
+      proc.on("message", (message) => messages.push(message));
+      proc.on("exit", (code) => exits.push(code));
+      proc.start(process.cwd());
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(messages).toContainEqual(
+        expect.objectContaining({ type: "result", subtype: "success" }),
+      );
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+      );
+
+      resolveInitialization({
+        account: { apiKeySource: "oauth" },
+        models: [],
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "claude_oauth_opt_in_required",
+        }),
+      );
+      expect(close).toHaveBeenCalledOnce();
+      expect(exits).toEqual([1]);
+
+      finishQuery();
+      await vi.advanceTimersByTimeAsync(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores late OAuth after the query has naturally finished", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+      let resolveInitialization!: (value: unknown) => void;
+      const initializationResult = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInitialization = resolve;
+          }),
+      );
+      mockSdkQuery.mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {
+          yield* authTurn("user", "finished-before-auth-session");
+        },
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult,
+      });
+
+      const proc = new SdkProcess();
+      const messages: ServerMessage[] = [];
+      const exits: Array<number | null> = [];
+      proc.on("message", (message) => messages.push(message));
+      proc.on("exit", (code) => exits.push(code));
+      proc.start(process.cwd());
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(exits).toEqual([0]);
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+      );
+
+      resolveInitialization({
+        account: { apiKeySource: "oauth" },
+        models: [],
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(exits).toEqual([0]);
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "claude_oauth_opt_in_required",
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    {
+      label: "rejects",
+      initializationResult: () => Promise.reject(new Error("init unavailable")),
+      exposesApiCost: true,
+    },
+    {
+      label: "times out",
+      initializationResult: () => new Promise<never>(() => {}),
+      exposesApiCost: false,
+    },
+  ])(
+    "does not block a turn when initializationResult $label",
+    async ({ initializationResult, exposesApiCost }) => {
+      const init = vi.fn(initializationResult);
+      const { messages } = await runSdkMessages(
+        authTurn("user", "fallback-api-session"),
+        undefined,
+        undefined,
+        init,
+      );
+
+      expect(init).toHaveBeenCalledOnce();
+      expect(messages).toContainEqual(
+        expect.objectContaining({ type: "result", subtype: "success" }),
+      );
+      const result = messages.find(
+        (message) => message.type === "result" && message.subtype === "success",
+      );
+      expect(result).toEqual(
+        exposesApiCost
+          ? expect.objectContaining({ cost: 4.7011 })
+          : expect.not.objectContaining({ cost: expect.any(Number) }),
+      );
+    },
+  );
+
+  it("ignores a stale initializationResult after restart", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    let resolveStale!: (value: unknown) => void;
+    const staleInitialization = vi.fn(
+      () => new Promise((resolve) => { resolveStale = resolve; }),
+    );
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+    mockSdkQuery
+      .mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {},
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult: staleInitialization,
+      })
+      .mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() { yield* authTurn("user", "new-session"); },
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult: vi.fn().mockResolvedValue({
+          account: { apiKeySource: "user" },
+          models: [],
+        }),
+      });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(staleInitialization).toHaveBeenCalledOnce());
+    proc.stop();
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+    resolveStale({ account: { apiKeySource: "oauth" }, models: [] });
+    await Promise.resolve();
+
+    expect(staleInitialization).toHaveBeenCalledOnce();
+    expect(messages).not.toContainEqual(expect.objectContaining({ type: "error" }));
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", cost: 4.7011 }),
+    );
+  });
+
+  it("tracks compaction lifecycle and emits one failure without changing permission mode", async () => {
+    const { proc, messages, statuses } = await runSdkMessages(
+      [
+        {
+          type: "system",
+          subtype: "init",
+          session_id: "compaction-session",
+          model: "claude-sonnet-4-6",
+          apiKeySource: "api_key",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "compacting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "requesting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: "compacting",
+          session_id: "compaction-session",
+        },
+        {
+          type: "system",
+          subtype: "status",
+          status: null,
+          compact_result: "failed",
+          compact_error: "summary request timed out",
+          session_id: "compaction-session",
+        },
+      ],
+      "acceptEdits",
+    );
+
+    expect(statuses).toEqual([
+      "starting",
+      "idle",
+      "compacting",
+      "running",
+      "compacting",
+      "running",
+      "idle",
+    ]);
+    expect(proc.permissionMode).toBe("acceptEdits");
+    expect(
+      messages.filter(
+        (message) =>
+          message.type === "error" &&
+          message.errorCode === "claude_compaction_failed",
+      ),
+    ).toEqual([
+      {
+        type: "error",
+        message: "Claude context compaction failed: summary request timed out",
+        errorCode: "claude_compaction_failed",
+      },
+    ]);
+  });
+
+  it("preserves partial assistant text and surfaces its typed error once", async () => {
+    const { messages } = await runSdkMessages([
+      {
+          type: "system",
+          subtype: "init",
+          session_id: "partial-error-session",
+          model: "claude-sonnet-4-6",
+          apiKeySource: "api_key",
+      },
+      {
+          type: "assistant",
+          session_id: "partial-error-session",
+          uuid: "assistant-error",
+          error: "max_output_tokens",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial useful response" }],
+          },
+      },
+      {
+          type: "result",
+          subtype: "error_during_execution",
+          errors: [
+            "[ede_diagnostic] result_type=assistant last_content_type=text stop_reason=max_tokens",
+          ],
+          session_id: "partial-error-session",
+      },
+    ]);
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Partial useful response" }],
+        }),
+      }),
+    );
+    expect(
+      messages.filter(
+        (message) =>
+          message.type === "error" &&
+          message.errorCode === "claude_max_output_tokens",
+      ),
+    ).toEqual([
+      {
+        type: "error",
+        message: "Claude reached the maximum response length before finishing.",
+        errorCode: "claude_max_output_tokens",
+      },
+    ]);
+  });
+
+  it("prefers a real result error over a pending assistant error", async () => {
+    const { messages } = await runSdkMessages([
+      {
+          type: "assistant",
+          session_id: "real-result-error-session",
+          uuid: "assistant-error",
+          error: "server_error",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial response" }],
+          },
+      },
+      {
+          type: "result",
+          subtype: "error_during_execution",
+          errors: [
+            "Bun is not defined",
+            "[ede_diagnostic] internal context",
+            "Upstream request failed with status 503",
+          ],
+          session_id: "real-result-error-session",
+      },
+    ]);
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([]);
+    expect(
+      messages.filter(
+        (message) => message.type === "result" && message.subtype === "error",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        type: "result",
+        subtype: "error",
+        error: "Upstream request failed with status 503",
+      }),
+    ]);
+  });
+
+  it("flushes a typed assistant error when the SDK stream ends without a result", async () => {
+    const { messages } = await runSdkMessages([
+      {
+        type: "assistant",
+        session_id: "ended-error-session",
+        uuid: "assistant-error",
+        error: "authentication_failed",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Partial response" }],
+        },
+      },
+    ]);
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([
+      expect.objectContaining({ errorCode: "auth_token_expired" }),
+    ]);
+  });
+
+  it("flushes a typed assistant error instead of duplicating an iterator failure", async () => {
+    const { messages } = await runSdkMessages(
+      [
+        {
+          type: "assistant",
+          session_id: "thrown-error-session",
+          uuid: "assistant-error",
+          error: "authentication_failed",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Partial response" }],
+          },
+        },
+      ],
+      undefined,
+      new Error("transport closed"),
+    );
+
+    expect(messages.filter((message) => message.type === "error")).toEqual([
+      expect.objectContaining({ errorCode: "auth_token_expired" }),
+    ]);
+  });
+
+  it.each([
+    {
+      assistantError: "authentication_failed",
+      expectedMessage:
+        "Claude authentication failed. Sign in again on the Bridge machine.",
+      expectedCode: "auth_token_expired",
+    },
+    {
+      assistantError: "unexpected_secret_runtime_value",
+      expectedMessage: "Claude stopped because of an unknown request error.",
+      expectedCode: "claude_assistant_error",
+    },
+  ])(
+    "maps assistant error $assistantError to a safe structured error",
+    async ({ assistantError, expectedMessage, expectedCode }) => {
+      const { messages } = await runSdkMessages([
+        {
+            type: "assistant",
+            session_id: "mapped-error-session",
+            uuid: "assistant-error",
+            error: assistantError,
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "Partial response" }],
+            },
+        },
+        {
+            type: "result",
+            subtype: "error_during_execution",
+            errors: [
+              "[ede_diagnostic] result_type=assistant last_content_type=text",
+            ],
+            session_id: "mapped-error-session",
+        },
+      ]);
+
+      expect(messages).toContainEqual({
+        type: "error",
+        message: expectedMessage,
+        errorCode: expectedCode,
+      });
+      expect(messages.filter((message) => message.type === "error")).toHaveLength(1);
+    },
+  );
 
   it("rejects an unexpected OAuth init when only an API key was configured", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");

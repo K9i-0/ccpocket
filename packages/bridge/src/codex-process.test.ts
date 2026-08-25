@@ -1600,6 +1600,38 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
+  it("ignores a late archive reply and allows retry after timeout", async () => {
+    vi.useFakeTimers();
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    try {
+      const archiveResult = expect(
+        proc.archiveThread("thread-stalled"),
+      ).rejects.toThrow(
+        "Codex RPC thread/archive timed out after 15000ms",
+      );
+      const stalledRequest = nextOutgoingRequest(child);
+
+      await vi.advanceTimersByTimeAsync(15_000);
+      await archiveResult;
+      expect((proc as any).pendingRpc.size).toBe(0);
+
+      (proc as any).handleRpcEnvelope({ id: stalledRequest.id, result: {} });
+      expect((proc as any).pendingRpc.size).toBe(0);
+
+      const retry = proc.archiveThread("thread-retry");
+      const retryRequest = nextOutgoingRequest(child);
+      (proc as any).handleRpcEnvelope({ id: retryRequest.id, result: {} });
+      await expect(retry).resolves.toBeUndefined();
+      expect((proc as any).pendingRpc.size).toBe(0);
+    } finally {
+      proc.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it("sends thread/read with includeTurns", async () => {
     const proc = new CodexProcess("linux");
     const initializePromise = proc.initializeOnly("/tmp/project-a");
@@ -2787,6 +2819,40 @@ describe("CodexProcess (app-server)", () => {
       message: "Model fallback is active.",
     });
     proc.stop();
+  });
+
+  it("logs retryable runtime errors without adding transcript warnings", () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    proc.on("message", (message) => messages.push(message));
+
+    try {
+      (proc as any).handleNotification("error", {
+        error: { message: "Reconnecting... 1/5" },
+        willRetry: true,
+      });
+
+      expect(messages).toEqual([]);
+      expect(warningSpy).toHaveBeenCalledWith(
+        "[codex-process] Codex will retry: Reconnecting... 1/5",
+      );
+
+      (proc as any).handleNotification("error", {
+        error: { message: "Connection failed" },
+        willRetry: false,
+      });
+      expect(messages).toEqual([
+        {
+          type: "error",
+          errorCode: "codex_runtime_error",
+          message: "Connection failed",
+        },
+      ]);
+    } finally {
+      warningSpy.mockRestore();
+      proc.stop();
+    }
   });
 
   it("installs a suggested remote plugin before accepting the elicitation", async () => {

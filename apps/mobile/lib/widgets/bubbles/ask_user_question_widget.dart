@@ -15,7 +15,7 @@ class AskUserQuestionWidget extends StatefulWidget {
   final Map<String, dynamic> input;
   final String agentName;
   final void Function(String toolUseId, String result) onAnswer;
-  final bool scrollable;
+  final double? maxHeight;
 
   const AskUserQuestionWidget({
     super.key,
@@ -23,7 +23,7 @@ class AskUserQuestionWidget extends StatefulWidget {
     required this.input,
     this.agentName = 'Claude',
     required this.onAnswer,
-    this.scrollable = true,
+    this.maxHeight,
   });
 
   @override
@@ -61,6 +61,29 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   void initState() {
     super.initState();
     _pageController = PageController();
+  }
+
+  @override
+  void didUpdateWidget(covariant AskUserQuestionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.toolUseId == widget.toolUseId) return;
+    _resetForQuestionIdentity();
+  }
+
+  void _resetForQuestionIdentity() {
+    _singleAnswers.clear();
+    _multiAnswers.clear();
+    _customInputs.clear();
+    for (final controller in _customControllers.values) {
+      controller.clear();
+    }
+    _currentPage = 0;
+    _answered = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    });
   }
 
   @override
@@ -338,11 +361,15 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     }
 
     final totalPages = _isMultiQuestion ? questions.length + 1 : 1;
-
-    final availableHeight = MediaQuery.of(context).size.height;
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final visibleScreenHeight =
+        mediaQuery.size.height - mediaQuery.viewInsets.bottom;
+    final maxHeight = widget.maxHeight ?? visibleScreenHeight;
 
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: maxHeight.clamp(0, double.infinity),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -411,57 +438,58 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 valueColor: AlwaysStoppedAnimation<Color>(appColors.askIcon),
               ),
               const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (availableHeight - keyboardHeight) * 0.42,
-                ),
-                child: ExpandablePageView.builder(
-                  controller: _pageController,
-                  itemCount: totalPages,
-                  onPageChanged: _onPageChanged,
-                  itemBuilder: (context, index) {
-                    if (index == questions.length) {
-                      return _AskSummaryPage(
-                        questions: questions,
-                        scrollable: widget.scrollable,
-                        singleAnswers: _singleAnswers,
-                        onResetAll: _resetAll,
-                        onSubmitAll: _sendAllAnswers,
-                        onGoToPage: _goToPage,
+              Flexible(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => ExpandablePageView.builder(
+                    controller: _pageController,
+                    itemCount: totalPages,
+                    onPageChanged: _onPageChanged,
+                    itemBuilder: (context, index) {
+                      final child = index == questions.length
+                          ? _AskSummaryPage(
+                              questions: questions,
+                              singleAnswers: _singleAnswers,
+                              onResetAll: _resetAll,
+                              onSubmitAll: _sendAllAnswers,
+                              onGoToPage: _goToPage,
+                            )
+                          : _AskQuestionLayout(
+                              question: questions[index],
+                              questionIndex: index,
+                              isMultiQuestion: true,
+                              allowsCustomInput: true,
+                              singleAnswers: _singleAnswers,
+                              multiAnswers: _multiAnswers,
+                              customInputs: _customInputs,
+                              getOrCreateController: _getOrCreateController,
+                              onAnswerSingle: _onAnswerSingle,
+                              onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+                              onConfirmMultiSelect: _confirmMultiSelect,
+                              onSubmitCustomText: _submitCustomText,
+                              onCustomTextChanged: _onCustomTextChanged,
+                              onShowCustomInput: _showCustomInput,
+                            );
+                      return _BoundedQuestionScrollView(
+                        key: ValueKey(
+                          index == questions.length
+                              ? 'ask_summary_scroll_view'
+                              : 'ask_question_${index}_scroll_view',
+                        ),
+                        maxHeight: constraints.maxHeight,
+                        child: child,
                       );
-                    }
-                    return _AskQuestionLayout(
-                      question: questions[index],
-                      questionIndex: index,
-                      isMultiQuestion: true,
-                      scrollable: widget.scrollable,
-                      allowsCustomInput: true,
-                      singleAnswers: _singleAnswers,
-                      multiAnswers: _multiAnswers,
-                      customInputs: _customInputs,
-                      getOrCreateController: _getOrCreateController,
-                      onAnswerSingle: _onAnswerSingle,
-                      onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                      onConfirmMultiSelect: _confirmMultiSelect,
-                      onSubmitCustomText: _submitCustomText,
-                      onCustomTextChanged: _onCustomTextChanged,
-                      onShowCustomInput: _showCustomInput,
-                    );
-                  },
+                    },
+                  ),
                 ),
               ),
             ] else ...[
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (availableHeight - keyboardHeight) * 0.42,
-                ),
+              Flexible(
                 child: SingleChildScrollView(
                   key: const ValueKey('ask_single_question_scroll_view'),
                   child: _AskQuestionLayout(
                     question: questions.first,
                     questionIndex: 0,
                     isMultiQuestion: false,
-                    scrollable: false,
                     allowsCustomInput: _singleQuestionAllowsCustomInput,
                     singleAnswers: _singleAnswers,
                     multiAnswers: _multiAnswers,
@@ -506,11 +534,29 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 }
 
+class _BoundedQuestionScrollView extends StatelessWidget {
+  const _BoundedQuestionScrollView({
+    super.key,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(child: child),
+    );
+  }
+}
+
 class _AskQuestionLayout extends StatelessWidget {
   final Map<String, dynamic> question;
   final int questionIndex;
   final bool isMultiQuestion;
-  final bool scrollable;
   final bool alwaysShowTextInput;
   final bool allowsCustomInput;
   final Map<int, String> singleAnswers;
@@ -528,7 +574,6 @@ class _AskQuestionLayout extends StatelessWidget {
     required this.question,
     required this.questionIndex,
     required this.isMultiQuestion,
-    required this.scrollable,
     required this.allowsCustomInput,
     required this.singleAnswers,
     required this.multiAnswers,
@@ -647,9 +692,7 @@ class _AskQuestionLayout extends StatelessWidget {
       ],
     );
 
-    if (!scrollable) return content;
-
-    return SingleChildScrollView(child: content);
+    return content;
   }
 }
 
@@ -875,7 +918,6 @@ class _AskTextInputRow extends StatelessWidget {
 
 class _AskSummaryPage extends StatelessWidget {
   final List<Map<String, dynamic>> questions;
-  final bool scrollable;
   final Map<int, String> singleAnswers;
   final ValueChanged<int> onGoToPage;
   final VoidCallback onResetAll;
@@ -883,7 +925,6 @@ class _AskSummaryPage extends StatelessWidget {
 
   const _AskSummaryPage({
     required this.questions,
-    required this.scrollable,
     required this.singleAnswers,
     required this.onGoToPage,
     required this.onResetAll,
@@ -939,9 +980,7 @@ class _AskSummaryPage extends StatelessWidget {
       ],
     );
 
-    if (!scrollable) return content;
-
-    return SingleChildScrollView(child: content);
+    return content;
   }
 }
 

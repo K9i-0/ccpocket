@@ -29,7 +29,7 @@ class _MockBridgeService extends BridgeService {
   String? get httpBaseUrl => 'http://localhost:8765';
 
   @override
-  void requestGallery({String? project, String? sessionId}) {
+  void requestGallery({String? projectPath, String? sessionId}) {
     galleryRequested = true;
     // Immediately emit the mock images
     _galleryStreamController.add(_mockImages);
@@ -169,6 +169,31 @@ void main() {
       // But should show image
       expect(find.text('project-a'), findsWidgets);
     });
+
+    testWidgets('session gallery does not render the global gallery stream', (
+      tester,
+    ) async {
+      final mock = _MockBridgeService();
+      mock.setImages([
+        const GalleryImage(
+          id: 'global-image',
+          url: '/api/gallery/global-image',
+          mimeType: 'image/png',
+          projectPath: '/Users/demo/global-project',
+          projectName: 'global-project',
+          addedAt: '2025-01-15T10:30:00Z',
+          sizeBytes: 100,
+        ),
+      ]);
+
+      await tester.pumpWidget(
+        _wrapWithTheme(const GalleryScreen(sessionId: 'session-a'), mock),
+      );
+      await tester.pump();
+
+      expect(find.text('global-project'), findsNothing);
+      expect(find.text('No screenshots yet'), findsOneWidget);
+    });
   });
 
   group('GalleryImage model', () {
@@ -211,6 +236,9 @@ void main() {
     test('gallery_list parses correctly', () {
       final json = {
         'type': 'gallery_list',
+        'projectPath': '/path',
+        'sessionId': 'session-a',
+        'requestId': 'gallery-1',
         'images': [
           {
             'id': 'img-1',
@@ -228,6 +256,9 @@ void main() {
       final gm = msg as GalleryListMessage;
       expect(gm.images.length, 1);
       expect(gm.images[0].id, 'img-1');
+      expect(gm.projectPath, '/path');
+      expect(gm.sessionId, 'session-a');
+      expect(gm.requestId, 'gallery-1');
     });
 
     test('gallery_new_image parses correctly', () {
@@ -257,10 +288,15 @@ void main() {
     });
 
     test('listGallery with project generates correct JSON', () {
-      final msg = ClientMessage.listGallery(project: '/path/to/proj');
+      final msg = ClientMessage.listGallery(
+        projectPath: '/path/to/proj',
+        requestId: 'gallery-1',
+      );
       final json = msg.toJson();
       expect(json, contains('"type":"list_gallery"'));
       expect(json, contains('"project":"/path/to/proj"'));
+      expect(json, contains('"projectPath":"/path/to/proj"'));
+      expect(json, contains('"requestId":"gallery-1"'));
     });
   });
 }

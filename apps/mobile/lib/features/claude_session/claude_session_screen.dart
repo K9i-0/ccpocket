@@ -1219,7 +1219,6 @@ class _ChatScreenBody extends HookWidget {
                                       input: askInput,
                                       agentName: 'Claude',
                                       onAnswer: answerQuestion,
-                                      scrollable: false,
                                     ),
                                   if (pendingToolUseId != null)
                                     ApprovalBar(

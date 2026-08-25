@@ -706,7 +706,11 @@ export class BridgeWebSocketServer {
   private promptHistoryBackup: PromptHistoryBackupStore | null;
   private promptHistoryStore: PromptHistoryStore | null;
 
-  private recentSessionsRequestId = 0;
+  private recentSessionsRequestIds = new WeakMap<WebSocket, number>();
+  private recentSessionsInFlight = new Map<
+    string,
+    Promise<{ sessions: unknown[]; hasMore: boolean }>
+  >();
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
@@ -2281,6 +2285,7 @@ export class BridgeWebSocketServer {
 
     ws.on("close", () => {
       console.log("[ws] Client disconnected");
+      this.recentSessionsRequestIds.delete(ws);
       this.discardClientDeltaBatches(ws);
       this.clearPendingClaudeResumeInputs(ws);
     });
@@ -4576,13 +4581,21 @@ export class BridgeWebSocketServer {
 
       case "list_recent_sessions": {
         const isProjectScopedRequest = msg.requestScope === "project";
+        const currentRequestId = this.recentSessionsRequestIds.get(ws) ?? 0;
         const requestId = isProjectScopedRequest
-          ? this.recentSessionsRequestId
-          : ++this.recentSessionsRequestId;
-        this.listRecentSessions(msg)
+          ? currentRequestId
+          : currentRequestId + 1;
+        if (!isProjectScopedRequest) {
+          this.recentSessionsRequestIds.set(ws, requestId);
+        }
+        this.listRecentSessionsCoalesced(msg)
           .then(({ sessions, hasMore }) => {
-            // Drop stale responses when rapid filter switches cause out-of-order completion
-            if (requestId !== this.recentSessionsRequestId) {
+            // List refreshes supersede older list responses. Project responses
+            // are correlated independently by requestId on the client.
+            if (
+              !isProjectScopedRequest &&
+              requestId !== (this.recentSessionsRequestIds.get(ws) ?? 0)
+            ) {
               return;
             }
             this.send(ws, {
@@ -4593,15 +4606,24 @@ export class BridgeWebSocketServer {
               offset: msg.offset,
               projectPath: msg.projectPath,
               requestScope: msg.requestScope,
+              requestId: msg.requestId,
             } as Record<string, unknown>);
           })
           .catch((err) => {
-            if (requestId !== this.recentSessionsRequestId) {
+            if (
+              !isProjectScopedRequest &&
+              requestId !== (this.recentSessionsRequestIds.get(ws) ?? 0)
+            ) {
               return;
             }
             this.send(ws, {
               type: "error",
               message: `Failed to list recent sessions: ${err}`,
+              errorCode: "recent_sessions_failed",
+              path: msg.projectPath,
+              requestId: msg.requestId,
+              requestScope: msg.requestScope,
+              offset: msg.offset,
             });
           });
         break;
@@ -5152,20 +5174,27 @@ export class BridgeWebSocketServer {
       }
 
       case "list_gallery": {
+        const projectPath = msg.projectPath ?? msg.project;
         if (this.galleryStore) {
           const images = this.galleryStore.list({
-            projectPath: msg.project,
+            projectPath,
             sessionId: msg.sessionId,
           });
-          this.send(ws, { type: "gallery_list", images } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images,
+            projectPath,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         } else {
-          this.send(ws, { type: "gallery_list", images: [] } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images: [],
+            projectPath,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         }
         break;
       }
@@ -7221,6 +7250,31 @@ export class BridgeWebSocketServer {
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
     });
+  }
+
+  private listRecentSessionsCoalesced(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    const key = JSON.stringify({
+      limit: msg.limit ?? null,
+      offset: msg.offset ?? null,
+      projectPath: msg.projectPath ?? null,
+      provider: msg.provider ?? null,
+      namedOnly: msg.namedOnly ?? null,
+      searchQuery: msg.searchQuery ?? null,
+    });
+    const existing = this.recentSessionsInFlight.get(key);
+    if (existing) return existing;
+
+    const request = this.listRecentSessions(msg);
+    this.recentSessionsInFlight.set(key, request);
+    const clear = (): void => {
+      if (this.recentSessionsInFlight.get(key) === request) {
+        this.recentSessionsInFlight.delete(key);
+      }
+    };
+    void request.then(clear, clear);
+    return request;
   }
 
   private async listRecentAllProviderSessions(

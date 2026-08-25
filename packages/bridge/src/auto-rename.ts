@@ -18,7 +18,7 @@ Rules:
 - Match the primary language of the USER text. Never translate it. If USER is Japanese, the name must be Japanese.
 - Write a natural, specific noun phrase rather than a sentence or a list of keywords.
 - Prefer the user's intended outcome over implementation details.
-- Use assistant text only to disambiguate the goal or target area.
+- Use only the USER text to choose the name's language and subject.
 - Keep it short: 2-8 English words or about 6-20 Japanese/Chinese/Korean characters when practical.
 - For Japanese, use particles such as の when they improve readability; avoid unnatural keyword concatenation.
 - Preserve meaningful product, library, and feature names.
@@ -31,12 +31,10 @@ Rules:
 - Output only the name. No quotes, JSON, markdown, or explanation.`;
 
 const MAX_TRANSCRIPT_CHARS = 2400;
-const MAX_ASSISTANT_CHARS = 1200;
 const MAX_NAME_CHARS = 60;
 
 export interface AutoRenameTranscript {
   userText: string;
-  assistantText?: string;
 }
 
 export interface AutoRenameOptions {
@@ -55,33 +53,15 @@ export function buildAutoRenameTranscript(
     .find(Boolean);
   if (!userText) return null;
 
-  const assistantText = history
-    .filter((msg) => msg.type === "assistant")
-    .map((msg) =>
-      msg.message.content
-        .filter((content) => content.type === "text")
-        .map((content) => ("text" in content ? content.text : ""))
-        .join("\n")
-        .trim(),
-    )
-    .find(Boolean);
-
   return {
     userText: limitText(userText, MAX_TRANSCRIPT_CHARS),
-    ...(assistantText
-      ? { assistantText: limitText(assistantText, MAX_ASSISTANT_CHARS) }
-      : {}),
   };
 }
 
 export function buildAutoRenamePrompt(
   transcript: AutoRenameTranscript,
 ): string {
-  const sections = [`USER:\n${transcript.userText}`];
-  if (transcript.assistantText) {
-    sections.push(`ASSISTANT:\n${transcript.assistantText}`);
-  }
-  return `${AUTO_RENAME_PROMPT}\n\nTranscript:\n${sections.join("\n\n")}`;
+  return `${AUTO_RENAME_PROMPT}\n\nUSER:\n${transcript.userText}`;
 }
 
 export function isAutoRenamePromptText(text: string): boolean {

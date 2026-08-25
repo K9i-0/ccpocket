@@ -22,6 +22,7 @@ export { buildCodexSpawnSpec };
 
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
+const ARCHIVE_RPC_TIMEOUT_MS = 15_000;
 const UNKNOWN_AGENT_ITEM_ID = "__unknown_agent_message__";
 const CODEX_CLI_NOT_FOUND_MESSAGE =
   "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `curl -fsSL https://chatgpt.com/codex/install.sh | sh`, then restart Bridge.";
@@ -589,7 +590,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * can be archived without requiring a running process.
    */
   async archiveThread(threadId: string): Promise<void> {
-    await this.request("thread/archive", { threadId });
+    await this.request("thread/archive", { threadId }, ARCHIVE_RPC_TIMEOUT_MS);
   }
 
   async readThread(
@@ -2657,10 +2658,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       case "error": {
         const error = asRecord(params.error);
         const message = stringValue(error?.message) ?? "Codex runtime error";
+        if (params.willRetry === true) {
+          console.warn(`[codex-process] Codex will retry: ${message}`);
+          break;
+        }
         this.emitMessage({
           type: "error",
-          errorCode: params.willRetry ? "codex_warning" : "codex_runtime_error",
-          message: params.willRetry ? `${message}\nCodex will retry.` : message,
+          errorCode: "codex_runtime_error",
+          message,
         });
         break;
       }
@@ -3297,17 +3302,39 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private request(
     method: string,
     params?: Record<string, unknown>,
+    timeoutMs?: number,
   ): Promise<unknown> {
     const id = this.rpcSeq++;
     const envelope =
       params === undefined ? { id, method } : { id, method, params };
 
     return new Promise<unknown>((resolve, reject) => {
-      this.pendingRpc.set(id, { resolve, reject, method });
+      let timeout: NodeJS.Timeout | undefined;
+      const clearRequestTimeout = () => {
+        if (timeout) clearTimeout(timeout);
+      };
+      this.pendingRpc.set(id, {
+        resolve: (value) => {
+          clearRequestTimeout();
+          resolve(value);
+        },
+        reject: (error) => {
+          clearRequestTimeout();
+          reject(error);
+        },
+        method,
+      });
+      if (timeoutMs != null) {
+        timeout = setTimeout(() => {
+          if (!this.pendingRpc.delete(id)) return;
+          reject(new Error(`Codex RPC ${method} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
       try {
         this.writeEnvelope(envelope);
       } catch (err) {
         this.pendingRpc.delete(id);
+        clearRequestTimeout();
         reject(err instanceof Error ? err : new Error(String(err)));
       }
     });

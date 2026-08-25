@@ -7,6 +7,7 @@ import {
   query,
   type Query,
   type SDKMessage,
+  type SDKAssistantMessageError,
   type PermissionResult,
   type ModelInfo,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -143,6 +144,10 @@ export function hasExplicitClaudeCredential(
 function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return hasExplicitClaudeCredential(env) || isClaudeOAuthOptInEnabled(env);
 }
+
+type ClaudeAuthClassification = "unknown" | "api_key" | "subscription";
+
+const CLAUDE_AUTH_RESOLUTION_TIMEOUT_MS = 500;
 
 export async function listAvailableClaudeModels(
   projectPath?: string,
@@ -376,6 +381,77 @@ export interface RewindFilesResult {
   deletions?: number;
 }
 
+const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
+  /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+
+interface ClaudeAssistantErrorDetails {
+  message: string;
+  errorCode: string;
+}
+
+const UNKNOWN_CLAUDE_ASSISTANT_ERROR: ClaudeAssistantErrorDetails = {
+  message: "Claude stopped because of an unknown request error.",
+  errorCode: "claude_assistant_error",
+};
+
+const CLAUDE_ASSISTANT_ERRORS = {
+  authentication_failed: {
+    message: "Claude authentication failed. Sign in again on the Bridge machine.",
+    errorCode: "auth_token_expired",
+  },
+  oauth_org_not_allowed: {
+    message: "This Claude subscription organization cannot be used by the Agent SDK.",
+    errorCode: "claude_oauth_org_not_allowed",
+  },
+  billing_error: {
+    message: "Claude could not continue because of an account billing error.",
+    errorCode: "claude_billing_error",
+  },
+  rate_limit: {
+    message: "Claude is temporarily rate limited. Try again shortly.",
+    errorCode: "claude_rate_limit",
+  },
+  invalid_request: {
+    message: "Claude rejected this request as invalid.",
+    errorCode: "claude_invalid_request",
+  },
+  model_not_found: {
+    message: "The selected Claude model is not available for this account.",
+    errorCode: "claude_model_not_found",
+  },
+  server_error: {
+    message: "Claude encountered a server error.",
+    errorCode: "claude_server_error",
+  },
+  unknown: UNKNOWN_CLAUDE_ASSISTANT_ERROR,
+  max_output_tokens: {
+    message: "Claude reached the maximum response length before finishing.",
+    errorCode: "claude_max_output_tokens",
+  },
+} satisfies Record<SDKAssistantMessageError, ClaudeAssistantErrorDetails>;
+
+function claudeAssistantErrorMessage(error: unknown): ServerMessage | null {
+  if (typeof error !== "string" || error.length === 0) return null;
+  const details = Object.hasOwn(CLAUDE_ASSISTANT_ERRORS, error)
+    ? CLAUDE_ASSISTANT_ERRORS[error as SDKAssistantMessageError]
+    : UNKNOWN_CLAUDE_ASSISTANT_ERROR;
+  return { type: "error", ...details };
+}
+
+function isInternalClaudeResultError(error: string): boolean {
+  return (
+    error.startsWith("[ede_diagnostic]") ||
+    error.includes("Bun is not defined")
+  );
+}
+
+function isClaudeSystemInjectedUserText(text: string): boolean {
+  const normalized = text.trimStart();
+  return (
+    CLAUDE_SYSTEM_INJECTED_USER_TEXT.test(normalized) ||
+    normalized.startsWith("Base directory for this skill:")
+  );
+}
 /**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
@@ -397,14 +473,41 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       if (sys.subtype === "compact_boundary") {
         return { type: "status", status: "compacting" as ProcessStatus };
       }
+      if (sys.subtype === "status" && sys.compact_result === "failed") {
+        const compactError =
+          typeof sys.compact_error === "string" ? sys.compact_error.trim() : "";
+        return {
+          type: "error",
+          message: compactError
+            ? `Claude context compaction failed: ${compactError}`
+            : "Claude context compaction failed.",
+          errorCode: "claude_compaction_failed",
+        };
+      }
       return null;
     }
 
     case "assistant": {
       const ast = msg as unknown as { message: Record<string, unknown>; uuid?: string };
+      const rawContent = ast.message.content;
+      const content = Array.isArray(rawContent)
+        ? rawContent.filter((block) => {
+            if (!block || typeof block !== "object") return true;
+            const candidate = block as Record<string, unknown>;
+            return !(
+              candidate.type === "thinking" &&
+              typeof candidate.thinking === "string" &&
+              candidate.thinking.trim().length === 0
+            );
+          })
+        : rawContent;
+      if (Array.isArray(content) && content.length === 0) return null;
       return {
         type: "assistant",
-        message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
+        message: {
+          ...ast.message,
+          content,
+        } as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
         ...(ast.uuid ? { messageUuid: ast.uuid } : {}),
       } as ServerMessage;
     }
@@ -440,11 +543,14 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         .filter((c: unknown) => (c as Record<string, unknown>).type === "text")
         .map((c: unknown) => (c as Record<string, unknown>).text as string);
       if (texts.length > 0) {
+        const isSynthetic =
+          usr.isSynthetic === true ||
+          texts.every(isClaudeSystemInjectedUserText);
         return {
           type: "user_input",
           text: texts.join("\n"),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
-          ...(usr.isSynthetic ? { isSynthetic: true } : {}),
+          ...(isSynthetic ? { isSynthetic: true } : {}),
           ...(usr.isMeta ? { isMeta: true } : {}),
         } as ServerMessage;
       }
@@ -467,12 +573,24 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           ...tokenUsage,
         };
       }
-      // All other result subtypes are errors
-      const errorText = Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error";
-      // Suppress spurious CLI runtime errors (SDK bug: Bun API referenced on Node.js)
-      if (errorText.includes("Bun is not defined")) {
+      // Claude Code can misclassify a routine interrupt as
+      // error_during_execution and prepend an internal-only EDE diagnostic.
+      // Its own terminal renderer filters these records, so keep the same
+      // boundary here while preserving any accompanying real error.
+      const rawErrors = Array.isArray(res.errors)
+        ? (res.errors as unknown[]).filter(
+            (error): error is string => typeof error === "string",
+          )
+        : [];
+      const visibleErrors = rawErrors.filter(
+        (error) => !isInternalClaudeResultError(error),
+      );
+      if (rawErrors.length > 0 && visibleErrors.length === 0) {
         return null;
       }
+      // All other result subtypes are errors
+      const errorText =
+        visibleErrors.length > 0 ? visibleErrors.join("\n") : "Unknown error";
       return {
         type: "result",
         subtype: "error",
@@ -569,6 +687,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private authClassification: ClaudeAuthClassification = "unknown";
+  private authGeneration = 0;
+  private authResolution: Promise<void> = Promise.resolve();
+  private authResolutionPending = false;
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -582,6 +704,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
+  private pendingAssistantError: ServerMessage | null = null;
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -617,6 +740,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.stopped = false;
     this._sessionId = null;
+    this.authGeneration += 1;
+    this.authClassification = "unknown";
+    this.authResolution = Promise.resolve();
+    this.authResolutionPending = false;
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this.permissionModeGeneration += 1;
@@ -628,6 +755,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    this.pendingAssistantError = null;
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
@@ -720,14 +848,23 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
     });
 
+    const queryInstance = this.queryInstance;
+    const authGeneration = this.authGeneration;
+    this.authResolution = this.resolveAuthClassification(
+      queryInstance,
+      authGeneration,
+    );
+
     // Background message processing
-    this.processMessages().catch((err) => {
-      if (this.stopped) {
+    this.processMessages(authGeneration, this.authResolution).catch((err) => {
+      if (this.stopped || authGeneration !== this.authGeneration) {
         // Suppress errors from intentional stop (SDK bug: Bun API referenced on Node.js)
         return;
       }
       console.error("[sdk-process] Message processing error:", err);
-      this.emitMessage({ type: "error", message: `SDK error: ${err instanceof Error ? err.message : String(err)}` });
+      if (!this.flushPendingAssistantError()) {
+        this.emitMessage({ type: "error", message: `SDK error: ${err instanceof Error ? err.message : String(err)}` });
+      }
       this.stop();
       this.emit("exit", 1);
     });
@@ -742,6 +879,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.initTimeoutId = null;
     }
     this.stopped = true;
+    this.authGeneration += 1;
+    this.authClassification = "unknown";
+    this.authResolution = Promise.resolve();
+    this.authResolutionPending = false;
     this.pendingInputQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
@@ -752,6 +893,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.userMessageResolve = null;
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    this.pendingAssistantError = null;
 
     // Emit session_end so listeners can re-persist metadata before cleanup.
     // processMessages() won't reach its session_end emit because close()
@@ -796,15 +938,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content: [{ type: "text", text }],
-      },
-      parent_tool_use_id: null,
-    });
+    this.resolveUserMessage(resolve, text);
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -832,35 +966,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
 
-    const content: SDKUserMsg["message"]["content"] = [];
-
-    // Add image blocks first (Claude processes images before text)
-    for (const image of images) {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: image.mimeType as ImageMediaType,
-          data: image.base64,
-        },
-      });
-    }
-
-    // Add text block
-    content.push({ type: "text", text });
-
     const totalKB = images.reduce((sum, img) => sum + Math.round(img.base64.length / 1024), 0);
     console.log(`[sdk-process] Sending message with ${images.length} image(s) (${totalKB}KB base64 total)`);
 
-    resolve({
-      type: "user",
-      session_id: this._sessionId ?? "",
-      message: {
-        role: "user",
-        content,
-      },
-      parent_tool_use_id: null,
-    });
+    this.resolveUserMessage(resolve, text, images);
     return { queued: false, shouldInterrupt: false };
   }
 
@@ -1130,33 +1239,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
-      // Drain queued messages first (FIFO order)
-      if (this.pendingInputQueue.length > 0) {
+      // A queued mid-turn input must wait for result so it cannot overtake
+      // the interrupted turn. Once idle, each consumer request drains FIFO.
+      const turnInProgress =
+        this._status === "running" ||
+        this._status === "compacting" ||
+        this._status === "waiting_approval";
+      if (this.pendingInputQueue.length > 0 && !turnInProgress) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
-        const content: SDKUserMsg["message"]["content"] = [];
-        if (images) {
-          for (const image of images) {
-            content.push({
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: image.mimeType as ImageMediaType,
-                data: image.base64,
-              },
-            });
-          }
-        }
-        content.push({ type: "text", text });
-        yield {
-          type: "user",
-          session_id: this._sessionId ?? "",
-          message: {
-            role: "user",
-            content,
-          },
-          parent_tool_use_id: null,
-        };
+        this.setStatus("running");
+        yield this.buildUserMessage(text, images);
         continue;
       }
       const msg = await new Promise<SDKUserMsg>((resolve) => {
@@ -1167,33 +1260,126 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
-  private async processMessages(): Promise<void> {
+  private async resolveAuthClassification(
+    queryInstance: Query | null | undefined,
+    generation: number,
+  ): Promise<void> {
+    if (!queryInstance) return;
+    const initializationResult = (
+      queryInstance as Partial<Pick<Query, "initializationResult">>
+    ).initializationResult;
+    if (typeof initializationResult !== "function") return;
+
+    this.authResolutionPending = true;
+    const initializationPromise = Promise.resolve().then(() =>
+      initializationResult.call(queryInstance),
+    );
+    const settlement = (async () => {
+      try {
+        const initialization = await initializationPromise;
+        if (generation !== this.authGeneration) return;
+        this.authResolutionPending = false;
+        this.applyAuthSource(
+          initialization.account?.apiKeySource,
+          generation,
+        );
+      } catch (error) {
+        if (generation !== this.authGeneration) return;
+        this.authResolutionPending = false;
+        console.warn(
+          `[sdk-process] Could not resolve Claude auth source: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    })();
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<false>((resolve) => {
+        timeoutId = setTimeout(
+          () => resolve(false),
+          CLAUDE_AUTH_RESOLUTION_TIMEOUT_MS,
+        );
+      });
+      const settledBeforeTimeout = await Promise.race([
+        settlement.then(() => true as const),
+        timeout,
+      ]);
+      if (!settledBeforeTimeout && generation === this.authGeneration) {
+        console.warn("[sdk-process] Timed out resolving Claude auth source");
+      }
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  private applyAuthSource(source: unknown, generation: number): boolean {
+    if (generation !== this.authGeneration) return true;
+    if (source === "oauth") {
+      this.authClassification = "subscription";
+    } else if (
+      typeof source === "string" &&
+      this.authClassification === "unknown"
+    ) {
+      this.authClassification = "api_key";
+    }
+
+    if (
+      this.authClassification === "subscription" &&
+      !isClaudeOAuthOptInEnabled()
+    ) {
+      console.log("[sdk-process] OAuth auth source requires explicit opt-in");
+      this.emitMessage({
+        type: "error",
+        message: CLAUDE_OAUTH_OPT_IN_MESSAGE,
+        errorCode: CLAUDE_OAUTH_OPT_IN_ERROR_CODE,
+      });
+      this.stop();
+      this.emit("exit", 1);
+      return false;
+    }
+    return true;
+  }
+
+  private async processMessages(
+    authGeneration: number,
+    authResolution: Promise<void>,
+  ): Promise<void> {
     if (!this.queryInstance) return;
 
     for await (const message of this.queryInstance) {
-      if (this.stopped) break;
+      if (this.stopped || authGeneration !== this.authGeneration) break;
 
       if (
         message.type === "system" &&
         "subtype" in message &&
         (message as Record<string, unknown>).subtype === "init" &&
-        (message as Record<string, unknown>).apiKeySource === "oauth" &&
-        !isClaudeOAuthOptInEnabled()
+        !this.applyAuthSource(
+          (message as Record<string, unknown>).apiKeySource,
+          authGeneration,
+        )
       ) {
-        console.log("[sdk-process] OAuth auth source requires explicit opt-in");
-        this.emitMessage({
-          type: "error",
-          message: CLAUDE_OAUTH_OPT_IN_MESSAGE,
-          errorCode: CLAUDE_OAUTH_OPT_IN_ERROR_CODE,
-        });
-        this.stop();
-        this.emit("exit", 1);
         return;
       }
 
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
+      if (message.type === "assistant" && this.pendingAssistantError === null) {
+        this.pendingAssistantError = claudeAssistantErrorMessage(
+          (message as Record<string, unknown>).error,
+        );
+      }
       if (serverMsg?.type === "result") {
+        if (this.authClassification !== "subscription") {
+          await authResolution;
+        }
+        if (this.stopped || authGeneration !== this.authGeneration) return;
+        if (
+          this.authClassification !== "api_key" ||
+          this.authResolutionPending
+        ) {
+          const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
+          serverMsg = withoutCost as ServerMessage;
+        }
         if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
           serverMsg = {
             ...serverMsg,
@@ -1208,10 +1394,30 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.toolCallsSinceLastResult = 0;
         this.fileEditsSinceLastResult = 0;
       }
+
+      if (message.type === "result" && this.pendingAssistantError) {
+        const result = message as Record<string, unknown>;
+        const hasRealResultError =
+          serverMsg?.type === "result" &&
+          serverMsg.subtype === "error" &&
+          Array.isArray(result.errors) &&
+          result.errors.some(
+            (error) =>
+              typeof error === "string" &&
+              !isInternalClaudeResultError(error),
+          );
+        if (!hasRealResultError) {
+          this.flushPendingAssistantError();
+          if (serverMsg?.type === "result" && serverMsg.subtype === "error") {
+            serverMsg = null;
+          }
+        } else {
+          this.pendingAssistantError = null;
+        }
+      }
       if (serverMsg) {
         this.emitMessage(serverMsg);
       }
-
       // Extract session ID and model from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
         if (this.initTimeoutId) {
@@ -1251,7 +1457,18 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.updateStatusFromMessage(message);
     }
 
+    await authResolution;
+    if (this.stopped || authGeneration !== this.authGeneration) return;
+
+    this.flushPendingAssistantError();
+
     // Query finished — CLI has completed shutdown including file writes.
+    // Treat natural completion as the end of this auth generation so an
+    // initializationResult that settles after the timeout cannot emit a
+    // second, contradictory terminal event for an already-finished query.
+    this.authGeneration += 1;
+    this.authResolutionPending = false;
+    this.authResolution = Promise.resolve();
     this.queryInstance = null;
 
     // Emit session_end before exit so listeners can re-persist metadata
@@ -1260,6 +1477,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.setStatus("idle");
     this.emit("exit", 0);
+  }
+
+  private flushPendingAssistantError(): boolean {
+    if (!this.pendingAssistantError) return false;
+    const message = this.pendingAssistantError;
+    this.pendingAssistantError = null;
+    this.emitMessage(message);
+    return true;
   }
 
   /**
@@ -1327,9 +1552,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private updateStatusFromMessage(msg: SDKMessage): void {
     switch (msg.type) {
-      case "system":
-        // Already handled in processMessages for init
+      case "system": {
+        const system = msg as Record<string, unknown>;
+        if (system.subtype === "status") {
+          if (system.status === "compacting") {
+            this.setStatus("compacting");
+          } else if (system.status === "requesting") {
+            this.setStatus("running");
+          } else if (system.status === null && this._status === "compacting") {
+            this.setStatus("running");
+          }
+        }
         break;
+      }
       case "assistant":
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");
@@ -1343,8 +1578,54 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       case "result":
         this.pendingPermissions.clear();
         this.setStatus("idle");
+        this.deliverQueuedInputIfWaiting();
         break;
     }
+  }
+
+  private buildUserMessage(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): SDKUserMsg {
+    const content: SDKUserMsg["message"]["content"] = [];
+    if (images) {
+      for (const image of images) {
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: image.mimeType as ImageMediaType,
+            data: image.base64,
+          },
+        });
+      }
+    }
+    content.push({ type: "text", text });
+    return {
+      type: "user",
+      session_id: this._sessionId ?? "",
+      message: { role: "user", content },
+      parent_tool_use_id: null,
+    };
+  }
+
+  private deliverQueuedInputIfWaiting(): void {
+    const resolve = this.userMessageResolve;
+    const queued = this.pendingInputQueue[0];
+    if (!resolve || !queued) return;
+
+    this.userMessageResolve = null;
+    this.pendingInputQueue.shift();
+    this.resolveUserMessage(resolve, queued.text, queued.images);
+  }
+
+  private resolveUserMessage(
+    resolve: (message: SDKUserMsg) => void,
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): void {
+    this.setStatus("running");
+    resolve(this.buildUserMessage(text, images));
   }
 
   private handlePostToolUseHook(input: unknown): void {

@@ -586,7 +586,7 @@ describe("parseClientMessage", () => {
 
   it("parses list_recent_sessions with offset and projectPath", () => {
     const msg = parseClientMessage(
-      '{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project","requestScope":"project"}',
+      '{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project","requestScope":"project","requestId":"recent-1","provider":"codex","namedOnly":true,"searchQuery":"needle"}',
     );
     expect(msg).toEqual({
       type: "list_recent_sessions",
@@ -594,7 +594,38 @@ describe("parseClientMessage", () => {
       offset: 20,
       projectPath: "/tmp/project",
       requestScope: "project",
+      requestId: "recent-1",
+      provider: "codex",
+      namedOnly: true,
+      searchQuery: "needle",
     });
+  });
+
+  it("rejects invalid list_recent_sessions options", () => {
+    const invalidMessages = [
+      '{"type":"list_recent_sessions","limit":0}',
+      '{"type":"list_recent_sessions","limit":501}',
+      '{"type":"list_recent_sessions","limit":1.5}',
+      '{"type":"list_recent_sessions","offset":-1}',
+      '{"type":"list_recent_sessions","offset":100001}',
+      '{"type":"list_recent_sessions","offset":1.5}',
+      '{"type":"list_recent_sessions","projectPath":42}',
+      '{"type":"list_recent_sessions","requestScope":"global"}',
+      '{"type":"list_recent_sessions","requestId":42}',
+      '{"type":"list_recent_sessions","requestId":""}',
+      '{"type":"list_recent_sessions","requestId":"   "}',
+      JSON.stringify({
+        type: "list_recent_sessions",
+        requestId: "r".repeat(129),
+      }),
+      '{"type":"list_recent_sessions","provider":"other"}',
+      '{"type":"list_recent_sessions","namedOnly":"true"}',
+      '{"type":"list_recent_sessions","searchQuery":42}',
+    ];
+
+    for (const raw of invalidMessages) {
+      expect(parseClientMessage(raw), raw).toBeNull();
+    }
   });
 
   it("parses resume_session message", () => {
@@ -683,9 +714,37 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
-  it("parses list_gallery message", () => {
-    const msg = parseClientMessage('{"type":"list_gallery"}');
-    expect(msg).toEqual({ type: "list_gallery" });
+  it("parses correlated list_gallery metadata", () => {
+    const msg = parseClientMessage(
+      '{"type":"list_gallery","projectPath":"/p","project":"/p","sessionId":"session-1","requestId":"gallery-1"}',
+    );
+    expect(msg).toEqual({
+      type: "list_gallery",
+      projectPath: "/p",
+      project: "/p",
+      sessionId: "session-1",
+      requestId: "gallery-1",
+    });
+  });
+
+  it("rejects invalid list_gallery correlation metadata", () => {
+    const invalidMessages = [
+      '{"type":"list_gallery","projectPath":42}',
+      '{"type":"list_gallery","projectPath":""}',
+      '{"type":"list_gallery","project":"/legacy","projectPath":"/canonical"}',
+      '{"type":"list_gallery","sessionId":42}',
+      '{"type":"list_gallery","sessionId":""}',
+      '{"type":"list_gallery","requestId":42}',
+      '{"type":"list_gallery","requestId":""}',
+      JSON.stringify({ type: "list_gallery", projectPath: "p".repeat(4097) }),
+      JSON.stringify({ type: "list_gallery", sessionId: "s".repeat(513) }),
+      JSON.stringify({ type: "list_gallery", requestId: "r".repeat(129) }),
+      '{"type":"list_gallery","unexpected":true}',
+    ];
+
+    for (const raw of invalidMessages) {
+      expect(parseClientMessage(raw), raw).toBeNull();
+    }
   });
 
   it("parses list_files message", () => {

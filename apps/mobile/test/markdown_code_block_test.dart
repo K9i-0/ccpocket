@@ -167,9 +167,7 @@ void main() {
   });
 
   group('AssistantBubble copy behavior with code blocks', () {
-    testWidgets('long press on code block copies only fenced code content', (
-      tester,
-    ) async {
+    testWidgets('copy button copies only fenced code content', (tester) async {
       String? clipboardContent;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
@@ -187,8 +185,8 @@ void main() {
         _wrap(AssistantBubble(message: _messageWithText(markdown))),
       );
 
-      await tester.longPress(
-        find.byKey(const ValueKey('code_block_copy_target_bash')),
+      await tester.tap(
+        find.byKey(const ValueKey('code_block_copy_button_bash')),
       );
       await tester.pumpAndSettle();
 
@@ -197,7 +195,7 @@ void main() {
     });
 
     testWidgets(
-      'long press copies only tapped code block when multiple exist',
+      'copy buttons target their own code block when multiple exist',
       (tester) async {
         String? clipboardContent;
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -217,8 +215,8 @@ void main() {
           _wrap(AssistantBubble(message: _messageWithText(markdown))),
         );
 
-        await tester.longPress(
-          find.byKey(const ValueKey('code_block_copy_target_bash')),
+        await tester.tap(
+          find.byKey(const ValueKey('code_block_copy_button_bash')),
         );
         await tester.pumpAndSettle();
 
@@ -226,6 +224,38 @@ void main() {
         expect(find.text('Copied'), findsOneWidget);
       },
     );
+
+    testWidgets('selectable code has no competing long-press ancestor', (
+      tester,
+    ) async {
+      const markdown = '```bash\necho selectable text\n```';
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+
+      final codeBlock = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'code_block_container_bash_',
+            ),
+      );
+      final selectable = find.descendant(
+        of: codeBlock,
+        matching: find.byType(SelectableText),
+      );
+      expect(selectable, findsOneWidget);
+      final longPressAncestors = tester
+          .widgetList<GestureDetector>(
+            find.ancestor(
+              of: selectable,
+              matching: find.byType(GestureDetector),
+            ),
+          )
+          .where((gesture) => gesture.onLongPress != null);
+
+      expect(longPressAncestors, isEmpty);
+    });
 
     testWidgets('copy button copies entire assistant text content', (
       tester,
