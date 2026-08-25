@@ -410,16 +410,19 @@ class BridgeService implements BridgeServiceBase {
     final previousUrl = _lastUrl;
     final isBridgeSwitch =
         previousUrl != null && !_sameBridgeTarget(previousUrl, url);
+    final isReplacingConnectedSocket = _channel != null && isConnected;
     _connectionEpoch++;
     final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
-    // Replacing a socket invalidates requests already written to that
-    // transport. Clear their correlation and timeout state before the old
-    // callbacks become stale so callers can retry immediately.
-    _clearRecentSessionsRequestState();
-    _clearPendingGalleryRequests();
+    if (isReplacingConnectedSocket) {
+      // Requests written to the old socket cannot complete after its
+      // callbacks become stale. Requests still in the offline queue retain
+      // their correlation state and are flushed once the new socket connects.
+      _clearRecentSessionsRequestState();
+      _clearPendingGalleryRequests();
+    }
     _channelSub?.cancel();
     _channelSub = null;
     _channel?.sink.close();

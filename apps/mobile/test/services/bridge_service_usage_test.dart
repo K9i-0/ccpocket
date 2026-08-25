@@ -2504,6 +2504,44 @@ void main() {
       },
     );
 
+    test('queued gallery remains correlated through initial connect', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] != 'list_gallery') return;
+          socket.add(
+            jsonEncode({
+              'type': 'gallery_list',
+              'images': [
+                _galleryImageJson('offline-image', sessionId: 'session-a'),
+              ],
+              'sessionId': 'session-a',
+              'requestId': json['requestId'],
+            }),
+          );
+        });
+      });
+
+      final bridge = BridgeService(
+        galleryRequestTimeout: const Duration(milliseconds: 500),
+      );
+      final update = bridge.galleryStreamFor(sessionId: 'session-a').first;
+      bridge.requestGallery(sessionId: 'session-a');
+      bridge.connect('ws://127.0.0.1:${server.port}');
+
+      final images = await update.timeout(const Duration(milliseconds: 300));
+      expect(images.single.id, 'offline-image');
+
+      bridge.disconnect();
+      final socket = await socketReady.future;
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test(
       'legacy recent sessions response must match pending project and offset',
       () async {
