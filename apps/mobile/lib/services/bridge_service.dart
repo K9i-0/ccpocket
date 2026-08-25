@@ -420,8 +420,7 @@ class BridgeService implements BridgeServiceBase {
       // Requests written to the old socket cannot complete after its
       // callbacks become stale. Requests still in the offline queue retain
       // their correlation state and are flushed once the new socket connects.
-      _clearRecentSessionsRequestState();
-      _clearPendingGalleryRequests();
+      _clearTransportScopedRequestState();
     }
     _channelSub?.cancel();
     _channelSub = null;
@@ -723,8 +722,7 @@ class BridgeService implements BridgeServiceBase {
           if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
-          _clearRecentSessionsRequestState();
-          _clearPendingGalleryRequests();
+          _clearTransportScopedRequestState();
           _requeueInFlightInputMessages();
           _requeueInFlightPendingMessages();
           _scheduleReconnect();
@@ -732,8 +730,7 @@ class BridgeService implements BridgeServiceBase {
         onDone: () {
           if (epoch != _connectionEpoch) return;
           _channel = null;
-          _clearRecentSessionsRequestState();
-          _clearPendingGalleryRequests();
+          _clearTransportScopedRequestState();
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
             _requeueInFlightInputMessages();
@@ -955,6 +952,7 @@ class BridgeService implements BridgeServiceBase {
       _trackNonReplayableToolAction(message);
       try {
         _channel!.sink.add(message.toJson());
+        _markScopedRequestSent(message);
       } catch (error, stackTrace) {
         _clearNonReplayableToolAction(message);
         logger.warning('WS send failed; queued message', error, stackTrace);
@@ -1986,27 +1984,10 @@ class BridgeService implements BridgeServiceBase {
       queryKey: queryKey,
       projectPath: projectPath,
       offset: offset,
+      requestScope: requestScope,
     );
     _pendingRecentSessionsRequests[scopeKey] = pending;
     _latestRecentSessionsRequestIds[scopeKey] = requestId;
-    pending.timeoutTimer = Timer(recentSessionsRequestTimeout, () {
-      if (!identical(_pendingRecentSessionsRequests[scopeKey], pending)) {
-        return;
-      }
-      _pendingRecentSessionsRequests.remove(scopeKey);
-      if (requestScope != 'project') _appendMode = false;
-      final error = ErrorMessage(
-        message: 'Recent sessions did not load in time',
-        errorCode: 'recent_sessions_failed',
-        path: projectPath,
-        requestId: requestId,
-        requestScope: requestScope,
-        offset: offset,
-      );
-      _taggedMessageController.add((error, null));
-      _messageController.add(error);
-    });
-
     send(
       ClientMessage.listRecentSessions(
         limit: limit,
@@ -2021,6 +2002,30 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
+  void _armRecentSessionsRequestTimeout(
+    String scopeKey,
+    _PendingRecentSessionsRequest pending,
+  ) {
+    if (pending.timeoutTimer != null) return;
+    pending.timeoutTimer = Timer(recentSessionsRequestTimeout, () {
+      if (!identical(_pendingRecentSessionsRequests[scopeKey], pending)) {
+        return;
+      }
+      _pendingRecentSessionsRequests.remove(scopeKey);
+      if (pending.requestScope != 'project') _appendMode = false;
+      final error = ErrorMessage(
+        message: 'Recent sessions did not load in time',
+        errorCode: 'recent_sessions_failed',
+        path: pending.projectPath,
+        requestId: pending.requestId,
+        requestScope: pending.requestScope,
+        offset: pending.offset,
+      );
+      _taggedMessageController.add((error, null));
+      _messageController.add(error);
+    });
+  }
+
   void _clearPendingRecentSessionsRequests() {
     for (final pending in _pendingRecentSessionsRequests.values) {
       pending.timeoutTimer?.cancel();
@@ -2031,6 +2036,64 @@ class BridgeService implements BridgeServiceBase {
   void _clearRecentSessionsRequestState() {
     _clearPendingRecentSessionsRequests();
     _latestRecentSessionsRequestIds.clear();
+  }
+
+  Set<String> _queuedRequestIds(String messageType) {
+    final requestIds = <String>{};
+    for (final message in _messageQueue) {
+      if (message.type != messageType) continue;
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      final requestId = json['requestId'];
+      if (requestId is String) requestIds.add(requestId);
+    }
+    return requestIds;
+  }
+
+  void _markScopedRequestSent(ClientMessage message) {
+    if (message.type != 'list_recent_sessions' &&
+        message.type != 'list_gallery') {
+      return;
+    }
+    final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    final requestId = json['requestId'];
+    if (requestId is! String) return;
+
+    if (message.type == 'list_recent_sessions') {
+      for (final entry in _pendingRecentSessionsRequests.entries) {
+        if (entry.value.requestId != requestId) continue;
+        _armRecentSessionsRequestTimeout(entry.key, entry.value);
+        return;
+      }
+    }
+
+    final pending = _pendingGalleryRequestsById[requestId];
+    if (pending != null) _armGalleryRequestTimeout(pending);
+  }
+
+  void _clearTransportScopedRequestState() {
+    final queuedRecentRequestIds = _queuedRequestIds('list_recent_sessions');
+    for (final entry in _pendingRecentSessionsRequests.entries.toList()) {
+      final pending = entry.value;
+      if (queuedRecentRequestIds.contains(pending.requestId)) continue;
+      pending.timeoutTimer?.cancel();
+      _pendingRecentSessionsRequests.remove(entry.key);
+      if (_latestRecentSessionsRequestIds[entry.key] == pending.requestId) {
+        _latestRecentSessionsRequestIds.remove(entry.key);
+      }
+    }
+
+    final queuedGalleryRequestIds = _queuedRequestIds('list_gallery');
+    for (final pending in _pendingGalleryRequestsById.values.toList()) {
+      if (queuedGalleryRequestIds.contains(pending.requestId)) continue;
+      pending.timeoutTimer?.cancel();
+      _pendingGalleryRequestsById.remove(pending.requestId);
+      if (identical(
+        _pendingGalleryRequestsByScope[pending.scopeKey],
+        pending,
+      )) {
+        _pendingGalleryRequestsByScope.remove(pending.scopeKey);
+      }
+    }
   }
 
   void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
@@ -2506,23 +2569,6 @@ class BridgeService implements BridgeServiceBase {
     );
     _pendingGalleryRequestsById[requestId] = pending;
     _pendingGalleryRequestsByScope[scopeKey] = pending;
-    pending.timeoutTimer = Timer(galleryRequestTimeout, () {
-      if (!identical(_pendingGalleryRequestsByScope[scopeKey], pending)) {
-        return;
-      }
-      _pendingGalleryRequestsById.remove(requestId);
-      _pendingGalleryRequestsByScope.remove(scopeKey);
-      final error = ErrorMessage(
-        message: 'Gallery did not load in time',
-        errorCode: 'gallery_failed',
-        path: projectPath,
-        sessionId: sessionId,
-        requestId: requestId,
-      );
-      _taggedMessageController.add((error, null));
-      _messageController.add(error);
-    });
-
     send(
       ClientMessage.listGallery(
         projectPath: projectPath,
@@ -2530,6 +2576,27 @@ class BridgeService implements BridgeServiceBase {
         requestId: requestId,
       ),
     );
+  }
+
+  void _armGalleryRequestTimeout(_PendingGalleryRequest pending) {
+    if (pending.timeoutTimer != null) return;
+    pending.timeoutTimer = Timer(galleryRequestTimeout, () {
+      final scopeKey = pending.scopeKey;
+      if (!identical(_pendingGalleryRequestsByScope[scopeKey], pending)) {
+        return;
+      }
+      _pendingGalleryRequestsById.remove(pending.requestId);
+      _pendingGalleryRequestsByScope.remove(scopeKey);
+      final error = ErrorMessage(
+        message: 'Gallery did not load in time',
+        errorCode: 'gallery_failed',
+        path: pending.projectPath,
+        sessionId: pending.sessionId,
+        requestId: pending.requestId,
+      );
+      _taggedMessageController.add((error, null));
+      _messageController.add(error);
+    });
   }
 
   void requestWindowList() {
@@ -3180,12 +3247,14 @@ class _PendingRecentSessionsRequest {
     required this.queryKey,
     required this.projectPath,
     required this.offset,
+    required this.requestScope,
   });
 
   final String requestId;
   final String queryKey;
   final String? projectPath;
   final int? offset;
+  final String requestScope;
   Timer? timeoutTimer;
 }
 

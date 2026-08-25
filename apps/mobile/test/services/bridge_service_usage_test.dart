@@ -2543,6 +2543,60 @@ void main() {
     });
 
     test(
+      'queued gallery survives a failed handshake and automatic reconnect',
+      () async {
+        final portProbe = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final port = portProbe.port;
+        await portProbe.close(force: true);
+
+        final bridge = BridgeService(
+          galleryRequestTimeout: const Duration(milliseconds: 100),
+        );
+        final update = bridge.galleryStreamFor(sessionId: 'session-a').first;
+        bridge.requestGallery(sessionId: 'session-a');
+        bridge.connect('ws://127.0.0.1:$port');
+        await bridge.connectionStatus
+            .firstWhere((state) => state == BridgeConnectionState.reconnecting)
+            .timeout(const Duration(seconds: 1));
+
+        final server = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          port,
+        );
+        final socketReady = Completer<WebSocket>();
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] != 'list_gallery') return;
+            socket.add(
+              jsonEncode({
+                'type': 'gallery_list',
+                'images': [
+                  _galleryImageJson('reconnected', sessionId: 'session-a'),
+                ],
+                'sessionId': 'session-a',
+                'requestId': json['requestId'],
+              }),
+            );
+          });
+        });
+
+        final images = await update.timeout(const Duration(seconds: 4));
+        expect(images.single.id, 'reconnected');
+
+        bridge.disconnect();
+        final socket = await socketReady.future;
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
       'legacy recent sessions response must match pending project and offset',
       () async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
