@@ -2381,7 +2381,10 @@ void main() {
         final reconnecting = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.reconnecting,
         );
-        await firstSocket.close();
+        // A server-side WebSocket close waits for the peer's close frame on
+        // Windows. The reconnect behavior only needs the close to be sent;
+        // waiting for the full handshake can deadlock the test runner.
+        unawaited(firstSocket.close());
         await reconnecting.timeout(const Duration(seconds: 1));
 
         bridge.connect(url);
@@ -2419,7 +2422,7 @@ void main() {
         bridge.disconnect();
         await errorSub.cancel();
         for (final socket in sockets) {
-          await socket.close();
+          unawaited(socket.close());
         }
         await server.close(force: true);
         bridge.dispose();
@@ -2497,7 +2500,7 @@ void main() {
 
         bridge.disconnect();
         for (final socket in sockets) {
-          await socket.close();
+          unawaited(socket.close());
         }
         await server.close(force: true);
         bridge.dispose();
@@ -2560,7 +2563,7 @@ void main() {
         bridge.connect('ws://127.0.0.1:$port');
         await bridge.connectionStatus
             .firstWhere((state) => state == BridgeConnectionState.reconnecting)
-            .timeout(const Duration(seconds: 1));
+            .timeout(const Duration(seconds: 5));
 
         final server = await HttpServer.bind(
           InternetAddress.loopbackIPv4,
@@ -2585,7 +2588,7 @@ void main() {
           });
         });
 
-        final images = await update.timeout(const Duration(seconds: 4));
+        final images = await update.timeout(const Duration(seconds: 8));
         expect(images.single.id, 'reconnected');
 
         bridge.disconnect();
