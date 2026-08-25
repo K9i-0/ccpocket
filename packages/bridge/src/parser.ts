@@ -265,7 +265,14 @@ export type ClientMessage =
       additionalWritableRoots?: string[];
       resumeRequestId?: string;
     }
-  | { type: "list_gallery"; project?: string; sessionId?: string }
+  | {
+      type: "list_gallery";
+      /** Legacy alias retained for older app clients. */
+      project?: string;
+      projectPath?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
   | {
       type: "read_file";
       projectPath: string;
@@ -633,6 +640,14 @@ export type ServerMessage =
     }
   | { type: "project_history"; projects: string[] }
   | {
+      type: "gallery_list";
+      images: GalleryImageInfo[];
+      projectPath?: string;
+      sessionId?: string;
+      requestId?: string;
+    }
+  | { type: "gallery_new_image"; image: GalleryImageInfo }
+  | {
       type: "directory_listing";
       path: string;
       directories: Array<{ name: string; path: string }>;
@@ -986,6 +1001,9 @@ function hasValidStartOptions(msg: Record<string, unknown>): boolean {
 const RECENT_SESSIONS_MAX_LIMIT = 500;
 const RECENT_SESSIONS_MAX_OFFSET = 100_000;
 const RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH = 128;
+const GALLERY_MAX_PROJECT_PATH_LENGTH = 4096;
+const GALLERY_MAX_SESSION_ID_LENGTH = 512;
+const GALLERY_MAX_REQUEST_ID_LENGTH = 128;
 
 export function parseClientMessage(data: string): ClientMessage | null {
   try {
@@ -1341,6 +1359,50 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (!hasValidSessionOptions(msg)) return null;
         break;
       case "list_gallery":
+        if (
+          !hasOnlyKeys([
+            "type",
+            "project",
+            "projectPath",
+            "sessionId",
+            "requestId",
+          ])
+        )
+          return null;
+        if (
+          msg.project !== undefined &&
+          (typeof msg.project !== "string" ||
+            msg.project.trim().length === 0 ||
+            msg.project.length > GALLERY_MAX_PROJECT_PATH_LENGTH)
+        )
+          return null;
+        if (
+          msg.projectPath !== undefined &&
+          (typeof msg.projectPath !== "string" ||
+            msg.projectPath.trim().length === 0 ||
+            msg.projectPath.length > GALLERY_MAX_PROJECT_PATH_LENGTH)
+        )
+          return null;
+        if (
+          msg.project !== undefined &&
+          msg.projectPath !== undefined &&
+          msg.project !== msg.projectPath
+        )
+          return null;
+        if (
+          msg.sessionId !== undefined &&
+          (typeof msg.sessionId !== "string" ||
+            msg.sessionId.trim().length === 0 ||
+            msg.sessionId.length > GALLERY_MAX_SESSION_ID_LENGTH)
+        )
+          return null;
+        if (
+          msg.requestId !== undefined &&
+          (typeof msg.requestId !== "string" ||
+            msg.requestId.trim().length === 0 ||
+            msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH)
+        )
+          return null;
         break;
       case "read_file":
         if (typeof msg.projectPath !== "string") return null;

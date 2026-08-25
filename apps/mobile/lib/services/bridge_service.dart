@@ -51,6 +51,7 @@ class BridgeService implements BridgeServiceBase {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
+  final Map<String, _GalleryScopeState> _galleryScopeStates = {};
   final _fileListController = StreamController<List<String>>.broadcast();
   final _fileListMessageController =
       StreamController<FileListMessage>.broadcast();
@@ -152,6 +153,9 @@ class BridgeService implements BridgeServiceBase {
   final Map<String, _PendingRecentSessionsRequest>
   _pendingRecentSessionsRequests = {};
   final Map<String, String> _latestRecentSessionsRequestIds = {};
+  int _nextGalleryRequestId = 0;
+  final Map<String, _PendingGalleryRequest> _pendingGalleryRequestsById = {};
+  final Map<String, _PendingGalleryRequest> _pendingGalleryRequestsByScope = {};
   final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
 
@@ -187,6 +191,18 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
+
+  Stream<List<GalleryImage>> galleryStreamFor({
+    String? projectPath,
+    String? sessionId,
+  }) {
+    if (projectPath == null && sessionId == null) return galleryStream;
+    return _galleryScopeState(
+      projectPath: projectPath,
+      sessionId: sessionId,
+    ).controller.stream;
+  }
+
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
   Stream<bool> get codexAutoReviewPolicyStream =>
@@ -263,6 +279,19 @@ class BridgeService implements BridgeServiceBase {
       _lastRecentSessionsMessage;
   String? get currentProjectFilter => _currentProjectFilter;
   List<GalleryImage> get galleryImages => _galleryImages;
+  List<GalleryImage> galleryImagesFor({
+    String? projectPath,
+    String? sessionId,
+  }) {
+    if (projectPath == null && sessionId == null) return _galleryImages;
+    return _galleryScopeStates[_galleryScopeKey(
+              projectPath: projectPath,
+              sessionId: sessionId,
+            )]
+            ?.images ??
+        const [];
+  }
+
   List<String> get projectHistory => _projectHistory;
   List<String> get allowedDirs => _allowedDirs;
   List<String> get claudeModels => _claudeModels;
@@ -283,6 +312,7 @@ class BridgeService implements BridgeServiceBase {
 
   BridgeService({
     this.recentSessionsRequestTimeout = const Duration(seconds: 10),
+    this.galleryRequestTimeout = const Duration(seconds: 10),
   }) {
     unawaited(_ensureOfflineQueueRestored());
   }
@@ -365,6 +395,7 @@ class BridgeService implements BridgeServiceBase {
       'bridge_offline_pending_messages_v1';
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
   final Duration recentSessionsRequestTimeout;
+  final Duration galleryRequestTimeout;
 
   Future<void>? _offlineQueueRestore;
   int _offlineQueueGeneration = 0;
@@ -490,12 +521,10 @@ class BridgeService implements BridgeServiceBase {
               case PastHistoryMessage():
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
-              case GalleryListMessage(:final images):
-                _galleryImages = images;
-                _galleryController.add(images);
+              case GalleryListMessage():
+                if (!_acceptGalleryResponse(msg)) return;
               case GalleryNewImageMessage(:final image):
-                _galleryImages = [image, ..._galleryImages];
-                _galleryController.add(_galleryImages);
+                _applyGalleryNewImage(image);
               case FileContentMessage():
                 _fileContentController.add(msg);
               case FileListMessage(:final files):
@@ -685,6 +714,7 @@ class BridgeService implements BridgeServiceBase {
           if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
+          _clearPendingGalleryRequests();
           _requeueInFlightInputMessages();
           _requeueInFlightPendingMessages();
           _scheduleReconnect();
@@ -692,6 +722,7 @@ class BridgeService implements BridgeServiceBase {
         onDone: () {
           if (epoch != _connectionEpoch) return;
           _channel = null;
+          _clearPendingGalleryRequests();
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
             _requeueInFlightInputMessages();
@@ -757,8 +788,13 @@ class BridgeService implements BridgeServiceBase {
     _appendMode = false;
     _clearPendingRecentSessionsRequests();
     _latestRecentSessionsRequestIds.clear();
+    _clearPendingGalleryRequests();
     _currentProjectFilter = null;
     _galleryImages = const [];
+    for (final state in _galleryScopeStates.values) {
+      state.images = const [];
+      state.controller.add(const []);
+    }
     _projectHistory = const [];
     _allowedDirs = const [];
     _claudeModels = const [];
@@ -2344,8 +2380,127 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.removeWorktree(projectPath, worktreePath));
   }
 
-  void requestGallery({String? project, String? sessionId}) {
-    send(ClientMessage.listGallery(project: project, sessionId: sessionId));
+  static String _galleryScopeKey({
+    required String? projectPath,
+    required String? sessionId,
+  }) => jsonEncode([projectPath, sessionId]);
+
+  _GalleryScopeState _galleryScopeState({
+    required String? projectPath,
+    required String? sessionId,
+  }) {
+    final key = _galleryScopeKey(
+      projectPath: projectPath,
+      sessionId: sessionId,
+    );
+    return _galleryScopeStates.putIfAbsent(
+      key,
+      () => _GalleryScopeState(projectPath: projectPath, sessionId: sessionId),
+    );
+  }
+
+  bool _acceptGalleryResponse(GalleryListMessage message) {
+    _PendingGalleryRequest? pending;
+    final requestId = message.requestId;
+    if (requestId != null) {
+      pending = _pendingGalleryRequestsById[requestId];
+    } else if (_pendingGalleryRequestsById.length == 1) {
+      pending = _pendingGalleryRequestsById.values.single;
+    }
+    if (pending == null ||
+        pending.projectPath != message.projectPath ||
+        pending.sessionId != message.sessionId ||
+        !identical(_pendingGalleryRequestsByScope[pending.scopeKey], pending)) {
+      return false;
+    }
+
+    pending.timeoutTimer?.cancel();
+    _pendingGalleryRequestsById.remove(pending.requestId);
+    _pendingGalleryRequestsByScope.remove(pending.scopeKey);
+    if (pending.projectPath == null && pending.sessionId == null) {
+      _galleryImages = message.images;
+      _galleryController.add(_galleryImages);
+    } else {
+      final state = _galleryScopeState(
+        projectPath: pending.projectPath,
+        sessionId: pending.sessionId,
+      );
+      state.images = message.images;
+      state.controller.add(state.images);
+    }
+    return true;
+  }
+
+  List<GalleryImage> _prependGalleryImage(
+    List<GalleryImage> images,
+    GalleryImage image,
+  ) => [image, ...images.where((existing) => existing.id != image.id)];
+
+  void _applyGalleryNewImage(GalleryImage image) {
+    _galleryImages = _prependGalleryImage(_galleryImages, image);
+    _galleryController.add(_galleryImages);
+    for (final state in _galleryScopeStates.values) {
+      final matchesProject =
+          state.projectPath == null || state.projectPath == image.projectPath;
+      final matchesSession =
+          state.sessionId == null || state.sessionId == image.sessionId;
+      if (!matchesProject || !matchesSession) continue;
+      state.images = _prependGalleryImage(state.images, image);
+      state.controller.add(state.images);
+    }
+  }
+
+  void _clearPendingGalleryRequests() {
+    for (final pending in _pendingGalleryRequestsById.values) {
+      pending.timeoutTimer?.cancel();
+    }
+    _pendingGalleryRequestsById.clear();
+    _pendingGalleryRequestsByScope.clear();
+  }
+
+  void requestGallery({String? projectPath, String? sessionId}) {
+    final scopeKey = _galleryScopeKey(
+      projectPath: projectPath,
+      sessionId: sessionId,
+    );
+    if (_pendingGalleryRequestsByScope.containsKey(scopeKey)) return;
+    if (projectPath != null || sessionId != null) {
+      _galleryScopeState(projectPath: projectPath, sessionId: sessionId);
+    }
+
+    final requestId = 'gallery-${++_nextGalleryRequestId}';
+    final pending = _PendingGalleryRequest(
+      requestId: requestId,
+      scopeKey: scopeKey,
+      projectPath: projectPath,
+      sessionId: sessionId,
+    );
+    _pendingGalleryRequestsById[requestId] = pending;
+    _pendingGalleryRequestsByScope[scopeKey] = pending;
+    pending.timeoutTimer = Timer(galleryRequestTimeout, () {
+      if (!identical(_pendingGalleryRequestsByScope[scopeKey], pending)) {
+        return;
+      }
+      _pendingGalleryRequestsById.remove(requestId);
+      _pendingGalleryRequestsByScope.remove(scopeKey);
+      final error = ErrorMessage(
+        message: 'Gallery did not load in time',
+        errorCode: 'gallery_failed',
+        path: projectPath,
+        sessionId: sessionId,
+        requestId: requestId,
+      );
+      _taggedMessageController.add((error, null));
+      _messageController.add(error);
+    });
+
+    send(
+      ClientMessage.listGallery(
+        projectPath: projectPath,
+        sessionId: sessionId,
+        requestId: requestId,
+      ),
+    );
   }
 
   void requestWindowList() {
@@ -2839,6 +2994,14 @@ class BridgeService implements BridgeServiceBase {
       if (response.statusCode == 200) {
         _galleryImages = _galleryImages.where((img) => img.id != id).toList();
         _galleryController.add(_galleryImages);
+        for (final state in _galleryScopeStates.values) {
+          final remaining = state.images
+              .where((image) => image.id != id)
+              .toList();
+          if (remaining.length == state.images.length) continue;
+          state.images = remaining;
+          state.controller.add(state.images);
+        }
         return true;
       }
       return false;
@@ -2913,6 +3076,7 @@ class BridgeService implements BridgeServiceBase {
     _reconnectTimer?.cancel();
     _clearPendingRecentSessionsRequests();
     _latestRecentSessionsRequestIds.clear();
+    _clearPendingGalleryRequests();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
       timer.cancel();
     }
@@ -2934,6 +3098,10 @@ class BridgeService implements BridgeServiceBase {
     _sessionStoppedController.close();
     _recentSessionsController.close();
     _galleryController.close();
+    for (final state in _galleryScopeStates.values) {
+      state.controller.close();
+    }
+    _galleryScopeStates.clear();
     _fileListController.close();
     _fileListMessageController.close();
     _projectHistoryController.close();
@@ -2990,6 +3158,31 @@ class _PendingRecentSessionsRequest {
   final String queryKey;
   final String? projectPath;
   final int? offset;
+  Timer? timeoutTimer;
+}
+
+class _GalleryScopeState {
+  _GalleryScopeState({required this.projectPath, required this.sessionId});
+
+  final String? projectPath;
+  final String? sessionId;
+  final StreamController<List<GalleryImage>> controller =
+      StreamController<List<GalleryImage>>.broadcast();
+  List<GalleryImage> images = const [];
+}
+
+class _PendingGalleryRequest {
+  _PendingGalleryRequest({
+    required this.requestId,
+    required this.scopeKey,
+    required this.projectPath,
+    required this.sessionId,
+  });
+
+  final String requestId;
+  final String scopeKey;
+  final String? projectPath;
+  final String? sessionId;
   Timer? timeoutTimer;
 }
 

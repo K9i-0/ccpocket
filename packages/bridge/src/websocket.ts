@@ -5174,20 +5174,27 @@ export class BridgeWebSocketServer {
       }
 
       case "list_gallery": {
+        const projectPath = msg.projectPath ?? msg.project;
         if (this.galleryStore) {
           const images = this.galleryStore.list({
-            projectPath: msg.project,
+            projectPath,
             sessionId: msg.sessionId,
           });
-          this.send(ws, { type: "gallery_list", images } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images,
+            projectPath,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         } else {
-          this.send(ws, { type: "gallery_list", images: [] } as Record<
-            string,
-            unknown
-          >);
+          this.send(ws, {
+            type: "gallery_list",
+            images: [],
+            projectPath,
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
         }
         break;
       }

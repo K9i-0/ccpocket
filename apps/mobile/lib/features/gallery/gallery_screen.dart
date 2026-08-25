@@ -30,6 +30,15 @@ class GalleryScreen extends HookWidget {
   Widget build(BuildContext context) {
     final selectedProject = useState<String?>(null);
     final isSessionMode = sessionId != null;
+    final bridge = context.read<BridgeService>();
+    final scopedGalleryStream = useMemoized(
+      () => bridge.galleryStreamFor(sessionId: sessionId),
+      [bridge, sessionId],
+    );
+    final scopedGallerySnapshot = useStream(
+      scopedGalleryStream,
+      initialData: bridge.galleryImagesFor(sessionId: sessionId),
+    );
     final shell = WorkspaceShellScreen.maybeOf(context);
     final chrome = resolveWorkspacePaneChrome(
       platform: Theme.of(context).platform,
@@ -41,13 +50,15 @@ class GalleryScreen extends HookWidget {
     );
 
     useEffect(() {
-      context.read<BridgeService>().requestGallery(sessionId: sessionId);
+      bridge.requestGallery(sessionId: sessionId);
       return null;
-    }, [sessionId]);
+    }, [bridge, sessionId]);
 
-    final bridge = context.read<BridgeService>();
-    final images = context.watch<GalleryCubit>().state.isNotEmpty
-        ? context.watch<GalleryCubit>().state
+    final globalImages = context.watch<GalleryCubit>().state;
+    final images = isSessionMode
+        ? scopedGallerySnapshot.data ?? const []
+        : globalImages.isNotEmpty
+        ? globalImages
         : bridge.galleryImages;
     final leading = onBack != null
         ? IconButton(

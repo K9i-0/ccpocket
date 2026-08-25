@@ -685,6 +685,43 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("echoes gallery request correlation and canonical project path", async () => {
+    const list = vi.fn().mockReturnValue([]);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      galleryStore: { list } as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "list_gallery",
+        projectPath: "/tmp/project-a",
+        project: "/tmp/project-a",
+        sessionId: "session-a",
+        requestId: "gallery-1",
+      },
+      ws,
+    );
+
+    expect(list).toHaveBeenCalledWith({
+      projectPath: "/tmp/project-a",
+      sessionId: "session-a",
+    });
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "gallery_list",
+      images: [],
+      projectPath: "/tmp/project-a",
+      sessionId: "session-a",
+      requestId: "gallery-1",
+    });
+
+    bridge.close();
+  });
+
   it("resolves a live Claude provider session id to its bridge session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
