@@ -251,43 +251,76 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: appColors.codeBorder),
       ),
-      child: GestureDetector(
-        key: ValueKey('code_block_copy_target_$displayLanguage'),
-        behavior: HitTestBehavior.opaque,
-        onLongPress: () => _copyCodeBlock(context, source),
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.fromLTRB(
-                12,
-                hasExplicitLanguage ? 20 : 12,
-                12,
-                12,
-              ),
-              child: SelectableText.rich(
-                TextSpan(style: baseStyle, children: highlightedSpans),
-                contextMenuBuilder:
-                    googleSearchSelectableTextContextMenuBuilder,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _CodeBlockToolbar(
+            displayLanguage: displayLanguage,
+            hasExplicitLanguage: hasExplicitLanguage,
+            baseStyle: baseStyle,
+            source: source,
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: SelectableText.rich(
+              TextSpan(style: baseStyle, children: highlightedSpans),
+              contextMenuBuilder: googleSearchSelectableTextContextMenuBuilder,
             ),
-            if (hasExplicitLanguage)
-              Positioned(
-                top: 6,
-                right: 8,
-                child: Text(
-                  displayLanguage,
-                  key: ValueKey('code_block_language_$displayLanguage'),
-                  style: baseStyle.copyWith(
-                    fontSize: 10,
-                    letterSpacing: 0.2,
-                    color: Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.52),
-                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CodeBlockToolbar extends StatelessWidget {
+  const _CodeBlockToolbar({
+    required this.displayLanguage,
+    required this.hasExplicitLanguage,
+    required this.baseStyle,
+    required this.source,
+  });
+
+  final String displayLanguage;
+  final bool hasExplicitLanguage;
+  final TextStyle baseStyle;
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtleColor = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: 0.52);
+    return SizedBox(
+      height: 44,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (hasExplicitLanguage)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                displayLanguage,
+                key: ValueKey('code_block_language_$displayLanguage'),
+                style: baseStyle.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 0.2,
+                  color: subtleColor,
                 ),
               ),
-          ],
-        ),
+            ),
+          IconButton(
+            key: ValueKey('code_block_copy_button_$displayLanguage'),
+            tooltip: AppLocalizations.of(context).copy,
+            onPressed: () => _copyCodeBlock(context, source),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            color: subtleColor,
+            icon: const Icon(Icons.content_copy_rounded),
+          ),
+        ],
       ),
     );
   }
