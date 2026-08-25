@@ -690,6 +690,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private authClassification: ClaudeAuthClassification = "unknown";
   private authGeneration = 0;
   private authResolution: Promise<void> = Promise.resolve();
+  private authResolutionPending = false;
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -742,6 +743,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authGeneration += 1;
     this.authClassification = "unknown";
     this.authResolution = Promise.resolve();
+    this.authResolutionPending = false;
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this.permissionModeGeneration += 1;
@@ -880,6 +882,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authGeneration += 1;
     this.authClassification = "unknown";
     this.authResolution = Promise.resolve();
+    this.authResolutionPending = false;
     this.pendingInputQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
@@ -1267,30 +1270,43 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     ).initializationResult;
     if (typeof initializationResult !== "function") return;
 
+    this.authResolutionPending = true;
+    const initializationPromise = Promise.resolve().then(() =>
+      initializationResult.call(queryInstance),
+    );
+    const settlement = (async () => {
+      try {
+        const initialization = await initializationPromise;
+        if (generation !== this.authGeneration) return;
+        this.authResolutionPending = false;
+        this.applyAuthSource(
+          initialization.account?.apiKeySource,
+          generation,
+        );
+      } catch (error) {
+        if (generation !== this.authGeneration) return;
+        this.authResolutionPending = false;
+        console.warn(
+          `[sdk-process] Could not resolve Claude auth source: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    })();
+
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
-      const timeout = new Promise<null>((resolve) => {
+      const timeout = new Promise<false>((resolve) => {
         timeoutId = setTimeout(
-          () => resolve(null),
+          () => resolve(false),
           CLAUDE_AUTH_RESOLUTION_TIMEOUT_MS,
         );
       });
-      const initialization = await Promise.race([
-        initializationResult.call(queryInstance),
+      const settledBeforeTimeout = await Promise.race([
+        settlement.then(() => true as const),
         timeout,
       ]);
-      if (initialization === null) {
+      if (!settledBeforeTimeout && generation === this.authGeneration) {
         console.warn("[sdk-process] Timed out resolving Claude auth source");
-        return;
       }
-      this.applyAuthSource(
-        initialization.account?.apiKeySource,
-        generation,
-      );
-    } catch (error) {
-      console.warn(
-        `[sdk-process] Could not resolve Claude auth source: ${error instanceof Error ? error.message : String(error)}`,
-      );
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
     }
@@ -1357,7 +1373,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           await authResolution;
         }
         if (this.stopped || authGeneration !== this.authGeneration) return;
-        if (this.authClassification === "subscription") {
+        if (
+          this.authClassification !== "api_key" ||
+          this.authResolutionPending
+        ) {
           const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
           serverMsg = withoutCost as ServerMessage;
         }
@@ -1444,6 +1463,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.flushPendingAssistantError();
 
     // Query finished — CLI has completed shutdown including file writes.
+    // Treat natural completion as the end of this auth generation so an
+    // initializationResult that settles after the timeout cannot emit a
+    // second, contradictory terminal event for an already-finished query.
+    this.authGeneration += 1;
+    this.authResolutionPending = false;
+    this.authResolution = Promise.resolve();
     this.queryInstance = null;
 
     // Emit session_end before exit so listeners can re-persist metadata

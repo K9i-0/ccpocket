@@ -1278,12 +1278,134 @@ describe("SdkProcess Claude authentication", () => {
     );
   });
 
+  it("applies late OAuth classification after timeout without leaking cost", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+      let resolveInitialization!: (value: unknown) => void;
+      let finishQuery!: () => void;
+      const initializationResult = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInitialization = resolve;
+          }),
+      );
+      const queryFinished = new Promise<void>((resolve) => {
+        finishQuery = resolve;
+      });
+      const close = vi.fn();
+      mockSdkQuery.mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {
+          yield* authTurn("user", "late-oauth-session");
+          await queryFinished;
+        },
+        close,
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult,
+      });
+
+      const proc = new SdkProcess();
+      const messages: ServerMessage[] = [];
+      const exits: Array<number | null> = [];
+      proc.on("message", (message) => messages.push(message));
+      proc.on("exit", (code) => exits.push(code));
+      proc.start(process.cwd());
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(messages).toContainEqual(
+        expect.objectContaining({ type: "result", subtype: "success" }),
+      );
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+      );
+
+      resolveInitialization({
+        account: { apiKeySource: "oauth" },
+        models: [],
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "claude_oauth_opt_in_required",
+        }),
+      );
+      expect(close).toHaveBeenCalledOnce();
+      expect(exits).toEqual([1]);
+
+      finishQuery();
+      await vi.advanceTimersByTimeAsync(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores late OAuth after the query has naturally finished", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+      let resolveInitialization!: (value: unknown) => void;
+      const initializationResult = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveInitialization = resolve;
+          }),
+      );
+      mockSdkQuery.mockReturnValueOnce({
+        async *[Symbol.asyncIterator]() {
+          yield* authTurn("user", "finished-before-auth-session");
+        },
+        close: vi.fn(),
+        supportedCommands: vi.fn().mockResolvedValue([]),
+        initializationResult,
+      });
+
+      const proc = new SdkProcess();
+      const messages: ServerMessage[] = [];
+      const exits: Array<number | null> = [];
+      proc.on("message", (message) => messages.push(message));
+      proc.on("exit", (code) => exits.push(code));
+      proc.start(process.cwd());
+
+      await vi.advanceTimersByTimeAsync(500);
+      expect(exits).toEqual([0]);
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({ type: "result", cost: expect.any(Number) }),
+      );
+
+      resolveInitialization({
+        account: { apiKeySource: "oauth" },
+        models: [],
+      });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(exits).toEqual([0]);
+      expect(messages).not.toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "claude_oauth_opt_in_required",
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
-    ["rejects", () => Promise.reject(new Error("init unavailable"))],
-    ["times out", () => new Promise<never>(() => {})],
+    {
+      label: "rejects",
+      initializationResult: () => Promise.reject(new Error("init unavailable")),
+      exposesApiCost: true,
+    },
+    {
+      label: "times out",
+      initializationResult: () => new Promise<never>(() => {}),
+      exposesApiCost: false,
+    },
   ])(
-    "does not block a turn when initializationResult $0",
-    async (_label, initializationResult) => {
+    "does not block a turn when initializationResult $label",
+    async ({ initializationResult, exposesApiCost }) => {
       const init = vi.fn(initializationResult);
       const { messages } = await runSdkMessages(
         authTurn("user", "fallback-api-session"),
@@ -1294,7 +1416,15 @@ describe("SdkProcess Claude authentication", () => {
 
       expect(init).toHaveBeenCalledOnce();
       expect(messages).toContainEqual(
-        expect.objectContaining({ type: "result", cost: 4.7011 }),
+        expect.objectContaining({ type: "result", subtype: "success" }),
+      );
+      const result = messages.find(
+        (message) => message.type === "result" && message.subtype === "success",
+      );
+      expect(result).toEqual(
+        exposesApiCost
+          ? expect.objectContaining({ cost: 4.7011 })
+          : expect.not.objectContaining({ cost: expect.any(Number) }),
       );
     },
   );
