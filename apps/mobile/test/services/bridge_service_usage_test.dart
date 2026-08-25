@@ -2398,6 +2398,10 @@ void main() {
         );
         expect(secondRequest['requestId'], isNot(firstRequest['requestId']));
 
+        final recoveredSessions = bridge.recentSessionsStream.firstWhere(
+          (sessions) =>
+              sessions.any((session) => session.sessionId == 'recovered'),
+        );
         sockets[1].add(
           jsonEncode({
             'type': 'recent_sessions',
@@ -2410,7 +2414,7 @@ void main() {
             'requestId': secondRequest['requestId'],
           }),
         );
-        await bridge.recentSessionsStream.first;
+        await recoveredSessions.timeout(const Duration(seconds: 1));
         await Future<void>.delayed(const Duration(milliseconds: 100));
 
         expect(bridge.recentSessions.single.sessionId, 'recovered');
