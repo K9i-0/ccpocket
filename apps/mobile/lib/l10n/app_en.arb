@@ -881,10 +881,13 @@
   },
   "selectFromGallery": "Select from Gallery",
   "pasteFromClipboard": "Paste from Clipboard",
+  "pasteImage": "Paste Image",
 
   "voiceInputLanguage": "Voice Input Language",
   "hideVoiceInput": "Hide voice input button",
   "hideVoiceInputSubtitle": "Useful when using a third-party voice input keyboard",
+  "openGalleryDirectly": "Open gallery directly from image button",
+  "openGalleryDirectlySubtitle": "Skip the attachment menu and start selecting images immediately",
 
   "archive": "Archive",
   "archiveConfirm": "Archive this session?",

@@ -5,6 +5,7 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let appIconChannelName = "ccpocket/app_icon"
   private let platformEnvironmentChannelName = "ccpocket/platform_environment"
+  private let clipboardChannelName = "ccpocket/clipboard"
 
   override func application(
     _ application: UIApplication,
@@ -28,6 +29,13 @@ import UIKit
         binaryMessenger: registrar.messenger()
       )
       channel.setMethodCallHandler(handlePlatformEnvironmentMethodCall)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ClipboardChannel") {
+      let channel = FlutterMethodChannel(
+        name: clipboardChannelName,
+        binaryMessenger: registrar.messenger()
+      )
+      channel.setMethodCallHandler(handleClipboardMethodCall)
     }
   }
 
@@ -74,6 +82,25 @@ import UIKit
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func handleClipboardMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "hasSupportedImage" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+    let supportedTypes = [
+      "com.compuserve.gif",
+      "org.webmproject.webp",
+      "public.png",
+      "public.jpeg",
+    ]
+    result(
+      UIPasteboard.general.contains(
+        pasteboardTypes: supportedTypes,
+        inItemSet: nil
+      )
+    )
   }
 
   private func currentIconId() -> String? {

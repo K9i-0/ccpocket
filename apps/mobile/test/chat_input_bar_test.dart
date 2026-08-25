@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -56,6 +58,9 @@ void main() {
     bool showDollarButton = false,
     DiffSelection? attachedDiffSelection,
     Future<bool> Function()? onPasteImage,
+    Future<void> Function()? onPasteImageFromContextMenu,
+    Future<bool> Function()? hasImageInClipboard,
+    bool supportsShowingSystemContextMenu = false,
     ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
     KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
   }) {
@@ -63,33 +68,48 @@ void main() {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      home: Scaffold(
-        body: ChatInputBar(
-          inputController: inputController,
-          status: status,
-          hasInputText: hasInputText,
-          isInputEmpty: isInputEmpty,
-          isVoiceAvailable: isVoiceAvailable,
-          isRecording: isRecording,
-          onSend: onSend ?? () {},
-          onStop: onStop ?? () {},
-          onInterrupt: onInterrupt ?? () {},
-          onToggleVoice: onToggleVoice ?? () {},
-          onIndent: onIndent ?? () {},
-          onDedent: onDedent ?? () {},
-          canDedent: canDedent,
-          onSlashCommand: onSlashCommand ?? () {},
-          onMention: onMention ?? () {},
-          onDollarMention: onDollarMention,
-          isInMentionContext: isInMentionContext,
-          showDollarButton: showDollarButton,
-          attachedDiffSelection: attachedDiffSelection,
-          onPasteImage: onPasteImage,
-          imagePasteShortcut: imagePasteShortcut,
-          onCompletionKeyEvent: onCompletionKeyEvent,
+      home: MediaQuery(
+        data: MediaQueryData(
+          supportsShowingSystemContextMenu: supportsShowingSystemContextMenu,
+        ),
+        child: Scaffold(
+          body: ChatInputBar(
+            inputController: inputController,
+            status: status,
+            hasInputText: hasInputText,
+            isInputEmpty: isInputEmpty,
+            isVoiceAvailable: isVoiceAvailable,
+            isRecording: isRecording,
+            onSend: onSend ?? () {},
+            onStop: onStop ?? () {},
+            onInterrupt: onInterrupt ?? () {},
+            onToggleVoice: onToggleVoice ?? () {},
+            onIndent: onIndent ?? () {},
+            onDedent: onDedent ?? () {},
+            canDedent: canDedent,
+            onSlashCommand: onSlashCommand ?? () {},
+            onMention: onMention ?? () {},
+            onDollarMention: onDollarMention,
+            isInMentionContext: isInMentionContext,
+            showDollarButton: showDollarButton,
+            attachedDiffSelection: attachedDiffSelection,
+            onPasteImage: onPasteImage,
+            onPasteImageFromContextMenu: onPasteImageFromContextMenu,
+            hasImageInClipboard: hasImageInClipboard,
+            imagePasteShortcut: imagePasteShortcut,
+            onCompletionKeyEvent: onCompletionKeyEvent,
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> probeClipboardForLongPress(WidgetTester tester) async {
+    final listener = tester.widget<Listener>(
+      find.byKey(const ValueKey('message_input_clipboard_listener')),
+    );
+    listener.onPointerDown?.call(const PointerDownEvent());
+    await tester.pump();
   }
 
   group('ChatInputBar', () {
@@ -277,6 +297,145 @@ void main() {
       await tester.pumpWidget(buildSubject());
 
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
+    });
+
+    testWidgets('fallback context menu pastes an image', (tester) async {
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImageFromContextMenu: () async => pasteAttempts++,
+          hasImageInClipboard: () async => true,
+        ),
+      );
+      await probeClipboardForLongPress(tester);
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      final editableTextState = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final menu = textField.contextMenuBuilder!(
+        editableTextState.context,
+        editableTextState,
+      );
+
+      expect(menu, isA<AdaptiveTextSelectionToolbar>());
+      final toolbar = menu as AdaptiveTextSelectionToolbar;
+      final pasteImageItem = toolbar.buttonItems!.singleWhere(
+        (item) => item.label == 'Paste Image',
+      );
+      expect(pasteImageItem.onPressed, isNotNull);
+      pasteImageItem.onPressed?.call();
+      await tester.pump();
+
+      expect(pasteAttempts, 1);
+    });
+
+    testWidgets('iOS system context menu pastes an image', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          supportsShowingSystemContextMenu: true,
+          onPasteImageFromContextMenu: () async => pasteAttempts++,
+          hasImageInClipboard: () async => true,
+        ),
+      );
+      await probeClipboardForLongPress(tester);
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      final editableTextState = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final menu = textField.contextMenuBuilder!(
+        editableTextState.context,
+        editableTextState,
+      );
+
+      expect(menu, isA<SystemContextMenu>());
+      final systemMenu = menu as SystemContextMenu;
+      final pasteImageItem = systemMenu.items
+          .whereType<IOSSystemContextMenuItemCustom>()
+          .singleWhere((item) => item.title == 'Paste Image');
+      pasteImageItem.onPressed();
+      await tester.pump();
+
+      expect(pasteAttempts, 1);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('iOS system context menu hides image paste without an image', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await tester.pumpWidget(
+        buildSubject(
+          supportsShowingSystemContextMenu: true,
+          onPasteImageFromContextMenu: () async {},
+          hasImageInClipboard: () async => false,
+        ),
+      );
+      await probeClipboardForLongPress(tester);
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      final editableTextState = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final menu = textField.contextMenuBuilder!(
+        editableTextState.context,
+        editableTextState,
+      ) as SystemContextMenu;
+
+      expect(
+        menu.items.whereType<IOSSystemContextMenuItemCustom>().where(
+          (item) => item.title == 'Paste Image',
+        ),
+        isEmpty,
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('quick tap ignores an in-flight image clipboard result', (
+      tester,
+    ) async {
+      final clipboardResult = Completer<bool>();
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImageFromContextMenu: () async {},
+          hasImageInClipboard: () => clipboardResult.future,
+        ),
+      );
+      final listener = tester.widget<Listener>(
+        find.byKey(const ValueKey('message_input_clipboard_listener')),
+      );
+
+      listener.onPointerDown?.call(const PointerDownEvent());
+      listener.onPointerUp?.call(const PointerUpEvent());
+      clipboardResult.complete(true);
+      await tester.pump();
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      final editableTextState = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      final menu = textField.contextMenuBuilder!(
+        editableTextState.context,
+        editableTextState,
+      ) as AdaptiveTextSelectionToolbar;
+
+      expect(
+        menu.buttonItems?.where((item) => item.label == 'Paste Image'),
+        isEmpty,
+      );
     });
 
     testWidgets('Android backgrounding releases input focus for IME recovery', (

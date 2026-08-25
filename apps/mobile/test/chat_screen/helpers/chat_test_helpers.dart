@@ -116,16 +116,21 @@ Future<Widget> buildTestClaudeSessionScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
+  bool openGalleryDirectly = false,
 }) => _buildTestSessionScreen(
   bridge: bridge,
+  openGalleryDirectly: openGalleryDirectly,
   child: ClaudeSessionScreen(sessionId: sessionId, projectPath: projectPath),
 );
 
 Future<Widget> _buildTestSessionScreen({
   required MockBridgeService bridge,
   required Widget child,
+  bool openGalleryDirectly = false,
 }) async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    'settings_open_gallery_directly': openGalleryDirectly,
+  });
   final prefs = await SharedPreferences.getInstance();
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -164,10 +169,12 @@ Future<Widget> buildTestChatScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
+  bool openGalleryDirectly = false,
 }) => buildTestClaudeSessionScreen(
   bridge: bridge,
   sessionId: sessionId,
   projectPath: projectPath,
+  openGalleryDirectly: openGalleryDirectly,
 );
 
 Future<Widget> buildTestCodexSessionScreen({

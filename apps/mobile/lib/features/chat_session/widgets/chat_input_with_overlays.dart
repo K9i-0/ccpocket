@@ -25,6 +25,7 @@ import '../../../widgets/slash_command_overlay.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../../settings/state/settings_cubit.dart';
 import '../../../services/draft_service.dart';
+import '../../../services/ios_clipboard_image_availability.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show
@@ -35,6 +36,13 @@ import '../../../widgets/slash_command_sheet.dart'
 import '../state/chat_session_cubit.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
+
+const _supportedClipboardImageFormats = [
+  (format: Formats.gif, mimeType: 'image/gif'),
+  (format: Formats.webp, mimeType: 'image/webp'),
+  (format: Formats.png, mimeType: 'image/png'),
+  (format: Formats.jpeg, mimeType: 'image/jpeg'),
+];
 
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
@@ -95,8 +103,10 @@ class ChatInputWithOverlays extends HookWidget {
     // Voice input
     final voice = useVoiceInput(inputController);
 
+    final settings = context.watch<SettingsCubit>().state;
+
     // Indent settings
-    final indentSize = context.watch<SettingsCubit>().state.indentSize;
+    final indentSize = settings.indentSize;
     final canDedent = useState(false);
 
     // OverlayPortal controllers
@@ -569,15 +579,12 @@ class ChatInputWithOverlays extends HookWidget {
       for (final item in event.session.items) {
         final reader = item.dataReader;
         if (reader == null) continue;
-        for (final format in [Formats.png, Formats.jpeg]) {
-          if (reader.canProvide(format)) {
-            reader.getFile(format, (file) async {
+        for (final imageFormat in _supportedClipboardImageFormats) {
+          if (reader.canProvide(imageFormat.format)) {
+            reader.getFile(imageFormat.format, (file) async {
               try {
                 final bytes = await file.readAll();
-                final mimeType = format == Formats.png
-                    ? 'image/png'
-                    : 'image/jpeg';
-                addImageBytes(bytes, mimeType);
+                addImageBytes(bytes, imageFormat.mimeType);
               } catch (e) {
                 debugPrint('[drop] Failed to read dropped image: $e');
               }
@@ -741,21 +748,17 @@ class ChatInputWithOverlays extends HookWidget {
       try {
         final reader = await clipboard.read();
 
-        // Try PNG first, then JPEG
-        for (final format in [Formats.png, Formats.jpeg]) {
-          if (reader.canProvide(format)) {
-            reader.getFile(format, (file) async {
+        // Prefer original animated/modern formats before raster fallbacks.
+        for (final imageFormat in _supportedClipboardImageFormats) {
+          if (reader.canProvide(imageFormat.format)) {
+            reader.getFile(imageFormat.format, (file) async {
               try {
                 final bytes = await file.readAll();
                 if (context.mounted) {
-                  final mimeType = format == Formats.png
-                      ? 'image/png'
-                      : 'image/jpeg';
-
                   // Add to list (append, not replace)
                   final updated = [
                     ...attachedImages.value,
-                    (bytes: bytes, mimeType: mimeType),
+                    (bytes: bytes, mimeType: imageFormat.mimeType),
                   ];
                   attachedImages.value = updated;
 
@@ -810,15 +813,12 @@ class ChatInputWithOverlays extends HookWidget {
       if (clipboard == null) return false;
       try {
         final reader = await clipboard.read();
-        for (final format in [Formats.png, Formats.jpeg]) {
-          if (reader.canProvide(format)) {
-            reader.getFile(format, (file) async {
+        for (final imageFormat in _supportedClipboardImageFormats) {
+          if (reader.canProvide(imageFormat.format)) {
+            reader.getFile(imageFormat.format, (file) async {
               try {
                 final bytes = await file.readAll();
-                final mimeType = format == Formats.png
-                    ? 'image/png'
-                    : 'image/jpeg';
-                addImageBytes(bytes, mimeType);
+                addImageBytes(bytes, imageFormat.mimeType);
               } catch (e) {
                 debugPrint('[paste] Failed to read clipboard image: $e');
               }
@@ -838,11 +838,19 @@ class ChatInputWithOverlays extends HookWidget {
       if (clipboard == null) return false;
       try {
         final reader = await clipboard.read();
-        return reader.canProvide(Formats.png) ||
-            reader.canProvide(Formats.jpeg);
+        return _supportedClipboardImageFormats.any(
+          (imageFormat) => reader.canProvide(imageFormat.format),
+        );
       } catch (_) {
         return false;
       }
+    }
+
+    Future<bool> hasContextMenuClipboardImage() {
+      if (isIOSPlatform) {
+        return IOSClipboardImageAvailability.hasSupportedImage();
+      }
+      return hasClipboardImage();
     }
 
     Future<void> showAttachOptions() async {
@@ -1024,9 +1032,7 @@ class ChatInputWithOverlays extends HookWidget {
                         attachedImages.value.isNotEmpty ||
                         attachedDiffSelection.value != null),
                 isInputEmpty: isInputEmpty.value,
-                isVoiceAvailable:
-                    !context.watch<SettingsCubit>().state.hideVoiceInput &&
-                    voice.isAvailable,
+                isVoiceAvailable: !settings.hideVoiceInput && voice.isAvailable,
                 isRecording: voice.isRecording,
                 onSend: sendMessage,
                 onStop: stopSession,
@@ -1041,7 +1047,9 @@ class ChatInputWithOverlays extends HookWidget {
                 showDollarButton: isCodex,
                 isInMentionContext: isInMentionContext.value,
                 onShowPromptHistory: showPromptHistory,
-                onAttachImage: showAttachOptions,
+                onAttachImage: settings.openGalleryDirectly
+                    ? pickImageFromGallery
+                    : showAttachOptions,
                 attachedImages: attachedImages.value,
                 onClearImage: clearAttachment,
                 attachedDiffSelection: attachedDiffSelection.value,
@@ -1051,10 +1059,9 @@ class ChatInputWithOverlays extends HookWidget {
                     : null,
                 hintText: hintText,
                 onPasteImage: isDesktopPlatform ? tryPasteImage : null,
-                imagePasteShortcut: context
-                    .watch<SettingsCubit>()
-                    .state
-                    .imagePasteShortcut,
+                onPasteImageFromContextMenu: pasteFromClipboard,
+                hasImageInClipboard: hasContextMenuClipboardImage,
+                imagePasteShortcut: settings.imagePasteShortcut,
                 onCompletionKeyEvent: handleCompletionKeyEvent,
               ),
             ),
@@ -1079,7 +1086,9 @@ Widget _wrapWithDropRegion({
     onDropOver: (event) {
       // Accept copy if any item has an image
       final hasImage = event.session.items.any(
-        (item) => item.canProvide(Formats.png) || item.canProvide(Formats.jpeg),
+        (item) => _supportedClipboardImageFormats.any(
+          (imageFormat) => item.canProvide(imageFormat.format),
+        ),
       );
       return hasImage ? DropOperation.copy : DropOperation.none;
     },

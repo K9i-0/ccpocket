@@ -472,6 +472,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    SwitchListTile(
+                      key: const ValueKey('open_gallery_directly_toggle'),
+                      secondary: Icon(
+                        Icons.photo_library_outlined,
+                        color: cs.primary,
+                      ),
+                      title: Text(l.openGalleryDirectly),
+                      subtitle: Text(l.openGalleryDirectlySubtitle),
+                      value: state.openGalleryDirectly,
+                      onChanged: (value) => context
+                          .read<SettingsCubit>()
+                          .setOpenGalleryDirectly(value),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
                     _TextScaleTile(
                       value: state.textScale,
                       onChanged: (value) =>

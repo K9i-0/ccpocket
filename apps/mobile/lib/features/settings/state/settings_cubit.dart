@@ -48,6 +48,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Also read directly from SharedPreferences in main.dart at startup.
   static const keyShorebirdTrack = 'settings_shorebird_track';
   static const _keyHideVoiceInput = 'settings_hide_voice_input';
+  static const _keyOpenGalleryDirectly = 'settings_open_gallery_directly';
   static const _keyImagePasteShortcut = 'settings_image_paste_shortcut';
   static const _keyGitDiffInteractionMode =
       'settings_git_diff_interaction_mode';
@@ -205,6 +206,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       prefs.getString(_keyCodeFontFamily),
     );
     final hideVoiceInput = prefs.getBool(_keyHideVoiceInput) ?? false;
+    final openGalleryDirectly = prefs.getBool(_keyOpenGalleryDirectly) ?? false;
     final imagePasteShortcut = imagePasteShortcutFromRaw(
       prefs.getString(_keyImagePasteShortcut),
     );
@@ -268,6 +270,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       codeFontSize: codeFontSize.clamp(minCodeFontSize, maxCodeFontSize),
       codeFontFamily: codeFontFamily,
       hideVoiceInput: hideVoiceInput,
+      openGalleryDirectly: openGalleryDirectly,
       imagePasteShortcut: imagePasteShortcut,
       gitDiffInteractionMode: gitDiffInteractionMode,
       gitDiffFocusAutoLandscape: gitDiffFocusAutoLandscape,
@@ -383,6 +386,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setHideVoiceInput(bool hide) {
     _prefs.setBool(_keyHideVoiceInput, hide);
     emit(state.copyWith(hideVoiceInput: hide));
+  }
+
+  void setOpenGalleryDirectly(bool enabled) {
+    _prefs.setBool(_keyOpenGalleryDirectly, enabled);
+    emit(state.copyWith(openGalleryDirectly: enabled));
   }
 
   void setImagePasteShortcut(ImagePasteShortcut shortcut) {

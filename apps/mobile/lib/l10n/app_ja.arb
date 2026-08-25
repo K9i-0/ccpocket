@@ -911,10 +911,13 @@
   },
   "selectFromGallery": "ギャラリーから選択",
   "pasteFromClipboard": "クリップボードから貼付",
+  "pasteImage": "画像をペースト",
 
   "voiceInputLanguage": "音声入力の言語",
   "hideVoiceInput": "音声入力ボタンを非表示",
   "hideVoiceInputSubtitle": "サードパーティの音声入力キーボードを利用する場合に便利",
+  "openGalleryDirectly": "画像ボタンでギャラリーを直接開く",
+  "openGalleryDirectlySubtitle": "添付メニューを表示せず、すぐに画像選択を開始します",
 
   "archive": "アーカイブ",
   "archiveConfirm": "このセッションをアーカイブしますか？",

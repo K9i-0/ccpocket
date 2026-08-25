@@ -252,8 +252,68 @@ void main() {
       expect(textField.controller?.text, '@ccc.dart ');
     });
 
+    patrolWidgetTest('H9: image button uses attachment menu by default', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      await pumpN($.tester);
+
+      await $(#attach_image_button).tap();
+      await pumpN($.tester);
+
+      expect($(#attach_from_gallery), findsOneWidget);
+      expect($(#attach_from_clipboard), findsOneWidget);
+    });
+
+    patrolWidgetTest('H10: direct gallery setting skips attachment menu', (
+      $,
+    ) async {
+      const imagePickerChannel = MethodChannel(
+        'plugins.flutter.io/image_picker',
+      );
+      final imagePickerCalls = <MethodCall>[];
+      $.tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        imagePickerChannel,
+        (call) async {
+          imagePickerCalls.add(call);
+          return <String>[];
+        },
+      );
+      addTearDown(
+        () => $.tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          imagePickerChannel,
+          null,
+        ),
+      );
+
+      await $.pumpWidget(
+        await buildTestChatScreen(bridge: bridge, openGalleryDirectly: true),
+      );
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      await pumpN($.tester);
+
+      await $(#attach_image_button).tap();
+      await pumpN($.tester);
+
+      expect(
+        imagePickerCalls.map((call) => call.method),
+        contains('pickMultiImage'),
+      );
+      expect($(#attach_from_gallery), findsNothing);
+      expect($(#attach_from_clipboard), findsNothing);
+    });
+
     patrolWidgetTest(
-      'H9: Active dollar query refreshes when skills become available',
+      'H11: Active dollar query refreshes when skills become available',
       ($) async {
         await $.pumpWidget(await buildTestCodexSessionScreen(bridge: bridge));
         await pumpN($.tester);

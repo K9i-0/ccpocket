@@ -53,6 +53,12 @@ class ChatInputBar extends StatelessWidget {
   /// Returns true if an image was found and pasted.
   final Future<bool> Function()? onPasteImage;
 
+  /// Callback to paste an image from the text field context menu.
+  final Future<void> Function()? onPasteImageFromContextMenu;
+
+  /// Returns whether the clipboard currently contains a supported image.
+  final Future<bool> Function()? hasImageInClipboard;
+
   /// Shortcut used to attach an image from the clipboard on desktop.
   final ImagePasteShortcut imagePasteShortcut;
 
@@ -88,6 +94,8 @@ class ChatInputBar extends StatelessWidget {
     this.onTapDiffPreview,
     this.hintText,
     this.onPasteImage,
+    this.onPasteImageFromContextMenu,
+    this.hasImageInClipboard,
     this.imagePasteShortcut = ImagePasteShortcut.ctrlV,
     this.onCompletionKeyEvent,
   });
@@ -130,6 +138,8 @@ class ChatInputBar extends StatelessWidget {
             onSend: onSend,
             hasInputText: hasInputText,
             onPasteImage: onPasteImage,
+            onPasteImageFromContextMenu: onPasteImageFromContextMenu,
+            hasImageInClipboard: hasImageInClipboard,
             imagePasteShortcut: imagePasteShortcut,
             onCompletionKeyEvent: onCompletionKeyEvent,
             onIndent: onIndent,
@@ -646,6 +656,8 @@ class _InputTextField extends StatefulWidget {
     required this.onSend,
     required this.hasInputText,
     this.onPasteImage,
+    this.onPasteImageFromContextMenu,
+    this.hasImageInClipboard,
     required this.imagePasteShortcut,
     this.onCompletionKeyEvent,
     this.onIndent,
@@ -660,6 +672,12 @@ class _InputTextField extends StatefulWidget {
   /// Callback to paste an image from clipboard.
   /// Returns true if an image was pasted.
   final Future<bool> Function()? onPasteImage;
+
+  /// Callback to paste an image from the long-press context menu.
+  final Future<void> Function()? onPasteImageFromContextMenu;
+
+  /// Returns whether the clipboard currently contains a supported image.
+  final Future<bool> Function()? hasImageInClipboard;
 
   /// Shortcut used to attach an image from the clipboard on desktop.
   final ImagePasteShortcut imagePasteShortcut;
@@ -682,6 +700,8 @@ class _InputTextFieldState extends State<_InputTextField>
     with WidgetsBindingObserver {
   late final FocusNode _focusNode;
   var _androidImeResetPending = false;
+  var _clipboardProbeGeneration = 0;
+  var _hasImageInClipboard = false;
 
   @override
   void initState() {
@@ -749,6 +769,30 @@ class _InputTextFieldState extends State<_InputTextField>
     } else {
       NativePasteBridge.instance.deactivate(this);
     }
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final generation = ++_clipboardProbeGeneration;
+    _setHasImageInClipboard(false);
+    if (widget.hasImageInClipboard == null) return;
+    unawaited(_refreshClipboardImageAvailability(generation));
+  }
+
+  void _cancelClipboardProbe(PointerEvent event) {
+    _clipboardProbeGeneration++;
+  }
+
+  Future<void> _refreshClipboardImageAvailability(int generation) async {
+    final probe = widget.hasImageInClipboard;
+    if (probe == null) return;
+    final hasImage = await probe();
+    if (!mounted || generation != _clipboardProbeGeneration) return;
+    _setHasImageInClipboard(hasImage);
+  }
+
+  void _setHasImageInClipboard(bool value) {
+    if (_hasImageInClipboard == value) return;
+    setState(() => _hasImageInClipboard = value);
   }
 
   bool _handleNativeTextPaste(String text) {
@@ -991,45 +1035,117 @@ class _InputTextFieldState extends State<_InputTextField>
     );
   }
 
+  Widget _buildContextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    final pasteImage = widget.onPasteImageFromContextMenu;
+    if (SystemContextMenu.isSupportedByField(editableTextState)) {
+      final items = SystemContextMenu.getDefaultItems(editableTextState);
+      if (pasteImage != null && _hasImageInClipboard) {
+        _insertAfterSystemPaste(
+          items,
+          IOSSystemContextMenuItemCustom(
+            title: AppLocalizations.of(context).pasteImage,
+            onPressed: () {
+              unawaited(pasteImage());
+            },
+          ),
+        );
+      }
+      return SystemContextMenu.editableText(
+        editableTextState: editableTextState,
+        items: items,
+      );
+    }
+
+    final items = List<ContextMenuButtonItem>.of(
+      editableTextState.contextMenuButtonItems,
+    );
+    if (pasteImage != null && _hasImageInClipboard) {
+      _insertAfterFlutterPaste(
+        items,
+        ContextMenuButtonItem(
+          label: AppLocalizations.of(context).pasteImage,
+          onPressed: () {
+            editableTextState.hideToolbar();
+            unawaited(pasteImage());
+          },
+        ),
+      );
+    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      buttonItems: items,
+      anchors: editableTextState.contextMenuAnchors,
+    );
+  }
+
+  void _insertAfterSystemPaste(
+    List<IOSSystemContextMenuItem> items,
+    IOSSystemContextMenuItemCustom pasteImageItem,
+  ) {
+    final pasteIndex = items.indexWhere(
+      (item) => item is IOSSystemContextMenuItemPaste,
+    );
+    items.insert(pasteIndex < 0 ? 0 : pasteIndex + 1, pasteImageItem);
+  }
+
+  void _insertAfterFlutterPaste(
+    List<ContextMenuButtonItem> items,
+    ContextMenuButtonItem pasteImageItem,
+  ) {
+    final pasteIndex = items.indexWhere(
+      (item) => item.type == ContextMenuButtonType.paste,
+    );
+    items.insert(pasteIndex < 0 ? 0 : pasteIndex + 1, pasteImageItem);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return TextField(
-      key: const ValueKey('message_input'),
-      focusNode: _focusNode,
-      controller: widget.controller,
-      decoration: InputDecoration(
-        hintText: widget.hintText ?? l.messagePlaceholder,
-        filled: true,
-        fillColor: cs.surfaceContainerLow,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide(
-            color: cs.primary.withValues(alpha: 0.5),
-            width: 1.5,
+    return Listener(
+      key: const ValueKey('message_input_clipboard_listener'),
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _cancelClipboardProbe,
+      onPointerCancel: _cancelClipboardProbe,
+      child: TextField(
+        key: const ValueKey('message_input'),
+        focusNode: _focusNode,
+        controller: widget.controller,
+        decoration: InputDecoration(
+          hintText: widget.hintText ?? l.messagePlaceholder,
+          filled: true,
+          fillColor: cs.surfaceContainerLow,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(
+              color: cs.primary.withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
           ),
         ),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        enabled: widget.status != ProcessStatus.starting,
+        autofillHints: null,
+        maxLines: 6,
+        minLines: 1,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        contextMenuBuilder: _buildContextMenu,
       ),
-      enabled: widget.status != ProcessStatus.starting,
-      autofillHints: null,
-      maxLines: 6,
-      minLines: 1,
-      keyboardType: TextInputType.multiline,
-      textInputAction: TextInputAction.newline,
     );
   }
 }

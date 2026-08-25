@@ -2132,6 +2132,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pasteFromClipboard => '从剪贴板粘贴';
 
   @override
+  String get pasteImage => '粘贴图片';
+
+  @override
   String get voiceInputLanguage => '语音输入语言';
 
   @override
@@ -2139,6 +2142,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get hideVoiceInputSubtitle => '当你使用第三方语音输入键盘时很有帮助';
+
+  @override
+  String get openGalleryDirectly => '点击图片按钮直接打开图库';
+
+  @override
+  String get openGalleryDirectlySubtitle => '跳过附件菜单，立即开始选择图片';
 
   @override
   String get archive => '归档';

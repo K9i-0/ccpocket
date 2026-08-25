@@ -957,10 +957,13 @@
   },
   "selectFromGallery": "从图库选择",
   "pasteFromClipboard": "从剪贴板粘贴",
+  "pasteImage": "粘贴图片",
 
   "voiceInputLanguage": "语音输入语言",
   "hideVoiceInput": "隐藏语音输入按钮",
   "hideVoiceInputSubtitle": "当你使用第三方语音输入键盘时很有帮助",
+  "openGalleryDirectly": "点击图片按钮直接打开图库",
+  "openGalleryDirectlySubtitle": "跳过附件菜单，立即开始选择图片",
 
   "archive": "归档",
   "archiveConfirm": "要归档此会话吗？",

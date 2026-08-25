@@ -4068,6 +4068,12 @@ abstract class AppLocalizations {
   /// **'クリップボードから貼付'**
   String get pasteFromClipboard;
 
+  /// No description provided for @pasteImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像をペースト'**
+  String get pasteImage;
+
   /// No description provided for @voiceInputLanguage.
   ///
   /// In ja, this message translates to:
@@ -4085,6 +4091,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'サードパーティの音声入力キーボードを利用する場合に便利'**
   String get hideVoiceInputSubtitle;
+
+  /// No description provided for @openGalleryDirectly.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像ボタンでギャラリーを直接開く'**
+  String get openGalleryDirectly;
+
+  /// No description provided for @openGalleryDirectlySubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'添付メニューを表示せず、すぐに画像選択を開始します'**
+  String get openGalleryDirectlySubtitle;
 
   /// No description provided for @archive.
   ///

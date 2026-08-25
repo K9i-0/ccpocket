@@ -2157,6 +2157,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pasteFromClipboard => 'クリップボードから貼付';
 
   @override
+  String get pasteImage => '画像をペースト';
+
+  @override
   String get voiceInputLanguage => '音声入力の言語';
 
   @override
@@ -2164,6 +2167,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get hideVoiceInputSubtitle => 'サードパーティの音声入力キーボードを利用する場合に便利';
+
+  @override
+  String get openGalleryDirectly => '画像ボタンでギャラリーを直接開く';
+
+  @override
+  String get openGalleryDirectlySubtitle => '添付メニューを表示せず、すぐに画像選択を開始します';
 
   @override
   String get archive => 'アーカイブ';

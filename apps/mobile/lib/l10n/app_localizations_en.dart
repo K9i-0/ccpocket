@@ -2233,6 +2233,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pasteFromClipboard => 'Paste from Clipboard';
 
   @override
+  String get pasteImage => 'Paste Image';
+
+  @override
   String get voiceInputLanguage => 'Voice Input Language';
 
   @override
@@ -2241,6 +2244,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hideVoiceInputSubtitle =>
       'Useful when using a third-party voice input keyboard';
+
+  @override
+  String get openGalleryDirectly => 'Open gallery directly from image button';
+
+  @override
+  String get openGalleryDirectlySubtitle =>
+      'Skip the attachment menu and start selecting images immediately';
 
   @override
   String get archive => 'Archive';

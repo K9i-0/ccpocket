@@ -892,13 +892,17 @@ void main() {
       final hideVoiceInputTop = tester
           .getTopLeft(find.text(l.hideVoiceInput))
           .dy;
+      final openGalleryDirectlyTop = tester
+          .getTopLeft(find.text(l.openGalleryDirectly))
+          .dy;
       final textDensityTop = tester.getTopLeft(find.text(l.textDensity)).dy;
 
       expect(appIconTop, lessThan(themeTop));
       expect(themeTop, lessThan(languageTop));
       expect(languageTop, lessThan(voiceInputTop));
       expect(voiceInputTop, lessThan(hideVoiceInputTop));
-      expect(hideVoiceInputTop, lessThan(textDensityTop));
+      expect(hideVoiceInputTop, lessThan(openGalleryDirectlyTop));
+      expect(openGalleryDirectlyTop, lessThan(textDensityTop));
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -1596,6 +1600,54 @@ void main() {
       final secondCubit = SettingsCubit(prefs);
       expect(secondCubit.state.imagePasteShortcut, ImagePasteShortcut.commandV);
       await secondCubit.close();
+    });
+  });
+
+  group('Settings direct gallery selection', () {
+    test('defaults to attachment menu and persists enabled value', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final firstCubit = SettingsCubit(prefs);
+
+      expect(firstCubit.state.openGalleryDirectly, isFalse);
+
+      firstCubit.setOpenGalleryDirectly(true);
+      await firstCubit.close();
+
+      final secondCubit = SettingsCubit(prefs);
+      expect(secondCubit.state.openGalleryDirectly, isTrue);
+      await secondCubit.close();
+    });
+
+    testWidgets('toggle updates the setting', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const ValueKey('open_gallery_directly_toggle'));
+      expect(toggle, findsOneWidget);
+      expect(settingsCubit.state.openGalleryDirectly, isFalse);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(settingsCubit.state.openGalleryDirectly, isTrue);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
     });
   });
 }

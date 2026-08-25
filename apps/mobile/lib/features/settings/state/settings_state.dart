@@ -77,6 +77,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether to hide the voice input button in the chat input bar.
     @Default(false) bool hideVoiceInput,
 
+    /// Whether tapping the image button opens the gallery without a menu.
+    @Default(false) bool openGalleryDirectly,
+
     /// Shortcut used to attach images from the clipboard on macOS.
     @Default(ImagePasteShortcut.ctrlV) ImagePasteShortcut imagePasteShortcut,
 

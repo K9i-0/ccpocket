@@ -2171,6 +2171,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get pasteFromClipboard => '클립보드에서 붙여넣기';
 
   @override
+  String get pasteImage => '이미지 붙여넣기';
+
+  @override
   String get voiceInputLanguage => '음성 입력 언어';
 
   @override
@@ -2178,6 +2181,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get hideVoiceInputSubtitle => '타사 음성 입력 키보드를 사용할 때 유용합니다';
+
+  @override
+  String get openGalleryDirectly => '이미지 버튼으로 갤러리 바로 열기';
+
+  @override
+  String get openGalleryDirectlySubtitle => '첨부 메뉴를 건너뛰고 이미지 선택을 바로 시작합니다';
 
   @override
   String get archive => '보관';
