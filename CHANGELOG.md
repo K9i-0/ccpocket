@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.118.1] - 2026-08-25
+
+### Fixed
+- Preserve manual chat position during streaming and keep question and plan cards bounded without stale answers or overflow.
+- Add reliable code-block copy controls and allow Android users to pan gallery images while zoomed.
+- Recover push registration after transient FCM initialization or token failures without duplicating refresh listeners.
+- Correlate recent-session and scoped gallery requests across retries, legacy Bridges, disconnects, socket replacement, and offline queue flushing.
+- Recover timed-out archive requests and clear acknowledged pending session starts without resurrecting stale work after restart.
+- Hide empty recent-session groups and internal provider diagnostics from user-visible chat history.
+
 ## [1.118.0] - 2026-08-25
 
 ### Added
