@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { setupProxy } from "./proxy.js";
 import { platform } from "node:os";
-import { startServer } from "./index.js";
+import { parseBridgePort } from "./bridge-port.js";
 import { getPackageVersion } from "./version.js";
 import { hasFlag, parseCliArgs, parseFlag } from "./cli-args.js";
 
@@ -35,7 +35,7 @@ Options:
                          Public ws:// or wss:// URL used in QR codes
       --no-mdns         Disable mDNS auto-discovery advertisement
       --codex-app-server-mode <mode>
-                         Codex app-server mode: private, managed, or external
+                         Codex app-server mode: private, managed, external, or isolated
       --codex-shared-app-server-url <url>
                          Shared Codex app-server ws:// URL
 
@@ -154,8 +154,17 @@ if (parsed.helpRequested) {
   }
   if (hasFlag(parsed, "no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
 
-  startServer().catch((err) => {
+  try {
+    parseBridgePort();
+  } catch (err) {
     console.error(`[bridge] Failed to start: ${startupErrorMessage(err)}`);
     process.exit(1);
-  });
+  }
+
+  import("./index.js")
+    .then(({ startServer }) => startServer())
+    .catch((err) => {
+      console.error(`[bridge] Failed to start: ${startupErrorMessage(err)}`);
+      process.exit(1);
+    });
 }

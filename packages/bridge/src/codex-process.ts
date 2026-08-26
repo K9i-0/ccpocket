@@ -307,6 +307,7 @@ function codexAppServerStartError(
 
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private transport: CodexTransport | null = null;
+  private appServerFailureReported = false;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private _agentNickname: string | null = null;
@@ -401,6 +402,18 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   get status(): ProcessStatus {
     return this._status;
+  }
+
+  get pendingQuestionCount(): number {
+    let count = 0;
+    for (const pending of this.pendingUserInputs.values()) {
+      if (pending.kind === "questions") count += 1;
+    }
+    return count;
+  }
+
+  get pendingApprovalCount(): number {
+    return this.pendingApprovals.size + (this.pendingPlanCompletion ? 1 : 0);
   }
 
   get isWaitingForInput(): boolean {
@@ -853,6 +866,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     const transport = createCodexTransport(projectPath, this.platform);
     this.transport = transport;
+    this.appServerFailureReported = false;
 
     transport.on("data", (chunk: string) => {
       this.handleStdoutChunk(chunk);
@@ -869,15 +883,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       if (this.stopped) return;
       console.error("[codex-process] app-server process error:", err);
       this.emitMessage(codexAppServerStartError(err));
+      this.appServerFailureReported = true;
       this.setStatus("idle");
-      this.emit("exit", 1);
     });
 
     transport.on("exit", (code) => {
       const exitCode = code ?? 0;
       this.transport = null;
       this.rejectAllPending(new Error("codex app-server exited"));
-      if (!this.stopped && exitCode !== 0) {
+      if (
+        !this.stopped &&
+        exitCode !== 0 &&
+        !this.appServerFailureReported
+      ) {
         this.emitMessage({
           type: "error",
           message: `codex app-server exited with code ${exitCode}`,
@@ -1676,8 +1694,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     } catch (err) {
       if (!this.stopped) {
         const message = codexErrorMessage(err);
+        const errorCode = isCodexThreadWriterConflict(err)
+          ? "writer_conflict"
+          : undefined;
         console.error("[codex-process] bootstrap error:", err);
-        this.emitMessage({ type: "error", message: `Codex error: ${message}` });
+        this.emitMessage({
+          type: "error",
+          message: `Codex error: ${message}`,
+          ...(errorCode ? { errorCode } : {}),
+        });
         this.emitMessage({
           type: "result",
           subtype: "error",

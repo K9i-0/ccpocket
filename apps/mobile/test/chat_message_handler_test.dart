@@ -32,8 +32,8 @@ void main() {
       );
     });
 
-    test('unknown value defaults to idle', () {
-      expect(ProcessStatus.fromString('unknown'), ProcessStatus.idle);
+    test('unknown value remains unknown', () {
+      expect(ProcessStatus.fromString('unknown'), ProcessStatus.unknown);
     });
   });
 

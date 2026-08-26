@@ -69,6 +69,53 @@ export type CodexPermissionsMode =
 
 export type Provider = "claude" | "codex";
 
+export type SessionRecordKind = "live" | "recent" | "history" | "resume";
+export type SessionOrigin = "bridge" | "external" | "disk";
+export type SessionOwner = "bridge" | "external" | "none" | "unknown";
+export type SessionRuntimeStatus =
+  | ProcessStatus
+  | "not_running"
+  | "unknown"
+  | "restarting";
+export type SessionAttachmentState =
+  | "owned"
+  | "external_idle"
+  | "external_active"
+  | "external_unknown"
+  | "unavailable";
+export type SessionCapability =
+  | "read_history"
+  | "refresh"
+  | "resume"
+  | "send_input"
+  | "approve"
+  | "reject"
+  | "answer"
+  | "interrupt"
+  | "stop"
+  | "fork"
+  | "archive";
+export type SessionReadOnlyReason =
+  | "external_owner_active"
+  | "external_owner_unknown"
+  | "bridge_restarting"
+  | "thread_missing"
+  | "path_not_allowed"
+  | "unsupported_operation";
+
+export interface SessionOwnershipProjection {
+  bridgeGeneration: string;
+  bridgeSessionId: string | null;
+  providerThreadId: string | null;
+  recordKind: SessionRecordKind;
+  origin: SessionOrigin;
+  owner: SessionOwner;
+  runtimeStatus: SessionRuntimeStatus;
+  attachmentState: SessionAttachmentState;
+  capabilities: SessionCapability[];
+  readOnlyReason: SessionReadOnlyReason | null;
+}
+
 export type CodexGoalStatus =
   | "active"
   | "paused"
@@ -103,6 +150,7 @@ export type ClientMessage =
       type: "client_capabilities";
       appVersion?: string;
       protocolVersion?: number;
+      sessionOwnershipVersion?: 1;
       supportedServerMessages?: string[];
     }
   | {
@@ -140,6 +188,9 @@ export type ClientMessage =
       type: "input";
       text: string;
       sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
       clientMessageId?: string;
       baseSeq?: number;
       images?: Array<{ base64: string; mimeType: string }>;
@@ -204,13 +255,46 @@ export type ClientMessage =
       id: string;
       clearContext?: boolean;
       sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
     }
-  | { type: "approve_always"; id: string; sessionId?: string }
-  | { type: "reject"; id: string; message?: string; sessionId?: string }
-  | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
+  | {
+      type: "approve_always";
+      id: string;
+      sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+    }
+  | {
+      type: "reject";
+      id: string;
+      message?: string;
+      sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+    }
+  | {
+      type: "answer";
+      toolUseId: string;
+      result: string;
+      sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+    }
   | { type: "install_tool_suggestion"; toolUseId: string; sessionId?: string }
   | { type: "list_sessions" }
-  | { type: "stop_session"; sessionId: string }
+  | {
+      type: "stop_session";
+      /** @deprecated Use bridgeSessionId; retained for one-App-window clients. */
+      sessionId: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+    }
   | {
       type: "rename_session";
       sessionId: string;
@@ -219,7 +303,16 @@ export type ClientMessage =
       providerSessionId?: string;
       projectPath?: string;
     }
-  | { type: "get_history"; sessionId: string }
+  | {
+      type: "get_history";
+      /** @deprecated Bridge runtime or provider thread projection. */
+      sessionId: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+      provider?: Provider;
+      projectPath?: string;
+    }
   | { type: "get_history_delta"; sessionId: string; sinceSeq: number }
   | {
       type: "resolve_session_link";
@@ -241,6 +334,9 @@ export type ClientMessage =
   | {
       type: "resume_session";
       sessionId: string;
+      providerThreadId?: string;
+      bridgeGeneration?: string;
+      expectedOwner?: SessionOwner;
       projectPath: string;
       permissionMode?: PermissionMode;
       executionMode?: ExecutionMode;
@@ -293,7 +389,13 @@ export type ClientMessage =
       filePath: string;
       version: "old" | "new" | "both";
     }
-  | { type: "interrupt"; sessionId?: string }
+  | {
+      type: "interrupt";
+      sessionId?: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+    }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
   | { type: "list_worktrees"; projectPath: string }
@@ -305,7 +407,15 @@ export type ClientMessage =
       mode: "conversation" | "code" | "both";
     }
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
-  | { type: "fork"; sessionId: string; targetUuid: string }
+  | {
+      type: "fork";
+      /** @deprecated Use bridgeSessionId; retained for one-App-window clients. */
+      sessionId: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+      targetUuid: string;
+    }
   | { type: "list_windows" }
   | {
       type: "take_screenshot";
@@ -367,6 +477,9 @@ export type ClientMessage =
   | {
       type: "archive_session";
       sessionId: string;
+      bridgeSessionId?: string;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
       provider: Provider;
       projectPath: string;
     }
@@ -447,6 +560,7 @@ export interface DebugTraceEvent {
 export interface CodexCliJoinTarget {
   url: string;
   command: string;
+  remoteAuthTokenEnv: string;
 }
 
 export type ServerMessage =
@@ -516,6 +630,16 @@ export type ServerMessage =
       resumeRequestId?: string;
       tipCode?: string;
       codexCliJoin?: CodexCliJoinTarget;
+      bridgeGeneration?: string;
+      bridgeSessionId?: string | null;
+      providerThreadId?: string | null;
+      recordKind?: SessionRecordKind;
+      origin?: SessionOrigin;
+      owner?: SessionOwner;
+      runtimeStatus?: SessionRuntimeStatus;
+      attachmentState?: SessionAttachmentState;
+      capabilities?: SessionCapability[];
+      readOnlyReason?: SessionReadOnlyReason | null;
     }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | {
@@ -558,6 +682,12 @@ export type ServerMessage =
       message: string;
       errorCode?: string;
       sessionId?: string;
+      operation?: string;
+      bridgeSessionId?: string | null;
+      providerThreadId?: string | null;
+      bridgeGeneration?: string;
+      retryable?: boolean;
+      recoveryAction?: string;
       toolUseId?: string;
       path?: string;
       requestId?: string;
@@ -576,9 +706,18 @@ export type ServerMessage =
       requestId: string;
       sourceSessionId: string;
       status: "live" | "recent" | "unavailable";
-      bridgeSessionId?: string;
+      bridgeSessionId?: string | null;
       provider?: Provider;
       recentSession?: Record<string, unknown>;
+      bridgeGeneration?: string;
+      providerThreadId?: string | null;
+      recordKind?: SessionRecordKind;
+      origin?: SessionOrigin;
+      owner?: SessionOwner;
+      runtimeStatus?: SessionRuntimeStatus;
+      attachmentState?: SessionAttachmentState;
+      capabilities?: SessionCapability[];
+      readOnlyReason?: SessionReadOnlyReason | null;
     }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
@@ -1009,6 +1148,29 @@ export function parseClientMessage(data: string): ClientMessage | null {
   try {
     const msg = JSON.parse(data) as Record<string, unknown>;
     if (!msg.type || typeof msg.type !== "string") return null;
+    if (
+      msg.bridgeSessionId !== undefined &&
+      typeof msg.bridgeSessionId !== "string"
+    )
+      return null;
+    if (
+      msg.bridgeGeneration !== undefined &&
+      typeof msg.bridgeGeneration !== "string"
+    )
+      return null;
+    if (
+      msg.providerThreadId !== undefined &&
+      msg.providerThreadId !== null &&
+      typeof msg.providerThreadId !== "string"
+    )
+      return null;
+    if (
+      msg.expectedOwner !== undefined &&
+      !["bridge", "external", "none", "unknown"].includes(
+        String(msg.expectedOwner),
+      )
+    )
+      return null;
     const hasOnlyKeys = (allowedKeys: readonly string[]): boolean => {
       const allowed = new Set(allowedKeys);
       return Object.keys(msg).every((key) => allowed.has(key));
@@ -1049,6 +1211,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
     switch (msg.type) {
       case "client_capabilities":
         if (msg.appVersion !== undefined && typeof msg.appVersion !== "string")
+          return null;
+        if (
+          msg.sessionOwnershipVersion !== undefined &&
+          msg.sessionOwnershipVersion !== 1
+        )
           return null;
         if (
           msg.protocolVersion !== undefined &&
@@ -1270,6 +1437,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_history":
         if (typeof msg.sessionId !== "string") return null;
+        if (
+          msg.provider !== undefined &&
+          msg.provider !== "claude" &&
+          msg.provider !== "codex"
+        )
+          return null;
+        if (
+          msg.projectPath !== undefined &&
+          typeof msg.projectPath !== "string"
+        )
+          return null;
         break;
       case "get_history_delta":
         if (typeof msg.sessionId !== "string") return null;

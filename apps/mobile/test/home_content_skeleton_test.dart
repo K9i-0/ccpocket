@@ -12,8 +12,10 @@ import 'package:ccpocket/services/in_app_review_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/session_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -101,6 +103,14 @@ Widget _buildHomeContent({
   bool isInitialLoading = false,
   bool showMacOSNativeAppBanner = false,
   VoidCallback? onDismissMacOSNativeAppBanner,
+  ValueChanged<SessionInfo>? onTapRunning,
+  ValueChanged<String>? onStopSession,
+  ValueChanged<RecentSession>? onResumeSession,
+  void Function(RecentSession session, Offset? position)?
+  onLongPressRecentSession,
+  ValueChanged<RecentSession>? onArchiveSession,
+  void Function(SessionInfo session, Offset? position)?
+  onLongPressRunningSession,
   required SessionListCubit cubit,
   required DraftService draftService,
   required RevenueCatService revenueCatService,
@@ -136,22 +146,12 @@ Widget _buildHomeContent({
             hasMoreSessions: hasMoreSessions,
             currentProjectFilter: currentProjectFilter,
             onNewSession: () {},
-            onTapRunning: (
-              id, {
-              projectPath,
-              gitBranch,
-              worktreePath,
-              provider,
-              permissionMode,
-              sandboxMode,
-              approvalPolicy,
-              approvalsReviewer,
-            }) {},
-            onStopSession: (_) {},
-            onResumeSession: (_) {},
-            onLongPressRecentSession: (_, _) {},
-            onArchiveSession: (_) {},
-            onLongPressRunningSession: (_, _) {},
+            onTapRunning: onTapRunning ?? (_) {},
+            onStopSession: onStopSession ?? (_) {},
+            onResumeSession: onResumeSession ?? (_) {},
+            onLongPressRecentSession: onLongPressRecentSession ?? (_, _) {},
+            onArchiveSession: onArchiveSession ?? (_) {},
+            onLongPressRunningSession: onLongPressRunningSession ?? (_, _) {},
             onSelectProject: (_) {},
             onLoadMore: () {},
             onLoadMoreProject: (_) {},
@@ -201,6 +201,157 @@ void main() {
   });
 
   group('HomeContent skeleton', () {
+    testWidgets(
+      'preserves session identity through card, context, and Slidable actions',
+      (tester) async {
+        final ownership = SessionOwnershipProjection.fromJson({
+          'bridgeGeneration': 'generation-1',
+          'bridgeSessionId': 'running-1',
+          'providerThreadId': 'thread-1',
+          'recordKind': 'live',
+          'origin': 'bridge',
+          'owner': 'bridge',
+          'runtimeStatus': 'running',
+          'attachmentState': 'owned',
+          'capabilities': ['read_history', 'refresh', 'stop'],
+          'readOnlyReason': null,
+        });
+        final running = SessionInfo.fromJson({
+          'id': 'running-1',
+          'provider': 'codex',
+          'projectPath': '/home/user/project-a',
+          'status': 'running',
+          'createdAt': '2025-01-01T12:00:00Z',
+          'lastActivityAt': '2025-01-01T12:00:00Z',
+          'bridgeGeneration': ownership.bridgeGeneration,
+          'bridgeSessionId': ownership.bridgeSessionId,
+          'providerThreadId': ownership.providerThreadId,
+          'recordKind': 'live',
+          'origin': 'bridge',
+          'owner': 'bridge',
+          'runtimeStatus': 'running',
+          'attachmentState': 'owned',
+          'capabilities': ['read_history', 'refresh', 'stop'],
+          'readOnlyReason': null,
+        });
+        final recent = RecentSession.fromJson({
+          'sessionId': 'recent-1',
+          'provider': 'codex',
+          'firstPrompt': 'Recent prompt',
+          'created': '2025-01-01T00:00:00Z',
+          'modified': '2025-01-01T00:00:00Z',
+          'gitBranch': 'main',
+          'projectPath': '/home/user/project-a',
+          'isSidechain': false,
+          'bridgeGeneration': 'generation-1',
+          'bridgeSessionId': null,
+          'providerThreadId': 'recent-1',
+          'recordKind': 'recent',
+          'origin': 'external',
+          'owner': 'external',
+          'runtimeStatus': 'idle',
+          'attachmentState': 'external_idle',
+          'capabilities': ['read_history', 'refresh', 'resume', 'archive'],
+          'readOnlyReason': null,
+        });
+        SessionInfo? tappedRunning;
+        SessionInfo? contextRunning;
+        String? stoppedSessionId;
+        RecentSession? tappedRecent;
+        RecentSession? contextRecent;
+        RecentSession? archivedRecent;
+
+        await tester.pumpWidget(
+          _buildHomeContent(
+            sessions: [running],
+            recentSessions: [recent],
+            onTapRunning: (session) => tappedRunning = session,
+            onStopSession: (sessionId) => stoppedSessionId = sessionId,
+            onResumeSession: (session) => tappedRecent = session,
+            onLongPressRunningSession: (session, _) => contextRunning = session,
+            onLongPressRecentSession: (session, _) => contextRecent = session,
+            onArchiveSession: (session) => archivedRecent = session,
+            cubit: cubit,
+            draftService: draftService,
+            revenueCatService: revenueCatService,
+            supportBannerService: supportBannerService,
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byType(RunningSessionCard));
+        await tester.longPress(find.byType(RunningSessionCard));
+        final runningSlidable = find.byKey(
+          const ValueKey('running_session_running-1'),
+        );
+        final runningAction =
+            tester
+                    .widget<Slidable>(runningSlidable)
+                    .endActionPane!
+                    .children
+                    .single
+                as CustomSlidableAction;
+        runningAction.onPressed?.call(tester.element(runningSlidable));
+
+        await tester.ensureVisible(find.byType(RecentSessionCard));
+        await tester.tap(find.byType(RecentSessionCard));
+        await tester.longPress(find.byType(RecentSessionCard));
+        final recentSlidable = find.byKey(
+          const ValueKey('recent_session_recent-1'),
+        );
+        final recentAction =
+            tester
+                    .widget<Slidable>(recentSlidable)
+                    .endActionPane!
+                    .children
+                    .single
+                as CustomSlidableAction;
+        recentAction.onPressed?.call(tester.element(recentSlidable));
+
+        expect(tappedRunning, same(running));
+        expect(contextRunning, same(running));
+        expect(tappedRunning!.ownership!.bridgeGeneration, 'generation-1');
+        expect(stoppedSessionId, 'running-1');
+        expect(tappedRecent, same(recent));
+        expect(contextRecent, same(recent));
+        expect(archivedRecent, same(recent));
+      },
+    );
+
+    testWidgets('hides mutation actions without advertised capabilities', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          sessions: [_runningSession(id: 'running-no-owner')],
+          recentSessions: [_session(id: 'recent-no-owner')],
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      final runningSlidable = tester.widget<Slidable>(
+        find.byKey(const ValueKey('running_session_running-no-owner')),
+      );
+      final recentSlidable = tester.widget<Slidable>(
+        find.byKey(const ValueKey('recent_session_recent-no-owner')),
+      );
+      final runningCard = tester.widget<RunningSessionCard>(
+        find.byType(RunningSessionCard),
+      );
+
+      expect(runningSlidable.endActionPane, isNull);
+      expect(recentSlidable.endActionPane, isNull);
+      expect(runningCard.onStop, isNull);
+      expect(runningCard.onApprove, isNull);
+      expect(runningCard.onApproveAlways, isNull);
+      expect(runningCard.onReject, isNull);
+      expect(runningCard.onAnswer, isNull);
+    });
+
     testWidgets('shows Skeletonizer when isInitialLoading is true and '
         'no sessions exist', (tester) async {
       final semantics = tester.ensureSemantics();

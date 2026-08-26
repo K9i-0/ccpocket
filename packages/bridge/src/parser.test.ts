@@ -519,6 +519,29 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_sessions" });
   });
 
+  it("validates ownership-v1 mutation identity fields", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"input","text":"hello","sessionId":"legacy-runtime","bridgeSessionId":"runtime-1","bridgeGeneration":"generation-1","providerThreadId":"thread-1"}',
+      ),
+    ).toMatchObject({
+      type: "input",
+      bridgeSessionId: "runtime-1",
+      bridgeGeneration: "generation-1",
+      providerThreadId: "thread-1",
+    });
+    expect(
+      parseClientMessage(
+        '{"type":"input","text":"hello","bridgeSessionId":42,"bridgeGeneration":"generation-1","providerThreadId":null}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"client_capabilities","sessionOwnershipVersion":2}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses stop_session message", () => {
     const msg = parseClientMessage('{"type":"stop_session","sessionId":"s1"}');
     expect(msg).toEqual({ type: "stop_session", sessionId: "s1" });

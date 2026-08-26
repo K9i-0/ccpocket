@@ -65,9 +65,10 @@ void main() {
         );
         await pumpN($.tester);
 
-        // Bridge responds with session_created (clearContext)
+        // Bridge acknowledges the approval before creating the cleared session.
         await ChatTestScenario($, bridge)
             .emit([
+              const PermissionResolvedMessage(toolUseId: 'tool-exit-1'),
               const SystemMessage(
                 subtype: 'session_created',
                 sessionId: 'new-session-id',

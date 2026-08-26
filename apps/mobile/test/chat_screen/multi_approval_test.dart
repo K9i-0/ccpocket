@@ -141,7 +141,9 @@ void main() {
       expect(approveMessages, hasLength(3));
     });
 
-    patrolWidgetTest('B4: Reject clears all pending', ($) async {
+    patrolWidgetTest('B4: Reject waits for ack then shows next pending', (
+      $,
+    ) async {
       await setupMultiApproval($, bridge);
 
       // Verify approval bar is showing
@@ -151,12 +153,24 @@ void main() {
       await $.tester.tap(find.byKey(const ValueKey('reject_button')));
       await pumpN($.tester);
 
-      // ApprovalBar should be completely gone (all pending cleared, not next)
-      expect(find.byType(ApprovalBar), findsNothing);
-
       // Verify a 'reject' message was sent
       final rejectMessage = findSentMessage(bridge, 'reject');
       expect(rejectMessage, isNotNull);
+      expect(rejectMessage!['id'], 'tool-2');
+
+      // The current request remains visible until the bridge acknowledges it.
+      expect(find.byType(ApprovalBar), findsOneWidget);
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-2'),
+      ]);
+
+      // The remaining pending request is shown after the acknowledgement.
+      expect(find.byType(ApprovalBar), findsOneWidget);
+      await $.tester.tap(find.byKey(const ValueKey('approve_button')));
+      await pumpN($.tester);
+      final approveMessage = findSentMessage(bridge, 'approve');
+      expect(approveMessage, isNotNull);
+      expect(approveMessage!['id'], 'tool-1');
     });
   });
 }

@@ -158,12 +158,15 @@ void main() {
       await $.tester.tap(find.text('React'));
       await pumpN($.tester);
 
-      // After answering a single question the cubit resets approval state,
-      // removing AskUserQuestionWidget from the tree. Verify the answer was
-      // sent and the widget is no longer displayed.
+      // The answer remains pending until the bridge acknowledges resolution.
       final msg = findSentMessage(bridge, 'answer');
       expect(msg, isNotNull);
       expect(msg!['result'], 'React');
+      expect($(AskUserQuestionWidget), findsOneWidget);
+
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'ask-5'),
+      ]);
       expect($(AskUserQuestionWidget), findsNothing);
     });
 

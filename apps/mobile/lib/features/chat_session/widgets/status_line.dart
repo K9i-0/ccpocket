@@ -73,6 +73,7 @@ class _StatusLineState extends State<StatusLine>
       ProcessStatus.running => appColors.statusRunning,
       ProcessStatus.waitingApproval => appColors.statusApproval,
       ProcessStatus.compacting => appColors.statusCompacting,
+      ProcessStatus.unknown => appColors.subtleText,
     };
 
     return AnimatedBuilder(

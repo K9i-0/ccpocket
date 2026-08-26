@@ -105,7 +105,8 @@ enum ProcessStatus {
   idle,
   running,
   waitingApproval,
-  compacting;
+  compacting,
+  unknown;
 
   static ProcessStatus fromString(String value) {
     return switch (value) {
@@ -114,9 +115,344 @@ enum ProcessStatus {
       'running' => ProcessStatus.running,
       'waiting_approval' => ProcessStatus.waitingApproval,
       'compacting' => ProcessStatus.compacting,
-      _ => ProcessStatus.idle,
+      _ => ProcessStatus.unknown,
     };
   }
+}
+
+enum SessionRecordKind {
+  live,
+  recent,
+  history,
+  resume,
+  unavailable;
+
+  static SessionRecordKind fromString(Object? value) => switch (value) {
+    'live' => live,
+    'recent' => recent,
+    'history' => history,
+    'resume' => resume,
+    _ => unavailable,
+  };
+}
+
+enum SessionOrigin {
+  bridge,
+  external,
+  disk,
+  unknown;
+
+  static SessionOrigin fromString(Object? value) => switch (value) {
+    'bridge' => bridge,
+    'external' => external,
+    'disk' => disk,
+    _ => unknown,
+  };
+}
+
+enum SessionOwner {
+  bridge,
+  external,
+  none,
+  unknown;
+
+  static SessionOwner fromString(Object? value) => switch (value) {
+    'bridge' => bridge,
+    'external' => external,
+    'none' => none,
+    _ => unknown,
+  };
+
+  String get wireValue => switch (this) {
+    bridge => 'bridge',
+    external => 'external',
+    none => 'none',
+    unknown => 'unknown',
+  };
+}
+
+enum SessionRuntimeStatus {
+  starting,
+  idle,
+  running,
+  waitingApproval,
+  compacting,
+  notRunning,
+  restarting,
+  unknown;
+
+  static SessionRuntimeStatus fromString(Object? value) => switch (value) {
+    'starting' => starting,
+    'idle' => idle,
+    'running' => running,
+    'waiting_approval' => waitingApproval,
+    'compacting' => compacting,
+    'not_running' => notRunning,
+    'restarting' => restarting,
+    _ => unknown,
+  };
+}
+
+enum SessionAttachmentState {
+  owned,
+  externalIdle,
+  externalActive,
+  externalUnknown,
+  unavailable;
+
+  static SessionAttachmentState fromString(Object? value) => switch (value) {
+    'owned' => owned,
+    'external_idle' => externalIdle,
+    'external_active' => externalActive,
+    'external_unknown' => externalUnknown,
+    _ => unavailable,
+  };
+}
+
+enum SessionCapability {
+  readHistory('read_history'),
+  refresh('refresh'),
+  resume('resume'),
+  sendInput('send_input'),
+  approve('approve'),
+  reject('reject'),
+  answer('answer'),
+  interrupt('interrupt'),
+  stop('stop'),
+  fork('fork'),
+  archive('archive');
+
+  final String wireValue;
+  const SessionCapability(this.wireValue);
+
+  static SessionCapability? fromString(Object? value) {
+    for (final capability in values) {
+      if (capability.wireValue == value) return capability;
+    }
+    return null;
+  }
+}
+
+enum SessionReadOnlyReason {
+  externalOwnerActive,
+  externalOwnerUnknown,
+  bridgeRestarting,
+  threadMissing,
+  pathNotAllowed,
+  unsupportedOperation,
+  unknown;
+
+  static SessionReadOnlyReason? fromString(Object? value) => switch (value) {
+    null => null,
+    'external_owner_active' => externalOwnerActive,
+    'external_owner_unknown' => externalOwnerUnknown,
+    'bridge_restarting' => bridgeRestarting,
+    'thread_missing' => threadMissing,
+    'path_not_allowed' => pathNotAllowed,
+    'unsupported_operation' => unsupportedOperation,
+    _ => unknown,
+  };
+}
+
+enum SessionOwnershipRoute {
+  ownedAttach,
+  externalIdleResume,
+  readOnlyHistory,
+  unavailable,
+}
+
+class SessionOwnershipProjection {
+  final String bridgeGeneration;
+  final String? bridgeSessionId;
+  final String? providerThreadId;
+  final SessionRecordKind recordKind;
+  final SessionOrigin origin;
+  final SessionOwner owner;
+  final SessionRuntimeStatus runtimeStatus;
+  final SessionAttachmentState attachmentState;
+  final Set<SessionCapability> capabilities;
+  final SessionReadOnlyReason? readOnlyReason;
+  final bool wireValid;
+
+  const SessionOwnershipProjection._({
+    required this.bridgeGeneration,
+    required this.bridgeSessionId,
+    required this.providerThreadId,
+    required this.recordKind,
+    required this.origin,
+    required this.owner,
+    required this.runtimeStatus,
+    required this.attachmentState,
+    required this.capabilities,
+    required this.readOnlyReason,
+    required this.wireValid,
+  });
+
+  factory SessionOwnershipProjection.fromJson(Map<String, dynamic> json) {
+    final rawCapabilities = json['capabilities'];
+    final capabilities = <SessionCapability>{};
+    var capabilitiesValid = rawCapabilities is List;
+    if (rawCapabilities is List) {
+      for (final raw in rawCapabilities) {
+        final capability = SessionCapability.fromString(raw);
+        if (capability == null) {
+          capabilitiesValid = false;
+        } else {
+          capabilities.add(capability);
+        }
+      }
+    }
+    final recordKind = SessionRecordKind.fromString(json['recordKind']);
+    final origin = SessionOrigin.fromString(json['origin']);
+    final owner = SessionOwner.fromString(json['owner']);
+    final runtimeStatus = SessionRuntimeStatus.fromString(
+      json['runtimeStatus'],
+    );
+    final attachmentState = SessionAttachmentState.fromString(
+      json['attachmentState'],
+    );
+    final readOnlyReason = SessionReadOnlyReason.fromString(
+      json['readOnlyReason'],
+    );
+    final generation = json['bridgeGeneration'] is String
+        ? json['bridgeGeneration'] as String
+        : '';
+    final bridgeSessionId = json['bridgeSessionId'];
+    final providerThreadId = json['providerThreadId'];
+    const runtimeValues = <String>{
+      'starting',
+      'idle',
+      'running',
+      'waiting_approval',
+      'compacting',
+      'not_running',
+      'restarting',
+      'unknown',
+    };
+    const ownerValues = <String>{'bridge', 'external', 'none', 'unknown'};
+    final wireValid =
+        generation.isNotEmpty &&
+        (bridgeSessionId == null || bridgeSessionId is String) &&
+        (providerThreadId == null || providerThreadId is String) &&
+        recordKind != SessionRecordKind.unavailable &&
+        origin != SessionOrigin.unknown &&
+        ownerValues.contains(json['owner']) &&
+        runtimeValues.contains(json['runtimeStatus']) &&
+        attachmentState != SessionAttachmentState.unavailable &&
+        capabilitiesValid &&
+        readOnlyReason != SessionReadOnlyReason.unknown;
+    return SessionOwnershipProjection._(
+      bridgeGeneration: generation,
+      bridgeSessionId: bridgeSessionId is String ? bridgeSessionId : null,
+      providerThreadId: providerThreadId is String ? providerThreadId : null,
+      recordKind: recordKind,
+      origin: origin,
+      owner: owner,
+      runtimeStatus: runtimeStatus,
+      attachmentState: attachmentState,
+      capabilities: Set.unmodifiable(capabilities),
+      readOnlyReason: readOnlyReason,
+      wireValid: wireValid,
+    );
+  }
+
+  bool can(SessionCapability capability) => capabilities.contains(capability);
+
+  SessionOwnershipRoute routeForProvider(String? provider) {
+    if (!wireValid ||
+        (provider != Provider.claude.value &&
+            provider != Provider.codex.value)) {
+      return SessionOwnershipRoute.unavailable;
+    }
+    return switch (attachmentState) {
+      SessionAttachmentState.owned
+          when origin == SessionOrigin.bridge &&
+              owner == SessionOwner.bridge &&
+              bridgeSessionId?.isNotEmpty == true &&
+              can(SessionCapability.readHistory) =>
+        SessionOwnershipRoute.ownedAttach,
+      SessionAttachmentState.externalIdle
+          when can(SessionCapability.resume) &&
+              providerThreadId?.isNotEmpty == true =>
+        SessionOwnershipRoute.externalIdleResume,
+      SessionAttachmentState.externalActive ||
+      SessionAttachmentState.externalUnknown
+          when can(SessionCapability.readHistory) =>
+        SessionOwnershipRoute.readOnlyHistory,
+      _ => SessionOwnershipRoute.unavailable,
+    };
+  }
+}
+
+SessionOwnershipProjection? _sessionOwnershipFromJson(
+  Map<String, dynamic> json,
+) {
+  const ownershipKeys = <String>{
+    'bridgeGeneration',
+    'bridgeSessionId',
+    'providerThreadId',
+    'recordKind',
+    'origin',
+    'owner',
+    'runtimeStatus',
+    'attachmentState',
+    'capabilities',
+    'readOnlyReason',
+  };
+  if (!ownershipKeys.any(json.containsKey)) return null;
+  return SessionOwnershipProjection.fromJson(json);
+}
+
+Map<String, dynamic> _ownershipMutationFields(
+  SessionOwnershipProjection? ownership,
+) => ownership == null
+    ? const <String, dynamic>{}
+    : <String, dynamic>{
+        'bridgeSessionId': ownership.bridgeSessionId,
+        'bridgeGeneration': ownership.bridgeGeneration,
+        'providerThreadId': ownership.providerThreadId,
+      };
+
+enum SessionControlErrorCode {
+  sessionNotFound,
+  threadNotFound,
+  writerConflict,
+  pathNotAllowed,
+  staleGeneration,
+  bridgeRestarting,
+  unsupportedOperation,
+  unknown;
+
+  static SessionControlErrorCode fromString(String? value) => switch (value) {
+    'session_not_found' => sessionNotFound,
+    'thread_not_found' => threadNotFound,
+    'writer_conflict' => writerConflict,
+    'path_not_allowed' => pathNotAllowed,
+    'stale_generation' => staleGeneration,
+    'bridge_restarting' => bridgeRestarting,
+    'unsupported_operation' => unsupportedOperation,
+    _ => unknown,
+  };
+}
+
+enum SessionRecoveryAction {
+  refreshSessions,
+  refreshHistory,
+  refreshSession,
+  chooseAllowedPath,
+  openReadOnly,
+  attachOwnedSession,
+  unknown;
+
+  static SessionRecoveryAction fromString(String? value) => switch (value) {
+    'refresh_sessions' => refreshSessions,
+    'refresh_history' => refreshHistory,
+    'refresh_session' => refreshSession,
+    'choose_allowed_path' => chooseAllowedPath,
+    'open_read_only' => openReadOnly,
+    'attach_owned_session' => attachOwnedSession,
+    _ => unknown,
+  };
 }
 
 enum CodexThreadGoalStatus {
@@ -811,6 +1147,7 @@ sealed class ServerMessage {
                 json['codexCliJoin'] as Map<String, dynamic>,
               )
             : null,
+        ownership: _sessionOwnershipFromJson(json),
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -855,6 +1192,12 @@ sealed class ServerMessage {
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
         sessionId: json['sessionId'] as String?,
+        operation: json['operation'] as String?,
+        bridgeSessionId: json['bridgeSessionId'] as String?,
+        providerThreadId: json['providerThreadId'] as String?,
+        bridgeGeneration: json['bridgeGeneration'] as String?,
+        retryable: json['retryable'] as bool?,
+        recoveryAction: json['recoveryAction'] as String?,
         toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
         requestId: json['requestId'] as String?,
@@ -879,6 +1222,7 @@ sealed class ServerMessage {
           final Map<String, dynamic> value => RecentSession.fromJson(value),
           _ => null,
         },
+        ownership: _sessionOwnershipFromJson(json),
       ),
       'status' => StatusMessage(
         status: ProcessStatus.fromString(json['status'] as String),
@@ -1526,6 +1870,7 @@ class SystemMessage implements ServerMessage {
   final String? resumeRequestId;
   final String? tipCode;
   final CodexCliJoinTarget? codexCliJoin;
+  final SessionOwnershipProjection? ownership;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -1558,6 +1903,7 @@ class SystemMessage implements ServerMessage {
     this.resumeRequestId,
     this.tipCode,
     this.codexCliJoin,
+    this.ownership,
   });
 }
 
@@ -1633,6 +1979,12 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   final String? sessionId;
+  final String? operation;
+  final String? bridgeSessionId;
+  final String? providerThreadId;
+  final String? bridgeGeneration;
+  final bool? retryable;
+  final String? recoveryAction;
   final String? toolUseId;
   final String? path;
   final String? requestId;
@@ -1643,12 +1995,31 @@ class ErrorMessage implements ServerMessage {
     required this.message,
     this.errorCode,
     this.sessionId,
+    this.operation,
+    this.bridgeSessionId,
+    this.providerThreadId,
+    this.bridgeGeneration,
+    this.retryable,
+    this.recoveryAction,
     this.toolUseId,
     this.path,
     this.requestId,
     this.requestScope,
     this.offset,
   });
+
+  SessionControlErrorCode get sessionErrorCode =>
+      SessionControlErrorCode.fromString(errorCode);
+
+  SessionRecoveryAction get sessionRecoveryAction =>
+      SessionRecoveryAction.fromString(recoveryAction);
+
+  bool get isScopedSessionFailure =>
+      operation != null ||
+      bridgeSessionId != null ||
+      providerThreadId != null ||
+      bridgeGeneration != null ||
+      recoveryAction != null;
 }
 
 class PushRegistrationResultMessage implements ServerMessage {
@@ -1686,6 +2057,7 @@ class SessionLinkResolutionMessage implements ServerMessage {
   final String? bridgeSessionId;
   final String? provider;
   final RecentSession? recentSession;
+  final SessionOwnershipProjection? ownership;
 
   const SessionLinkResolutionMessage({
     required this.requestId,
@@ -1694,6 +2066,7 @@ class SessionLinkResolutionMessage implements ServerMessage {
     this.bridgeSessionId,
     this.provider,
     this.recentSession,
+    this.ownership,
   });
 }
 
@@ -3565,6 +3938,7 @@ class RecentSession {
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
+  final SessionOwnershipProjection? ownership;
 
   const RecentSession({
     required this.sessionId,
@@ -3595,6 +3969,7 @@ class RecentSession {
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
+    this.ownership,
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -3663,6 +4038,7 @@ class RecentSession {
       codexAdditionalWritableRoots: _stringList(
         codexSettings?['additionalWritableRoots'],
       ),
+      ownership: _sessionOwnershipFromJson(json),
     );
   }
 
@@ -3708,6 +4084,7 @@ class RecentSession {
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
+      ownership: ownership,
     );
   }
 
@@ -3745,6 +4122,7 @@ class RecentSession {
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
+      ownership: ownership,
     );
   }
 }
@@ -3785,6 +4163,7 @@ class SessionInfo {
   final List<String> codexAdditionalWritableRoots;
   final PermissionRequestMessage? pendingPermission;
   final QueuedInputItem? queuedInput;
+  final SessionOwnershipProjection? ownership;
 
   const SessionInfo({
     required this.id,
@@ -3818,6 +4197,7 @@ class SessionInfo {
     this.codexAdditionalWritableRoots = const [],
     this.pendingPermission,
     this.queuedInput,
+    this.ownership,
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -3901,6 +4281,7 @@ class SessionInfo {
           ? null
           : (pendingPermission ?? this.pendingPermission),
       queuedInput: clearQueuedInput ? null : (queuedInput ?? this.queuedInput),
+      ownership: ownership,
     );
   }
 
@@ -3964,6 +4345,7 @@ class SessionInfo {
       queuedInput: queueJson != null
           ? QueuedInputItem.fromJson(queueJson)
           : null,
+      ownership: _sessionOwnershipFromJson(json),
     );
   }
 }
@@ -3977,10 +4359,26 @@ class ClientMessage {
       ClientMessage._(Map<String, dynamic>.from(json));
 
   String get type => _json['type'] as String;
+  String? get sessionId => _json['sessionId'] as String?;
+
+  ClientMessage withSessionOwnership(SessionOwnershipProjection ownership) =>
+      ClientMessage._(<String, dynamic>{
+        ..._json,
+        ..._ownershipMutationFields(ownership),
+      });
+
+  ClientMessage withoutSessionOwnership() {
+    final json = Map<String, dynamic>.from(_json)
+      ..remove('bridgeSessionId')
+      ..remove('bridgeGeneration')
+      ..remove('providerThreadId');
+    return ClientMessage._(json);
+  }
 
   factory ClientMessage.clientCapabilities({
     String? appVersion,
     int protocolVersion = 1,
+    int sessionOwnershipVersion = 1,
     List<String> supportedServerMessages = const [
       'conversation_queue',
       'goal_state',
@@ -3995,6 +4393,7 @@ class ClientMessage {
     return ClientMessage._(<String, dynamic>{
       'type': 'client_capabilities',
       'protocolVersion': protocolVersion,
+      'sessionOwnershipVersion': sessionOwnershipVersion,
       'appVersion': ?appVersion,
       if (supportedServerMessages.isNotEmpty)
         'supportedServerMessages': supportedServerMessages,
@@ -4229,12 +4628,14 @@ class ClientMessage {
     String id, {
     bool clearContext = false,
     String? sessionId,
+    SessionOwnershipProjection? ownership,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'approve',
       'id': id,
       if (clearContext) 'clearContext': true,
       'sessionId': ?sessionId,
+      ..._ownershipMutationFields(ownership),
     });
   }
 
@@ -4370,6 +4771,9 @@ class ClientMessage {
   factory ClientMessage.resumeSession(
     String sessionId,
     String projectPath, {
+    String? providerThreadId,
+    String? bridgeGeneration,
+    SessionOwner? expectedOwner,
     String? permissionMode,
     String? executionMode,
     String? approvalPolicy,
@@ -4396,6 +4800,9 @@ class ClientMessage {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
       'sessionId': sessionId,
+      'providerThreadId': ?providerThreadId,
+      'bridgeGeneration': ?bridgeGeneration,
+      if (expectedOwner != null) 'expectedOwner': expectedOwner.wireValue,
       'projectPath': projectPath,
       'permissionMode': ?permissionMode,
       'executionMode': ?executionMode,

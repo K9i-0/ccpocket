@@ -219,6 +219,25 @@ describe("setup-systemd", () => {
       );
     });
 
+    it("persists isolated mode without a shared remote URL", () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        setupSystemd({
+          codexAppServerMode: "isolated",
+          codexSharedAppServerUrl: "ws://shared.example:18700",
+        });
+
+        const content = mockWriteFileSync.mock.calls[0]![1] as string;
+        expect(content).toContain(
+          "Environment=BRIDGE_CODEX_APP_SERVER_MODE=isolated",
+        );
+        expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
+        expect(log).not.toHaveBeenCalledWith(expect.stringContaining("Codex remote:"));
+      } finally {
+        log.mockRestore();
+      }
+    });
+
     it("uses the documented default shared URL when managed mode is enabled", () => {
       setupSystemd({ port: "8765", codexAppServerMode: "managed" });
 

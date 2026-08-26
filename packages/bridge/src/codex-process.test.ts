@@ -1,8 +1,8 @@
 import { EventEmitter } from "node:events";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { spawnMock, fakeChildren } = vi.hoisted(() => ({
@@ -48,6 +48,41 @@ import {
   parseCodexGoal,
 } from "./codex-process.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
+
+describe("CodexProcess readiness counts", () => {
+  it("counts only questions as pending questions and only approvals as approvals", () => {
+    const proc = new CodexProcess();
+    const internal = proc as any;
+    internal.pendingApprovals.set("approval", {
+      toolUseId: "approval",
+      input: { reason: "protected approval sentinel" },
+    });
+    internal.pendingUserInputs.set("question", {
+      toolUseId: "question",
+      kind: "questions",
+      input: { questions: ["protected question sentinel"] },
+    });
+    internal.pendingUserInputs.set("elicitation", {
+      toolUseId: "elicitation",
+      kind: "elicitation_url",
+      input: { url: "https://protected.invalid" },
+    });
+
+    expect(proc.pendingQuestionCount).toBe(1);
+    expect(proc.pendingApprovalCount).toBe(1);
+  });
+
+  it("counts an outstanding ExitPlanMode as one approval and zero questions", () => {
+    const proc = new CodexProcess();
+    (proc as any).pendingPlanCompletion = {
+      toolUseId: "exit-plan",
+      planText: "protected plan sentinel",
+    };
+
+    expect(proc.pendingApprovalCount).toBe(1);
+    expect(proc.pendingQuestionCount).toBe(0);
+  });
+});
 
 const originalCodexAppServerEnv = {
   bridgePort: process.env.BRIDGE_PORT,
@@ -674,14 +709,51 @@ describe("CodexProcess (app-server)", () => {
     const proc = new CodexProcess("linux");
     proc.start("/tmp/project-managed-port");
 
-    expect(spawnMock).toHaveBeenCalledWith(
-      "codex",
-      ["app-server", "--listen", "ws://127.0.0.1:8768"],
-      expect.objectContaining({ cwd: "/tmp/project-managed-port" }),
+    const [command, args, options] = spawnMock.mock.calls[0]!;
+    expect(command).toBe("codex");
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "app-server",
+        "--listen",
+        "ws://127.0.0.1:8768",
+        "--ws-auth",
+        "capability-token",
+        "--ws-token-file",
+      ]),
     );
+    expect(args[args.indexOf("--ws-token-file") + 1]).toMatch(/^\//);
+    expect(options).toEqual(expect.objectContaining({ cwd: "/tmp/project-managed-port" }));
 
     proc.stop();
   });
+
+  it.each(["exit", "error"] as const)(
+    "reports one isolated terminal failure when systemd-run emits %s",
+    (failure) => {
+      process.env.BRIDGE_CODEX_APP_SERVER_MODE = "isolated";
+      const proc = new CodexProcess("linux");
+      const exits: Array<number | null> = [];
+      const messages: Array<{ type?: string }> = [];
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      proc.on("exit", (code) => exits.push(code));
+      proc.on("message", (message) => messages.push(message));
+
+      try {
+        proc.start(`/tmp/project-isolated-${failure}`);
+        if (failure === "exit") {
+          fakeChildren[0]!.emit("exit", 1, null);
+        } else {
+          fakeChildren[0]!.emit("error", new Error("systemd-run ENOENT"));
+        }
+
+        expect(exits).toEqual([1]);
+        expect(messages.filter((message) => message.type === "error")).toHaveLength(1);
+        expect(proc.isRunning).toBe(false);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    },
+  );
 
   it("returns a clear error when Codex CLI is not installed", () => {
     const proc = new CodexProcess("linux");
@@ -931,6 +1003,68 @@ describe("CodexProcess (app-server)", () => {
         codexPermissionsMode: "custom",
       }),
     );
+
+    proc.stop();
+  });
+
+  it("emits writer_conflict when thread/resume rejects a second active writer", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-writer-conflict", {
+      threadId: "thr_active",
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+
+    const configReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: { config: {} },
+      })}\n`,
+    );
+    await tick();
+
+    const resumeReq = nextOutgoingRequest(child);
+    expect(resumeReq.method).toBe("thread/resume");
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: resumeReq.id,
+        error: {
+          code: -32600,
+          message: "thread thr_active already has an active writer",
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual({
+      type: "error",
+      errorCode: "writer_conflict",
+      message:
+        "Codex error: This Codex thread is already open in another client. Close it there and try again.",
+    });
+    expect(
+      messages.some(
+        (message) =>
+          typeof message === "object" &&
+          message !== null &&
+          (message as { subtype?: string }).subtype === "init",
+      ),
+    ).toBe(false);
 
     proc.stop();
   });
@@ -1227,11 +1361,21 @@ describe("CodexProcess (app-server)", () => {
       const proc = new CodexProcess("linux");
       proc.start("/tmp/project-managed-error");
 
-      expect(spawnMock).toHaveBeenCalledWith(
-        "codex",
-        ["app-server", "--listen", "ws://127.0.0.1:18767"],
-        expect.objectContaining({ cwd: "/tmp/project-managed-error" }),
+      const [command, args, options] = spawnMock.mock.calls[0]!;
+      expect(command).toBe("codex");
+      expect(args).toEqual(
+        expect.arrayContaining([
+          "app-server",
+          "--listen",
+          "ws://127.0.0.1:18767",
+          "--ws-auth",
+          "capability-token",
+          "--ws-token-file",
+        ]),
       );
+      expect(args[args.indexOf("--ws-token-file") + 1]).toMatch(/^\//);
+      expect(options).toEqual(expect.objectContaining({ cwd: "/tmp/project-managed-error" }));
+      const tokenFilePath = args[args.indexOf("--ws-token-file") + 1] as string;
 
       expect(() => {
         fakeChildren[0].emit("error", new Error("spawn failed"));
@@ -1240,6 +1384,8 @@ describe("CodexProcess (app-server)", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         "[codex-app-server] Failed to start: spawn failed",
       );
+      expect(existsSync(tokenFilePath)).toBe(false);
+      expect(existsSync(dirname(tokenFilePath))).toBe(false);
 
       const nextProc = new CodexProcess("linux");
       nextProc.start("/tmp/project-managed-error-next");

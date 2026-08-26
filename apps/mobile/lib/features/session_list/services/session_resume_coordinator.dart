@@ -122,6 +122,14 @@ CodexRecentResumeSettings factualCodexResumeSettings(
 
 enum SessionResumeDisposition { dispatched, alreadyQueued }
 
+class SessionResumeIdentityException implements Exception {
+  final String message;
+  const SessionResumeIdentityException(this.message);
+
+  @override
+  String toString() => 'SessionResumeIdentityException: $message';
+}
+
 class SessionResumeDispatch {
   final SessionResumeDisposition disposition;
   final String projectPath;
@@ -151,15 +159,42 @@ class SessionResumeCoordinator {
   final SessionStartDefaultsStore _defaultsStore;
   final ClaudeSessionSettingsStore _claudeSettingsStore;
   final CodexProjectProfileStore _codexProfileStore;
+  final Set<String> _claimedResumeRequestIds = <String>{};
 
   Future<SessionResumeDispatch> resume(
     RecentSession session, {
     String? resumeRequestId,
+    bool allowReadOnlyProbe = false,
   }) async {
     final provider = session.provider ?? Provider.claude.value;
     final projectPath = session.resumeCwd?.isNotEmpty == true
         ? session.resumeCwd!
         : session.projectPath;
+    final ownership = session.ownership;
+    final route = ownership?.routeForProvider(provider);
+    final isExplicitReadOnlyProbe =
+        allowReadOnlyProbe &&
+        route == SessionOwnershipRoute.readOnlyHistory &&
+        ownership?.can(SessionCapability.resume) == true &&
+        (ownership?.attachmentState == SessionAttachmentState.externalActive ||
+            ownership?.attachmentState ==
+                SessionAttachmentState.externalUnknown);
+    if (ownership == null ||
+        (route != SessionOwnershipRoute.externalIdleResume &&
+            !isExplicitReadOnlyProbe) ||
+        ownership.providerThreadId != session.sessionId) {
+      throw const SessionResumeIdentityException(
+        'External resume requires an external-idle tuple or an explicit read-only probe.',
+      );
+    }
+    if (resumeRequestId != null &&
+        _claimedResumeRequestIds.contains(resumeRequestId)) {
+      return SessionResumeDispatch(
+        disposition: SessionResumeDisposition.alreadyQueued,
+        projectPath: projectPath,
+        gitBranch: session.gitBranch,
+      );
+    }
     if (_isQueued(session.sessionId, provider)) {
       return SessionResumeDispatch(
         disposition: SessionResumeDisposition.alreadyQueued,
@@ -211,9 +246,16 @@ class SessionResumeCoordinator {
         sessionSettings?['claudeModel'] as String? ??
         claudeDefaults?.claudeModel;
 
+    if (resumeRequestId != null) {
+      _claimedResumeRequestIds.add(resumeRequestId);
+    }
+
     _bridge.resumeSession(
       session.sessionId,
       projectPath,
+      providerThreadId: ownership.providerThreadId,
+      bridgeGeneration: ownership.bridgeGeneration,
+      expectedOwner: ownership.owner,
       permissionMode: isCodex ? codexSettings?.permissionMode : permissionMode,
       executionMode: isCodex ? codexSettings?.executionMode : executionMode,
       approvalPolicy: isCodex ? codexSettings?.approvalPolicy : null,

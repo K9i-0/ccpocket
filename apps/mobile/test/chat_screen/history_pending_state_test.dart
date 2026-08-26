@@ -273,7 +273,11 @@ void main() {
       expect(msg, isNotNull);
       expect(msg!['id'], 'tool-plan-hist');
 
-      // ApprovalBar should be gone
+      // A restored approval remains visible until the bridge resolves it.
+      expect($(ApprovalBar), findsOneWidget);
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-plan-hist'),
+      ]);
       expect($(ApprovalBar), findsNothing);
     });
 
@@ -305,7 +309,11 @@ void main() {
         expect(msg, isNotNull);
         expect(msg!['message'], 'Need more detail on step 3');
 
-        // ApprovalBar should be gone
+        // A restored approval remains visible until the bridge resolves it.
+        expect($(ApprovalBar), findsOneWidget);
+        await emitAndPump($.tester, bridge, [
+          const PermissionResolvedMessage(toolUseId: 'tool-plan-hist'),
+        ]);
         expect($(ApprovalBar), findsNothing);
       },
     );

@@ -711,6 +711,18 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this._status;
   }
 
+  get pendingQuestionCount(): number {
+    let count = 0;
+    for (const pending of this.pendingPermissions.values()) {
+      if (pending.toolName === "AskUserQuestion") count += 1;
+    }
+    return count;
+  }
+
+  get pendingApprovalCount(): number {
+    return this.pendingPermissions.size - this.pendingQuestionCount;
+  }
+
   get isWaitingForInput(): boolean {
     return this.userMessageResolve !== null;
   }

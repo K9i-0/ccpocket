@@ -20,7 +20,7 @@ class _ResumeBridge extends BridgeService {
   }
 }
 
-const _session = RecentSession(
+final _session = RecentSession(
   sessionId: 'claude-uuid',
   provider: 'claude',
   rawPermissionMode: 'acceptEdits',
@@ -31,6 +31,18 @@ const _session = RecentSession(
   projectPath: '/workspace/app',
   resumeCwd: '/workspace/app/worktree',
   isSidechain: false,
+  ownership: SessionOwnershipProjection.fromJson({
+    'bridgeGeneration': 'generation-1',
+    'bridgeSessionId': null,
+    'providerThreadId': 'claude-uuid',
+    'recordKind': 'recent',
+    'origin': 'external',
+    'owner': 'external',
+    'runtimeStatus': 'idle',
+    'attachmentState': 'external_idle',
+    'capabilities': ['read_history', 'refresh', 'resume'],
+    'readOnlyReason': null,
+  }),
 );
 
 void main() {
@@ -80,10 +92,13 @@ void main() {
     expect(message, containsPair('forkSession', true));
     expect(message, containsPair('persistSession', false));
     expect(message, containsPair('resumeRequestId', 'link-request-1'));
+    expect(message, containsPair('providerThreadId', 'claude-uuid'));
+    expect(message, containsPair('bridgeGeneration', 'generation-1'));
+    expect(message, containsPair('expectedOwner', 'external'));
   });
 
   test('resumes a Codex profile without stale permission overrides', () async {
-    const codexSession = RecentSession(
+    final codexSession = RecentSession(
       sessionId: 'codex-thread',
       provider: 'codex',
       firstPrompt: 'Continue',
@@ -97,6 +112,18 @@ void main() {
       codexPermissionsMode: 'custom',
       codexSandboxMode: 'workspace-write',
       codexProfile: 'unrestricted',
+      ownership: SessionOwnershipProjection.fromJson({
+        'bridgeGeneration': 'generation-1',
+        'bridgeSessionId': null,
+        'providerThreadId': 'codex-thread',
+        'recordKind': 'recent',
+        'origin': 'external',
+        'owner': 'external',
+        'runtimeStatus': 'idle',
+        'attachmentState': 'external_idle',
+        'capabilities': ['read_history', 'refresh', 'resume'],
+        'readOnlyReason': null,
+      }),
     );
 
     final result = await SessionResumeCoordinator(bridge: bridge)
@@ -133,4 +160,76 @@ void main() {
     expect(result.disposition, SessionResumeDisposition.alreadyQueued);
     expect(bridge.sentMessages, isEmpty);
   });
+
+  test('deduplicates the same connected resume request id', () async {
+    final coordinator = SessionResumeCoordinator(bridge: bridge);
+
+    final first = await coordinator.resume(
+      _session,
+      resumeRequestId: 'link-request-1',
+    );
+    final duplicate = await coordinator.resume(
+      _session,
+      resumeRequestId: 'link-request-1',
+    );
+
+    expect(first.disposition, SessionResumeDisposition.dispatched);
+    expect(duplicate.disposition, SessionResumeDisposition.alreadyQueued);
+    expect(bridge.sentMessages, hasLength(1));
+  });
+
+  test('explicit read-only probe carries the unknown-owner tuple', () async {
+    final unknown = RecentSession(
+      sessionId: 'claude-uuid',
+      provider: 'claude',
+      firstPrompt: 'Continue',
+      created: '2026-07-24T00:00:00Z',
+      modified: '2026-07-24T01:00:00Z',
+      gitBranch: 'main',
+      projectPath: '/workspace/app',
+      isSidechain: false,
+      ownership: SessionOwnershipProjection.fromJson({
+        'bridgeGeneration': 'generation-2',
+        'bridgeSessionId': null,
+        'providerThreadId': 'claude-uuid',
+        'recordKind': 'recent',
+        'origin': 'disk',
+        'owner': 'unknown',
+        'runtimeStatus': 'unknown',
+        'attachmentState': 'external_unknown',
+        'capabilities': ['read_history', 'refresh', 'resume'],
+        'readOnlyReason': 'external_owner_unknown',
+      }),
+    );
+
+    await SessionResumeCoordinator(bridge: bridge)
+        .resume(unknown, allowReadOnlyProbe: true);
+
+    final message = jsonDecode(bridge.sentMessages.single.toJson());
+    expect(message, containsPair('providerThreadId', 'claude-uuid'));
+    expect(message, containsPair('bridgeGeneration', 'generation-2'));
+    expect(message, containsPair('expectedOwner', 'unknown'));
+  });
+
+  test(
+    'refuses an external resume without a complete ownership tuple',
+    () async {
+      const missingOwnership = RecentSession(
+        sessionId: 'thread-missing-identity',
+        provider: 'codex',
+        firstPrompt: 'Continue',
+        created: '2026-07-24T00:00:00Z',
+        modified: '2026-07-24T01:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/workspace/app',
+        isSidechain: false,
+      );
+
+      expect(
+        () => SessionResumeCoordinator(bridge: bridge).resume(missingOwnership),
+        throwsA(isA<SessionResumeIdentityException>()),
+      );
+      expect(bridge.sentMessages, isEmpty);
+    },
+  );
 }

@@ -25,6 +25,8 @@ import type {
   Provider,
   QueuedInputItem,
   CodexGoal,
+  SessionCapability,
+  SessionOwnershipProjection,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -44,7 +46,10 @@ export interface WorktreeOptions {
 }
 
 export interface SessionInfo {
+  /** @deprecated Use bridgeSessionId. */
   id: string;
+  bridgeSessionId: string;
+  bridgeGeneration: string;
   process: SdkProcess | CodexProcess;
   provider: Provider;
   history: ServerMessage[];
@@ -60,7 +65,9 @@ export interface SessionInfo {
    */
   codexInitialHistoryPending?: boolean;
   projectPath: string;
+  /** @deprecated Use providerThreadId. Retained for one-App-window clients. */
   claudeSessionId?: string;
+  providerThreadId?: string;
   /** User-assigned session name (via /rename or mobile rename). */
   name?: string;
   status: ProcessStatus;
@@ -140,10 +147,12 @@ export interface QueuedCodexInput extends QueuedInputItem {
   imageRefs?: ImageRef[];
 }
 
-export interface SessionSummary {
+export interface SessionSummary extends SessionOwnershipProjection {
+  /** @deprecated Use bridgeSessionId. */
   id: string;
   provider: Provider;
   projectPath: string;
+  /** @deprecated Use providerThreadId. Retained for one-App-window clients. */
   claudeSessionId?: string;
   /** User-assigned session name. */
   name?: string;
@@ -183,8 +192,28 @@ export interface SessionSummary {
   queuedInput?: QueuedInputItem;
 }
 
+export interface BridgeReadinessSessionCounts {
+  activeTurns: number;
+  pendingApprovals: number;
+  pendingQuestions: number;
+  busyWorkers: number;
+}
+
 export const MAX_HISTORY_PER_SESSION = 100;
 const MAX_IDLE_SESSIONS = 30;
+
+export const OWNED_SESSION_CAPABILITIES: SessionCapability[] = [
+  "read_history",
+  "refresh",
+  "send_input",
+  "approve",
+  "reject",
+  "answer",
+  "interrupt",
+  "stop",
+  "fork",
+  "archive",
+];
 
 export type GalleryImageCallback = (meta: GalleryImageMeta) => void;
 export type SessionUpdatedCallback = (sessionId: string) => void;
@@ -287,6 +316,7 @@ export class SessionManager {
     onGalleryImage?: GalleryImageCallback,
     worktreeStore?: WorktreeStore,
     onSessionUpdated?: SessionUpdatedCallback,
+    readonly bridgeGeneration: string = randomUUID(),
   ) {
     this.onMessage = onMessage;
     this.imageStore = imageStore ?? null;
@@ -347,6 +377,8 @@ export class SessionManager {
 
     const session: SessionInfo = {
       id,
+      bridgeSessionId: id,
+      bridgeGeneration: this.bridgeGeneration,
       process: proc,
       provider: effectiveProvider,
       history: [],
@@ -370,6 +402,7 @@ export class SessionManager {
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
+      providerThreadId: options?.sessionId,
     };
     if (effectiveProvider === "codex") {
       this.seedCodexPastUserTurnUuidMap(session);
@@ -433,10 +466,12 @@ export class SessionManager {
           // Capture Claude session_id from result events
           if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
+            session.providerThreadId = msg.sessionId;
             this.saveWorktreeMapping(session);
           }
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
+            session.providerThreadId = msg.sessionId;
             this.saveWorktreeMapping(session);
           }
 
@@ -461,6 +496,7 @@ export class SessionManager {
           // Codex: capture thread_id for session tracking and worktree restore.
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
+            session.providerThreadId = msg.sessionId;
             this.saveWorktreeMapping(session);
             if (session.codexSettings?.profile) {
               void saveCodexSessionProfile(
@@ -694,6 +730,7 @@ export class SessionManager {
       // Resume starts know the thread id up front.
       if (codexOptions.threadId) {
         session.claudeSessionId = codexOptions.threadId;
+        session.providerThreadId = codexOptions.threadId;
         this.saveWorktreeMapping(session);
         if (codexOptions.profile) {
           void saveCodexSessionProfile(codexOptions.threadId, codexOptions.profile);
@@ -818,9 +855,19 @@ export class SessionManager {
             : undefined;
       return {
         id: s.id,
+        bridgeSessionId: s.bridgeSessionId,
+        bridgeGeneration: s.bridgeGeneration,
         provider: s.provider,
         projectPath: s.projectPath,
         claudeSessionId: s.claudeSessionId,
+        providerThreadId: s.providerThreadId ?? null,
+        recordKind: "live",
+        origin: "bridge",
+        owner: "bridge",
+        runtimeStatus: s.status,
+        attachmentState: "owned",
+        capabilities: [...OWNED_SESSION_CAPABILITIES],
+        readOnlyReason: null,
         name: s.name,
         status: s.status,
         createdAt: s.createdAt.toISOString(),
@@ -860,6 +907,58 @@ export class SessionManager {
             : undefined,
       };
     });
+  }
+
+  getOwnershipRecords(): SessionSummary[] {
+    return this.list();
+  }
+
+  get sessionCount(): number {
+    return this.sessions.size;
+  }
+
+  getReadinessCounts(): BridgeReadinessSessionCounts {
+    const counts: BridgeReadinessSessionCounts = {
+      activeTurns: 0,
+      pendingApprovals: 0,
+      pendingQuestions: 0,
+      busyWorkers: 0,
+    };
+
+    const ownedBridgeSessionIds = new Set(
+      this.getOwnershipRecords()
+        .filter(
+          (record) =>
+            record.owner === "bridge" &&
+            record.attachmentState === "owned" &&
+            record.bridgeSessionId !== null,
+        )
+        .map((record) => record.bridgeSessionId as string),
+    );
+
+    for (const session of this.sessions.values()) {
+      if (!ownedBridgeSessionIds.has(session.bridgeSessionId)) continue;
+      if (
+        session.status === "running" ||
+        session.status === "waiting_approval" ||
+        session.status === "compacting"
+      ) {
+        counts.activeTurns += 1;
+      }
+      if (
+        session.process instanceof CodexProcess &&
+        (session.status === "starting" ||
+          session.status === "running" ||
+          session.status === "waiting_approval" ||
+          session.status === "compacting")
+      ) {
+        counts.busyWorkers += 1;
+      }
+      counts.pendingQuestions += session.process.pendingQuestionCount;
+      counts.pendingApprovals += session.process.pendingApprovalCount;
+    }
+
+    return counts;
   }
 
   private appendHistoryToSession(

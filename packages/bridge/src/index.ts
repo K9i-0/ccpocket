@@ -8,7 +8,6 @@ import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
-import { getVersionInfo } from "./version.js";
 import { fetchAllUsage } from "./usage.js";
 import { runDoctor } from "./doctor.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
@@ -22,6 +21,7 @@ import {
 import { parseAllowedDirectories } from "./path-utils.js";
 import { parseBridgePort } from "./bridge-port.js";
 import { listenForStartup } from "./server-listen.js";
+import { handleCoreBridgeHttpRequest } from "./operational-http.js";
 
 function startupErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -132,35 +132,22 @@ export async function startServer() {
   let wsServer: BridgeWebSocketServer | null = null;
 
   const httpServer = createServer((req, res) => {
-    // CORS headers for Flutter Web clients
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-    if (req.method === "OPTIONS") {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    // Health check endpoint
-    if (req.url === "/health" && req.method === "GET") {
-      const body = JSON.stringify({
-        status: "ok",
-        uptime: Math.floor((Date.now() - startedAt) / 1000),
-        sessions: wsServer?.sessionCount ?? 0,
-        clients: wsServer?.clientCount ?? 0,
-      });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(body);
-      return;
-    }
-
-    // Version info endpoint
-    if (req.url === "/version" && req.method === "GET") {
-      const body = JSON.stringify(getVersionInfo(startedAt));
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(body);
+    if (
+      handleCoreBridgeHttpRequest(req, res, {
+        startedAt,
+        apiKey: API_KEY,
+        getSessionCount: () => wsServer?.sessionCount ?? 0,
+        getClientCount: () => wsServer?.clientCount ?? 0,
+        getReadinessCounts: () =>
+          wsServer?.getReadinessCounts() ?? {
+            activeTurns: 0,
+            pendingApprovals: 0,
+            pendingQuestions: 0,
+            busyWorkers: 0,
+            clients: 0,
+          },
+      })
+    ) {
       return;
     }
 

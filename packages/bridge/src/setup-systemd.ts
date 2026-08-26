@@ -113,12 +113,14 @@ export function setupSystemd(opts: SetupOptions): void {
     opts.codexAppServerUrl ??
     readCodexSharedAppServerUrl();
   const codexAppServerUrl =
-    explicitCodexAppServerUrl ??
-    (codexAppServerMode === "managed"
-      ? legacyCodexAppServerPort
-        ? `ws://127.0.0.1:${legacyCodexAppServerPort}`
-        : defaultCodexSharedAppServerUrl(String(port))
-      : "");
+    codexAppServerMode === "managed"
+      ? explicitCodexAppServerUrl ??
+        (legacyCodexAppServerPort
+          ? `ws://127.0.0.1:${legacyCodexAppServerPort}`
+          : defaultCodexSharedAppServerUrl(String(port)))
+      : codexAppServerMode === "external"
+        ? explicitCodexAppServerUrl
+        : "";
   if (codexAppServerMode === "external" && !codexAppServerUrl) {
     throw new Error(
       "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required when Codex app-server mode is external",
@@ -171,7 +173,11 @@ Environment=BRIDGE_HOST=${host}`;
   if (codexAppServerMode) {
     envLines += `\nEnvironment=BRIDGE_CODEX_APP_SERVER_MODE=${codexAppServerMode}`;
   }
-  if (codexAppServerMode && codexAppServerUrl) {
+  if (
+    (codexAppServerMode === "managed" ||
+      codexAppServerMode === "external") &&
+    codexAppServerUrl
+  ) {
     envLines += `\nEnvironment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=${codexAppServerUrl}`;
   }
 
@@ -206,7 +212,11 @@ WantedBy=default.target
   try {
     execSync(`systemctl --user restart "${SERVICE_NAME}"`);
     console.log(`==> Bridge Server started on port ${port}`);
-    if (codexAppServerMode && codexAppServerUrl) {
+    if (
+      (codexAppServerMode === "managed" ||
+        codexAppServerMode === "external") &&
+      codexAppServerUrl
+    ) {
       console.log(
         `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,
       );

@@ -69,6 +69,7 @@ class StatusIndicator extends HookWidget {
             : (appColors.statusOnline, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
       ProcessStatus.compacting => (appColors.statusCompacting, 'Compacting'),
+      ProcessStatus.unknown => (appColors.subtleText, 'Unavailable'),
     };
 
     // Format elapsed time

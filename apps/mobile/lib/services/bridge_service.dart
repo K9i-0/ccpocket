@@ -121,6 +121,7 @@ class BridgeService implements BridgeServiceBase {
   final List<ClientMessage> _messageQueue = [];
   final List<ClientMessage> _flushingMessageQueue = [];
   List<SessionInfo> _sessions = [];
+  final Map<String, SessionOwnershipProjection> _sessionOwnership = {};
   List<RecentSession> _recentSessions = [];
   RecentSessionsMessage? _lastRecentSessionsMessage;
   List<GalleryImage> _galleryImages = [];
@@ -175,6 +176,7 @@ class BridgeService implements BridgeServiceBase {
   // Auto-reconnect
   String? _lastUrl;
   int _connectionEpoch = 0;
+  int? _ownershipProjectionEpoch;
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
@@ -429,6 +431,8 @@ class BridgeService implements BridgeServiceBase {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
+    _sessionOwnership.clear();
+    _ownershipProjectionEpoch = null;
     _lastUsageResult = null;
     _promptHistoryBridgeId = null;
     if (isBridgeSwitch) {
@@ -487,6 +491,8 @@ class BridgeService implements BridgeServiceBase {
                 :final codexAutoReviewDisabled,
                 :final bridgeVersion,
               ):
+                _replaceSessionOwnership(sessions);
+                _ownershipProjectionEpoch = epoch;
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
                 _clearPendingStartActionsForSessions(_sessions);
                 _sessionListController.add(_sessions);
@@ -501,8 +507,12 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewDisabled = codexAutoReviewDisabled;
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
+                _flushMessageQueue();
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 if (!_acceptRecentSessionsResponse(msg)) return;
+                for (final session in sessions) {
+                  _rememberSessionOwnership(session.ownership);
+                }
                 _lastRecentSessionsMessage = msg;
                 final isProjectMerge =
                     msg.requestScope == 'project' &&
@@ -644,6 +654,7 @@ class BridgeService implements BridgeServiceBase {
               case SystemMessage(:final permissionMode):
                 if (msg.subtype == 'session_created') {
                   _clearPendingSessionActionFor(msg);
+                  _rememberSessionOwnership(msg.ownership);
                 } else if (msg.subtype == 'session_resume_started') {
                   _markPendingSessionActionProcessing(msg);
                 } else if (msg.subtype == 'session_resume_failed') {
@@ -755,7 +766,9 @@ class BridgeService implements BridgeServiceBase {
               _setBridgeConnectionState(BridgeConnectionState.connected);
               _reconnectAttempt = 0;
               send(ClientMessage.clientCapabilities());
-              _flushMessageQueue();
+              _flushMessageQueue(
+                allowOwnedMutations: _ownershipProjectionEpoch == epoch,
+              );
             })
             .catchError((Object error, StackTrace stackTrace) {
               if (epoch != _connectionEpoch || _intentionalDisconnect) return;
@@ -793,6 +806,8 @@ class BridgeService implements BridgeServiceBase {
       const SessionLinkResolveResult.unavailable(),
     );
     _sessions = const [];
+    _sessionOwnership.clear();
+    _ownershipProjectionEpoch = null;
     _recentSessions = const [];
     _lastRecentSessionsMessage = null;
     _recentSessionsHasMore = false;
@@ -950,25 +965,121 @@ class BridgeService implements BridgeServiceBase {
   @override
   void send(ClientMessage message) {
     if (_disposed) return;
-    onOutgoingMessage?.call(message);
+    final outbound = _bindCurrentSessionOwnership(message);
+    if (outbound == null) return;
+    onOutgoingMessage?.call(outbound);
     if (_disposed) return;
     if (_channel != null && isConnected) {
-      if (!_trackInFlightPendingMessage(message)) return;
-      _trackInFlightInputMessage(message);
-      _trackNonReplayableToolAction(message);
+      if (!_trackInFlightPendingMessage(outbound)) return;
+      _trackInFlightInputMessage(outbound);
+      _trackNonReplayableToolAction(outbound);
       try {
-        _channel!.sink.add(message.toJson());
-        _markScopedRequestSent(message);
+        _channel!.sink.add(outbound.toJson());
+        _markScopedRequestSent(outbound);
       } catch (error, stackTrace) {
-        _clearNonReplayableToolAction(message);
+        _clearNonReplayableToolAction(outbound);
         logger.warning('WS send failed; queued message', error, stackTrace);
-        _queueOfflineMessage(message);
+        _queueOfflineMessage(outbound);
         _setBridgeConnectionState(BridgeConnectionState.disconnected);
         _scheduleReconnect();
       }
     } else {
-      _queueOfflineMessage(message);
+      _queueOfflineMessage(outbound);
     }
+  }
+
+  static const _ownedMutationCapabilities = <String, SessionCapability>{
+    'input': SessionCapability.sendInput,
+    'approve': SessionCapability.approve,
+    'approve_always': SessionCapability.approve,
+    'reject': SessionCapability.reject,
+    'answer': SessionCapability.answer,
+    'interrupt': SessionCapability.interrupt,
+    'stop_session': SessionCapability.stop,
+    'fork': SessionCapability.fork,
+    'archive_session': SessionCapability.archive,
+  };
+
+  ClientMessage? _bindCurrentSessionOwnership(ClientMessage message) {
+    final capability = _ownedMutationCapabilities[message.type];
+    if (capability == null) return message;
+    if (!isConnected) return message;
+    final sessionId = message.sessionId;
+    if (sessionId == null) {
+      _emitLocalOwnershipRefreshRequired(message, null, null);
+      return null;
+    }
+    final ownership = _sessionOwnership[sessionId];
+    if (ownership == null || !ownership.wireValid) {
+      _emitLocalOwnershipRefreshRequired(message, sessionId, ownership);
+      return null;
+    }
+    if (!ownership.can(capability)) {
+      _emitLocalOwnershipFailure(
+        message,
+        ownership,
+        details:
+            'The current session owner does not allow ${capability.wireValue}.',
+      );
+      return null;
+    }
+    return message.withSessionOwnership(ownership);
+  }
+
+  void _emitLocalOwnershipRefreshRequired(
+    ClientMessage message,
+    String? sessionId,
+    SessionOwnershipProjection? ownership,
+  ) {
+    final error = ErrorMessage(
+      message: 'Current session ownership is unavailable; refresh sessions.',
+      errorCode: 'stale_generation',
+      operation: message.type,
+      bridgeSessionId: ownership?.bridgeSessionId ?? sessionId,
+      providerThreadId: ownership?.providerThreadId,
+      bridgeGeneration: ownership?.bridgeGeneration,
+      retryable: true,
+      recoveryAction: 'refresh_sessions',
+    );
+    _taggedMessageController.add((error, sessionId));
+    _messageController.add(error);
+  }
+
+  void _emitLocalOwnershipFailure(
+    ClientMessage message,
+    SessionOwnershipProjection ownership, {
+    required String details,
+  }) {
+    final error = ErrorMessage(
+      message: details,
+      errorCode: 'unsupported_operation',
+      operation: message.type,
+      bridgeSessionId: ownership.bridgeSessionId,
+      providerThreadId: ownership.providerThreadId,
+      bridgeGeneration: ownership.bridgeGeneration,
+      retryable: false,
+      recoveryAction: 'refresh_sessions',
+    );
+    _taggedMessageController.add((error, ownership.bridgeSessionId));
+    _messageController.add(error);
+  }
+
+  void _replaceSessionOwnership(List<SessionInfo> sessions) {
+    _sessionOwnership.clear();
+    for (final session in sessions) {
+      _rememberSessionOwnership(session.ownership);
+    }
+  }
+
+  void _rememberSessionOwnership(SessionOwnershipProjection? ownership) {
+    final bridgeSessionId = ownership?.bridgeSessionId;
+    if (ownership == null ||
+        !ownership.wireValid ||
+        bridgeSessionId == null ||
+        bridgeSessionId.isEmpty) {
+      return;
+    }
+    _sessionOwnership[bridgeSessionId] = ownership;
   }
 
   void _queueOfflineMessage(ClientMessage message) {
@@ -1207,7 +1318,9 @@ class BridgeService implements BridgeServiceBase {
     _inFlightInputMessages.clear();
     var didAdd = false;
     for (final message in messages) {
-      didAdd = _addQueuedMessageIfAbsent(message) || didAdd;
+      didAdd =
+          _addQueuedMessageIfAbsent(message.withoutSessionOwnership()) ||
+          didAdd;
     }
     if (didAdd) {
       unawaited(_persistOfflinePendingMessages());
@@ -1232,16 +1345,31 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
-  void _flushMessageQueue() {
-    unawaited(_flushMessageQueueAsync());
+  void _flushMessageQueue({bool allowOwnedMutations = true}) {
+    unawaited(
+      _flushMessageQueueAsync(allowOwnedMutations: allowOwnedMutations),
+    );
   }
 
-  Future<void> _flushMessageQueueAsync() async {
+  Future<void> _flushMessageQueueAsync({
+    required bool allowOwnedMutations,
+  }) async {
     await _ensureOfflineQueueRestored();
     if (_messageQueue.isEmpty || !isConnected) return;
     final generation = _offlineQueueGeneration;
-    final queued = List<ClientMessage>.from(_messageQueue);
-    _messageQueue.clear();
+    final queued = <ClientMessage>[];
+    final retained = <ClientMessage>[];
+    for (final message in _messageQueue) {
+      if (allowOwnedMutations ||
+          !_ownedMutationCapabilities.containsKey(message.type)) {
+        queued.add(message);
+      } else {
+        retained.add(message);
+      }
+    }
+    _messageQueue
+      ..clear()
+      ..addAll(retained);
     _flushingMessageQueue.addAll(queued);
     try {
       await _persistOfflinePendingMessages();
@@ -2242,6 +2370,9 @@ class BridgeService implements BridgeServiceBase {
   void resumeSession(
     String sessionId,
     String projectPath, {
+    String? providerThreadId,
+    String? bridgeGeneration,
+    SessionOwner? expectedOwner,
     String? permissionMode,
     String? executionMode,
     String? approvalPolicy,
@@ -2269,6 +2400,9 @@ class BridgeService implements BridgeServiceBase {
       ClientMessage.resumeSession(
         sessionId,
         projectPath,
+        providerThreadId: providerThreadId,
+        bridgeGeneration: bridgeGeneration,
+        expectedOwner: expectedOwner,
         permissionMode: permissionMode,
         executionMode: executionMode,
         approvalPolicy: approvalPolicy,
@@ -2711,6 +2845,7 @@ class BridgeService implements BridgeServiceBase {
       ProcessStatus.running => 'running',
       ProcessStatus.waitingApproval => 'waiting_approval',
       ProcessStatus.compacting => 'compacting',
+      ProcessStatus.unknown => 'unknown',
     };
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;

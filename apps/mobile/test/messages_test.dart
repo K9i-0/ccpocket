@@ -4,6 +4,181 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  group('session ownership v1', () {
+    const ownershipJson = <String, dynamic>{
+      'bridgeGeneration': 'generation-1',
+      'bridgeSessionId': 'bridge-1',
+      'providerThreadId': 'thread-1',
+      'recordKind': 'live',
+      'origin': 'bridge',
+      'owner': 'bridge',
+      'runtimeStatus': 'idle',
+      'attachmentState': 'owned',
+      'capabilities': <String>[
+        'read_history',
+        'refresh',
+        'send_input',
+        'approve',
+      ],
+      'readOnlyReason': null,
+    };
+
+    test('parses a closed owned projection on every session record', () {
+      final system = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'session_created',
+        'sessionId': 'bridge-1',
+        'provider': 'codex',
+        ...ownershipJson,
+      }) as SystemMessage;
+      final session = SessionInfo.fromJson({
+        'id': 'bridge-1',
+        'provider': 'codex',
+        'projectPath': '/workspace/app',
+        ...ownershipJson,
+      });
+      final recent = RecentSession.fromJson({
+        'sessionId': 'thread-1',
+        'provider': 'codex',
+        'projectPath': '/workspace/app',
+        ...ownershipJson,
+      });
+
+      for (final ownership in [
+        system.ownership,
+        session.ownership,
+        recent.ownership,
+      ]) {
+        expect(ownership, isNotNull);
+        expect(ownership!.recordKind, SessionRecordKind.live);
+        expect(ownership.origin, SessionOrigin.bridge);
+        expect(ownership.owner, SessionOwner.bridge);
+        expect(ownership.runtimeStatus, SessionRuntimeStatus.idle);
+        expect(ownership.attachmentState, SessionAttachmentState.owned);
+        expect(ownership.can(SessionCapability.sendInput), isTrue);
+        expect(
+          ownership.routeForProvider('codex'),
+          SessionOwnershipRoute.ownedAttach,
+        );
+      }
+    });
+
+    test('routes external idle, active, unknown, and malformed closed', () {
+      SessionOwnershipProjection parse({
+        required String attachmentState,
+        String owner = 'external',
+        String runtimeStatus = 'idle',
+        List<String> capabilities = const ['read_history', 'refresh', 'resume'],
+        String? provider = 'codex',
+        String? origin = 'external',
+      }) {
+        return SessionOwnershipProjection.fromJson({
+          ...ownershipJson,
+          'bridgeSessionId': null,
+          'origin': origin,
+          'owner': owner,
+          'runtimeStatus': runtimeStatus,
+          'attachmentState': attachmentState,
+          'capabilities': capabilities,
+        });
+      }
+
+      expect(
+        parse(attachmentState: 'external_idle').routeForProvider('codex'),
+        SessionOwnershipRoute.externalIdleResume,
+      );
+      expect(
+        parse(
+          attachmentState: 'external_active',
+          runtimeStatus: 'running',
+        ).routeForProvider('codex'),
+        SessionOwnershipRoute.readOnlyHistory,
+      );
+      expect(
+        parse(
+          attachmentState: 'external_unknown',
+          owner: 'unknown',
+          runtimeStatus: 'unknown',
+        ).routeForProvider('codex'),
+        SessionOwnershipRoute.readOnlyHistory,
+      );
+      expect(
+        parse(attachmentState: 'future_state').routeForProvider('codex'),
+        SessionOwnershipRoute.unavailable,
+      );
+      expect(
+        parse(attachmentState: 'owned').routeForProvider('future_provider'),
+        SessionOwnershipRoute.unavailable,
+      );
+      expect(
+        parse(
+          attachmentState: 'owned',
+          origin: 'future_origin',
+        ).routeForProvider('codex'),
+        SessionOwnershipRoute.unavailable,
+      );
+      expect(
+        parse(
+          attachmentState: 'owned',
+          capabilities: const ['read_history', 'future_capability'],
+        ).routeForProvider('codex'),
+        SessionOwnershipRoute.unavailable,
+      );
+    });
+
+    test('advertises ownership v1 and binds mutation identity', () {
+      final ownership = SessionOwnershipProjection.fromJson(ownershipJson);
+      expect(
+        jsonDecode(ClientMessage.clientCapabilities().toJson()),
+        containsPair('sessionOwnershipVersion', 1),
+      );
+      expect(
+        jsonDecode(
+          ClientMessage.approve(
+            'tool-1',
+            sessionId: 'bridge-1',
+            ownership: ownership,
+          ).toJson(),
+        ),
+        allOf(
+          containsPair('bridgeSessionId', 'bridge-1'),
+          containsPair('bridgeGeneration', 'generation-1'),
+          containsPair('providerThreadId', 'thread-1'),
+        ),
+      );
+    });
+
+    test('parses the complete scoped failure envelope closed', () {
+      final message = ServerMessage.fromJson({
+        'type': 'error',
+        'message': 'Bridge generation changed',
+        'operation': 'approve',
+        'bridgeSessionId': 'bridge-1',
+        'providerThreadId': 'thread-1',
+        'bridgeGeneration': 'generation-2',
+        'errorCode': 'stale_generation',
+        'retryable': true,
+        'recoveryAction': 'refresh_sessions',
+        'toolUseId': 'tool-1',
+      }) as ErrorMessage;
+
+      expect(message.operation, 'approve');
+      expect(message.bridgeSessionId, 'bridge-1');
+      expect(message.providerThreadId, 'thread-1');
+      expect(message.bridgeGeneration, 'generation-2');
+      expect(message.sessionErrorCode, SessionControlErrorCode.staleGeneration);
+      expect(message.retryable, isTrue);
+      expect(
+        message.sessionRecoveryAction,
+        SessionRecoveryAction.refreshSessions,
+      );
+    });
+
+    test('unknown process status is not treated as idle', () {
+      expect(ProcessStatus.fromString('future_status'), ProcessStatus.unknown);
+    });
+  });
+
   test('parses explicit permission outcomes on synthetic tool results', () {
     final message = ServerMessage.fromJson({
       'type': 'tool_result',

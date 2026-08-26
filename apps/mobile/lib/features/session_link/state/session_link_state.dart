@@ -20,7 +20,16 @@ sealed class SessionLinkState with _$SessionLinkState {
     String? gitBranch,
   }) = SessionLinkOpenResumed;
 
-  const factory SessionLinkState.openLegacy() = SessionLinkOpenLegacy;
+  const factory SessionLinkState.openReadOnly({
+    required String provider,
+    required RecentSession recentSession,
+    required SessionOwnershipProjection ownership,
+    ErrorMessage? failure,
+  }) = SessionLinkOpenReadOnly;
 
-  const factory SessionLinkState.unavailable() = SessionLinkUnavailable;
+  const factory SessionLinkState.unavailable({
+    String? reason,
+    String? recoveryAction,
+    ErrorMessage? failure,
+  }) = SessionLinkUnavailable;
 }

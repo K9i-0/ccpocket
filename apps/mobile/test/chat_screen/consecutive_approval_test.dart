@@ -48,7 +48,16 @@ void main() {
         await $.tester.tap(find.byKey(const ValueKey('approve_button')));
         await pumpN($.tester);
 
-        // Approval bar should be gone (only one pending)
+        final firstApprove = findSentMessage(bridge, 'approve');
+        expect(firstApprove, isNotNull);
+        expect(firstApprove!['id'], 'tool-1');
+        expect($(ApprovalBar), findsOneWidget);
+
+        await emitAndPump($.tester, bridge, [
+          const PermissionResolvedMessage(toolUseId: 'tool-1'),
+        ]);
+
+        // Approval bar is removed only after the bridge acknowledges tool-1.
         expect($(ApprovalBar), findsNothing);
 
         // Before tool-1 result arrives, new permission arrives
@@ -106,7 +115,11 @@ void main() {
       expect(rejects, hasLength(1));
       expect(rejects[0]['id'], 'tool-1');
 
-      // ApprovalBar should be gone after reject
+      // The rejected permission remains visible until the bridge acknowledges it.
+      expect($(ApprovalBar), findsOneWidget);
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-1'),
+      ]);
       expect($(ApprovalBar), findsNothing);
     });
 

@@ -53,6 +53,26 @@ describe("ACCEPT_EDITS_AUTO_APPROVE", () => {
   });
 });
 
+describe("SdkProcess readiness counts", () => {
+  it("separates AskUserQuestion entries from other pending permissions", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.pendingPermissions.set("question", {
+      resolve: vi.fn(),
+      toolName: "AskUserQuestion",
+      input: { questions: [{ question: "protected question sentinel" }] },
+    });
+    internal.pendingPermissions.set("approval", {
+      resolve: vi.fn(),
+      toolName: "Bash",
+      input: { command: "protected approval sentinel" },
+    });
+
+    expect(proc.pendingQuestionCount).toBe(1);
+    expect(proc.pendingApprovalCount).toBe(1);
+  });
+});
+
 // ---- parseRule ----
 
 describe("parseRule", () => {

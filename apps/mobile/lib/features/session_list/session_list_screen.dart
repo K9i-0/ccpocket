@@ -326,6 +326,17 @@ class _SessionListScreenState extends State<SessionListScreen>
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(text)));
       }
+
+      if (msg is ErrorMessage && msg.isScopedSessionFailure && mounted) {
+        final archiveSessionId = msg.providerThreadId ?? msg.bridgeSessionId;
+        if (msg.operation == 'archive_session' &&
+            archiveSessionId != null &&
+            _archiveRequests.complete(archiveSessionId)) {
+          setState(() {});
+        }
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg.message)));
+      }
     });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
     _loadPreferencesAndAutoConnect();
@@ -1117,12 +1128,13 @@ class _SessionListScreenState extends State<SessionListScreen>
           icon: Icons.label_outline,
           label: l.rename,
         ),
-        AdaptiveActionMenuItem(
-          value: 'stop',
-          icon: Icons.stop_circle_outlined,
-          label: l.stopSession,
-          destructive: true,
-        ),
+        if (session.ownership?.can(SessionCapability.stop) == true)
+          AdaptiveActionMenuItem(
+            value: 'stop',
+            icon: Icons.stop_circle_outlined,
+            label: l.stopSession,
+            destructive: true,
+          ),
       ],
     );
     if (action == null || !mounted) return;
@@ -1176,12 +1188,13 @@ class _SessionListScreenState extends State<SessionListScreen>
           icon: Icons.tune,
           label: l.editSettingsThenStart,
         ),
-        AdaptiveActionMenuItem(
-          value: 'archive',
-          icon: Icons.archive_outlined,
-          label: l.archive,
-          destructive: true,
-        ),
+        if (session.ownership?.can(SessionCapability.archive) == true)
+          AdaptiveActionMenuItem(
+            value: 'archive',
+            icon: Icons.archive_outlined,
+            label: l.archive,
+            destructive: true,
+          ),
       ],
     );
     if (action == null || !mounted) return;
@@ -1249,6 +1262,13 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   void _archiveSession(RecentSession session) {
+    if (session.ownership?.can(SessionCapability.archive) != true) {
+      _openSessionLink(
+        session.ownership?.providerThreadId ?? session.sessionId,
+        provider: session.provider,
+      );
+      return;
+    }
     if (_archiveRequests.contains(session.sessionId)) return;
     setState(() => _archiveRequests.start(session.sessionId));
     context.read<BridgeService>().archiveSession(
@@ -1341,10 +1361,92 @@ class _SessionListScreenState extends State<SessionListScreen>
     });
   }
 
+  void _openSessionLink(String sourceSessionId, {String? provider}) {
+    if (sourceSessionId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).sessionUnavailableTitle),
+        ),
+      );
+      return;
+    }
+    context.router.push(
+      SessionLinkRoute(
+        key: UniqueKey(),
+        sessionId: sourceSessionId,
+        provider: provider == Provider.codex.value
+            ? Provider.codex.value
+            : Provider.claude.value,
+      ),
+    );
+  }
+
+  void _openRunningSession(SessionInfo session) {
+    final provider = session.provider ?? Provider.claude.value;
+    final ownership = session.ownership;
+    if (ownership?.routeForProvider(provider) ==
+        SessionOwnershipRoute.ownedAttach) {
+      _navigateToChat(
+        ownership!.bridgeSessionId!,
+        projectPath: session.projectPath,
+        gitBranch: session.worktreePath != null
+            ? session.worktreeBranch
+            : session.gitBranch,
+        worktreePath: session.worktreePath,
+        provider: provider == Provider.codex.value ? Provider.codex : null,
+        permissionMode: session.permissionMode,
+        sandboxMode: session.codexSandboxMode,
+        approvalPolicy: session.codexApprovalPolicy,
+        approvalsReviewer: session.codexApprovalsReviewer,
+      );
+      return;
+    }
+    _openSessionLink(
+      ownership?.providerThreadId ?? session.claudeSessionId ?? session.id,
+      provider: provider,
+    );
+  }
+
+  void _openRecentSession(RecentSession session) {
+    final provider = session.provider ?? Provider.claude.value;
+    final ownership = session.ownership;
+    switch (ownership?.routeForProvider(provider)) {
+      case SessionOwnershipRoute.ownedAttach:
+        _navigateToChat(
+          ownership!.bridgeSessionId!,
+          projectPath: session.projectPath,
+          gitBranch: session.gitBranch,
+          provider: provider == Provider.codex.value ? Provider.codex : null,
+          permissionMode: session.effectivePermissionMode,
+          sandboxMode: session.codexSandboxMode,
+          approvalPolicy: session.codexApprovalPolicy,
+          approvalsReviewer: session.codexApprovalsReviewer,
+        );
+      case SessionOwnershipRoute.externalIdleResume:
+        _resumeSession(session);
+      case SessionOwnershipRoute.readOnlyHistory ||
+          SessionOwnershipRoute.unavailable ||
+          null:
+        _openSessionLink(
+          ownership?.providerThreadId ?? session.sessionId,
+          provider: provider,
+        );
+    }
+  }
+
   void _resumeSession(RecentSession session) async {
     final bridge = context.read<BridgeService>();
-    final result = await SessionResumeCoordinator(bridge: bridge)
-        .resume(session);
+    late final SessionResumeDispatch result;
+    try {
+      result = await SessionResumeCoordinator(bridge: bridge).resume(session);
+    } on SessionResumeIdentityException {
+      if (!mounted) return;
+      _openSessionLink(
+        session.ownership?.providerThreadId ?? session.sessionId,
+        provider: session.provider,
+      );
+      return;
+    }
     if (!mounted) return;
     if (result.disposition == SessionResumeDisposition.alreadyQueued) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1371,6 +1473,16 @@ class _SessionListScreenState extends State<SessionListScreen>
     NewSessionParams edited,
   ) {
     final bridge = context.read<BridgeService>();
+    final provider = session.provider ?? Provider.claude.value;
+    final ownership = session.ownership;
+    if (ownership?.routeForProvider(provider) !=
+        SessionOwnershipRoute.externalIdleResume) {
+      _openSessionLink(
+        ownership?.providerThreadId ?? session.sessionId,
+        provider: provider,
+      );
+      return;
+    }
     if (_isResumePending(bridge, session)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1393,6 +1505,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     bridge.resumeSession(
       session.sessionId,
       resumeProjectPath,
+      providerThreadId: ownership!.providerThreadId,
+      bridgeGeneration: ownership.bridgeGeneration,
+      expectedOwner: ownership.owner,
       permissionMode: isCodex && useCodexProfile
           ? null
           : edited.permissionMode.value,
@@ -1810,28 +1925,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               unseenSessionIds: unseenSessionIds,
               currentProjectFilter: bridge.currentProjectFilter,
               onNewSession: _showNewSessionDialog,
-              onTapRunning:
-                  (
-                    sessionId, {
-                    String? projectPath,
-                    String? gitBranch,
-                    String? worktreePath,
-                    String? provider,
-                    String? permissionMode,
-                    String? sandboxMode,
-                    String? approvalPolicy,
-                    String? approvalsReviewer,
-                  }) => _navigateToChat(
-                    sessionId,
-                    projectPath: projectPath,
-                    gitBranch: gitBranch,
-                    worktreePath: worktreePath,
-                    provider: provider == 'codex' ? Provider.codex : null,
-                    permissionMode: permissionMode,
-                    sandboxMode: sandboxMode,
-                    approvalPolicy: approvalPolicy,
-                    approvalsReviewer: approvalsReviewer,
-                  ),
+              onTapRunning: _openRunningSession,
               onStopSession: _stopSession,
               onCancelOfflinePendingAction: (actionId) =>
                   unawaited(bridge.cancelOfflinePendingAction(actionId)),
@@ -1876,7 +1970,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                 );
                 bridge.clearSessionPermission(sessionId);
               },
-              onResumeSession: _resumeSession,
+              onResumeSession: _openRecentSession,
               onToggleRecentSessionPinned: (session) => context
                   .read<SessionListCubit>()
                   .toggleRecentSessionPinned(session),

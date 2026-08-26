@@ -9,6 +9,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
+  OWNED_SESSION_CAPABILITIES,
   type HistoryEntry,
   type SessionInfo,
   type WorktreeOptions,
@@ -24,6 +25,7 @@ import {
   codexErrorMessage,
   CodexRpcError,
   CodexProcess,
+  isCodexThreadWriterConflict,
   type CodexModelMetadata,
   type CodexStartOptions,
   type CodexThreadSourceKind,
@@ -134,6 +136,32 @@ type ResumeOperation = {
     completedAt: number;
   };
 };
+type OwnershipResumeErrorCode =
+  | "writer_conflict"
+  | "thread_not_found"
+  | "bridge_restarting";
+
+class OwnershipResumeError extends Error {
+  readonly ownershipErrorCode: OwnershipResumeErrorCode;
+
+  constructor(code: OwnershipResumeErrorCode, message: string) {
+    super(message);
+    this.name = "OwnershipResumeError";
+    this.ownershipErrorCode = code;
+  }
+}
+
+function ownershipResumeErrorCode(
+  error: unknown,
+): OwnershipResumeErrorCode | null {
+  if (!error || typeof error !== "object") return null;
+  const code = (error as { ownershipErrorCode?: unknown }).ownershipErrorCode;
+  return code === "writer_conflict" ||
+    code === "thread_not_found" ||
+    code === "bridge_restarting"
+    ? code
+    : null;
+}
 const RESUME_OPERATION_TIMEOUT_MS = 5 * 60 * 1000;
 const RESUME_COMPLETED_TTL_MS = 30 * 1000;
 type ClaudePermissionMode =
@@ -756,6 +784,7 @@ export class BridgeWebSocketServer {
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  private ownershipV1Clients = new WeakSet<WebSocket>();
   private pendingClaudeResumeInputs = new WeakMap<
     WebSocket,
     Map<string, InputClientMessage[]>
@@ -863,8 +892,11 @@ export class BridgeWebSocketServer {
       // API key authentication
       if (this.apiKey) {
         const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
-        const token = url.searchParams.get("token");
-        if (token !== this.apiKey) {
+        const queryToken = url.searchParams.get("token");
+        const bearerToken = /^Bearer ([^\s]+)$/.exec(
+          req.headers.authorization ?? "",
+        )?.[1];
+        if (queryToken !== this.apiKey && bearerToken !== this.apiKey) {
           console.log("[ws] Client rejected: invalid token");
           ws.close(4001, "Unauthorized");
           return;
@@ -904,16 +936,207 @@ export class BridgeWebSocketServer {
     };
   }
 
+  private sendControlError(
+    ws: WebSocket,
+    params: {
+      operation: string;
+      bridgeSessionId: string | null;
+      providerThreadId: string | null;
+      errorCode:
+        | "session_not_found"
+        | "thread_not_found"
+        | "writer_conflict"
+        | "path_not_allowed"
+        | "stale_generation"
+        | "bridge_restarting"
+        | "unsupported_operation";
+      message: string;
+      retryable: boolean;
+      recoveryAction: string;
+    },
+  ): void {
+    this.send(ws, {
+      type: "error",
+      message: params.message,
+      operation: params.operation,
+      bridgeSessionId: params.bridgeSessionId,
+      providerThreadId: params.providerThreadId,
+      bridgeGeneration: this.sessionManager.bridgeGeneration,
+      errorCode: params.errorCode,
+      retryable: params.retryable,
+      recoveryAction: params.recoveryAction,
+    });
+  }
+
+  private validateOwnedMutation(
+    msg: ClientMessage,
+    ws: WebSocket,
+  ): ClientMessage | null {
+    if (!this.ownershipV1Clients.has(ws)) return msg;
+    if (
+      ![
+        "input",
+        "approve",
+        "approve_always",
+        "reject",
+        "answer",
+        "interrupt",
+        "stop_session",
+        "fork",
+        "archive_session",
+      ].includes(msg.type)
+    ) {
+      return msg;
+    }
+
+    const target = msg as unknown as Record<string, unknown>;
+    const bridgeSessionId =
+      typeof target.bridgeSessionId === "string"
+        ? target.bridgeSessionId
+        : null;
+    const providerThreadId =
+      typeof target.providerThreadId === "string"
+        ? target.providerThreadId
+        : null;
+    const bridgeGeneration =
+      typeof target.bridgeGeneration === "string"
+        ? target.bridgeGeneration
+        : null;
+    const hasProviderThreadId = Object.prototype.hasOwnProperty.call(
+      target,
+      "providerThreadId",
+    );
+
+    if (!bridgeSessionId || !bridgeGeneration || !hasProviderThreadId) {
+      this.sendControlError(ws, {
+        operation: msg.type,
+        bridgeSessionId,
+        providerThreadId,
+        errorCode: "unsupported_operation",
+        message:
+          "Ownership-v1 mutations require bridgeSessionId, bridgeGeneration, and providerThreadId.",
+        retryable: false,
+        recoveryAction: "refresh_sessions",
+      });
+      return null;
+    }
+    if (bridgeGeneration !== this.sessionManager.bridgeGeneration) {
+      this.sendControlError(ws, {
+        operation: msg.type,
+        bridgeSessionId,
+        providerThreadId,
+        errorCode: "stale_generation",
+        message: "Bridge generation changed; refresh sessions before retrying.",
+        retryable: true,
+        recoveryAction: "refresh_sessions",
+      });
+      return null;
+    }
+
+    const session = this.sessionManager.get(bridgeSessionId);
+    if (!session) {
+      this.sendControlError(ws, {
+        operation: msg.type,
+        bridgeSessionId,
+        providerThreadId,
+        errorCode: "session_not_found",
+        message: `Bridge session ${bridgeSessionId} was not found.`,
+        retryable: true,
+        recoveryAction: "refresh_sessions",
+      });
+      return null;
+    }
+    const actualProviderThreadId =
+      session.providerThreadId ?? session.claudeSessionId ?? null;
+    if (providerThreadId !== actualProviderThreadId) {
+      this.sendControlError(ws, {
+        operation: msg.type,
+        bridgeSessionId,
+        providerThreadId,
+        errorCode: "thread_not_found",
+        message: "Provider thread does not match the Bridge session owner.",
+        retryable: false,
+        recoveryAction: "refresh_sessions",
+      });
+      return null;
+    }
+
+    if (msg.type === "archive_session") return msg;
+    return {
+      ...msg,
+      sessionId: bridgeSessionId,
+    } as ClientMessage;
+  }
+
   private sendToolActionError(
     ws: WebSocket,
-    message: { sessionId?: string; id?: string; toolUseId?: string },
+    message: {
+      type?: string;
+      sessionId?: string;
+      bridgeSessionId?: string;
+      providerThreadId?: string | null;
+      id?: string;
+      toolUseId?: string;
+    },
     error: string,
   ): void {
+    if (this.ownershipV1Clients.has(ws)) {
+      const bridgeSessionId =
+        message.bridgeSessionId ?? message.sessionId ?? null;
+      const session = bridgeSessionId
+        ? this.sessionManager.get(bridgeSessionId)
+        : undefined;
+      this.sendControlError(ws, {
+        operation: message.type ?? "tool_action",
+        bridgeSessionId,
+        providerThreadId:
+          message.providerThreadId ??
+          session?.providerThreadId ??
+          session?.claudeSessionId ??
+          null,
+        errorCode: "unsupported_operation",
+        message: error,
+        retryable: false,
+        recoveryAction: "refresh_session",
+      });
+      return;
+    }
     this.send(ws, {
       type: "error",
       message: error,
       sessionId: message.sessionId,
       toolUseId: message.toolUseId ?? message.id,
+    });
+  }
+
+  private sendInputRejected(
+    ws: WebSocket,
+    session: SessionInfo,
+    params: {
+      clientMessageId?: string;
+      reason: string;
+      errorCode: "writer_conflict" | "unsupported_operation";
+    },
+  ): void {
+    this.send(ws, {
+      type: "input_rejected",
+      sessionId: session.id,
+      ...(params.clientMessageId
+        ? { clientMessageId: params.clientMessageId }
+        : {}),
+      reason: params.reason,
+      ...(this.ownershipV1Clients.has(ws)
+        ? {
+            operation: "input",
+            bridgeSessionId: session.bridgeSessionId,
+            providerThreadId:
+              session.providerThreadId ?? session.claudeSessionId ?? null,
+            bridgeGeneration: this.sessionManager.bridgeGeneration,
+            errorCode: params.errorCode,
+            retryable: true,
+            recoveryAction: "refresh_session",
+          }
+        : {}),
     });
   }
 
@@ -942,6 +1165,73 @@ export class BridgeWebSocketServer {
     return { roots: [...normalized.values()] };
   }
 
+  private async waitForCodexOwnership(
+    session: SessionInfo,
+    providerThreadId: string,
+  ): Promise<void> {
+    const process = session.process as CodexProcess;
+    if (process.sessionId === providerThreadId) return;
+    if (
+      typeof process.on !== "function" ||
+      typeof process.off !== "function"
+    ) {
+      throw new OwnershipResumeError(
+        "bridge_restarting",
+        "Codex ownership confirmation is unavailable.",
+      );
+    }
+
+    await new Promise<void>((resolveOwnership, rejectOwnership) => {
+      const cleanup = () => {
+        clearTimeout(timeout);
+        process.off("message", onMessage);
+        process.off("exit", onExit);
+      };
+      const finish = (error?: OwnershipResumeError) => {
+        cleanup();
+        if (error) rejectOwnership(error);
+        else resolveOwnership();
+      };
+      const onMessage = (message: ServerMessage) => {
+        if (
+          message.type === "system" &&
+          message.subtype === "init" &&
+          message.sessionId === providerThreadId
+        ) {
+          finish();
+          return;
+        }
+        if (
+          message.type === "error" &&
+          message.errorCode === "writer_conflict"
+        ) {
+          finish(
+            new OwnershipResumeError("writer_conflict", message.message),
+          );
+        }
+      };
+      const onExit = () => {
+        finish(
+          new OwnershipResumeError(
+            "bridge_restarting",
+            "Codex worker exited before ownership was confirmed.",
+          ),
+        );
+      };
+      const timeout = setTimeout(() => {
+        finish(
+          new OwnershipResumeError(
+            "bridge_restarting",
+            "Timed out waiting for Codex ownership confirmation.",
+          ),
+        );
+      }, RESUME_OPERATION_TIMEOUT_MS);
+      timeout.unref?.();
+      process.on("message", onMessage);
+      process.on("exit", onExit);
+    });
+  }
+
   private buildSessionCreatedMessage(params: {
     sessionId: string;
     provider: Provider;
@@ -962,6 +1252,7 @@ export class BridgeWebSocketServer {
     pluginMetadata?: Array<Record<string, unknown>>;
     sourceSessionId?: string;
     resumeRequestId?: string;
+    recordKind?: "live" | "resume";
   }): SystemServerMessage {
     const {
       sessionId,
@@ -983,6 +1274,7 @@ export class BridgeWebSocketServer {
       pluginMetadata,
       sourceSessionId,
       resumeRequestId,
+      recordKind,
     } = params;
     const derivedCodexSettings = provider === "codex"
       ? withDerivedCodexPermissionsMode(session?.codexSettings)
@@ -992,6 +1284,17 @@ export class BridgeWebSocketServer {
       type: "system",
       subtype: "session_created",
       sessionId,
+      bridgeGeneration: this.sessionManager.bridgeGeneration,
+      bridgeSessionId: session?.bridgeSessionId ?? sessionId,
+      providerThreadId:
+        session?.providerThreadId ?? session?.claudeSessionId ?? null,
+      recordKind: recordKind ?? "live",
+      origin: "bridge",
+      owner: "bridge",
+      runtimeStatus: session?.status ?? "starting",
+      attachmentState: "owned",
+      capabilities: [...OWNED_SESSION_CAPABILITIES],
+      readOnlyReason: null,
       provider,
       projectPath,
       ...(permissionMode
@@ -1280,11 +1583,7 @@ export class BridgeWebSocketServer {
   ): Promise<void> {
     const session = this.sessionManager.get(sessionId);
     if (!session) {
-      this.send(ws, {
-        type: "error",
-        message: `Session ${sessionId} not found`,
-        errorCode: "fork_failed",
-      });
+      this.sendForkError(ws, sessionId, `Session ${sessionId} not found`);
       return;
     }
     const codexProcess = session.process as CodexProcess;
@@ -1292,38 +1591,30 @@ export class BridgeWebSocketServer {
       session.provider !== "codex" ||
       typeof codexProcess.forkThread !== "function"
     ) {
-      this.send(ws, {
-        type: "error",
-        message: "Fork is only supported for Codex sessions",
-        errorCode: "fork_failed",
-      });
+      this.sendForkError(
+        ws,
+        sessionId,
+        "Fork is only supported for Codex sessions",
+      );
       return;
     }
     if (session.status !== "idle" || (codexProcess.status ?? session.status) !== "idle") {
-      this.send(ws, {
-        type: "error",
-        message: "Cannot fork while Codex is running",
-        errorCode: "fork_failed",
-      });
+      this.sendForkError(ws, sessionId, "Cannot fork while Codex is running");
       return;
     }
     if (session.codexQueuedInput) {
-      this.send(ws, {
-        type: "error",
-        message: "Cannot fork while Codex has queued input",
-        errorCode: "fork_failed",
-      });
+      this.sendForkError(
+        ws,
+        sessionId,
+        "Cannot fork while Codex has queued input",
+      );
       return;
     }
 
     const targetOrdinal = parseCodexUserTurnOrdinal(targetUuid);
     const totalUserTurns = countCodexUserTurnsInSession(session);
     if (targetOrdinal === null || targetOrdinal > totalUserTurns) {
-      this.send(ws, {
-        type: "error",
-        message: "Invalid Codex fork target",
-        errorCode: "fork_failed",
-      });
+      this.sendForkError(ws, sessionId, "Invalid Codex fork target");
       return;
     }
 
@@ -1378,6 +1669,32 @@ export class BridgeWebSocketServer {
       }),
     );
     this.sendSessionList(ws);
+  }
+
+  private sendForkError(
+    ws: WebSocket,
+    bridgeSessionId: string,
+    message: string,
+  ): void {
+    if (this.ownershipV1Clients.has(ws)) {
+      const session = this.sessionManager.get(bridgeSessionId);
+      this.sendControlError(ws, {
+        operation: "fork",
+        bridgeSessionId,
+        providerThreadId:
+          session?.providerThreadId ?? session?.claudeSessionId ?? null,
+        errorCode: session ? "unsupported_operation" : "session_not_found",
+        message,
+        retryable: false,
+        recoveryAction: "refresh_session",
+      });
+      return;
+    }
+    this.send(ws, {
+      type: "error",
+      message,
+      errorCode: "fork_failed",
+    });
   }
 
   private sendTip(
@@ -2143,6 +2460,19 @@ export class BridgeWebSocketServer {
     );
   }
 
+  private isCodexPaginatedThreadHistoryUnsupportedError(
+    err: unknown,
+  ): boolean {
+    return (
+      err instanceof CodexRpcError &&
+      err.method === "thread/read" &&
+      err.code === -32600 &&
+      /paginated threads do not support thread\/read\(includeTurns=true\)/i.test(
+        err.message,
+      )
+    );
+  }
+
   private async getCodexThreadHistory(
     threadId: string,
     projectPath?: string,
@@ -2151,6 +2481,20 @@ export class BridgeWebSocketServer {
       return getCodexSessionHistory(threadId);
     }
     return this.getCodexThreadHistoryFromRpc(threadId, projectPath);
+  }
+
+  private async getCodexThreadReadOnlyHistory(
+    threadId: string,
+    projectPath?: string,
+  ): Promise<SessionHistoryMessage[]> {
+    try {
+      return await this.getCodexThreadHistory(threadId, projectPath);
+    } catch (err) {
+      if (!this.isCodexPaginatedThreadHistoryUnsupportedError(err)) {
+        throw err;
+      }
+      return getCodexSessionHistory(threadId);
+    }
   }
 
   private codexHistoryFromThreadOrFallback(params: {
@@ -2238,12 +2582,25 @@ export class BridgeWebSocketServer {
 
   /** Return session count for /health endpoint. */
   get sessionCount(): number {
-    return this.sessionManager.list().length;
+    return this.sessionManager.sessionCount;
   }
 
   /** Return connected WebSocket client count. */
   get clientCount(): number {
     return this.wss.clients.size;
+  }
+
+  getReadinessCounts(): {
+    activeTurns: number;
+    pendingApprovals: number;
+    pendingQuestions: number;
+    busyWorkers: number;
+    clients: number;
+  } {
+    return {
+      ...this.sessionManager.getReadinessCounts(),
+      clients: this.clientCount,
+    };
   }
 
   private handleConnection(ws: WebSocket): void {
@@ -2319,9 +2676,16 @@ export class BridgeWebSocketServer {
         ws,
         new Set(msg.supportedServerMessages ?? []),
       );
+      if (msg.sessionOwnershipVersion === 1) {
+        this.ownershipV1Clients.add(ws);
+      }
       this.sendPromptHistoryStatus(ws);
       return;
     }
+
+    const ownedMutation = this.validateOwnedMutation(msg, ws);
+    if (!ownedMutation) return;
+    msg = ownedMutation;
 
     const incomingSessionId = this.extractSessionIdFromClientMessage(msg);
     const isActiveRuntimeSession =
@@ -2671,11 +3035,10 @@ export class BridgeWebSocketServer {
           baseSeq !== undefined &&
           this.hasInputConflictSince(session, baseSeq)
         ) {
-          this.send(ws, {
-            type: "input_rejected",
-            sessionId: session.id,
+          this.sendInputRejected(ws, session, {
             clientMessageId,
             reason: "conflict",
+            errorCode: "writer_conflict",
           });
           break;
         }
@@ -2685,11 +3048,10 @@ export class BridgeWebSocketServer {
           !session.process.isWaitingForInput
         ) {
           if (session.codexQueuedInput) {
-            this.send(ws, {
-              type: "input_rejected",
-              sessionId: session.id,
-              ...(clientMessageId ? { clientMessageId } : {}),
+            this.sendInputRejected(ws, session, {
+              clientMessageId,
               reason: "Queue is full",
+              errorCode: "unsupported_operation",
             });
             break;
           }
@@ -2705,11 +3067,10 @@ export class BridgeWebSocketServer {
             ...(codexMentions.length > 0 ? { mentions: codexMentions } : {}),
           });
           if (!queued) {
-            this.send(ws, {
-              type: "input_rejected",
-              sessionId: session.id,
-              ...(clientMessageId ? { clientMessageId } : {}),
+            this.sendInputRejected(ws, session, {
+              clientMessageId,
               reason: "Queue is full",
+              errorCode: "unsupported_operation",
             });
             break;
           }
@@ -4266,6 +4627,129 @@ export class BridgeWebSocketServer {
       }
 
       case "get_history": {
+        const ownershipV1 = this.ownershipV1Clients.has(ws);
+        let externalProviderThreadId = msg.providerThreadId ?? null;
+        let externalProvider = msg.provider;
+        let externalProjectPath = msg.projectPath;
+        const legacyExternalHistoryRequest =
+          ownershipV1 &&
+          !msg.bridgeSessionId &&
+          !msg.providerThreadId &&
+          !this.sessionManager.get(msg.sessionId);
+
+        if (legacyExternalHistoryRequest) {
+          try {
+            const { sessions } = await getAllRecentSessions({
+              limit: 1,
+              provider: msg.provider,
+              sessionId: msg.sessionId,
+              archivedSessionIds: this.archiveStore.archivedIds(),
+            });
+            const recentSession = sessions.find(
+              (session) => session.sessionId === msg.sessionId,
+            );
+            if (recentSession) {
+              externalProviderThreadId = recentSession.sessionId;
+              externalProvider = recentSession.provider;
+              externalProjectPath = recentSession.projectPath;
+            }
+          } catch (err) {
+            console.warn(
+              `[ws] Failed to resolve legacy history target ${msg.sessionId}: ${err}`,
+            );
+          }
+        }
+
+        if (
+          ownershipV1 &&
+          externalProviderThreadId &&
+          !msg.bridgeSessionId
+        ) {
+          if (
+            msg.providerThreadId &&
+            msg.bridgeGeneration !== this.sessionManager.bridgeGeneration
+          ) {
+            this.sendControlError(ws, {
+              operation: "get_history",
+              bridgeSessionId: null,
+              providerThreadId: externalProviderThreadId,
+              errorCode: "stale_generation",
+              message:
+                "Bridge generation changed; refresh sessions before retrying.",
+              retryable: true,
+              recoveryAction: "refresh_sessions",
+            });
+            break;
+          }
+          const historyProjectPath = externalProjectPath
+            ? resolvePlatformPath(externalProjectPath, this.platform)
+            : undefined;
+          if (
+            historyProjectPath &&
+            !this.isPathAllowed(historyProjectPath)
+          ) {
+            this.sendControlError(ws, {
+              operation: "get_history",
+              bridgeSessionId: null,
+              providerThreadId: externalProviderThreadId,
+              errorCode: "path_not_allowed",
+              message:
+                this.buildPathNotAllowedError(externalProjectPath!).message,
+              retryable: false,
+              recoveryAction: "choose_allowed_path",
+            });
+            break;
+          }
+          try {
+            const provider = externalProvider ?? "claude";
+            const messages =
+              provider === "codex"
+                ? await this.getCodexThreadReadOnlyHistory(
+                    externalProviderThreadId,
+                    historyProjectPath,
+                  )
+                : await getSessionHistory(externalProviderThreadId);
+            this.send(ws, {
+              type: "past_history",
+              sessionId: msg.sessionId,
+              claudeSessionId: externalProviderThreadId,
+              messages,
+              bridgeGeneration: this.sessionManager.bridgeGeneration,
+              bridgeSessionId: null,
+              providerThreadId: externalProviderThreadId,
+              recordKind: "history",
+              origin: "disk",
+              owner: "unknown",
+              runtimeStatus: "not_running",
+              attachmentState: "external_unknown",
+              capabilities: ["read_history", "refresh", "resume"],
+              readOnlyReason: "external_owner_unknown",
+            } as Record<string, unknown>);
+          } catch (err) {
+            this.sendControlError(ws, {
+              operation: "get_history",
+              bridgeSessionId: null,
+              providerThreadId: externalProviderThreadId,
+              errorCode: "thread_not_found",
+              message: "Provider thread history was not found.",
+              retryable: false,
+              recoveryAction: "refresh_history",
+            });
+          }
+          break;
+        }
+        if (legacyExternalHistoryRequest) {
+          this.sendControlError(ws, {
+            operation: "get_history",
+            bridgeSessionId: null,
+            providerThreadId: msg.sessionId,
+            errorCode: "thread_not_found",
+            message: "Provider thread history was not found.",
+            retryable: false,
+            recoveryAction: "refresh_history",
+          });
+          break;
+        }
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
           if (session.provider === "codex") {
@@ -4338,7 +4822,16 @@ export class BridgeWebSocketServer {
             requestId: msg.requestId,
             sourceSessionId: msg.sessionId,
             status: "live",
-            bridgeSessionId: activeSession.id,
+            bridgeSessionId: activeSession.bridgeSessionId,
+            bridgeGeneration: activeSession.bridgeGeneration,
+            providerThreadId: activeSession.providerThreadId,
+            recordKind: activeSession.recordKind,
+            origin: activeSession.origin,
+            owner: activeSession.owner,
+            runtimeStatus: activeSession.runtimeStatus,
+            attachmentState: activeSession.attachmentState,
+            capabilities: activeSession.capabilities,
+            readOnlyReason: activeSession.readOnlyReason,
             provider,
           });
           break;
@@ -4352,13 +4845,34 @@ export class BridgeWebSocketServer {
             archivedSessionIds: this.archiveStore.archivedIds(),
           });
           const recentSession = sessions[0];
+          const projectedRecentSession = recentSession
+            ? this.projectRecentSession(recentSession)
+            : null;
           this.send(ws, {
             type: "session_link_resolution",
             requestId: msg.requestId,
             sourceSessionId: msg.sessionId,
             status: recentSession ? "recent" : "unavailable",
             provider,
-            ...(recentSession ? { recentSession } : {}),
+            bridgeGeneration: this.sessionManager.bridgeGeneration,
+            bridgeSessionId: null,
+            providerThreadId: msg.sessionId,
+            recordKind: "recent",
+            origin: "disk",
+            owner: "unknown",
+            runtimeStatus: "unknown",
+            attachmentState: recentSession
+              ? "external_unknown"
+              : "unavailable",
+            capabilities: recentSession
+              ? ["read_history", "refresh", "resume"]
+              : ["refresh"],
+            readOnlyReason: recentSession
+              ? "external_owner_unknown"
+              : "thread_missing",
+            ...(projectedRecentSession
+              ? { recentSession: projectedRecentSession }
+              : {}),
           } as Record<string, unknown>);
         } catch (err) {
           console.error("[ws] Failed to resolve session link:", err);
@@ -4600,7 +5114,9 @@ export class BridgeWebSocketServer {
             }
             this.send(ws, {
               type: "recent_sessions",
-              sessions,
+              sessions: sessions.map((session) =>
+                this.projectRecentSession(session),
+              ),
               hasMore,
               limit: msg.limit,
               offset: msg.offset,
@@ -4637,12 +5153,24 @@ export class BridgeWebSocketServer {
         );
         if (!this.isPathAllowed(archiveProjectPath)) {
           const pathError = this.buildPathNotAllowedError(projectPath);
-          this.send(ws, {
-            type: "archive_result",
-            sessionId,
-            success: false,
-            error: pathError.message,
-          } as Record<string, unknown>);
+          if (this.ownershipV1Clients.has(ws)) {
+            this.sendControlError(ws, {
+              operation: "archive_session",
+              bridgeSessionId: msg.bridgeSessionId ?? null,
+              providerThreadId: msg.providerThreadId ?? sessionId,
+              errorCode: "path_not_allowed",
+              message: pathError.message,
+              retryable: false,
+              recoveryAction: "choose_allowed_path",
+            });
+          } else {
+            this.send(ws, {
+              type: "archive_result",
+              sessionId,
+              success: false,
+              error: pathError.message,
+            } as Record<string, unknown>);
+          }
           break;
         }
         void (async () => {
@@ -4678,20 +5206,117 @@ export class BridgeWebSocketServer {
             } as Record<string, unknown>);
           })
           .catch((err) => {
-            this.send(ws, {
-              type: "archive_result",
-              sessionId,
-              success: false,
-              error: codexErrorMessage(err),
-            } as Record<string, unknown>);
+            if (this.ownershipV1Clients.has(ws)) {
+              const writerConflict = isCodexThreadWriterConflict(err);
+              this.sendControlError(ws, {
+                operation: "archive_session",
+                bridgeSessionId: msg.bridgeSessionId ?? null,
+                providerThreadId: msg.providerThreadId ?? sessionId,
+                errorCode: writerConflict
+                  ? "writer_conflict"
+                  : "unsupported_operation",
+                message: codexErrorMessage(err),
+                retryable: writerConflict,
+                recoveryAction: writerConflict
+                  ? "open_read_only"
+                  : "refresh_session",
+              });
+            } else {
+              this.send(ws, {
+                type: "archive_result",
+                sessionId,
+                success: false,
+                error: codexErrorMessage(err),
+              } as Record<string, unknown>);
+            }
           });
         break;
       }
 
       case "resume_session": {
         const resumeStartedAt = Date.now();
+        const ownershipV1 = this.ownershipV1Clients.has(ws);
+        const requestedProviderThreadId =
+          msg.providerThreadId ?? msg.sessionId;
+        if (ownershipV1) {
+          if (
+            !msg.providerThreadId ||
+            !msg.bridgeGeneration ||
+            !msg.expectedOwner
+          ) {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: null,
+              providerThreadId: msg.providerThreadId ?? null,
+              errorCode: "unsupported_operation",
+              message:
+                "Ownership-v1 resume requires providerThreadId, bridgeGeneration, and expectedOwner.",
+              retryable: false,
+              recoveryAction: "refresh_sessions",
+            });
+            break;
+          }
+          if (msg.bridgeGeneration !== this.sessionManager.bridgeGeneration) {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: null,
+              providerThreadId: msg.providerThreadId,
+              errorCode: "stale_generation",
+              message:
+                "Bridge generation changed; refresh sessions before retrying.",
+              retryable: true,
+              recoveryAction: "refresh_sessions",
+            });
+            break;
+          }
+          if (msg.sessionId !== msg.providerThreadId) {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: null,
+              providerThreadId: msg.providerThreadId,
+              errorCode: "thread_not_found",
+              message:
+                "Legacy session projection does not match providerThreadId.",
+              retryable: false,
+              recoveryAction: "refresh_history",
+            });
+            break;
+          }
+          if (msg.expectedOwner === "bridge") {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: null,
+              providerThreadId: msg.providerThreadId,
+              errorCode: "unsupported_operation",
+              message:
+                "A Bridge-owned thread must be attached by bridgeSessionId, not resumed externally.",
+              retryable: false,
+              recoveryAction: "attach_owned_session",
+            });
+            break;
+          }
+          const existingOwner = this.sessionManager
+            .list()
+            .find(
+              (session) =>
+                session.providerThreadId === msg.providerThreadId ||
+                session.claudeSessionId === msg.providerThreadId,
+            );
+          if (existingOwner) {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: existingOwner.bridgeSessionId,
+              providerThreadId: msg.providerThreadId,
+              errorCode: "writer_conflict",
+              message: "Provider thread is already owned by this Bridge.",
+              retryable: false,
+              recoveryAction: "attach_owned_session",
+            });
+            break;
+          }
+        }
         console.log(
-          `[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
+          `[ws] resume_session: sessionId=${requestedProviderThreadId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
         );
         const resumeProjectPath = resolvePlatformPath(
           msg.projectPath,
@@ -4699,13 +5324,25 @@ export class BridgeWebSocketServer {
         );
         const provider = msg.provider ?? "claude";
         if (!this.isPathAllowed(resumeProjectPath)) {
+          if (ownershipV1) {
+            this.sendControlError(ws, {
+              operation: "resume_session",
+              bridgeSessionId: null,
+              providerThreadId: requestedProviderThreadId,
+              errorCode: "path_not_allowed",
+              message: this.buildPathNotAllowedError(msg.projectPath).message,
+              retryable: false,
+              recoveryAction: "choose_allowed_path",
+            });
+          } else {
+            this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          }
           this.sendResumeFailed(ws, {
             provider,
-            sourceSessionId: msg.sessionId,
+            sourceSessionId: requestedProviderThreadId,
             projectPath: resumeProjectPath,
             resumeRequestId: msg.resumeRequestId,
           });
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
         const normalizedCodexPermissionsMode =
@@ -4758,7 +5395,7 @@ export class BridgeWebSocketServer {
                 | "plan"
                 | undefined) ?? legacyPermissionMode)
             : legacyPermissionMode;
-        const sessionRefId = msg.sessionId;
+        const sessionRefId = requestedProviderThreadId;
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
@@ -4828,6 +5465,7 @@ export class BridgeWebSocketServer {
           let historyLoaded = false;
           let sessionCreateMs = 0;
           let nameLoadMs = 0;
+          let attemptedBridgeSessionId: string | null = null;
           const historyStartedAt = Date.now();
           try {
             const pastMessages = await this.getCodexThreadHistory(
@@ -4876,6 +5514,7 @@ export class BridgeWebSocketServer {
                   : ("default" as const),
               }),
             );
+            attemptedBridgeSessionId = sessionId;
             sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
             if (createdSession) {
@@ -4883,6 +5522,9 @@ export class BridgeWebSocketServer {
               // Reuse the canonical history loaded above instead of issuing a
               // second thread/read for the same restored session.
               createdSession.codexInitialHistoryPending = true;
+            }
+            if (ownershipV1 && createdSession) {
+              await this.waitForCodexOwnership(createdSession, sessionRefId);
             }
             const cached = this.sessionManager.getCachedCommands(
               "codex",
@@ -4912,6 +5554,7 @@ export class BridgeWebSocketServer {
               executionMode,
               planMode,
               resumeRequestId: msg.resumeRequestId,
+              recordKind: "resume",
               ...(cached
                 ? {
                     slashCommands: cached.slashCommands,
@@ -4978,11 +5621,74 @@ export class BridgeWebSocketServer {
                 totalMs: Date.now() - resumeStartedAt,
               }),
             );
-            this.failResumeOperation(
-              resumeOperation.key,
-              resumeOperation.operationId,
-              `Failed to load Codex session history: ${err}`,
-            );
+            const ownershipError = ownershipResumeErrorCode(err);
+            if (ownershipV1 && ownershipError) {
+              if (attemptedBridgeSessionId) {
+                this.destroySession(attemptedBridgeSessionId);
+              }
+              this.failResumeOperationWithControl(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                {
+                  operation: "resume_session",
+                  bridgeSessionId: null,
+                  providerThreadId: sessionRefId,
+                  errorCode: ownershipError,
+                  message:
+                    ownershipError === "writer_conflict"
+                      ? "Provider thread already has an active writer."
+                      : "Bridge restarted before ownership could be confirmed.",
+                  retryable: true,
+                  recoveryAction:
+                    ownershipError === "writer_conflict"
+                      ? "open_read_only"
+                      : "refresh_sessions",
+                },
+              );
+            } else if (
+              ownershipV1 &&
+              !historyLoaded &&
+              this.isCodexPaginatedThreadHistoryUnsupportedError(err)
+            ) {
+              this.failResumeOperationWithControl(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                {
+                  operation: "resume_session",
+                  bridgeSessionId: null,
+                  providerThreadId: sessionRefId,
+                  errorCode: "unsupported_operation",
+                  message:
+                    "This paginated Codex thread can currently be opened read-only.",
+                  retryable: false,
+                  recoveryAction: "open_read_only",
+                },
+              );
+            } else if (
+              ownershipV1 &&
+              !historyLoaded &&
+              /thread.*not found|not found.*thread/i.test(errorMessageOf(err))
+            ) {
+              this.failResumeOperationWithControl(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                {
+                  operation: "resume_session",
+                  bridgeSessionId: null,
+                  providerThreadId: sessionRefId,
+                  errorCode: "thread_not_found",
+                  message: "Provider thread was not found.",
+                  retryable: false,
+                  recoveryAction: "refresh_history",
+                },
+              );
+            } else {
+              this.failResumeOperation(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                `Failed to load Codex session history: ${err}`,
+              );
+            }
           }
           break;
         }
@@ -5077,6 +5783,7 @@ export class BridgeWebSocketServer {
                   planMode: effectivePlanMode,
                   sandboxMode: msg.sandboxMode,
                   resumeRequestId: msg.resumeRequestId,
+                  recordKind: "resume",
                   ...(cached
                     ? {
                         slashCommands: cached.slashCommands,
@@ -6256,11 +6963,7 @@ export class BridgeWebSocketServer {
       case "fork": {
         this.forkCodexSession(ws, msg.sessionId, msg.targetUuid).catch((err) => {
           const errMsg = err instanceof Error ? err.message : String(err);
-          this.send(ws, {
-            type: "error",
-            message: errMsg,
-            errorCode: "fork_failed",
-          });
+          this.sendForkError(ws, msg.sessionId, errMsg);
         });
         break;
       }
@@ -6797,6 +7500,21 @@ export class BridgeWebSocketServer {
     }
   }
 
+  private failResumeOperationWithControl(
+    key: string,
+    operationId: string,
+    error: Parameters<BridgeWebSocketServer["sendControlError"]>[1],
+  ): void {
+    const operation = this.resumeOperations.get(key);
+    if (!operation || operation.id !== operationId) return;
+    this.clearResumeOperation(key, operation);
+    for (const waiter of operation.waiters) {
+      this.rejectPendingClaudeResumeInputs(waiter, operation.sourceSessionId);
+      this.sendControlError(waiter, error);
+      this.sendResumeFailed(waiter, operation);
+    }
+  }
+
   private sendResumeFailed(
     ws: WebSocket,
     resume: {
@@ -6977,6 +7695,7 @@ export class BridgeWebSocketServer {
     const sessions = this.sessionManager.list();
     this.send(ws, {
       type: "session_list",
+      bridgeGeneration: this.sessionManager.bridgeGeneration,
       sessions,
       allowedDirs: this.allowedDirs,
       claudeModels: this.claudeModels,
@@ -7163,8 +7882,18 @@ export class BridgeWebSocketServer {
     if (clientBatches?.size === 0) this.deltaBatches.delete(client);
     if (client.readyState !== WebSocket.OPEN) return;
 
+    const session = this.sessionManager.get(sessionId);
     for (const msg of batch.messages) {
-      client.send(JSON.stringify({ ...msg, sessionId }));
+      client.send(
+        JSON.stringify({
+          ...msg,
+          sessionId,
+          bridgeGeneration: this.sessionManager.bridgeGeneration,
+          bridgeSessionId: sessionId,
+          providerThreadId:
+            session?.providerThreadId ?? session?.claudeSessionId ?? null,
+        }),
+      );
     }
   }
 
@@ -7216,9 +7945,14 @@ export class BridgeWebSocketServer {
     for (const client of this.wss.clients) {
       if (client === exclude) continue;
       if (client.readyState === WebSocket.OPEN) {
+        const session = this.sessionManager.get(sessionId);
         const outboundMsg = {
           ...(msg as unknown as Record<string, unknown>),
           sessionId,
+          bridgeGeneration: this.sessionManager.bridgeGeneration,
+          bridgeSessionId: sessionId,
+          providerThreadId:
+            session?.providerThreadId ?? session?.claudeSessionId ?? null,
         };
         const compatibleMsg = this.prepareServerMessageForClient(
           client,
@@ -7275,6 +8009,32 @@ export class BridgeWebSocketServer {
     };
     void request.then(clear, clear);
     return request;
+  }
+
+  private projectRecentSession(session: unknown): Record<string, unknown> {
+    const record =
+      session && typeof session === "object" && !Array.isArray(session)
+        ? (session as Record<string, unknown>)
+        : {};
+    const providerThreadId =
+      typeof record.providerThreadId === "string"
+        ? record.providerThreadId
+        : typeof record.sessionId === "string"
+          ? record.sessionId
+          : null;
+    return {
+      ...record,
+      bridgeGeneration: this.sessionManager.bridgeGeneration,
+      bridgeSessionId: null,
+      providerThreadId,
+      recordKind: "recent",
+      origin: "disk",
+      owner: "unknown",
+      runtimeStatus: "unknown",
+      attachmentState: "external_unknown",
+      capabilities: ["read_history", "refresh", "resume"],
+      readOnlyReason: "external_owner_unknown",
+    };
   }
 
   private async listRecentAllProviderSessions(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
@@ -9,6 +10,7 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/providers/server_discovery_cubit.dart';
+import 'package:ccpocket/router/app_router.dart';
 import 'package:ccpocket/services/app_icon_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
@@ -43,9 +45,13 @@ class _MockBridgeService extends BridgeService {
 
   BridgeConnectionState _state;
   List<SessionInfo> _sessions = const [];
+  List<RecentSession> _recentSessions = const [];
   List<GalleryImage> _images = const [];
   final String? _lastUrl;
   bool disconnectCalled = false;
+  final List<ClientMessage> sentMessages = [];
+  SessionLinkResolveResult sessionLinkResult =
+      const SessionLinkResolveResult.unavailable();
 
   _MockBridgeService({
     BridgeConnectionState initialState = BridgeConnectionState.connected,
@@ -90,6 +96,9 @@ class _MockBridgeService extends BridgeService {
   List<SessionInfo> get sessions => _sessions;
 
   @override
+  List<RecentSession> get recentSessions => _recentSessions;
+
+  @override
   String? get httpBaseUrl => 'http://localhost:8765';
 
   @override
@@ -109,6 +118,11 @@ class _MockBridgeService extends BridgeService {
   void emitSessions(List<SessionInfo> sessions) {
     _sessions = sessions;
     _activeSessionsController.add(sessions);
+  }
+
+  void emitRecentSessions(List<RecentSession> sessions) {
+    _recentSessions = sessions;
+    _recentSessionsController.add(sessions);
   }
 
   void emitStopped(String sessionId) {
@@ -166,7 +180,16 @@ class _MockBridgeService extends BridgeService {
   void interrupt(String sessionId) {}
 
   @override
-  void send(ClientMessage message) {}
+  void send(ClientMessage message) {
+    sentMessages.add(message);
+  }
+
+  @override
+  Future<SessionLinkResolveResult> resolveSessionLink(
+    String sessionId, {
+    String provider = 'claude',
+    Duration timeout = const Duration(seconds: 4),
+  }) async => sessionLinkResult;
 
   @override
   void disconnect() {
@@ -385,6 +408,7 @@ Widget _buildWorkspaceApp({
   GlobalKey<WorkspaceShellScreenState>? shellKey,
   TargetPlatform platform = TargetPlatform.macOS,
   MachineManagerCubit? machineManagerCubit,
+  AppRouter? router,
 }) {
   final sessionListCubit = SessionListCubit(bridge: bridge);
   final connectionCubit = ConnectionCubit(
@@ -429,39 +453,54 @@ Widget _buildWorkspaceApp({
           create: (_) => ServerDiscoveryCubit(),
         ),
       ],
-      child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en'),
-        theme: AppTheme.darkTheme.copyWith(platform: platform),
-        home: Scaffold(
-          body: SizedBox(
-            width: 1400,
-            height: 900,
-            child: WorkspaceShellScreen(
-              key: shellKey,
-              debugRecentSessions: debugRecentSessions,
+      child: router == null
+          ? MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('en'),
+              theme: AppTheme.darkTheme.copyWith(platform: platform),
+              home: Scaffold(
+                body: SizedBox(
+                  width: 1400,
+                  height: 900,
+                  child: WorkspaceShellScreen(
+                    key: shellKey,
+                    debugRecentSessions: debugRecentSessions,
+                  ),
+                ),
+              ),
+            )
+          : MaterialApp.router(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('en'),
+              theme: AppTheme.darkTheme.copyWith(platform: platform),
+              routerConfig: router.config(),
             ),
-          ),
-        ),
-      ),
     ),
   );
 }
 
-RecentSession _recentSession(String id) => RecentSession(
+RecentSession _recentSession(
+  String id, {
+  Provider provider = Provider.claude,
+  SessionOwnershipProjection? ownership,
+}) => RecentSession(
   sessionId: id,
+  provider: provider.value,
   firstPrompt: 'Prompt $id',
   created: '2025-01-01T00:00:00Z',
   modified: '2025-01-01T00:00:00Z',
   gitBranch: 'main',
   projectPath: '/Users/demo/project-$id',
   isSidechain: false,
+  ownership: ownership,
 );
 
 SessionInfo _runningSession({
   required String id,
   Provider provider = Provider.claude,
+  SessionOwnershipProjection? ownership,
 }) => SessionInfo(
   id: id,
   provider: provider.value,
@@ -471,7 +510,30 @@ SessionInfo _runningSession({
   lastActivityAt: '2025-01-01T00:00:00Z',
   gitBranch: 'main',
   lastMessage: 'Waiting',
+  ownership: ownership,
 );
+
+SessionOwnershipProjection _ownership({
+  required String providerThreadId,
+  required String attachmentState,
+  String? bridgeSessionId,
+  String origin = 'external',
+  String owner = 'external',
+  String runtimeStatus = 'idle',
+  List<String> capabilities = const ['read_history', 'refresh', 'resume'],
+  String? readOnlyReason,
+}) => SessionOwnershipProjection.fromJson({
+  'bridgeGeneration': 'generation-1',
+  'bridgeSessionId': bridgeSessionId,
+  'providerThreadId': providerThreadId,
+  'recordKind': bridgeSessionId == null ? 'recent' : 'live',
+  'origin': origin,
+  'owner': owner,
+  'runtimeStatus': runtimeStatus,
+  'attachmentState': attachmentState,
+  'capabilities': capabilities,
+  'readOnlyReason': readOnlyReason,
+});
 
 Future<SettingsCubit> _createSettingsCubit(_MockBridgeService bridge) async {
   final prefs = await SharedPreferences.getInstance();
@@ -503,6 +565,148 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     NotificationService.instance.clearActiveSession();
+  });
+
+  testWidgets('owned running card opens its Bridge runtime in the workspace', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final shellKey = GlobalKey<WorkspaceShellScreenState>();
+    final session = _runningSession(
+      id: 'bridge-1',
+      provider: Provider.codex,
+      ownership: _ownership(
+        providerThreadId: 'thread-1',
+        attachmentState: 'owned',
+        bridgeSessionId: 'bridge-1',
+        origin: 'bridge',
+        owner: 'bridge',
+        capabilities: const ['read_history', 'refresh', 'send_input'],
+      ),
+    );
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        shellKey: shellKey,
+      ),
+    );
+    await _pumpUi(tester);
+    bridge.emitSessions([session]);
+    await _pumpUi(tester);
+
+    await tester.tap(find.byType(RunningSessionCard));
+    await _pumpUi(tester);
+
+    expect(shellKey.currentState!.selectedSession?.sessionId, 'bridge-1');
+    expect(shellKey.currentState!.selectedSession?.provider, Provider.codex);
+  });
+
+  testWidgets('external-idle recent card sends an identity-bound resume', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final recent = _recentSession(
+      'thread-1',
+      provider: Provider.codex,
+      ownership: _ownership(
+        providerThreadId: 'thread-1',
+        attachmentState: 'external_idle',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+      ),
+    );
+    await _pumpUi(tester);
+    bridge.emitRecentSessions([recent]);
+    await _pumpUi(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('recent_session_thread-1')),
+        matching: find.byType(RecentSessionCard),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final resumes = bridge.sentMessages.where(
+      (message) => message.type == 'resume_session',
+    );
+    expect(resumes, hasLength(1));
+    final message = jsonDecode(resumes.single.toJson()) as Map<String, dynamic>;
+    expect(message['providerThreadId'], 'thread-1');
+    expect(message['bridgeGeneration'], 'generation-1');
+    expect(message['expectedOwner'], 'external');
+  });
+
+  testWidgets('unknown recent card reaches the visible unavailable route', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    bridge.sessionLinkResult = const SessionLinkResolveResult.resolved(
+      SessionLinkResolutionMessage(
+        requestId: 'request-1',
+        sourceSessionId: 'thread-missing',
+        status: SessionLinkResolutionStatus.unavailable,
+        provider: 'codex',
+      ),
+    );
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final router = AppRouter();
+    final recent = _recentSession(
+      'thread-missing',
+      provider: Provider.codex,
+      ownership: _ownership(
+        providerThreadId: 'thread-missing',
+        attachmentState: 'external_unknown',
+        origin: 'disk',
+        owner: 'unknown',
+        runtimeStatus: 'unknown',
+        readOnlyReason: 'external_owner_unknown',
+      ),
+    );
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        router: router,
+      ),
+    );
+    await _pumpUi(tester);
+    bridge.emitRecentSessions([recent]);
+    await _pumpUi(tester);
+
+    await tester.tap(find.text('Prompt thread-missing'));
+    await _pumpUi(tester);
+
+    expect(find.text('Session unavailable'), findsOneWidget);
+    expect(find.textContaining('session not found'), findsOneWidget);
   });
 
   testWidgets('settings overlay back restores selected session root', (
@@ -1533,6 +1737,14 @@ void main() {
       final session = _runningSession(
         id: 'session-1',
         provider: Provider.codex,
+        ownership: _ownership(
+          providerThreadId: 'thread-1',
+          attachmentState: 'owned',
+          bridgeSessionId: 'session-1',
+          origin: 'bridge',
+          owner: 'bridge',
+          capabilities: const ['read_history', 'refresh', 'stop'],
+        ),
       );
 
       await tester.pumpWidget(

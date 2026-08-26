@@ -1499,24 +1499,47 @@ void main() {
       },
     );
 
-    test('approve clears approval state and sends message', () async {
-      final cubit = createCubit('s1');
-      addTearDown(cubit.close);
-      await Future.microtask(() {});
+    test(
+      'approval stays visible until server ack and survives failure',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
 
-      const permMsg = PermissionRequestMessage(
-        toolUseId: 'tool-1',
-        toolName: 'bash',
-        input: {'command': 'ls'},
-      );
-      mockBridge.emitMessage(permMsg, sessionId: 's1');
-      await Future.microtask(() {});
+        const permMsg = PermissionRequestMessage(
+          toolUseId: 'tool-1',
+          toolName: 'bash',
+          input: {'command': 'ls'},
+        );
+        mockBridge.emitMessage(permMsg, sessionId: 's1');
+        await Future.microtask(() {});
 
-      cubit.approve('tool-1');
+        cubit.approve('tool-1');
 
-      expect(cubit.state.approval, isA<ApprovalNone>());
-      expect(mockBridge.sentMessages, hasLength(1));
-    });
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+        expect(mockBridge.sentMessages, hasLength(1));
+        mockBridge.emitMessage(
+          const ErrorMessage(
+            message: 'stale generation',
+            operation: 'approve',
+            toolUseId: 'tool-1',
+            errorCode: 'stale_generation',
+            retryable: true,
+            recoveryAction: 'refresh_sessions',
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+
+        mockBridge.emitMessage(
+          const PermissionResolvedMessage(toolUseId: 'tool-1'),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.approval, isA<ApprovalNone>());
+      },
+    );
 
     test(
       'tool suggestion install keeps approval visible while pending',
@@ -1581,6 +1604,10 @@ void main() {
       mockBridge.emitMessage(permission, sessionId: 's1');
       await Future.microtask(() {});
       cubit.approve('tool-1');
+      mockBridge.emitMessage(
+        const PermissionResolvedMessage(toolUseId: 'tool-1'),
+        sessionId: 's1',
+      );
       mockBridge.emitMessage(
         const HistoryMessage(
           messages: [
@@ -1656,6 +1683,10 @@ void main() {
       await Future.microtask(() {});
       cubit.answer('ask-1', 'A');
       mockBridge.emitMessage(
+        const ToolResultMessage(toolUseId: 'ask-1', content: 'answered'),
+        sessionId: 's1',
+      );
+      mockBridge.emitMessage(
         HistoryMessage(
           messages: [
             ask,
@@ -1690,6 +1721,11 @@ void main() {
         await Future.microtask(() {});
         cubit.approve('tool-answered');
         mockBridge.emitMessage(
+          const PermissionResolvedMessage(toolUseId: 'tool-answered'),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
           const HistoryMessage(
             messages: [
               answered,
@@ -1722,6 +1758,11 @@ void main() {
         mockBridge.emitMessage(permission, sessionId: 's1');
         await Future.microtask(() {});
         firstCubit.approve('tool-answered');
+        mockBridge.emitMessage(
+          const PermissionResolvedMessage(toolUseId: 'tool-answered'),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
         await firstCubit.close();
 
         final recreatedCubit = createCubit('s1');
@@ -1742,7 +1783,7 @@ void main() {
       },
     );
 
-    test('approving ExitPlanMode also clears plan mode state', () async {
+    test('acknowledged ExitPlanMode approval clears plan mode state', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);
       await Future.microtask(() {});
@@ -1771,13 +1812,20 @@ void main() {
       expect(cubit.state.planMode, isTrue);
       expect(cubit.state.approval, isA<ApprovalPermission>());
       cubit.approve('tool-plan');
+      expect(cubit.state.planMode, isTrue);
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+      mockBridge.emitMessage(
+        const PermissionResolvedMessage(toolUseId: 'tool-plan'),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
 
       expect(cubit.state.planMode, isFalse);
       expect(cubit.state.inPlanMode, isFalse);
       expect(cubit.state.permissionMode, PermissionMode.acceptEdits);
     });
 
-    test('approving ExitPlanMode clears inPlanMode immediately', () async {
+    test('acknowledged ExitPlanMode approval clears inPlanMode', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);
       await Future.microtask(() {});
@@ -1815,12 +1863,22 @@ void main() {
       expect(cubit.state.approval, isA<ApprovalPermission>());
 
       cubit.approve('tool-exit-1');
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+      expect(cubit.state.inPlanMode, isTrue);
+      mockBridge.emitMessage(
+        const ToolResultMessage(
+          toolUseId: 'tool-exit-1',
+          content: 'Plan approved',
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
 
       expect(cubit.state.approval, isA<ApprovalNone>());
       expect(cubit.state.inPlanMode, isFalse);
     });
 
-    test('reject clears approval and plan mode', () async {
+    test('acknowledged reject clears approval and plan mode', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);
       await Future.microtask(() {});
@@ -1834,6 +1892,12 @@ void main() {
       await Future.microtask(() {});
 
       cubit.reject('tool-1', message: 'No thanks');
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+      mockBridge.emitMessage(
+        const PermissionResolvedMessage(toolUseId: 'tool-1'),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
 
       expect(cubit.state.approval, isA<ApprovalNone>());
       expect(cubit.state.inPlanMode, false);

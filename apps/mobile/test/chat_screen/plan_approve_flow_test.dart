@@ -95,7 +95,11 @@ void main() {
       expect(rejectMsg, isNotNull);
       expect(rejectMsg!['message'], 'Add error handling');
 
-      // ApprovalBar should be gone after reject
+      // The plan remains pending until the bridge acknowledges the rejection.
+      expect($(ApprovalBar), findsOneWidget);
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-exit-1'),
+      ]);
       expect($(ApprovalBar), findsNothing);
 
       // Bridge re-enters plan mode with revised plan
@@ -137,7 +141,11 @@ void main() {
         expect(msg!.containsKey('updatedInput'), isFalse);
         expect(msg['clearContext'], true);
 
-        // Approval bar should be gone after approve
+        // The plan remains pending until the bridge acknowledges approval.
+        expect($(ApprovalBar), findsOneWidget);
+        await emitAndPump($.tester, bridge, [
+          const PermissionResolvedMessage(toolUseId: 'tool-exit-1'),
+        ]);
         expect($(ApprovalBar), findsNothing);
       },
     );
@@ -191,6 +199,10 @@ void main() {
       await $.tester.tap(find.byKey(const ValueKey('reject_button')));
       await pumpN($.tester);
 
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-exit-1'),
+      ]);
+
       // Re-plan cycle 1
       await emitAndPump($.tester, bridge, [
         const StatusMessage(status: ProcessStatus.running),
@@ -215,6 +227,10 @@ void main() {
       await $.tester.tap(find.byKey(const ValueKey('reject_button')));
       await pumpN($.tester);
 
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-exit-2'),
+      ]);
+
       // Re-plan cycle 2
       await emitAndPump($.tester, bridge, [
         const StatusMessage(status: ProcessStatus.running),
@@ -238,6 +254,10 @@ void main() {
       await pumpN($.tester);
       await $.tester.tap(find.byKey(const ValueKey('reject_button')));
       await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const PermissionResolvedMessage(toolUseId: 'tool-exit-3'),
+      ]);
 
       // Re-plan cycle 3 (final)
       await emitAndPump($.tester, bridge, [

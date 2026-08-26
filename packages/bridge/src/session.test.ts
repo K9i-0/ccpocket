@@ -10,6 +10,8 @@ const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
   () => ({
     codexInstances: [] as Array<{
       isWaitingForInput: boolean;
+      pendingQuestionCount: number;
+      pendingApprovalCount: number;
       start: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
       sendInputStructured: ReturnType<typeof vi.fn>;
@@ -18,6 +20,8 @@ const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
     }>,
     sdkInstances: [] as Array<{
       permissionMode: string;
+      pendingQuestionCount: number;
+      pendingApprovalCount: number;
       start: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
       rewindFiles: ReturnType<typeof vi.fn>;
@@ -76,6 +80,8 @@ vi.mock("node:fs", () => {
 vi.mock("./codex-process.js", () => ({
   CodexProcess: class MockCodexProcess extends EventEmitter {
     public isWaitingForInput = false;
+    public pendingQuestionCount = 0;
+    public pendingApprovalCount = 0;
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
     public sendInputStructured = vi.fn();
@@ -91,6 +97,8 @@ vi.mock("./codex-process.js", () => ({
 vi.mock("./sdk-process.js", () => ({
   SdkProcess: class MockSdkProcess extends EventEmitter {
     public permissionMode = "default";
+    public pendingQuestionCount = 0;
+    public pendingApprovalCount = 0;
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
     public rewindFiles = vi.fn(async () => ({ canRewind: false }));
@@ -108,6 +116,120 @@ describe("SessionManager codex path", () => {
   beforeEach(() => {
     codexInstances.length = 0;
     sdkInstances.length = 0;
+  });
+
+  it("projects one bridge generation with distinct runtime and provider thread ids", () => {
+    const manager = new SessionManager(
+      () => {},
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "bridge-generation-1",
+    );
+    const bridgeSessionId = manager.create(
+      "/tmp/project-ownership",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      { threadId: "provider-thread-1" },
+    );
+
+    expect(manager.bridgeGeneration).toBe("bridge-generation-1");
+    expect(manager.get(bridgeSessionId)).toMatchObject({
+      id: bridgeSessionId,
+      bridgeSessionId,
+      bridgeGeneration: "bridge-generation-1",
+      claudeSessionId: "provider-thread-1",
+      providerThreadId: "provider-thread-1",
+    });
+    expect(manager.list()[0]).toMatchObject({
+      id: bridgeSessionId,
+      bridgeSessionId,
+      bridgeGeneration: "bridge-generation-1",
+      claudeSessionId: "provider-thread-1",
+      providerThreadId: "provider-thread-1",
+      recordKind: "live",
+      origin: "bridge",
+      owner: "bridge",
+      runtimeStatus: "starting",
+      attachmentState: "owned",
+      readOnlyReason: null,
+    });
+  });
+
+  it("returns exact count-only readiness across mixed Claude and Codex states", () => {
+    const manager = new SessionManager(() => {});
+    const claudeRunning = manager.create("/tmp/claude-running");
+    const claudeIdle = manager.create("/tmp/claude-idle");
+    const codexStarting = manager.create(
+      "/tmp/codex-starting",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const codexWaiting = manager.create(
+      "/tmp/codex-waiting",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    manager.get(claudeRunning)!.status = "running";
+    manager.get(claudeIdle)!.status = "idle";
+    manager.get(codexStarting)!.status = "starting";
+    manager.get(codexWaiting)!.status = "waiting_approval";
+    sdkInstances[0].pendingQuestionCount = 1;
+    sdkInstances[0].pendingApprovalCount = 2;
+    sdkInstances[1].pendingApprovalCount = 1;
+    codexInstances[0].pendingQuestionCount = 2;
+    codexInstances[0].pendingApprovalCount = 3;
+    codexInstances[1].pendingQuestionCount = 1;
+    codexInstances[1].pendingApprovalCount = 1;
+
+    expect(manager.getReadinessCounts()).toEqual({
+      activeTurns: 2,
+      pendingApprovals: 7,
+      pendingQuestions: 4,
+      busyWorkers: 2,
+    });
+    expect(manager.sessionCount).toBe(4);
+  });
+
+  it("derives updater readiness only from Bridge-owned ownership records", () => {
+    const manager = new SessionManager(() => {});
+    const bridgeSessionId = manager.create(
+      "/tmp/codex-external",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      { threadId: "provider-thread-external" },
+    );
+    manager.get(bridgeSessionId)!.status = "running";
+    codexInstances[0].pendingQuestionCount = 2;
+    codexInstances[0].pendingApprovalCount = 3;
+    vi.spyOn(manager, "getOwnershipRecords").mockReturnValue(
+      manager.list().map((record) => ({
+        ...record,
+        owner: "unknown",
+        runtimeStatus: "unknown",
+        attachmentState: "external_unknown",
+        capabilities: ["read_history", "refresh"],
+        readOnlyReason: "external_owner_unknown",
+      })),
+    );
+
+    expect(manager.getReadinessCounts()).toEqual({
+      activeTurns: 0,
+      pendingApprovals: 0,
+      pendingQuestions: 0,
+      busyWorkers: 0,
+    });
   });
 
   it("creates a codex session and forwards codex start options", () => {

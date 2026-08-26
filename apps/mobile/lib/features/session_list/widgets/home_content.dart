@@ -88,18 +88,7 @@ class HomeContent extends StatefulWidget {
   final Set<String> unseenSessionIds;
   final String? currentProjectFilter;
   final VoidCallback onNewSession;
-  final void Function(
-    String sessionId, {
-    String? projectPath,
-    String? gitBranch,
-    String? worktreePath,
-    String? provider,
-    String? permissionMode,
-    String? sandboxMode,
-    String? approvalPolicy,
-    String? approvalsReviewer,
-  })
-  onTapRunning;
+  final ValueChanged<SessionInfo> onTapRunning;
   final ValueChanged<String> onStopSession;
   final ValueChanged<String>? onCancelOfflinePendingAction;
   final void Function(String sessionId, String toolUseId, {bool clearContext})?
@@ -635,30 +624,33 @@ class HomeContentState extends State<HomeContent> {
           for (final session in runningSessions)
             Slidable(
               key: ValueKey('running_session_${session.id}'),
-              endActionPane: ActionPane(
-                motion: const BehindMotion(),
-                extentRatio: 0.18,
-                children: [
-                  CustomSlidableAction(
-                    onPressed: (_) => widget.onStopSession(session.id),
-                    backgroundColor: Colors.transparent,
-                    padding: EdgeInsets.zero,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.error,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.stop_circle_outlined,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              endActionPane:
+                  session.ownership?.can(SessionCapability.stop) == true
+                  ? ActionPane(
+                      motion: const BehindMotion(),
+                      extentRatio: 0.18,
+                      children: [
+                        CustomSlidableAction(
+                          onPressed: (_) => widget.onStopSession(session.id),
+                          backgroundColor: Colors.transparent,
+                          padding: EdgeInsets.zero,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.stop_circle_outlined,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : null,
               child: RunningSessionCard(
                 session: session,
                 isPinned: switch (runningSessionPinKey(session)) {
@@ -678,35 +670,40 @@ class HomeContentState extends State<HomeContent> {
                     widget.onLongPressRunningSession(session, null),
                 onShowActions: (position) =>
                     widget.onLongPressRunningSession(session, position),
-                onStop: showInlineStopButton
+                onStop:
+                    showInlineStopButton &&
+                        session.ownership?.can(SessionCapability.stop) == true
                     ? () => widget.onStopSession(session.id)
                     : null,
-                onTap: () => widget.onTapRunning(
-                  session.id,
-                  projectPath: session.projectPath,
-                  gitBranch: session.worktreePath != null
-                      ? session.worktreeBranch
-                      : session.gitBranch,
-                  worktreePath: session.worktreePath,
-                  provider: session.provider,
-                  permissionMode: session.permissionMode,
-                  sandboxMode: session.codexSandboxMode,
-                  approvalPolicy: session.codexApprovalPolicy,
-                  approvalsReviewer: session.codexApprovalsReviewer,
-                ),
-                onApprove: (toolUseId, {bool clearContext = false}) => widget
-                    .onApprovePermission
-                    ?.call(session.id, toolUseId, clearContext: clearContext),
-                onApproveAlways: (toolUseId) =>
-                    widget.onApproveAlways?.call(session.id, toolUseId),
-                onReject: (toolUseId, {String? message}) => widget
-                    .onRejectPermission
-                    ?.call(session.id, toolUseId, message: message),
-                onAnswer: (toolUseId, result) => widget.onAnswerQuestion?.call(
-                  session.id,
-                  toolUseId,
-                  result,
-                ),
+                onTap: () => widget.onTapRunning(session),
+                onApprove:
+                    session.ownership?.can(SessionCapability.approve) == true
+                    ? (toolUseId, {bool clearContext = false}) =>
+                          widget.onApprovePermission?.call(
+                            session.id,
+                            toolUseId,
+                            clearContext: clearContext,
+                          )
+                    : null,
+                onApproveAlways:
+                    session.ownership?.can(SessionCapability.approve) == true
+                    ? (toolUseId) =>
+                          widget.onApproveAlways?.call(session.id, toolUseId)
+                    : null,
+                onReject:
+                    session.ownership?.can(SessionCapability.reject) == true
+                    ? (toolUseId, {String? message}) => widget
+                          .onRejectPermission
+                          ?.call(session.id, toolUseId, message: message)
+                    : null,
+                onAnswer:
+                    session.ownership?.can(SessionCapability.answer) == true
+                    ? (toolUseId, result) => widget.onAnswerQuestion?.call(
+                        session.id,
+                        toolUseId,
+                        result,
+                      )
+                    : null,
               ),
             ),
           const SizedBox(height: 16),
@@ -941,30 +938,32 @@ class _RecentSessionSlidable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Slidable(
       key: ValueKey('recent_session_${session.sessionId}'),
-      endActionPane: ActionPane(
-        motion: const BehindMotion(),
-        extentRatio: 0.18,
-        children: [
-          CustomSlidableAction(
-            onPressed: (_) => onArchiveSession(session),
-            backgroundColor: Colors.transparent,
-            padding: EdgeInsets.zero,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.archive_outlined,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
-      ),
+      endActionPane: session.ownership?.can(SessionCapability.archive) == true
+          ? ActionPane(
+              motion: const BehindMotion(),
+              extentRatio: 0.18,
+              children: [
+                CustomSlidableAction(
+                  onPressed: (_) => onArchiveSession(session),
+                  backgroundColor: Colors.transparent,
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.error,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.archive_outlined,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : null,
       child: RecentSessionCard(
         session: session,
         isPinned: isPinned,

@@ -23,12 +23,408 @@ Map<String, dynamic> _galleryImageJson(
   'sizeBytes': 100,
 };
 
+Map<String, dynamic> _ownedSessionList({
+  String sessionId = 's1',
+  String bridgeGeneration = 'generation-1',
+  String providerThreadId = 'thread-1',
+}) => <String, dynamic>{
+  'type': 'session_list',
+  'sessions': [
+    {
+      'id': sessionId,
+      'provider': 'codex',
+      'projectPath': '/tmp/project',
+      'status': 'idle',
+      'bridgeGeneration': bridgeGeneration,
+      'bridgeSessionId': sessionId,
+      'providerThreadId': providerThreadId,
+      'recordKind': 'live',
+      'origin': 'bridge',
+      'owner': 'bridge',
+      'runtimeStatus': 'idle',
+      'attachmentState': 'owned',
+      'capabilities': [
+        'read_history',
+        'refresh',
+        'send_input',
+        'approve',
+        'reject',
+        'answer',
+        'interrupt',
+        'stop',
+        'fork',
+        'archive',
+      ],
+      'readOnlyReason': null,
+    },
+  ],
+};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('BridgeService usage cache', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+    });
+
+    test(
+      'binds the current ownership tuple to every live-session mutation',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final received = <Map<String, dynamic>>[];
+        final allMutationsReceived = Completer<void>();
+        const mutationTypes = <String>{
+          'input',
+          'approve',
+          'approve_always',
+          'reject',
+          'answer',
+          'interrupt',
+          'stop_session',
+          'fork',
+          'archive_session',
+        };
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final message = jsonDecode(data as String) as Map<String, dynamic>;
+            if (!mutationTypes.contains(message['type'])) return;
+            received.add(message);
+            if (received.length == mutationTypes.length &&
+                !allMutationsReceived.isCompleted) {
+              allMutationsReceived.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': [
+              {
+                'id': 'bridge-1',
+                'provider': 'codex',
+                'projectPath': '/tmp/project',
+                'status': 'idle',
+                'bridgeGeneration': 'generation-1',
+                'bridgeSessionId': 'bridge-1',
+                'providerThreadId': 'thread-1',
+                'recordKind': 'live',
+                'origin': 'bridge',
+                'owner': 'bridge',
+                'runtimeStatus': 'idle',
+                'attachmentState': 'owned',
+                'capabilities': [
+                  'read_history',
+                  'refresh',
+                  'send_input',
+                  'approve',
+                  'reject',
+                  'answer',
+                  'interrupt',
+                  'stop',
+                  'fork',
+                  'archive',
+                ],
+                'readOnlyReason': null,
+              },
+            ],
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(ClientMessage.input('hello', sessionId: 'bridge-1'));
+        bridge.send(ClientMessage.approve('tool-1', sessionId: 'bridge-1'));
+        bridge.send(
+          ClientMessage.approveAlways('tool-2', sessionId: 'bridge-1'),
+        );
+        bridge.send(ClientMessage.reject('tool-3', sessionId: 'bridge-1'));
+        bridge.send(
+          ClientMessage.answer('tool-4', 'answer', sessionId: 'bridge-1'),
+        );
+        bridge.send(ClientMessage.interrupt(sessionId: 'bridge-1'));
+        bridge.send(ClientMessage.stopSession('bridge-1'));
+        bridge.send(ClientMessage.forkSession('bridge-1', 'thread-1'));
+        bridge.send(
+          ClientMessage.archiveSession(
+            sessionId: 'bridge-1',
+            provider: 'codex',
+            projectPath: '/tmp/project',
+          ),
+        );
+
+        await allMutationsReceived.future.timeout(const Duration(seconds: 2));
+        expect(
+          received.map((message) => message['type']).toSet(),
+          mutationTypes,
+        );
+        for (final message in received) {
+          expect(message['bridgeSessionId'], 'bridge-1');
+          expect(message['providerThreadId'], 'thread-1');
+          expect(message['bridgeGeneration'], 'generation-1');
+        }
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'fails closed when live ownership lacks the mutation capability',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final received = <Map<String, dynamic>>[];
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            received.add(jsonDecode(data as String) as Map<String, dynamic>);
+          });
+        });
+
+        final bridge = BridgeService();
+        final errors = <ErrorMessage>[];
+        final subscription = bridge.messages
+            .where((message) => message is ErrorMessage)
+            .cast<ErrorMessage>()
+            .listen(errors.add);
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': [
+              {
+                'id': 'bridge-1',
+                'provider': 'codex',
+                'projectPath': '/tmp/project',
+                'status': 'idle',
+                'bridgeGeneration': 'generation-1',
+                'bridgeSessionId': 'bridge-1',
+                'providerThreadId': 'thread-1',
+                'recordKind': 'live',
+                'origin': 'bridge',
+                'owner': 'bridge',
+                'runtimeStatus': 'idle',
+                'attachmentState': 'owned',
+                'capabilities': ['read_history', 'refresh'],
+                'readOnlyReason': null,
+              },
+            ],
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(ClientMessage.input('blocked', sessionId: 'bridge-1'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(
+          received.where((message) => message['type'] == 'input'),
+          isEmpty,
+        );
+        expect(errors, hasLength(1));
+        expect(errors.single.operation, 'input');
+        expect(errors.single.bridgeSessionId, 'bridge-1');
+        expect(errors.single.providerThreadId, 'thread-1');
+        expect(errors.single.bridgeGeneration, 'generation-1');
+        expect(
+          errors.single.sessionErrorCode,
+          SessionControlErrorCode.unsupportedOperation,
+        );
+        expect(
+          errors.single.sessionRecoveryAction,
+          SessionRecoveryAction.refreshSessions,
+        );
+
+        bridge.disconnect();
+        await subscription.cancel();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'uses session_created ownership before the next session list',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final receivedInputs = <Map<String, dynamic>>[];
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final message = jsonDecode(data as String) as Map<String, dynamic>;
+            if (message['type'] == 'input') receivedInputs.add(message);
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        socket.add(
+          jsonEncode({
+            'type': 'system',
+            'subtype': 'session_created',
+            'sessionId': 'bridge-new',
+            'provider': 'codex',
+            'projectPath': '/tmp/project',
+            'bridgeGeneration': 'generation-1',
+            'bridgeSessionId': 'bridge-new',
+            'providerThreadId': 'thread-new',
+            'recordKind': 'live',
+            'origin': 'bridge',
+            'owner': 'bridge',
+            'runtimeStatus': 'starting',
+            'attachmentState': 'owned',
+            'capabilities': ['read_history', 'refresh', 'send_input'],
+            'readOnlyReason': null,
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(ClientMessage.input('hello', sessionId: 'bridge-new'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(receivedInputs, hasLength(1));
+        expect(receivedInputs.single['bridgeSessionId'], 'bridge-new');
+        expect(receivedInputs.single['providerThreadId'], 'thread-new');
+        expect(receivedInputs.single['bridgeGeneration'], 'generation-1');
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'fails closed without a current online ownership projection',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final received = <Map<String, dynamic>>[];
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            received.add(jsonDecode(data as String) as Map<String, dynamic>);
+          });
+        });
+
+        final bridge = BridgeService();
+        final errors = <ErrorMessage>[];
+        final subscription = bridge.messages
+            .where((message) => message is ErrorMessage)
+            .cast<ErrorMessage>()
+            .listen(errors.add);
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        socket.add(jsonEncode({'type': 'session_list', 'sessions': []}));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(ClientMessage.input('blocked', sessionId: 'bridge-1'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(
+          received.where((message) => message['type'] == 'input'),
+          isEmpty,
+        );
+        expect(errors, hasLength(1));
+        expect(errors.single.operation, 'input');
+        expect(errors.single.bridgeSessionId, 'bridge-1');
+        expect(
+          errors.single.sessionErrorCode,
+          SessionControlErrorCode.staleGeneration,
+        );
+        expect(errors.single.retryable, isTrue);
+        expect(
+          errors.single.sessionRecoveryAction,
+          SessionRecoveryAction.refreshSessions,
+        );
+
+        bridge.disconnect();
+        await subscription.cancel();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test('reprobes ownership before replaying a queued mutation', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final received = <Map<String, dynamic>>[];
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final message = jsonDecode(data as String) as Map<String, dynamic>;
+          received.add(message);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.send(
+        ClientMessage.input(
+          'queued',
+          sessionId: 'bridge-1',
+          clientMessageId: 'cm-1',
+        ),
+      );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(received.where((message) => message['type'] == 'input'), isEmpty);
+
+      socket.add(
+        jsonEncode({
+          'type': 'session_list',
+          'sessions': [
+            {
+              'id': 'bridge-1',
+              'provider': 'codex',
+              'projectPath': '/tmp/project',
+              'status': 'idle',
+              'bridgeGeneration': 'generation-2',
+              'bridgeSessionId': 'bridge-1',
+              'providerThreadId': 'thread-1',
+              'recordKind': 'live',
+              'origin': 'bridge',
+              'owner': 'bridge',
+              'runtimeStatus': 'idle',
+              'attachmentState': 'owned',
+              'capabilities': ['read_history', 'refresh', 'send_input'],
+              'readOnlyReason': null,
+            },
+          ],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      final replays = received
+          .where((message) => message['type'] == 'input')
+          .toList();
+      expect(replays, hasLength(1));
+      final replay = replays.single;
+      expect(replay['bridgeSessionId'], 'bridge-1');
+      expect(replay['providerThreadId'], 'thread-1');
+      expect(replay['bridgeGeneration'], 'generation-2');
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
     });
 
     test('auto-connect cancellation skips the saved Bridge URL', () async {
@@ -591,6 +987,11 @@ void main() {
           secondSocketReady.complete(socket);
         }
         final socketNumber = connectionCount;
+        socket.add(
+          jsonEncode(
+            _ownedSessionList(bridgeGeneration: 'generation-$socketNumber'),
+          ),
+        );
         socket.listen((event) {
           final json = jsonDecode(event as String) as Map<String, dynamic>;
           if (json['type'] == 'resolve_session_link') {
@@ -662,6 +1063,7 @@ void main() {
 
       server.transform(WebSocketTransformer()).listen((socket) {
         connectionCount++;
+        socket.add(jsonEncode(_ownedSessionList()));
         socket.listen((event) {
           final json = jsonDecode(event as String) as Map<String, dynamic>;
           if (json['type'] == 'resolve_session_link' &&
@@ -716,6 +1118,11 @@ void main() {
         server.transform(WebSocketTransformer()).listen((socket) {
           connectionCount++;
           final socketNumber = connectionCount;
+          socket.add(
+            jsonEncode(
+              _ownedSessionList(bridgeGeneration: 'generation-$socketNumber'),
+            ),
+          );
           socket.listen((event) {
             final json = jsonDecode(event as String) as Map<String, dynamic>;
             if (json['type'] == 'resolve_session_link') {
@@ -791,6 +1198,11 @@ void main() {
         server.transform(WebSocketTransformer()).listen((socket) {
           connectionCount++;
           final socketNumber = connectionCount;
+          socket.add(
+            jsonEncode(
+              _ownedSessionList(bridgeGeneration: 'generation-$socketNumber'),
+            ),
+          );
           socket.listen((event) {
             final json = jsonDecode(event as String) as Map<String, dynamic>;
             if (json['type'] == 'resolve_session_link') {
@@ -1357,6 +1769,7 @@ void main() {
         final socketReady = Completer<WebSocket>();
 
         server.transform(WebSocketTransformer()).listen((socket) {
+          socket.add(jsonEncode(_ownedSessionList()));
           socketReady.complete(socket);
         });
 
@@ -1418,6 +1831,7 @@ void main() {
         final socketReady = Completer<WebSocket>();
 
         server.transform(WebSocketTransformer()).listen((socket) {
+          socket.add(jsonEncode(_ownedSessionList()));
           socketReady.complete(socket);
         });
 
@@ -1530,6 +1944,7 @@ void main() {
       final socketReady = Completer<WebSocket>();
 
       server.transform(WebSocketTransformer()).listen((socket) {
+        socket.add(jsonEncode(_ownedSessionList()));
         socketReady.complete(socket);
       });
 
@@ -1570,6 +1985,7 @@ void main() {
       final socketReady = Completer<WebSocket>();
 
       server.transform(WebSocketTransformer()).listen((socket) {
+        socket.add(jsonEncode(_ownedSessionList()));
         socketReady.complete(socket);
       });
 

@@ -44,6 +44,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Tool use IDs that have already been answered locally.
   static const _maxRespondedToolUseIds = 512;
   final _respondedToolUseIds = <String>{};
+  final Map<String, bool> _pendingPermissionActions = <String, bool>{};
 
   void _markToolUseResponded(String toolUseId) {
     _bridge.markToolUseResponded(sessionId, toolUseId);
@@ -237,6 +238,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // Log errors prominently
     if (msg is ErrorMessage) {
       logger.error('[session:$sessionId] Error from bridge: ${msg.message}');
+      if (msg.toolUseId != null) {
+        _pendingPermissionActions.remove(msg.toolUseId);
+      }
       _rollbackFailedModeChange(msg);
       if (_isSessionNotFound(msg)) {
         _statusRefreshTimer?.cancel();
@@ -264,9 +268,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       emit(state.copyWith(goal: msg.goal));
       return;
     }
-    if (msg is PermissionResolvedMessage) {
-      _markToolUseResponded(msg.toolUseId);
-      _emitNextApprovalOrNone(msg.toolUseId);
+    final acknowledgedToolUseId = switch (msg) {
+      PermissionResolvedMessage(:final toolUseId) => toolUseId,
+      ToolResultMessage(:final toolUseId) => toolUseId,
+      _ => null,
+    };
+    if (acknowledgedToolUseId != null) {
+      final exitPlanModeResolved =
+          _pendingPermissionActions.remove(acknowledgedToolUseId) ?? false;
+      _markToolUseResponded(acknowledgedToolUseId);
+      _emitNextApprovalOrNone(
+        acknowledgedToolUseId,
+        exitPlanModeResolved: exitPlanModeResolved,
+      );
     }
 
     try {
@@ -1463,7 +1477,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] approve toolUseId=$toolUseId'
       '${clearContext ? ' clearContext' : ''}',
     );
-    _markToolUseResponded(toolUseId);
+    _pendingPermissionActions[toolUseId] = isExitPlanApproval;
     _bridge.send(
       ClientMessage.approve(
         toolUseId,
@@ -1471,21 +1485,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         sessionId: sessionId,
       ),
     );
-    _emitNextApprovalOrNone(
-      toolUseId,
-      exitPlanModeResolved: isExitPlanApproval,
-    );
   }
 
   /// Approve a tool and always allow it in the future.
   void approveAlways(String toolUseId) {
     final isExitPlanApproval = _isExitPlanApproval(toolUseId);
-    _markToolUseResponded(toolUseId);
+    _pendingPermissionActions[toolUseId] = isExitPlanApproval;
     _bridge.send(ClientMessage.approveAlways(toolUseId, sessionId: sessionId));
-    _emitNextApprovalOrNone(
-      toolUseId,
-      exitPlanModeResolved: isExitPlanApproval,
-    );
   }
 
   /// Begin installing a plugin or connector suggested by Codex.
@@ -1591,20 +1597,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] reject toolUseId=$toolUseId'
       '${message != null ? ' msg=$message' : ''}',
     );
-    _markToolUseResponded(toolUseId);
+    _pendingPermissionActions[toolUseId] = false;
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
-    );
-    emit(
-      state.copyWith(approval: const ApprovalState.none(), inPlanMode: false),
     );
   }
 
   /// Answer an AskUserQuestion.
   void answer(String toolUseId, String result) {
-    _markToolUseResponded(toolUseId);
+    _pendingPermissionActions[toolUseId] = false;
     _bridge.send(ClientMessage.answer(toolUseId, result, sessionId: sessionId));
-    emit(state.copyWith(approval: const ApprovalState.none()));
   }
 
   /// Interrupt the current operation.
