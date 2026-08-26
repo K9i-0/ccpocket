@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.120.0] - 2026-08-27
+
+### Added
+- Play generated WAV and MP4 files directly in file preview with seek, playback speed, volume, fullscreen video, gestures, and localized accessible controls.
+
+### Changed
+- Require Bridge 1.73.0 for secure media delivery and HTTP range requests.
+
 ## [1.119.1] - 2026-08-26
 
 ### Fixed
