@@ -309,6 +309,7 @@ Future<Widget> _buildScreen({
   SupportBannerService? supportBannerService,
   bool focusConnection = false,
   bool focusSupport = false,
+  bool focusUsage = false,
   bool embedded = false,
 }) async {
   final prefs = await SharedPreferences.getInstance();
@@ -335,6 +336,7 @@ Future<Widget> _buildScreen({
         home: SettingsScreen(
           focusConnection: focusConnection,
           focusSupport: focusSupport,
+          focusUsage: focusUsage,
           embedded: embedded,
         ),
       ),
@@ -1082,16 +1084,19 @@ void main() {
       );
       final manager = MachineManagerService(prefs, _FakeSecureStorage());
       final machineManagerCubit = _createMachineManagerCubit(manager);
+      final resetsAt = DateTime.now().add(
+        const Duration(days: 6, hours: 13, minutes: 34, seconds: 55),
+      );
       final bridge = _FakeBridgeService(
         connected: true,
         fakeLastUrl: 'ws://127.0.0.1:8765',
-        cachedUsage: const UsageResultMessage(
+        cachedUsage: UsageResultMessage(
           providers: [
             UsageInfo(
               provider: 'codex',
               sevenDay: UsageWindow(
                 utilization: 0.09,
-                resetsAt: '2026-04-17T00:19:19Z',
+                resetsAt: resetsAt.toIso8601String(),
               ),
             ),
           ],
@@ -1121,6 +1126,61 @@ void main() {
       expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
       expect(find.text(l.usageSevenDay), findsOneWidget);
       expect(find.text(l.usageFiveHour), findsNothing);
+      expect(find.textContaining('(6d13h34m)'), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('focuses usage and shows pace guidance', (tester) async {
+      tester.view.physicalSize = const Size(390, 560);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final resetsAt = DateTime.now().add(const Duration(hours: 3));
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+        cachedUsage: UsageResultMessage(
+          providers: [
+            UsageInfo(
+              provider: 'codex',
+              fiveHour: UsageWindow(
+                utilization: 40,
+                resetsAt: resetsAt.toIso8601String(),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+          focusUsage: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
+      expect(find.text('On pace'), findsOneWidget);
+      expect(find.text('Expected 40% used'), findsOneWidget);
+      expect(find.text('On track to last until reset'), findsOneWidget);
+      final usageRect = tester.getRect(
+        find.byKey(const ValueKey('codex_usage_card')),
+      );
+      final listRect = tester.getRect(
+        find.byKey(const PageStorageKey('settings_list')),
+      );
+      expect(usageRect.overlaps(listRect), isTrue);
 
       await settingsCubit.close();
       await machineManagerCubit.close();

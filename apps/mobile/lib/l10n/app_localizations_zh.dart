@@ -1994,6 +1994,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get usageDisplayModeUsed => '已用';
 
   @override
+  String get usageOpenSettingsHint => '打开用量详情';
+
+  @override
+  String get usagePaceOnTrack => '进度正常';
+
+  @override
+  String get usagePaceSlightlyAhead => '消耗稍快';
+
+  @override
+  String get usagePaceAhead => '消耗较快';
+
+  @override
+  String get usagePaceFarAhead => '消耗很快';
+
+  @override
+  String get usagePaceSlightlyBehind => '略有余量';
+
+  @override
+  String get usagePaceBehind => '余量充足';
+
+  @override
+  String get usagePaceFarBehind => '余量非常充足';
+
+  @override
+  String usagePaceExpected(int percent) {
+    return '预计已用 $percent%';
+  }
+
+  @override
+  String get usagePaceWillLast => '按当前速度预计可用到重置';
+
+  @override
+  String usagePaceRunsOutIn(String duration) {
+    return '按当前速度预计约 $duration 后达到上限';
+  }
+
+  @override
+  String get usagePaceAtLimit => '已达到上限';
+
+  @override
   String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
 
   @override

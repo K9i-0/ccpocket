@@ -471,6 +471,11 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
         namedOnly: false,
         onToggleProvider: () {},
         onToggleNamed: () {},
+        codexUsageOverride: const UsageInfo(
+          provider: 'codex',
+          fiveHour: UsageWindow(utilization: 32, resetsAt: ''),
+          sevenDay: UsageWindow(utilization: 58, resetsAt: ''),
+        ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16),

@@ -5,6 +5,7 @@ class SectionHeader extends StatelessWidget {
   final String label;
   final Color color;
   final Widget? trailing;
+  final bool shrinkTrailingToFit;
 
   const SectionHeader({
     super.key,
@@ -12,6 +13,7 @@ class SectionHeader extends StatelessWidget {
     required this.label,
     required this.color,
     this.trailing,
+    this.shrinkTrailingToFit = false,
   });
 
   @override
@@ -34,7 +36,18 @@ class SectionHeader extends StatelessWidget {
                   color: color,
                 ),
               ),
-              if (trailing != null) ...[const Spacer(), trailing!],
+              if (trailing != null && shrinkTrailingToFit) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: trailing!,
+                  ),
+                ),
+              ] else if (trailing != null) ...[
+                const Spacer(),
+                trailing!,
+              ],
             ],
           ),
           const SizedBox(height: 4),

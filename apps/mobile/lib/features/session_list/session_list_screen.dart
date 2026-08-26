@@ -259,6 +259,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     WidgetsBinding.instance.addObserver(this);
     // session_created navigation (the only manual subscription)
     final bridge = context.read<BridgeService>();
+    if (bridge.isConnected && bridge.lastUsageResult == null) {
+      bridge.requestUsage();
+    }
     _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         unawaited(_syncPendingClaudeDefaultsWithSessionCreated(msg));
@@ -666,6 +669,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (bridge.isConnected) {
         bridge.requestSessionList();
         bridge.requestRecentSessions(projectPath: bridge.currentProjectFilter);
+        bridge.requestUsage();
       }
     }
   }
@@ -735,6 +739,15 @@ class _SessionListScreenState extends State<SessionListScreen>
     context.pushRoute(SettingsRoute(focusConnection: true));
   }
 
+  void _openUsageSettings() {
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    if (widget.embedded && shell != null) {
+      shell.openSettingsCenter(focusUsage: true);
+      return;
+    }
+    context.pushRoute(SettingsRoute(focusUsage: true));
+  }
+
   Future<void> _openGallery() async {
     final shell = WorkspaceShellScreen.maybeOf(context);
     if (widget.embedded && shell != null) {
@@ -746,6 +759,10 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _refresh() {
     context.read<SessionListCubit>().refresh();
+    final bridge = context.read<BridgeService>();
+    if (bridge.isConnected) {
+      bridge.requestUsage();
+    }
     final machineManagerCubit = context.read<MachineManagerCubit?>();
     if (machineManagerCubit != null) {
       unawaited(machineManagerCubit.refreshLatestBridgeVersionIfStale());
@@ -1696,7 +1713,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   setState(() => _isAutoConnecting = false);
                 }
                 if (nextState == BridgeConnectionState.connected) {
-                  context.read<SessionListCubit>().refresh();
+                  _refresh();
                 }
               },
               child: CallbackShortcuts(
@@ -2002,7 +2019,10 @@ class _SessionListScreenState extends State<SessionListScreen>
               onDismissMacOSNativeAppBanner: _dismissMacOSNativeAppBanner,
               onOpenBridgeSettings: _openBridgeSettings,
               onOpenSupportSettings: _openSupportSettings,
+              onOpenUsageSettings: _openUsageSettings,
               connectedBridgeLabel: connectedBridgeLabel,
+              usageBridgeService: bridge,
+              usageDisplayMode: settingsState.usageDisplayMode,
             ),
           );
         },

@@ -742,7 +742,7 @@
   "backToSessions": "セッション一覧に戻る",
   "working": "処理中...",
   "waitingForApprovalRequests": "エージェントからの承認リクエストを待っています。",
-  "noActiveSessions": "アクティブなセッションがありません",
+  "noActiveSessions": "実行中のセッションはありません",
   "startSessionToBegin": "セッションを開始して承認リクエストの受信を始めましょう。",
 
   "settingsTitle": "設定",
@@ -836,6 +836,28 @@
   "settingsUsageNoCodexData": "Codex の利用量データが見つかりませんでした。",
   "usageDisplayModeRemaining": "残量",
   "usageDisplayModeUsed": "使用量",
+  "usageOpenSettingsHint": "利用量の詳細を開く",
+  "usagePaceOnTrack": "順調",
+  "usagePaceSlightlyAhead": "やや速い",
+  "usagePaceAhead": "速い",
+  "usagePaceFarAhead": "かなり速い",
+  "usagePaceSlightlyBehind": "やや余裕",
+  "usagePaceBehind": "余裕あり",
+  "usagePaceFarBehind": "かなり余裕",
+  "usagePaceExpected": "目安 {percent}% 使用",
+  "@usagePaceExpected": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
+  "usagePaceWillLast": "このペースならリセットまで持つ見込み",
+  "usagePaceRunsOutIn": "このペースだと約 {duration} で上限の見込み",
+  "@usagePaceRunsOutIn": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "usagePaceAtLimit": "上限に到達しています",
   "settingsClaudeUsageDescription": "Claude の公式課金ページをブラウザで開きます。",
   "settingsClaudeApiBilling": "API キーの課金",
   "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",

@@ -3321,7 +3321,7 @@ abstract class AppLocalizations {
   /// No description provided for @noActiveSessions.
   ///
   /// In ja, this message translates to:
-  /// **'アクティブなセッションがありません'**
+  /// **'実行中のセッションはありません'**
   String get noActiveSessions;
 
   /// No description provided for @startSessionToBegin.
@@ -3821,6 +3821,78 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'使用量'**
   String get usageDisplayModeUsed;
+
+  /// No description provided for @usageOpenSettingsHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用量の詳細を開く'**
+  String get usageOpenSettingsHint;
+
+  /// No description provided for @usagePaceOnTrack.
+  ///
+  /// In ja, this message translates to:
+  /// **'順調'**
+  String get usagePaceOnTrack;
+
+  /// No description provided for @usagePaceSlightlyAhead.
+  ///
+  /// In ja, this message translates to:
+  /// **'やや速い'**
+  String get usagePaceSlightlyAhead;
+
+  /// No description provided for @usagePaceAhead.
+  ///
+  /// In ja, this message translates to:
+  /// **'速い'**
+  String get usagePaceAhead;
+
+  /// No description provided for @usagePaceFarAhead.
+  ///
+  /// In ja, this message translates to:
+  /// **'かなり速い'**
+  String get usagePaceFarAhead;
+
+  /// No description provided for @usagePaceSlightlyBehind.
+  ///
+  /// In ja, this message translates to:
+  /// **'やや余裕'**
+  String get usagePaceSlightlyBehind;
+
+  /// No description provided for @usagePaceBehind.
+  ///
+  /// In ja, this message translates to:
+  /// **'余裕あり'**
+  String get usagePaceBehind;
+
+  /// No description provided for @usagePaceFarBehind.
+  ///
+  /// In ja, this message translates to:
+  /// **'かなり余裕'**
+  String get usagePaceFarBehind;
+
+  /// No description provided for @usagePaceExpected.
+  ///
+  /// In ja, this message translates to:
+  /// **'目安 {percent}% 使用'**
+  String usagePaceExpected(int percent);
+
+  /// No description provided for @usagePaceWillLast.
+  ///
+  /// In ja, this message translates to:
+  /// **'このペースならリセットまで持つ見込み'**
+  String get usagePaceWillLast;
+
+  /// No description provided for @usagePaceRunsOutIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'このペースだと約 {duration} で上限の見込み'**
+  String usagePaceRunsOutIn(String duration);
+
+  /// No description provided for @usagePaceAtLimit.
+  ///
+  /// In ja, this message translates to:
+  /// **'上限に到達しています'**
+  String get usagePaceAtLimit;
 
   /// No description provided for @settingsClaudeUsageDescription.
   ///

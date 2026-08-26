@@ -806,6 +806,28 @@
   "settingsUsageNoCodexData": "No Codex usage data found.",
   "usageDisplayModeRemaining": "Remaining",
   "usageDisplayModeUsed": "Used",
+  "usageOpenSettingsHint": "Open usage details",
+  "usagePaceOnTrack": "On pace",
+  "usagePaceSlightlyAhead": "Slightly fast",
+  "usagePaceAhead": "Fast",
+  "usagePaceFarAhead": "Very fast",
+  "usagePaceSlightlyBehind": "Slightly under pace",
+  "usagePaceBehind": "Plenty of headroom",
+  "usagePaceFarBehind": "Lots of headroom",
+  "usagePaceExpected": "Expected {percent}% used",
+  "@usagePaceExpected": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
+  "usagePaceWillLast": "On track to last until reset",
+  "usagePaceRunsOutIn": "Projected to reach the limit in about {duration}",
+  "@usagePaceRunsOutIn": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "usagePaceAtLimit": "Limit reached",
   "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
   "settingsClaudeApiBilling": "API Key billing",
   "settingsClaudeSubscriptionUsage": "Subscription usage",
