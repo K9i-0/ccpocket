@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.73.0] - 2026-08-27
+
+### Added
+- Add secure WAV and MP4 file delivery with scoped capability URLs and HTTP range request support for in-app media playback.
+
 ## [1.72.3] - 2026-08-25
 
 ### Fixed
