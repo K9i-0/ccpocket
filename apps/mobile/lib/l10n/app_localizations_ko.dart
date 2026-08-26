@@ -2031,6 +2031,46 @@ class AppLocalizationsKo extends AppLocalizations {
   String get usageDisplayModeUsed => '사용량';
 
   @override
+  String get usageOpenSettingsHint => '사용량 세부 정보 열기';
+
+  @override
+  String get usagePaceOnTrack => '순조로움';
+
+  @override
+  String get usagePaceSlightlyAhead => '조금 빠름';
+
+  @override
+  String get usagePaceAhead => '빠름';
+
+  @override
+  String get usagePaceFarAhead => '매우 빠름';
+
+  @override
+  String get usagePaceSlightlyBehind => '조금 여유 있음';
+
+  @override
+  String get usagePaceBehind => '여유 있음';
+
+  @override
+  String get usagePaceFarBehind => '매우 여유 있음';
+
+  @override
+  String usagePaceExpected(int percent) {
+    return '예상 사용량 $percent%';
+  }
+
+  @override
+  String get usagePaceWillLast => '현재 속도라면 초기화까지 유지될 전망';
+
+  @override
+  String usagePaceRunsOutIn(String duration) {
+    return '현재 속도라면 약 $duration 후 한도 도달 예상';
+  }
+
+  @override
+  String get usagePaceAtLimit => '한도에 도달했습니다';
+
+  @override
   String get settingsClaudeUsageDescription => '브라우저에서 Claude 공식 결제 페이지를 엽니다.';
 
   @override

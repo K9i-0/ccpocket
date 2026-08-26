@@ -870,6 +870,28 @@
   "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
   "usageDisplayModeRemaining": "剩余",
   "usageDisplayModeUsed": "已用",
+  "usageOpenSettingsHint": "打开用量详情",
+  "usagePaceOnTrack": "进度正常",
+  "usagePaceSlightlyAhead": "消耗稍快",
+  "usagePaceAhead": "消耗较快",
+  "usagePaceFarAhead": "消耗很快",
+  "usagePaceSlightlyBehind": "略有余量",
+  "usagePaceBehind": "余量充足",
+  "usagePaceFarBehind": "余量非常充足",
+  "usagePaceExpected": "预计已用 {percent}%",
+  "@usagePaceExpected": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
+  "usagePaceWillLast": "按当前速度预计可用到重置",
+  "usagePaceRunsOutIn": "按当前速度预计约 {duration} 后达到上限",
+  "@usagePaceRunsOutIn": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "usagePaceAtLimit": "已达到上限",
   "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
   "settingsClaudeApiBilling": "API Key 计费",
   "settingsClaudeSubscriptionUsage": "订阅用量",

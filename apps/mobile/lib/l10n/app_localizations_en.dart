@@ -2091,6 +2091,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usageDisplayModeUsed => 'Used';
 
   @override
+  String get usageOpenSettingsHint => 'Open usage details';
+
+  @override
+  String get usagePaceOnTrack => 'On pace';
+
+  @override
+  String get usagePaceSlightlyAhead => 'Slightly fast';
+
+  @override
+  String get usagePaceAhead => 'Fast';
+
+  @override
+  String get usagePaceFarAhead => 'Very fast';
+
+  @override
+  String get usagePaceSlightlyBehind => 'Slightly under pace';
+
+  @override
+  String get usagePaceBehind => 'Plenty of headroom';
+
+  @override
+  String get usagePaceFarBehind => 'Lots of headroom';
+
+  @override
+  String usagePaceExpected(int percent) {
+    return 'Expected $percent% used';
+  }
+
+  @override
+  String get usagePaceWillLast => 'On track to last until reset';
+
+  @override
+  String usagePaceRunsOutIn(String duration) {
+    return 'Projected to reach the limit in about $duration';
+  }
+
+  @override
+  String get usagePaceAtLimit => 'Limit reached';
+
+  @override
   String get settingsClaudeUsageDescription =>
       'Open Claude\'s official billing pages in your browser.';
 

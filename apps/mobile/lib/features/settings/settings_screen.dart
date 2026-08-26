@@ -50,12 +50,14 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     this.focusConnection = false,
     this.focusSupport = false,
+    this.focusUsage = false,
     this.embedded = false,
     this.onBack,
   });
 
   final bool focusConnection;
   final bool focusSupport;
+  final bool focusUsage;
   final bool embedded;
   final VoidCallback? onBack;
 
@@ -67,12 +69,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _scrollController = ScrollController();
   final _connectionSectionKey = GlobalKey();
   final _supportSectionKey = GlobalKey();
+  final _usageSectionKey = GlobalKey();
   Timer? _connectionHighlightTimer;
   Timer? _supportHighlightTimer;
+  Timer? _usageHighlightTimer;
   bool _didHandleConnectionFocus = false;
   bool _didHandleSupportFocus = false;
+  bool _didHandleUsageFocus = false;
   bool _highlightConnectionSection = false;
   bool _highlightSupportSection = false;
+  bool _highlightUsageSection = false;
   bool _isIOSAppOnMac = false;
   String _appIconDeviceName = isAndroidPlatform ? 'Android' : 'iPhone';
 
@@ -147,6 +153,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  void _maybeFocusUsageSection() {
+    if (!widget.focusUsage || _didHandleUsageFocus) return;
+    _didHandleUsageFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final targetContext = _usageSectionKey.currentContext;
+      if (targetContext == null || !targetContext.mounted) {
+        _didHandleUsageFocus = false;
+        return;
+      }
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        alignment: 0.08,
+      );
+      if (!mounted) return;
+
+      setState(() => _highlightUsageSection = true);
+      _usageHighlightTimer?.cancel();
+      _usageHighlightTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (!mounted) return;
+        setState(() => _highlightUsageSection = false);
+      });
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -188,6 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _connectionHighlightTimer?.cancel();
     _supportHighlightTimer?.cancel();
+    _usageHighlightTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -259,7 +293,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             key: const PageStorageKey('settings_list'),
             controller: _scrollController,
-            scrollCacheExtent: widget.focusSupport || widget.focusConnection
+            scrollCacheExtent:
+                widget.focusSupport ||
+                    widget.focusConnection ||
+                    widget.focusUsage
                 ? const ScrollCacheExtent.pixels(4096)
                 : null,
             children: [
@@ -981,11 +1018,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
-              if (isConnected) ...[
+              if (bridge.isConnected) ...[
                 // ── Usage ──
-                UsageSection(bridgeService: bridge),
+                Builder(
+                  builder: (context) {
+                    _maybeFocusUsageSection();
+                    return KeyedSubtree(
+                      key: _usageSectionKey,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          color: _highlightUsageSection
+                              ? cs.tertiary.withValues(alpha: 0.06)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _highlightUsageSection
+                                ? cs.tertiary.withValues(alpha: 0.7)
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: UsageSection(bridgeService: bridge),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 8),
+              ],
 
+              if (isConnected) ...[
                 // ── Prompt History 2.0 ──
                 _PromptHistorySectionSlot(bridgeService: bridge),
                 const SizedBox(height: 8),

@@ -855,6 +855,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
     Key? key,
     bool focusConnection = false,
     bool focusSupport = false,
+    bool focusUsage = false,
     bool embedded = false,
     VoidCallback? onBack,
     List<PageRouteInfo>? children,
@@ -864,6 +865,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
            key: key,
            focusConnection: focusConnection,
            focusSupport: focusSupport,
+           focusUsage: focusUsage,
            embedded: embedded,
            onBack: onBack,
          ),
@@ -882,6 +884,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
         key: args.key,
         focusConnection: args.focusConnection,
         focusSupport: args.focusSupport,
+        focusUsage: args.focusUsage,
         embedded: args.embedded,
         onBack: args.onBack,
       );
@@ -894,6 +897,7 @@ class SettingsRouteArgs {
     this.key,
     this.focusConnection = false,
     this.focusSupport = false,
+    this.focusUsage = false,
     this.embedded = false,
     this.onBack,
   });
@@ -904,13 +908,15 @@ class SettingsRouteArgs {
 
   final bool focusSupport;
 
+  final bool focusUsage;
+
   final bool embedded;
 
   final VoidCallback? onBack;
 
   @override
   String toString() {
-    return 'SettingsRouteArgs{key: $key, focusConnection: $focusConnection, focusSupport: $focusSupport, embedded: $embedded, onBack: $onBack}';
+    return 'SettingsRouteArgs{key: $key, focusConnection: $focusConnection, focusSupport: $focusSupport, focusUsage: $focusUsage, embedded: $embedded, onBack: $onBack}';
   }
 
   @override
@@ -920,6 +926,7 @@ class SettingsRouteArgs {
     return key == other.key &&
         focusConnection == other.focusConnection &&
         focusSupport == other.focusSupport &&
+        focusUsage == other.focusUsage &&
         embedded == other.embedded &&
         onBack == other.onBack;
   }
@@ -929,6 +936,7 @@ class SettingsRouteArgs {
       key.hashCode ^
       focusConnection.hashCode ^
       focusSupport.hashCode ^
+      focusUsage.hashCode ^
       embedded.hashCode ^
       onBack.hashCode;
 }

@@ -8,6 +8,8 @@ import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../theme/app_theme.dart';
+import '../models/usage_pace.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
 
@@ -331,6 +333,7 @@ class _ProviderUsageTile extends StatelessWidget {
               _UsageBar(
                 label: AppLocalizations.of(context).usageFiveHour,
                 window: info.fiveHour!,
+                windowDuration: const Duration(hours: 5),
                 displayMode: displayMode,
               ),
             if (info.fiveHour != null && info.sevenDay != null)
@@ -339,6 +342,7 @@ class _ProviderUsageTile extends StatelessWidget {
               _UsageBar(
                 label: AppLocalizations.of(context).usageSevenDay,
                 window: info.sevenDay!,
+                windowDuration: const Duration(days: 7),
                 displayMode: displayMode,
               ),
           ],
@@ -351,10 +355,12 @@ class _ProviderUsageTile extends StatelessWidget {
 class _UsageBar extends StatefulWidget {
   final String label;
   final UsageWindow window;
+  final Duration windowDuration;
   final UsageDisplayMode displayMode;
   const _UsageBar({
     required this.label,
     required this.window,
+    required this.windowDuration,
     required this.displayMode,
   });
 
@@ -424,6 +430,10 @@ class _UsageBarState extends State<_UsageBar>
               ? l.usageResetAt(resetTimeStr)
               : l.usageAlreadyReset)
         : null;
+    final pace = UsagePace.calculate(
+      window: widget.window,
+      windowDuration: widget.windowDuration,
+    );
 
     return AnimatedBuilder(
       animation: _controller,
@@ -468,6 +478,10 @@ class _UsageBarState extends State<_UsageBar>
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
               ),
             ],
+            if (pace?.isReliable ?? false) ...[
+              const SizedBox(height: 6),
+              _UsagePaceIndicator(pace: pace!),
+            ],
           ],
         );
       },
@@ -498,15 +512,133 @@ class _UsageBarState extends State<_UsageBar>
 
     if (diff.isNegative) return null;
 
-    final hours = diff.inHours;
+    final days = diff.inDays;
+    final hours = diff.inHours.remainder(24);
     final minutes = diff.inMinutes % 60;
 
     final timeStr =
         '${local.month}/${local.day} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
 
+    if (days > 0) {
+      return '$timeStr (${days}d${hours > 0 ? '${hours}h' : ''}${minutes > 0 ? '${minutes}m' : ''})';
+    }
     if (hours > 0) {
-      return '$timeStr (${hours}h${minutes > 0 ? ' ${minutes}m' : ''})';
+      return '$timeStr (${hours}h${minutes > 0 ? '${minutes}m' : ''})';
     }
     return '$timeStr (${minutes}m)';
   }
+}
+
+class _UsagePaceIndicator extends StatelessWidget {
+  final UsagePace pace;
+
+  const _UsagePaceIndicator({required this.pace});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final appColors = Theme.of(context).extension<AppColors>();
+    final color = _paceColor(cs, appColors, pace.stage);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 2,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_paceIcon(pace.stage), size: 14, color: color),
+                  const SizedBox(width: 5),
+                  Text(
+                    _paceStageLabel(l, pace.stage),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                l.usagePaceExpected(pace.expectedUsedPercent.round()),
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _projectionLabel(l, pace),
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _paceStageLabel(AppLocalizations l, UsagePaceStage stage) {
+  return switch (stage) {
+    UsagePaceStage.onTrack => l.usagePaceOnTrack,
+    UsagePaceStage.slightlyAhead => l.usagePaceSlightlyAhead,
+    UsagePaceStage.ahead => l.usagePaceAhead,
+    UsagePaceStage.farAhead => l.usagePaceFarAhead,
+    UsagePaceStage.slightlyBehind => l.usagePaceSlightlyBehind,
+    UsagePaceStage.behind => l.usagePaceBehind,
+    UsagePaceStage.farBehind => l.usagePaceFarBehind,
+  };
+}
+
+String _projectionLabel(AppLocalizations l, UsagePace pace) {
+  if (pace.actualUsedPercent >= 100) return l.usagePaceAtLimit;
+  if (pace.willLastToReset) return l.usagePaceWillLast;
+  final timeUntilLimit = pace.timeUntilLimit;
+  if (timeUntilLimit == null) return l.usagePaceWillLast;
+  return l.usagePaceRunsOutIn(_formatCompactDuration(timeUntilLimit));
+}
+
+String _formatCompactDuration(Duration duration) {
+  if (duration < const Duration(minutes: 1)) return '<1m';
+  final days = duration.inDays;
+  final hours = duration.inHours.remainder(24);
+  final minutes = duration.inMinutes.remainder(60);
+  if (days > 0) return '${days}d${hours > 0 ? ' ${hours}h' : ''}';
+  if (duration.inHours > 0) {
+    return '${duration.inHours}h${minutes > 0 ? ' ${minutes}m' : ''}';
+  }
+  return '${duration.inMinutes}m';
+}
+
+Color _paceColor(ColorScheme cs, AppColors? appColors, UsagePaceStage stage) {
+  return switch (stage) {
+    UsagePaceStage.onTrack => appColors?.statusOnline ?? cs.secondary,
+    UsagePaceStage.slightlyAhead => cs.tertiary,
+    UsagePaceStage.ahead || UsagePaceStage.farAhead => cs.error,
+    UsagePaceStage.slightlyBehind ||
+    UsagePaceStage.behind ||
+    UsagePaceStage.farBehind => cs.secondary,
+  };
+}
+
+IconData _paceIcon(UsagePaceStage stage) {
+  return switch (stage) {
+    UsagePaceStage.onTrack => Icons.check_circle_outline,
+    UsagePaceStage.slightlyAhead ||
+    UsagePaceStage.ahead ||
+    UsagePaceStage.farAhead => Icons.trending_up,
+    UsagePaceStage.slightlyBehind ||
+    UsagePaceStage.behind ||
+    UsagePaceStage.farBehind => Icons.trending_down,
+  };
 }

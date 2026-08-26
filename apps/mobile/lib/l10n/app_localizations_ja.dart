@@ -2016,6 +2016,46 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usageDisplayModeUsed => '使用量';
 
   @override
+  String get usageOpenSettingsHint => '利用量の詳細を開く';
+
+  @override
+  String get usagePaceOnTrack => '順調';
+
+  @override
+  String get usagePaceSlightlyAhead => 'やや速い';
+
+  @override
+  String get usagePaceAhead => '速い';
+
+  @override
+  String get usagePaceFarAhead => 'かなり速い';
+
+  @override
+  String get usagePaceSlightlyBehind => 'やや余裕';
+
+  @override
+  String get usagePaceBehind => '余裕あり';
+
+  @override
+  String get usagePaceFarBehind => 'かなり余裕';
+
+  @override
+  String usagePaceExpected(int percent) {
+    return '目安 $percent% 使用';
+  }
+
+  @override
+  String get usagePaceWillLast => 'このペースならリセットまで持つ見込み';
+
+  @override
+  String usagePaceRunsOutIn(String duration) {
+    return 'このペースだと約 $duration で上限の見込み';
+  }
+
+  @override
+  String get usagePaceAtLimit => '上限に到達しています';
+
+  @override
   String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
 
   @override
