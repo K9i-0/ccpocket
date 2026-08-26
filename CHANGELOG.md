@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.119.1] - 2026-08-26
+
+### Fixed
+- Keep the running-session header and Codex usage visible when no session is active, while restoring the compact header height and preserving its touch target.
+
 ## [1.119.0] - 2026-08-26
 
 ### Added
