@@ -117,6 +117,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filePreviewRenderedHtml => 'HTML 渲染预览';
 
   @override
+  String get filePreviewMediaUnavailable => '无法在此处播放此媒体文件。';
+
+  @override
+  String get filePreviewMediaLoadFailed => '无法加载媒体文件。';
+
+  @override
+  String get filePreviewPlay => '播放';
+
+  @override
+  String get filePreviewPause => '暂停';
+
+  @override
+  String get filePreviewRewind10 => '后退10秒';
+
+  @override
+  String get filePreviewForward10 => '前进10秒';
+
+  @override
+  String get filePreviewPlaybackSpeed => '播放速度';
+
+  @override
+  String get filePreviewMute => '静音';
+
+  @override
+  String get filePreviewUnmute => '取消静音';
+
+  @override
+  String get filePreviewVolume => '音量';
+
+  @override
+  String get filePreviewFullscreen => '进入全屏';
+
+  @override
+  String get filePreviewExitFullscreen => '退出全屏';
+
+  @override
   String get copied => '已复制';
 
   @override

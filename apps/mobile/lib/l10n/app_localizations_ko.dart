@@ -117,6 +117,42 @@ class AppLocalizationsKo extends AppLocalizations {
   String get filePreviewRenderedHtml => '렌더링된 HTML 미리 보기';
 
   @override
+  String get filePreviewMediaUnavailable => '이 미디어 파일은 여기에서 재생할 수 없습니다.';
+
+  @override
+  String get filePreviewMediaLoadFailed => '미디어 파일을 불러오지 못했습니다.';
+
+  @override
+  String get filePreviewPlay => '재생';
+
+  @override
+  String get filePreviewPause => '일시 정지';
+
+  @override
+  String get filePreviewRewind10 => '10초 뒤로';
+
+  @override
+  String get filePreviewForward10 => '10초 앞으로';
+
+  @override
+  String get filePreviewPlaybackSpeed => '재생 속도';
+
+  @override
+  String get filePreviewMute => '음소거';
+
+  @override
+  String get filePreviewUnmute => '음소거 해제';
+
+  @override
+  String get filePreviewVolume => '볼륨';
+
+  @override
+  String get filePreviewFullscreen => '전체 화면';
+
+  @override
+  String get filePreviewExitFullscreen => '전체 화면 종료';
+
+  @override
   String get copied => '복사됨';
 
   @override

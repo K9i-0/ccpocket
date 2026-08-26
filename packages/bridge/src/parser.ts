@@ -279,6 +279,11 @@ export type ClientMessage =
       filePath: string;
       maxLines?: number;
     }
+  | {
+      type: "read_media_file";
+      projectPath: string;
+      filePath: string;
+    }
   | { type: "list_files"; projectPath: string }
   | {
       type: "list_directory";
@@ -622,7 +627,7 @@ export type ServerMessage =
   | {
       type: "file_content";
       filePath: string;
-      kind?: "text" | "image";
+      kind?: "text" | "image" | "audio" | "video";
       content: string;
       language?: string;
       error?: string;
@@ -631,6 +636,7 @@ export type ServerMessage =
       base64?: string;
       mimeType?: string;
       sizeBytes?: number;
+      mediaUrl?: string;
     }
   | {
       type: "file_list";
@@ -1405,6 +1411,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "read_file":
+      case "read_media_file":
         if (typeof msg.projectPath !== "string") return null;
         if (typeof msg.filePath !== "string") return null;
         break;

@@ -2,7 +2,7 @@ import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
-import { lstat, readFile, readlink, stat, unlink } from "node:fs/promises";
+import { lstat, readFile, readlink, realpath, stat, unlink } from "node:fs/promises";
 import { resolve, extname, basename, relative } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
@@ -57,6 +57,7 @@ import {
   saveCodexSessionProfile,
 } from "./sessions-index.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
+import type { MediaStore } from "./media-store.js";
 import {
   formatResumePerformanceLog,
   summarizeResumeHistory,
@@ -653,6 +654,7 @@ export interface BridgeServerOptions {
   apiKey?: string;
   allowedDirs?: string[];
   imageStore?: ImageStore;
+  mediaStore?: MediaStore;
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
   debugTraceStore?: DebugTraceStore;
@@ -697,6 +699,7 @@ export class BridgeWebSocketServer {
   private apiKey: string | null;
   private allowedDirs: string[];
   private imageStore: ImageStore | null;
+  private mediaStore: MediaStore | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
   private debugTraceStore: DebugTraceStore;
@@ -768,6 +771,7 @@ export class BridgeWebSocketServer {
       apiKey,
       allowedDirs,
       imageStore,
+      mediaStore,
       galleryStore,
       projectHistory,
       debugTraceStore,
@@ -784,6 +788,7 @@ export class BridgeWebSocketServer {
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
     this.imageStore = imageStore ?? null;
+    this.mediaStore = mediaStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
@@ -891,6 +896,22 @@ export class BridgeWebSocketServer {
     return this.allowedDirs.some(
       (dir) => isPathWithinAllowedDirectory(path, dir, this.platform),
     );
+  }
+
+  private async isCanonicalPathAllowed(path: string): Promise<boolean> {
+    if (this.allowedDirs.length === 0) return true;
+    for (const dir of this.allowedDirs) {
+      let canonicalDir = dir;
+      try {
+        canonicalDir = await realpath(dir);
+      } catch {
+        // Keep the configured path when the allowed root cannot be resolved.
+      }
+      if (isPathWithinAllowedDirectory(path, canonicalDir, this.platform)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Build a user-friendly error for disallowed project paths. */
@@ -5286,7 +5307,8 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "read_file": {
+      case "read_file":
+      case "read_media_file": {
         const absPath = resolve(msg.projectPath, msg.filePath);
         if (!this.isPathAllowed(absPath)) {
           this.send(ws, {
@@ -5355,7 +5377,56 @@ export class BridgeWebSocketServer {
             const resolvedFileStat = fileStat.isSymbolicLink()
               ? await stat(absPath)
               : fileStat;
+            const canonicalPath = await realpath(absPath);
+            if (!(await this.isCanonicalPathAllowed(canonicalPath))) {
+              this.send(ws, {
+                type: "file_content",
+                filePath: msg.filePath,
+                content: "",
+                error: "Path not allowed",
+              });
+              return;
+            }
             const ext = extname(absPath).toLowerCase();
+            const mediaType = BridgeWebSocketServer.FILE_PEEK_MEDIA_TYPES[ext];
+            if (mediaType) {
+              if (!this.mediaStore) {
+                this.send(ws, {
+                  type: "file_content",
+                  filePath: msg.filePath,
+                  kind: mediaType.kind,
+                  content: "",
+                  mimeType: mediaType.mimeType,
+                  sizeBytes: resolvedFileStat.size,
+                  error: "Media preview is unavailable on this Bridge.",
+                });
+                return;
+              }
+              const ref = await this.mediaStore.register(
+                canonicalPath,
+                mediaType.mimeType,
+                resolvedFileStat.size,
+              );
+              this.send(ws, {
+                type: "file_content",
+                filePath: msg.filePath,
+                kind: mediaType.kind,
+                content: "",
+                mimeType: ref.mimeType,
+                sizeBytes: ref.sizeBytes,
+                mediaUrl: ref.url,
+              });
+              return;
+            }
+            if (msg.type === "read_media_file") {
+              this.send(ws, {
+                type: "file_content",
+                filePath: msg.filePath,
+                content: "",
+                error: "Unsupported media file type.",
+              });
+              return;
+            }
             if (BridgeWebSocketServer.FILE_PEEK_IMAGE_EXTENSIONS.has(ext)) {
               const mimeType = BridgeWebSocketServer.mimeTypeForExt(ext);
               if (resolvedFileStat.size > BridgeWebSocketServer.MAX_IMAGE_SIZE) {
@@ -8271,6 +8342,14 @@ export class BridgeWebSocketServer {
     ".webp",
     ".svg",
   ]);
+
+  private static readonly FILE_PEEK_MEDIA_TYPES: Record<
+    string,
+    { kind: "audio" | "video"; mimeType: string }
+  > = {
+    ".wav": { kind: "audio", mimeType: "audio/wav" },
+    ".mp4": { kind: "video", mimeType: "video/mp4" },
+  };
 
   // Image diff thresholds (configurable via environment variables)
   // - Auto-display: images ≤ threshold are sent inline as base64

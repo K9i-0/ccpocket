@@ -118,6 +118,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filePreviewRenderedHtml => 'Rendered HTML preview';
 
   @override
+  String get filePreviewMediaUnavailable =>
+      'This media file cannot be played here.';
+
+  @override
+  String get filePreviewMediaLoadFailed =>
+      'The media file could not be loaded.';
+
+  @override
+  String get filePreviewPlay => 'Play';
+
+  @override
+  String get filePreviewPause => 'Pause';
+
+  @override
+  String get filePreviewRewind10 => 'Rewind 10 seconds';
+
+  @override
+  String get filePreviewForward10 => 'Forward 10 seconds';
+
+  @override
+  String get filePreviewPlaybackSpeed => 'Playback speed';
+
+  @override
+  String get filePreviewMute => 'Mute';
+
+  @override
+  String get filePreviewUnmute => 'Unmute';
+
+  @override
+  String get filePreviewVolume => 'Volume';
+
+  @override
+  String get filePreviewFullscreen => 'Enter full screen';
+
+  @override
+  String get filePreviewExitFullscreen => 'Exit full screen';
+
+  @override
   String get copied => 'Copied';
 
   @override

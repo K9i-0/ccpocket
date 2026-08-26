@@ -252,11 +252,14 @@ class MockBridgeService extends BridgeService {
           startDelay: const Duration(milliseconds: 500),
         );
       case 'read_file':
+      case 'read_media_file':
         final filePath = json['filePath'] as String? ?? '';
         final image = _mockImageFile(filePath);
+        final media = _mockMediaFile(filePath);
         _scheduleMessage(
           const Duration(milliseconds: 400),
           image ??
+              media ??
               FileContentMessage(
                 filePath: filePath,
                 kind: 'text',
@@ -590,6 +593,24 @@ class MockBridgeService extends BridgeService {
       base64: base64,
       mimeType: mimeType,
       sizeBytes: base64Decode(base64).length,
+    );
+  }
+
+  static FileContentMessage? _mockMediaFile(String filePath) {
+    final ext = filePath.split('.').lastOrNull?.toLowerCase();
+    final media = switch (ext) {
+      'wav' => (kind: 'audio', mimeType: 'audio/wav'),
+      'mp4' => (kind: 'video', mimeType: 'video/mp4'),
+      _ => null,
+    };
+    if (media == null) return null;
+    return FileContentMessage(
+      filePath: filePath,
+      kind: media.kind,
+      content: '',
+      mediaUrl: '/api/media/mock-media-token',
+      mimeType: media.mimeType,
+      sizeBytes: 4 * 1024 * 1024,
     );
   }
 
@@ -932,6 +953,8 @@ const _mockProjectFiles = [
   'docs/images/install-banner.png',
   'docs/images/install-qr-app-store.png',
   'docs/images/release-card-v1.86.1-en.png',
+  'outputs/generated-video.mp4',
+  'outputs/generated-audio.wav',
   'apps/mobile/lib/main.dart',
   'apps/mobile/test/widget_test.dart',
   'packages/bridge/src/index.ts',

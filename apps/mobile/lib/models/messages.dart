@@ -1063,6 +1063,7 @@ sealed class ServerMessage {
         base64: json['base64'] as String?,
         mimeType: json['mimeType'] as String?,
         sizeBytes: json['sizeBytes'] as int?,
+        mediaUrl: json['mediaUrl'] as String?,
       ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
@@ -2688,6 +2689,7 @@ class FileContentMessage implements ServerMessage {
   final String? base64;
   final String? mimeType;
   final int? sizeBytes;
+  final String? mediaUrl;
   const FileContentMessage({
     required this.filePath,
     this.kind = 'text',
@@ -2699,6 +2701,7 @@ class FileContentMessage implements ServerMessage {
     this.base64,
     this.mimeType,
     this.sizeBytes,
+    this.mediaUrl,
   });
 }
 
@@ -4446,6 +4449,13 @@ class ClientMessage {
     'filePath': filePath,
     'maxLines': ?maxLines,
   });
+
+  factory ClientMessage.readMediaFile(String projectPath, String filePath) =>
+      ClientMessage._({
+        'type': 'read_media_file',
+        'projectPath': projectPath,
+        'filePath': filePath,
+      });
 
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});

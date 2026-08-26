@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePlatformPath } from "./path-utils.js";
+import { MediaStore } from "./media-store.js";
 
 const {
   getSessionHistoryMock,
@@ -4914,6 +4915,97 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally {
       bridge.close();
       rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["sample.wav", "audio", "audio/wav"],
+    ["sample.mp4", "video", "video/mp4"],
+  ])("returns a streaming URL for %s file peek", async (fileName, kind, mimeType) => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
+    const contents = Buffer.from("generated media contents");
+    writeFileSync(resolve(projectPath, fileName), contents);
+    const mediaStore = new MediaStore();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "read_file",
+          projectPath,
+          filePath: fileName,
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "file_content");
+
+      expect(response).toMatchObject({
+        type: "file_content",
+        filePath: fileName,
+        kind,
+        content: "",
+        mimeType,
+        sizeBytes: contents.length,
+      });
+      expect(response.mediaUrl).toMatch(/^\/api\/media\/[a-f0-9]{48}$/);
+      expect(response.base64).toBeUndefined();
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects media symlinks whose targets escape the allowed directory", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
+    const outsidePath = mkdtempSync(resolve(tmpdir(), "ccpocket-media-outside-"));
+    writeFileSync(resolve(outsidePath, "private.mp4"), "private");
+    symlinkSync(resolve(outsidePath, "private.mp4"), resolve(projectPath, "linked.mp4"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore: new MediaStore(),
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "read_file",
+          projectPath,
+          filePath: "linked.mp4",
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const sends = ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+      expect(sends).toContainEqual({
+        type: "file_content",
+        filePath: "linked.mp4",
+        content: "",
+        error: "Path not allowed",
+      });
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+      rmSync(outsidePath, { recursive: true, force: true });
     }
   });
 

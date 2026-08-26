@@ -428,6 +428,39 @@ void main() {
       expect(file.mimeType, 'image/png');
       expect(file.sizeBytes, 5);
     });
+
+    test('parses streaming media metadata', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'file_content',
+        'filePath': 'outputs/movie.mp4',
+        'kind': 'video',
+        'content': '',
+        'mediaUrl': '/api/media/abc123',
+        'mimeType': 'video/mp4',
+        'sizeBytes': 2048,
+      });
+
+      expect(msg, isA<FileContentMessage>());
+      final file = msg as FileContentMessage;
+      expect(file.kind, 'video');
+      expect(file.mediaUrl, '/api/media/abc123');
+      expect(file.mimeType, 'video/mp4');
+      expect(file.sizeBytes, 2048);
+      expect(file.base64, isNull);
+    });
+  });
+
+  test('serializes media file preview requests separately from text reads', () {
+    expect(
+      jsonDecode(
+        ClientMessage.readMediaFile('/project', 'output.wav').toJson(),
+      ),
+      {
+        'type': 'read_media_file',
+        'projectPath': '/project',
+        'filePath': 'output.wav',
+      },
+    );
   });
 
   group('ToolUseSummaryMessage', () {

@@ -22,6 +22,7 @@ import '../../widgets/bubbles/image_preview.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'html_preview_document.dart';
 import 'widgets/html_file_preview.dart';
+import 'widgets/file_peek_media_preview.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -234,6 +235,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
   bool _loading = true;
   bool _showRaw = false;
   StreamSubscription<FileContentMessage>? _sub;
+  StreamSubscription<ServerMessage>? _bridgeErrorSub;
 
   @override
   void initState() {
@@ -246,14 +248,34 @@ class _FilePeekContentState extends State<_FilePeekContent> {
         });
       }
     });
+    _bridgeErrorSub = widget.bridge.messages.listen((msg) {
+      if (msg case ErrorMessage(
+        errorCode: 'unsupported_message',
+        message: 'read_media_file',
+      )) {
+        setState(() {
+          _result = FileContentMessage(
+            filePath: widget.filePath,
+            content: '',
+            error: 'bridge_update_required',
+          );
+          _loading = false;
+        });
+      }
+    });
+    final extension = widget.filePath.split('.').lastOrNull?.toLowerCase();
+    final isMediaFile = extension == 'wav' || extension == 'mp4';
     widget.bridge.send(
-      ClientMessage.readFile(widget.projectPath, widget.filePath),
+      isMediaFile
+          ? ClientMessage.readMediaFile(widget.projectPath, widget.filePath)
+          : ClientMessage.readFile(widget.projectPath, widget.filePath),
     );
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _bridgeErrorSub?.cancel();
     super.dispose();
   }
 
@@ -275,6 +297,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
     final isMarkdown = widget.filePath.endsWith('.md');
     final isHtml = isHtmlPreviewPath(widget.filePath);
     final isImage = _result?.kind == 'image';
+    final isMedia = _result?.kind == 'audio' || _result?.kind == 'video';
     final canPreviewHtml = isHtml && supportsEmbeddedHtmlPreview;
 
     return Column(
@@ -387,7 +410,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               ),
             ),
           ),
-        if (_result != null && _result!.kind == 'image')
+        if (_result != null && (isImage || isMedia))
           Padding(
             padding: const EdgeInsets.only(left: 42, top: 2, bottom: 4),
             child: Align(
@@ -411,6 +434,14 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               ? _buildError(appColors)
               : _result?.kind == 'image'
               ? _buildImageContent(appColors)
+              : isMedia
+              ? FilePeekMediaPreview(
+                  mediaUrl: resolveFilePeekMediaUrl(
+                    widget.bridge.httpBaseUrl,
+                    _result?.mediaUrl,
+                  ),
+                  isVideo: _result?.kind == 'video',
+                )
               : (canPreviewHtml && !_showRaw)
               ? HtmlFilePreview(html: _result!.content)
               : (isMarkdown && !_showRaw)
@@ -454,7 +485,10 @@ class _FilePeekContentState extends State<_FilePeekContent> {
             Icon(Icons.error_outline, size: 40, color: appColors.subtleText),
             const SizedBox(height: 12),
             Text(
-              _result!.error!,
+              _result!.error == 'bridge_update_required'
+                  ? AppLocalizations.of(context)
+                        .directoryBrowserBridgeUpdateRequired
+                  : _result!.error!,
               style: TextStyle(color: appColors.subtleText),
               textAlign: TextAlign.center,
             ),
