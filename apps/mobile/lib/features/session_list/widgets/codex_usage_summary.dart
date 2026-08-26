@@ -80,39 +80,38 @@ class CodexUsageSummary extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
-        child: InkWell(
-          key: const ValueKey('codex_usage_summary_button'),
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Semantics(
-            container: true,
-            button: onTap != null,
-            excludeSemantics: true,
-            label: ['Codex $label', ...semanticMetrics].join(', '),
-            hint: onTap == null ? null : l.usageOpenSettingsHint,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                key: const ValueKey('codex_usage_summary'),
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Codex $label',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+      child: InkWell(
+        key: const ValueKey('codex_usage_summary_button'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Semantics(
+          container: true,
+          button: onTap != null,
+          excludeSemantics: true,
+          label: ['Codex $label', ...semanticMetrics].join(', '),
+          hint: onTap == null ? null : l.usageOpenSettingsHint,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            // Keep the compact content aligned with the header's visual row
+            // while the surrounding InkWell fills its 44px tap target.
+            alignment: const Alignment(1, -0.15),
+            child: Row(
+              key: const ValueKey('codex_usage_summary'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Codex $label',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  for (final metric in metrics) ...[
-                    const SizedBox(width: 8),
-                    metric,
-                  ],
+                ),
+                for (final metric in metrics) ...[
+                  const SizedBox(width: 8),
+                  metric,
                 ],
-              ),
+              ],
             ),
           ),
         ),

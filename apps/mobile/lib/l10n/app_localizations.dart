@@ -3321,7 +3321,7 @@ abstract class AppLocalizations {
   /// No description provided for @noActiveSessions.
   ///
   /// In ja, this message translates to:
-  /// **'アクティブなセッションがありません'**
+  /// **'実行中のセッションはありません'**
   String get noActiveSessions;
 
   /// No description provided for @startSessionToBegin.

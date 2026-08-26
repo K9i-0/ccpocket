@@ -511,6 +511,13 @@ class HomeContentState extends State<HomeContent> {
       ),
       _ => null,
     };
+    final runningSessionsHeader = _RunningSessionsHeader(
+      label: l.running,
+      emptyLabel: l.noActiveSessions,
+      color: appColors.statusOnline,
+      usageSummary: usageSummary,
+      showEmptyMessage: !hasRunningSessions,
+    );
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
@@ -603,6 +610,8 @@ class HomeContentState extends State<HomeContent> {
             ?supportBanner,
             ?appUpdateBanner,
             ?macOSNativeAppBanner,
+            runningSessionsHeader,
+            const SizedBox(height: 16),
             SectionHeader(
               icon: Icons.history,
               label: l.recentSessions,
@@ -625,7 +634,11 @@ class HomeContentState extends State<HomeContent> {
           ?updateBanner,
           ?supportBanner,
           ?macOSNativeAppBanner,
-          const SizedBox(height: 80),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: runningSessionsHeader,
+          ),
+          const SizedBox(height: 48),
           SessionListEmptyState(onNewSession: widget.onNewSession),
         ],
       );
@@ -642,15 +655,8 @@ class HomeContentState extends State<HomeContent> {
         ?updateBanner,
         ?supportBanner,
         ?macOSNativeAppBanner,
+        runningSessionsHeader,
         if (hasRunningSessions) ...[
-          SectionHeader(
-            icon: Icons.play_circle_filled,
-            label: l.running,
-            color: appColors.statusOnline,
-            trailing: usageSummary,
-            shrinkTrailingToFit: true,
-          ),
-          const SizedBox(height: 4),
           for (final action in widget.offlinePendingActions)
             OfflinePendingSessionCard(
               key: ValueKey('pending_session_${action.id}'),
@@ -738,8 +744,8 @@ class HomeContentState extends State<HomeContent> {
                 ),
               ),
             ),
-          const SizedBox(height: 16),
         ],
+        const SizedBox(height: 16),
         if (widget.isInitialLoading ||
             hasRecentSessions ||
             hasKnownProjects ||
@@ -909,6 +915,79 @@ class HomeContentState extends State<HomeContent> {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _RunningSessionsHeader extends StatelessWidget {
+  final String label;
+  final String emptyLabel;
+  final Color color;
+  final Widget? usageSummary;
+  final bool showEmptyMessage;
+
+  const _RunningSessionsHeader({
+    required this.label,
+    required this.emptyLabel,
+    required this.color,
+    required this.usageSummary,
+    required this.showEmptyMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          key: const ValueKey('running_sessions_header'),
+          icon: Icons.play_circle_filled,
+          label: label,
+          color: color,
+        ),
+        const SizedBox(height: 4),
+        if (showEmptyMessage)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              emptyLabel,
+              key: const ValueKey('running_sessions_empty_message'),
+              style: TextStyle(fontSize: 12, color: appColors.subtleText),
+            ),
+          ),
+      ],
+    );
+    if (usageSummary == null) return header;
+
+    final labelPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: color,
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final tapTargetLeft = 4 + 16 + 6 + labelPainter.width + 8;
+
+    return LayoutBuilder(
+      builder: (context, constraints) => Stack(
+        children: [
+          header,
+          Positioned(
+            top: 0,
+            left: tapTargetLeft.clamp(0, constraints.maxWidth).toDouble(),
+            right: 0,
+            height: 44,
+            child: usageSummary!,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1755,7 +1755,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get waitingForApprovalRequests => 'エージェントからの承認リクエストを待っています。';
 
   @override
-  String get noActiveSessions => 'アクティブなセッションがありません';
+  String get noActiveSessions => '実行中のセッションはありません';
 
   @override
   String get startSessionToBegin => 'セッションを開始して承認リクエストの受信を始めましょう。';

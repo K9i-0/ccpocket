@@ -742,7 +742,7 @@
   "backToSessions": "セッション一覧に戻る",
   "working": "処理中...",
   "waitingForApprovalRequests": "エージェントからの承認リクエストを待っています。",
-  "noActiveSessions": "アクティブなセッションがありません",
+  "noActiveSessions": "実行中のセッションはありません",
   "startSessionToBegin": "セッションを開始して承認リクエストの受信を始めましょう。",
 
   "settingsTitle": "設定",

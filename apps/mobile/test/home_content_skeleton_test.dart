@@ -100,6 +100,8 @@ Widget _buildHomeContent({
   bool hasMoreSessions = false,
   bool isInitialLoading = false,
   bool showMacOSNativeAppBanner = false,
+  UsageInfo? codexUsageOverride,
+  VoidCallback? onOpenUsageSettings,
   VoidCallback? onDismissMacOSNativeAppBanner,
   required SessionListCubit cubit,
   required DraftService draftService,
@@ -160,6 +162,8 @@ Widget _buildHomeContent({
             onToggleProvider: () {},
             onToggleNamed: () {},
             showMacOSNativeAppBanner: showMacOSNativeAppBanner,
+            codexUsageOverride: codexUsageOverride,
+            onOpenUsageSettings: onOpenUsageSettings,
             onDismissMacOSNativeAppBanner: onDismissMacOSNativeAppBanner,
           ),
         ),
@@ -221,6 +225,7 @@ void main() {
         // SkeletonizerScope. Use SkeletonizerScope to detect presence.
         expect(find.byType(SkeletonizerScope), findsOneWidget);
         expect(find.text('Recent Sessions'), findsOneWidget);
+        expect(find.text('No active sessions'), findsOneWidget);
         expect(find.text('Loading sessions...'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('session_list_loading_status')),
@@ -254,6 +259,77 @@ void main() {
       expect(find.byType(SkeletonizerScope), findsNothing);
       // Empty state should show the "New Session" button
       expect(find.text('New Session'), findsOneWidget);
+      expect(find.text('Running'), findsOneWidget);
+      expect(find.text('No active sessions'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('running_sessions_empty_message')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('keeps Codex usage visible when no session is active', (
+      tester,
+    ) async {
+      var tapCount = 0;
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          codexUsageOverride: const UsageInfo(
+            provider: 'codex',
+            sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
+          ),
+          onOpenUsageSettings: () => tapCount++,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Running'), findsOneWidget);
+      expect(find.text('No active sessions'), findsOneWidget);
+      expect(find.text('Codex Remaining'), findsOneWidget);
+      expect(find.text('1w 86%'), findsOneWidget);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('codex_usage_summary_button')))
+            .height,
+        44,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('codex_usage_summary_button')),
+      );
+      expect(tapCount, 1);
+    });
+
+    testWidgets('keeps the 44px usage target with an active session', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          sessions: [_runningSession(id: 'r1')],
+          recentSessions: [_session(id: 's1')],
+          codexUsageOverride: const UsageInfo(
+            provider: 'codex',
+            sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
+          ),
+          onOpenUsageSettings: () {},
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('codex_usage_summary_button')))
+            .height,
+        44,
+      );
     });
 
     testWidgets('shows real session cards (not skeleton) when sessions exist '

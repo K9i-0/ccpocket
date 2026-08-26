@@ -19,11 +19,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        left: 4,
-        top: shrinkTrailingToFit ? 4 : 12,
-        bottom: shrinkTrailingToFit ? 2 : 6,
-      ),
+      padding: const EdgeInsets.only(left: 4, top: 12, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

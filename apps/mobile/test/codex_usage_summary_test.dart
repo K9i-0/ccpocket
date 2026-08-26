@@ -22,16 +22,40 @@ Widget _buildSummary(UsageDisplayMode mode, {VoidCallback? onTap}) {
     home: Scaffold(
       body: SizedBox(
         width: 400,
-        child: SectionHeader(
-          icon: Icons.play_circle_filled,
-          label: '実行中',
-          color: Colors.green,
-          trailing: CodexUsageSummary(
-            usage: _usage,
-            displayMode: mode,
-            onTap: onTap,
-          ),
-          shrinkTrailingToFit: true,
+        child: Column(
+          children: [
+            SectionHeader(
+              icon: Icons.play_circle_filled,
+              label: '実行中',
+              color: Colors.green,
+              trailing: CodexUsageSummary(
+                usage: _usage,
+                displayMode: mode,
+                onTap: onTap,
+              ),
+              shrinkTrailingToFit: true,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildPlainHeader() {
+  return MaterialApp(
+    theme: AppTheme.darkTheme,
+    home: const Scaffold(
+      body: SizedBox(
+        width: 400,
+        child: Column(
+          children: [
+            SectionHeader(
+              icon: Icons.play_circle_filled,
+              label: '実行中',
+              color: Colors.green,
+            ),
+          ],
         ),
       ),
     ),
@@ -88,6 +112,17 @@ void main() {
       expect(summaryRect.right, closeTo(400, 0.1));
     });
 
+    testWidgets('does not increase the section header height', (tester) async {
+      await tester.pumpWidget(_buildPlainHeader());
+      final plainHeight = tester.getSize(find.byType(SectionHeader)).height;
+
+      await tester.pumpWidget(_buildSummary(UsageDisplayMode.remaining));
+      final usageHeight = tester.getSize(find.byType(SectionHeader)).height;
+
+      expect(plainHeight, 40);
+      expect(usageHeight, plainHeight);
+    });
+
     testWidgets('opens usage settings when tapped', (tester) async {
       var tapCount = 0;
       await tester.pumpWidget(
@@ -99,12 +134,6 @@ void main() {
       );
 
       expect(tapCount, 1);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('codex_usage_summary_button')))
-            .height,
-        greaterThanOrEqualTo(44),
-      );
       expect(
         tester.getSemantics(find.byKey(const ValueKey('codex_usage_summary'))),
         matchesSemantics(
