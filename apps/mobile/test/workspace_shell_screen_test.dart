@@ -658,56 +658,58 @@ void main() {
     expect(message['expectedOwner'], 'external');
   });
 
-  testWidgets('unknown recent card reaches the visible unavailable route', (
-    tester,
-  ) async {
-    final bridge = _MockBridgeService();
-    bridge.sessionLinkResult = const SessionLinkResolveResult.resolved(
-      SessionLinkResolutionMessage(
-        requestId: 'request-1',
-        sourceSessionId: 'thread-missing',
-        status: SessionLinkResolutionStatus.unavailable,
-        provider: 'codex',
-      ),
-    );
-    final settingsCubit = await _createSettingsCubit(bridge);
-    final draftService = DraftService(await SharedPreferences.getInstance());
-    final revenueCatService = _FakeRevenueCatService();
-    final supportBannerService = await _createSupportBannerService();
-    final router = AppRouter();
-    final recent = _recentSession(
-      'thread-missing',
-      provider: Provider.codex,
-      ownership: _ownership(
-        providerThreadId: 'thread-missing',
-        attachmentState: 'external_unknown',
-        origin: 'disk',
-        owner: 'unknown',
-        runtimeStatus: 'unknown',
-        readOnlyReason: 'external_owner_unknown',
-      ),
-    );
+  testWidgets(
+    'Windows unknown Codex card reaches the visible unavailable route',
+    (tester) async {
+      final bridge = _MockBridgeService();
+      bridge.sessionLinkResult = const SessionLinkResolveResult.resolved(
+        SessionLinkResolutionMessage(
+          requestId: 'request-1',
+          sourceSessionId: 'thread-missing',
+          status: SessionLinkResolutionStatus.unavailable,
+          provider: 'codex',
+        ),
+      );
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final router = AppRouter();
+      final recent = _recentSession(
+        'thread-missing',
+        provider: Provider.codex,
+        ownership: _ownership(
+          providerThreadId: 'thread-missing',
+          attachmentState: 'external_unknown',
+          origin: 'disk',
+          owner: 'unknown',
+          runtimeStatus: 'unknown',
+          readOnlyReason: 'external_owner_unknown',
+        ),
+      );
 
-    await tester.pumpWidget(
-      _buildWorkspaceApp(
-        bridge: bridge,
-        settingsCubit: settingsCubit,
-        draftService: draftService,
-        revenueCatService: revenueCatService,
-        supportBannerService: supportBannerService,
-        router: router,
-      ),
-    );
-    await _pumpUi(tester);
-    bridge.emitRecentSessions([recent]);
-    await _pumpUi(tester);
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          router: router,
+          platform: TargetPlatform.windows,
+        ),
+      );
+      await _pumpUi(tester);
+      bridge.emitRecentSessions([recent]);
+      await _pumpUi(tester);
 
-    await tester.tap(find.text('Prompt thread-missing'));
-    await _pumpUi(tester);
+      await tester.tap(find.text('Prompt thread-missing'));
+      await _pumpUi(tester);
 
-    expect(find.text('Session unavailable'), findsOneWidget);
-    expect(find.textContaining('session not found'), findsOneWidget);
-  });
+      expect(find.text('Session unavailable'), findsOneWidget);
+      expect(find.textContaining('session not found'), findsOneWidget);
+    },
+  );
 
   testWidgets('settings overlay back restores selected session root', (
     tester,
