@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.119.0] - 2026-08-26
+
+### Added
+- Show compact Codex five-hour and weekly usage in the running-session header, linked directly to usage settings and synchronized with the remaining/used display preference.
+- Add localized Codex pace guidance, expected consumption, and projected limit timing based on each quota window.
+
+### Changed
+- Format quota reset countdowns with days for durations longer than 24 hours.
+
 ## [1.118.1] - 2026-08-25
 
 ### Fixed
