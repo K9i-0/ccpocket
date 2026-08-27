@@ -117,6 +117,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String get filePreviewRenderedHtml => 'HTMLレンダリングプレビュー';
 
   @override
+  String get filePreviewMediaUnavailable => 'このメディアファイルはここでは再生できません。';
+
+  @override
+  String get filePreviewMediaLoadFailed => 'メディアファイルを読み込めませんでした。';
+
+  @override
+  String get filePreviewPlay => '再生';
+
+  @override
+  String get filePreviewPause => '一時停止';
+
+  @override
+  String get filePreviewRewind10 => '10秒戻る';
+
+  @override
+  String get filePreviewForward10 => '10秒進む';
+
+  @override
+  String get filePreviewPlaybackSpeed => '再生速度';
+
+  @override
+  String get filePreviewMute => 'ミュート';
+
+  @override
+  String get filePreviewUnmute => 'ミュート解除';
+
+  @override
+  String get filePreviewVolume => '音量';
+
+  @override
+  String get filePreviewFullscreen => '全画面表示';
+
+  @override
+  String get filePreviewExitFullscreen => '全画面表示を終了';
+
+  @override
   String get copied => 'コピーしました';
 
   @override

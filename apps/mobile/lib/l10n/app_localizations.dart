@@ -300,6 +300,78 @@ abstract class AppLocalizations {
   /// **'HTMLレンダリングプレビュー'**
   String get filePreviewRenderedHtml;
 
+  /// No description provided for @filePreviewMediaUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'このメディアファイルはここでは再生できません。'**
+  String get filePreviewMediaUnavailable;
+
+  /// No description provided for @filePreviewMediaLoadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'メディアファイルを読み込めませんでした。'**
+  String get filePreviewMediaLoadFailed;
+
+  /// No description provided for @filePreviewPlay.
+  ///
+  /// In ja, this message translates to:
+  /// **'再生'**
+  String get filePreviewPlay;
+
+  /// No description provided for @filePreviewPause.
+  ///
+  /// In ja, this message translates to:
+  /// **'一時停止'**
+  String get filePreviewPause;
+
+  /// No description provided for @filePreviewRewind10.
+  ///
+  /// In ja, this message translates to:
+  /// **'10秒戻る'**
+  String get filePreviewRewind10;
+
+  /// No description provided for @filePreviewForward10.
+  ///
+  /// In ja, this message translates to:
+  /// **'10秒進む'**
+  String get filePreviewForward10;
+
+  /// No description provided for @filePreviewPlaybackSpeed.
+  ///
+  /// In ja, this message translates to:
+  /// **'再生速度'**
+  String get filePreviewPlaybackSpeed;
+
+  /// No description provided for @filePreviewMute.
+  ///
+  /// In ja, this message translates to:
+  /// **'ミュート'**
+  String get filePreviewMute;
+
+  /// No description provided for @filePreviewUnmute.
+  ///
+  /// In ja, this message translates to:
+  /// **'ミュート解除'**
+  String get filePreviewUnmute;
+
+  /// No description provided for @filePreviewVolume.
+  ///
+  /// In ja, this message translates to:
+  /// **'音量'**
+  String get filePreviewVolume;
+
+  /// No description provided for @filePreviewFullscreen.
+  ///
+  /// In ja, this message translates to:
+  /// **'全画面表示'**
+  String get filePreviewFullscreen;
+
+  /// No description provided for @filePreviewExitFullscreen.
+  ///
+  /// In ja, this message translates to:
+  /// **'全画面表示を終了'**
+  String get filePreviewExitFullscreen;
+
   /// No description provided for @copied.
   ///
   /// In ja, this message translates to:

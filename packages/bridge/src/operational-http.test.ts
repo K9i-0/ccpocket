@@ -218,7 +218,7 @@ describe("authenticated operational HTTP routes", () => {
 });
 
 describe("existing public HTTP routes", () => {
-  it("keeps /health and /version public and adds Authorization to CORS", async () => {
+  it("keeps /health and /version public and exposes auth plus media range CORS", async () => {
     const baseUrl = await startTestServer({ apiKey: API_KEY });
     const health = await fetch(`${baseUrl}/health`);
     const version = await fetch(`${baseUrl}/version`);
@@ -239,7 +239,13 @@ describe("existing public HTTP routes", () => {
     );
     expect(preflight.status).toBe(204);
     expect(preflight.headers.get("access-control-allow-headers")).toBe(
-      "Content-Type, Authorization",
+      "Content-Type, Authorization, Range",
+    );
+    expect(preflight.headers.get("access-control-allow-methods")).toBe(
+      "GET, HEAD, POST, DELETE, OPTIONS",
+    );
+    expect(preflight.headers.get("access-control-expose-headers")).toBe(
+      "Accept-Ranges, Content-Length, Content-Range",
     );
   });
 });

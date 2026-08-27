@@ -775,6 +775,17 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_files", projectPath: "/p" });
   });
 
+  it("parses read_media_file message", () => {
+    const msg = parseClientMessage(
+      '{"type":"read_media_file","projectPath":"/p","filePath":"output.mp4"}',
+    );
+    expect(msg).toEqual({
+      type: "read_media_file",
+      projectPath: "/p",
+      filePath: "output.mp4",
+    });
+  });
+
   it("rejects list_files without projectPath", () => {
     expect(parseClientMessage('{"type":"list_files"}')).toBeNull();
   });

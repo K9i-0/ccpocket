@@ -3434,6 +3434,8 @@ final _filePeek = MockScenario(
                   '4. See `README.md` for documentation\n'
                   '5. Preview image output at `docs/images/release-card-v1.86.1-en.png`\n\n'
                   '6. Review the UI proposal in `docs/design/session-preview.html`\n\n'
+                  '7. Play generated media at `outputs/generated-video.mp4` '
+                  'or `outputs/generated-audio.wav`\n\n'
                   'You can also check `package.json` for the npm scripts configuration.',
             ),
           ],

@@ -31,8 +31,18 @@ export function handleCoreBridgeHttpRequest(
   options: CoreBridgeHttpOptions,
 ): boolean {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, HEAD, POST, DELETE, OPTIONS",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Range",
+  );
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "Accept-Ranges, Content-Length, Content-Range",
+  );
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);

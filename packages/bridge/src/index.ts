@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { setupProxy } from "./proxy.js";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
+import { MediaStore } from "./media-store.js";
 import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
@@ -75,6 +76,7 @@ export async function startServer() {
   }
 
   const imageStore = new ImageStore();
+  const mediaStore = new MediaStore();
   const galleryStore = new GalleryStore();
   const projectHistory = new ProjectHistory();
   const debugTraceStore = new DebugTraceStore();
@@ -182,6 +184,9 @@ export async function startServer() {
     // Serve images via ImageStore (in-memory, session-scoped)
     if (imageStore.handleRequest(req, res)) return;
 
+    // Stream local media registered by an authenticated read_file request.
+    if (mediaStore.handleRequest(req, res)) return;
+
     // Serve gallery images via GalleryStore (disk-persistent)
     if (galleryStore.handleRequest(req, res)) return;
 
@@ -203,6 +208,7 @@ export async function startServer() {
     apiKey: API_KEY,
     allowedDirs: ALLOWED_DIRS,
     imageStore,
+    mediaStore,
     galleryStore,
     projectHistory,
     debugTraceStore,

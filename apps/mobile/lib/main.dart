@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
@@ -99,6 +100,7 @@ void main() async {
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
+  MediaKit.ensureInitialized();
   Bloc.observer = TalkerBlocObserver(talker: logger);
 
   FlutterError.onError = (details) {

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.119.1+229
+version: 1.120.0+230
 
 environment:
   sdk: ^3.13.0
@@ -88,6 +88,9 @@ dependencies:
   in_app_review: ^2.0.11
   flutter_slidable: ^4.0.3
   super_drag_and_drop: ^0.9.1
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged

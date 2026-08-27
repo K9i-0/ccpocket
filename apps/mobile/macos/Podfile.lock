@@ -81,6 +81,10 @@ PODS:
     - FlutterMacOS
   - irondash_engine_context (0.0.1):
     - FlutterMacOS
+  - media_kit_libs_macos_video (1.0.4):
+    - FlutterMacOS
+  - media_kit_video (0.0.1):
+    - FlutterMacOS
   - mobile_scanner (7.0.0):
     - Flutter
     - FlutterMacOS
@@ -115,6 +119,8 @@ PODS:
     - FlutterMacOS
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
+  - wakelock_plus (0.0.1):
+    - FlutterMacOS
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -131,6 +137,8 @@ DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
   - in_app_review (from `Flutter/ephemeral/.symlinks/plugins/in_app_review/macos`)
   - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
+  - media_kit_libs_macos_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos`)
+  - media_kit_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos`)
   - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - purchases_flutter (from `Flutter/ephemeral/.symlinks/plugins/purchases_flutter/macos`)
@@ -141,6 +149,7 @@ DEPENDENCIES:
   - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
   - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+  - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
   - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
@@ -183,6 +192,10 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/in_app_review/macos
   irondash_engine_context:
     :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
+  media_kit_libs_macos_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos
+  media_kit_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos
   mobile_scanner:
     :path: Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin
   package_info_plus:
@@ -201,6 +214,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+  wakelock_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos
   webview_flutter_wkwebview:
     :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
 
@@ -225,6 +240,8 @@ SPEC CHECKSUMS:
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
   in_app_review: 66e7680752b632d83f4f0e88b34d52ed303fbff4
   irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
+  media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65
+  media_kit_video: fa6564e3799a0a28bff39442334817088b7ca758
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
@@ -239,6 +256,7 @@ SPEC CHECKSUMS:
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
+  wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
 PODFILE CHECKSUM: 918dc4d492fa250c7e750011030bcbdf73f3ca8d
