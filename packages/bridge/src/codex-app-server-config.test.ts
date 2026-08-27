@@ -85,6 +85,20 @@ describe("codex app-server config", () => {
     expect(target?.command).not.toContain(tokenFilePath);
   });
 
+  it("builds an unauthenticated Unix socket join command", () => {
+    const target = codexCliJoinTarget("thr_123", {
+      BRIDGE_CODEX_APP_SERVER_MODE: "external",
+      BRIDGE_CODEX_SHARED_APP_SERVER_URL:
+        "unix:///home/test/.codex/app-server-control/app-server-control.sock",
+    });
+
+    expect(target).toEqual({
+      url: "unix:///home/test/.codex/app-server-control/app-server-control.sock",
+      command:
+        "codex resume thr_123 --remote unix:///home/test/.codex/app-server-control/app-server-control.sock",
+    });
+  });
+
   it("does not expose a join target for private mode", () => {
     expect(codexCliJoinTarget("thr_123", {})).toBeUndefined();
   });

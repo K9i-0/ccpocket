@@ -9,6 +9,7 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ### Fixed
 - Resume existing paginated Codex threads in place through metadata-only App Server restore, using persisted disk history when legacy full-history reads are unavailable.
+- Attach external mode to a Codex-managed local Unix WebSocket so CC Pocket can follow and continue the same active Desktop thread without starting a second app-server writer.
 
 ## [1.72.3] - 2026-08-25
 

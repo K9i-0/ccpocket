@@ -42,7 +42,8 @@ ccpocket-bridge --version
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access; set exactly to `*` to allow any directory |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
-| `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
+| `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server endpoint (`ws://`, `wss://`, or an absolute `unix://` socket) |
+| `BRIDGE_CODEX_EXTERNAL_AUTH_TOKEN_ENV` | (none) | Environment variable name containing the bearer token required by external `ws://` or `wss://` endpoints; local Unix sockets do not use bearer auth |
 | `BRIDGE_CODEX_ASSIST_MODEL` | `gpt-5.6-luna` | Codex model used for auto-rename and commit-message assist calls |
 | `BRIDGE_CODEX_ASSIST_REASONING_EFFORT` | `none` | Reasoning effort used for Codex assist calls |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
@@ -211,11 +212,22 @@ Modes:
 - `managed`: Bridge starts one local WebSocket Codex app-server and shares it
   with Codex CLI.
 - `external`: Bridge connects to an already-running app-server. In this mode,
-  `BRIDGE_CODEX_SHARED_APP_SERVER_URL` is required.
+  `BRIDGE_CODEX_SHARED_APP_SERVER_URL` is required. To join the app-server
+  already managed by Codex Desktop on the same host, provide its absolute
+  control socket path:
 
-This is experimental and currently targets Codex CLI co-presence only. Codex App
-compatibility is not guaranteed and may use a different integration model in the
-future.
+  ```bash
+  BRIDGE_CODEX_APP_SERVER_MODE=external \
+  BRIDGE_CODEX_SHARED_APP_SERVER_URL=unix:///absolute/path/to/app-server-control.sock \
+  npx @ccpocket/bridge@latest
+  ```
+
+  This keeps Desktop and CC Pocket on the same app-server and thread. Unix
+  sockets remain local and do not use a bearer token. External `ws://` and
+  `wss://` endpoints still require `BRIDGE_CODEX_EXTERNAL_AUTH_TOKEN_ENV`.
+
+This is experimental. Do not expose an app-server transport directly to a shared
+or public network.
 
 ## Requirements
 

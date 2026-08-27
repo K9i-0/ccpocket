@@ -565,7 +565,7 @@ export interface DebugTraceEvent {
 export interface CodexCliJoinTarget {
   url: string;
   command: string;
-  remoteAuthTokenEnv: string;
+  remoteAuthTokenEnv?: string;
 }
 
 export type ServerMessage =

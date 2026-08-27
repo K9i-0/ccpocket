@@ -31,6 +31,10 @@ export function readCodexSharedAppServerUrl(
   );
 }
 
+export function isCodexUnixAppServerUrl(url: string): boolean {
+  return url.startsWith("unix://");
+}
+
 export function readCodexAppServerMode(
   env: NodeJS.ProcessEnv = process.env,
 ): CodexAppServerMode {
@@ -104,6 +108,12 @@ export function codexCliJoinTarget(
 
   const url = resolveCodexSharedAppServerUrl(mode, env);
   if (!url) return undefined;
+  if (isCodexUnixAppServerUrl(url)) {
+    return {
+      url,
+      command: `codex resume ${threadId} --remote ${url}`,
+    };
+  }
   const remoteAuthTokenEnv = readCodexCliAuthTokenEnv(mode, env);
 
   return {

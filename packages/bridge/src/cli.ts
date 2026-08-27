@@ -37,7 +37,7 @@ Options:
       --codex-app-server-mode <mode>
                          Codex app-server mode: private, managed, external, or isolated
       --codex-shared-app-server-url <url>
-                         Shared Codex app-server ws:// URL
+                         Shared Codex app-server ws://, wss://, or unix:// endpoint
 
 Setup options:
       --uninstall       Remove the registered service

@@ -2,10 +2,12 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { readFileSync, statSync } from "node:fs";
+import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { resolvePlatformPath } from "./path-utils.js";
 import {
+  isCodexUnixAppServerUrl,
   readCodexAppServerMode,
   readExternalCodexAuthToken,
   resolveCodexSharedAppServerUrl,
@@ -480,7 +482,7 @@ class WebSocketCodexTransport extends CodexTransport {
   constructor(
     private readonly url: string,
     private readonly retryDurationMs: number,
-    private readonly auth: Pick<CodexAppServerAuth, "token">,
+    private readonly auth?: Pick<CodexAppServerAuth, "token">,
   ) {
     super();
   }
@@ -523,9 +525,15 @@ class WebSocketCodexTransport extends CodexTransport {
   private connect(): void {
     if (this.stopped) return;
 
-    const ws = new WebSocket(this.url, {
-      headers: { Authorization: `Bearer ${this.auth.token}` },
-    });
+    const unixSocketPath = readUnixSocketPath(this.url);
+    const ws = unixSocketPath
+      ? new WebSocket("ws://localhost/rpc", {
+          createConnection: () => createConnection({ path: unixSocketPath }),
+          perMessageDeflate: false,
+        })
+      : new WebSocket(this.url, {
+          headers: { Authorization: `Bearer ${this.auth!.token}` },
+        });
     this.ws = ws;
 
     ws.on("open", () => {
@@ -760,10 +768,11 @@ export function createCodexTransport(
 ): CodexTransport {
   const mode = readCodexAppServerMode();
   if (mode === "external") {
+    const url = readCodexAppServerUrl(mode);
     return new WebSocketCodexTransport(
-      readCodexAppServerUrl(mode),
+      url,
       0,
-      readExternalCodexAuthToken(),
+      isCodexUnixAppServerUrl(url) ? undefined : readExternalCodexAuthToken(),
     );
   }
   if (mode === "managed") {
@@ -798,6 +807,17 @@ export function stopManagedCodexAppServers(): void {
     transport.stop();
   }
   isolatedTransports.clear();
+}
+
+function readUnixSocketPath(url: string): string | undefined {
+  if (!isCodexUnixAppServerUrl(url)) return undefined;
+  const socketPath = url.slice("unix://".length);
+  if (!socketPath || !isAbsolute(socketPath)) {
+    throw new Error(
+      "external Codex unix:// app-server URL must contain an absolute socket path",
+    );
+  }
+  return socketPath;
 }
 
 function readCodexAppServerUrl(mode: CodexAppServerMode): string {

@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { spawnMock, children, readFileSyncMock, sockets, FakeWebSocket, FakeChildProcess } =
+const {
+  spawnMock,
+  children,
+  createConnectionMock,
+  readFileSyncMock,
+  sockets,
+  FakeWebSocket,
+  FakeChildProcess,
+} =
   vi.hoisted(() => {
     class FakeEmitter {
       private readonly listeners = new Map<string, Array<(...args: any[]) => void>>();
@@ -37,6 +45,7 @@ const { spawnMock, children, readFileSyncMock, sockets, FakeWebSocket, FakeChild
     const state = {
       spawnMock: vi.fn(),
       children: [] as FakeChildProcess[],
+      createConnectionMock: vi.fn(() => ({ kind: "unix-socket" })),
       readFileSyncMock: vi.fn(),
       sockets: [] as FakeWebSocket[],
     };
@@ -45,7 +54,11 @@ const { spawnMock, children, readFileSyncMock, sockets, FakeWebSocket, FakeChild
       readyState = FakeWebSocket.OPEN;
       constructor(
         public readonly url: string,
-        public readonly options?: { headers?: Record<string, string> },
+        public readonly options?: {
+          headers?: Record<string, string>;
+          perMessageDeflate?: boolean;
+          createConnection?: (...args: any[]) => unknown;
+        },
       ) { super(); state.sockets.push(this); }
       send(): void {}
       close(): void { this.emit("close"); }
@@ -54,6 +67,7 @@ const { spawnMock, children, readFileSyncMock, sockets, FakeWebSocket, FakeChild
   });
 
 vi.mock("node:child_process", () => ({ spawn: spawnMock }));
+vi.mock("node:net", () => ({ createConnection: createConnectionMock }));
 vi.mock("node:fs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("node:fs")>()),
   readFileSync: readFileSyncMock,
@@ -82,6 +96,7 @@ const isolatedEnvKeys = [
 describe("isolated Codex transport", () => {
   beforeEach(() => {
     spawnMock.mockReset();
+    createConnectionMock.mockClear();
     children.length = 0;
     sockets.length = 0;
     readFileSyncMock.mockReturnValue("sl  local_address rem_address st\n");
@@ -324,6 +339,7 @@ describe("isolated Codex transport", () => {
 describe("WebSocket Codex app-server authentication", () => {
   beforeEach(() => {
     spawnMock.mockReset();
+    createConnectionMock.mockClear();
     children.length = 0;
     sockets.length = 0;
     readFileSyncMock.mockReturnValue("sl  local_address rem_address st\n");
@@ -367,6 +383,24 @@ describe("WebSocket Codex app-server authentication", () => {
     expect(sockets[0]?.url).toBe("ws://127.0.0.1:18767");
     expect(sockets[0]?.url).not.toContain(token);
     expect(sockets[0]?.options?.headers).toEqual({ Authorization: `Bearer ${token}` });
+    transport.stop();
+  });
+
+  it("connects to an external Unix WebSocket without a bearer token", () => {
+    const socketPath =
+      "/home/test/.codex/app-server-control/app-server-control.sock";
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "external";
+    process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = `unix://${socketPath}`;
+
+    const transport = createCodexTransport("/tmp/project", "linux");
+    transport.start("/tmp/project");
+
+    expect(sockets[0]?.url).toBe("ws://localhost/rpc");
+    expect(sockets[0]?.options?.headers).toBeUndefined();
+    expect(sockets[0]?.options?.perMessageDeflate).toBe(false);
+    expect(sockets[0]?.options?.createConnection).toEqual(expect.any(Function));
+    sockets[0]?.options?.createConnection?.({});
+    expect(createConnectionMock).toHaveBeenCalledWith({ path: socketPath });
     transport.stop();
   });
 
