@@ -1598,19 +1598,23 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("opens paginated Codex resumes read-only before reporting resume failure", async () => {
+  it("continues paginated Codex resume after the full-history preflight falls back to disk", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
       send: vi.fn(),
     } as any;
-    getCodexSessionHistoryMock.mockRejectedValue(
-      new CodexRpcError("thread/read", {
-        code: -32600,
-        message:
-          "paginated threads do not support thread/read(includeTurns=true)",
-      }),
-    );
+    getCodexSessionHistoryMock
+      .mockRejectedValueOnce(
+        new CodexRpcError("thread/read", {
+          code: -32600,
+          message:
+            "paginated threads do not support thread/read(includeTurns=true)",
+        }),
+      )
+      .mockResolvedValueOnce([
+        { role: "user", content: "persisted paginated history" },
+      ]);
     await (bridge as any).handleClientMessage(
       { type: "client_capabilities", sessionOwnershipVersion: 1 },
       ws,
@@ -1630,29 +1634,47 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ws,
     );
 
-    expect((bridge as any).sessionManager.sessionCount).toBe(0);
+    expect(getCodexSessionHistoryMock).toHaveBeenCalledTimes(2);
+    expect(getCodexSessionHistoryMock).toHaveBeenNthCalledWith(
+      1,
+      "provider-thread-paginated",
+    );
+    expect(getCodexSessionHistoryMock).toHaveBeenNthCalledWith(
+      2,
+      "provider-thread-paginated",
+    );
+    expect((bridge as any).sessionManager.sessionCount).toBe(1);
     const messages = ws.send.mock.calls.map((call: unknown[]) =>
       JSON.parse(call[0] as string),
     );
-    const controlIndex = messages.findIndex(
-      (message: any) => message.errorCode === "unsupported_operation",
-    );
-    const failedIndex = messages.findIndex(
-      (message: any) =>
-        message.type === "system" &&
-        message.subtype === "session_resume_failed",
-    );
-    expect(controlIndex).toBeGreaterThanOrEqual(0);
-    expect(failedIndex).toBeGreaterThan(controlIndex);
-    expect(messages[controlIndex]).toMatchObject({
-      operation: "resume_session",
-      bridgeSessionId: null,
-      providerThreadId: "provider-thread-paginated",
+    expect(
+      messages.find(
+        (message: any) =>
+          message.type === "system" && message.subtype === "session_created",
+      ),
+    ).toMatchObject({
       bridgeGeneration: "test-bridge-generation",
-      errorCode: "unsupported_operation",
-      retryable: false,
-      recoveryAction: "open_read_only",
+      bridgeSessionId: "s-1",
+      providerThreadId: "provider-thread-paginated",
+      recordKind: "resume",
+      origin: "bridge",
+      owner: "bridge",
+      attachmentState: "owned",
+      readOnlyReason: null,
     });
+    expect(
+      messages.some(
+        (message: any) =>
+          message.errorCode === "unsupported_operation" ||
+          (message.type === "system" &&
+            message.subtype === "session_resume_failed"),
+      ),
+    ).toBe(false);
+    expect(
+      (bridge as any).sessionManager.get("s-1")?.pastMessages,
+    ).toEqual([
+      { role: "user", content: "persisted paginated history" },
+    ]);
 
     bridge.close();
   });

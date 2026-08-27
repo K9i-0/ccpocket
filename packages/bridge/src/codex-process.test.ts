@@ -972,6 +972,7 @@ describe("CodexProcess (app-server)", () => {
       params: {
         cwd: "/tmp/project-custom-resume",
         threadId: "thr_existing",
+        excludeTurns: true,
         approvalPolicy: "never",
         approvalsReviewer: "user",
         sandbox: "danger-full-access",

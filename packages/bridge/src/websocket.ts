@@ -5468,7 +5468,7 @@ export class BridgeWebSocketServer {
           let attemptedBridgeSessionId: string | null = null;
           const historyStartedAt = Date.now();
           try {
-            const pastMessages = await this.getCodexThreadHistory(
+            const pastMessages = await this.getCodexThreadReadOnlyHistory(
               sessionRefId,
               effectiveProjectPath,
             );

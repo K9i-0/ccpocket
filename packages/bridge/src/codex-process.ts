@@ -1570,6 +1570,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       const method = options?.threadId ? "thread/resume" : "thread/start";
       if (options?.threadId) {
         threadParams.threadId = options.threadId;
+        threadParams.excludeTurns = true;
       } else {
         threadParams.experimentalRawEvents = false;
       }
