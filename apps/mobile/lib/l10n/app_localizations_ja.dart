@@ -153,6 +153,44 @@ class AppLocalizationsJa extends AppLocalizations {
   String get filePreviewExitFullscreen => '全画面表示を終了';
 
   @override
+  String get fileTransferShareOrSave => '共有・保存';
+
+  @override
+  String get fileTransferPreparing => 'ダウンロードを準備中…';
+
+  @override
+  String get fileTransferDownloading => 'ダウンロード中…';
+
+  @override
+  String get fileTransferOpeningShareSheet => '共有シートを開いています…';
+
+  @override
+  String get fileTransferErrorNotAllowed =>
+      'このファイルは現在のプロジェクト外にあるか、アクセスが許可されていません。';
+
+  @override
+  String get fileTransferErrorNotFound => 'ファイルが見つかりません。';
+
+  @override
+  String get fileTransferErrorNotFile => '通常のファイルのみダウンロードできます。';
+
+  @override
+  String get fileTransferErrorTooLarge => 'Bridge のダウンロード上限を超えています。';
+
+  @override
+  String get fileTransferErrorUnavailable =>
+      'ファイルをダウンロードできません。Bridgeを更新または再起動してください。';
+
+  @override
+  String get fileTransferErrorBridgeUpdate => 'ファイルをダウンロードするにはBridgeを更新してください。';
+
+  @override
+  String get fileTransferErrorFailed => 'ファイルをダウンロードできませんでした。';
+
+  @override
+  String get fileTransferErrorShareFailed => 'システムの共有シートを開けませんでした。';
+
+  @override
   String get copied => 'コピーしました';
 
   @override

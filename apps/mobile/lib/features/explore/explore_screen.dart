@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../file_peek/file_peek_sheet.dart';
+import '../file_transfer/widgets/file_transfer_dialog.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'state/explore_cubit.dart';
 import 'state/explore_state.dart';
@@ -254,6 +255,14 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
           entries: state.visibleEntries,
           highlightedFilePath: _highlightedFilePath,
           highlightedEntryKey: _highlightedEntryKey,
+          onShareFile: supportsProjectFileTransfer
+              ? (entry) => showProjectFileTransferDialog(
+                  context,
+                  bridge: context.read<BridgeService>(),
+                  projectPath: widget.projectPath,
+                  filePath: entry.relativePath,
+                )
+              : null,
           onTapEntry: (entry) {
             if (entry.isDirectory) {
               setState(() => _highlightedFilePath = null);

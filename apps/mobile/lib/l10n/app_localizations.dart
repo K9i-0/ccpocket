@@ -372,6 +372,78 @@ abstract class AppLocalizations {
   /// **'全画面表示を終了'**
   String get filePreviewExitFullscreen;
 
+  /// No description provided for @fileTransferShareOrSave.
+  ///
+  /// In ja, this message translates to:
+  /// **'共有・保存'**
+  String get fileTransferShareOrSave;
+
+  /// No description provided for @fileTransferPreparing.
+  ///
+  /// In ja, this message translates to:
+  /// **'ダウンロードを準備中…'**
+  String get fileTransferPreparing;
+
+  /// No description provided for @fileTransferDownloading.
+  ///
+  /// In ja, this message translates to:
+  /// **'ダウンロード中…'**
+  String get fileTransferDownloading;
+
+  /// No description provided for @fileTransferOpeningShareSheet.
+  ///
+  /// In ja, this message translates to:
+  /// **'共有シートを開いています…'**
+  String get fileTransferOpeningShareSheet;
+
+  /// No description provided for @fileTransferErrorNotAllowed.
+  ///
+  /// In ja, this message translates to:
+  /// **'このファイルは現在のプロジェクト外にあるか、アクセスが許可されていません。'**
+  String get fileTransferErrorNotAllowed;
+
+  /// No description provided for @fileTransferErrorNotFound.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルが見つかりません。'**
+  String get fileTransferErrorNotFound;
+
+  /// No description provided for @fileTransferErrorNotFile.
+  ///
+  /// In ja, this message translates to:
+  /// **'通常のファイルのみダウンロードできます。'**
+  String get fileTransferErrorNotFile;
+
+  /// No description provided for @fileTransferErrorTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge のダウンロード上限を超えています。'**
+  String get fileTransferErrorTooLarge;
+
+  /// No description provided for @fileTransferErrorUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをダウンロードできません。Bridgeを更新または再起動してください。'**
+  String get fileTransferErrorUnavailable;
+
+  /// No description provided for @fileTransferErrorBridgeUpdate.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをダウンロードするにはBridgeを更新してください。'**
+  String get fileTransferErrorBridgeUpdate;
+
+  /// No description provided for @fileTransferErrorFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをダウンロードできませんでした。'**
+  String get fileTransferErrorFailed;
+
+  /// No description provided for @fileTransferErrorShareFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'システムの共有シートを開けませんでした。'**
+  String get fileTransferErrorShareFailed;
+
   /// No description provided for @copied.
   ///
   /// In ja, this message translates to:

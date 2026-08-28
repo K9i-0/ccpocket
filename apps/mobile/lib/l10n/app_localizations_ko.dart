@@ -153,6 +153,44 @@ class AppLocalizationsKo extends AppLocalizations {
   String get filePreviewExitFullscreen => '전체 화면 종료';
 
   @override
+  String get fileTransferShareOrSave => '공유 또는 저장';
+
+  @override
+  String get fileTransferPreparing => '다운로드 준비 중…';
+
+  @override
+  String get fileTransferDownloading => '다운로드 중…';
+
+  @override
+  String get fileTransferOpeningShareSheet => '공유 시트를 여는 중…';
+
+  @override
+  String get fileTransferErrorNotAllowed =>
+      '이 파일은 현재 프로젝트 외부에 있거나 접근이 허용되지 않았습니다.';
+
+  @override
+  String get fileTransferErrorNotFound => '파일이 더 이상 존재하지 않습니다.';
+
+  @override
+  String get fileTransferErrorNotFile => '일반 파일만 다운로드할 수 있습니다.';
+
+  @override
+  String get fileTransferErrorTooLarge => '이 파일은 Bridge 다운로드 크기 제한을 초과합니다.';
+
+  @override
+  String get fileTransferErrorUnavailable =>
+      '파일 다운로드를 사용할 수 없습니다. Bridge를 업데이트하거나 다시 시작하세요.';
+
+  @override
+  String get fileTransferErrorBridgeUpdate => '파일을 다운로드하려면 Bridge를 업데이트하세요.';
+
+  @override
+  String get fileTransferErrorFailed => '파일을 다운로드할 수 없습니다.';
+
+  @override
+  String get fileTransferErrorShareFailed => '시스템 공유 시트를 열 수 없습니다.';
+
+  @override
   String get copied => '복사됨';
 
   @override

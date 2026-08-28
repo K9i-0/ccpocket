@@ -12,7 +12,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MediaStore, parseByteRange } from "./media-store.js";
+import {
+  contentDispositionAttachment,
+  MediaStore,
+  parseByteRange,
+} from "./media-store.js";
 
 interface CapturedResponse {
   statusCode: number;
@@ -73,6 +77,17 @@ describe("parseByteRange", () => {
     expect(parseByteRange("bytes=10-", 10)).toBeNull();
     expect(parseByteRange("bytes=6-3", 10)).toBeNull();
     expect(parseByteRange("bytes=0-1,4-5", 10)).toBeNull();
+  });
+});
+
+describe("contentDispositionAttachment", () => {
+  it("provides safe ASCII and UTF-8 download names", () => {
+    expect(contentDispositionAttachment('report "final".pdf')).toBe(
+      "attachment; filename=\"report _final_.pdf\"; filename*=UTF-8''report%20%22final%22.pdf",
+    );
+    expect(contentDispositionAttachment("成果物.pdf")).toContain(
+      "filename*=UTF-8''%E6%88%90%E6%9E%9C%E7%89%A9.pdf",
+    );
   });
 });
 
@@ -142,6 +157,26 @@ describe("MediaStore", () => {
     expect(response.body).toHaveLength(0);
   });
 
+  it("adds a download filename when one is registered", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "ccpocket-media-download-"));
+    tempDirs.push(dir);
+    const filePath = join(dir, "report.pdf");
+    await writeFile(filePath, "pdf");
+    const store = new MediaStore();
+    const ref = await store.register(
+      await realpath(filePath),
+      "application/pdf",
+      3,
+      "report.pdf",
+    );
+
+    const response = await requestMedia(store, ref.url, { method: "HEAD" });
+
+    expect(response.headers["Content-Disposition"]).toBe(
+      "attachment; filename=\"report.pdf\"; filename*=UTF-8''report.pdf",
+    );
+  });
+
   it("destroys the file stream when the client closes the response", async () => {
     const { store, url, filePath } = await fixture();
     const probeHandle = await open(filePath, "r");
@@ -182,7 +217,7 @@ describe("MediaStore", () => {
     }
   });
 
-  it("does not re-resolve a validated path after a symlink swap", async () => {
+  it("rejects a validated path after a symlink swap", async () => {
     const allowedDir = await mkdtemp(join(tmpdir(), "ccpocket-media-allowed-"));
     const outsideDir = await mkdtemp(join(tmpdir(), "ccpocket-media-outside-"));
     tempDirs.push(allowedDir, outsideDir);
@@ -194,9 +229,16 @@ describe("MediaStore", () => {
     await unlink(allowedPath);
     await symlink(outsidePath, allowedPath);
     const store = new MediaStore();
-    const ref = await store.register(validatedPath, "video/mp4", 7);
+    await expect(
+      store.register(validatedPath, "video/mp4", 7),
+    ).rejects.toThrow();
+  });
 
-    const response = await requestMedia(store, ref.url);
+  it("rejects a file whose size changes after registration", async () => {
+    const { store, url, filePath } = await fixture();
+    await writeFile(filePath, "0123456789-expanded");
+
+    const response = await requestMedia(store, url);
 
     expect(response.statusCode).toBe(404);
     expect(response.body.toString()).toBe("Not Found");

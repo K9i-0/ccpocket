@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ccpocket/features/explore/explore_screen.dart';
+import 'package:ccpocket/features/explore/state/explore_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:ccpocket/features/explore/state/explore_cubit.dart';
 import 'package:ccpocket/features/explore/widgets/explore_empty_state.dart';
+import 'package:ccpocket/features/explore/widgets/explore_entry_tile.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -170,6 +173,27 @@ void main() {
     });
   });
 
+  testWidgets('hides file actions when sharing is unsupported', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ExploreEntryTile(
+            entry: const ExploreEntry(
+              name: 'movie.mp4',
+              relativePath: 'media/movie.mp4',
+              isDirectory: false,
+            ),
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(PopupMenuButton<void>), findsNothing);
+  });
+
   group('Explore recent files', () {
     testWidgets('shows when the bridge truncated the file list', (
       tester,
@@ -182,6 +206,8 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: const ExploreScreen(
               sessionId: 'session-1',
               projectPath: '/tmp/project',
@@ -215,6 +241,8 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: const ExploreScreen(
               sessionId: 'session-1',
               projectPath: '/tmp/project',
@@ -247,6 +275,63 @@ void main() {
       expect(payload['type'], 'read_file');
       expect(payload['projectPath'], '/tmp/project');
       expect(payload['filePath'], 'lib/main.dart');
+    });
+
+    testWidgets('opens Share or save from a file action menu', (tester) async {
+      final bridge = _TestBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        RepositoryProvider<BridgeService>.value(
+          value: bridge,
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const ExploreScreen(
+              sessionId: 'session-1',
+              projectPath: '/tmp/project',
+              initialFiles: ['build/report.pdf'],
+              initialPath: 'build',
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('explore_entry_actions_build/report.pdf_button'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Share or save'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('explore_entry_share_build/report.pdf_button'),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('file_transfer_cancel_button')),
+        findsOneWidget,
+      );
+      final payload = bridge.sentMessages
+          .map(
+            (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,
+          )
+          .singleWhere((message) => message['type'] == 'prepare_file_download');
+      expect(payload['projectPath'], '/tmp/project');
+      expect(payload['filePath'], 'build/report.pdf');
+
+      await tester.tap(
+        find.byKey(const ValueKey('file_transfer_cancel_button')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('file_transfer_cancel_button')),
+        findsNothing,
+      );
     });
   });
 }

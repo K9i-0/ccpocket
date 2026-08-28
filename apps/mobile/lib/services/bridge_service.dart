@@ -180,6 +180,7 @@ class BridgeService implements BridgeServiceBase {
   static const _maxReconnectDelay = 30;
   bool _intentionalDisconnect = false;
   bool _disposed = false;
+  DateTime? _legacyFileDownloadResponseDeadline;
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
@@ -687,17 +688,22 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case ErrorMessage(:final message):
-                if (msg.errorCode == 'unsupported_message' &&
-                    message == 'get_history_delta') {
-                  _fallbackPendingHistoryDeltaRequests();
-                }
-                if (msg.errorCode == 'unsupported_message' &&
-                    message == 'resolve_session_link') {
-                  _completePendingSessionLinkResolutionsAsUnsupported();
-                } else {
-                  logger.error('Bridge error: $message');
-                  _taggedMessageController.add((msg, sessionId));
+                if (_isFileDownloadResponseError(msg)) {
+                  _legacyFileDownloadResponseDeadline = null;
                   _messageController.add(msg);
+                } else {
+                  if (msg.errorCode == 'unsupported_message' &&
+                      message == 'get_history_delta') {
+                    _fallbackPendingHistoryDeltaRequests();
+                  }
+                  if (msg.errorCode == 'unsupported_message' &&
+                      message == 'resolve_session_link') {
+                    _completePendingSessionLinkResolutionsAsUnsupported();
+                  } else {
+                    logger.error('Bridge error: $message');
+                    _taggedMessageController.add((msg, sessionId));
+                    _messageController.add(msg);
+                  }
                 }
               case SessionLinkResolutionMessage(:final requestId):
                 final completer = _pendingSessionLinkResolutions.remove(
@@ -709,6 +715,11 @@ class BridgeService implements BridgeServiceBase {
               case PushRegistrationResultMessage():
                 // Global settings state consumes this acknowledgement. Do not
                 // route its token through per-session chat streams.
+                _messageController.add(msg);
+              case FileDownloadReadyMessage():
+                // File transfer dialogs consume this correlated global
+                // response. It must never become a chat transcript entry.
+                _legacyFileDownloadResponseDeadline = null;
                 _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
@@ -771,6 +782,19 @@ class BridgeService implements BridgeServiceBase {
       _setBridgeConnectionState(BridgeConnectionState.disconnected);
       _scheduleReconnect();
     }
+  }
+
+  bool _isFileDownloadResponseError(ErrorMessage message) {
+    if (message.errorCode?.startsWith('file_download_') ?? false) return true;
+    if (message.errorCode == 'unsupported_message' &&
+        message.message == 'prepare_file_download') {
+      return true;
+    }
+    final deadline = _legacyFileDownloadResponseDeadline;
+    return message.errorCode == null &&
+        message.message == 'Invalid message format' &&
+        deadline != null &&
+        DateTime.now().isBefore(deadline);
   }
 
   bool _sameBridgeTarget(String left, String right) {
@@ -950,6 +974,11 @@ class BridgeService implements BridgeServiceBase {
   @override
   void send(ClientMessage message) {
     if (_disposed) return;
+    if (message.type == 'prepare_file_download') {
+      _legacyFileDownloadResponseDeadline = DateTime.now().add(
+        const Duration(seconds: 20),
+      );
+    }
     onOutgoingMessage?.call(message);
     if (_disposed) return;
     if (_channel != null && isConnected) {

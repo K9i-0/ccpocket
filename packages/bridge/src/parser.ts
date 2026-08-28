@@ -284,6 +284,12 @@ export type ClientMessage =
       projectPath: string;
       filePath: string;
     }
+  | {
+      type: "prepare_file_download";
+      projectPath: string;
+      filePath: string;
+      requestId: string;
+    }
   | { type: "list_files"; projectPath: string }
   | {
       type: "list_directory";
@@ -643,6 +649,15 @@ export type ServerMessage =
       files: string[];
       totalFiles?: number;
       truncated?: boolean;
+    }
+  | {
+      type: "file_download_ready";
+      requestId: string;
+      filePath: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      downloadUrl: string;
     }
   | { type: "project_history"; projects: string[] }
   | {
@@ -1414,6 +1429,24 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "read_media_file":
         if (typeof msg.projectPath !== "string") return null;
         if (typeof msg.filePath !== "string") return null;
+        break;
+      case "prepare_file_download":
+        if (
+          !hasOnlyKeys([
+            "type",
+            "projectPath",
+            "filePath",
+            "requestId",
+          ]) ||
+          typeof msg.projectPath !== "string" ||
+          msg.projectPath.trim().length === 0 ||
+          typeof msg.filePath !== "string" ||
+          msg.filePath.trim().length === 0 ||
+          typeof msg.requestId !== "string" ||
+          msg.requestId.trim().length === 0 ||
+          msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH
+        )
+          return null;
         break;
       case "list_files":
         if (typeof msg.projectPath !== "string") return null;

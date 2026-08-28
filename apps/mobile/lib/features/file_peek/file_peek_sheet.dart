@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
+import '../file_transfer/widgets/file_transfer_dialog.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/code_text_style.dart';
 import '../../theme/markdown_style.dart'
@@ -355,6 +356,19 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                   icon: const Icon(Icons.open_in_full, size: 18),
                   onPressed: _openImageFullScreen,
                   visualDensity: VisualDensity.compact,
+                ),
+              if (supportsProjectFileTransfer)
+                IconButton(
+                  key: const ValueKey('file_peek_share_button'),
+                  icon: const Icon(Icons.ios_share_outlined, size: 18),
+                  onPressed: () => showProjectFileTransferDialog(
+                    context,
+                    bridge: widget.bridge,
+                    projectPath: widget.projectPath,
+                    filePath: widget.filePath,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: AppLocalizations.of(context).fileTransferShareOrSave,
                 ),
               if ((isMarkdown || canPreviewHtml) &&
                   !isImage &&

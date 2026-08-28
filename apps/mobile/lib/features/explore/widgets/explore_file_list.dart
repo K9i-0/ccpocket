@@ -6,6 +6,7 @@ import 'explore_entry_tile.dart';
 class ExploreFileList extends StatelessWidget {
   final List<ExploreEntry> entries;
   final ValueChanged<ExploreEntry> onTapEntry;
+  final ValueChanged<ExploreEntry>? onShareFile;
   final String? highlightedFilePath;
   final Key? highlightedEntryKey;
 
@@ -13,6 +14,7 @@ class ExploreFileList extends StatelessWidget {
     super.key,
     required this.entries,
     required this.onTapEntry,
+    this.onShareFile,
     this.highlightedFilePath,
     this.highlightedEntryKey,
   });
@@ -30,6 +32,9 @@ class ExploreFileList extends StatelessWidget {
           key: isHighlighted ? highlightedEntryKey : null,
           entry: entry,
           onTap: () => onTapEntry(entry),
+          onShareFile: entry.isDirectory || onShareFile == null
+              ? null
+              : () => onShareFile!(entry),
           isHighlighted: isHighlighted,
         );
       },

@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { lstat, readFile, readlink, realpath, stat, unlink } from "node:fs/promises";
-import { resolve, extname, basename, relative } from "node:path";
+import { resolve, extname, basename, relative, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import {
@@ -597,6 +597,48 @@ function normalizeNonNegativeLimit(
     : fallback;
 }
 
+export function downloadMimeType(filePath: string): string {
+  const extension = extname(filePath).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    ".aac": "audio/aac",
+    ".avi": "video/x-msvideo",
+    ".bmp": "image/bmp",
+    ".csv": "text/csv",
+    ".doc": "application/msword",
+    ".docx":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".gif": "image/gif",
+    ".gz": "application/gzip",
+    ".html": "text/html",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".json": "application/json",
+    ".m4a": "audio/mp4",
+    ".md": "text/markdown",
+    ".mov": "video/quicktime",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".ogg": "audio/ogg",
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx":
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".svg": "image/svg+xml",
+    ".tar": "application/x-tar",
+    ".txt": "text/plain",
+    ".wav": "audio/wav",
+    ".webm": "video/webm",
+    ".webp": "image/webp",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx":
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xml": "application/xml",
+    ".zip": "application/zip",
+  };
+  return mimeTypes[extension] ?? "application/octet-stream";
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -665,6 +707,7 @@ export interface BridgeServerOptions {
   platform?: NodeJS.Platform;
   fileListMaxEntries?: number;
   fileListMaxBytes?: number;
+  fileDownloadMaxBytes?: number;
   deltaBatchMs?: number;
   deltaBatchMaxChars?: number;
 }
@@ -691,6 +734,7 @@ export class BridgeWebSocketServer {
   private static readonly CONNECT_METADATA_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
   private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
   private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
+  private static readonly DEFAULT_FILE_DOWNLOAD_MAX_BYTES = 512 * 1024 * 1024;
   private static readonly DEFAULT_DELTA_BATCH_MS = 100;
   private static readonly DEFAULT_DELTA_BATCH_MAX_CHARS = 4096;
 
@@ -754,6 +798,7 @@ export class BridgeWebSocketServer {
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   private readonly fileListMaxEntries: number;
   private readonly fileListMaxBytes: number;
+  private readonly fileDownloadMaxBytes: number;
   private readonly deltaBatchMs: number;
   private readonly deltaBatchMaxChars: number;
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
@@ -782,6 +827,7 @@ export class BridgeWebSocketServer {
       platform,
       fileListMaxEntries,
       fileListMaxBytes,
+      fileDownloadMaxBytes,
       deltaBatchMs,
       deltaBatchMaxChars,
     } = options;
@@ -811,6 +857,13 @@ export class BridgeWebSocketServer {
         "BRIDGE_FILE_LIST_MAX_BYTES",
         BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_BYTES,
       ),
+    );
+    this.fileDownloadMaxBytes = normalizePositiveLimit(
+      fileDownloadMaxBytes,
+      positiveEnvInt(
+        "BRIDGE_FILE_DOWNLOAD_MAX_SIZE_MB",
+        BridgeWebSocketServer.DEFAULT_FILE_DOWNLOAD_MAX_BYTES / 1024 / 1024,
+      ) * 1024 * 1024,
     );
     this.deltaBatchMs = normalizeNonNegativeLimit(
       deltaBatchMs,
@@ -912,6 +965,167 @@ export class BridgeWebSocketServer {
       }
     }
     return false;
+  }
+
+  private sendFileDownloadError(
+    ws: WebSocket,
+    request: Extract<ClientMessage, { type: "prepare_file_download" }>,
+    errorCode:
+      | "file_download_not_allowed"
+      | "file_download_not_found"
+      | "file_download_not_file"
+      | "file_download_too_large"
+      | "file_download_unavailable"
+      | "file_download_failed",
+    message: string,
+  ): void {
+    this.send(ws, {
+      type: "error",
+      errorCode,
+      message,
+      path: request.filePath,
+      requestId: request.requestId,
+    });
+  }
+
+  private async prepareFileDownload(
+    ws: WebSocket,
+    request: Extract<ClientMessage, { type: "prepare_file_download" }>,
+  ): Promise<void> {
+    const pathApi = this.platform === "win32" ? win32 : posix;
+    const projectPath = pathApi.resolve(request.projectPath);
+    if (pathApi.isAbsolute(request.filePath)) {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_not_allowed",
+        "Only project-relative file paths can be downloaded.",
+      );
+      return;
+    }
+
+    const requestedPath = pathApi.resolve(projectPath, request.filePath);
+    if (
+      !this.isPathAllowed(projectPath) ||
+      !isPathWithinAllowedDirectory(
+        requestedPath,
+        projectPath,
+        this.platform,
+      )
+    ) {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_not_allowed",
+        "The requested file is outside the current project.",
+      );
+      return;
+    }
+
+    let canonicalProjectPath: string;
+    try {
+      canonicalProjectPath = await realpath(projectPath);
+      const projectStat = await stat(canonicalProjectPath);
+      if (!projectStat.isDirectory()) throw new Error("not a directory");
+    } catch {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_not_allowed",
+        "The current project is unavailable or not allowed.",
+      );
+      return;
+    }
+
+    let canonicalFilePath: string;
+    try {
+      canonicalFilePath = await realpath(requestedPath);
+    } catch {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_not_found",
+        "File not found.",
+      );
+      return;
+    }
+
+    if (
+      !isPathWithinAllowedDirectory(
+        canonicalFilePath,
+        canonicalProjectPath,
+        this.platform,
+      ) ||
+      !(await this.isCanonicalPathAllowed(canonicalFilePath))
+    ) {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_not_allowed",
+        "The requested file resolves outside the current project.",
+      );
+      return;
+    }
+
+    try {
+      const fileStat = await stat(canonicalFilePath);
+      if (!fileStat.isFile()) {
+        this.sendFileDownloadError(
+          ws,
+          request,
+          "file_download_not_file",
+          "Only regular files can be downloaded.",
+        );
+        return;
+      }
+      if (fileStat.size > this.fileDownloadMaxBytes) {
+        const maxSizeMb = Math.max(
+          1,
+          Math.ceil(this.fileDownloadMaxBytes / 1024 / 1024),
+        );
+        this.sendFileDownloadError(
+          ws,
+          request,
+          "file_download_too_large",
+          `File is too large to download. Maximum size is ${maxSizeMb} MB.`,
+        );
+        return;
+      }
+      if (!this.mediaStore) {
+        this.sendFileDownloadError(
+          ws,
+          request,
+          "file_download_unavailable",
+          "File downloads are unavailable on this Bridge.",
+        );
+        return;
+      }
+
+      const fileName = pathApi.basename(requestedPath);
+      const mimeType = downloadMimeType(fileName);
+      const ref = await this.mediaStore.register(
+        canonicalFilePath,
+        mimeType,
+        fileStat.size,
+        fileName,
+      );
+      this.send(ws, {
+        type: "file_download_ready",
+        requestId: request.requestId,
+        filePath: request.filePath,
+        fileName,
+        mimeType: ref.mimeType,
+        sizeBytes: ref.sizeBytes,
+        downloadUrl: ref.url,
+      });
+    } catch {
+      this.sendFileDownloadError(
+        ws,
+        request,
+        "file_download_failed",
+        "Unable to prepare the file download.",
+      );
+    }
   }
 
   /** Build a user-friendly error for disallowed project paths. */
@@ -5304,6 +5518,11 @@ export class BridgeWebSocketServer {
             requestId: msg.requestId,
           });
         }
+        break;
+      }
+
+      case "prepare_file_download": {
+        void this.prepareFileDownload(ws, msg);
         break;
       }
 

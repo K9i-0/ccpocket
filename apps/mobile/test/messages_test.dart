@@ -463,6 +463,38 @@ void main() {
     );
   });
 
+  test('serializes file download requests and parses ready responses', () {
+    expect(
+      jsonDecode(
+        ClientMessage.prepareFileDownload(
+          projectPath: '/project',
+          filePath: 'build/report.pdf',
+          requestId: 'download-1',
+        ).toJson(),
+      ),
+      {
+        'type': 'prepare_file_download',
+        'projectPath': '/project',
+        'filePath': 'build/report.pdf',
+        'requestId': 'download-1',
+      },
+    );
+
+    final message = ServerMessage.fromJson({
+      'type': 'file_download_ready',
+      'requestId': 'download-1',
+      'filePath': 'build/report.pdf',
+      'fileName': 'report.pdf',
+      'mimeType': 'application/pdf',
+      'sizeBytes': 2048,
+      'downloadUrl': '/api/media/token',
+    }) as FileDownloadReadyMessage;
+    expect(message.fileName, 'report.pdf');
+    expect(message.mimeType, 'application/pdf');
+    expect(message.sizeBytes, 2048);
+    expect(message.downloadUrl, '/api/media/token');
+  });
+
   group('ToolUseSummaryMessage', () {
     test('parses from JSON correctly', () {
       final json = {

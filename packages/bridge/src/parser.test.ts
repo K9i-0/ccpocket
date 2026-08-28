@@ -763,6 +763,36 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses prepare_file_download message", () => {
+    const msg = parseClientMessage(
+      '{"type":"prepare_file_download","projectPath":"/p","filePath":"build/report.pdf","requestId":"download-1"}',
+    );
+    expect(msg).toEqual({
+      type: "prepare_file_download",
+      projectPath: "/p",
+      filePath: "build/report.pdf",
+      requestId: "download-1",
+    });
+  });
+
+  it("rejects invalid prepare_file_download messages", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"prepare_file_download","projectPath":"/p","filePath":"report.pdf"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"prepare_file_download","projectPath":"/p","filePath":" ","requestId":"download-1"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"prepare_file_download","projectPath":"/p","filePath":"report.pdf","requestId":"download-1","extra":true}',
+      ),
+    ).toBeNull();
+  });
+
   it("rejects list_files without projectPath", () => {
     expect(parseClientMessage('{"type":"list_files"}')).toBeNull();
   });

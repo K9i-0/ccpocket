@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { open, realpath } from "node:fs/promises";
+import { open, realpath, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export interface MediaRef {
@@ -12,6 +12,10 @@ export interface MediaRef {
 interface StoredMedia {
   filePath: string;
   mimeType: string;
+  downloadName?: string;
+  sizeBytes: number;
+  device: number;
+  inode: number;
   expiresAt: number;
   accessedAt: number;
 }
@@ -30,6 +34,18 @@ interface MediaStoreOptions {
 const DEFAULT_TTL_MS = 60 * 60 * 1000;
 const DEFAULT_MAX_ENTRIES = 100;
 const MEDIA_PATH_PATTERN = /^\/api\/media\/([a-f0-9]{48})$/;
+
+export function contentDispositionAttachment(fileName: string): string {
+  const fallback = fileName
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/["\\]/g, "_")
+    .trim() || "download";
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
 
 /** Parse a single RFC 7233 byte range. Multiple ranges are intentionally unsupported. */
 export function parseByteRange(
@@ -86,8 +102,28 @@ export class MediaStore {
     filePath: string,
     mimeType: string,
     sizeBytes: number,
+    downloadName?: string,
   ): Promise<MediaRef> {
     this.removeExpired();
+    const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+    const fileHandle = await open(filePath, constants.O_RDONLY | noFollow);
+    let fileStat: Awaited<ReturnType<typeof fileHandle.stat>>;
+    try {
+      fileStat = await fileHandle.stat();
+      const currentRealPath = await realpath(filePath);
+      const currentPathStat = await stat(currentRealPath);
+      if (
+        currentRealPath !== filePath ||
+        !fileStat.isFile() ||
+        fileStat.size !== sizeBytes ||
+        currentPathStat.dev !== fileStat.dev ||
+        currentPathStat.ino !== fileStat.ino
+      ) {
+        throw new Error("Media file changed during registration");
+      }
+    } finally {
+      await fileHandle.close();
+    }
     const id = randomBytes(24).toString("hex");
     const now = this.now();
     this.entries.set(id, {
@@ -96,6 +132,10 @@ export class MediaStore {
       // validation and registration.
       filePath,
       mimeType,
+      ...(downloadName ? { downloadName } : {}),
+      sizeBytes,
+      device: fileStat.dev,
+      inode: fileStat.ino,
       expiresAt: now + this.ttlMs,
       accessedAt: now,
     });
@@ -156,7 +196,12 @@ export class MediaStore {
       const noFollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
       fileHandle = await open(entry.filePath, constants.O_RDONLY | noFollow);
       const fileStat = await fileHandle.stat();
-      if (!fileStat.isFile()) {
+      if (
+        !fileStat.isFile() ||
+        fileStat.size !== entry.sizeBytes ||
+        fileStat.dev !== entry.device ||
+        fileStat.ino !== entry.inode
+      ) {
         this.sendNotFound(res);
         return;
       }
@@ -186,6 +231,11 @@ export class MediaStore {
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       };
+      if (entry.downloadName) {
+        headers["Content-Disposition"] = contentDispositionAttachment(
+          entry.downloadName,
+        );
+      }
       if (range) headers["Content-Range"] = `bytes ${start}-${end}/${fileStat.size}`;
 
       res.writeHead(range ? 206 : 200, headers);

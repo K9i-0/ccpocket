@@ -1065,6 +1065,14 @@ sealed class ServerMessage {
         sizeBytes: json['sizeBytes'] as int?,
         mediaUrl: json['mediaUrl'] as String?,
       ),
+      'file_download_ready' => FileDownloadReadyMessage(
+        requestId: json['requestId'] as String,
+        filePath: json['filePath'] as String,
+        fileName: json['fileName'] as String,
+        mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
+        sizeBytes: json['sizeBytes'] as int? ?? 0,
+        downloadUrl: json['downloadUrl'] as String,
+      ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
         totalFiles: json['totalFiles'] as int?,
@@ -2702,6 +2710,24 @@ class FileContentMessage implements ServerMessage {
     this.mimeType,
     this.sizeBytes,
     this.mediaUrl,
+  });
+}
+
+class FileDownloadReadyMessage implements ServerMessage {
+  final String requestId;
+  final String filePath;
+  final String fileName;
+  final String mimeType;
+  final int sizeBytes;
+  final String downloadUrl;
+
+  const FileDownloadReadyMessage({
+    required this.requestId,
+    required this.filePath,
+    required this.fileName,
+    required this.mimeType,
+    required this.sizeBytes,
+    required this.downloadUrl,
   });
 }
 
@@ -4448,6 +4474,17 @@ class ClientMessage {
     'projectPath': projectPath,
     'filePath': filePath,
     'maxLines': ?maxLines,
+  });
+
+  factory ClientMessage.prepareFileDownload({
+    required String projectPath,
+    required String filePath,
+    required String requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'prepare_file_download',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'requestId': requestId,
   });
 
   factory ClientMessage.readMediaFile(String projectPath, String filePath) =>

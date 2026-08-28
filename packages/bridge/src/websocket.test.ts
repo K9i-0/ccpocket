@@ -428,8 +428,19 @@ vi.mock("./session.js", () => ({
   },
 }));
 
-import { BridgeWebSocketServer } from "./websocket.js";
+import { BridgeWebSocketServer, downloadMimeType } from "./websocket.js";
 import { CodexProcess, CodexRpcError } from "./codex-process.js";
+
+describe("downloadMimeType", () => {
+  it("recognizes common deliverables and falls back safely", () => {
+    expect(downloadMimeType("report.pdf")).toBe("application/pdf");
+    expect(downloadMimeType("archive.zip")).toBe("application/zip");
+    expect(downloadMimeType("audio.wav")).toBe("audio/wav");
+    expect(downloadMimeType("unknown.ccpocket")).toBe(
+      "application/octet-stream",
+    );
+  });
+});
 
 describe("BridgeWebSocketServer resume/get_history flow", () => {
   const OPEN_STATE = 1;
@@ -5006,6 +5017,161 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridge.close();
       rmSync(projectPath, { recursive: true, force: true });
       rmSync(outsidePath, { recursive: true, force: true });
+    }
+  });
+
+  it("prepares a capability URL for downloading a regular project file", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-download-"));
+    const contents = Buffer.from("generated report");
+    writeFileSync(resolve(projectPath, "report.pdf"), contents);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore: new MediaStore(),
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "prepare_file_download",
+          projectPath,
+          filePath: "report.pdf",
+          requestId: "download-1",
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "file_download_ready");
+      expect(response).toMatchObject({
+        type: "file_download_ready",
+        requestId: "download-1",
+        filePath: "report.pdf",
+        fileName: "report.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: contents.length,
+      });
+      expect(response.downloadUrl).toMatch(/^\/api\/media\/[a-f0-9]{48}$/);
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects downloads that escape the selected project", async () => {
+    const allowedRoot = mkdtempSync(resolve(tmpdir(), "ccpocket-download-root-"));
+    const projectPath = resolve(allowedRoot, "project");
+    mkdirSync(projectPath);
+    writeFileSync(resolve(allowedRoot, "private.txt"), "private");
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [allowedRoot],
+      mediaStore: new MediaStore(),
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "prepare_file_download",
+          projectPath,
+          filePath: "../private.txt",
+          requestId: "download-escape",
+        },
+        ws,
+      );
+
+      expect(ws.send).toHaveBeenCalledWith(
+        JSON.stringify({
+          type: "error",
+          errorCode: "file_download_not_allowed",
+          message: "The requested file is outside the current project.",
+          path: "../private.txt",
+          requestId: "download-escape",
+        }),
+      );
+    } finally {
+      bridge.close();
+      rmSync(allowedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects download symlinks whose targets escape the project", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-download-"));
+    const outsidePath = mkdtempSync(resolve(tmpdir(), "ccpocket-download-outside-"));
+    writeFileSync(resolve(outsidePath, "private.wav"), "private");
+    symlinkSync(resolve(outsidePath, "private.wav"), resolve(projectPath, "linked.wav"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore: new MediaStore(),
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "prepare_file_download",
+          projectPath,
+          filePath: "linked.wav",
+          requestId: "download-symlink",
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "error");
+      expect(response).toMatchObject({
+        errorCode: "file_download_not_allowed",
+        path: "linked.wav",
+        requestId: "download-symlink",
+      });
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+      rmSync(outsidePath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects downloads larger than the configured limit", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-download-"));
+    writeFileSync(resolve(projectPath, "large.zip"), "12345");
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore: new MediaStore(),
+      fileDownloadMaxBytes: 4,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "prepare_file_download",
+          projectPath,
+          filePath: "large.zip",
+          requestId: "download-large",
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "error");
+      expect(response).toMatchObject({
+        errorCode: "file_download_too_large",
+        path: "large.zip",
+        requestId: "download-large",
+      });
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
     }
   });
 

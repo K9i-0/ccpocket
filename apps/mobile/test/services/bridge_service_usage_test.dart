@@ -537,6 +537,95 @@ void main() {
       ]);
     });
 
+    test('file transfer responses stay out of session streams', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      Future<ServerMessage> nextGlobalResponse() => bridge.messages
+          .where(
+            (message) =>
+                message is FileDownloadReadyMessage || message is ErrorMessage,
+          )
+          .first
+          .timeout(const Duration(seconds: 2));
+      final sessionResponse = bridge
+          .messagesForSession('s1')
+          .where(
+            (message) =>
+                message is FileDownloadReadyMessage || message is ErrorMessage,
+          )
+          .first
+          .timeout(const Duration(milliseconds: 100));
+
+      bridge.send(
+        ClientMessage.prepareFileDownload(
+          projectPath: '/project',
+          filePath: 'report.pdf',
+          requestId: 'download-1',
+        ),
+      );
+      final readyResponse = nextGlobalResponse();
+      socket.add(
+        jsonEncode({
+          'type': 'file_download_ready',
+          'requestId': 'download-1',
+          'filePath': 'report.pdf',
+          'fileName': 'report.pdf',
+          'mimeType': 'application/pdf',
+          'sizeBytes': 10,
+          'downloadUrl':
+              '/api/media/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+      );
+      expect(await readyResponse, isA<FileDownloadReadyMessage>());
+
+      final errorResponse = nextGlobalResponse();
+      socket.add(
+        jsonEncode({
+          'type': 'error',
+          'errorCode': 'file_download_not_found',
+          'message': 'File not found.',
+          'requestId': 'download-2',
+        }),
+      );
+      expect(
+        (await errorResponse as ErrorMessage).errorCode,
+        'file_download_not_found',
+      );
+
+      bridge.send(
+        ClientMessage.prepareFileDownload(
+          projectPath: '/project',
+          filePath: 'legacy.pdf',
+          requestId: 'download-3',
+        ),
+      );
+      final legacyResponse = nextGlobalResponse();
+      socket.add(
+        jsonEncode({'type': 'error', 'message': 'Invalid message format'}),
+      );
+      expect(
+        (await legacyResponse as ErrorMessage).message,
+        'Invalid message format',
+      );
+      await expectLater(sessionResponse, throwsA(isA<TimeoutException>()));
+
+      bridge.disconnect();
+      bridge.dispose();
+      await Future.any<void>([
+        server.close(force: true).then<void>((_) {}),
+        Future<void>.delayed(const Duration(seconds: 1)),
+      ]);
+    });
+
     test('resolveSessionLink degrades for an older Bridge', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();

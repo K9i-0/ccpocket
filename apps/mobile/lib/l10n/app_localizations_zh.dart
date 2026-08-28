@@ -153,6 +153,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filePreviewExitFullscreen => '退出全屏';
 
   @override
+  String get fileTransferShareOrSave => '分享或保存';
+
+  @override
+  String get fileTransferPreparing => '正在准备下载…';
+
+  @override
+  String get fileTransferDownloading => '正在下载…';
+
+  @override
+  String get fileTransferOpeningShareSheet => '正在打开分享菜单…';
+
+  @override
+  String get fileTransferErrorNotAllowed => '此文件不在当前项目中或不允许访问。';
+
+  @override
+  String get fileTransferErrorNotFound => '文件已不存在。';
+
+  @override
+  String get fileTransferErrorNotFile => '只能下载普通文件。';
+
+  @override
+  String get fileTransferErrorTooLarge => '此文件超过 Bridge 的下载大小限制。';
+
+  @override
+  String get fileTransferErrorUnavailable => '文件下载不可用。请更新或重启 Bridge。';
+
+  @override
+  String get fileTransferErrorBridgeUpdate => '请更新 Bridge 后再下载文件。';
+
+  @override
+  String get fileTransferErrorFailed => '无法下载文件。';
+
+  @override
+  String get fileTransferErrorShareFailed => '无法打开系统分享菜单。';
+
+  @override
   String get copied => '已复制';
 
   @override

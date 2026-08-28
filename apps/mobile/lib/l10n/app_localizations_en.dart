@@ -156,6 +156,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filePreviewExitFullscreen => 'Exit full screen';
 
   @override
+  String get fileTransferShareOrSave => 'Share or save';
+
+  @override
+  String get fileTransferPreparing => 'Preparing download…';
+
+  @override
+  String get fileTransferDownloading => 'Downloading…';
+
+  @override
+  String get fileTransferOpeningShareSheet => 'Opening share sheet…';
+
+  @override
+  String get fileTransferErrorNotAllowed =>
+      'This file is outside the current project or is not allowed.';
+
+  @override
+  String get fileTransferErrorNotFound => 'The file no longer exists.';
+
+  @override
+  String get fileTransferErrorNotFile =>
+      'Only regular files can be downloaded.';
+
+  @override
+  String get fileTransferErrorTooLarge =>
+      'This file exceeds the Bridge download size limit.';
+
+  @override
+  String get fileTransferErrorUnavailable =>
+      'File downloads are unavailable. Update or restart the Bridge.';
+
+  @override
+  String get fileTransferErrorBridgeUpdate =>
+      'Update the Bridge to download files.';
+
+  @override
+  String get fileTransferErrorFailed => 'The file could not be downloaded.';
+
+  @override
+  String get fileTransferErrorShareFailed =>
+      'The system share sheet could not be opened.';
+
+  @override
   String get copied => 'Copied';
 
   @override
