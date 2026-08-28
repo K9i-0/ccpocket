@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.75.0] - 2026-08-28
+
+### Added
+- Add authenticated, project-scoped file downloads with expiring capability URLs, streaming and range support, cancellation, path and file-identity validation, and a configurable 512 MiB default size limit.
+
 ## [1.74.0] - 2026-08-28
 
 ### Added
