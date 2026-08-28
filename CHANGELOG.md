@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.122.0] - 2026-08-28
+
+### Added
+- Upload files from the native file picker into the current Explorer folder with progress, cancellation, retry, and configurable conflict handling.
+
+### Changed
+- Require Bridge 1.76.0 for secure, integrity-verified project file uploads.
+
 ## [1.121.0] - 2026-08-28
 
 ### Added
