@@ -4,6 +4,24 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('parses file list metadata', () {
+    final message = ServerMessage.fromJson({
+      'type': 'file_list',
+      'files': ['lib/', 'lib/new.dart', 'output.mp4'],
+      'ignored': [false, false, true],
+      'modifiedAt': {
+        'lib/new.dart': 1700000000000,
+        'output.mp4': 1700000001000.4,
+      },
+    }) as FileListMessage;
+
+    expect(message.ignoredFiles, {'output.mp4'});
+    expect(message.modifiedAt, {
+      'lib/new.dart': 1700000000000,
+      'output.mp4': 1700000001000,
+    });
+  });
+
   test('parses explicit permission outcomes on synthetic tool results', () {
     final message = ServerMessage.fromJson({
       'type': 'tool_result',

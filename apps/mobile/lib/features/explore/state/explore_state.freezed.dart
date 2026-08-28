@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ExploreState {
 
- String get projectPath; String get currentPath; List<String> get allFiles; List<ExploreEntry> get visibleEntries; ExploreStatus get status; bool get fileListTruncated; int? get totalFiles; String? get error;
+ String get projectPath; String get currentPath; List<String> get allFiles; Set<String> get ignoredFiles; List<ExploreEntry> get visibleEntries; ExploreStatus get status; bool get fileListTruncated; int? get totalFiles; String? get error;
 /// Create a copy of ExploreState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -26,16 +26,16 @@ $ExploreStateCopyWith<ExploreState> get copyWith => _$ExploreStateCopyWithImpl<E
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other.allFiles, allFiles)&&const DeepCollectionEquality().equals(other.visibleEntries, visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other.allFiles, allFiles)&&const DeepCollectionEquality().equals(other.ignoredFiles, ignoredFiles)&&const DeepCollectionEquality().equals(other.visibleEntries, visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(allFiles),const DeepCollectionEquality().hash(visibleEntries),status,fileListTruncated,totalFiles,error);
+int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(allFiles),const DeepCollectionEquality().hash(ignoredFiles),const DeepCollectionEquality().hash(visibleEntries),status,fileListTruncated,totalFiles,error);
 
 @override
 String toString() {
-  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
+  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, ignoredFiles: $ignoredFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
 }
 
 
@@ -46,7 +46,7 @@ abstract mixin class $ExploreStateCopyWith<$Res>  {
   factory $ExploreStateCopyWith(ExploreState value, $Res Function(ExploreState) _then) = _$ExploreStateCopyWithImpl;
 @useResult
 $Res call({
- String projectPath, String currentPath, List<String> allFiles, List<ExploreEntry> visibleEntries, ExploreStatus status, bool fileListTruncated, int? totalFiles, String? error
+ String projectPath, String currentPath, List<String> allFiles, Set<String> ignoredFiles, List<ExploreEntry> visibleEntries, ExploreStatus status, bool fileListTruncated, int? totalFiles, String? error
 });
 
 
@@ -63,12 +63,13 @@ class _$ExploreStateCopyWithImpl<$Res>
 
 /// Create a copy of ExploreState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? projectPath = null,Object? currentPath = null,Object? allFiles = null,Object? visibleEntries = null,Object? status = null,Object? fileListTruncated = null,Object? totalFiles = freezed,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? projectPath = null,Object? currentPath = null,Object? allFiles = null,Object? ignoredFiles = null,Object? visibleEntries = null,Object? status = null,Object? fileListTruncated = null,Object? totalFiles = freezed,Object? error = freezed,}) {
   return _then(ExploreState(
 projectPath: null == projectPath ? _self.projectPath : projectPath // ignore: cast_nullable_to_non_nullable
 as String,currentPath: null == currentPath ? _self.currentPath : currentPath // ignore: cast_nullable_to_non_nullable
 as String,allFiles: null == allFiles ? _self.allFiles : allFiles // ignore: cast_nullable_to_non_nullable
-as List<String>,visibleEntries: null == visibleEntries ? _self.visibleEntries : visibleEntries // ignore: cast_nullable_to_non_nullable
+as List<String>,ignoredFiles: null == ignoredFiles ? _self.ignoredFiles : ignoredFiles // ignore: cast_nullable_to_non_nullable
+as Set<String>,visibleEntries: null == visibleEntries ? _self.visibleEntries : visibleEntries // ignore: cast_nullable_to_non_nullable
 as List<ExploreEntry>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as ExploreStatus,fileListTruncated: null == fileListTruncated ? _self.fileListTruncated : fileListTruncated // ignore: cast_nullable_to_non_nullable
 as bool,totalFiles: freezed == totalFiles ? _self.totalFiles : totalFiles // ignore: cast_nullable_to_non_nullable
@@ -158,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String projectPath,  String currentPath,  List<String> allFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String projectPath,  String currentPath,  List<String> allFiles,  Set<String> ignoredFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExploreState() when $default != null:
-return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
+return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.ignoredFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
   return orElse();
 
 }
@@ -179,10 +180,10 @@ return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visible
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String projectPath,  String currentPath,  List<String> allFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String projectPath,  String currentPath,  List<String> allFiles,  Set<String> ignoredFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)  $default,) {final _that = this;
 switch (_that) {
 case _ExploreState():
-return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
+return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.ignoredFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +200,10 @@ return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visible
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String projectPath,  String currentPath,  List<String> allFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String projectPath,  String currentPath,  List<String> allFiles,  Set<String> ignoredFiles,  List<ExploreEntry> visibleEntries,  ExploreStatus status,  bool fileListTruncated,  int? totalFiles,  String? error)?  $default,) {final _that = this;
 switch (_that) {
 case _ExploreState() when $default != null:
-return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
+return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.ignoredFiles,_that.visibleEntries,_that.status,_that.fileListTruncated,_that.totalFiles,_that.error);case _:
   return null;
 
 }
@@ -214,7 +215,7 @@ return $default(_that.projectPath,_that.currentPath,_that.allFiles,_that.visible
 
 
 class _ExploreState implements ExploreState {
-  const _ExploreState({required this.projectPath, this.currentPath = '',  List<String> allFiles = const [],  List<ExploreEntry> visibleEntries = const [], this.status = ExploreStatus.loading, this.fileListTruncated = false, this.totalFiles, this.error}): _allFiles = allFiles,_visibleEntries = visibleEntries;
+  const _ExploreState({required this.projectPath, this.currentPath = '',  List<String> allFiles = const [],  Set<String> ignoredFiles = const <String>{},  List<ExploreEntry> visibleEntries = const [], this.status = ExploreStatus.loading, this.fileListTruncated = false, this.totalFiles, this.error}): _allFiles = allFiles,_ignoredFiles = ignoredFiles,_visibleEntries = visibleEntries;
   
 
 @override final  String projectPath;
@@ -224,6 +225,13 @@ class _ExploreState implements ExploreState {
   if (_allFiles is EqualUnmodifiableListView) return _allFiles;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_allFiles);
+}
+
+ final  Set<String> _ignoredFiles;
+@override@JsonKey() Set<String> get ignoredFiles {
+  if (_ignoredFiles is EqualUnmodifiableSetView) return _ignoredFiles;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_ignoredFiles);
 }
 
  final  List<ExploreEntry> _visibleEntries;
@@ -248,16 +256,16 @@ _$ExploreStateCopyWith<_ExploreState> get copyWith => __$ExploreStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other._allFiles, _allFiles)&&const DeepCollectionEquality().equals(other._visibleEntries, _visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other._allFiles, _allFiles)&&const DeepCollectionEquality().equals(other._ignoredFiles, _ignoredFiles)&&const DeepCollectionEquality().equals(other._visibleEntries, _visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(_allFiles),const DeepCollectionEquality().hash(_visibleEntries),status,fileListTruncated,totalFiles,error);
+int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(_allFiles),const DeepCollectionEquality().hash(_ignoredFiles),const DeepCollectionEquality().hash(_visibleEntries),status,fileListTruncated,totalFiles,error);
 
 @override
 String toString() {
-  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
+  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, ignoredFiles: $ignoredFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
 }
 
 
@@ -268,7 +276,7 @@ abstract mixin class _$ExploreStateCopyWith<$Res> implements $ExploreStateCopyWi
   factory _$ExploreStateCopyWith(_ExploreState value, $Res Function(_ExploreState) _then) = __$ExploreStateCopyWithImpl;
 @override @useResult
 $Res call({
- String projectPath, String currentPath, List<String> allFiles, List<ExploreEntry> visibleEntries, ExploreStatus status, bool fileListTruncated, int? totalFiles, String? error
+ String projectPath, String currentPath, List<String> allFiles, Set<String> ignoredFiles, List<ExploreEntry> visibleEntries, ExploreStatus status, bool fileListTruncated, int? totalFiles, String? error
 });
 
 
@@ -285,12 +293,13 @@ class __$ExploreStateCopyWithImpl<$Res>
 
 /// Create a copy of ExploreState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? projectPath = null,Object? currentPath = null,Object? allFiles = null,Object? visibleEntries = null,Object? status = null,Object? fileListTruncated = null,Object? totalFiles = freezed,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? projectPath = null,Object? currentPath = null,Object? allFiles = null,Object? ignoredFiles = null,Object? visibleEntries = null,Object? status = null,Object? fileListTruncated = null,Object? totalFiles = freezed,Object? error = freezed,}) {
   return _then(_ExploreState(
 projectPath: null == projectPath ? _self.projectPath : projectPath // ignore: cast_nullable_to_non_nullable
 as String,currentPath: null == currentPath ? _self.currentPath : currentPath // ignore: cast_nullable_to_non_nullable
 as String,allFiles: null == allFiles ? _self._allFiles : allFiles // ignore: cast_nullable_to_non_nullable
-as List<String>,visibleEntries: null == visibleEntries ? _self._visibleEntries : visibleEntries // ignore: cast_nullable_to_non_nullable
+as List<String>,ignoredFiles: null == ignoredFiles ? _self._ignoredFiles : ignoredFiles // ignore: cast_nullable_to_non_nullable
+as Set<String>,visibleEntries: null == visibleEntries ? _self._visibleEntries : visibleEntries // ignore: cast_nullable_to_non_nullable
 as List<ExploreEntry>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as ExploreStatus,fileListTruncated: null == fileListTruncated ? _self.fileListTruncated : fileListTruncated // ignore: cast_nullable_to_non_nullable
 as bool,totalFiles: freezed == totalFiles ? _self.totalFiles : totalFiles // ignore: cast_nullable_to_non_nullable

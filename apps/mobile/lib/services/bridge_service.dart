@@ -310,6 +310,10 @@ class BridgeService implements BridgeServiceBase {
       _fileListScopeState(projectPath).controller.stream;
   List<String> fileListForProject(String projectPath) =>
       _fileListScopeStates[projectPath]?.message.files ?? const [];
+  Set<String> ignoredFilesForProject(String projectPath) =>
+      _fileListScopeStates[projectPath]?.message.ignoredFiles ?? const {};
+  Map<String, int> fileModificationTimesForProject(String projectPath) =>
+      _fileListScopeStates[projectPath]?.message.modifiedAt ?? const {};
   Stream<FileContentMessage> get fileContent => _fileContentController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
   Stream<DiffImageResultMessage> get diffImageResults =>
@@ -3477,6 +3481,8 @@ class BridgeService implements BridgeServiceBase {
       projectPath: resolved.projectPath,
       requestId: resolved.requestId,
       files: response.files,
+      ignoredFiles: response.ignoredFiles,
+      modifiedAt: response.modifiedAt,
       totalFiles: response.totalFiles,
       truncated: response.truncated,
       error: response.error,

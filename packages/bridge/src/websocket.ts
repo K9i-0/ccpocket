@@ -6009,6 +6009,8 @@ export class BridgeWebSocketServer {
               type: "file_list",
               ...projectRequestMetadata(msg),
               files: result.files,
+              ignored: result.ignored,
+              modifiedAt: result.modifiedAt,
               totalFiles: result.totalFiles,
               truncated: result.truncated,
             } as Record<string, unknown>);

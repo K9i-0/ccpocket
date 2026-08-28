@@ -809,6 +809,109 @@ describe("listProjectFilesAndDirectories", () => {
     expect(result.truncated).toBe(true);
   });
 
+  it("includes ignored files with aligned ignored metadata", async () => {
+    project = createTempRepo();
+    writeFileSync(join(project, ".gitignore"), "renders/*.mp4\n");
+    mkdirSync(join(project, "renders"), { recursive: true });
+    writeFileSync(join(project, "renders", "preview.mp4"), "video\n");
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 20,
+      maxBytes: 4096,
+    });
+
+    const fileIndex = result.files.indexOf("renders/preview.mp4");
+    expect(fileIndex).toBeGreaterThanOrEqual(0);
+    expect(result.ignored?.[fileIndex]).toBe(true);
+  });
+
+  it("excludes ignored dependency and generated directories", async () => {
+    project = createTempRepo();
+    writeFileSync(join(project, ".gitignore"), "Pods/\n.gradle/\n");
+    mkdirSync(join(project, "Pods", "Dependency"), { recursive: true });
+    mkdirSync(join(project, ".gradle", "cache"), { recursive: true });
+    writeFileSync(join(project, "Pods", "Dependency", "source.m"), "pod\n");
+    writeFileSync(join(project, ".gradle", "cache", "state.bin"), "cache\n");
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 20,
+      maxBytes: 4096,
+    });
+
+    expect(result.files).not.toContain("Pods/Dependency/source.m");
+    expect(result.files).not.toContain(".gradle/cache/state.bin");
+  });
+
+  it("prioritizes regular files before filling the limit with ignored files", async () => {
+    project = createTempRepo();
+    writeFileSync(join(project, ".gitignore"), "ignored/\n");
+    writeFileSync(join(project, "tracked.txt"), "tracked\n");
+    execFileSync("git", ["add", ".gitignore", "tracked.txt"], { cwd: project });
+    mkdirSync(join(project, "ignored"), { recursive: true });
+    for (let index = 0; index < 20; index++) {
+      writeFileSync(
+        join(project, "ignored", `${index.toString().padStart(2, "0")}.txt`),
+        "ignored\n",
+      );
+    }
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 6,
+      maxBytes: 4096,
+    });
+
+    expect(result.files).toContain("tracked.txt");
+    expect(result.files).toContain("ignored/00.txt");
+    expect(result.truncated).toBe(true);
+  });
+
+  it("keeps files and metadata within the byte limit", async () => {
+    project = createTempRepo();
+    writeFileSync(join(project, ".gitignore"), "ignored/\n");
+    mkdirSync(join(project, "ignored"), { recursive: true });
+    for (let index = 0; index < 20; index++) {
+      writeFileSync(
+        join(project, "ignored", `long-ignored-file-${index}.txt`),
+        "ignored\n",
+      );
+    }
+
+    const maxBytes = 180;
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 100,
+      maxBytes,
+    });
+    const metadataBytes = Buffer.byteLength(
+      JSON.stringify({
+        files: result.files,
+        ignored: result.ignored,
+        modifiedAt: result.modifiedAt,
+      }),
+      "utf8",
+    );
+
+    expect(metadataBytes).toBeLessThanOrEqual(maxBytes);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("only reads modification times for duplicate basenames", async () => {
+    project = createTempRepo();
+    mkdirSync(join(project, "old"), { recursive: true });
+    mkdirSync(join(project, "new"), { recursive: true });
+    writeFileSync(join(project, "old", "script.md"), "old\n");
+    writeFileSync(join(project, "new", "script.md"), "new\n");
+    writeFileSync(join(project, "unique.md"), "unique\n");
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 20,
+      maxBytes: 4096,
+    });
+
+    expect(result.modifiedAt?.["old/script.md"]).toEqual(expect.any(Number));
+    expect(result.modifiedAt?.["new/script.md"]).toEqual(expect.any(Number));
+    expect(result.modifiedAt?.["unique.md"]).toBeUndefined();
+  });
+
   it("does not truncate an exact filesystem fallback limit", async () => {
     project = createTempProject();
     writeFileSync(join(project, "a.txt"), "a\n");
@@ -824,6 +927,8 @@ describe("listProjectFilesAndDirectories", () => {
       files: ["a.txt", "b.txt", "c.txt"],
       truncated: false,
       totalFiles: 3,
+      ignored: [false, false, false],
+      modifiedAt: {},
     });
   });
 
@@ -842,6 +947,8 @@ describe("listProjectFilesAndDirectories", () => {
       files: [],
       truncated: true,
       totalFiles: undefined,
+      ignored: [],
+      modifiedAt: {},
     });
   });
 });

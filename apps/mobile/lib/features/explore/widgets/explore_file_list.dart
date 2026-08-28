@@ -4,6 +4,7 @@ import '../state/explore_state.dart';
 import 'explore_entry_tile.dart';
 
 class ExploreFileList extends StatelessWidget {
+  final ScrollController controller;
   final List<ExploreEntry> entries;
   final ValueChanged<ExploreEntry> onTapEntry;
   final ValueChanged<ExploreEntry>? onShareFile;
@@ -12,6 +13,7 @@ class ExploreFileList extends StatelessWidget {
 
   const ExploreFileList({
     super.key,
+    required this.controller,
     required this.entries,
     required this.onTapEntry,
     this.onShareFile,
@@ -23,6 +25,7 @@ class ExploreFileList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       key: const ValueKey('explore_list'),
+      controller: controller,
       itemCount: entries.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {

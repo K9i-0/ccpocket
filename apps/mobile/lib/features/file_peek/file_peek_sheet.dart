@@ -38,7 +38,11 @@ Future<void> openFilePeek(
   required List<String> projectFiles,
   ValueChanged<String>? onResolvedFilePath,
 }) async {
-  final resolved = _resolveFilePath(filePath, projectFiles);
+  final resolved = resolveFilePeekPaths(
+    filePath,
+    projectFiles,
+    modifiedAt: bridge.fileModificationTimesForProject(projectPath),
+  );
 
   switch (resolved.length) {
     case 1:
@@ -75,14 +79,24 @@ Future<void> openFilePeek(
 }
 
 /// Returns project file paths whose suffix matches [filePath].
-List<String> _resolveFilePath(String filePath, List<String> projectFiles) {
+List<String> resolveFilePeekPaths(
+  String filePath,
+  List<String> projectFiles, {
+  Map<String, int> modifiedAt = const {},
+}) {
   final filesOnly = projectFiles.where((f) => !f.endsWith('/'));
   // Exact match first.
   if (filesOnly.contains(filePath)) return [filePath];
 
   // Suffix match: e.g. "lib/main.dart" matches "apps/mobile/lib/main.dart".
   final suffix = filePath.startsWith('/') ? filePath : '/$filePath';
-  final candidates = filesOnly.where((f) => '/$f'.endsWith(suffix)).toList();
+  final candidates = filesOnly.where((f) => '/$f'.endsWith(suffix)).toList()
+    ..sort((a, b) {
+      final modifiedComparison = (modifiedAt[b] ?? 0).compareTo(
+        modifiedAt[a] ?? 0,
+      );
+      return modifiedComparison != 0 ? modifiedComparison : a.compareTo(b);
+    });
 
   return candidates;
 }
@@ -354,37 +368,31 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        fileName,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: _copyPath,
-                      child: Icon(
-                        Icons.content_copy,
-                        size: 14,
-                        color: appColors.subtleText,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  fileName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              IconButton(
+                key: const ValueKey('file_peek_copy_path_button'),
+                onPressed: _copyPath,
+                icon: Icon(
+                  Icons.content_copy,
+                  size: 18,
+                  color: appColors.subtleText,
+                ),
+                tooltip: 'Copy path',
               ),
               if (isImage && !_loading && _result?.error == null)
                 IconButton(
                   key: const ValueKey('file_peek_image_fullscreen_button'),
                   icon: const Icon(Icons.open_in_full, size: 18),
                   onPressed: _openImageFullScreen,
-                  visualDensity: VisualDensity.compact,
                 ),
               if (supportsProjectFileTransfer)
                 IconButton(
@@ -396,7 +404,6 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                     projectPath: widget.projectPath,
                     filePath: widget.filePath,
                   ),
-                  visualDensity: VisualDensity.compact,
                   tooltip: AppLocalizations.of(context).fileTransferShareOrSave,
                 ),
               if ((isMarkdown || canPreviewHtml) &&
@@ -413,15 +420,14 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                         : null,
                   ),
                   onPressed: () => setState(() => _showRaw = !_showRaw),
-                  visualDensity: VisualDensity.compact,
                   tooltip: _showRaw
                       ? AppLocalizations.of(context).filePreviewShowPreview
                       : AppLocalizations.of(context).filePreviewShowSource,
                 ),
               IconButton(
+                key: const ValueKey('file_peek_close_button'),
                 icon: const Icon(Icons.close, size: 20),
                 onPressed: () => Navigator.of(context).pop(),
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),

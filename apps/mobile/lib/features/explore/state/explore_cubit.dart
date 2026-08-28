@@ -28,7 +28,12 @@ class ExploreCubit extends Cubit<ExploreState> {
         ? initialFiles
         : cachedFiles;
     if (effectiveInitialFiles.isNotEmpty) {
-      _applyFiles(effectiveInitialFiles, truncated: false, totalFiles: null);
+      _applyFiles(
+        effectiveInitialFiles,
+        ignoredFiles: _bridge.ignoredFilesForProject(projectPath),
+        truncated: false,
+        totalFiles: null,
+      );
     }
     _bridge.requestFileList(projectPath);
   }
@@ -40,6 +45,7 @@ class ExploreCubit extends Cubit<ExploreState> {
     }
     _applyFiles(
       message.files,
+      ignoredFiles: message.ignoredFiles,
       truncated: message.truncated,
       totalFiles: message.totalFiles,
     );
@@ -47,15 +53,21 @@ class ExploreCubit extends Cubit<ExploreState> {
 
   void _applyFiles(
     List<String> files, {
+    required Set<String> ignoredFiles,
     required bool truncated,
     required int? totalFiles,
   }) {
     final normalizedPath = normalizeExplorePath(files, state.currentPath);
-    final entries = buildExploreEntries(files, currentPath: normalizedPath);
+    final entries = buildExploreEntries(
+      files,
+      currentPath: normalizedPath,
+      ignoredFiles: ignoredFiles,
+    );
     emit(
       state.copyWith(
         currentPath: normalizedPath,
         allFiles: files,
+        ignoredFiles: ignoredFiles,
         visibleEntries: entries,
         fileListTruncated: truncated,
         totalFiles: totalFiles,
@@ -74,6 +86,7 @@ class ExploreCubit extends Cubit<ExploreState> {
     final entries = buildExploreEntries(
       state.allFiles,
       currentPath: normalizedPath,
+      ignoredFiles: state.ignoredFiles,
     );
     emit(
       state.copyWith(
@@ -87,7 +100,11 @@ class ExploreCubit extends Cubit<ExploreState> {
   bool goUp() {
     if (state.currentPath.isEmpty) return false;
     final next = parentDirectoryOf(state.currentPath);
-    final entries = buildExploreEntries(state.allFiles, currentPath: next);
+    final entries = buildExploreEntries(
+      state.allFiles,
+      currentPath: next,
+      ignoredFiles: state.ignoredFiles,
+    );
     emit(
       state.copyWith(
         currentPath: next,
@@ -125,6 +142,7 @@ class ExploreCubit extends Cubit<ExploreState> {
 List<ExploreEntry> buildExploreEntries(
   List<String> files, {
   required String currentPath,
+  Set<String> ignoredFiles = const {},
 }) {
   final prefix = currentPath.isEmpty ? '' : '$currentPath/';
   final directories = <String>{};
@@ -138,7 +156,12 @@ List<ExploreEntry> buildExploreEntries(
     final slashIndex = remainder.indexOf('/');
     if (slashIndex == -1) {
       entries.add(
-        ExploreEntry(name: remainder, relativePath: file, isDirectory: false),
+        ExploreEntry(
+          name: remainder,
+          relativePath: file,
+          isDirectory: false,
+          isIgnored: ignoredFiles.contains(file),
+        ),
       );
       continue;
     }

@@ -1693,6 +1693,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         truncated: true,
       });
       expect(message.files).toHaveLength(2);
+      expect(message.ignored).toEqual([false, false]);
+      expect(message.modifiedAt).toEqual({});
       expect(message.totalFiles).toBeUndefined();
       bridge.close();
     } finally {

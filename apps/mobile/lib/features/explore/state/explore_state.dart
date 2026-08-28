@@ -18,11 +18,13 @@ class ExploreEntry {
   final String name;
   final String relativePath;
   final bool isDirectory;
+  final bool isIgnored;
 
   const ExploreEntry({
     required this.name,
     required this.relativePath,
     required this.isDirectory,
+    this.isIgnored = false,
   });
 }
 
@@ -32,6 +34,7 @@ abstract class ExploreState with _$ExploreState {
     required String projectPath,
     @Default('') String currentPath,
     @Default([]) List<String> allFiles,
+    @Default(<String>{}) Set<String> ignoredFiles,
     @Default([]) List<ExploreEntry> visibleEntries,
     @Default(ExploreStatus.loading) ExploreStatus status,
     @Default(false) bool fileListTruncated,

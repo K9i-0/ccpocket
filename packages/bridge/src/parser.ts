@@ -704,6 +704,8 @@ export type ServerMessage =
       projectPath?: string;
       requestId?: string;
       files: string[];
+      ignored?: boolean[];
+      modifiedAt?: Record<string, number>;
       totalFiles?: number;
       truncated?: boolean;
       error?: string;

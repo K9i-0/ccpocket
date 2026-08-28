@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:ccpocket/features/explore/explore_screen.dart';
 import 'package:ccpocket/features/explore/state/explore_state.dart';
+import 'package:ccpocket/features/file_peek/file_peek_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -108,6 +109,16 @@ void main() {
       expect(entries.where((entry) => entry.name == 'src').length, 1);
     });
 
+    test('marks git-ignored files', () {
+      final entries = buildExploreEntries(
+        ['notes.md', 'renders/preview.mp4'],
+        currentPath: 'renders',
+        ignoredFiles: {'renders/preview.mp4'},
+      );
+
+      expect(entries.single.isIgnored, isTrue);
+    });
+
     test('returns empty list when there are no files', () {
       expect(buildExploreEntries(const [], currentPath: ''), isEmpty);
     });
@@ -163,6 +174,22 @@ void main() {
     });
   });
 
+  group('file peek path resolution', () {
+    test('sorts duplicate filename matches by modification time', () {
+      final paths = resolveFilePeekPaths(
+        'script.md',
+        ['old/script.md', 'new/script.md', 'middle/script.md'],
+        modifiedAt: {
+          'old/script.md': 100,
+          'middle/script.md': 200,
+          'new/script.md': 300,
+        },
+      );
+
+      expect(paths, ['new/script.md', 'middle/script.md', 'old/script.md']);
+    });
+  });
+
   group('ExploreEmptyState', () {
     testWidgets('renders empty state copy', (tester) async {
       await tester.pumpWidget(
@@ -198,7 +225,80 @@ void main() {
     expect(find.byType(PopupMenuButton<void>), findsNothing);
   });
 
+  testWidgets('shows ignored files with a muted label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ExploreEntryTile(
+            entry: const ExploreEntry(
+              name: 'preview.mp4',
+              relativePath: 'renders/preview.mp4',
+              isDirectory: false,
+              isIgnored: true,
+            ),
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Ignored · renders/preview.mp4'), findsOneWidget);
+  });
+
   group('Explore recent files', () {
+    testWidgets('resets the list to the top after opening a directory', (
+      tester,
+    ) async {
+      final bridge = _TestBridgeService();
+      addTearDown(bridge.dispose);
+      final files = [
+        for (var i = 0; i < 30; i++)
+          "dir_${i.toString().padLeft(2, '0')}/a.txt",
+        'z_target/first.txt',
+        'z_target/second.txt',
+      ];
+
+      await tester.pumpWidget(
+        RepositoryProvider<BridgeService>.value(
+          value: bridge,
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: ExploreScreen(
+              sessionId: 'session-1',
+              projectPath: '/tmp/project',
+              initialFiles: files,
+            ),
+          ),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('z_target'),
+        400,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('explore_list')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      final listBefore = tester.widget<ListView>(
+        find.byKey(const ValueKey('explore_list')),
+      );
+      expect(listBefore.controller!.offset, greaterThan(0));
+
+      await tester.tap(find.text('z_target'));
+      await tester.pump();
+      await tester.pump();
+
+      final listAfter = tester.widget<ListView>(
+        find.byKey(const ValueKey('explore_list')),
+      );
+      expect(listAfter.controller!.offset, 0);
+    });
+
     testWidgets('shows when the bridge truncated the file list', (
       tester,
     ) async {
@@ -276,6 +376,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      final copyButton = find.byKey(
+        const ValueKey('file_peek_copy_path_button'),
+      );
+      expect(copyButton, findsOneWidget);
+      expect(tester.getSize(copyButton).shortestSide, greaterThanOrEqualTo(44));
       final payload = bridge.sentMessages
           .map(
             (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,

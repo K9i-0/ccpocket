@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { realpathSync, type Dir, type Dirent } from "node:fs";
-import { opendir } from "node:fs/promises";
+import { opendir, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
@@ -59,6 +59,8 @@ export interface ClientFileListResult {
   files: string[];
   truncated: boolean;
   totalFiles?: number;
+  ignored?: boolean[];
+  modifiedAt?: Record<string, number>;
 }
 
 export const DEFAULT_FILESYSTEM_FILE_LIST_MAX_DEPTH = 8;
@@ -70,11 +72,15 @@ export const DEFAULT_FILESYSTEM_FILE_LIST_EXCLUDED_DIRS = new Set([
   ".dart_tool",
   ".next",
   ".nuxt",
+  ".gradle",
+  ".symlinks",
   ".venv",
   "__pycache__",
   "build",
   "dist",
+  "ephemeral",
   "node_modules",
+  "Pods",
   "vendor",
 ]);
 
@@ -282,19 +288,51 @@ export function listGitFilesForClient(
   options: Pick<ClientFileListOptions, "maxEntries" | "maxBytes">,
 ): Promise<ClientFileListResult> {
   const cwd = resolveProject(projectPath);
+  return listGitFilesWithArgsForClient(
+    cwd,
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+    options,
+  );
+}
+
+function listGitIgnoredFilesForClient(
+  projectPath: string,
+  options: ClientFileListOptions,
+): Promise<ClientFileListResult> {
+  const cwd = resolveProject(projectPath);
+  const excludedDirs = [
+    ...(options.excludedDirs ?? DEFAULT_FILESYSTEM_FILE_LIST_EXCLUDED_DIRS),
+  ];
+  const excludedPathspecs = excludedDirs.map(
+    (dir) => `:(exclude,glob)**/${dir}/**`,
+  );
+  return listGitFilesWithArgsForClient(
+    cwd,
+    [
+      "ls-files",
+      "-z",
+      "--others",
+      "--ignored",
+      "--exclude-standard",
+      "--",
+      ...excludedPathspecs,
+    ],
+    options,
+  );
+}
+
+function listGitFilesWithArgsForClient(
+  cwd: string,
+  args: string[],
+  options: Pick<ClientFileListOptions, "maxEntries" | "maxBytes">,
+): Promise<ClientFileListResult> {
   const maxEntries = requirePositiveLimit(options.maxEntries, "maxEntries");
   const maxBytes = requirePositiveLimit(options.maxBytes, "maxBytes");
 
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(
       "git",
-      withGitPathConfig([
-        "ls-files",
-        "-z",
-        "--cached",
-        "--others",
-        "--exclude-standard",
-      ]),
+      withGitPathConfig(args),
       { cwd, stdio: ["ignore", "pipe", "pipe"] },
     );
     const decoder = new StringDecoder("utf8");
@@ -406,12 +444,26 @@ export async function listProjectFilesAndDirectoriesForClient(
   const maxEntries = requirePositiveLimit(options.maxEntries, "maxEntries");
   const maxBytes = requirePositiveLimit(options.maxBytes, "maxBytes");
   let listed: ClientFileListResult;
+  let ignoredFiles = new Set<string>();
 
   try {
-    listed = await listGitFilesForClient(projectPath, {
-      maxEntries,
-      maxBytes,
-    });
+    const [visible, ignored] = await Promise.all([
+      listGitFilesForClient(projectPath, { maxEntries, maxBytes }),
+      listGitIgnoredFilesForClient(projectPath, {
+        ...options,
+        maxEntries,
+        maxBytes,
+      }),
+    ]);
+    ignoredFiles = new Set(ignored.files);
+    listed = {
+      files: visible.files,
+      truncated: visible.truncated || ignored.truncated,
+      totalFiles:
+        visible.truncated || ignored.truncated
+          ? undefined
+          : visible.files.length + ignored.files.length,
+    };
   } catch (err) {
     if (!isGitFileListingUnavailable(err)) throw err;
     const fileSystemResult = await collectFileSystemFiles(projectPath, {
@@ -430,16 +482,103 @@ export async function listProjectFilesAndDirectoriesForClient(
     };
   }
 
-  const filesAndDirs = withDirectoryCandidates(listed.files);
+  // Keep regular tracked/untracked entries ahead of ignored entries so a large
+  // ignored tree cannot consume the client limit and hide source files.
+  const primaryCandidates = withDirectoryCandidates(listed.files);
+  const primarySet = new Set(primaryCandidates);
+  const ignoredCandidates = withDirectoryCandidates([...ignoredFiles]).filter(
+    (file) => !primarySet.has(file),
+  );
+  const filesAndDirs = [...primaryCandidates, ...ignoredCandidates];
   const limited = limitClientFileList(filesAndDirs, {
     maxEntries,
     maxBytes,
   });
+  const modifiedAt = await readDuplicateFileModificationTimes(
+    projectPath,
+    limited.files,
+  );
+  const payload = fitClientFileListPayload(
+    limited.files,
+    ignoredFiles,
+    modifiedAt,
+    maxBytes,
+  );
   return {
-    files: limited.files,
-    truncated: listed.truncated || limited.truncated,
+    ...payload,
+    truncated:
+      listed.truncated ||
+      limited.truncated ||
+      payload.files.length < limited.files.length,
     totalFiles: listed.truncated ? undefined : filesAndDirs.length,
   };
+}
+
+async function readDuplicateFileModificationTimes(
+  projectPath: string,
+  files: readonly string[],
+): Promise<Record<string, number>> {
+  const root = resolveProject(projectPath);
+  const basenameCounts = new Map<string, number>();
+  for (const file of files) {
+    if (file.endsWith("/")) continue;
+    const basename = file.slice(file.lastIndexOf("/") + 1);
+    basenameCounts.set(basename, (basenameCounts.get(basename) ?? 0) + 1);
+  }
+  const duplicates = files.filter((file) => {
+    if (file.endsWith("/")) return false;
+    const basename = file.slice(file.lastIndexOf("/") + 1);
+    return (basenameCounts.get(basename) ?? 0) > 1;
+  });
+  const result: Record<string, number> = {};
+  const batchSize = 64;
+  for (let start = 0; start < duplicates.length; start += batchSize) {
+    await Promise.all(
+      duplicates.slice(start, start + batchSize).map(async (file) => {
+        try {
+          result[file] = (await stat(join(root, file))).mtimeMs;
+        } catch {
+          // A file may disappear between listing and stat; omit its metadata.
+        }
+      }),
+    );
+  }
+  return result;
+}
+
+function fitClientFileListPayload(
+  files: readonly string[],
+  ignoredFiles: ReadonlySet<string>,
+  modifiedAt: Readonly<Record<string, number>>,
+  maxBytes: number,
+): Pick<ClientFileListResult, "files" | "ignored" | "modifiedAt"> {
+  const buildPayload = (count: number) => {
+    const includedFiles = files.slice(0, count);
+    const includedSet = new Set(includedFiles);
+    return {
+      files: includedFiles,
+      ignored: includedFiles.map((file) => ignoredFiles.has(file)),
+      modifiedAt: Object.fromEntries(
+        Object.entries(modifiedAt).filter(([file]) => includedSet.has(file)),
+      ),
+    };
+  };
+
+  let low = 0;
+  let high = files.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    const bytes = Buffer.byteLength(
+      JSON.stringify(buildPayload(middle)),
+      "utf8",
+    );
+    if (bytes <= maxBytes) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return buildPayload(low);
 }
 
 function limitClientFileList(

@@ -19,6 +19,8 @@ class ExploreEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ignoredColor = colorScheme.onSurfaceVariant.withValues(alpha: 0.62);
     return ListTile(
       key: ValueKey('explore_entry_${entry.relativePath}'),
       tileColor: isHighlighted
@@ -29,15 +31,27 @@ class ExploreEntryTile extends StatelessWidget {
       leading: Icon(
         entry.isDirectory ? Icons.folder_outlined : Icons.description_outlined,
         size: 20,
+        color: entry.isIgnored ? ignoredColor : null,
       ),
-      title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+        entry.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: entry.isIgnored ? TextStyle(color: ignoredColor) : null,
+      ),
       subtitle: entry.isDirectory
           ? null
           : Text(
-              entry.relativePath,
+              entry.isIgnored
+                  ? 'Ignored · ${entry.relativePath}'
+                  : entry.relativePath,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'monospace',
+                color: entry.isIgnored ? ignoredColor : null,
+              ),
             ),
       trailing: entry.isDirectory
           ? const Icon(Icons.chevron_right, size: 18)

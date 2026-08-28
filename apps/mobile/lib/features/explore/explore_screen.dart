@@ -88,7 +88,14 @@ class _ExploreScreenBody extends StatefulWidget {
 
 class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
   final GlobalKey _highlightedEntryKey = GlobalKey();
+  final ScrollController _fileListController = ScrollController();
   String? _highlightedFilePath;
+
+  @override
+  void dispose() {
+    _fileListController.dispose();
+    super.dispose();
+  }
 
   void _closeExplorer() {
     final result = context.read<ExploreCubit>().buildResult();
@@ -102,6 +109,17 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
 
   void _notifyResultChanged(ExploreCubit cubit) {
     widget.onResultChanged?.call(cubit.buildResult());
+  }
+
+  void _openDirectory(ExploreCubit cubit, String path) {
+    setState(() => _highlightedFilePath = null);
+    cubit.openDirectory(path);
+    _notifyResultChanged(cubit);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _fileListController.hasClients) {
+        _fileListController.jumpTo(0);
+      }
+    });
   }
 
   Future<void> _openRecentFilesSheet(ExploreCubit cubit) async {
@@ -272,10 +290,8 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
                 currentPath: state.currentPath,
                 breadcrumbs: cubit.breadcrumbs,
                 onTapCrumb: (crumb) {
-                  setState(() => _highlightedFilePath = null);
                   if (crumb == state.currentPath) return;
-                  cubit.openDirectory(crumb);
-                  _notifyResultChanged(cubit);
+                  _openDirectory(cubit, crumb);
                 },
               ),
               if (state.fileListTruncated)
@@ -314,6 +330,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
         return Center(child: Text(state.error ?? 'Failed to load files'));
       case ExploreStatus.ready:
         return ExploreFileList(
+          controller: _fileListController,
           entries: state.visibleEntries,
           highlightedFilePath: _highlightedFilePath,
           highlightedEntryKey: _highlightedEntryKey,
@@ -327,9 +344,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
               : null,
           onTapEntry: (entry) {
             if (entry.isDirectory) {
-              setState(() => _highlightedFilePath = null);
-              context.read<ExploreCubit>().openDirectory(entry.relativePath);
-              _notifyResultChanged(context.read<ExploreCubit>());
+              _openDirectory(context.read<ExploreCubit>(), entry.relativePath);
               return;
             }
             _openFilePeek(context.read<ExploreCubit>(), entry.relativePath);

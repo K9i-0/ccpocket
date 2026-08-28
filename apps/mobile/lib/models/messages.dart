@@ -1103,6 +1103,8 @@ sealed class ServerMessage {
         projectPath: json['projectPath'] as String?,
         requestId: json['requestId'] as String?,
         files: (json['files'] as List).cast<String>(),
+        ignoredFiles: _parseIgnoredFiles(json),
+        modifiedAt: _parseFileModificationTimes(json),
         totalFiles: json['totalFiles'] as int?,
         truncated: json['truncated'] as bool? ?? false,
         error: json['error'] as String?,
@@ -2766,6 +2768,8 @@ class FileListMessage implements ServerMessage, ProjectCorrelatedMessage {
   @override
   final String? requestId;
   final List<String> files;
+  final Set<String> ignoredFiles;
+  final Map<String, int> modifiedAt;
   final int? totalFiles;
   final bool truncated;
   final String? error;
@@ -2774,10 +2778,49 @@ class FileListMessage implements ServerMessage, ProjectCorrelatedMessage {
     this.projectPath,
     this.requestId,
     required this.files,
+    this.ignoredFiles = const {},
+    this.modifiedAt = const {},
     this.totalFiles,
     this.truncated = false,
     this.error,
   });
+}
+
+Map<String, int> _parseFileModificationTimes(Map<String, dynamic> json) {
+  final raw = json['modifiedAt'];
+  if (raw is Map) {
+    return {
+      for (final entry in raw.entries)
+        if (entry.key is String && entry.value is num)
+          entry.key as String: (entry.value as num).round(),
+    };
+  }
+
+  // Accept the earlier aligned-array format for protocol compatibility.
+  final files = (json['files'] as List?)?.cast<String>() ?? const [];
+  final times = raw as List?;
+  if (times == null) return const {};
+  final result = <String, int>{};
+  final count = files.length < times.length ? files.length : times.length;
+  for (var index = 0; index < count; index++) {
+    final time = times[index];
+    if (time is num) result[files[index]] = time.round();
+  }
+  return result;
+}
+
+Set<String> _parseIgnoredFiles(Map<String, dynamic> json) {
+  final files = (json['files'] as List?)?.cast<String>() ?? const [];
+  final flags = json['ignored'] as List?;
+  if (flags != null) {
+    return {
+      for (var index = 0; index < files.length && index < flags.length; index++)
+        if (flags[index] == true) files[index],
+    };
+  }
+
+  // Accept the path-list format for protocol compatibility.
+  return (json['ignoredFiles'] as List?)?.cast<String>().toSet() ?? const {};
 }
 
 class FileContentMessage implements ServerMessage, ProjectCorrelatedMessage {
