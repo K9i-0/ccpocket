@@ -64,6 +64,8 @@ class _TestTransport extends FileUploadTransport {
   void cancel() => cancelled = true;
 }
 
+XFile _testFile(String name) => XFile('/tmp/$name', name: name);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
@@ -95,7 +97,7 @@ void main() {
   test('prepares, streams, finalizes, and records the uploaded path', () async {
     final bridge = _TestBridgeService();
     final transport = _TestTransport();
-    final file = XFile('/tmp/report.txt');
+    final file = _testFile('report.txt');
     final cubit = FileUploadCubit(
       bridge: bridge,
       projectPath: '/project',
@@ -168,7 +170,7 @@ void main() {
         bridge: bridge,
         projectPath: '/project',
         directoryPath: '',
-        files: [XFile('/tmp/one.bin')],
+        files: [_testFile('one.bin')],
         fileSizes: const [1],
         transport: transport,
         requestIdFactory: () => 'upload-2',
@@ -203,7 +205,7 @@ void main() {
       bridge: bridge,
       projectPath: '/project',
       directoryPath: 'docs',
-      files: [XFile('/tmp/report.pdf')],
+      files: [_testFile('report.pdf')],
       fileSizes: const [1024],
       transport: _TestTransport(),
     );
@@ -248,7 +250,7 @@ void main() {
         bridge: bridge,
         projectPath: '/project',
         directoryPath: '',
-        files: [XFile('/tmp/pending.bin')],
+        files: [_testFile('pending.bin')],
         fileSizes: const [1],
         requestTimeout: const Duration(seconds: 10),
       );
@@ -275,7 +277,7 @@ void main() {
         bridge: bridge,
         projectPath: '/project',
         directoryPath: '',
-        files: [XFile('/tmp/one.bin')],
+        files: [_testFile('one.bin')],
         fileSizes: const [1],
         transport: transport,
         requestIdFactory: () => 'upload-metadata',
@@ -316,7 +318,7 @@ void main() {
       bridge: bridge,
       projectPath: '/project',
       directoryPath: 'docs',
-      files: [XFile('/tmp/one.bin')],
+      files: [_testFile('one.bin')],
       fileSizes: const [1],
       transport: _TestTransport(),
       requestIdFactory: () => 'upload-integrity',
@@ -367,7 +369,7 @@ void main() {
       bridge: bridge,
       projectPath: '/project',
       directoryPath: '',
-      files: [XFile('/tmp/one.bin')],
+      files: [_testFile('one.bin')],
       fileSizes: const [1],
       transport: _TestTransport(),
       requestIdFactory: () => 'upload-retry-finalize',
