@@ -2,7 +2,7 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
-## [Unreleased]
+## [1.74.0] - 2026-08-28
 
 ### Added
 - Support Claude Code sessions on Amazon Bedrock. When `CLAUDE_CODE_USE_BEDROCK` is enabled in the Bridge environment or in the Claude Code user settings `env` block, non-OAuth Bedrock sessions can start and list models without an Anthropic API credential or the subscription opt-in. If Claude Code nevertheless initializes with OAuth, `BRIDGE_ALLOW_CLAUDE_OAUTH=1` is still required. AWS credentials stay on the Bridge host and are resolved through the normal AWS credential provider chain.
