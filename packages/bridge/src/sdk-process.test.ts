@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -1005,25 +1006,24 @@ describe("SdkProcess input dispatch", () => {
 
 });
 
-// Points Bedrock detection at a directory that has no Claude Code settings
-// file, so these tests never depend on the host's real Claude configuration.
-const CLAUDE_CONFIG_DIR_WITHOUT_SETTINGS = join(
-  tmpdir(),
-  "ccpocket-bridge-tests-no-claude-settings",
-);
-
 describe("SdkProcess Claude authentication", () => {
+  // A fresh empty directory per test points Bedrock detection away from the
+  // host's real Claude Code settings and from anything another run left behind.
+  let claudeConfigDir: string;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    claudeConfigDir = mkdtempSync(join(tmpdir(), "ccpocket-bridge-claude-auth-"));
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
     vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
     vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
-    vi.stubEnv("CLAUDE_CONFIG_DIR", CLAUDE_CONFIG_DIR_WITHOUT_SETTINGS);
+    vi.stubEnv("CLAUDE_CONFIG_DIR", claudeConfigDir);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    rmSync(claudeConfigDir, { recursive: true, force: true });
   });
 
   async function runSdkMessages(
