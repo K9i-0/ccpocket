@@ -75,6 +75,7 @@ describe("doctor checks", () => {
       vi.stubEnv("ANTHROPIC_API_KEY", "");
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
       vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+      vi.stubEnv("AWS_REGION", "");
     });
 
     afterEach(() => {
@@ -172,6 +173,7 @@ describe("doctor checks", () => {
     it("reports Amazon Bedrock mode without asking for Anthropic credentials", async () => {
       vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
       vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      vi.stubEnv("AWS_REGION", "us-west-2");
       mockExecSync.mockImplementation((cmd: string) => {
         if (cmd === "claude --version") return "2.1.250";
         throw new Error("command not found");
@@ -195,10 +197,34 @@ describe("doctor checks", () => {
       );
     });
 
+    it("warns when Amazon Bedrock is enabled without AWS_REGION", async () => {
+      vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+      vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "claude --version") return "2.1.250";
+        throw new Error("command not found");
+      });
+
+      const result = await checkCliProviders();
+      const claude = result.providers.find(
+        (provider: ProviderResult) => provider.name === "Claude Code CLI",
+      );
+
+      expect(result.status).toBe("warn");
+      expect(claude?.authenticated).toBe(false);
+      expect(claude?.authMessage).toContain("AWS_REGION is not configured");
+      expect(claude?.remediation).toContain("AWS_REGION");
+      expect(mockExecSync).not.toHaveBeenCalledWith(
+        "claude auth status",
+        expect.anything(),
+      );
+    });
+
     it("prefers Bedrock mode over an Anthropic API key, matching Claude Code", async () => {
       vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
       vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
       vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      vi.stubEnv("AWS_REGION", "us-west-2");
       mockExecSync.mockImplementation((cmd: string) => {
         if (cmd === "claude --version") return "2.1.250";
         throw new Error("command not found");

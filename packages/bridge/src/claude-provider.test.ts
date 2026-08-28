@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
+import {
+  isClaudeBedrockModeEnabled,
+  isClaudeBedrockRegionConfigured,
+} from "./claude-provider.js";
 
 describe("isClaudeBedrockModeEnabled", () => {
   let configDir: string;
@@ -77,5 +80,32 @@ describe("isClaudeBedrockModeEnabled", () => {
 
     writeFileSync(join(configDir, "settings.json"), "{ not json");
     expect(isClaudeBedrockModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
+  });
+
+  it("detects AWS_REGION from the process environment or user settings", () => {
+    expect(
+      isClaudeBedrockRegionConfigured({
+        CLAUDE_CONFIG_DIR: configDir,
+        AWS_REGION: "us-west-2",
+      }),
+    ).toBe(true);
+
+    writeUserSettings({ env: { AWS_REGION: "us-east-1" } });
+    expect(
+      isClaudeBedrockRegionConfigured({
+        CLAUDE_CONFIG_DIR: configDir,
+        AWS_REGION: "",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects an empty or missing AWS_REGION", () => {
+    expect(isClaudeBedrockRegionConfigured({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
+    expect(
+      isClaudeBedrockRegionConfigured({
+        CLAUDE_CONFIG_DIR: configDir,
+        AWS_REGION: "  ",
+      }),
+    ).toBe(false);
   });
 });

@@ -146,7 +146,8 @@ function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return (
     hasExplicitClaudeCredential(env)
     // Amazon Bedrock authenticates with AWS credentials on the Bridge host, so
-    // neither an Anthropic API credential nor the subscription opt-in applies.
+    // its preflight does not require an Anthropic credential or subscription
+    // opt-in. The resolved SDK auth source is still checked below.
     || isClaudeBedrockModeEnabled(env)
     || isClaudeOAuthOptInEnabled(env)
   );

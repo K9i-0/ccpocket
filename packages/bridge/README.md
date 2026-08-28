@@ -62,7 +62,7 @@ ccpocket-bridge --version
 | `ANTHROPIC_API_KEY` | (none) | Claude Agent SDK API key; recommended for predictable third-party product usage |
 | `ANTHROPIC_AUTH_TOKEN` | (none) | Advanced Claude SDK auth token; prefer `ANTHROPIC_API_KEY` |
 | `CLAUDE_CODE_USE_BEDROCK` | (none) | Claude Code setting; when enabled, Claude sessions run on Amazon Bedrock and no Anthropic credential is required |
-| `AWS_REGION` / `AWS_PROFILE` | (none) | Standard AWS variables read by Claude Code when Amazon Bedrock is enabled |
+| `AWS_REGION` / `AWS_PROFILE` | (none) | Bedrock region (required) and optional AWS credential profile read by Claude Code |
 | `OPENAI_API_KEY` | (none) | Codex API key; Codex can also use `~/.codex/auth.json` |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `https://`, `socks4://`, `socks5://`) |
 
@@ -150,21 +150,29 @@ CLAUDE_CODE_USE_BEDROCK=1 \
 AWS_REGION=us-west-2 \
 npx @ccpocket/bridge@latest
 
-# AWS_REGION is optional when your AWS profile already sets a region,
-# and AWS_PROFILE selects a specific profile:
-CLAUDE_CODE_USE_BEDROCK=1 AWS_PROFILE=my-profile npx @ccpocket/bridge@latest
+# AWS_PROFILE optionally selects a specific credential profile. AWS_REGION is
+# still required because Claude Code does not read it from the AWS profile:
+CLAUDE_CODE_USE_BEDROCK=1 AWS_REGION=us-west-2 AWS_PROFILE=my-profile \
+  npx @ccpocket/bridge@latest
 ```
 
 AWS credentials remain on the Bridge host and are resolved through the normal
 AWS credential provider chain — environment credentials, `AWS_PROFILE`,
 `~/.aws/credentials`, `~/.aws/config`, IAM roles, SSO, and EC2/ECS credentials.
-CC Pocket has no AWS credential store of its own: it never reads, copies, logs,
-or forwards AWS credentials, and nothing AWS-related is sent to the mobile app.
+CC Pocket has no AWS credential store of its own. The Bridge parses the Claude
+settings file to detect the Bedrock flag and region, but does not access or
+persist credential fields, log credential values, or send AWS configuration to
+the mobile app. Claude Code resolves credentials on the Bridge host.
 
 The Bridge also recognizes Bedrock when Claude Code's `/setup-bedrock` wizard
 wrote `CLAUDE_CODE_USE_BEDROCK` into the `env` block of the Claude Code user
 settings file (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json`).
-Only that one flag is read from the file.
+Only the Bedrock flag and `AWS_REGION` are accessed from the parsed settings.
+
+Bedrock normally authenticates without Claude OAuth. If Claude Code reports an
+OAuth authentication source despite the Bedrock flag, the Bridge still requires
+`BRIDGE_ALLOW_CLAUDE_OAUTH=1` and rejects the session without that explicit
+opt-in.
 
 Model IDs, region resolution, and IAM permissions follow the Claude Code
 documentation. CC Pocket adds no Bedrock-specific configuration of its own.
@@ -178,7 +186,8 @@ npx @ccpocket/bridge@latest doctor
 The Claude Code CLI line then reads
 `Amazon Bedrock configured; AWS credentials not verified`. Doctor reports the
 configuration only — it does not call AWS, so it never claims that credentials
-work.
+work. If `AWS_REGION` is missing, doctor warns instead of reporting Bedrock as
+configured.
 
 ### Amazon Bedrock with the background service
 
