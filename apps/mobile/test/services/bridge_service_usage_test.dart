@@ -494,6 +494,809 @@ void main() {
       bridge.dispose();
     });
 
+    test('unscoped global errors stay out of session streams', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      final globalError = bridge.messages
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .first
+          .timeout(const Duration(seconds: 2));
+      final sessionError = bridge
+          .messagesForSession('s1')
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .first
+          .timeout(const Duration(milliseconds: 100));
+
+      socket.add(
+        jsonEncode({
+          'type': 'error',
+          'message': 'Failed to list files',
+          'errorCode': 'file_list_failed',
+        }),
+      );
+
+      expect((await globalError).message, 'Failed to list files');
+      await expectLater(sessionError, throwsA(isA<TimeoutException>()));
+
+      bridge.disconnect();
+      bridge.dispose();
+      await Future.any<void>([
+        server.close(force: true).then<void>((_) {}),
+        Future<void>.delayed(const Duration(seconds: 1)),
+      ]);
+    });
+
+    test('scoped errors reach only their addressed session', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      final addressed = bridge
+          .messagesForSession('s1')
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .first;
+      final other = bridge
+          .messagesForSession('s2')
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .first
+          .timeout(const Duration(milliseconds: 100));
+
+      socket.add(
+        jsonEncode({
+          'type': 'error',
+          'sessionId': 's1',
+          'message': 'No active session.',
+        }),
+      );
+
+      expect((await addressed).sessionId, 's1');
+      await expectLater(other, throwsA(isA<TimeoutException>()));
+
+      bridge.disconnect();
+      bridge.dispose();
+      await Future.any<void>([
+        server.close(force: true).then<void>((_) {}),
+        Future<void>.delayed(const Duration(seconds: 1)),
+      ]);
+    });
+
+    test('file lists are routed to their requested projects', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'list_files') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      socket.add(
+        jsonEncode({
+          'type': 'session_list',
+          'sessions': <Object>[],
+          'protocolCapabilities': ['project_request_correlation_v1'],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final projectA = bridge.fileListMessagesForProject('/project-a').first;
+      final projectB = bridge.fileListMessagesForProject('/project-b').first;
+      bridge.requestFileList('/project-a');
+      bridge.requestFileList('/project-b');
+      while (requests.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      for (final request in requests.reversed) {
+        socket.add(
+          jsonEncode({
+            'type': 'file_list',
+            'projectPath': request['projectPath'],
+            'requestId': request['requestId'],
+            'files': ['${request['projectPath']}/only.dart'],
+          }),
+        );
+      }
+
+      expect((await projectA).projectPath, '/project-a');
+      expect((await projectB).projectPath, '/project-b');
+      expect(bridge.fileListForProject('/project-a'), ['/project-a/only.dart']);
+      expect(bridge.fileListForProject('/project-b'), ['/project-b/only.dart']);
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('legacy file lists are serialized across projects', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'list_files') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      socket.add(jsonEncode({'type': 'session_list', 'sessions': <Object>[]}));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final projectA = bridge.fileListMessagesForProject('/project-a').first;
+      final projectB = bridge.fileListMessagesForProject('/project-b').first;
+      bridge.requestFileList('/project-a');
+      bridge.requestFileList('/project-b');
+      while (requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(requests, hasLength(1));
+      expect(requests.single['requestId'], isNull);
+
+      socket.add(
+        jsonEncode({
+          'type': 'file_list',
+          'files': ['a.dart'],
+        }),
+      );
+      expect((await projectA).files, ['a.dart']);
+      while (requests.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(requests[1]['projectPath'], '/project-b');
+
+      socket.add(
+        jsonEncode({
+          'type': 'file_list',
+          'files': ['b.dart'],
+        }),
+      );
+      expect((await projectB).files, ['b.dart']);
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('worktree lists are routed to their requested projects', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'list_worktrees') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      // Advertise correlation support, as the current Bridge does.
+      socket.add(
+        jsonEncode({
+          'type': 'session_list',
+          'sessions': <Object>[],
+          'protocolCapabilities': ['project_request_correlation_v1'],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final updates = <WorktreeListMessage>[];
+      final subscription = bridge.worktreeList.listen(updates.add);
+      bridge.requestWorktreeList('/project-a');
+      bridge.requestWorktreeList('/project-b');
+      while (requests.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      socket.add(
+        jsonEncode({
+          'type': 'worktree_list',
+          'worktrees': <Object>[],
+          'mainBranch': 'ambiguous',
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(updates, isEmpty);
+
+      for (final request in requests.reversed) {
+        socket.add(
+          jsonEncode({
+            'type': 'worktree_list',
+            'projectPath': request['projectPath'],
+            'requestId': request['requestId'],
+            'worktrees': <Object>[],
+            'mainBranch': 'main',
+          }),
+        );
+      }
+      while (updates.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(updates.map((message) => message.projectPath), [
+        '/project-b',
+        '/project-a',
+      ]);
+
+      await subscription.cancel();
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('legacy worktree lists are serialized across projects', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'list_worktrees') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      socket.add(jsonEncode({'type': 'session_list', 'sessions': <Object>[]}));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final updates = <WorktreeListMessage>[];
+      final subscription = bridge.worktreeList.listen(updates.add);
+      bridge.requestWorktreeList('/project-a');
+      bridge.requestWorktreeList('/project-b');
+      while (requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(requests, hasLength(1));
+
+      socket.add(
+        jsonEncode({
+          'type': 'worktree_list',
+          'worktrees': <Object>[],
+          'mainBranch': 'main-a',
+        }),
+      );
+      while (updates.isEmpty || requests.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(updates.single.projectPath, '/project-a');
+      expect(requests[1]['projectPath'], '/project-b');
+
+      socket.add(
+        jsonEncode({
+          'type': 'worktree_list',
+          'worktrees': <Object>[],
+          'mainBranch': 'main-b',
+        }),
+      );
+      while (updates.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(updates.last.projectPath, '/project-b');
+
+      await subscription.cancel();
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('legacy worktree removals are serialized across projects', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final requests = <Map<String, dynamic>>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'remove_worktree') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      socket.add(jsonEncode({'type': 'session_list', 'sessions': <Object>[]}));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final updates = <WorktreeRemovedMessage>[];
+      final subscription = bridge.messages
+          .where((message) => message is WorktreeRemovedMessage)
+          .cast<WorktreeRemovedMessage>()
+          .listen(updates.add);
+      bridge.removeWorktree('/project-a', '/worktree-a');
+      bridge.removeWorktree('/project-b', '/worktree-b');
+      while (requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(requests, hasLength(1));
+      expect(requests.single['projectPath'], '/project-a');
+
+      socket.add(
+        jsonEncode({'type': 'worktree_removed', 'worktreePath': '/worktree-a'}),
+      );
+      while (updates.isEmpty || requests.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(updates.single.projectPath, '/project-a');
+      expect(requests[1]['projectPath'], '/project-b');
+
+      socket.add(
+        jsonEncode({'type': 'worktree_removed', 'worktreePath': '/worktree-b'}),
+      );
+      while (updates.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(updates.last.projectPath, '/project-b');
+
+      await subscription.cancel();
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'legacy ambiguous worktree errors wait for timeout before releasing',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final sockets = <WebSocket>[];
+        final requests = <Map<String, dynamic>>[];
+        final fileListRequests = <Map<String, dynamic>>[];
+        final worktreeListRequests = <Map<String, dynamic>>[];
+        server.transform(WebSocketTransformer()).listen((socket) {
+          sockets.add(socket);
+          if (!socketReady.isCompleted) {
+            socketReady.complete(socket);
+          } else {
+            socket.add(
+              jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+            );
+          }
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] == 'remove_worktree') requests.add(json);
+            if (json['type'] == 'list_files') fileListRequests.add(json);
+            if (json['type'] == 'list_worktrees') {
+              worktreeListRequests.add(json);
+            }
+          });
+        });
+
+        final bridge = BridgeService(
+          legacyWorktreeRemoveRequestTimeout: const Duration(milliseconds: 30),
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final connected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final socket = await socketReady.future;
+        await connected;
+        socket.add(
+          jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        final failures = <WorktreeRemovedMessage>[];
+        final subscription = bridge.messages
+            .where((message) => message is WorktreeRemovedMessage)
+            .cast<WorktreeRemovedMessage>()
+            .listen(failures.add);
+        bridge.requestFileList('/files-a');
+        bridge.requestFileList('/files-b');
+        bridge.requestWorktreeList('/trees-a');
+        bridge.requestWorktreeList('/trees-b');
+        bridge.removeWorktree('/project-a', '/worktree-a');
+        bridge.removeWorktree('/project-b', '/worktree-b');
+        while (requests.isEmpty ||
+            fileListRequests.isEmpty ||
+            worktreeListRequests.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(requests, hasLength(1));
+        expect(fileListRequests, hasLength(1));
+        expect(worktreeListRequests, hasLength(1));
+
+        socket.add(
+          jsonEncode({
+            'type': 'error',
+            'errorCode': 'path_not_allowed',
+            'message': 'Project path not allowed',
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(failures, isEmpty);
+        while (failures.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        while (failures.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(sockets, hasLength(1));
+        expect(requests, hasLength(1));
+        final failure = failures.first;
+        expect(failure.projectPath, '/project-a');
+        expect(failure.worktreePath, '/worktree-a');
+        expect(failure.error, contains('did not complete in time'));
+        expect(failures[1].projectPath, '/project-b');
+        expect(failures[1].error, contains('was not sent'));
+
+        socket.add(jsonEncode({'type': 'file_list', 'files': <String>[]}));
+        socket.add(
+          jsonEncode({
+            'type': 'worktree_list',
+            'worktrees': <Object>[],
+            'mainBranch': 'main',
+          }),
+        );
+        while (fileListRequests.length < 2 || worktreeListRequests.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(fileListRequests[1]['projectPath'], '/files-b');
+        expect(worktreeListRequests[1]['projectPath'], '/trees-b');
+
+        bridge.removeWorktree('/project-c', '/worktree-c');
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        expect(requests, hasLength(1));
+        expect(failures, hasLength(3));
+        expect(failures.last.error, contains('unavailable on this connection'));
+
+        final reconnected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await reconnected;
+        while (sockets.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        bridge.removeWorktree('/project-d', '/worktree-d');
+        while (requests.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        sockets.last.add(
+          jsonEncode({
+            'type': 'error',
+            'message': 'Failed to remove worktree: branch is checked out',
+          }),
+        );
+        while (failures.length < 4) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(failures.last.projectPath, '/project-d');
+        expect(failures.last.worktreePath, '/worktree-d');
+        expect(failures.last.error, contains('branch is checked out'));
+
+        await subscription.cancel();
+        bridge.disconnect();
+        for (final activeSocket in sockets) {
+          await activeSocket.close();
+        }
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test('dispose cancels a legacy worktree removal timeout', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+      final bridge = BridgeService(
+        legacyWorktreeRemoveRequestTimeout: const Duration(milliseconds: 20),
+      );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      final socket = await socketReady.future;
+      await connected;
+      socket.add(jsonEncode({'type': 'session_list', 'sessions': <Object>[]}));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      bridge.removeWorktree('/project-a', '/worktree-a');
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      bridge.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      await socket.close();
+      await server.close(force: true);
+    });
+
+    test(
+      'capability learned after send lets the next removal use correlation',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final requests = <Map<String, dynamic>>[];
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] == 'remove_worktree') requests.add(json);
+          });
+        });
+
+        final bridge = BridgeService(
+          legacyWorktreeRemoveRequestTimeout: const Duration(milliseconds: 30),
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final connected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final socket = await socketReady.future;
+        await connected;
+
+        final updates = <WorktreeRemovedMessage>[];
+        final subscription = bridge.messages
+            .where((message) => message is WorktreeRemovedMessage)
+            .cast<WorktreeRemovedMessage>()
+            .listen(updates.add);
+        bridge.removeWorktree('/project-a', '/worktree-a');
+        bridge.removeWorktree('/project-b', '/worktree-b');
+        while (requests.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(requests.single['requestId'], isNull);
+
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': <Object>[],
+            'protocolCapabilities': <String>['project_request_correlation_v1'],
+          }),
+        );
+        while (requests.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(requests[1]['projectPath'], '/project-b');
+        expect(requests[1]['requestId'], isNotNull);
+
+        socket.add(
+          jsonEncode({
+            'type': 'worktree_removed',
+            'projectPath': '/project-b',
+            'requestId': requests[1]['requestId'],
+            'worktreePath': '/worktree-b',
+          }),
+        );
+        while (updates.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(updates.first.projectPath, '/project-a');
+        expect(updates.first.error, contains('did not complete in time'));
+        expect(updates.last.projectPath, '/project-b');
+        expect(updates.last.error, isNull);
+
+        await subscription.cancel();
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'worktree requests can retry after their transport disconnects',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final sockets = <WebSocket>[];
+        final firstSocketReady = Completer<WebSocket>();
+        final requests = <Map<String, dynamic>>[];
+        server.transform(WebSocketTransformer()).listen((socket) {
+          sockets.add(socket);
+          if (!firstSocketReady.isCompleted) firstSocketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] == 'list_worktrees') requests.add(json);
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final firstSocket = await firstSocketReady.future;
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        bridge.requestWorktreeList('/project-a');
+        while (requests.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+
+        final reconnecting = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.reconnecting,
+        );
+        await firstSocket.close();
+        await reconnecting;
+        bridge.requestWorktreeList('/project-a');
+
+        while (requests.length < 2 || sockets.length < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(requests.last['projectPath'], '/project-a');
+
+        bridge.disconnect();
+        for (final socket in sockets) {
+          await socket.close();
+        }
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'request IDs are omitted until the Bridge advertises support',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+        final bridge = BridgeService();
+        expect(bridge.projectRequestIdForWire('offline-request'), isNull);
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final connected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final socket = await socketReady.future;
+        await connected;
+
+        socket.add(
+          jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(bridge.projectRequestIdForWire('request-1'), isNull);
+
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': <Object>[],
+            'protocolCapabilities': ['project_request_correlation_v1'],
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(bridge.projectRequestIdForWire('request-2'), 'request-2');
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'offline Git requests remain compatible with a legacy Bridge',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final requestReady = Completer<Map<String, dynamic>>();
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] == 'git_branches' && !requestReady.isCompleted) {
+              requestReady.complete(json);
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        final requestId = bridge.createProjectRequestId('git-branches');
+        bridge.send(
+          ClientMessage.gitBranches(
+            '/project-a',
+            requestId: bridge.projectRequestIdForWire(requestId),
+          ),
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final socket = await socketReady.future;
+        final request = await requestReady.future;
+
+        expect(request['projectPath'], '/project-a');
+        expect(request.containsKey('requestId'), isFalse);
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'correlated generic Git errors complete the operation stream',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        server.transform(WebSocketTransformer()).listen(socketReady.complete);
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final connected = bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+        final socket = await socketReady.future;
+        await connected;
+        final result = bridge.gitBranchesResults.first;
+
+        socket.add(
+          jsonEncode({
+            'type': 'error',
+            'message': 'Path not allowed',
+            'errorCode': 'path_not_allowed',
+            'path': '/project-a',
+            'requestId': 'git-branches-42',
+          }),
+        );
+
+        final typed = await result;
+        expect(typed.projectPath, '/project-a');
+        expect(typed.requestId, 'git-branches-42');
+        expect(typed.error, 'Path not allowed');
+
+        bridge.disconnect();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
     test('push registration result stays out of session streams', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();

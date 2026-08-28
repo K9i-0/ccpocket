@@ -262,6 +262,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     final bridge = context.read<BridgeService>();
     _pendingSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
+        if (msg.requestId != null && msg.requestId != _sessionId) return;
         if (widget.projectPath != null &&
             msg.projectPath != null &&
             msg.projectPath != widget.projectPath) {
@@ -270,13 +271,27 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
         if (msg.sessionId != null && mounted) {
           _resolveSession(msg);
         }
+      } else if (msg is ErrorMessage &&
+          msg.requestId == _sessionId &&
+          _isPending &&
+          mounted) {
+        _pendingSub?.cancel();
+        _pendingSub = null;
+        widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+        context.router.maybePop();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg.message)));
       }
     });
   }
 
   void _onPendingSessionCreated() {
     final msg = widget.pendingSessionCreated?.value;
-    if (msg != null && msg.sessionId != null && mounted && _isPending) {
+    if (msg != null &&
+        msg.sessionId != null &&
+        (msg.requestId == null || msg.requestId == _sessionId) &&
+        mounted &&
+        _isPending) {
       _resolveSession(msg);
     }
   }
@@ -540,6 +555,15 @@ class _CodexProviders extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => StreamingStateCubit()),
+        if (projectPath != null)
+          BlocProvider<FileListCubit>(
+            create: (_) => FileListCubit(
+              bridge.fileListForProject(projectPath!),
+              bridge
+                  .fileListMessagesForProject(projectPath!)
+                  .map((message) => message.files),
+            ),
+          ),
         // Register as ChatSessionCubit so shared widgets can find it.
         BlocProvider<ChatSessionCubit>(
           create: (context) => CodexSessionCubit(

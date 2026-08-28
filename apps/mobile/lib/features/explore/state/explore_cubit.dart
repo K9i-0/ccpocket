@@ -20,14 +20,24 @@ class ExploreCubit extends Cubit<ExploreState> {
   }) : _bridge = bridge,
        _recentPeekedFiles = recentPeekedFiles.take(10).toList(),
        super(ExploreState(projectPath: projectPath, currentPath: initialPath)) {
-    _fileListSub = _bridge.fileListMessages.listen(_onFileListUpdated);
-    if (initialFiles.isNotEmpty) {
-      _applyFiles(initialFiles, truncated: false, totalFiles: null);
+    _fileListSub = _bridge
+        .fileListMessagesForProject(projectPath)
+        .listen(_onFileListUpdated);
+    final cachedFiles = _bridge.fileListForProject(projectPath);
+    final effectiveInitialFiles = initialFiles.isNotEmpty
+        ? initialFiles
+        : cachedFiles;
+    if (effectiveInitialFiles.isNotEmpty) {
+      _applyFiles(effectiveInitialFiles, truncated: false, totalFiles: null);
     }
     _bridge.requestFileList(projectPath);
   }
 
   void _onFileListUpdated(FileListMessage message) {
+    if (message.error != null) {
+      emit(state.copyWith(status: ExploreStatus.error, error: message.error));
+      return;
+    }
     _applyFiles(
       message.files,
       truncated: message.truncated,

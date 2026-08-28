@@ -49,6 +49,7 @@ class _WorktreeListContent extends StatefulWidget {
 class _WorktreeListContentState extends State<_WorktreeListContent> {
   List<WorktreeInfo>? _worktrees;
   String? _mainBranch;
+  String? _error;
   StreamSubscription<WorktreeListMessage>? _sub;
   StreamSubscription<ServerMessage>? _removeSub;
 
@@ -56,17 +57,28 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
   void initState() {
     super.initState();
     _sub = widget.bridge.worktreeList.listen((msg) {
+      if (msg.projectPath != null && msg.projectPath != widget.projectPath) {
+        return;
+      }
       if (mounted) {
         setState(() {
           _worktrees = msg.worktrees;
           _mainBranch = msg.mainBranch;
+          _error = msg.error;
         });
       }
     });
     _removeSub = widget.bridge.messages.listen((msg) {
       if (msg is WorktreeRemovedMessage && mounted) {
-        // Refresh list after removal
-        widget.bridge.requestWorktreeList(widget.projectPath);
+        if (msg.projectPath != null && msg.projectPath != widget.projectPath) {
+          return;
+        }
+        if (msg.error != null) {
+          setState(() => _error = msg.error);
+        } else {
+          // Refresh list after removal
+          widget.bridge.requestWorktreeList(widget.projectPath);
+        }
       }
     });
   }
@@ -152,7 +164,17 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
             ),
           ),
           const SizedBox(height: 12),
-          if (_worktrees == null)
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            )
+          else if (_worktrees == null)
             const Padding(
               padding: EdgeInsets.all(32),
               child: Center(child: CircularProgressIndicator.adaptive()),

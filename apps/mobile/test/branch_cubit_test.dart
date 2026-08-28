@@ -9,6 +9,9 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 class MockBranchBridgeService extends BridgeService {
+  @override
+  bool get supportsProjectRequestCorrelation => true;
+
   final _branchesController =
       StreamController<GitBranchesResultMessage>.broadcast();
   final _createController =
@@ -69,6 +72,84 @@ void main() {
       expect(cubit.state.branches, isEmpty);
       expect(cubit.state.current, isNull);
       expect(cubit.state.loading, isFalse);
+    });
+
+    test('ignores branch results for another project', () async {
+      final other = BranchCubit(bridge: mockBridge, projectPath: '/other');
+      addTearDown(other.close);
+      cubit.loadBranches();
+      other.loadBranches();
+      final otherRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+
+      mockBridge.emitBranches(
+        GitBranchesResultMessage(
+          projectPath: '/other',
+          requestId: otherRequest['requestId'] as String,
+          current: 'other-main',
+          branches: const ['other-main'],
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.current, isNull);
+      expect(other.state.current, 'other-main');
+    });
+
+    test('same-project cubits accept only their own request', () async {
+      final other = BranchCubit(bridge: mockBridge, projectPath: '/p');
+      addTearDown(other.close);
+      cubit.loadBranches();
+      final firstRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+      other.loadBranches();
+      final secondRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+
+      mockBridge.emitBranches(
+        GitBranchesResultMessage(
+          projectPath: '/p',
+          requestId: secondRequest['requestId'] as String,
+          current: 'second',
+          branches: const ['second'],
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.current, isNull);
+      expect(other.state.current, 'second');
+
+      mockBridge.emitBranches(
+        GitBranchesResultMessage(
+          projectPath: '/p',
+          requestId: firstRequest['requestId'] as String,
+          current: 'first',
+          branches: const ['first'],
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.current, 'first');
+      expect(other.state.current, 'second');
+    });
+
+    test('legacy branch operation families do not block each other', () async {
+      final creator = BranchCubit(bridge: mockBridge, projectPath: '/other');
+      addTearDown(creator.close);
+      cubit.loadBranches();
+      creator.createBranch('feature/new');
+
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(current: 'main', branches: ['main']),
+      );
+      mockBridge.emitCreate(const GitCreateBranchResultMessage(success: true));
+      await Future.microtask(() {});
+
+      expect(cubit.state.current, 'main');
+      expect(creator.state.creating, isFalse);
     });
 
     test('loadBranches sends git_branches and updates on result', () async {

@@ -29,6 +29,10 @@ class _TestBridgeService extends BridgeService {
   Stream<FileListMessage> get fileListMessages =>
       _fileListMessageController.stream;
 
+  @override
+  Stream<FileListMessage> fileListMessagesForProject(String projectPath) =>
+      _fileListMessageController.stream;
+
   void emitFileList(FileListMessage message) {
     _fileListMessageController.add(message);
   }

@@ -49,18 +49,41 @@ class _ScreenshotSheetContent extends StatefulWidget {
 }
 
 class _ScreenshotSheetContentState extends State<_ScreenshotSheetContent> {
+  static int _nextConsumerId = 0;
+  static const _responseFamily = 'screenshot';
+
   List<WindowInfo>? _windows;
   bool _capturing = false;
   StreamSubscription<List<WindowInfo>>? _windowSub;
   StreamSubscription<ScreenshotResultMessage>? _resultSub;
+  String? _pendingRequestId;
+  late final String _consumerId;
 
   @override
   void initState() {
     super.initState();
+    _consumerId = 'screenshot-${++_nextConsumerId}';
+    widget.bridge.registerProjectResponseConsumer(_responseFamily, _consumerId);
     _windowSub = widget.bridge.windowList.listen((windows) {
       if (mounted) setState(() => _windows = windows);
     });
     _resultSub = widget.bridge.screenshotResults.listen((result) {
+      final requestId = _pendingRequestId;
+      final isScopedMatch =
+          result.requestId == requestId &&
+          result.projectPath == widget.projectPath &&
+          (result.sessionId == null || result.sessionId == widget.sessionId);
+      final isSafeLegacy =
+          result.requestId == null &&
+          (result.projectPath == null ||
+              result.projectPath == widget.projectPath) &&
+          widget.bridge.canAcceptLegacyProjectResponse(
+            _responseFamily,
+            _consumerId,
+          );
+      if (requestId == null || (!isScopedMatch && !isSafeLegacy)) {
+        return;
+      }
       if (!mounted) return;
       setState(() => _capturing = false);
       // Capture references before pop (context may become invalid after pop)
@@ -83,6 +106,10 @@ class _ScreenshotSheetContentState extends State<_ScreenshotSheetContent> {
 
   @override
   void dispose() {
+    widget.bridge.unregisterProjectResponseConsumer(
+      _responseFamily,
+      _consumerId,
+    );
     _windowSub?.cancel();
     _resultSub?.cancel();
     super.dispose();
@@ -91,7 +118,7 @@ class _ScreenshotSheetContentState extends State<_ScreenshotSheetContent> {
   void _capture({required String mode, int? windowId}) {
     if (_capturing) return;
     setState(() => _capturing = true);
-    widget.bridge.takeScreenshot(
+    _pendingRequestId = widget.bridge.takeScreenshot(
       mode: mode,
       windowId: windowId,
       projectPath: widget.projectPath,

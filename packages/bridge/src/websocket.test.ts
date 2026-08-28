@@ -884,6 +884,28 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("scopes a rejected input to the requested session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    await (bridge as any).handleClientMessage(
+      { type: "input", sessionId: "missing-session", text: "hello" },
+      ws,
+    );
+
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "error"),
+    ).toMatchObject({
+      type: "error",
+      sessionId: "missing-session",
+      message: "No active session. Send 'start' first.",
+    });
+
+    bridge.close();
+  });
+
   it("archives a Codex thread before recording the local archive marker", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const archiveProjectPath = resolvePlatformPath("/tmp/project-archive");
@@ -1654,7 +1676,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
 
       await (bridge as any).handleClientMessage(
-        { type: "list_files", projectPath: repo },
+        { type: "list_files", projectPath: repo, requestId: "files-1" },
         ws,
       );
       for (let i = 0; i < 50 && ws.send.mock.calls.length === 0; i++) {
@@ -1666,6 +1688,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         .find((sent: { type: string }) => sent.type === "file_list");
       expect(message).toMatchObject({
         type: "file_list",
+        projectPath: repo,
+        requestId: "files-1",
         truncated: true,
       });
       expect(message.files).toHaveLength(2);
@@ -1674,6 +1698,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
+  });
+
+  it("returns correlated operation results for disallowed project paths", async () => {
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: ["/allowed"],
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "list_files",
+        projectPath: "/denied",
+        requestId: "file-list-1",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "git_push",
+        projectPath: "/denied",
+        requestId: "git-push-1",
+      },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "file_list",
+        projectPath: "/denied",
+        requestId: "file-list-1",
+        files: [],
+        error: expect.stringContaining("Project path not allowed"),
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "git_push_result",
+        projectPath: "/denied",
+        requestId: "git-push-1",
+        success: false,
+        error: expect.stringContaining("Project path not allowed"),
+      }),
+    );
+    bridge.close();
   });
 
   it("lists only visible allowed directories", async () => {
@@ -4763,6 +4835,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           type: "get_diff",
           projectPath,
           staged: false,
+          requestId: "diff-1",
         },
         ws,
       );
@@ -4779,6 +4852,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         .map((c: unknown[]) => JSON.parse(c[0] as string))
         .find((m: any) => m.type === "diff_result");
       expect(diffResult.error).toBeUndefined();
+      expect(diffResult).toMatchObject({
+        projectPath,
+        requestId: "diff-1",
+        staged: false,
+      });
       expect(diffResult.diff).toContain("diff --git a/docs/啊.md b/docs/啊.md");
       expect(diffResult.diff).toContain("diff --git a/normal.txt b/normal.txt");
       expect(diffResult.diff).not.toContain("\\345\\225");
@@ -4874,6 +4952,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       );
       expect(sends).toContainEqual({
         type: "file_content",
+        projectPath,
         filePath: "pixel.png",
         kind: "image",
         content: "",
@@ -4917,6 +4996,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       );
       expect(sends).toContainEqual({
         type: "file_content",
+        projectPath,
         filePath: "README.md",
         kind: "text",
         content: "# Hello\n\nWorld\n",
@@ -5010,6 +5090,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       );
       expect(sends).toContainEqual({
         type: "file_content",
+        projectPath,
         filePath: "linked.mp4",
         content: "",
         error: "Path not allowed",
@@ -5297,6 +5378,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       );
       expect(sends).toContainEqual({
         type: "file_content",
+        projectPath,
         filePath: "linked-dir",
         content: "",
         error:
@@ -5840,6 +5922,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toEqual({
       type: "error",
+      sessionId: "s-1",
       message:
         "Auto mode is unavailable in this environment. Keeping the current permission mode.",
       errorCode: "auto_mode_unavailable",
@@ -6694,6 +6777,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toEqual({
       type: "error",
+      sessionId: "missing",
       message: "No active session.",
     });
 
@@ -6720,6 +6804,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toEqual({
       type: "error",
+      sessionId: "s-1",
       message: "Failed to set permission mode: forced test failure",
       errorCode: "set_permission_mode_rejected",
     });
@@ -6747,6 +6832,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toEqual({
       type: "error",
+      sessionId: "s-1",
       message: "Failed to set sandbox mode: forced test failure",
       errorCode: "set_sandbox_mode_rejected",
     });
@@ -9007,6 +9093,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     expect(sends).toContainEqual({
       type: "git_commit_result",
+      projectPath: "/tmp/project-a",
       success: false,
       error: "git_commit with autoGenerate=true requires sessionId",
     });
@@ -9050,6 +9137,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     expect(sends).toContainEqual({
       type: "git_commit_result",
+      projectPath: "/tmp/other-project",
       success: false,
       error: "git_commit projectPath must match the active session cwd",
     });
@@ -9109,6 +9197,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     expect(sends).toContainEqual({
       type: "git_commit_result",
+      projectPath: "/tmp/project-a",
       success: true,
       commitHash: "abc1234",
       message: "feat: generated by claude",
@@ -9170,6 +9259,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     expect(sends).toContainEqual({
       type: "git_commit_result",
+      projectPath: "/tmp/project-codex",
       success: true,
       commitHash: "def5678",
       message: "fix: generated by codex",

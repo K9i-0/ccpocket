@@ -9,6 +9,9 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 class MockCommitBridgeService extends BridgeService {
+  @override
+  bool get supportsProjectRequestCorrelation => true;
+
   final _commitController =
       StreamController<GitCommitResultMessage>.broadcast();
   final _pushController = StreamController<GitPushResultMessage>.broadcast();
@@ -55,6 +58,69 @@ void main() {
       expect(cubit.state.status, CommitStatus.idle);
       expect(cubit.state.message, '');
       expect(cubit.state.autoGenerate, isTrue);
+    });
+
+    test('ignores commit results for another project', () async {
+      final other = CommitCubit(bridge: mockBridge, projectPath: '/other');
+      addTearDown(other.close);
+      cubit.commit();
+      other.commit();
+      final otherRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+
+      mockBridge.emitCommit(
+        GitCommitResultMessage(
+          projectPath: '/other',
+          requestId: otherRequest['requestId'] as String,
+          success: true,
+          commitHash: 'other-hash',
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.status, CommitStatus.committing);
+      expect(other.state.status, CommitStatus.success);
+    });
+
+    test('same-project cubits accept only their own request', () async {
+      final other = CommitCubit(bridge: mockBridge, projectPath: '/p');
+      addTearDown(other.close);
+      cubit.commit();
+      final firstRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+      other.commit();
+      final secondRequest = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+
+      mockBridge.emitCommit(
+        GitCommitResultMessage(
+          projectPath: '/p',
+          requestId: secondRequest['requestId'] as String,
+          success: true,
+          commitHash: 'second-hash',
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.status, CommitStatus.committing);
+      expect(other.state.status, CommitStatus.success);
+
+      mockBridge.emitCommit(
+        GitCommitResultMessage(
+          projectPath: '/p',
+          requestId: firstRequest['requestId'] as String,
+          success: true,
+          commitHash: 'first-hash',
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.status, CommitStatus.success);
+      expect(cubit.state.commitHash, 'first-hash');
+      expect(other.state.commitHash, 'second-hash');
     });
 
     test('setMessage updates message', () {

@@ -8,6 +8,9 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 class _GitStatusBridge extends BridgeService {
+  @override
+  bool get supportsProjectRequestCorrelation => true;
+
   final _statusController =
       StreamController<GitStatusResultMessage>.broadcast();
   final _stoppedController = StreamController<String>.broadcast();
@@ -144,6 +147,7 @@ void main() {
         bridge.dispose();
       });
 
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
       bridge.emitStatus(
         const GitStatusResultMessage(
           sessionId: 's1',
@@ -214,6 +218,7 @@ void main() {
         bridge.dispose();
       });
 
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
       bridge.emitStatus(
         const GitStatusResultMessage(
           sessionId: 's1',
@@ -238,6 +243,7 @@ void main() {
         bridge.dispose();
       });
 
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
       bridge.emitStatus(
         const GitStatusResultMessage(
           sessionId: 's1',
@@ -255,6 +261,52 @@ void main() {
       await Future.microtask(() {});
 
       expect(cubit.state.entryFor('s1'), isNull);
+    });
+
+    test('ignores stale status response for the same session', () async {
+      final bridge = _GitStatusBridge();
+      final cubit = GitStatusCubit(bridge: bridge);
+      addTearDown(() {
+        cubit.close();
+        bridge.dispose();
+      });
+
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
+      final first =
+          jsonDecode(bridge.sentMessages.last.toJson()) as Map<String, dynamic>;
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
+      final second =
+          jsonDecode(bridge.sentMessages.last.toJson()) as Map<String, dynamic>;
+
+      bridge.emitStatus(
+        GitStatusResultMessage(
+          requestId: first['requestId'] as String,
+          sessionId: 's1',
+          projectPath: '/repo',
+          hasUncommittedChanges: true,
+          stagedCount: 0,
+          unstagedCount: 1,
+          untrackedCount: 0,
+        ),
+      );
+      await Future.microtask(() {});
+      expect(cubit.state.entryFor('s1')?.loading, isTrue);
+
+      bridge.emitStatus(
+        GitStatusResultMessage(
+          requestId: second['requestId'] as String,
+          sessionId: 's1',
+          projectPath: '/repo',
+          hasUncommittedChanges: false,
+          stagedCount: 0,
+          unstagedCount: 0,
+          untrackedCount: 0,
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.entryFor('s1')?.loading, isFalse);
+      expect(cubit.state.entryFor('s1')?.hasUncommittedChanges, isFalse);
     });
   });
 }

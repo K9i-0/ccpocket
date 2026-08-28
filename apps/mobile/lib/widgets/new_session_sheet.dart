@@ -716,6 +716,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _selectedCodexProfile = defaultCodexProfile;
     }
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
+      final requestedPath = _pathController.text.trim();
+      if (msg.projectPath != null && msg.projectPath != requestedPath) return;
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
     // Subscribe to live updates so projects appear even if data arrives

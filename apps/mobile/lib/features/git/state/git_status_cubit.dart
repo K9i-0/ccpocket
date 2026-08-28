@@ -126,6 +126,7 @@ class GitStatusCubit extends Cubit<GitStatusState> {
   final bool Function()? _remoteStatusBadgeEnabled;
   late final StreamSubscription<GitStatusResultMessage> _statusSub;
   late final StreamSubscription<String> _stoppedSub;
+  final Map<String, String> _latestRequestIdsBySession = {};
 
   GitStatusCubit({
     required BridgeService bridge,
@@ -162,11 +163,14 @@ class GitStatusCubit extends Cubit<GitStatusState> {
             ),
       ),
     );
+    final requestId = _bridge.createProjectRequestId('git-status');
+    _latestRequestIdsBySession[sessionId] = requestId;
     _bridge.send(
       ClientMessage.gitStatus(
         projectPath,
         sessionId: sessionId,
         includeRemote: requestRemote,
+        requestId: _bridge.projectRequestIdForWire(requestId),
       ),
     );
   }
@@ -178,16 +182,24 @@ class GitStatusCubit extends Cubit<GitStatusState> {
   }
 
   void clearSession(String sessionId) {
+    _latestRequestIdsBySession.remove(sessionId);
     emit(state.remove(sessionId));
   }
 
   void _onStatusResult(GitStatusResultMessage result) {
     final sessionId = result.sessionId;
     if (sessionId == null || sessionId.isEmpty) return;
+    final pendingRequestId = _latestRequestIdsBySession[sessionId];
+    if (pendingRequestId == null) return;
+    if (result.requestId != null && result.requestId != pendingRequestId) {
+      return;
+    }
     final current = state.entryFor(sessionId);
+    if (current == null || current.projectPath != result.projectPath) return;
+    _latestRequestIdsBySession.remove(sessionId);
     final remoteCheckedAt = result.remoteStatusIncluded
         ? DateTime.now()
-        : current?.remoteCheckedAt;
+        : current.remoteCheckedAt;
     emit(
       state.upsert(
         GitStatusEntry(
@@ -200,20 +212,20 @@ class GitStatusCubit extends Cubit<GitStatusState> {
           untrackedCount: result.untrackedCount,
           hasRemoteChanges: result.remoteStatusIncluded
               ? result.hasRemoteChanges
-              : current?.hasRemoteChanges ?? false,
+              : current.hasRemoteChanges,
           commitsAhead: result.remoteStatusIncluded
               ? result.commitsAhead
-              : current?.commitsAhead ?? 0,
+              : current.commitsAhead,
           commitsBehind: result.remoteStatusIncluded
               ? result.commitsBehind
-              : current?.commitsBehind ?? 0,
+              : current.commitsBehind,
           hasUpstream: result.remoteStatusIncluded
               ? result.hasUpstream
-              : current?.hasUpstream ?? false,
-          branch: result.remoteStatusIncluded ? result.branch : current?.branch,
+              : current.hasUpstream,
+          branch: result.remoteStatusIncluded ? result.branch : current.branch,
           remoteError: result.remoteStatusIncluded
               ? result.remoteError
-              : current?.remoteError,
+              : current.remoteError,
           remoteCheckedAt: remoteCheckedAt,
           error: result.error,
         ),

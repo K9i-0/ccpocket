@@ -55,6 +55,10 @@ class BridgeService implements BridgeServiceBase {
   final _fileListController = StreamController<List<String>>.broadcast();
   final _fileListMessageController =
       StreamController<FileListMessage>.broadcast();
+  final Map<String, _FileListScopeState> _fileListScopeStates = {};
+  final Map<String, String> _pendingFileListProjectsByRequestId = {};
+  final Map<String, String> _latestFileListRequestIdsByProject = {};
+  final Map<String, String> _queuedLegacyFileListProjects = {};
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _codexAutoReviewPolicyController = StreamController<bool>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
@@ -62,6 +66,15 @@ class BridgeService implements BridgeServiceBase {
       StreamController<DiffImageResultMessage>.broadcast();
   final _worktreeListController =
       StreamController<WorktreeListMessage>.broadcast();
+  final Map<String, String> _pendingWorktreeListProjectsByRequestId = {};
+  final Map<String, String> _latestWorktreeListRequestIdsByProject = {};
+  final Map<String, String> _queuedLegacyWorktreeListProjects = {};
+  final Map<String, ({String projectPath, String worktreePath})>
+  _pendingWorktreeRemoveRequestsById = {};
+  final Map<String, ({String projectPath, String worktreePath})>
+  _queuedLegacyWorktreeRemoveRequests = {};
+  final Map<String, Timer> _worktreeRemoveTimeoutTimers = {};
+  bool _legacyWorktreeRemoveFamilyQuarantined = false;
   final _windowListController = StreamController<List<WindowInfo>>.broadcast();
   final _screenshotResultController =
       StreamController<ScreenshotResultMessage>.broadcast();
@@ -135,6 +148,7 @@ class BridgeService implements BridgeServiceBase {
   String? _defaultCodexProfile;
   bool _codexAutoReviewDisabled = false;
   String? _bridgeVersion;
+  Set<String> _protocolCapabilities = const {};
   String? _promptHistoryBridgeId;
   UsageResultMessage? _lastUsageResult;
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
@@ -157,8 +171,85 @@ class BridgeService implements BridgeServiceBase {
   int _nextGalleryRequestId = 0;
   final Map<String, _PendingGalleryRequest> _pendingGalleryRequestsById = {};
   final Map<String, _PendingGalleryRequest> _pendingGalleryRequestsByScope = {};
+  final Map<String, Map<String, int>> _projectResponseConsumers = {};
+  int _nextProjectRequestId = 0;
   final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
+
+  String createProjectRequestId(String family) =>
+      '$family-${++_nextProjectRequestId}';
+
+  bool get supportsProjectRequestCorrelation =>
+      _protocolCapabilities.contains('project_request_correlation_v1');
+
+  String? projectRequestIdForWire(String requestId) =>
+      supportsProjectRequestCorrelation ? requestId : null;
+
+  static const _projectCorrelationMessageTypes = <String>{
+    'get_diff',
+    'get_diff_image',
+    'list_files',
+    'get_file_content',
+    'list_worktrees',
+    'remove_worktree',
+    'take_screenshot',
+    'git_stage',
+    'git_unstage',
+    'git_unstage_hunks',
+    'git_commit',
+    'git_push',
+    'git_branches',
+    'git_create_branch',
+    'git_checkout_branch',
+    'git_revert_file',
+    'git_revert_hunks',
+    'git_fetch',
+    'git_pull',
+    'git_status',
+    'git_remote_status',
+  };
+
+  ClientMessage _messageForCurrentProtocol(ClientMessage message) {
+    if (supportsProjectRequestCorrelation ||
+        !_projectCorrelationMessageTypes.contains(message.type)) {
+      return message;
+    }
+    final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    if (!json.containsKey('requestId')) return message;
+    json.remove('requestId');
+    return ClientMessage.raw(json);
+  }
+
+  void registerProjectResponseConsumer(String family, String consumerId) {
+    final consumers = _projectResponseConsumers[family] ??= <String, int>{};
+    consumers[consumerId] = (consumers[consumerId] ?? 0) + 1;
+  }
+
+  void unregisterProjectResponseConsumer(
+    String family,
+    String consumerId, {
+    bool all = false,
+  }) {
+    final consumers = _projectResponseConsumers[family];
+    final count = consumers?[consumerId];
+    if (count != null) {
+      if (all || count <= 1) {
+        consumers!.remove(consumerId);
+      } else {
+        consumers![consumerId] = count - 1;
+      }
+    }
+    if (consumers?.isEmpty ?? false) {
+      _projectResponseConsumers.remove(family);
+    }
+  }
+
+  bool canAcceptLegacyProjectResponse(String family, String consumerId) {
+    final consumers = _projectResponseConsumers[family];
+    return consumers != null &&
+        consumers.length == 1 &&
+        consumers.containsKey(consumerId);
+  }
 
   // Diff image cache: survives screen navigation, cleared on session stop.
   // Key: "$projectPath\n$filePath"
@@ -215,6 +306,10 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<String>> get fileList => _fileListController.stream;
   Stream<FileListMessage> get fileListMessages =>
       _fileListMessageController.stream;
+  Stream<FileListMessage> fileListMessagesForProject(String projectPath) =>
+      _fileListScopeState(projectPath).controller.stream;
+  List<String> fileListForProject(String projectPath) =>
+      _fileListScopeStates[projectPath]?.message.files ?? const [];
   Stream<FileContentMessage> get fileContent => _fileContentController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
   Stream<DiffImageResultMessage> get diffImageResults =>
@@ -317,6 +412,7 @@ class BridgeService implements BridgeServiceBase {
   BridgeService({
     this.recentSessionsRequestTimeout = const Duration(seconds: 10),
     this.galleryRequestTimeout = const Duration(seconds: 10),
+    this.legacyWorktreeRemoveRequestTimeout = const Duration(seconds: 10),
   }) {
     unawaited(_ensureOfflineQueueRestored());
   }
@@ -400,6 +496,7 @@ class BridgeService implements BridgeServiceBase {
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
   final Duration recentSessionsRequestTimeout;
   final Duration galleryRequestTimeout;
+  final Duration legacyWorktreeRemoveRequestTimeout;
 
   Future<void>? _offlineQueueRestore;
   Future<void> _offlinePendingPersistence = Future<void>.value();
@@ -417,6 +514,8 @@ class BridgeService implements BridgeServiceBase {
         previousUrl != null && !_sameBridgeTarget(previousUrl, url);
     final isReplacingConnectedSocket = _channel != null && isConnected;
     _connectionEpoch++;
+    _protocolCapabilities = const {};
+    _legacyWorktreeRemoveFamilyQuarantined = false;
     final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
@@ -488,6 +587,7 @@ class BridgeService implements BridgeServiceBase {
                 :final defaultCodexProfile,
                 :final codexAutoReviewDisabled,
                 :final bridgeVersion,
+                :final protocolCapabilities,
               ):
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
                 _clearPendingStartActionsForSessions(_sessions);
@@ -503,6 +603,10 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewDisabled = codexAutoReviewDisabled;
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
+                _protocolCapabilities = protocolCapabilities;
+                _dispatchNextLegacyFileListRequest();
+                _dispatchNextLegacyWorktreeListRequest();
+                _dispatchNextLegacyWorktreeRemoveRequest();
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 if (!_acceptRecentSessionsResponse(msg)) return;
                 _lastRecentSessionsMessage = msg;
@@ -540,9 +644,17 @@ class BridgeService implements BridgeServiceBase {
                 _applyGalleryNewImage(image);
               case FileContentMessage():
                 _fileContentController.add(msg);
-              case FileListMessage(:final files):
-                _fileListController.add(files);
-                _fileListMessageController.add(msg);
+              case FileListMessage():
+                final accepted = _acceptFileListResponse(msg);
+                if (accepted == null) return;
+                _fileListController.add(accepted.files);
+                _fileListMessageController.add(accepted);
+                final projectPath = accepted.projectPath;
+                if (projectPath != null) {
+                  final state = _fileListScopeState(projectPath);
+                  state.message = accepted;
+                  state.controller.add(accepted);
+                }
               case ProjectHistoryMessage(:final projects):
                 _projectHistory = projects;
                 _projectHistoryController.add(projects);
@@ -551,7 +663,8 @@ class BridgeService implements BridgeServiceBase {
               case DiffImageResultMessage():
                 _diffImageResultController.add(msg);
               case WorktreeListMessage():
-                _worktreeListController.add(msg);
+                final accepted = _acceptWorktreeListResponse(msg);
+                if (accepted != null) _worktreeListController.add(accepted);
               case WindowListMessage(:final windows):
                 _windowListController.add(windows);
               case ScreenshotResultMessage():
@@ -615,7 +728,8 @@ class BridgeService implements BridgeServiceBase {
                   requestRecentSessions();
                 }
               case WorktreeRemovedMessage():
-                _messageController.add(msg);
+                final accepted = _acceptWorktreeRemovedResponse(msg);
+                if (accepted != null) _messageController.add(accepted);
               case ConversationQueueMessage(:final items):
                 if (sessionId != null) {
                   _patchSessionQueuedInput(
@@ -689,6 +803,7 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case ErrorMessage(:final message):
+                _routeProjectRequestError(msg);
                 final isDownloadResponse = _isFileDownloadResponseError(msg);
                 final isUploadResponse = _isFileUploadResponseError(msg);
                 if (isDownloadResponse || isUploadResponse) {
@@ -709,7 +824,9 @@ class BridgeService implements BridgeServiceBase {
                     _completePendingSessionLinkResolutionsAsUnsupported();
                   } else {
                     logger.error('Bridge error: $message');
-                    _taggedMessageController.add((msg, sessionId));
+                    if (sessionId != null) {
+                      _taggedMessageController.add((msg, sessionId));
+                    }
                     _messageController.add(msg);
                   }
                 }
@@ -748,6 +865,7 @@ class BridgeService implements BridgeServiceBase {
         onError: (error, stackTrace) {
           if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
+          _protocolCapabilities = const {};
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
           _clearTransportScopedRequestState();
           _requeueInFlightInputMessages();
@@ -757,6 +875,7 @@ class BridgeService implements BridgeServiceBase {
         onDone: () {
           if (epoch != _connectionEpoch) return;
           _channel = null;
+          _protocolCapabilities = const {};
           _clearTransportScopedRequestState();
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -808,6 +927,238 @@ class BridgeService implements BridgeServiceBase {
         message.message == 'Invalid message format' &&
         deadline != null &&
         DateTime.now().isBefore(deadline);
+  }
+
+  void _routeProjectRequestError(ErrorMessage message) {
+    if (_acceptLegacyWorktreeRemoveError(message)) return;
+    final requestId = message.requestId;
+    if (requestId == null) return;
+    final projectPath = message.path;
+    bool family(String name) => requestId.startsWith('$name-');
+
+    if (family('file-list')) {
+      final accepted = _acceptFileListResponse(
+        FileListMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          files: const [],
+          error: message.message,
+        ),
+      );
+      if (accepted != null) {
+        _fileListMessageController.add(accepted);
+        final path = accepted.projectPath;
+        if (path != null) {
+          final state = _fileListScopeState(path);
+          state.message = accepted;
+          state.controller.add(accepted);
+        }
+      }
+      return;
+    }
+    if (family('worktree-list')) {
+      final accepted = _acceptWorktreeListResponse(
+        WorktreeListMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          worktrees: const [],
+          error: message.message,
+        ),
+      );
+      if (accepted != null) _worktreeListController.add(accepted);
+      return;
+    }
+    if (family('worktree-remove')) {
+      final pending = _pendingWorktreeRemoveRequestsById.remove(requestId);
+      _worktreeRemoveTimeoutTimers.remove(requestId)?.cancel();
+      if (pending != null) {
+        _messageController.add(
+          WorktreeRemovedMessage(
+            projectPath: pending.projectPath,
+            requestId: requestId,
+            worktreePath: pending.worktreePath,
+            error: message.message,
+          ),
+        );
+      }
+      _dispatchNextLegacyWorktreeRemoveRequest();
+      return;
+    }
+    if (family('git-diff')) {
+      _diffResultController.add(
+        DiffResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          diff: '',
+          error: message.message,
+          errorCode: message.errorCode,
+        ),
+      );
+      return;
+    }
+
+    if (family('git-stage')) {
+      _gitStageResultController.add(
+        GitStageResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-unstage-hunks')) {
+      _gitUnstageHunksResultController.add(
+        GitUnstageHunksResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-unstage')) {
+      _gitUnstageResultController.add(
+        GitUnstageResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-commit')) {
+      _gitCommitResultController.add(
+        GitCommitResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-push')) {
+      _gitPushResultController.add(
+        GitPushResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-create-branch')) {
+      _gitCreateBranchResultController.add(
+        GitCreateBranchResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-checkout-branch')) {
+      _gitCheckoutBranchResultController.add(
+        GitCheckoutBranchResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-branches')) {
+      _gitBranchesResultController.add(
+        GitBranchesResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          current: '',
+          branches: const [],
+          error: message.message,
+        ),
+      );
+    } else if (family('git-revert-file')) {
+      _gitRevertFileResultController.add(
+        GitRevertFileResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-revert-hunks')) {
+      _gitRevertHunksResultController.add(
+        GitRevertHunksResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-fetch')) {
+      _gitFetchResultController.add(
+        GitFetchResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-pull')) {
+      _gitPullResultController.add(
+        GitPullResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          success: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-remote-status')) {
+      _gitRemoteStatusResultController.add(
+        GitRemoteStatusResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          ahead: 0,
+          behind: 0,
+          branch: '',
+          hasUpstream: false,
+          error: message.message,
+        ),
+      );
+    } else if (family('git-status') && projectPath != null) {
+      _gitStatusResultController.add(
+        GitStatusResultMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          sessionId: message.sessionId,
+          hasUncommittedChanges: false,
+          stagedCount: 0,
+          unstagedCount: 0,
+          untrackedCount: 0,
+          error: message.message,
+        ),
+      );
+    }
+  }
+
+  bool _acceptLegacyWorktreeRemoveError(ErrorMessage message) {
+    if (supportsProjectRequestCorrelation ||
+        message.requestId != null ||
+        _pendingWorktreeRemoveRequestsById.length != 1) {
+      return false;
+    }
+
+    final explicitlyTargetsRemoval = message.message.startsWith(
+      'Failed to remove worktree:',
+    );
+    if (!explicitlyTargetsRemoval) return false;
+
+    final entry = _pendingWorktreeRemoveRequestsById.entries.single;
+    _pendingWorktreeRemoveRequestsById.remove(entry.key);
+    _worktreeRemoveTimeoutTimers.remove(entry.key)?.cancel();
+    _messageController.add(
+      WorktreeRemovedMessage(
+        projectPath: entry.value.projectPath,
+        requestId: entry.key,
+        worktreePath: entry.value.worktreePath,
+        error: message.message,
+      ),
+    );
+    _dispatchNextLegacyWorktreeRemoveRequest();
+    return true;
   }
 
   bool _isFileUploadResponseError(ErrorMessage message) {
@@ -867,6 +1218,7 @@ class BridgeService implements BridgeServiceBase {
     _defaultCodexProfile = null;
     _codexAutoReviewDisabled = false;
     _bridgeVersion = null;
+    _protocolCapabilities = const {};
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _pendingHistoryDeltaSinceSeq.clear();
@@ -886,6 +1238,23 @@ class BridgeService implements BridgeServiceBase {
     _projectHistoryController.add(_projectHistory);
     _fileListController.add(const []);
     _fileListMessageController.add(const FileListMessage(files: []));
+    _pendingFileListProjectsByRequestId.clear();
+    _latestFileListRequestIdsByProject.clear();
+    _queuedLegacyFileListProjects.clear();
+    _pendingWorktreeListProjectsByRequestId.clear();
+    _latestWorktreeListRequestIdsByProject.clear();
+    _queuedLegacyWorktreeListProjects.clear();
+    _pendingWorktreeRemoveRequestsById.clear();
+    _queuedLegacyWorktreeRemoveRequests.clear();
+    _legacyWorktreeRemoveFamilyQuarantined = false;
+    for (final timer in _worktreeRemoveTimeoutTimers.values) {
+      timer.cancel();
+    }
+    _worktreeRemoveTimeoutTimers.clear();
+    for (final state in _fileListScopeStates.values) {
+      state.message = const FileListMessage(files: []);
+      state.controller.add(state.message);
+    }
 
     if (clearOfflineQueue) {
       _clearOfflinePendingState();
@@ -1019,7 +1388,7 @@ class BridgeService implements BridgeServiceBase {
       _trackInFlightInputMessage(message);
       _trackNonReplayableToolAction(message);
       try {
-        _channel!.sink.add(message.toJson());
+        _channel!.sink.add(_messageForCurrentProtocol(message).toJson());
         _markScopedRequestSent(message);
       } catch (error, stackTrace) {
         _clearNonReplayableToolAction(message);
@@ -2147,7 +2516,51 @@ class BridgeService implements BridgeServiceBase {
     return requestIds;
   }
 
+  Set<String> _queuedProjectPaths(String messageType) {
+    final projectPaths = <String>{};
+    for (final message in [..._messageQueue, ..._flushingMessageQueue]) {
+      if (message.type != messageType) continue;
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      final projectPath = json['projectPath'];
+      if (projectPath is String) projectPaths.add(projectPath);
+    }
+    return projectPaths;
+  }
+
+  Set<({String projectPath, String worktreePath})> _queuedWorktreeRemovals() {
+    final removals = <({String projectPath, String worktreePath})>{};
+    for (final message in [..._messageQueue, ..._flushingMessageQueue]) {
+      if (message.type != 'remove_worktree') continue;
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      final projectPath = json['projectPath'];
+      final worktreePath = json['worktreePath'];
+      if (projectPath is String && worktreePath is String) {
+        removals.add((projectPath: projectPath, worktreePath: worktreePath));
+      }
+    }
+    return removals;
+  }
+
   void _markScopedRequestSent(ClientMessage message) {
+    if (message.type == 'remove_worktree') {
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      final wireRequestId = json['requestId'];
+      String? requestId = wireRequestId is String ? wireRequestId : null;
+      if (requestId == null) {
+        final projectPath = json['projectPath'];
+        final worktreePath = json['worktreePath'];
+        final compatible = _pendingWorktreeRemoveRequestsById.entries
+            .where(
+              (entry) =>
+                  entry.value.projectPath == projectPath &&
+                  entry.value.worktreePath == worktreePath,
+            )
+            .toList();
+        if (compatible.length == 1) requestId = compatible.single.key;
+      }
+      if (requestId != null) _armLegacyWorktreeRemoveTimeout(requestId);
+      return;
+    }
     if (message.type != 'list_recent_sessions' &&
         message.type != 'list_gallery') {
       return;
@@ -2169,6 +2582,10 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _clearTransportScopedRequestState() {
+    for (final timer in _worktreeRemoveTimeoutTimers.values) {
+      timer.cancel();
+    }
+    _worktreeRemoveTimeoutTimers.clear();
     final queuedRecentRequestIds = _queuedRequestIds('list_recent_sessions');
     for (final entry in _pendingRecentSessionsRequests.entries.toList()) {
       final pending = entry.value;
@@ -2192,6 +2609,48 @@ class BridgeService implements BridgeServiceBase {
         _pendingGalleryRequestsByScope.remove(pending.scopeKey);
       }
     }
+
+    final queuedFileListRequestIds = _queuedRequestIds('list_files');
+    final queuedFileListProjectPaths = _queuedProjectPaths('list_files');
+    for (final entry in _pendingFileListProjectsByRequestId.entries.toList()) {
+      if (queuedFileListRequestIds.contains(entry.key) ||
+          queuedFileListProjectPaths.contains(entry.value)) {
+        continue;
+      }
+      _pendingFileListProjectsByRequestId.remove(entry.key);
+      if (_latestFileListRequestIdsByProject[entry.value] == entry.key) {
+        _latestFileListRequestIdsByProject.remove(entry.value);
+      }
+    }
+    _queuedLegacyFileListProjects.clear();
+
+    final queuedWorktreeListRequestIds = _queuedRequestIds('list_worktrees');
+    final queuedWorktreeListProjectPaths = _queuedProjectPaths(
+      'list_worktrees',
+    );
+    for (final entry
+        in _pendingWorktreeListProjectsByRequestId.entries.toList()) {
+      if (queuedWorktreeListRequestIds.contains(entry.key) ||
+          queuedWorktreeListProjectPaths.contains(entry.value)) {
+        continue;
+      }
+      _pendingWorktreeListProjectsByRequestId.remove(entry.key);
+      if (_latestWorktreeListRequestIdsByProject[entry.value] == entry.key) {
+        _latestWorktreeListRequestIdsByProject.remove(entry.value);
+      }
+    }
+    _queuedLegacyWorktreeListProjects.clear();
+
+    final queuedWorktreeRemoveRequestIds = _queuedRequestIds('remove_worktree');
+    final queuedWorktreeRemovals = _queuedWorktreeRemovals();
+    for (final entry in _pendingWorktreeRemoveRequestsById.entries.toList()) {
+      if (queuedWorktreeRemoveRequestIds.contains(entry.key) ||
+          queuedWorktreeRemovals.contains(entry.value)) {
+        continue;
+      }
+      _pendingWorktreeRemoveRequestsById.remove(entry.key);
+    }
+    _queuedLegacyWorktreeRemoveRequests.clear();
   }
 
   void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
@@ -2559,11 +3018,204 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void requestWorktreeList(String projectPath) {
-    send(ClientMessage.listWorktrees(projectPath));
+    final requestId = createProjectRequestId('worktree-list');
+    if (!supportsProjectRequestCorrelation &&
+        _pendingWorktreeListProjectsByRequestId.isNotEmpty) {
+      _queuedLegacyWorktreeListProjects[projectPath] = requestId;
+      return;
+    }
+    _sendWorktreeListRequest(projectPath, requestId);
+  }
+
+  void _sendWorktreeListRequest(String projectPath, String requestId) {
+    final previous = _latestWorktreeListRequestIdsByProject[projectPath];
+    if (previous != null) {
+      _pendingWorktreeListProjectsByRequestId.remove(previous);
+    }
+    _pendingWorktreeListProjectsByRequestId[requestId] = projectPath;
+    _latestWorktreeListRequestIdsByProject[projectPath] = requestId;
+    send(
+      ClientMessage.listWorktrees(
+        projectPath,
+        requestId: projectRequestIdForWire(requestId),
+      ),
+    );
+  }
+
+  void _dispatchNextLegacyWorktreeListRequest() {
+    if (_pendingWorktreeListProjectsByRequestId.isNotEmpty ||
+        _queuedLegacyWorktreeListProjects.isEmpty) {
+      return;
+    }
+    final next = _queuedLegacyWorktreeListProjects.entries.first;
+    _queuedLegacyWorktreeListProjects.remove(next.key);
+    _sendWorktreeListRequest(next.key, next.value);
   }
 
   void removeWorktree(String projectPath, String worktreePath) {
-    send(ClientMessage.removeWorktree(projectPath, worktreePath));
+    final requestId = createProjectRequestId('worktree-remove');
+    final request = (projectPath: projectPath, worktreePath: worktreePath);
+    if (!supportsProjectRequestCorrelation &&
+        _legacyWorktreeRemoveFamilyQuarantined) {
+      _messageController.add(
+        WorktreeRemovedMessage(
+          projectPath: projectPath,
+          requestId: requestId,
+          worktreePath: worktreePath,
+          error:
+              'Worktree removal is unavailable on this connection after a '
+              'previous request timed out. Reconnect or update the Bridge '
+              'and retry.',
+        ),
+      );
+      return;
+    }
+    if (!supportsProjectRequestCorrelation &&
+        _pendingWorktreeRemoveRequestsById.isNotEmpty) {
+      _queuedLegacyWorktreeRemoveRequests[requestId] = request;
+      return;
+    }
+    _sendWorktreeRemoveRequest(requestId, request);
+  }
+
+  void _sendWorktreeRemoveRequest(
+    String requestId,
+    ({String projectPath, String worktreePath}) request,
+  ) {
+    _pendingWorktreeRemoveRequestsById[requestId] = request;
+    send(
+      ClientMessage.removeWorktree(
+        request.projectPath,
+        request.worktreePath,
+        requestId: projectRequestIdForWire(requestId),
+      ),
+    );
+  }
+
+  void _armLegacyWorktreeRemoveTimeout(String requestId) {
+    if (supportsProjectRequestCorrelation ||
+        !_pendingWorktreeRemoveRequestsById.containsKey(requestId) ||
+        _worktreeRemoveTimeoutTimers.containsKey(requestId)) {
+      return;
+    }
+    _worktreeRemoveTimeoutTimers[requestId] = Timer(
+      legacyWorktreeRemoveRequestTimeout,
+      () {
+        _worktreeRemoveTimeoutTimers.remove(requestId);
+        final pending = _pendingWorktreeRemoveRequestsById.remove(requestId);
+        if (pending == null) return;
+        _messageController.add(
+          WorktreeRemovedMessage(
+            projectPath: pending.projectPath,
+            requestId: requestId,
+            worktreePath: pending.worktreePath,
+            error: 'Worktree removal did not complete in time. Please retry.',
+          ),
+        );
+        if (supportsProjectRequestCorrelation) {
+          _dispatchNextLegacyWorktreeRemoveRequest();
+        } else {
+          _quarantineLegacyWorktreeRemoveFamily();
+        }
+      },
+    );
+  }
+
+  void _quarantineLegacyWorktreeRemoveFamily() {
+    _legacyWorktreeRemoveFamilyQuarantined = true;
+    final queued = _queuedLegacyWorktreeRemoveRequests.entries.toList();
+    _queuedLegacyWorktreeRemoveRequests.clear();
+    for (final entry in queued) {
+      _messageController.add(
+        WorktreeRemovedMessage(
+          projectPath: entry.value.projectPath,
+          requestId: entry.key,
+          worktreePath: entry.value.worktreePath,
+          error:
+              'Worktree removal was not sent because the previous request '
+              'timed out. Reconnect or update the Bridge and retry.',
+        ),
+      );
+    }
+  }
+
+  void _dispatchNextLegacyWorktreeRemoveRequest() {
+    if (_pendingWorktreeRemoveRequestsById.isNotEmpty ||
+        _queuedLegacyWorktreeRemoveRequests.isEmpty) {
+      return;
+    }
+    final next = _queuedLegacyWorktreeRemoveRequests.entries.first;
+    _queuedLegacyWorktreeRemoveRequests.remove(next.key);
+    _sendWorktreeRemoveRequest(next.key, next.value);
+  }
+
+  WorktreeListMessage? _acceptWorktreeListResponse(
+    WorktreeListMessage response,
+  ) {
+    final resolved = _resolvePendingProjectResponse(
+      responseProjectPath: response.projectPath,
+      responseRequestId: response.requestId,
+      pendingProjectsByRequestId: _pendingWorktreeListProjectsByRequestId,
+      latestRequestIdsByProject: _latestWorktreeListRequestIdsByProject,
+    );
+    if (resolved == null) return null;
+    final replacementRequestId = _queuedLegacyWorktreeListProjects.remove(
+      resolved.projectPath,
+    );
+    if (replacementRequestId != null) {
+      _sendWorktreeListRequest(resolved.projectPath, replacementRequestId);
+      return null;
+    }
+    final accepted = WorktreeListMessage(
+      projectPath: resolved.projectPath,
+      requestId: resolved.requestId,
+      worktrees: response.worktrees,
+      mainBranch: response.mainBranch,
+      error: response.error,
+    );
+    _dispatchNextLegacyWorktreeListRequest();
+    return accepted;
+  }
+
+  WorktreeRemovedMessage? _acceptWorktreeRemovedResponse(
+    WorktreeRemovedMessage response,
+  ) {
+    final requestId = response.requestId;
+    String? projectPath = response.projectPath;
+    String? acceptedRequestId = requestId;
+    if (requestId != null) {
+      final pending = _pendingWorktreeRemoveRequestsById[requestId];
+      if (pending == null ||
+          (projectPath != null && projectPath != pending.projectPath) ||
+          response.worktreePath != pending.worktreePath) {
+        return null;
+      }
+      _pendingWorktreeRemoveRequestsById.remove(requestId);
+      _worktreeRemoveTimeoutTimers.remove(requestId)?.cancel();
+      projectPath = pending.projectPath;
+    } else {
+      final compatible = _pendingWorktreeRemoveRequestsById.entries
+          .where(
+            (entry) =>
+                (projectPath == null ||
+                    entry.value.projectPath == projectPath) &&
+                entry.value.worktreePath == response.worktreePath,
+          )
+          .toList();
+      if (compatible.length != 1) return null;
+      acceptedRequestId = compatible.single.key;
+      projectPath = compatible.single.value.projectPath;
+      _pendingWorktreeRemoveRequestsById.remove(acceptedRequestId);
+      _worktreeRemoveTimeoutTimers.remove(acceptedRequestId)?.cancel();
+    }
+    final accepted = WorktreeRemovedMessage(
+      projectPath: projectPath,
+      requestId: acceptedRequestId,
+      worktreePath: response.worktreePath,
+      error: response.error,
+    );
+    _dispatchNextLegacyWorktreeRemoveRequest();
+    return accepted;
   }
 
   static String _galleryScopeKey({
@@ -2705,25 +3357,132 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.listWindows());
   }
 
-  void takeScreenshot({
+  String takeScreenshot({
     required String mode,
     int? windowId,
     required String projectPath,
     String? sessionId,
   }) {
+    final requestId = createProjectRequestId('screenshot');
     send(
       ClientMessage.takeScreenshot(
         mode: mode,
         windowId: windowId,
         projectPath: projectPath,
         sessionId: sessionId,
+        requestId: projectRequestIdForWire(requestId),
       ),
     );
+    return requestId;
   }
 
   @override
   void requestFileList(String projectPath) {
-    send(ClientMessage.listFiles(projectPath));
+    requestProjectFileList(projectPath);
+  }
+
+  String requestProjectFileList(String projectPath) {
+    final requestId = createProjectRequestId('file-list');
+    if (!supportsProjectRequestCorrelation &&
+        _pendingFileListProjectsByRequestId.isNotEmpty) {
+      _queuedLegacyFileListProjects[projectPath] = requestId;
+      return requestId;
+    }
+    _sendProjectFileListRequest(projectPath, requestId);
+    return requestId;
+  }
+
+  void _sendProjectFileListRequest(String projectPath, String requestId) {
+    _pendingFileListProjectsByRequestId[requestId] = projectPath;
+    final previous = _latestFileListRequestIdsByProject[projectPath];
+    if (previous != null) {
+      _pendingFileListProjectsByRequestId.remove(previous);
+    }
+    _latestFileListRequestIdsByProject[projectPath] = requestId;
+    send(
+      ClientMessage.listFiles(
+        projectPath,
+        requestId: projectRequestIdForWire(requestId),
+      ),
+    );
+  }
+
+  void _dispatchNextLegacyFileListRequest() {
+    if (_pendingFileListProjectsByRequestId.isNotEmpty ||
+        _queuedLegacyFileListProjects.isEmpty) {
+      return;
+    }
+    final next = _queuedLegacyFileListProjects.entries.first;
+    _queuedLegacyFileListProjects.remove(next.key);
+    _sendProjectFileListRequest(next.key, next.value);
+  }
+
+  _FileListScopeState _fileListScopeState(String projectPath) =>
+      _fileListScopeStates.putIfAbsent(
+        projectPath,
+        () => _FileListScopeState(projectPath),
+      );
+
+  ({String projectPath, String requestId})? _resolvePendingProjectResponse({
+    required String? responseProjectPath,
+    required String? responseRequestId,
+    required Map<String, String> pendingProjectsByRequestId,
+    required Map<String, String> latestRequestIdsByProject,
+  }) {
+    String? projectPath = responseProjectPath;
+    String? acceptedRequestId = responseRequestId;
+    if (responseRequestId != null) {
+      final pendingProject = pendingProjectsByRequestId[responseRequestId];
+      if (pendingProject == null ||
+          (projectPath != null && projectPath != pendingProject) ||
+          latestRequestIdsByProject[pendingProject] != responseRequestId) {
+        return null;
+      }
+      projectPath = pendingProject;
+    } else if (projectPath != null) {
+      acceptedRequestId = latestRequestIdsByProject[projectPath];
+      if (acceptedRequestId == null) return null;
+    } else {
+      if (pendingProjectsByRequestId.length != 1) return null;
+      final pending = pendingProjectsByRequestId.entries.single;
+      acceptedRequestId = pending.key;
+      projectPath = pending.value;
+    }
+    final resolvedProjectPath = projectPath;
+    final resolvedRequestId = acceptedRequestId;
+    if (resolvedRequestId == null) return null;
+    pendingProjectsByRequestId.remove(resolvedRequestId);
+    if (latestRequestIdsByProject[resolvedProjectPath] == resolvedRequestId) {
+      latestRequestIdsByProject.remove(resolvedProjectPath);
+    }
+    return (projectPath: resolvedProjectPath, requestId: resolvedRequestId);
+  }
+
+  FileListMessage? _acceptFileListResponse(FileListMessage response) {
+    final resolved = _resolvePendingProjectResponse(
+      responseProjectPath: response.projectPath,
+      responseRequestId: response.requestId,
+      pendingProjectsByRequestId: _pendingFileListProjectsByRequestId,
+      latestRequestIdsByProject: _latestFileListRequestIdsByProject,
+    );
+    if (resolved == null) return null;
+    final replacementRequestId = _queuedLegacyFileListProjects.remove(
+      resolved.projectPath,
+    );
+    if (replacementRequestId != null) {
+      _sendProjectFileListRequest(resolved.projectPath, replacementRequestId);
+      return null;
+    }
+    final accepted = FileListMessage(
+      projectPath: resolved.projectPath,
+      requestId: resolved.requestId,
+      files: response.files,
+      totalFiles: response.totalFiles,
+      truncated: response.truncated,
+      error: response.error,
+    );
+    _dispatchNextLegacyFileListRequest();
+    return accepted;
   }
 
   @override
@@ -3066,7 +3825,7 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<ServerMessage> messagesForSession(String sessionId) {
     return _taggedMessageController.stream
-        .where((pair) => pair.$2 == null || pair.$2 == sessionId)
+        .where((pair) => pair.$2 == sessionId)
         .map((pair) => pair.$1);
   }
 
@@ -3280,6 +4039,10 @@ class BridgeService implements BridgeServiceBase {
     _reconnectTimer?.cancel();
     _clearRecentSessionsRequestState();
     _clearPendingGalleryRequests();
+    for (final timer in _worktreeRemoveTimeoutTimers.values) {
+      timer.cancel();
+    }
+    _worktreeRemoveTimeoutTimers.clear();
     for (final timer in _inFlightPendingVisibilityTimers.values) {
       timer.cancel();
     }
@@ -3307,6 +4070,10 @@ class BridgeService implements BridgeServiceBase {
     _galleryScopeStates.clear();
     _fileListController.close();
     _fileListMessageController.close();
+    for (final state in _fileListScopeStates.values) {
+      state.controller.close();
+    }
+    _fileListScopeStates.clear();
     _projectHistoryController.close();
     _codexAutoReviewPolicyController.close();
     _diffResultController.close();
@@ -3374,6 +4141,15 @@ class _GalleryScopeState {
   final StreamController<List<GalleryImage>> controller =
       StreamController<List<GalleryImage>>.broadcast();
   List<GalleryImage> images = const [];
+}
+
+class _FileListScopeState {
+  _FileListScopeState(this.projectPath);
+
+  final String projectPath;
+  final StreamController<FileListMessage> controller =
+      StreamController<FileListMessage>.broadcast();
+  FileListMessage message = const FileListMessage(files: []);
 }
 
 class _PendingGalleryRequest {

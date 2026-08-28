@@ -805,6 +805,7 @@ sealed class ServerMessage {
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
         resumeRequestId: json['resumeRequestId'] as String?,
+        requestId: json['requestId'] as String?,
         tipCode: json['tipCode'] as String?,
         codexCliJoin: json['codexCliJoin'] is Map<String, dynamic>
             ? CodexCliJoinTarget.fromJson(
@@ -985,6 +986,11 @@ sealed class ServerMessage {
         codexAutoReviewDisabled:
             json['codexAutoReviewDisabled'] as bool? ?? false,
         bridgeVersion: json['bridgeVersion'] as String?,
+        protocolCapabilities:
+            (json['protocolCapabilities'] as List?)
+                ?.whereType<String>()
+                .toSet() ??
+            const {},
       ),
       'recent_sessions' => RecentSessionsMessage(
         sessions: (json['sessions'] as List)
@@ -1020,6 +1026,9 @@ sealed class ServerMessage {
             .toList(),
       ),
       'screenshot_result' => ScreenshotResultMessage(
+        projectPath: json['projectPath'] as String?,
+        sessionId: json['sessionId'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         image: json['image'] != null
             ? GalleryImage.fromJson(json['image'] as Map<String, dynamic>)
@@ -1053,6 +1062,8 @@ sealed class ServerMessage {
         diffError: json['diffError'] as String?,
       ),
       'file_content' => FileContentMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         filePath: json['filePath'] as String,
         kind: json['kind'] as String? ?? 'text',
         content: json['content'] as String? ?? '',
@@ -1089,9 +1100,12 @@ sealed class ServerMessage {
         skipped: json['skipped'] as bool? ?? false,
       ),
       'file_list' => FileListMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         files: (json['files'] as List).cast<String>(),
         totalFiles: json['totalFiles'] as int?,
         truncated: json['truncated'] as bool? ?? false,
+        error: json['error'] as String?,
       ),
       'project_history' => ProjectHistoryMessage(
         projects: (json['projects'] as List).cast<String>(),
@@ -1102,6 +1116,9 @@ sealed class ServerMessage {
         requestId: json['requestId'] as String?,
       ),
       'diff_result' => DiffResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
+        staged: json['staged'] as bool?,
         diff: json['diff'] as String? ?? '',
         error: json['error'] as String?,
         errorCode: json['errorCode'] as String?,
@@ -1114,6 +1131,8 @@ sealed class ServerMessage {
             const [],
       ),
       'diff_image_result' => DiffImageResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         filePath: json['filePath'] as String,
         version: json['version'] as String,
         base64: json['base64'] as String?,
@@ -1123,13 +1142,19 @@ sealed class ServerMessage {
         newBase64: json['newBase64'] as String?,
       ),
       'worktree_list' => WorktreeListMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         worktrees: (json['worktrees'] as List)
             .map((w) => WorktreeInfo.fromJson(w as Map<String, dynamic>))
             .toList(),
         mainBranch: json['mainBranch'] as String?,
+        error: json['error'] as String?,
       ),
       'worktree_removed' => WorktreeRemovedMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         worktreePath: json['worktreePath'] as String,
+        error: json['error'] as String?,
       ),
       'tool_use_summary' => ToolUseSummaryMessage(
         summary: json['summary'] as String,
@@ -1267,28 +1292,40 @@ sealed class ServerMessage {
       ),
       // ---- Git Operations (Phase 1-3) ----
       'git_stage_result' => GitStageResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_unstage_result' => GitUnstageResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_unstage_hunks_result' => GitUnstageHunksResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_commit_result' => GitCommitResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         commitHash: json['commitHash'] as String?,
         message: json['message'] as String?,
         error: json['error'] as String?,
       ),
       'git_push_result' => GitPushResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_branches_result' => GitBranchesResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         current: json['current'] as String? ?? '',
         branches: (json['branches'] as List?)?.cast<String>() ?? const [],
         checkedOutBranches:
@@ -1306,31 +1343,44 @@ sealed class ServerMessage {
         error: json['error'] as String?,
       ),
       'git_create_branch_result' => GitCreateBranchResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_checkout_branch_result' => GitCheckoutBranchResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_revert_file_result' => GitRevertFileResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_revert_hunks_result' => GitRevertHunksResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_fetch_result' => GitFetchResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
       'git_pull_result' => GitPullResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         success: json['success'] as bool? ?? false,
         message: json['message'] as String?,
         error: json['error'] as String?,
       ),
       'git_status_result' => GitStatusResultMessage(
+        requestId: json['requestId'] as String?,
         sessionId: json['sessionId'] as String?,
         projectPath: json['projectPath'] as String? ?? '',
         hasUncommittedChanges: json['hasUncommittedChanges'] as bool? ?? false,
@@ -1347,14 +1397,22 @@ sealed class ServerMessage {
         error: json['error'] as String?,
       ),
       'git_remote_status_result' => GitRemoteStatusResultMessage(
+        projectPath: json['projectPath'] as String?,
+        requestId: json['requestId'] as String?,
         ahead: json['ahead'] as int? ?? 0,
         behind: json['behind'] as int? ?? 0,
         branch: json['branch'] as String? ?? '',
         hasUpstream: json['hasUpstream'] as bool? ?? false,
+        error: json['error'] as String?,
       ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
+}
+
+abstract interface class ProjectCorrelatedMessage {
+  String? get projectPath;
+  String? get requestId;
 }
 
 /// Metadata for a Codex skill, returned by the `skills/list` RPC.
@@ -1548,6 +1606,7 @@ class SystemMessage implements ServerMessage {
   final bool clearContext;
   final String? sourceSessionId;
   final String? resumeRequestId;
+  final String? requestId;
   final String? tipCode;
   final CodexCliJoinTarget? codexCliJoin;
   const SystemMessage({
@@ -1580,6 +1639,7 @@ class SystemMessage implements ServerMessage {
     this.clearContext = false,
     this.sourceSessionId,
     this.resumeRequestId,
+    this.requestId,
     this.tipCode,
     this.codexCliJoin,
   });
@@ -2457,6 +2517,7 @@ class SessionListMessage implements ServerMessage {
   final String? defaultCodexProfile;
   final bool codexAutoReviewDisabled;
   final String? bridgeVersion;
+  final Set<String> protocolCapabilities;
   const SessionListMessage({
     required this.sessions,
     this.allowedDirs = const [],
@@ -2469,6 +2530,7 @@ class SessionListMessage implements ServerMessage {
     this.defaultCodexProfile,
     this.codexAutoReviewDisabled = false,
     this.bridgeVersion,
+    this.protocolCapabilities = const {},
   });
 }
 
@@ -2546,11 +2608,20 @@ class WindowListMessage implements ServerMessage {
   const WindowListMessage({required this.windows});
 }
 
-class ScreenshotResultMessage implements ServerMessage {
+class ScreenshotResultMessage
+    implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  final String? sessionId;
+  @override
+  final String? requestId;
   final bool success;
   final GalleryImage? image;
   final String? error;
   const ScreenshotResultMessage({
+    this.projectPath,
+    this.sessionId,
+    this.requestId,
     required this.success,
     this.image,
     this.error,
@@ -2689,19 +2760,31 @@ class DebugBundleMessage implements ServerMessage {
   });
 }
 
-class FileListMessage implements ServerMessage {
+class FileListMessage implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
   final List<String> files;
   final int? totalFiles;
   final bool truncated;
+  final String? error;
 
   const FileListMessage({
+    this.projectPath,
+    this.requestId,
     required this.files,
     this.totalFiles,
     this.truncated = false,
+    this.error,
   });
 }
 
-class FileContentMessage implements ServerMessage {
+class FileContentMessage implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
   final String filePath;
   final String kind;
   final String content;
@@ -2714,6 +2797,8 @@ class FileContentMessage implements ServerMessage {
   final int? sizeBytes;
   final String? mediaUrl;
   const FileContentMessage({
+    this.projectPath,
+    this.requestId,
     required this.filePath,
     this.kind = 'text',
     required this.content,
@@ -2867,12 +2952,20 @@ class DiffImageChange {
       );
 }
 
-class DiffResultMessage implements ServerMessage {
+class DiffResultMessage implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
+  final bool? staged;
   final String diff;
   final String? error;
   final String? errorCode;
   final List<DiffImageChange> imageChanges;
   const DiffResultMessage({
+    this.projectPath,
+    this.requestId,
+    this.staged,
     required this.diff,
     this.error,
     this.errorCode,
@@ -2880,7 +2973,12 @@ class DiffResultMessage implements ServerMessage {
   });
 }
 
-class DiffImageResultMessage implements ServerMessage {
+class DiffImageResultMessage
+    implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
   final String filePath;
   final String version;
   final String? base64;
@@ -2892,6 +2990,8 @@ class DiffImageResultMessage implements ServerMessage {
   final String? newBase64;
 
   const DiffImageResultMessage({
+    this.projectPath,
+    this.requestId,
     required this.filePath,
     required this.version,
     this.base64,
@@ -2902,15 +3002,37 @@ class DiffImageResultMessage implements ServerMessage {
   });
 }
 
-class WorktreeListMessage implements ServerMessage {
+class WorktreeListMessage implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
   final List<WorktreeInfo> worktrees;
   final String? mainBranch;
-  const WorktreeListMessage({required this.worktrees, this.mainBranch});
+  final String? error;
+  const WorktreeListMessage({
+    this.projectPath,
+    this.requestId,
+    required this.worktrees,
+    this.mainBranch,
+    this.error,
+  });
 }
 
-class WorktreeRemovedMessage implements ServerMessage {
+class WorktreeRemovedMessage
+    implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
   final String worktreePath;
-  const WorktreeRemovedMessage({required this.worktreePath});
+  final String? error;
+  const WorktreeRemovedMessage({
+    this.projectPath,
+    this.requestId,
+    required this.worktreePath,
+    this.error,
+  });
 }
 
 /// Summary of tool uses within a subagent (Task tool).
@@ -3321,30 +3443,60 @@ class MessageImagesResultMessage implements ServerMessage {
 
 // ---- Git Operations (Phase 1-3) ----
 
-class GitStageResultMessage implements ServerMessage {
-  final bool success;
-  final String? error;
-  const GitStageResultMessage({required this.success, this.error});
+abstract class GitProjectResultMessage implements ProjectCorrelatedMessage {
+  @override
+  final String? projectPath;
+  @override
+  final String? requestId;
+
+  const GitProjectResultMessage({this.projectPath, this.requestId});
 }
 
-class GitUnstageResultMessage implements ServerMessage {
+class GitStageResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitUnstageResultMessage({required this.success, this.error});
+  const GitStageResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitUnstageHunksResultMessage implements ServerMessage {
+class GitUnstageResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitUnstageHunksResultMessage({required this.success, this.error});
+  const GitUnstageResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitCommitResultMessage implements ServerMessage {
+class GitUnstageHunksResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitUnstageHunksResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
+}
+
+class GitCommitResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? commitHash;
   final String? message;
   final String? error;
   const GitCommitResultMessage({
+    super.projectPath,
+    super.requestId,
     required this.success,
     this.commitHash,
     this.message,
@@ -3352,10 +3504,16 @@ class GitCommitResultMessage implements ServerMessage {
   });
 }
 
-class GitPushResultMessage implements ServerMessage {
+class GitPushResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitPushResultMessage({required this.success, this.error});
+  const GitPushResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
 class GitBranchRemoteStatus {
@@ -3378,13 +3536,16 @@ class GitBranchRemoteStatus {
   }
 }
 
-class GitBranchesResultMessage implements ServerMessage {
+class GitBranchesResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final String current;
   final List<String> branches;
   final List<String> checkedOutBranches;
   final Map<String, GitBranchRemoteStatus> remoteStatusByBranch;
   final String? error;
   const GitBranchesResultMessage({
+    super.projectPath,
+    super.requestId,
     required this.current,
     required this.branches,
     this.checkedOutBranches = const [],
@@ -3393,44 +3554,82 @@ class GitBranchesResultMessage implements ServerMessage {
   });
 }
 
-class GitCreateBranchResultMessage implements ServerMessage {
+class GitCreateBranchResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitCreateBranchResultMessage({required this.success, this.error});
+  const GitCreateBranchResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitCheckoutBranchResultMessage implements ServerMessage {
+class GitCheckoutBranchResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitCheckoutBranchResultMessage({required this.success, this.error});
+  const GitCheckoutBranchResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitRevertFileResultMessage implements ServerMessage {
+class GitRevertFileResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitRevertFileResultMessage({required this.success, this.error});
+  const GitRevertFileResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitRevertHunksResultMessage implements ServerMessage {
+class GitRevertHunksResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitRevertHunksResultMessage({required this.success, this.error});
+  const GitRevertHunksResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitFetchResultMessage implements ServerMessage {
+class GitFetchResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? error;
-  const GitFetchResultMessage({required this.success, this.error});
+  const GitFetchResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.error,
+  });
 }
 
-class GitPullResultMessage implements ServerMessage {
+class GitPullResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final bool success;
   final String? message;
   final String? error;
-  const GitPullResultMessage({required this.success, this.message, this.error});
+  const GitPullResultMessage({
+    super.projectPath,
+    super.requestId,
+    required this.success,
+    this.message,
+    this.error,
+  });
 }
 
 class GitStatusResultMessage implements ServerMessage {
+  final String? requestId;
   final String? sessionId;
   final String projectPath;
   final bool hasUncommittedChanges;
@@ -3446,6 +3645,7 @@ class GitStatusResultMessage implements ServerMessage {
   final String? remoteError;
   final String? error;
   const GitStatusResultMessage({
+    this.requestId,
     this.sessionId,
     required this.projectPath,
     required this.hasUncommittedChanges,
@@ -3463,16 +3663,21 @@ class GitStatusResultMessage implements ServerMessage {
   });
 }
 
-class GitRemoteStatusResultMessage implements ServerMessage {
+class GitRemoteStatusResultMessage extends GitProjectResultMessage
+    implements ServerMessage {
   final int ahead;
   final int behind;
   final String branch;
   final bool hasUpstream;
+  final String? error;
   const GitRemoteStatusResultMessage({
+    super.projectPath,
+    super.requestId,
     required this.ahead,
     required this.behind,
     required this.branch,
     required this.hasUpstream,
+    this.error,
   });
 }
 
@@ -4108,6 +4313,7 @@ class ClientMessage {
     String? webSearchMode,
     List<String>? additionalWritableRoots,
     bool? autoRename,
+    String? requestId,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -4141,6 +4347,7 @@ class ClientMessage {
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
         'additionalWritableRoots': additionalWritableRoots,
       'autoRename': ?autoRename,
+      'requestId': ?requestId,
     });
   }
 
@@ -4518,11 +4725,13 @@ class ClientMessage {
     String projectPath,
     String filePath, {
     int? maxLines,
+    String? requestId,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'read_file',
     'projectPath': projectPath,
     'filePath': filePath,
     'maxLines': ?maxLines,
+    'requestId': ?requestId,
   });
 
   factory ClientMessage.prepareFileDownload({
@@ -4568,15 +4777,23 @@ class ClientMessage {
     {'type': 'cancel_file_upload', 'uploadToken': uploadToken},
   );
 
-  factory ClientMessage.readMediaFile(String projectPath, String filePath) =>
-      ClientMessage._({
-        'type': 'read_media_file',
-        'projectPath': projectPath,
-        'filePath': filePath,
-      });
+  factory ClientMessage.readMediaFile(
+    String projectPath,
+    String filePath, {
+    String? requestId,
+  }) => ClientMessage._({
+    'type': 'read_media_file',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'requestId': ?requestId,
+  });
 
-  factory ClientMessage.listFiles(String projectPath) =>
-      ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
+  factory ClientMessage.listFiles(String projectPath, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'list_files',
+        'projectPath': projectPath,
+        'requestId': ?requestId,
+      });
 
   factory ClientMessage.listDirectory(
     String path, {
@@ -4589,22 +4806,28 @@ class ClientMessage {
     if (includeHidden) 'includeHidden': true,
   });
 
-  factory ClientMessage.getDiff(String projectPath, {bool? staged}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'get_diff',
-        'projectPath': projectPath,
-        'staged': ?staged,
-      });
+  factory ClientMessage.getDiff(
+    String projectPath, {
+    bool? staged,
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_diff',
+    'projectPath': projectPath,
+    'staged': ?staged,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.getDiffImage(
     String projectPath,
     String filePath,
-    String version,
-  ) => ClientMessage._({
+    String version, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'get_diff_image',
     'projectPath': projectPath,
     'filePath': filePath,
     'version': version,
+    'requestId': ?requestId,
   });
 
   factory ClientMessage.interrupt({String? sessionId}) => ClientMessage._(
@@ -4620,16 +4843,24 @@ class ClientMessage {
         'projectPath': projectPath,
       });
 
-  factory ClientMessage.listWorktrees(String projectPath) =>
-      ClientMessage._({'type': 'list_worktrees', 'projectPath': projectPath});
+  factory ClientMessage.listWorktrees(
+    String projectPath, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'list_worktrees',
+    'projectPath': projectPath,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.removeWorktree(
     String projectPath,
-    String worktreePath,
-  ) => ClientMessage._({
+    String worktreePath, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'remove_worktree',
     'projectPath': projectPath,
     'worktreePath': worktreePath,
+    'requestId': ?requestId,
   });
 
   factory ClientMessage.rewind(
@@ -4682,12 +4913,14 @@ class ClientMessage {
     int? windowId,
     required String projectPath,
     String? sessionId,
+    String? requestId,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'take_screenshot',
     'mode': mode,
     'projectPath': projectPath,
     'windowId': ?windowId,
     'sessionId': ?sessionId,
+    'requestId': ?requestId,
   });
 
   factory ClientMessage.backupPromptHistory({
@@ -4787,27 +5020,35 @@ class ClientMessage {
     String projectPath, {
     List<String>? files,
     List<Map<String, dynamic>>? hunks,
+    String? requestId,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'git_stage',
     'projectPath': projectPath,
     'files': ?files,
     'hunks': ?hunks,
+    'requestId': ?requestId,
   });
 
-  factory ClientMessage.gitUnstage(String projectPath, {List<String>? files}) =>
-      ClientMessage._(<String, dynamic>{
-        'type': 'git_unstage',
-        'projectPath': projectPath,
-        'files': ?files,
-      });
+  factory ClientMessage.gitUnstage(
+    String projectPath, {
+    List<String>? files,
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_unstage',
+    'projectPath': projectPath,
+    'files': ?files,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.gitUnstageHunks(
     String projectPath,
-    List<Map<String, dynamic>> hunks,
-  ) => ClientMessage._(<String, dynamic>{
+    List<Map<String, dynamic>> hunks, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'git_unstage_hunks',
     'projectPath': projectPath,
     'hunks': hunks,
+    'requestId': ?requestId,
   });
 
   factory ClientMessage.gitCommit(
@@ -4815,76 +5056,110 @@ class ClientMessage {
     String? sessionId,
     String? message,
     bool? autoGenerate,
+    String? requestId,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'git_commit',
     'projectPath': projectPath,
     'sessionId': ?sessionId,
     'message': ?message,
     'autoGenerate': ?autoGenerate,
+    'requestId': ?requestId,
   });
 
-  factory ClientMessage.gitPush(String projectPath) => ClientMessage._(
-    <String, dynamic>{'type': 'git_push', 'projectPath': projectPath},
-  );
+  factory ClientMessage.gitPush(String projectPath, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_push',
+        'projectPath': projectPath,
+        'requestId': ?requestId,
+      });
 
-  factory ClientMessage.gitBranches(String projectPath) => ClientMessage._(
-    <String, dynamic>{'type': 'git_branches', 'projectPath': projectPath},
-  );
+  factory ClientMessage.gitBranches(String projectPath, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_branches',
+        'projectPath': projectPath,
+        'requestId': ?requestId,
+      });
 
   factory ClientMessage.gitCreateBranch(
     String projectPath,
     String name, {
     bool? checkout,
+    String? requestId,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'git_create_branch',
     'projectPath': projectPath,
     'name': name,
     'checkout': ?checkout,
+    'requestId': ?requestId,
   });
 
-  factory ClientMessage.gitCheckoutBranch(String projectPath, String branch) =>
-      ClientMessage._({
-        'type': 'git_checkout_branch',
-        'projectPath': projectPath,
-        'branch': branch,
-      });
+  factory ClientMessage.gitCheckoutBranch(
+    String projectPath,
+    String branch, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_checkout_branch',
+    'projectPath': projectPath,
+    'branch': branch,
+    'requestId': ?requestId,
+  });
 
-  factory ClientMessage.gitRevertFile(String projectPath, List<String> files) =>
-      ClientMessage._({
-        'type': 'git_revert_file',
-        'projectPath': projectPath,
-        'files': files,
-      });
+  factory ClientMessage.gitRevertFile(
+    String projectPath,
+    List<String> files, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_revert_file',
+    'projectPath': projectPath,
+    'files': files,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.gitRevertHunks(
     String projectPath,
-    List<Map<String, dynamic>> hunks,
-  ) => ClientMessage._({
+    List<Map<String, dynamic>> hunks, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'git_revert_hunks',
     'projectPath': projectPath,
     'hunks': hunks,
+    'requestId': ?requestId,
   });
 
-  factory ClientMessage.gitFetch(String projectPath) =>
-      ClientMessage._({'type': 'git_fetch', 'projectPath': projectPath});
+  factory ClientMessage.gitFetch(String projectPath, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_fetch',
+        'projectPath': projectPath,
+        'requestId': ?requestId,
+      });
 
-  factory ClientMessage.gitPull(String projectPath) =>
-      ClientMessage._({'type': 'git_pull', 'projectPath': projectPath});
+  factory ClientMessage.gitPull(String projectPath, {String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_pull',
+        'projectPath': projectPath,
+        'requestId': ?requestId,
+      });
 
   factory ClientMessage.gitStatus(
     String projectPath, {
     String? sessionId,
     bool includeRemote = false,
-  }) => ClientMessage._({
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'git_status',
     'projectPath': projectPath,
     'sessionId': ?sessionId,
     if (includeRemote) 'includeRemote': true,
+    'requestId': ?requestId,
   });
 
-  factory ClientMessage.gitRemoteStatus(String projectPath) => ClientMessage._({
+  factory ClientMessage.gitRemoteStatus(
+    String projectPath, {
+    String? requestId,
+  }) => ClientMessage._(<String, dynamic>{
     'type': 'git_remote_status',
     'projectPath': projectPath,
+    'requestId': ?requestId,
   });
 
   String toJson() => jsonEncode(_json);

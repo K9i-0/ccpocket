@@ -804,6 +804,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         result.provider == Provider.codex &&
         (useCodexProfile ||
             result.codexPermissionsMode == CodexPermissionsMode.custom);
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
     bridge.send(
@@ -879,6 +880,7 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? result.additionalWritableRoots
             : null,
         autoRename: autoRenameForProvider(settings, result.provider),
+        requestId: pendingId,
       ),
     );
     if (isOffline) {
@@ -893,7 +895,6 @@ class _SessionListScreenState extends State<SessionListScreen>
       return;
     }
     // Navigate immediately to chat with pending state
-    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     _pendingNavigation = true;
     _navigateToChat(
       pendingId,

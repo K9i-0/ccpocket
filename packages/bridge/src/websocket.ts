@@ -125,6 +125,19 @@ import {
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
 type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
 type ResumeClientMessage = Extract<ClientMessage, { type: "resume_session" }>;
+type CorrelatedProjectRequest = {
+  projectPath: string;
+  requestId?: string;
+};
+
+function projectRequestMetadata(
+  request: CorrelatedProjectRequest,
+): { projectPath: string; requestId?: string } {
+  return {
+    projectPath: request.projectPath,
+    ...(request.requestId ? { requestId: request.requestId } : {}),
+  };
+}
 type ResumeOperation = {
   id: string;
   provider: Provider;
@@ -1261,11 +1274,14 @@ export class BridgeWebSocketServer {
   /** Build a user-friendly error for disallowed project paths. */
   private buildPathNotAllowedError(
     projectPath: string,
+    requestId?: string,
   ): Extract<ServerMessage, { type: "error" }> {
     return {
       type: "error",
       message: `⚠ Project path not allowed\n\n"${projectPath}" is not in the allowed directories.\n\nFix: Update BRIDGE_ALLOWED_DIRS on the Bridge server to include this path.`,
       errorCode: "path_not_allowed",
+      path: projectPath,
+      requestId,
     };
   }
 
@@ -1327,6 +1343,7 @@ export class BridgeWebSocketServer {
     pluginMetadata?: Array<Record<string, unknown>>;
     sourceSessionId?: string;
     resumeRequestId?: string;
+    requestId?: string;
   }): SystemServerMessage {
     const {
       sessionId,
@@ -1348,6 +1365,7 @@ export class BridgeWebSocketServer {
       pluginMetadata,
       sourceSessionId,
       resumeRequestId,
+      requestId,
     } = params;
     const derivedCodexSettings = provider === "codex"
       ? withDerivedCodexPermissionsMode(session?.codexSettings)
@@ -1459,6 +1477,7 @@ export class BridgeWebSocketServer {
         : {}),
       ...(sourceSessionId ? { sourceSessionId } : {}),
       ...(resumeRequestId ? { resumeRequestId } : {}),
+      ...(requestId ? { requestId } : {}),
     };
 
     if (provider === "codex" && derivedCodexSettings) {
@@ -1505,6 +1524,7 @@ export class BridgeWebSocketServer {
     if (mode !== "conversation") {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Codex only supports conversation rewind",
@@ -1516,6 +1536,7 @@ export class BridgeWebSocketServer {
     if (!session) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: `Session ${sessionId} not found`,
@@ -1529,6 +1550,7 @@ export class BridgeWebSocketServer {
     ) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Session is not a Codex session",
@@ -1538,6 +1560,7 @@ export class BridgeWebSocketServer {
     if (session.status !== "idle" || (codexProcess.status ?? session.status) !== "idle") {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Cannot rewind while Codex is running",
@@ -1547,6 +1570,7 @@ export class BridgeWebSocketServer {
     if (session.codexQueuedInput) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Cannot rewind while Codex has queued input",
@@ -1559,6 +1583,7 @@ export class BridgeWebSocketServer {
     if (targetOrdinal === null || targetOrdinal > totalUserTurns) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Invalid Codex rewind target",
@@ -1570,6 +1595,7 @@ export class BridgeWebSocketServer {
     if (numTurns <= 0) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "Invalid Codex rewind target",
@@ -1581,6 +1607,7 @@ export class BridgeWebSocketServer {
     if (!threadId) {
       this.send(ws, {
         type: "rewind_result",
+        sessionId,
         success: false,
         mode,
         error: "No Codex thread ID available for rewind",
@@ -1620,6 +1647,7 @@ export class BridgeWebSocketServer {
 
     this.send(ws, {
       type: "rewind_result",
+      sessionId,
       success: true,
       mode,
     });
@@ -2706,7 +2734,11 @@ export class BridgeWebSocketServer {
       case "start": {
         const projectPath = resolvePlatformPath(msg.projectPath, this.platform);
         if (!this.isPathAllowed(projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            ...this.buildPathNotAllowedError(msg.projectPath),
+            requestId: msg.requestId,
+            path: msg.projectPath,
+          });
           break;
         }
         try {
@@ -2771,6 +2803,8 @@ export class BridgeWebSocketServer {
             ) {
               this.send(ws, {
                 type: "error",
+                requestId: msg.requestId,
+                path: projectPath,
                 message: `Codex profile not found: ${msg.profile}`,
               });
               break;
@@ -2786,7 +2820,13 @@ export class BridgeWebSocketServer {
           if (additionalWritableRoots.deniedRoot) {
             this.send(
               ws,
-              this.buildPathNotAllowedError(additionalWritableRoots.deniedRoot),
+              {
+                ...this.buildPathNotAllowedError(
+                  additionalWritableRoots.deniedRoot,
+                ),
+                requestId: msg.requestId,
+                path: projectPath,
+              },
             );
             break;
           }
@@ -2908,6 +2948,7 @@ export class BridgeWebSocketServer {
                   createdSession?.codexSettings?.codexPermissionsMode,
                 approvalsReviewer:
                   createdSession?.codexSettings?.approvalsReviewer,
+                requestId: msg.requestId,
                 ...(cached
                   ? {
                       slashCommands: cached.slashCommands,
@@ -2963,6 +3004,8 @@ export class BridgeWebSocketServer {
           console.error(`[ws] Failed to start session:`, err);
           this.send(ws, {
             type: "error",
+            requestId: msg.requestId,
+            path: msg.projectPath,
             message: `Failed to start session: ${(err as Error).message}`,
           });
         }
@@ -2981,6 +3024,7 @@ export class BridgeWebSocketServer {
           }
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "No active session. Send 'start' first.",
           });
           return;
@@ -3320,12 +3364,17 @@ export class BridgeWebSocketServer {
       case "update_queued_input": {
         const session = this.resolveSession(msg.sessionId);
         if (!session || session.provider !== "codex") {
-          this.send(ws, { type: "error", message: "No active Codex session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active Codex session.",
+          });
           return;
         }
         if (!msg.text.trim()) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Queued message cannot be empty.",
           });
           return;
@@ -3339,6 +3388,7 @@ export class BridgeWebSocketServer {
         if (!success) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Queued message not found.",
             errorCode: "queued_input_not_found",
           });
@@ -3351,7 +3401,11 @@ export class BridgeWebSocketServer {
       case "cancel_queued_input": {
         const session = this.resolveSession(msg.sessionId);
         if (!session || session.provider !== "codex") {
-          this.send(ws, { type: "error", message: "No active Codex session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active Codex session.",
+          });
           return;
         }
         const success = this.sessionManager.cancelCodexQueuedInput(
@@ -3361,6 +3415,7 @@ export class BridgeWebSocketServer {
         if (!success) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Queued message not found.",
             errorCode: "queued_input_not_found",
           });
@@ -3373,7 +3428,11 @@ export class BridgeWebSocketServer {
       case "steer_queued_input": {
         const session = this.resolveSession(msg.sessionId);
         if (!session || session.provider !== "codex") {
-          this.send(ws, { type: "error", message: "No active Codex session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active Codex session.",
+          });
           return;
         }
         const result = await this.sessionManager.steerCodexQueuedInput(
@@ -3383,6 +3442,7 @@ export class BridgeWebSocketServer {
         if (!result.ok) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: result.error,
             errorCode:
               result.error === "Queued message not found."
@@ -3498,6 +3558,7 @@ export class BridgeWebSocketServer {
         if (this.failSetPermissionMode) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Failed to set permission mode: forced test failure",
             errorCode: "set_permission_mode_rejected",
           });
@@ -3505,7 +3566,11 @@ export class BridgeWebSocketServer {
         }
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active session.",
+          });
           return;
         }
         if (session.provider === "codex") {
@@ -3852,6 +3917,7 @@ export class BridgeWebSocketServer {
             .catch((err) => {
               this.send(ws, {
                 type: "error",
+                sessionId: msg.sessionId,
                 message: `Failed to restart session for permission mode change: ${err}`,
               });
             });
@@ -3866,6 +3932,7 @@ export class BridgeWebSocketServer {
             ) {
               this.send(ws, {
                 type: "error",
+                sessionId: msg.sessionId,
                 message:
                   "Auto mode is unavailable in this environment. Keeping the current permission mode.",
                 errorCode: "auto_mode_unavailable",
@@ -3874,6 +3941,7 @@ export class BridgeWebSocketServer {
             }
             this.send(ws, {
               type: "error",
+              sessionId: msg.sessionId,
               message: `Failed to set permission mode: ${errorMessageOf(err)}`,
             });
           });
@@ -3883,12 +3951,17 @@ export class BridgeWebSocketServer {
       case "set_codex_model": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active session.",
+          });
           return;
         }
         if (session.provider !== "codex") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Model switching is only supported for Codex sessions.",
             errorCode: "set_codex_model_unsupported",
           });
@@ -3899,6 +3972,7 @@ export class BridgeWebSocketServer {
         if (!model) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Invalid Codex model: ${msg.model}`,
             errorCode: "set_codex_model_rejected",
           });
@@ -3951,6 +4025,7 @@ export class BridgeWebSocketServer {
         if (!session || session.provider !== "codex") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "No active Codex session.",
             errorCode: "set_codex_speed_unsupported",
           });
@@ -3986,6 +4061,7 @@ export class BridgeWebSocketServer {
         if (!session || session.provider !== "codex") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Goal lookup is only supported for active Codex sessions.",
             errorCode: "goal_get_unsupported",
           });
@@ -3998,6 +4074,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Failed to get goal: ${errorMessageOf(err)}`,
             errorCode: "goal_get_failed",
           });
@@ -4010,6 +4087,7 @@ export class BridgeWebSocketServer {
         if (!session || session.provider !== "codex") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Goal updates are only supported for active Codex sessions.",
             errorCode: "goal_set_unsupported",
           });
@@ -4030,6 +4108,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Failed to set goal: ${errorMessageOf(err)}`,
             errorCode: "goal_set_failed",
           });
@@ -4042,6 +4121,7 @@ export class BridgeWebSocketServer {
         if (!session || session.provider !== "codex") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Goal clearing is only supported for active Codex sessions.",
             errorCode: "goal_clear_unsupported",
           });
@@ -4057,6 +4137,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Failed to clear goal: ${errorMessageOf(err)}`,
             errorCode: "goal_clear_failed",
           });
@@ -4068,6 +4149,7 @@ export class BridgeWebSocketServer {
         if (this.failSetSandboxMode) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: "Failed to set sandbox mode: forced test failure",
             errorCode: "set_sandbox_mode_rejected",
           });
@@ -4075,12 +4157,17 @@ export class BridgeWebSocketServer {
         }
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active session.",
+          });
           return;
         }
         if (msg.sandboxMode !== "on" && msg.sandboxMode !== "off") {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Invalid sandbox mode: ${msg.sandboxMode}`,
           });
           return;
@@ -4380,6 +4467,7 @@ export class BridgeWebSocketServer {
           .catch((err) => {
             this.send(ws, {
               type: "error",
+              sessionId: msg.sessionId,
               message: `Failed to restart session for sandbox mode change: ${err}`,
             });
           });
@@ -4624,6 +4712,7 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Session ${msg.sessionId} not found`,
           });
         }
@@ -4748,6 +4837,7 @@ export class BridgeWebSocketServer {
           if (!result) {
             this.send(ws, {
               type: "error",
+              sessionId: msg.sessionId,
               message: `Session ${msg.sessionId} not found`,
             });
             break;
@@ -4792,6 +4882,7 @@ export class BridgeWebSocketServer {
           if (!result) {
             this.send(ws, {
               type: "error",
+              sessionId: msg.sessionId,
               message: `Session ${msg.sessionId} not found`,
             });
             break;
@@ -4823,6 +4914,7 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Session ${msg.sessionId} not found`,
           });
         }
@@ -4856,6 +4948,7 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Session ${msg.sessionId} not found`,
           });
         }
@@ -4867,6 +4960,7 @@ export class BridgeWebSocketServer {
         if (!session) {
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: `Session ${msg.sessionId} not found`,
           });
           return;
@@ -5598,7 +5692,11 @@ export class BridgeWebSocketServer {
       case "interrupt": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session." });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active session.",
+          });
           return;
         }
         session.process.interrupt();
@@ -5673,11 +5771,15 @@ export class BridgeWebSocketServer {
 
       case "read_file":
       case "read_media_file": {
+        const responseMetadata = {
+          ...projectRequestMetadata(msg),
+          filePath: msg.filePath,
+        };
         const absPath = resolve(msg.projectPath, msg.filePath);
         if (!this.isPathAllowed(absPath)) {
           this.send(ws, {
             type: "file_content",
-            filePath: msg.filePath,
+            ...responseMetadata,
             content: "",
             error: "Path not allowed",
           });
@@ -5688,7 +5790,7 @@ export class BridgeWebSocketServer {
             if (!existsSync(absPath)) {
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 content: "",
                 error: "File not found",
               });
@@ -5708,7 +5810,7 @@ export class BridgeWebSocketServer {
               } catch {
                 this.send(ws, {
                   type: "file_content",
-                  filePath: msg.filePath,
+                  ...responseMetadata,
                   content: "",
                   error:
                     targetPath.length > 0
@@ -5720,7 +5822,7 @@ export class BridgeWebSocketServer {
               if (resolvedTargetStat.isDirectory()) {
                 this.send(ws, {
                   type: "file_content",
-                  filePath: msg.filePath,
+                  ...responseMetadata,
                   content: "",
                   error:
                     targetPath.length > 0
@@ -5732,7 +5834,7 @@ export class BridgeWebSocketServer {
             } else if (fileStat.isDirectory()) {
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 content: "",
                 error: "This path is a directory. Open a file instead.",
               });
@@ -5745,7 +5847,7 @@ export class BridgeWebSocketServer {
             if (!(await this.isCanonicalPathAllowed(canonicalPath))) {
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 content: "",
                 error: "Path not allowed",
               });
@@ -5757,7 +5859,7 @@ export class BridgeWebSocketServer {
               if (!this.mediaStore) {
                 this.send(ws, {
                   type: "file_content",
-                  filePath: msg.filePath,
+                  ...responseMetadata,
                   kind: mediaType.kind,
                   content: "",
                   mimeType: mediaType.mimeType,
@@ -5773,7 +5875,7 @@ export class BridgeWebSocketServer {
               );
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 kind: mediaType.kind,
                 content: "",
                 mimeType: ref.mimeType,
@@ -5785,7 +5887,7 @@ export class BridgeWebSocketServer {
             if (msg.type === "read_media_file") {
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 content: "",
                 error: "Unsupported media file type.",
               });
@@ -5796,7 +5898,7 @@ export class BridgeWebSocketServer {
               if (resolvedFileStat.size > BridgeWebSocketServer.MAX_IMAGE_SIZE) {
                 this.send(ws, {
                   type: "file_content",
-                  filePath: msg.filePath,
+                  ...responseMetadata,
                   kind: "image",
                   content: "",
                   mimeType,
@@ -5808,7 +5910,7 @@ export class BridgeWebSocketServer {
               const buf = await readFile(absPath);
               this.send(ws, {
                 type: "file_content",
-                filePath: msg.filePath,
+                ...responseMetadata,
                 kind: "image",
                 content: "",
                 base64: buf.toString("base64"),
@@ -5865,7 +5967,7 @@ export class BridgeWebSocketServer {
               : raw;
             this.send(ws, {
               type: "file_content",
-              filePath: msg.filePath,
+              ...responseMetadata,
               kind: "text",
               content,
               language,
@@ -5875,7 +5977,7 @@ export class BridgeWebSocketServer {
           } catch (err) {
             this.send(ws, {
               type: "file_content",
-              filePath: msg.filePath,
+              ...responseMetadata,
               content: "",
               error: `Failed to read file: ${err}`,
             });
@@ -5886,7 +5988,12 @@ export class BridgeWebSocketServer {
 
       case "list_files": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "file_list",
+            ...projectRequestMetadata(msg),
+            files: [],
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         void (async () => {
@@ -5900,6 +6007,7 @@ export class BridgeWebSocketServer {
             );
             this.send(ws, {
               type: "file_list",
+              ...projectRequestMetadata(msg),
               files: result.files,
               totalFiles: result.totalFiles,
               truncated: result.truncated,
@@ -5907,8 +6015,10 @@ export class BridgeWebSocketServer {
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.send(ws, {
-              type: "error",
-              message: `Failed to list files: ${message}`,
+              type: "file_list",
+              ...projectRequestMetadata(msg),
+              files: [],
+              error: `Failed to list files: ${message}`,
             });
           }
         })();
@@ -6010,7 +6120,15 @@ export class BridgeWebSocketServer {
 
       case "get_diff": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "diff_result",
+            ...projectRequestMetadata(msg),
+            staged: msg.staged === true,
+            diff: "",
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId)
+              .message,
+            errorCode: "path_not_allowed",
+          });
           break;
         }
         this.collectGitDiff(
@@ -6020,6 +6138,8 @@ export class BridgeWebSocketServer {
               if (/not a git repository/i.test(error)) {
                 this.send(ws, {
                   type: "diff_result",
+                  ...projectRequestMetadata(msg),
+                  staged: msg.staged === true,
                   diff: "",
                   error: "This project is not a git repository",
                   errorCode: "git_not_available",
@@ -6027,6 +6147,8 @@ export class BridgeWebSocketServer {
               } else {
                 this.send(ws, {
                   type: "diff_result",
+                  ...projectRequestMetadata(msg),
+                  staged: msg.staged === true,
                   diff: "",
                   error: `Failed to get diff: ${error}`,
                 });
@@ -6036,9 +6158,20 @@ export class BridgeWebSocketServer {
             void this.collectImageChanges(msg.projectPath, diff).then(
               (imageChanges) => {
                 if (imageChanges.length > 0) {
-                  this.send(ws, { type: "diff_result", diff, imageChanges });
+                  this.send(ws, {
+                    type: "diff_result",
+                    ...projectRequestMetadata(msg),
+                    staged: msg.staged === true,
+                    diff,
+                    imageChanges,
+                  });
                 } else {
-                  this.send(ws, { type: "diff_result", diff });
+                  this.send(ws, {
+                    type: "diff_result",
+                    ...projectRequestMetadata(msg),
+                    staged: msg.staged === true,
+                    diff,
+                  });
                 }
               },
             );
@@ -6057,7 +6190,13 @@ export class BridgeWebSocketServer {
           !this.isPathAllowed(msg.projectPath) ||
           !this.isPathAllowed(resolve(msg.projectPath, msg.filePath))
         ) {
-          this.send(ws, { type: "error", message: `Path not allowed` });
+          this.send(ws, {
+            type: "diff_image_result",
+            ...projectRequestMetadata(msg),
+            filePath: msg.filePath,
+            version: msg.version,
+            error: "Path not allowed",
+          });
           break;
         }
         if (msg.version === "both") {
@@ -6070,6 +6209,7 @@ export class BridgeWebSocketServer {
               const errors = [oldResult.error, newResult.error].filter(Boolean);
               this.send(ws, {
                 type: "diff_image_result",
+                ...projectRequestMetadata(msg),
                 filePath: msg.filePath,
                 version: "both" as const,
                 oldBase64: oldResult.base64,
@@ -6092,6 +6232,7 @@ export class BridgeWebSocketServer {
               );
               this.send(ws, {
                 type: "diff_image_result",
+                ...projectRequestMetadata(msg),
                 filePath: msg.filePath,
                 version,
                 ...result,
@@ -6106,17 +6247,29 @@ export class BridgeWebSocketServer {
 
       case "list_worktrees": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "worktree_list",
+            ...projectRequestMetadata(msg),
+            worktrees: [],
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           const worktrees = listWorktrees(msg.projectPath);
           const mainBranch = getMainBranch(msg.projectPath);
-          this.send(ws, { type: "worktree_list", worktrees, mainBranch });
+          this.send(ws, {
+            type: "worktree_list",
+            ...projectRequestMetadata(msg),
+            worktrees,
+            mainBranch,
+          });
         } catch (err) {
           this.send(ws, {
-            type: "error",
-            message: `Failed to list worktrees: ${err}`,
+            type: "worktree_list",
+            ...projectRequestMetadata(msg),
+            worktrees: [],
+            error: `Failed to list worktrees: ${err}`,
           });
         }
         break;
@@ -6124,7 +6277,12 @@ export class BridgeWebSocketServer {
 
       case "remove_worktree": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "worktree_removed",
+            ...projectRequestMetadata(msg),
+            worktreePath: msg.worktreePath,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
@@ -6132,12 +6290,15 @@ export class BridgeWebSocketServer {
           this.worktreeStore.deleteByWorktreePath(msg.worktreePath);
           this.send(ws, {
             type: "worktree_removed",
+            ...projectRequestMetadata(msg),
             worktreePath: msg.worktreePath,
           });
         } catch (err) {
           this.send(ws, {
-            type: "error",
-            message: `Failed to remove worktree: ${err}`,
+            type: "worktree_removed",
+            ...projectRequestMetadata(msg),
+            worktreePath: msg.worktreePath,
+            error: `Failed to remove worktree: ${err}`,
           });
         }
         break;
@@ -6147,16 +6308,26 @@ export class BridgeWebSocketServer {
 
       case "git_stage": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_stage_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           if (msg.files?.length) stageFiles(msg.projectPath, msg.files);
           if (msg.hunks?.length) stageHunks(msg.projectPath, msg.hunks);
-          this.send(ws, { type: "git_stage_result", success: true });
+          this.send(ws, {
+            type: "git_stage_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_stage_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6166,15 +6337,25 @@ export class BridgeWebSocketServer {
 
       case "git_unstage": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_unstage_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           unstageFiles(msg.projectPath, msg.files ?? []);
-          this.send(ws, { type: "git_unstage_result", success: true });
+          this.send(ws, {
+            type: "git_unstage_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_unstage_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6184,15 +6365,25 @@ export class BridgeWebSocketServer {
 
       case "git_unstage_hunks": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_unstage_hunks_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           unstageHunks(msg.projectPath, msg.hunks);
-          this.send(ws, { type: "git_unstage_hunks_result", success: true });
+          this.send(ws, {
+            type: "git_unstage_hunks_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_unstage_hunks_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6202,7 +6393,12 @@ export class BridgeWebSocketServer {
 
       case "git_commit": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_commit_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         const session = msg.sessionId
@@ -6244,6 +6440,7 @@ export class BridgeWebSocketServer {
           const result = gitCommit(msg.projectPath, message);
           this.send(ws, {
             type: "git_commit_result",
+            ...projectRequestMetadata(msg),
             success: true,
             commitHash: result.hash,
             message: result.message,
@@ -6251,6 +6448,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "git_commit_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: err instanceof Error ? err.message : String(err),
           });
@@ -6260,18 +6458,25 @@ export class BridgeWebSocketServer {
 
       case "git_push": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_push_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           gitPush(msg.projectPath);
           this.send(ws, {
             type: "git_push_result",
+            ...projectRequestMetadata(msg),
             success: true,
           });
         } catch (err) {
           this.send(ws, {
             type: "git_push_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6281,13 +6486,22 @@ export class BridgeWebSocketServer {
 
       case "git_branches": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_branches_result",
+            ...projectRequestMetadata(msg),
+            current: "",
+            branches: [],
+            checkedOutBranches: [],
+            remoteStatusByBranch: {},
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           const result = listBranches(msg.projectPath);
           this.send(ws, {
             type: "git_branches_result",
+            ...projectRequestMetadata(msg),
             current: result.current,
             branches: result.branches,
             checkedOutBranches: result.checkedOutBranches,
@@ -6296,6 +6510,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "git_branches_result",
+            ...projectRequestMetadata(msg),
             current: "",
             branches: [],
             remoteStatusByBranch: {},
@@ -6307,15 +6522,25 @@ export class BridgeWebSocketServer {
 
       case "git_create_branch": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_create_branch_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           createBranch(msg.projectPath, msg.name, msg.checkout);
-          this.send(ws, { type: "git_create_branch_result", success: true });
+          this.send(ws, {
+            type: "git_create_branch_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_create_branch_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6325,15 +6550,25 @@ export class BridgeWebSocketServer {
 
       case "git_checkout_branch": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_checkout_branch_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           checkoutBranch(msg.projectPath, msg.branch);
-          this.send(ws, { type: "git_checkout_branch_result", success: true });
+          this.send(ws, {
+            type: "git_checkout_branch_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_checkout_branch_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6343,15 +6578,25 @@ export class BridgeWebSocketServer {
 
       case "git_revert_file": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_revert_file_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           revertFiles(msg.projectPath, msg.files);
-          this.send(ws, { type: "git_revert_file_result", success: true });
+          this.send(ws, {
+            type: "git_revert_file_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_revert_file_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6361,15 +6606,25 @@ export class BridgeWebSocketServer {
 
       case "git_revert_hunks": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_revert_hunks_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           revertHunks(msg.projectPath, msg.hunks);
-          this.send(ws, { type: "git_revert_hunks_result", success: true });
+          this.send(ws, {
+            type: "git_revert_hunks_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_revert_hunks_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6379,15 +6634,25 @@ export class BridgeWebSocketServer {
 
       case "git_fetch": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_fetch_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           gitFetch(msg.projectPath);
-          this.send(ws, { type: "git_fetch_result", success: true });
+          this.send(ws, {
+            type: "git_fetch_result",
+            ...projectRequestMetadata(msg),
+            success: true,
+          });
         } catch (err) {
           this.send(ws, {
             type: "git_fetch_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6397,7 +6662,12 @@ export class BridgeWebSocketServer {
 
       case "git_pull": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_pull_result",
+            ...projectRequestMetadata(msg),
+            success: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
@@ -6405,12 +6675,14 @@ export class BridgeWebSocketServer {
           if (result.success) {
             this.send(ws, {
               type: "git_pull_result",
+              ...projectRequestMetadata(msg),
               success: true,
               message: result.message,
             });
           } else {
             this.send(ws, {
               type: "git_pull_result",
+              ...projectRequestMetadata(msg),
               success: false,
               error: result.message,
             });
@@ -6418,6 +6690,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "git_pull_result",
+            ...projectRequestMetadata(msg),
             success: false,
             error: String(err),
           });
@@ -6429,6 +6702,7 @@ export class BridgeWebSocketServer {
         if (!this.isPathAllowed(msg.projectPath)) {
           this.send(ws, {
             type: "git_status_result",
+            requestId: msg.requestId,
             sessionId: msg.sessionId,
             projectPath: msg.projectPath,
             hasUncommittedChanges: false,
@@ -6450,6 +6724,7 @@ export class BridgeWebSocketServer {
           });
           this.send(ws, {
             type: "git_status_result",
+            requestId: msg.requestId,
             sessionId: msg.sessionId,
             projectPath: msg.projectPath,
             hasUncommittedChanges: result.hasUncommittedChanges,
@@ -6467,6 +6742,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "git_status_result",
+            requestId: msg.requestId,
             sessionId: msg.sessionId,
             projectPath: msg.projectPath,
             hasUncommittedChanges: false,
@@ -6486,13 +6762,22 @@ export class BridgeWebSocketServer {
 
       case "git_remote_status": {
         if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            type: "git_remote_status_result",
+            ...projectRequestMetadata(msg),
+            ahead: 0,
+            behind: 0,
+            branch: "",
+            hasUpstream: false,
+            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+          });
           break;
         }
         try {
           const result = gitRemoteStatus(msg.projectPath);
           this.send(ws, {
             type: "git_remote_status_result",
+            ...projectRequestMetadata(msg),
             ahead: result.ahead,
             behind: result.behind,
             branch: result.branch,
@@ -6501,6 +6786,7 @@ export class BridgeWebSocketServer {
         } catch (err) {
           this.send(ws, {
             type: "git_remote_status_result",
+            ...projectRequestMetadata(msg),
             ahead: 0,
             behind: 0,
             branch: "",
@@ -6515,6 +6801,7 @@ export class BridgeWebSocketServer {
         if (!session) {
           this.send(ws, {
             type: "rewind_preview",
+            sessionId: msg.sessionId,
             canRewind: false,
             error: `Session ${msg.sessionId} not found`,
           });
@@ -6523,6 +6810,7 @@ export class BridgeWebSocketServer {
         if (session.provider === "codex") {
           this.send(ws, {
             type: "rewind_preview",
+            sessionId: msg.sessionId,
             canRewind: false,
             error: "Codex rewind does not restore files",
           });
@@ -6533,6 +6821,7 @@ export class BridgeWebSocketServer {
           .then((result) => {
             this.send(ws, {
               type: "rewind_preview",
+              sessionId: msg.sessionId,
               canRewind: result.canRewind,
               filesChanged: result.filesChanged,
               insertions: result.insertions,
@@ -6543,6 +6832,7 @@ export class BridgeWebSocketServer {
           .catch((err) => {
             this.send(ws, {
               type: "rewind_preview",
+              sessionId: msg.sessionId,
               canRewind: false,
               error: `Dry run failed: ${err}`,
             });
@@ -6555,6 +6845,7 @@ export class BridgeWebSocketServer {
         if (!session) {
           this.send(ws, {
             type: "rewind_result",
+            sessionId: msg.sessionId,
             success: false,
             mode: msg.mode,
             error: `Session ${msg.sessionId} not found`,
@@ -6566,6 +6857,7 @@ export class BridgeWebSocketServer {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.send(ws, {
             type: "rewind_result",
+            sessionId: msg.sessionId,
             success: false,
             mode: msg.mode,
             error: errMsg,
@@ -6586,12 +6878,14 @@ export class BridgeWebSocketServer {
               if (result.canRewind) {
                 this.send(ws, {
                   type: "rewind_result",
+                  sessionId: msg.sessionId,
                   success: true,
                   mode: "code",
                 });
               } else {
                 this.send(ws, {
                   type: "rewind_result",
+                  sessionId: msg.sessionId,
                   success: false,
                   mode: "code",
                   error: result.error ?? "Cannot rewind files",
@@ -6609,6 +6903,7 @@ export class BridgeWebSocketServer {
               (newSessionId) => {
                 this.send(ws, {
                   type: "rewind_result",
+                  sessionId: msg.sessionId,
                   success: true,
                   mode: "conversation",
                 });
@@ -6643,6 +6938,7 @@ export class BridgeWebSocketServer {
               if (!result.canRewind) {
                 this.send(ws, {
                   type: "rewind_result",
+                  sessionId: msg.sessionId,
                   success: false,
                   mode: "both",
                   error: result.error ?? "Cannot rewind files",
@@ -6657,6 +6953,7 @@ export class BridgeWebSocketServer {
                   (newSessionId) => {
                     this.send(ws, {
                       type: "rewind_result",
+                      sessionId: msg.sessionId,
                       success: true,
                       mode: "both",
                     });
@@ -6693,6 +6990,7 @@ export class BridgeWebSocketServer {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.send(ws, {
             type: "error",
+            sessionId: msg.sessionId,
             message: errMsg,
             errorCode: "fork_failed",
           });
@@ -6749,6 +7047,8 @@ export class BridgeWebSocketServer {
                   const info = this.galleryStore.metaToInfo(meta);
                   this.send(ws, {
                     type: "screenshot_result",
+                    ...projectRequestMetadata(msg),
+                    sessionId: msg.sessionId,
                     success: true,
                     image: info,
                   });
@@ -6758,6 +7058,8 @@ export class BridgeWebSocketServer {
               }
               this.send(ws, {
                 type: "screenshot_result",
+                ...projectRequestMetadata(msg),
+                sessionId: msg.sessionId,
                 success: false,
                 error: "Failed to save screenshot to gallery",
               });
@@ -6769,6 +7071,8 @@ export class BridgeWebSocketServer {
           .catch((err) => {
             this.send(ws, {
               type: "screenshot_result",
+              ...projectRequestMetadata(msg),
+              sessionId: msg.sessionId,
               success: false,
               error: err instanceof Error ? err.message : String(err),
             });
@@ -7423,6 +7727,7 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
+      protocolCapabilities: ["project_request_correlation_v1"],
     });
   }
 
@@ -7460,6 +7765,7 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
+      protocolCapabilities: ["project_request_correlation_v1"],
     });
   }
 
@@ -8533,7 +8839,7 @@ export class BridgeWebSocketServer {
     const compatibleMsg = this.prepareServerMessageForClient(ws, msg);
     if (!compatibleMsg) return;
     const sessionId = this.extractSessionIdFromServerMessage(compatibleMsg);
-    if (sessionId) {
+    if (sessionId && this.debugEvents.has(sessionId)) {
       this.recordDebugEvent(sessionId, {
         direction: "outgoing",
         channel: "ws",

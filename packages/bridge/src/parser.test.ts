@@ -46,6 +46,17 @@ describe("normalizeToolResultContent", () => {
 // ---- parseClientMessage ----
 
 describe("parseClientMessage", () => {
+  it("parses start request correlation", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","requestId":"start-1"}',
+      ),
+    ).toMatchObject({
+      type: "start",
+      projectPath: "/p",
+      requestId: "start-1",
+    });
+  });
   it("parses file upload lifecycle messages and rejects invalid policies", () => {
     expect(
       parseClientMessage(
@@ -791,6 +802,17 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_files", projectPath: "/p" });
   });
 
+  it("parses scoped list_files request metadata", () => {
+    const msg = parseClientMessage(
+      '{"type":"list_files","projectPath":"/p","requestId":"files-1"}',
+    );
+    expect(msg).toEqual({
+      type: "list_files",
+      projectPath: "/p",
+      requestId: "files-1",
+    });
+  });
+
   it("parses read_media_file message", () => {
     const msg = parseClientMessage(
       '{"type":"read_media_file","projectPath":"/p","filePath":"output.mp4"}',
@@ -1173,6 +1195,18 @@ describe("parseClientMessage", () => {
       projectPath: "/p",
       sessionId: "s-1",
       autoGenerate: true,
+    });
+  });
+
+  it("parses git_commit with request correlation metadata", () => {
+    const msg = parseClientMessage(
+      '{"type":"git_commit","projectPath":"/p","message":"fix: scope result","requestId":"commit-1"}',
+    );
+    expect(msg).toEqual({
+      type: "git_commit",
+      projectPath: "/p",
+      message: "fix: scope result",
+      requestId: "commit-1",
     });
   });
 

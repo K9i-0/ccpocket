@@ -15,7 +15,25 @@ import 'git_view_state.dart';
 /// - [initialDiff] provided → parse immediately (individual tool result).
 /// - [projectPath] provided → request `git diff` from Bridge and subscribe.
 class GitViewCubit extends Cubit<GitViewState> {
+  static int _nextConsumerId = 0;
+  static const _responseFamilies = <String>{
+    'git-diff',
+    'git-diff-image',
+    'git-stage',
+    'git-unstage',
+    'git-unstage-hunks',
+    'git-fetch',
+    'git-pull',
+    'git-push',
+    'git-remote-status',
+    'git-revert-file',
+    'git-revert-hunks',
+    'git-branches',
+    'git-checkout-branch',
+  };
+
   final BridgeService _bridge;
+  final String _consumerId = 'git-view-${++_nextConsumerId}';
   StreamSubscription<DiffResultMessage>? _diffSub;
   StreamSubscription<DiffImageResultMessage>? _diffImageSub;
   StreamSubscription<GitStageResultMessage>? _stageSub;
@@ -33,6 +51,19 @@ class GitViewCubit extends Cubit<GitViewState> {
   final String? _projectPath;
   final String? _sessionId;
   final void Function({bool forceRemote})? _onStatusRefreshRequested;
+  String? _latestDiffRequestId;
+  final Map<String, String> _latestDiffImageRequestIds = {};
+  final Map<String, String> _latestOperationRequestIds = {};
+
+  String? _newWireRequestId(String family) {
+    if (_latestOperationRequestIds.containsKey(family)) {
+      _bridge.unregisterProjectResponseConsumer(family, _consumerId);
+    }
+    final requestId = _bridge.createProjectRequestId(family);
+    _latestOperationRequestIds[family] = requestId;
+    _bridge.registerProjectResponseConsumer(family, _consumerId);
+    return _bridge.projectRequestIdForWire(requestId);
+  }
 
   GitViewCubit({
     required BridgeService bridge,
@@ -73,7 +104,12 @@ class GitViewCubit extends Cubit<GitViewState> {
       _checkoutSub = _bridge.gitCheckoutBranchResults.listen(_onCheckoutResult);
       // Fetch on init to get fresh remote state + current branch
       _fetchAndUpdateStatus();
-      _bridge.send(ClientMessage.gitBranches(projectPath));
+      _bridge.send(
+        ClientMessage.gitBranches(
+          projectPath,
+          requestId: _newWireRequestId('git-branches'),
+        ),
+      );
     }
   }
 
@@ -93,6 +129,7 @@ class GitViewCubit extends Cubit<GitViewState> {
 
   void _requestDiff(String projectPath) {
     _diffSub = _bridge.diffResults.listen((result) {
+      if (!_acceptDiffResult(result)) return;
       if (result.error != null) {
         emit(
           state.copyWith(
@@ -111,9 +148,58 @@ class GitViewCubit extends Cubit<GitViewState> {
         emit(state.copyWith(loading: false, files: files));
       }
     });
+    _sendDiffRequest(projectPath);
+  }
+
+  void _sendDiffRequest(String projectPath) {
+    if (_latestDiffRequestId != null) {
+      _bridge.unregisterProjectResponseConsumer('git-diff', _consumerId);
+    }
+    final requestId = _bridge.createProjectRequestId('git-diff');
+    _latestDiffRequestId = requestId;
+    _bridge.registerProjectResponseConsumer('git-diff', _consumerId);
     _bridge.send(
-      ClientMessage.getDiff(projectPath, staged: _stagedParamForMode),
+      ClientMessage.getDiff(
+        projectPath,
+        staged: _stagedParamForMode,
+        requestId: _bridge.projectRequestIdForWire(requestId),
+      ),
     );
+  }
+
+  bool _acceptProjectResponse(
+    ProjectCorrelatedMessage result,
+    String responseFamily,
+  ) {
+    final responsePath = result.projectPath;
+    if (responsePath != null && responsePath != _projectPath) return false;
+    if (result.requestId != null) return true;
+    return _bridge.canAcceptLegacyProjectResponse(responseFamily, _consumerId);
+  }
+
+  bool _acceptOperationResponse(
+    ProjectCorrelatedMessage result,
+    String responseFamily,
+  ) {
+    if (!_acceptProjectResponse(result, responseFamily)) return false;
+    final requestId = result.requestId;
+    final pendingRequestId = _latestOperationRequestIds[responseFamily];
+    if (requestId != null && requestId != pendingRequestId) return false;
+    if (pendingRequestId == null) return false;
+    _latestOperationRequestIds.remove(responseFamily);
+    _bridge.unregisterProjectResponseConsumer(responseFamily, _consumerId);
+    return true;
+  }
+
+  bool _acceptDiffResult(DiffResultMessage result) {
+    if (!_acceptProjectResponse(result, 'git-diff')) return false;
+    final requestId = result.requestId;
+    if (requestId != null && requestId != _latestDiffRequestId) return false;
+    final staged = result.staged;
+    if (staged != null && staged != _stagedParamForMode) return false;
+    _latestDiffRequestId = null;
+    _bridge.unregisterProjectResponseConsumer('git-diff', _consumerId);
+    return true;
   }
 
   /// Whether this cubit supports refresh (projectPath mode).
@@ -134,9 +220,7 @@ class GitViewCubit extends Cubit<GitViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(loading: true, error: null));
-    _bridge.send(
-      ClientMessage.getDiff(projectPath, staged: _stagedParamForMode),
-    );
+    _sendDiffRequest(projectPath);
     if (requestStatus) {
       _onStatusRefreshRequested?.call(forceRemote: forceRemote);
     }
@@ -247,12 +331,31 @@ class GitViewCubit extends Cubit<GitViewState> {
       ),
     );
 
+    final requestId = _bridge.createProjectRequestId('git-diff-image');
+    if (_latestDiffImageRequestIds.containsKey(file.filePath)) {
+      _bridge.unregisterProjectResponseConsumer('git-diff-image', _consumerId);
+    }
+    _latestDiffImageRequestIds[file.filePath] = requestId;
+    _bridge.registerProjectResponseConsumer('git-diff-image', _consumerId);
     _bridge.send(
-      ClientMessage.getDiffImage(projectPath, file.filePath, 'both'),
+      ClientMessage.getDiffImage(
+        projectPath,
+        file.filePath,
+        'both',
+        requestId: _bridge.projectRequestIdForWire(requestId),
+      ),
     );
   }
 
   void _onDiffImageResult(DiffImageResultMessage result) {
+    if (!_acceptProjectResponse(result, 'git-diff-image')) return;
+    final requestId = result.requestId;
+    if (requestId != null &&
+        requestId != _latestDiffImageRequestIds[result.filePath]) {
+      return;
+    }
+    _latestDiffImageRequestIds.remove(result.filePath);
+    _bridge.unregisterProjectResponseConsumer('git-diff-image', _consumerId);
     final files = state.files;
     final idx = files.indexWhere((f) => f.filePath == result.filePath);
     if (idx == -1) return;
@@ -346,9 +449,7 @@ class GitViewCubit extends Cubit<GitViewState> {
     emit(state.copyWith(viewMode: mode, loading: true, error: null, files: []));
     final projectPath = _projectPath;
     if (projectPath != null) {
-      _bridge.send(
-        ClientMessage.getDiff(projectPath, staged: mode == GitViewMode.staged),
-      );
+      _sendDiffRequest(projectPath);
     }
   }
 
@@ -361,6 +462,7 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.gitStage(
         projectPath,
         files: [state.files[fileIdx].filePath],
+        requestId: _newWireRequestId('git-stage'),
       ),
     );
   }
@@ -374,6 +476,7 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.gitUnstage(
         projectPath,
         files: [state.files[fileIdx].filePath],
+        requestId: _newWireRequestId('git-unstage'),
       ),
     );
   }
@@ -388,6 +491,7 @@ class GitViewCubit extends Cubit<GitViewState> {
         hunks: [
           {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
         ],
+        requestId: _newWireRequestId('git-stage'),
       ),
     );
   }
@@ -399,7 +503,7 @@ class GitViewCubit extends Cubit<GitViewState> {
     _bridge.send(
       ClientMessage.gitUnstageHunks(projectPath, [
         {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
-      ]),
+      ], requestId: _newWireRequestId('git-unstage-hunks')),
     );
   }
 
@@ -409,7 +513,9 @@ class GitViewCubit extends Cubit<GitViewState> {
     if (projectPath == null || fileIdx >= state.files.length) return;
     emit(state.copyWith(staging: true));
     _bridge.send(
-      ClientMessage.gitRevertFile(projectPath, [state.files[fileIdx].filePath]),
+      ClientMessage.gitRevertFile(projectPath, [
+        state.files[fileIdx].filePath,
+      ], requestId: _newWireRequestId('git-revert-file')),
     );
   }
 
@@ -420,7 +526,7 @@ class GitViewCubit extends Cubit<GitViewState> {
     _bridge.send(
       ClientMessage.gitRevertHunks(projectPath, [
         {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
-      ]),
+      ], requestId: _newWireRequestId('git-revert-hunks')),
     );
   }
 
@@ -437,6 +543,7 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.gitStage(
         projectPath,
         files: state.files.map((f) => f.filePath).toList(),
+        requestId: _newWireRequestId('git-stage'),
       ),
     );
   }
@@ -451,6 +558,7 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.gitUnstage(
         projectPath,
         files: state.files.map((f) => f.filePath).toList(),
+        requestId: _newWireRequestId('git-unstage'),
       ),
     );
   }
@@ -464,11 +572,13 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.gitRevertFile(
         projectPath,
         state.files.map((f) => f.filePath).toList(),
+        requestId: _newWireRequestId('git-revert-file'),
       ),
     );
   }
 
   void _onStageResult(GitStageResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-stage')) return;
     if (result.success) {
       emit(state.copyWith(staging: false));
       if (_pendingSwitchToStaged) {
@@ -485,6 +595,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onRevertResult(GitRevertFileResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-revert-file')) return;
     if (result.success) {
       emit(state.copyWith(staging: false));
       refreshDiffOnly(requestStatus: true);
@@ -494,6 +605,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onRevertHunksResult(GitRevertHunksResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-revert-hunks')) return;
     if (result.success) {
       emit(state.copyWith(staging: false));
       refreshDiffOnly(requestStatus: true);
@@ -503,6 +615,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onUnstageResult(GitUnstageResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-unstage')) return;
     if (result.success) {
       emit(state.copyWith(staging: false));
       if (_pendingSwitchToUnstaged) {
@@ -519,6 +632,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onUnstageHunksResult(GitUnstageHunksResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-unstage-hunks')) return;
     if (result.success) {
       emit(state.copyWith(staging: false));
       refreshDiffOnly(requestStatus: true);
@@ -535,19 +649,36 @@ class GitViewCubit extends Cubit<GitViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(fetching: true));
-    _bridge.send(ClientMessage.gitFetch(projectPath));
+    _bridge.send(
+      ClientMessage.gitFetch(
+        projectPath,
+        requestId: _newWireRequestId('git-fetch'),
+      ),
+    );
   }
 
   void _onFetchResult(GitFetchResultMessage result) {
-    emit(state.copyWith(fetching: false));
+    if (!_acceptOperationResponse(result, 'git-fetch')) return;
+    emit(state.copyWith(fetching: false, error: result.error));
+    if (!result.success) return;
     // After fetch, request remote status to get ahead/behind counts
     final projectPath = _projectPath;
     if (projectPath != null) {
-      _bridge.send(ClientMessage.gitRemoteStatus(projectPath));
+      _bridge.send(
+        ClientMessage.gitRemoteStatus(
+          projectPath,
+          requestId: _newWireRequestId('git-remote-status'),
+        ),
+      );
     }
   }
 
   void _onRemoteStatus(GitRemoteStatusResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-remote-status')) return;
+    if (result.error != null) {
+      emit(state.copyWith(error: result.error));
+      return;
+    }
     emit(
       state.copyWith(
         commitsAhead: result.ahead,
@@ -562,10 +693,16 @@ class GitViewCubit extends Cubit<GitViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(pulling: true));
-    _bridge.send(ClientMessage.gitPull(projectPath));
+    _bridge.send(
+      ClientMessage.gitPull(
+        projectPath,
+        requestId: _newWireRequestId('git-pull'),
+      ),
+    );
   }
 
   void _onPullResult(GitPullResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-pull')) return;
     emit(state.copyWith(pulling: false));
     if (result.success) {
       refresh(); // refresh diff + remote status
@@ -579,10 +716,16 @@ class GitViewCubit extends Cubit<GitViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(pushing: true));
-    _bridge.send(ClientMessage.gitPush(projectPath));
+    _bridge.send(
+      ClientMessage.gitPush(
+        projectPath,
+        requestId: _newWireRequestId('git-push'),
+      ),
+    );
   }
 
   void _onPushResult(GitPushResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-push')) return;
     emit(state.copyWith(pushing: false));
     if (result.success) {
       refresh();
@@ -592,6 +735,10 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onCommitResult(GitCommitResultMessage result) {
+    if (!_acceptProjectResponse(result, 'git-commit') ||
+        result.requestId == null) {
+      return;
+    }
     if (result.success) {
       refresh();
     }
@@ -602,18 +749,25 @@ class GitViewCubit extends Cubit<GitViewState> {
   // ---------------------------------------------------------------------------
 
   void _onBranchesResult(GitBranchesResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-branches')) return;
     if (result.error == null) {
       emit(state.copyWith(currentBranch: result.current));
     }
   }
 
   void _onCheckoutResult(GitCheckoutBranchResultMessage result) {
+    if (!_acceptOperationResponse(result, 'git-checkout-branch')) return;
     if (result.success) {
       // Refresh diff + branch + remote status after checkout
       refresh();
       final projectPath = _projectPath;
       if (projectPath != null) {
-        _bridge.send(ClientMessage.gitBranches(projectPath));
+        _bridge.send(
+          ClientMessage.gitBranches(
+            projectPath,
+            requestId: _newWireRequestId('git-branches'),
+          ),
+        );
       }
       // Update session branch info so session list card reflects the change
       if (_sessionId != null) {
@@ -624,6 +778,9 @@ class GitViewCubit extends Cubit<GitViewState> {
 
   @override
   Future<void> close() {
+    for (final family in _responseFamilies) {
+      _bridge.unregisterProjectResponseConsumer(family, _consumerId, all: true);
+    }
     _diffSub?.cancel();
     _diffImageSub?.cancel();
     _stageSub?.cancel();

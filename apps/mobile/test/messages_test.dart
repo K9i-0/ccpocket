@@ -807,6 +807,7 @@ void main() {
         'codexProfiles': ['ccpocket', 'research'],
         'defaultCodexProfile': 'ccpocket',
         'codexAutoReviewDisabled': true,
+        'protocolCapabilities': ['project_request_correlation_v1'],
       });
 
       expect(msg, isA<SessionListMessage>());
@@ -833,6 +834,10 @@ void main() {
       expect(sessionList.codexProfiles, ['ccpocket', 'research']);
       expect(sessionList.defaultCodexProfile, 'ccpocket');
       expect(sessionList.codexAutoReviewDisabled, isTrue);
+      expect(
+        sessionList.protocolCapabilities,
+        contains('project_request_correlation_v1'),
+      );
     });
 
     test('RecentSessionsMessage parses request metadata', () {
@@ -1382,10 +1387,63 @@ void main() {
     });
 
     test('getDiff with staged', () {
-      final msg = ClientMessage.getDiff('/p', staged: true);
+      final msg = ClientMessage.getDiff(
+        '/p',
+        staged: true,
+        requestId: 'diff-1',
+      );
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'get_diff');
       expect(json['staged'], isTrue);
+      expect(json['requestId'], 'diff-1');
+    });
+
+    test('start and sessionCreated preserve request correlation', () {
+      final start = ClientMessage.start('/p', requestId: 'start-1');
+      final startJson = jsonDecode(start.toJson()) as Map<String, dynamic>;
+      expect(startJson['requestId'], 'start-1');
+
+      final created = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'session_created',
+        'sessionId': 'session-1',
+        'projectPath': '/p',
+        'requestId': 'start-1',
+      }) as SystemMessage;
+      expect(created.requestId, 'start-1');
+    });
+
+    test('parses scoped diffResult', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'diff_result',
+        'diff': 'diff body',
+        'projectPath': '/p',
+        'requestId': 'diff-1',
+        'staged': true,
+      }) as DiffResultMessage;
+
+      expect(msg.projectPath, '/p');
+      expect(msg.requestId, 'diff-1');
+      expect(msg.staged, isTrue);
+    });
+
+    test('listFiles includes request correlation metadata', () {
+      final msg = ClientMessage.listFiles('/p', requestId: 'files-1');
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['projectPath'], '/p');
+      expect(json['requestId'], 'files-1');
+    });
+
+    test('parses scoped fileList', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'file_list',
+        'files': ['lib/main.dart'],
+        'projectPath': '/p',
+        'requestId': 'files-1',
+      }) as FileListMessage;
+
+      expect(msg.projectPath, '/p');
+      expect(msg.requestId, 'files-1');
     });
 
     test('getDiff without staged (backward compat)', () {

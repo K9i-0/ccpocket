@@ -135,6 +135,7 @@ export type ClientMessage =
       worktreeBranch?: string;
       existingWorktreePath?: string;
       autoRename?: boolean;
+      requestId?: string;
     }
   | {
       type: "input";
@@ -278,11 +279,13 @@ export type ClientMessage =
       projectPath: string;
       filePath: string;
       maxLines?: number;
+      requestId?: string;
     }
   | {
       type: "read_media_file";
       projectPath: string;
       filePath: string;
+      requestId?: string;
     }
   | {
       type: "prepare_file_download";
@@ -306,25 +309,36 @@ export type ClientMessage =
       requestId: string;
     }
   | { type: "cancel_file_upload"; uploadToken: string }
-  | { type: "list_files"; projectPath: string }
+  | { type: "list_files"; projectPath: string; requestId?: string }
   | {
       type: "list_directory";
       path: string;
       requestId?: string;
       includeHidden?: boolean;
     }
-  | { type: "get_diff"; projectPath: string; staged?: boolean }
+  | {
+      type: "get_diff";
+      projectPath: string;
+      staged?: boolean;
+      requestId?: string;
+    }
   | {
       type: "get_diff_image";
       projectPath: string;
       filePath: string;
       version: "old" | "new" | "both";
+      requestId?: string;
     }
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
-  | { type: "list_worktrees"; projectPath: string }
-  | { type: "remove_worktree"; projectPath: string; worktreePath: string }
+  | { type: "list_worktrees"; projectPath: string; requestId?: string }
+  | {
+      type: "remove_worktree";
+      projectPath: string;
+      worktreePath: string;
+      requestId?: string;
+    }
   | {
       type: "rewind";
       sessionId: string;
@@ -340,6 +354,7 @@ export type ClientMessage =
       windowId?: number;
       projectPath: string;
       sessionId?: string;
+      requestId?: string;
     }
   | {
       type: "get_debug_bundle";
@@ -404,12 +419,19 @@ export type ClientMessage =
       projectPath: string;
       files?: string[];
       hunks?: { file: string; hunkIndex: number }[];
+      requestId?: string;
     }
-  | { type: "git_unstage"; projectPath: string; files?: string[] }
+  | {
+      type: "git_unstage";
+      projectPath: string;
+      files?: string[];
+      requestId?: string;
+    }
   | {
       type: "git_unstage_hunks";
       projectPath: string;
       hunks: { file: string; hunkIndex: number }[];
+      requestId?: string;
     }
   | {
       type: "git_commit";
@@ -417,31 +439,45 @@ export type ClientMessage =
       sessionId?: string;
       message?: string;
       autoGenerate?: boolean;
+      requestId?: string;
     }
-  | { type: "git_push"; projectPath: string }
-  | { type: "git_branches"; projectPath: string }
+  | { type: "git_push"; projectPath: string; requestId?: string }
+  | { type: "git_branches"; projectPath: string; requestId?: string }
   | {
       type: "git_create_branch";
       projectPath: string;
       name: string;
       checkout?: boolean;
+      requestId?: string;
     }
-  | { type: "git_checkout_branch"; projectPath: string; branch: string }
-  | { type: "git_revert_file"; projectPath: string; files: string[] }
+  | {
+      type: "git_checkout_branch";
+      projectPath: string;
+      branch: string;
+      requestId?: string;
+    }
+  | {
+      type: "git_revert_file";
+      projectPath: string;
+      files: string[];
+      requestId?: string;
+    }
   | {
       type: "git_revert_hunks";
       projectPath: string;
       hunks: { file: string; hunkIndex: number }[];
+      requestId?: string;
     }
-  | { type: "git_fetch"; projectPath: string }
-  | { type: "git_pull"; projectPath: string }
+  | { type: "git_fetch"; projectPath: string; requestId?: string }
+  | { type: "git_pull"; projectPath: string; requestId?: string }
   | {
       type: "git_status";
       projectPath: string;
       sessionId?: string;
       includeRemote?: boolean;
+      requestId?: string;
     }
-  | { type: "git_remote_status"; projectPath: string };
+  | { type: "git_remote_status"; projectPath: string; requestId?: string };
 
 /** Image change detected in a git diff (binary image file). */
 export interface ImageChange {
@@ -541,6 +577,7 @@ export type ServerMessage =
       clearContext?: boolean;
       sourceSessionId?: string;
       resumeRequestId?: string;
+      requestId?: string;
       tipCode?: string;
       codexCliJoin?: CodexCliJoinTarget;
     }
@@ -648,6 +685,8 @@ export type ServerMessage =
   | { type: "thinking_delta"; text: string }
   | {
       type: "file_content";
+      projectPath?: string;
+      requestId?: string;
       filePath: string;
       kind?: "text" | "image" | "audio" | "video";
       content: string;
@@ -662,9 +701,12 @@ export type ServerMessage =
     }
   | {
       type: "file_list";
+      projectPath?: string;
+      requestId?: string;
       files: string[];
       totalFiles?: number;
       truncated?: boolean;
+      error?: string;
     }
   | {
       type: "file_download_ready";
@@ -709,6 +751,9 @@ export type ServerMessage =
     }
   | {
       type: "diff_result";
+      projectPath?: string;
+      requestId?: string;
+      staged?: boolean;
       diff: string;
       error?: string;
       errorCode?: string;
@@ -716,6 +761,8 @@ export type ServerMessage =
     }
   | {
       type: "diff_image_result";
+      projectPath?: string;
+      requestId?: string;
       filePath: string;
       version: "old" | "new" | "both";
       base64?: string;
@@ -724,11 +771,25 @@ export type ServerMessage =
       oldBase64?: string;
       newBase64?: string;
     }
-  | { type: "worktree_list"; worktrees: WorktreeInfo[]; mainBranch?: string }
-  | { type: "worktree_removed"; worktreePath: string }
+  | {
+      type: "worktree_list";
+      projectPath?: string;
+      requestId?: string;
+      worktrees: WorktreeInfo[];
+      mainBranch?: string;
+      error?: string;
+    }
+  | {
+      type: "worktree_removed";
+      projectPath?: string;
+      requestId?: string;
+      worktreePath: string;
+      error?: string;
+    }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
   | {
       type: "rewind_preview";
+      sessionId?: string;
       canRewind: boolean;
       filesChanged?: string[];
       insertions?: number;
@@ -737,6 +798,7 @@ export type ServerMessage =
     }
   | {
       type: "rewind_result";
+      sessionId?: string;
       success: boolean;
       mode: "conversation" | "code" | "both";
       error?: string;
@@ -755,6 +817,9 @@ export type ServerMessage =
   | { type: "window_list"; windows: WindowInfo[] }
   | {
       type: "screenshot_result";
+      projectPath?: string;
+      sessionId?: string;
+      requestId?: string;
       success: boolean;
       image?: GalleryImageInfo;
       error?: string;
@@ -849,11 +914,31 @@ export type ServerMessage =
       error?: string;
     }
   // ---- Git Operations (Phase 1-3) ----
-  | { type: "git_stage_result"; success: boolean; error?: string }
-  | { type: "git_unstage_result"; success: boolean; error?: string }
-  | { type: "git_unstage_hunks_result"; success: boolean; error?: string }
+  | {
+      type: "git_stage_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_unstage_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_unstage_hunks_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
   | {
       type: "git_commit_result";
+      projectPath?: string;
+      requestId?: string;
       success: boolean;
       commitHash?: string;
       message?: string;
@@ -861,11 +946,15 @@ export type ServerMessage =
     }
   | {
       type: "git_push_result";
+      projectPath?: string;
+      requestId?: string;
       success: boolean;
       error?: string;
     }
   | {
       type: "git_branches_result";
+      projectPath?: string;
+      requestId?: string;
       current: string;
       branches: string[];
       checkedOutBranches?: string[];
@@ -875,13 +964,45 @@ export type ServerMessage =
       >;
       error?: string;
     }
-  | { type: "git_create_branch_result"; success: boolean; error?: string }
-  | { type: "git_checkout_branch_result"; success: boolean; error?: string }
-  | { type: "git_revert_file_result"; success: boolean; error?: string }
-  | { type: "git_revert_hunks_result"; success: boolean; error?: string }
-  | { type: "git_fetch_result"; success: boolean; error?: string }
+  | {
+      type: "git_create_branch_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_checkout_branch_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_revert_file_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_revert_hunks_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: "git_fetch_result";
+      projectPath?: string;
+      requestId?: string;
+      success: boolean;
+      error?: string;
+    }
   | {
       type: "git_pull_result";
+      projectPath?: string;
+      requestId?: string;
       success: boolean;
       message?: string;
       error?: string;
@@ -890,6 +1011,7 @@ export type ServerMessage =
       type: "git_status_result";
       sessionId?: string;
       projectPath: string;
+      requestId?: string;
       hasUncommittedChanges: boolean;
       stagedCount: number;
       unstagedCount: number;
@@ -905,10 +1027,13 @@ export type ServerMessage =
     }
   | {
       type: "git_remote_status_result";
+      projectPath?: string;
+      requestId?: string;
       ahead: number;
       behind: number;
       branch: string;
       hasUpstream: boolean;
+      error?: string;
     };
 
 export interface UsageWindowPayload {
@@ -1063,6 +1188,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
   try {
     const msg = JSON.parse(data) as Record<string, unknown>;
     if (!msg.type || typeof msg.type !== "string") return null;
+    if (
+      msg.requestId !== undefined &&
+      (typeof msg.requestId !== "string" ||
+        msg.requestId.trim().length === 0 ||
+        msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH)
+    )
+      return null;
     const hasOnlyKeys = (allowedKeys: readonly string[]): boolean => {
       const allowed = new Set(allowedKeys);
       return Object.keys(msg).every((key) => allowed.has(key));
@@ -1760,6 +1892,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
             "sessionId",
             "message",
             "autoGenerate",
+            "requestId",
           ])
         )
           return null;
@@ -1775,11 +1908,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "git_push":
-        if (!hasOnlyKeys(["type", "projectPath"])) return null;
+        if (!hasOnlyKeys(["type", "projectPath", "requestId"])) return null;
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "git_branches":
-        if (!hasOnlyKeys(["type", "projectPath"])) return null;
+        if (!hasOnlyKeys(["type", "projectPath", "requestId"])) return null;
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "git_create_branch":

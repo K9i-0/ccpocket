@@ -242,6 +242,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     final bridge = context.read<BridgeService>();
     _pendingSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
+        if (msg.requestId != null && msg.requestId != _sessionId) return;
         // Filter by projectPath to avoid picking up another session's event
         if (widget.projectPath != null &&
             msg.projectPath != null &&
@@ -251,7 +252,10 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
         if (msg.sessionId != null && mounted) {
           _resolveSession(msg);
         }
-      } else if (msg is ErrorMessage && _isPending && mounted) {
+      } else if (msg is ErrorMessage &&
+          msg.requestId == _sessionId &&
+          _isPending &&
+          mounted) {
         _pendingSub?.cancel();
         _pendingSub = null;
         widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
@@ -265,7 +269,11 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
 
   void _onPendingSessionCreated() {
     final msg = widget.pendingSessionCreated?.value;
-    if (msg != null && msg.sessionId != null && mounted && _isPending) {
+    if (msg != null &&
+        msg.sessionId != null &&
+        (msg.requestId == null || msg.requestId == _sessionId) &&
+        mounted &&
+        _isPending) {
       _resolveSession(msg);
     }
   }
@@ -496,6 +504,15 @@ class _ChatScreenProviders extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => StreamingStateCubit()),
+        if (projectPath != null)
+          BlocProvider<FileListCubit>(
+            create: (_) => FileListCubit(
+              bridge.fileListForProject(projectPath!),
+              bridge
+                  .fileListMessagesForProject(projectPath!)
+                  .map((message) => message.files),
+            ),
+          ),
         BlocProvider(
           create: (context) => ChatSessionCubit(
             sessionId: sessionId,

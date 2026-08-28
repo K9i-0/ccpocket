@@ -83,6 +83,9 @@ diff --git a/e.dart b/e.dart
 
 /// Mock BridgeService that exposes controllable streams for diff + staging + remote.
 class MockDiffBridgeService extends BridgeService {
+  @override
+  bool get supportsProjectRequestCorrelation => true;
+
   final _diffController = StreamController<DiffResultMessage>.broadcast();
   final _stageController = StreamController<GitStageResultMessage>.broadcast();
   final _unstageController =
@@ -278,6 +281,87 @@ void main() {
   });
 
   group('GitViewCubit - projectPath mode', () {
+    test('accepts only the diff response for its own request', () async {
+      final mockBridge = MockDiffBridgeService();
+      final projectA = GitViewCubit(
+        bridge: mockBridge,
+        projectPath: '/project-a',
+      );
+      final projectB = GitViewCubit(
+        bridge: mockBridge,
+        projectPath: '/project-b',
+      );
+      addTearDown(() async {
+        await projectA.close();
+        await projectB.close();
+        mockBridge.dispose();
+      });
+
+      final requestB = mockBridge.sentMessages
+          .where((message) => message.type == 'get_diff')
+          .map(
+            (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,
+          )
+          .singleWhere((message) => message['projectPath'] == '/project-b');
+      mockBridge.emitDiff(
+        DiffResultMessage(
+          diff: _sampleDiff,
+          projectPath: '/project-b',
+          requestId: requestB['requestId'] as String,
+          staged: false,
+        ),
+      );
+      await Future.microtask(() {});
+
+      expect(projectA.state.loading, isTrue);
+      expect(projectA.state.files, isEmpty);
+      expect(projectB.state.files, hasLength(1));
+    });
+
+    test('ignores a stale response after a newer refresh', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = GitViewCubit(bridge: mockBridge, projectPath: '/project');
+      addTearDown(() async {
+        await cubit.close();
+        mockBridge.dispose();
+      });
+
+      final first = jsonDecode(
+        mockBridge.sentMessages
+            .firstWhere((message) => message.type == 'get_diff')
+            .toJson(),
+      ) as Map<String, dynamic>;
+      cubit.refreshDiffOnly();
+      final second = jsonDecode(
+        mockBridge.sentMessages
+            .where((message) => message.type == 'get_diff')
+            .last
+            .toJson(),
+      ) as Map<String, dynamic>;
+
+      mockBridge.emitDiff(
+        DiffResultMessage(
+          diff: _sampleDiff,
+          projectPath: '/project',
+          requestId: first['requestId'] as String,
+          staged: false,
+        ),
+      );
+      await Future.microtask(() {});
+      expect(cubit.state.loading, isTrue);
+
+      mockBridge.emitDiff(
+        DiffResultMessage(
+          diff: _sampleDiff,
+          projectPath: '/project',
+          requestId: second['requestId'] as String,
+          staged: false,
+        ),
+      );
+      await Future.microtask(() {});
+      expect(cubit.state.files, hasLength(1));
+    });
+
     test('starts in loading state when projectPath provided', () {
       final mockBridge = MockDiffBridgeService();
       final cubit = GitViewCubit(

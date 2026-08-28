@@ -232,17 +232,34 @@ class _FilePeekContent extends StatefulWidget {
 }
 
 class _FilePeekContentState extends State<_FilePeekContent> {
+  static int _nextConsumerId = 0;
+  static const _responseFamily = 'file-content';
+
   FileContentMessage? _result;
   bool _loading = true;
   bool _showRaw = false;
   StreamSubscription<FileContentMessage>? _sub;
   StreamSubscription<ServerMessage>? _bridgeErrorSub;
+  late final String _consumerId;
+  late final String _requestId;
 
   @override
   void initState() {
     super.initState();
+    _consumerId = 'file-peek-${++_nextConsumerId}';
+    widget.bridge.registerProjectResponseConsumer(_responseFamily, _consumerId);
+    _requestId = widget.bridge.createProjectRequestId('file-content');
     _sub = widget.bridge.fileContent.listen((msg) {
-      if (msg.filePath == widget.filePath) {
+      final isScopedMatch =
+          msg.projectPath == widget.projectPath && msg.requestId == _requestId;
+      final isSafeLegacy =
+          msg.requestId == null &&
+          (msg.projectPath == null || msg.projectPath == widget.projectPath) &&
+          widget.bridge.canAcceptLegacyProjectResponse(
+            _responseFamily,
+            _consumerId,
+          );
+      if (msg.filePath == widget.filePath && (isScopedMatch || isSafeLegacy)) {
         setState(() {
           _result = msg;
           _loading = false;
@@ -268,13 +285,25 @@ class _FilePeekContentState extends State<_FilePeekContent> {
     final isMediaFile = extension == 'wav' || extension == 'mp4';
     widget.bridge.send(
       isMediaFile
-          ? ClientMessage.readMediaFile(widget.projectPath, widget.filePath)
-          : ClientMessage.readFile(widget.projectPath, widget.filePath),
+          ? ClientMessage.readMediaFile(
+              widget.projectPath,
+              widget.filePath,
+              requestId: widget.bridge.projectRequestIdForWire(_requestId),
+            )
+          : ClientMessage.readFile(
+              widget.projectPath,
+              widget.filePath,
+              requestId: widget.bridge.projectRequestIdForWire(_requestId),
+            ),
     );
   }
 
   @override
   void dispose() {
+    widget.bridge.unregisterProjectResponseConsumer(
+      _responseFamily,
+      _consumerId,
+    );
     _sub?.cancel();
     _bridgeErrorSub?.cancel();
     super.dispose();
