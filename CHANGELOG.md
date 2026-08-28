@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.120.1] - 2026-08-28
+
+### Changed
+- Require Bridge 1.73.1 to preserve tool-result ordering while generated media is registered.
+
+### Fixed
+- Keep tool activity before the final response and Done marker when refreshed history omits live tool entries.
+- Keep session Explore and changes actions visible after history refreshes and when reopening a completed session.
+
 ## [1.120.0] - 2026-08-27
 
 ### Added
