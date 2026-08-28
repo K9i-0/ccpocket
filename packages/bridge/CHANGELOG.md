@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.77.0] - 2026-08-29
+
+### Added
+- Add capability-negotiated request correlation metadata for project-scoped Git, file, worktree, screenshot, and session operations.
+
+### Changed
+- Return operation-specific, project-scoped failure responses so clients can route errors to the originating request.
+
+### Fixed
+- Prevent concurrent sessions and projects from receiving each other's asynchronous project responses.
+
 ## [1.76.0] - 2026-08-28
 
 ### Added
