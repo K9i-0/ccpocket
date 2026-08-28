@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.123.0] - 2026-08-29
+
+### Added
+- Browse Git-ignored files in Explorer with muted labels, and prioritize recently modified matches when opening ambiguous file references.
+- Automatically renumber nested ordered Markdown lists while editing chat input.
+
+### Changed
+- Reset the Explorer list position when navigating directories and provide a dedicated file-peek path copy control.
+- Require Bridge 1.78.0 for ignored-file metadata, modification timestamps, and correlated project operations.
+
+### Fixed
+- Route concurrent project-scoped Bridge responses back to their originating session, Git, Explorer, screenshot, and worktree requests.
+- Recover the chat input layout when Android reports a stale keyboard inset.
+
 ## [1.122.0] - 2026-08-28
 
 ### Added
