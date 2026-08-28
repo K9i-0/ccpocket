@@ -15,6 +15,10 @@ import net from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  isClaudeBedrockModeEnabled,
+  isClaudeBedrockRegionConfigured,
+} from "./claude-provider.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +122,17 @@ export async function checkCliProviders(): Promise<
       const out = execQuiet("claude --version");
       installed = true;
       version = out.trim().split("\n")[0];
-      if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+      if (isClaudeBedrockModeEnabled()) {
+        // Validate the required local setting without calling AWS. Credential
+        // validity remains Claude Code's responsibility at session startup.
+        if (isClaudeBedrockRegionConfigured()) {
+          authenticated = true;
+          authMessage = "Amazon Bedrock configured; AWS credentials not verified";
+        } else {
+          authMessage = "Amazon Bedrock enabled; AWS_REGION is not configured";
+          remediation = "Set AWS_REGION in the Bridge environment or Claude Code user settings";
+        }
+      } else if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
         authenticated = true;
         authMessage = "API credential configured";
       } else {
@@ -694,7 +708,7 @@ function providerStatusMessage(p: ProviderResult): string {
   const parts: string[] = [];
   if (p.version) parts.push(p.version);
   if (p.authenticated) {
-    parts.push("(authenticated)");
+    parts.push(p.authMessage ? `(${p.authMessage})` : "(authenticated)");
   } else if (p.authMessage) {
     parts.push(`(${p.authMessage})`);
   }

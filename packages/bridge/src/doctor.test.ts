@@ -12,9 +12,13 @@ vi.mock("node:child_process", () => ({
 // Mock node:fs
 const mockExistsSync = vi.fn();
 const mockAccessSync = vi.fn();
+// Claude Code settings are read when checking for Amazon Bedrock mode; return
+// an empty settings object so the checks never see the host's real setup.
+const mockReadFileSync = vi.fn(() => "{}");
 vi.mock("node:fs", () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   accessSync: (...args: unknown[]) => mockAccessSync(...args),
+  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   constants: { R_OK: 4, W_OK: 2 },
 }));
 
@@ -70,6 +74,8 @@ describe("doctor checks", () => {
       vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
       vi.stubEnv("ANTHROPIC_API_KEY", "");
       vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+      vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+      vi.stubEnv("AWS_REGION", "");
     });
 
     afterEach(() => {
@@ -162,6 +168,74 @@ describe("doctor checks", () => {
       const claude = result.providers.find((p: ProviderResult) => p.name === "Claude Code CLI");
       expect(claude?.installed).toBe(true);
       expect(claude?.authenticated).toBe(false);
+    });
+
+    it("reports Amazon Bedrock mode without asking for Anthropic credentials", async () => {
+      vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+      vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      vi.stubEnv("AWS_REGION", "us-west-2");
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "claude --version") return "2.1.250";
+        throw new Error("command not found");
+      });
+
+      const result = await checkCliProviders();
+      const claude = result.providers.find(
+        (provider: ProviderResult) => provider.name === "Claude Code CLI",
+      );
+
+      expect(result.status).toBe("pass");
+      expect(claude?.authenticated).toBe(true);
+      expect(claude?.authMessage).toContain("Amazon Bedrock");
+      expect(claude?.authMessage).toContain("not verified");
+      expect(claude?.remediation).toBeUndefined();
+      // Bedrock authenticates through AWS, so doctor must not probe Claude
+      // Code's Anthropic login or call AWS to verify credentials.
+      expect(mockExecSync).not.toHaveBeenCalledWith(
+        "claude auth status",
+        expect.anything(),
+      );
+    });
+
+    it("warns when Amazon Bedrock is enabled without AWS_REGION", async () => {
+      vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+      vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "claude --version") return "2.1.250";
+        throw new Error("command not found");
+      });
+
+      const result = await checkCliProviders();
+      const claude = result.providers.find(
+        (provider: ProviderResult) => provider.name === "Claude Code CLI",
+      );
+
+      expect(result.status).toBe("warn");
+      expect(claude?.authenticated).toBe(false);
+      expect(claude?.authMessage).toContain("AWS_REGION is not configured");
+      expect(claude?.remediation).toContain("AWS_REGION");
+      expect(mockExecSync).not.toHaveBeenCalledWith(
+        "claude auth status",
+        expect.anything(),
+      );
+    });
+
+    it("prefers Bedrock mode over an Anthropic API key, matching Claude Code", async () => {
+      vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+      vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+      vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+      vi.stubEnv("AWS_REGION", "us-west-2");
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "claude --version") return "2.1.250";
+        throw new Error("command not found");
+      });
+
+      const result = await checkCliProviders();
+      const claude = result.providers.find(
+        (provider: ProviderResult) => provider.name === "Claude Code CLI",
+      );
+
+      expect(claude?.authMessage).toContain("Amazon Bedrock");
     });
 
     it("warns when subscription login is detected without explicit opt-in", async () => {
@@ -355,6 +429,43 @@ describe("doctor checks", () => {
         allRequiredPassed: true,
       };
       expect(() => printReport(report)).not.toThrow();
+    });
+
+    it("prints a provider auth message instead of the generic authenticated label", () => {
+      const logs: string[] = [];
+      const spy = vi
+        .spyOn(console, "log")
+        .mockImplementation((...args: unknown[]) => {
+          logs.push(args.map((arg) => String(arg)).join(" "));
+        });
+      try {
+        printReport({
+          results: [
+            {
+              name: "CLI providers",
+              status: "pass",
+              message: "1 of 2 available",
+              category: "required",
+              providers: [
+                {
+                  name: "Claude Code CLI",
+                  installed: true,
+                  version: "2.1.250",
+                  authenticated: true,
+                  authMessage: "Amazon Bedrock configured; AWS credentials not verified",
+                },
+              ],
+            },
+          ],
+          allRequiredPassed: true,
+        });
+      } finally {
+        spy.mockRestore();
+      }
+
+      const output = logs.join("\n");
+      expect(output).toContain("Amazon Bedrock configured");
+      expect(output).not.toContain("(authenticated)");
     });
   });
 });
