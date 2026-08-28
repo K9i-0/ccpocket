@@ -15,6 +15,7 @@ import net from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +119,13 @@ export async function checkCliProviders(): Promise<
       const out = execQuiet("claude --version");
       installed = true;
       version = out.trim().split("\n")[0];
-      if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+      if (isClaudeBedrockModeEnabled()) {
+        // Claude Code signs Amazon Bedrock requests with AWS credentials from
+        // this host's provider chain. Report the configuration without calling
+        // AWS, so doctor never claims credentials it has not verified.
+        authenticated = true;
+        authMessage = "Amazon Bedrock configured; AWS credentials not verified";
+      } else if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
         authenticated = true;
         authMessage = "API credential configured";
       } else {
@@ -694,7 +701,7 @@ function providerStatusMessage(p: ProviderResult): string {
   const parts: string[] = [];
   if (p.version) parts.push(p.version);
   if (p.authenticated) {
-    parts.push("(authenticated)");
+    parts.push(p.authMessage ? `(${p.authMessage})` : "(authenticated)");
   } else if (p.authMessage) {
     parts.push(`(${p.authMessage})`);
   }

@@ -16,6 +16,8 @@ Claude sessions use `ANTHROPIC_API_KEY` by default. Subscription authentication
 through the Bridge machine's Claude Code login is available only after explicit
 opt-in with `BRIDGE_ALLOW_CLAUDE_OAUTH=1`; see
 [Claude Subscription Authentication](#claude-subscription-authentication-explicit-opt-in).
+Hosts that run Claude Code on Amazon Bedrock need neither of those; see
+[Claude on Amazon Bedrock](#claude-on-amazon-bedrock).
 
 ## Installation
 
@@ -59,6 +61,8 @@ ccpocket-bridge --version
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` (5 MB) | Maximum diff image size available for on-demand loading, in MB |
 | `ANTHROPIC_API_KEY` | (none) | Claude Agent SDK API key; recommended for predictable third-party product usage |
 | `ANTHROPIC_AUTH_TOKEN` | (none) | Advanced Claude SDK auth token; prefer `ANTHROPIC_API_KEY` |
+| `CLAUDE_CODE_USE_BEDROCK` | (none) | Claude Code setting; when enabled, Claude sessions run on Amazon Bedrock and no Anthropic credential is required |
+| `AWS_REGION` / `AWS_PROFILE` | (none) | Standard AWS variables read by Claude Code when Amazon Bedrock is enabled |
 | `OPENAI_API_KEY` | (none) | Codex API key; Codex can also use `~/.codex/auth.json` |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `https://`, `socks4://`, `socks5://`) |
 
@@ -133,6 +137,64 @@ is reachable through a reverse proxy, tunnel, or public domain.
 
 Without it, the printed QR code is LAN-oriented by default and typically encodes
 something like `ws://192.168.x.x:8765`.
+
+## Claude on Amazon Bedrock
+
+Claude Code and the Claude Agent SDK can run against
+[Amazon Bedrock](https://code.claude.com/docs/en/amazon-bedrock) instead of the
+first-party Anthropic API. Bedrock requests are signed with AWS credentials, so
+the Bridge requires neither `ANTHROPIC_API_KEY` nor the subscription opt-in:
+
+```bash
+CLAUDE_CODE_USE_BEDROCK=1 \
+AWS_REGION=us-west-2 \
+npx @ccpocket/bridge@latest
+
+# AWS_REGION is optional when your AWS profile already sets a region,
+# and AWS_PROFILE selects a specific profile:
+CLAUDE_CODE_USE_BEDROCK=1 AWS_PROFILE=my-profile npx @ccpocket/bridge@latest
+```
+
+AWS credentials remain on the Bridge host and are resolved through the normal
+AWS credential provider chain — environment credentials, `AWS_PROFILE`,
+`~/.aws/credentials`, `~/.aws/config`, IAM roles, SSO, and EC2/ECS credentials.
+CC Pocket has no AWS credential store of its own: it never reads, copies, logs,
+or forwards AWS credentials, and nothing AWS-related is sent to the mobile app.
+
+The Bridge also recognizes Bedrock when Claude Code's `/setup-bedrock` wizard
+wrote `CLAUDE_CODE_USE_BEDROCK` into the `env` block of the Claude Code user
+settings file (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json`).
+Only that one flag is read from the file.
+
+Model IDs, region resolution, and IAM permissions follow the Claude Code
+documentation. CC Pocket adds no Bedrock-specific configuration of its own.
+
+Verify the result with the doctor command:
+
+```bash
+npx @ccpocket/bridge@latest doctor
+```
+
+The Claude Code CLI line then reads
+`Amazon Bedrock configured; AWS credentials not verified`. Doctor reports the
+configuration only — it does not call AWS, so it never claims that credentials
+work.
+
+### Amazon Bedrock with the background service
+
+`ccpocket-bridge setup` persists only the `BRIDGE_*` settings listed below, so
+make the Bedrock configuration reachable from the service environment:
+
+- macOS launchd: the generated plist starts the Bridge through a login shell
+  (`zsh -li`), so `export CLAUDE_CODE_USE_BEDROCK=1` and any `AWS_*` variables in
+  `~/.zprofile` / `~/.zshrc` are inherited.
+- Linux systemd: the generated unit starts the Bridge through a login shell
+  (`bash -lc`), so exports in `~/.profile` / `~/.bash_profile` are inherited.
+  `Environment=` lines added to
+  `~/.config/systemd/user/ccpocket-bridge.service` also work, but re-running
+  setup rewrites that file.
+- Either platform: keeping the configuration in the Claude Code user settings
+  `env` block works too, and survives re-running setup.
 
 ## Persistent service setup
 

@@ -11,6 +11,7 @@ import {
   type PermissionResult,
   type ModelInfo,
 } from "@anthropic-ai/claude-agent-sdk";
+import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
 import {
   normalizeToolResultContent,
   type ServerMessage,
@@ -142,7 +143,13 @@ export function hasExplicitClaudeCredential(
 }
 
 function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
-  return hasExplicitClaudeCredential(env) || isClaudeOAuthOptInEnabled(env);
+  return (
+    hasExplicitClaudeCredential(env)
+    // Amazon Bedrock authenticates with AWS credentials on the Bridge host, so
+    // neither an Anthropic API credential nor the subscription opt-in applies.
+    || isClaudeBedrockModeEnabled(env)
+    || isClaudeOAuthOptInEnabled(env)
+  );
 }
 
 type ClaudeAuthClassification = "unknown" | "api_key" | "subscription";

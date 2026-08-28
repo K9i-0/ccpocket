@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   parseRule,
   matchesSessionRule,
@@ -1003,12 +1005,21 @@ describe("SdkProcess input dispatch", () => {
 
 });
 
+// Points Bedrock detection at a directory that has no Claude Code settings
+// file, so these tests never depend on the host's real Claude configuration.
+const CLAUDE_CONFIG_DIR_WITHOUT_SETTINGS = join(
+  tmpdir(),
+  "ccpocket-bridge-tests-no-claude-settings",
+);
+
 describe("SdkProcess Claude authentication", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
     vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+    vi.stubEnv("CLAUDE_CONFIG_DIR", CLAUDE_CONFIG_DIR_WITHOUT_SETTINGS);
   });
 
   afterEach(() => {
@@ -1107,6 +1118,120 @@ describe("SdkProcess Claude authentication", () => {
       "BRIDGE_ALLOW_CLAUDE_OAUTH=1",
     );
     expect(mockSdkQuery).not.toHaveBeenCalled();
+  });
+
+  it("keeps Bedrock mode separate from Anthropic credentials and the OAuth opt-in", () => {
+    expect(hasExplicitClaudeCredential({ CLAUDE_CODE_USE_BEDROCK: "1" })).toBe(false);
+    expect(isClaudeOAuthOptInEnabled({ CLAUDE_CODE_USE_BEDROCK: "1" })).toBe(false);
+  });
+
+  it("starts a session in Amazon Bedrock mode without Anthropic credentials", async () => {
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "bedrock-session",
+          model: "us.anthropic.claude-sonnet-4-6",
+          // Claude Code reports "none" on Amazon Bedrock; requests are signed
+          // with AWS credentials instead of an Anthropic credential.
+          apiKeySource: "none",
+        };
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          duration_ms: 100,
+          session_id: "bedrock-session",
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiProvider: "bedrock" },
+        models: [],
+      }),
+    });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+
+    expect(mockSdkQuery).toHaveBeenCalledOnce();
+    expect(proc.sessionId).toBe("bedrock-session");
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "system",
+      subtype: "init",
+      sessionId: "bedrock-session",
+    }));
+    expect(messages).not.toContainEqual(expect.objectContaining({
+      type: "error",
+    }));
+  });
+
+  it("lists models in Amazon Bedrock mode without Anthropic credentials", async () => {
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+    const close = vi.fn();
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield { type: "system", subtype: "init", apiKeySource: "none" };
+      },
+      close,
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiProvider: "bedrock" },
+        models: [
+          { value: "us.anthropic.claude-sonnet-4-6", displayName: "Sonnet 4.6" },
+        ],
+      }),
+    });
+
+    await expect(listAvailableClaudeModels()).resolves.toEqual([
+      expect.objectContaining({
+        model: "us.anthropic.claude-sonnet-4-6",
+        displayName: "Sonnet 4.6",
+      }),
+    ]);
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("still requires the OAuth opt-in when Bedrock mode resolves to a subscription", async () => {
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "oauth-session",
+          apiKeySource: "oauth",
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiKeySource: "oauth" },
+        models: [],
+      }),
+    });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([1]));
+
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "error",
+      errorCode: "claude_oauth_opt_in_required",
+    }));
   });
 
   it("rejects model listing when the SDK unexpectedly selects OAuth", async () => {
