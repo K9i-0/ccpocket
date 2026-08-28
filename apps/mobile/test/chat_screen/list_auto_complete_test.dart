@@ -125,5 +125,97 @@ void main() {
 
       expect(getInputText($), 'just some text\n');
     });
+
+    patrolWidgetTest('indent button restarts nested numbering', ($) async {
+      await $.pumpWidget(await buildTestClaudeSessionScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      await pumpN($.tester);
+
+      const text = '1. A\n2. B\n3. B-1\n4. B-2\n5. C';
+      final textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      textField.controller!.value = const TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 23, extentOffset: 10),
+      );
+      await pumpN($.tester);
+
+      await $.tester.tap(find.byKey(const ValueKey('indent_button')));
+      await pumpN($.tester);
+
+      expect(getInputText($), '1. A\n2. B\n  1. B-1\n  2. B-2\n3. C');
+      expect(
+        textField.controller!.selection,
+        const TextSelection(baseOffset: 27, extentOffset: 12),
+      );
+    });
+
+    patrolWidgetTest('indent and dedent move a parent subtree together', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestClaudeSessionScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      await pumpN($.tester);
+
+      const text = '1. A\n2. B\n   details\n  1. B-1\n3. C';
+      final textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      textField.controller!.value = const TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 5, extentOffset: 9),
+      );
+      await pumpN($.tester);
+
+      await $.tester.tap(find.byKey(const ValueKey('indent_button')));
+      await pumpN($.tester);
+
+      expect(getInputText($), '1. A\n  1. B\n     details\n    1. B-1\n2. C');
+      expect(
+        textField.controller!.selection,
+        const TextSelection(baseOffset: 7, extentOffset: 11),
+      );
+
+      await $.tester.tap(find.byKey(const ValueKey('dedent_button')));
+      await pumpN($.tester);
+
+      expect(getInputText($), text);
+    });
+
+    patrolWidgetTest('selection ending at the next line start excludes it', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestClaudeSessionScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      await pumpN($.tester);
+
+      const text = '1. A\n2. B';
+      final textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      textField.controller!.value = const TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: 0, extentOffset: 5),
+      );
+      await pumpN($.tester);
+
+      await $.tester.tap(find.byKey(const ValueKey('indent_button')));
+      await pumpN($.tester);
+
+      expect(getInputText($), '  1. A\n2. B');
+    });
   });
 }

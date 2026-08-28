@@ -11,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../utils/composer_tokens.dart';
 import '../../../utils/command_completion_matcher.dart';
 import '../../../utils/file_mention_matcher.dart';
+import '../../../utils/ordered_list_editing.dart';
 import '../../../utils/platform_helper.dart';
 import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
@@ -1317,18 +1318,22 @@ void _applyIndent(
   final firstLineStart = beforeStart.lastIndexOf('\n') + 1;
 
   // Find last line end
-  final lastLineEnd = text.indexOf('\n', selEnd);
-  final endPos = lastLineEnd < 0 ? text.length : lastLineEnd;
+  final effectiveSelectionEnd =
+      !selection.isCollapsed &&
+          selEnd > selStart &&
+          text.codeUnitAt(selEnd - 1) == 10
+      ? selEnd - 1
+      : selEnd;
+  final lastLineEnd = text.indexOf('\n', effectiveSelectionEnd);
+  var endPos = lastLineEnd < 0 ? text.length : lastLineEnd;
+  endPos = _extendThroughListDescendants(text, endPos, isIndent: isIndent);
 
   // Extract the block of lines
   final block = text.substring(firstLineStart, endPos);
   final lines = block.split('\n');
 
-  // Track cursor offset changes
-  var startDelta = 0;
-  var endDelta = 0;
-
   final modifiedLines = <String>[];
+  final offsetEdits = <_TextOffsetEdit>[];
   var charsSoFar = firstLineStart;
 
   for (var i = 0; i < lines.length; i++) {
@@ -1337,12 +1342,13 @@ void _applyIndent(
 
     if (isIndent) {
       newLine = '$spaces$line';
-      final delta = spaces.length;
-      // Adjust selection deltas
-      if (charsSoFar + line.length >= selStart && i == 0) {
-        startDelta += delta;
-      }
-      endDelta += delta;
+      offsetEdits.add(
+        _TextOffsetEdit(
+          start: charsSoFar,
+          end: charsSoFar,
+          replacementLength: spaces.length,
+        ),
+      );
     } else {
       // Remove up to `spaces.length` leading spaces
       var removeCount = 0;
@@ -1354,11 +1360,15 @@ void _applyIndent(
         }
       }
       newLine = line.substring(removeCount);
-      final delta = -removeCount;
-      if (i == 0) {
-        startDelta += delta;
+      if (removeCount > 0) {
+        offsetEdits.add(
+          _TextOffsetEdit(
+            start: charsSoFar,
+            end: charsSoFar + removeCount,
+            replacementLength: 0,
+          ),
+        );
       }
-      endDelta += delta;
     }
 
     modifiedLines.add(newLine);
@@ -1369,17 +1379,100 @@ void _applyIndent(
   final newText =
       text.substring(0, firstLineStart) + newBlock + text.substring(endPos);
 
-  // Calculate new selection
-  final newStart = (selStart + startDelta).clamp(
-    firstLineStart,
-    newText.length,
-  );
-  final newEnd = (selEnd + endDelta).clamp(newStart, newText.length);
+  final newBaseOffset = _transformOffset(
+    selection.baseOffset,
+    offsetEdits,
+  ).clamp(0, newText.length);
+  final newExtentOffset = _transformOffset(
+    selection.extentOffset,
+    offsetEdits,
+  ).clamp(0, newText.length);
 
-  controller.value = TextEditingValue(
+  var nextValue = TextEditingValue(
     text: newText,
     selection: selection.isCollapsed
-        ? TextSelection.collapsed(offset: newStart)
-        : TextSelection(baseOffset: newStart, extentOffset: newEnd),
+        ? TextSelection.collapsed(offset: newBaseOffset)
+        : TextSelection(
+            baseOffset: newBaseOffset,
+            extentOffset: newExtentOffset,
+            affinity: selection.affinity,
+            isDirectional: selection.isDirectional,
+          ),
   );
+  if (newBlock != block) {
+    nextValue = renumberOrderedListsInRange(
+      nextValue,
+      startOffset: firstLineStart,
+      endOffset: firstLineStart + newBlock.length,
+      fenceReferenceText: text,
+    );
+  }
+  controller.value = nextValue;
+}
+
+int _extendThroughListDescendants(
+  String text,
+  int end, {
+  required bool isIndent,
+}) {
+  if (end <= 0) return end;
+  final lastLineStart = text.lastIndexOf('\n', end - 1) + 1;
+  final parentIndent = _listIndent(text.substring(lastLineStart, end));
+  if (parentIndent == null || (!isIndent && parentIndent == 0)) return end;
+
+  var extendedEnd = end;
+  while (extendedEnd < text.length) {
+    final childStart = extendedEnd + 1;
+    final childEnd = text.indexOf('\n', childStart);
+    final resolvedEnd = childEnd < 0 ? text.length : childEnd;
+    final childLine = text.substring(childStart, resolvedEnd);
+    if (childLine.trim().isEmpty) break;
+    final childIndent = _listIndent(childLine) ?? _leadingSpaceCount(childLine);
+    if (childIndent <= parentIndent) break;
+    extendedEnd = resolvedEnd;
+  }
+  return extendedEnd;
+}
+
+int? _listIndent(String line) {
+  final match = RegExp(r'^( *)(?:\d+[.)]|[-*+])[ \t]+').firstMatch(line);
+  return match?.group(1)!.length;
+}
+
+int _leadingSpaceCount(String line) {
+  var count = 0;
+  while (count < line.length && line.codeUnitAt(count) == 32) {
+    count++;
+  }
+  return count;
+}
+
+int _transformOffset(int offset, List<_TextOffsetEdit> edits) {
+  final descending = [...edits]..sort((a, b) => b.start.compareTo(a.start));
+  var transformed = offset;
+  for (final edit in descending) {
+    if (edit.start == edit.end) {
+      if (transformed >= edit.start) transformed += edit.replacementLength;
+      continue;
+    }
+    if (transformed <= edit.start) continue;
+    if (transformed >= edit.end) {
+      transformed += edit.replacementLength - (edit.end - edit.start);
+    } else {
+      transformed = edit.start;
+    }
+  }
+  return transformed;
+}
+
+class _TextOffsetEdit {
+  final int start;
+  final int end;
+  final int replacementLength;
+
+  const _TextOffsetEdit({
+    required this.start,
+    required this.end,
+    required this.replacementLength,
+  });
 }
