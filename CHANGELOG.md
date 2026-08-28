@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.121.0] - 2026-08-28
+
+### Added
+- Download regular project files from Explorer with transfer progress, cancellation, and platform sharing or saving on iOS, Android, macOS, and Windows.
+
+### Changed
+- Require Bridge 1.75.0 for authenticated, project-scoped file downloads.
+
 ## [1.120.1] - 2026-08-28
 
 ### Changed
