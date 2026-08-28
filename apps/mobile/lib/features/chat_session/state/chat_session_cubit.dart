@@ -156,7 +156,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                .where((file) => file.isNotEmpty)
                .take(10)
                .toList(),
-           projectPath: initialProjectPath,
+           projectPath: initialProjectPath?.trim().isNotEmpty == true
+               ? initialProjectPath!.trim()
+               : bridge.cachedSessionProjectPath(sessionId),
          ),
        ) {
     _respondedToolUseIds.addAll(_bridge.respondedToolUseIds(sessionId));
@@ -470,12 +472,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         historyEntries: nonStreamingEntries,
       );
 
-      final extraLiveEntries = _entriesToPreserveAfterHistoryReplace(
+      final reconciledEntries = _reconcileHistoryWithLiveEntries(
         existingNonPast: existingNonPast,
         historyEntries: mergedHistoryEntries,
       );
 
-      entries = [...pastEntries, ...mergedHistoryEntries, ...extraLiveEntries];
+      entries = [...pastEntries, ...reconciledEntries];
 
       // Preserve local data (image bytes, timestamps) from existing entries
       // that the server history does not contain.
@@ -767,7 +769,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     return hiddenIds;
   }
 
-  List<ChatEntry> _entriesToPreserveAfterHistoryReplace({
+  List<ChatEntry> _reconcileHistoryWithLiveEntries({
     required List<ChatEntry> existingNonPast,
     required List<ChatEntry> historyEntries,
   }) {
@@ -777,31 +779,50 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final candidates = existingNonPast.skip(
       lastUserIndex == -1 ? 0 : lastUserIndex,
     );
-    final preserved = <ChatEntry>[];
     final historyCurrentUserIndex = lastUserIndex == -1
-        ? -1
+        ? 0
         : historyEntries.lastIndexWhere(
             (entry) => _entriesEquivalentForTurnBoundary(
               entry,
               existingNonPast[lastUserIndex],
             ),
           );
-    final covered = lastUserIndex == -1
-        ? [...historyEntries]
-        : historyCurrentUserIndex == -1
-        ? <ChatEntry>[]
-        : historyEntries.skip(historyCurrentUserIndex).toList();
+    if (historyCurrentUserIndex == -1) {
+      return [
+        ...historyEntries,
+        ...candidates.where(_shouldPreserveEntryAcrossHistoryReplace),
+      ];
+    }
+
+    final reconciled = historyEntries.take(historyCurrentUserIndex).toList();
+    var historyIndex = historyCurrentUserIndex;
 
     for (final candidate in candidates) {
-      if (_indexOfEquivalentEntry(covered, candidate, allowWeakMatch: true) !=
-          -1) {
+      final matchIndex = _indexOfEquivalentEntry(
+        historyEntries,
+        candidate,
+        start: historyIndex,
+        allowWeakMatch: true,
+      );
+      if (matchIndex != -1) {
+        reconciled.addAll(
+          historyEntries.getRange(historyIndex, matchIndex + 1),
+        );
+        historyIndex = matchIndex + 1;
         continue;
       }
+      final canonicalMatchIndex = _indexOfEquivalentEntry(
+        historyEntries,
+        candidate,
+        start: historyCurrentUserIndex,
+        allowWeakMatch: true,
+      );
+      if (canonicalMatchIndex != -1) continue;
       if (!_shouldPreserveEntryAcrossHistoryReplace(candidate)) continue;
-      preserved.add(candidate);
-      covered.add(candidate);
+      reconciled.add(candidate);
     }
-    return preserved;
+    reconciled.addAll(historyEntries.skip(historyIndex));
+    return reconciled;
   }
 
   bool _entriesEquivalentForTurnBoundary(ChatEntry a, ChatEntry b) {

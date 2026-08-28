@@ -201,6 +201,33 @@ void main() {
       expect(store.cachedHistorySeq('s1'), 7);
     });
 
+    test('history snapshot does not discard stable session metadata', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        's1',
+        const SystemMessage(
+          subtype: 'session_created',
+          sessionId: 's1',
+          provider: 'codex',
+          projectPath: '/tmp/project',
+        ),
+      );
+
+      store.applyServerMessage(
+        's1',
+        const HistorySnapshotMessage(
+          fromSeq: 1,
+          toSeq: 1,
+          reason: 'response_completed',
+          entries: [
+            HistoryEntry(seq: 1, message: ResultMessage(subtype: 'success')),
+          ],
+        ),
+      );
+
+      expect(store.snapshot('s1').projectPath, '/tmp/project');
+    });
+
     test('tracks latest and cached history sequence separately', () {
       final store = SessionRuntimeStore();
       store.applyServerMessage(

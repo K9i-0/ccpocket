@@ -987,6 +987,62 @@ describe("SessionManager codex path", () => {
     ]);
     expect(historyMsg).not.toHaveProperty("rawContentBlocks");
   });
+
+  it("preserves process message order while tool result enrichment is pending", async () => {
+    const forwarded: ServerMessage[] = [];
+    let finishImageRegistration: ((value: []) => void) | undefined;
+    const imageStore = {
+      extractImagePaths: vi.fn(() => ["/tmp/generated.png"]),
+      registerImages: vi.fn(
+        () =>
+          new Promise<[]>(resolve => {
+            finishImageRegistration = resolve;
+          }),
+      ),
+    };
+    const manager = new SessionManager((_, msg) => {
+      forwarded.push(msg);
+    }, imageStore as any);
+    const sessionId = manager.create(
+      "/tmp/project-ordered-history",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "tool_result",
+      toolUseId: "image-tool-1",
+      toolName: "Bash",
+      content: "/tmp/generated.png",
+    } satisfies ServerMessage);
+    codexInstances[0].emit("message", {
+      type: "result",
+      subtype: "success",
+    } satisfies ServerMessage);
+
+    expect(forwarded).toEqual([]);
+
+    finishImageRegistration?.([]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(forwarded.map(message => message.type)).toEqual([
+      "tool_result",
+      "result",
+    ]);
+    expect(
+      manager
+        .get(sessionId)
+        ?.historyEntries.map(entry => ({
+          seq: entry.seq,
+          type: entry.message.type,
+        })),
+    ).toEqual([
+      { seq: 1, type: "tool_result" },
+      { seq: 2, type: "result" },
+    ]);
+  });
 });
 
 describe("SessionManager claude UUID backfill", () => {

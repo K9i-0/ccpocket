@@ -378,7 +378,10 @@ export class SessionManager {
     // Cache tool_use id → name for enriching tool_result messages
     const toolUseNames = new Map<string, string>();
 
-    proc.on("message", async (msg) => {
+    const pendingProcessMessages: ServerMessage[] = [];
+    let processingAsyncProcessMessage = false;
+
+    const processMessage = async (msg: ServerMessage): Promise<void> => {
       try {
         session.lastActivityAt = new Date();
         const previousProviderSessionId = session.claudeSessionId;
@@ -618,6 +621,38 @@ export class SessionManager {
           err,
         );
       }
+    };
+
+    const drainProcessMessages = async (
+      firstMessage: ServerMessage,
+    ): Promise<void> => {
+      processingAsyncProcessMessage = true;
+      let nextMessage: ServerMessage | undefined = firstMessage;
+      while (nextMessage) {
+        await processMessage(nextMessage);
+        nextMessage = pendingProcessMessages.shift();
+      }
+      processingAsyncProcessMessage = false;
+    };
+
+    const processMessageMayAwait = (msg: ServerMessage): boolean => {
+      if (msg.type !== "tool_result" || !this.imageStore) return false;
+      if (this.imageStore.extractImagePaths(msg.content).length > 0) {
+        return true;
+      }
+      return Boolean(msg.rawContentBlocks && this.galleryStore);
+    };
+
+    proc.on("message", (msg) => {
+      if (processingAsyncProcessMessage) {
+        pendingProcessMessages.push(msg);
+        return;
+      }
+      if (processMessageMayAwait(msg)) {
+        void drainProcessMessages(msg);
+        return;
+      }
+      void processMessage(msg);
     });
 
     proc.on("status", (status) => {

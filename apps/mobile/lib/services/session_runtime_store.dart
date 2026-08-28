@@ -16,6 +16,7 @@ class SessionRuntimeSnapshot {
     this.messages = const [],
     this.historySeq = 0,
     this.cachedHistorySeq = 0,
+    this.projectPath,
     this.explorerHistory = const ExplorerHistorySnapshot(),
   });
 
@@ -31,6 +32,7 @@ class SessionRuntimeSnapshot {
   /// (for example an input_ack advances acceptedSeq before the corresponding
   /// user_input is cached).
   final int cachedHistorySeq;
+  final String? projectPath;
   final ExplorerHistorySnapshot explorerHistory;
 }
 
@@ -42,6 +44,7 @@ class SessionRuntimeState {
   final List<int?> _messageSeqs = [];
   int historySeq = 0;
   int cachedHistorySeq = 0;
+  String? projectPath;
   ExplorerHistorySnapshot explorerHistory = const ExplorerHistorySnapshot();
 
   List<ServerMessage> get messages => List.unmodifiable(_messages);
@@ -63,6 +66,7 @@ class SessionRuntimeStore {
       messages: state.messages,
       historySeq: state.historySeq,
       cachedHistorySeq: state.cachedHistorySeq,
+      projectPath: state.projectPath,
       explorerHistory: state.explorerHistory,
     );
   }
@@ -81,6 +85,7 @@ class SessionRuntimeStore {
     int? historySeq,
   }) {
     final state = _stateFor(sessionId);
+    _recordSessionMetadata(state, message);
     if (_shouldIgnore(message)) {
       _recordLatestSeq(state, historySeq);
       return;
@@ -188,6 +193,7 @@ class SessionRuntimeStore {
     }
     target.historySeq = source.historySeq;
     target.cachedHistorySeq = source.cachedHistorySeq;
+    target.projectPath ??= source.projectPath;
     target.explorerHistory = source.explorerHistory;
     _trim(target);
   }
@@ -219,6 +225,30 @@ class SessionRuntimeStore {
 
   bool _representsHistoryEntry(ServerMessage message) =>
       !_shouldIgnore(message);
+
+  void _recordSessionMetadata(
+    SessionRuntimeState state,
+    ServerMessage message,
+  ) {
+    switch (message) {
+      case SystemMessage(:final projectPath):
+        final normalizedPath = projectPath?.trim();
+        if (normalizedPath?.isNotEmpty == true) {
+          state.projectPath = normalizedPath;
+        }
+      case HistoryMessage(:final messages):
+        for (final message in messages) {
+          _recordSessionMetadata(state, message);
+        }
+      case HistorySnapshotMessage(:final entries) ||
+          HistoryDeltaMessage(:final entries):
+        for (final entry in entries) {
+          _recordSessionMetadata(state, entry.message);
+        }
+      default:
+        break;
+    }
+  }
 
   void _recordLatestSeq(SessionRuntimeState state, int? historySeq) {
     if (historySeq != null && historySeq > state.historySeq) {
@@ -320,6 +350,7 @@ class SessionRuntimeStore {
 
   void _removeIfEmpty(SessionRuntimeState state) {
     if (state._messages.isEmpty &&
+        state.projectPath == null &&
         state.explorerHistory.currentPath.isEmpty &&
         state.explorerHistory.recentPeekedFiles.isEmpty) {
       _sessions.remove(state.sessionId);

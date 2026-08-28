@@ -28,6 +28,7 @@ class _RecordingBridgeService extends BridgeService {
       StreamController<List<SessionInfo>>.broadcast();
 
   final requestedFileLists = <String>[];
+  String? cachedProjectPath;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
     _taggedController.add((msg, sessionId));
@@ -57,6 +58,9 @@ class _RecordingBridgeService extends BridgeService {
   void requestFileList(String projectPath) {
     requestedFileLists.add(projectPath);
   }
+
+  @override
+  String? cachedSessionProjectPath(String sessionId) => cachedProjectPath;
 
   @override
   void send(ClientMessage message) {}
@@ -371,6 +375,33 @@ void main() {
       expect(find.byKey(const ValueKey('appbar_view_changes')), findsOneWidget);
       expect(bridge.requestedFileLists, contains('/tmp/project'));
     });
+
+    testWidgets(
+      'Codex restores app bar project actions from stable runtime metadata',
+      (tester) async {
+        final bridge = _RecordingBridgeService()
+          ..cachedProjectPath = '/tmp/project';
+        addTearDown(bridge.dispose);
+
+        await tester.pumpWidget(
+          await _wrap(
+            const CodexSessionScreen(sessionId: 'codex-session'),
+            bridge,
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('appbar_explore_button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('appbar_view_changes')),
+          findsOneWidget,
+        );
+        expect(bridge.requestedFileLists, contains('/tmp/project'));
+      },
+    );
 
     testWidgets('Codex copies the join command for the current session only', (
       tester,

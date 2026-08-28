@@ -1147,6 +1147,120 @@ void main() {
     );
 
     test(
+      'history replacement keeps omitted live tools before the turn result',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        const user = UserInputMessage(
+          text: 'Inspect the project',
+          userMessageUuid: 'user-turn-1',
+        );
+        final toolUse = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'tool-message-1',
+            role: 'assistant',
+            content: const [
+              ToolUseContent(
+                id: 'tool-1',
+                name: 'Bash',
+                input: {'command': 'git status'},
+              ),
+            ],
+            model: 'codex',
+          ),
+        );
+        const toolResult = ToolResultMessage(
+          toolUseId: 'tool-1',
+          toolName: 'Bash',
+          content: 'On branch main',
+        );
+        final finalAnswer = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'assistant-final',
+            role: 'assistant',
+            content: const [TextContent(text: 'Everything is clean.')],
+            model: 'codex',
+          ),
+        );
+        const result = ResultMessage(subtype: 'success');
+
+        for (final message in <ServerMessage>[
+          user,
+          toolUse,
+          toolResult,
+          finalAnswer,
+          result,
+        ]) {
+          mockBridge.emitMessage(message, sessionId: 's1');
+        }
+        await pumpEventQueue();
+
+        mockBridge.emitMessage(
+          HistoryMessage(messages: [user, finalAnswer, result]),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        expect(
+          cubit.state.entries.map((entry) {
+            return switch (entry) {
+              UserChatEntry() => 'user',
+              ServerChatEntry(message: AssistantServerMessage(:final message))
+                  when message.id == 'tool-message-1' =>
+                'tool_use',
+              ServerChatEntry(message: ToolResultMessage()) => 'tool_result',
+              ServerChatEntry(message: AssistantServerMessage()) => 'assistant',
+              ServerChatEntry(message: ResultMessage()) => 'result',
+              _ => entry.runtimeType.toString(),
+            };
+          }),
+          ['user', 'tool_use', 'tool_result', 'assistant', 'result'],
+        );
+      },
+    );
+
+    test('history replacement prefers canonical order without duplicating live entries', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      const user = UserInputMessage(
+        text: 'Inspect the project',
+        userMessageUuid: 'user-turn-1',
+      );
+      final assistant = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'assistant-final',
+          role: 'assistant',
+          content: const [TextContent(text: 'Everything is clean.')],
+          model: 'codex',
+        ),
+      );
+      const result = ResultMessage(subtype: 'success');
+
+      for (final message in <ServerMessage>[user, result, assistant]) {
+        mockBridge.emitMessage(message, sessionId: 's1');
+      }
+      await pumpEventQueue();
+
+      mockBridge.emitMessage(
+        HistoryMessage(messages: [user, assistant, result]),
+        sessionId: 's1',
+      );
+      await pumpEventQueue();
+
+      expect(
+        cubit.state.entries.map((entry) {
+          return switch (entry) {
+            UserChatEntry() => 'user',
+            ServerChatEntry(message: AssistantServerMessage()) => 'assistant',
+            ServerChatEntry(message: ResultMessage()) => 'result',
+            _ => entry.runtimeType.toString(),
+          };
+        }),
+        ['user', 'assistant', 'result'],
+      );
+    });
+
+    test(
       'history UUID matches a local client-id user at the turn boundary',
       () async {
         final cubit = createCubit('s1', provider: Provider.claude);

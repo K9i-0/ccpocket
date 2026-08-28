@@ -2369,6 +2369,10 @@ class BridgeService implements BridgeServiceBase {
     return _runtimeStore.messages(sessionId);
   }
 
+  String? cachedSessionProjectPath(String sessionId) {
+    return _runtimeStore.snapshot(sessionId).projectPath;
+  }
+
   Set<String> respondedToolUseIds(String sessionId) =>
       Set.unmodifiable(_respondedToolUseIds[sessionId] ?? const {});
 
