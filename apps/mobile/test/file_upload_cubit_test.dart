@@ -12,6 +12,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _TestBridgeService extends BridgeService {
@@ -64,7 +65,7 @@ class _TestTransport extends FileUploadTransport {
   void cancel() => cancelled = true;
 }
 
-XFile _testFile(String name) => XFile('/tmp/$name', name: name);
+XFile _testFile(String name) => XFile(p.join('tmp', name));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
