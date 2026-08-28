@@ -181,6 +181,7 @@ class BridgeService implements BridgeServiceBase {
   bool _intentionalDisconnect = false;
   bool _disposed = false;
   DateTime? _legacyFileDownloadResponseDeadline;
+  DateTime? _legacyFileUploadResponseDeadline;
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
@@ -688,8 +689,15 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case ErrorMessage(:final message):
-                if (_isFileDownloadResponseError(msg)) {
-                  _legacyFileDownloadResponseDeadline = null;
+                final isDownloadResponse = _isFileDownloadResponseError(msg);
+                final isUploadResponse = _isFileUploadResponseError(msg);
+                if (isDownloadResponse || isUploadResponse) {
+                  if (isDownloadResponse) {
+                    _legacyFileDownloadResponseDeadline = null;
+                  }
+                  if (isUploadResponse) {
+                    _legacyFileUploadResponseDeadline = null;
+                  }
                   _messageController.add(msg);
                 } else {
                   if (msg.errorCode == 'unsupported_message' &&
@@ -720,6 +728,11 @@ class BridgeService implements BridgeServiceBase {
                 // File transfer dialogs consume this correlated global
                 // response. It must never become a chat transcript entry.
                 _legacyFileDownloadResponseDeadline = null;
+                _messageController.add(msg);
+              case FileUploadReadyMessage() || FileUploadCompleteMessage():
+                // Upload dialogs consume correlated global responses. Keep
+                // transfer protocol messages out of chat transcripts.
+                _legacyFileUploadResponseDeadline = null;
                 _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
@@ -791,6 +804,20 @@ class BridgeService implements BridgeServiceBase {
       return true;
     }
     final deadline = _legacyFileDownloadResponseDeadline;
+    return message.errorCode == null &&
+        message.message == 'Invalid message format' &&
+        deadline != null &&
+        DateTime.now().isBefore(deadline);
+  }
+
+  bool _isFileUploadResponseError(ErrorMessage message) {
+    if (message.errorCode?.startsWith('file_upload_') ?? false) return true;
+    if (message.errorCode == 'unsupported_message' &&
+        (message.message == 'prepare_file_upload' ||
+            message.message == 'finalize_file_upload')) {
+      return true;
+    }
+    final deadline = _legacyFileUploadResponseDeadline;
     return message.errorCode == null &&
         message.message == 'Invalid message format' &&
         deadline != null &&
@@ -976,6 +1003,12 @@ class BridgeService implements BridgeServiceBase {
     if (_disposed) return;
     if (message.type == 'prepare_file_download') {
       _legacyFileDownloadResponseDeadline = DateTime.now().add(
+        const Duration(seconds: 20),
+      );
+    }
+    if (message.type == 'prepare_file_upload' ||
+        message.type == 'finalize_file_upload') {
+      _legacyFileUploadResponseDeadline = DateTime.now().add(
         const Duration(seconds: 20),
       );
     }

@@ -552,18 +552,24 @@ void main() {
       Future<ServerMessage> nextGlobalResponse() => bridge.messages
           .where(
             (message) =>
-                message is FileDownloadReadyMessage || message is ErrorMessage,
+                message is FileDownloadReadyMessage ||
+                message is FileUploadReadyMessage ||
+                message is FileUploadCompleteMessage ||
+                message is ErrorMessage,
           )
           .first
           .timeout(const Duration(seconds: 2));
-      final sessionResponse = bridge
+      final sessionResponses = <ServerMessage>[];
+      final sessionSubscription = bridge
           .messagesForSession('s1')
           .where(
             (message) =>
-                message is FileDownloadReadyMessage || message is ErrorMessage,
+                message is FileDownloadReadyMessage ||
+                message is FileUploadReadyMessage ||
+                message is FileUploadCompleteMessage ||
+                message is ErrorMessage,
           )
-          .first
-          .timeout(const Duration(milliseconds: 100));
+          .listen(sessionResponses.add);
 
       bridge.send(
         ClientMessage.prepareFileDownload(
@@ -616,7 +622,47 @@ void main() {
         (await legacyResponse as ErrorMessage).message,
         'Invalid message format',
       );
-      await expectLater(sessionResponse, throwsA(isA<TimeoutException>()));
+
+      bridge.send(
+        ClientMessage.prepareFileUpload(
+          projectPath: '/project',
+          directoryPath: '',
+          fileName: 'upload.txt',
+          sizeBytes: 3,
+          conflictPolicy: 'rename',
+          requestId: 'upload-1',
+        ),
+      );
+      final uploadReadyResponse = nextGlobalResponse();
+      socket.add(
+        jsonEncode({
+          'type': 'file_upload_ready',
+          'requestId': 'upload-1',
+          'fileName': 'upload.txt',
+          'sizeBytes': 3,
+          'uploadUrl':
+              '/api/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          'uploadToken': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+      );
+      expect(await uploadReadyResponse, isA<FileUploadReadyMessage>());
+
+      final uploadCompleteResponse = nextGlobalResponse();
+      socket.add(
+        jsonEncode({
+          'type': 'file_upload_complete',
+          'requestId': 'upload-1',
+          'filePath': 'upload.txt',
+          'fileName': 'upload.txt',
+          'sizeBytes': 3,
+          'sha256': 'digest',
+          'skipped': false,
+        }),
+      );
+      expect(await uploadCompleteResponse, isA<FileUploadCompleteMessage>());
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(sessionResponses, isEmpty);
+      await sessionSubscription.cancel();
 
       bridge.disconnect();
       bridge.dispose();

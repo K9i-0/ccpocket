@@ -378,6 +378,132 @@ abstract class AppLocalizations {
   /// **'共有・保存'**
   String get fileTransferShareOrSave;
 
+  /// No description provided for @fileUploadTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをアップロード'**
+  String get fileUploadTitle;
+
+  /// No description provided for @fileUploadAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップロード'**
+  String get fileUploadAction;
+
+  /// No description provided for @fileUploadDestination.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存先'**
+  String get fileUploadDestination;
+
+  /// No description provided for @fileUploadConflictLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'同名ファイルがある場合'**
+  String get fileUploadConflictLabel;
+
+  /// No description provided for @fileUploadKeepBoth.
+  ///
+  /// In ja, this message translates to:
+  /// **'両方残す'**
+  String get fileUploadKeepBoth;
+
+  /// No description provided for @fileUploadReplace.
+  ///
+  /// In ja, this message translates to:
+  /// **'置き換える'**
+  String get fileUploadReplace;
+
+  /// No description provided for @fileUploadSkip.
+  ///
+  /// In ja, this message translates to:
+  /// **'スキップ'**
+  String get fileUploadSkip;
+
+  /// No description provided for @fileUploadPreparing.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備中…'**
+  String get fileUploadPreparing;
+
+  /// No description provided for @fileUploadUploading.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップロード中…'**
+  String get fileUploadUploading;
+
+  /// No description provided for @fileUploadFinalizing.
+  ///
+  /// In ja, this message translates to:
+  /// **'検証中…'**
+  String get fileUploadFinalizing;
+
+  /// No description provided for @fileUploadComplete.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップロード完了'**
+  String get fileUploadComplete;
+
+  /// No description provided for @fileUploadSkipped.
+  ///
+  /// In ja, this message translates to:
+  /// **'スキップ済み'**
+  String get fileUploadSkipped;
+
+  /// No description provided for @fileUploadTooMany.
+  ///
+  /// In ja, this message translates to:
+  /// **'一度にアップロードできるのは20ファイルまでです。'**
+  String get fileUploadTooMany;
+
+  /// No description provided for @fileUploadTotalTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択したファイルの合計が1 GBの上限を超えています。'**
+  String get fileUploadTotalTooLarge;
+
+  /// No description provided for @fileUploadSelectionFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択したファイルを開けませんでした。'**
+  String get fileUploadSelectionFailed;
+
+  /// No description provided for @fileUploadFileTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'各ファイルは512 MB以下にしてください。'**
+  String get fileUploadFileTooLarge;
+
+  /// No description provided for @fileUploadErrorNotAllowed.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在のフォルダまたはファイル名にはアップロードできません。'**
+  String get fileUploadErrorNotAllowed;
+
+  /// No description provided for @fileUploadErrorTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'このファイルはBridgeのアップロード上限を超えています。'**
+  String get fileUploadErrorTooLarge;
+
+  /// No description provided for @fileUploadErrorUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをアップロードできません。Bridgeを更新または再起動してください。'**
+  String get fileUploadErrorUnavailable;
+
+  /// No description provided for @fileUploadErrorBridgeUpdate.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをアップロードするにはBridgeを更新してください。'**
+  String get fileUploadErrorBridgeUpdate;
+
+  /// No description provided for @fileUploadErrorFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをアップロードできませんでした。'**
+  String get fileUploadErrorFailed;
+
   /// No description provided for @fileTransferPreparing.
   ///
   /// In ja, this message translates to:

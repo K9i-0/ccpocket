@@ -1073,6 +1073,21 @@ sealed class ServerMessage {
         sizeBytes: json['sizeBytes'] as int? ?? 0,
         downloadUrl: json['downloadUrl'] as String,
       ),
+      'file_upload_ready' => FileUploadReadyMessage(
+        requestId: json['requestId'] as String,
+        fileName: json['fileName'] as String,
+        sizeBytes: json['sizeBytes'] as int? ?? 0,
+        uploadUrl: json['uploadUrl'] as String,
+        uploadToken: json['uploadToken'] as String,
+      ),
+      'file_upload_complete' => FileUploadCompleteMessage(
+        requestId: json['requestId'] as String,
+        filePath: json['filePath'] as String,
+        fileName: json['fileName'] as String,
+        sizeBytes: json['sizeBytes'] as int? ?? 0,
+        sha256: json['sha256'] as String,
+        skipped: json['skipped'] as bool? ?? false,
+      ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
         totalFiles: json['totalFiles'] as int?,
@@ -2728,6 +2743,40 @@ class FileDownloadReadyMessage implements ServerMessage {
     required this.mimeType,
     required this.sizeBytes,
     required this.downloadUrl,
+  });
+}
+
+class FileUploadReadyMessage implements ServerMessage {
+  final String requestId;
+  final String fileName;
+  final int sizeBytes;
+  final String uploadUrl;
+  final String uploadToken;
+
+  const FileUploadReadyMessage({
+    required this.requestId,
+    required this.fileName,
+    required this.sizeBytes,
+    required this.uploadUrl,
+    required this.uploadToken,
+  });
+}
+
+class FileUploadCompleteMessage implements ServerMessage {
+  final String requestId;
+  final String filePath;
+  final String fileName;
+  final int sizeBytes;
+  final String sha256;
+  final bool skipped;
+
+  const FileUploadCompleteMessage({
+    required this.requestId,
+    required this.filePath,
+    required this.fileName,
+    required this.sizeBytes,
+    required this.sha256,
+    required this.skipped,
   });
 }
 
@@ -4486,6 +4535,38 @@ class ClientMessage {
     'filePath': filePath,
     'requestId': requestId,
   });
+
+  factory ClientMessage.prepareFileUpload({
+    required String projectPath,
+    required String directoryPath,
+    required String fileName,
+    required int sizeBytes,
+    required String conflictPolicy,
+    required String requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'prepare_file_upload',
+    'projectPath': projectPath,
+    'directoryPath': directoryPath,
+    'fileName': fileName,
+    'sizeBytes': sizeBytes,
+    'conflictPolicy': conflictPolicy,
+    'requestId': requestId,
+  });
+
+  factory ClientMessage.finalizeFileUpload({
+    required String uploadToken,
+    required String sha256,
+    required String requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'finalize_file_upload',
+    'uploadToken': uploadToken,
+    'sha256': sha256,
+    'requestId': requestId,
+  });
+
+  factory ClientMessage.cancelFileUpload(String uploadToken) => ClientMessage._(
+    {'type': 'cancel_file_upload', 'uploadToken': uploadToken},
+  );
 
   factory ClientMessage.readMediaFile(String projectPath, String filePath) =>
       ClientMessage._({

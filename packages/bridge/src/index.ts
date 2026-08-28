@@ -5,6 +5,7 @@ import { setupProxy } from "./proxy.js";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
 import { MediaStore } from "./media-store.js";
+import { UploadStore } from "./upload-store.js";
 import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
@@ -26,6 +27,11 @@ import { listenForStartup } from "./server-listen.js";
 
 function startupErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function positiveEnvInt(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
 export async function startServer() {
@@ -77,6 +83,16 @@ export async function startServer() {
 
   const imageStore = new ImageStore();
   const mediaStore = new MediaStore();
+  const uploadStore = new UploadStore({
+    maxReservedBytes:
+      positiveEnvInt("BRIDGE_FILE_UPLOAD_MAX_RESERVED_MB", 2048) *
+      1024 *
+      1024,
+    maxConcurrentReceives: positiveEnvInt(
+      "BRIDGE_FILE_UPLOAD_MAX_CONCURRENT",
+      4,
+    ),
+  });
   const galleryStore = new GalleryStore();
   const projectHistory = new ProjectHistory();
   const debugTraceStore = new DebugTraceStore();
@@ -134,16 +150,27 @@ export async function startServer() {
   let wsServer: BridgeWebSocketServer | null = null;
 
   const httpServer = createServer((req, res) => {
+    const defaultBodyDeadline = setTimeout(
+      () => req.destroy(),
+      5 * 60 * 1000,
+    );
+    defaultBodyDeadline.unref();
+    const clearDefaultBodyDeadline = () => {
+      clearTimeout(defaultBodyDeadline);
+    };
+    req.once("end", clearDefaultBodyDeadline);
+    req.once("close", clearDefaultBodyDeadline);
+
     // CORS headers for Flutter Web clients
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET, HEAD, POST, DELETE, OPTIONS",
+      "GET, HEAD, POST, PUT, DELETE, OPTIONS",
     );
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Content-Length, Range");
     res.setHeader(
       "Access-Control-Expose-Headers",
-      "Accept-Ranges, Content-Length, Content-Range",
+      "Accept-Ranges, Content-Length, Content-Range, X-File-SHA256, X-Received-Bytes",
     );
 
     if (req.method === "OPTIONS") {
@@ -207,6 +234,9 @@ export async function startServer() {
     // Stream local media registered by an authenticated read_file request.
     if (mediaStore.handleRequest(req, res)) return;
 
+    // Receive files through short-lived capabilities prepared over WebSocket.
+    if (uploadStore.handleRequest(req, res, clearDefaultBodyDeadline)) return;
+
     // Serve gallery images via GalleryStore (disk-persistent)
     if (galleryStore.handleRequest(req, res)) return;
 
@@ -222,6 +252,9 @@ export async function startServer() {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not Found");
   });
+  // UploadStore applies its own one-hour total and one-minute idle deadlines.
+  // Other HTTP requests retain a five-minute total deadline above.
+  httpServer.requestTimeout = 60 * 60 * 1000;
 
   wsServer = new BridgeWebSocketServer({
     server: httpServer,
@@ -229,6 +262,7 @@ export async function startServer() {
     allowedDirs: ALLOWED_DIRS,
     imageStore,
     mediaStore,
+    uploadStore,
     galleryStore,
     projectHistory,
     debugTraceStore,
@@ -238,10 +272,14 @@ export async function startServer() {
     promptHistoryStore,
   });
 
-  function shutdown() {
+  let shuttingDown = false;
+  async function shutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log("\n[bridge] Shutting down gracefully...");
     mdns?.stop();
     wsServer?.close();
+    await uploadStore.dispose();
     httpServer.close();
     process.exit(0);
   }
@@ -260,8 +298,8 @@ export async function startServer() {
   mdns?.start(PORT, API_KEY);
   printStartupInfo(PORT, HOST, API_KEY);
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => void shutdown());
+  process.on("SIGTERM", () => void shutdown());
 }
 
 // Auto-start when executed directly (node dist/index.js, tsx src/index.ts)

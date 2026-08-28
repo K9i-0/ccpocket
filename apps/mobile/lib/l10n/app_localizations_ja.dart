@@ -156,6 +156,70 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fileTransferShareOrSave => '共有・保存';
 
   @override
+  String get fileUploadTitle => 'ファイルをアップロード';
+
+  @override
+  String get fileUploadAction => 'アップロード';
+
+  @override
+  String get fileUploadDestination => '保存先';
+
+  @override
+  String get fileUploadConflictLabel => '同名ファイルがある場合';
+
+  @override
+  String get fileUploadKeepBoth => '両方残す';
+
+  @override
+  String get fileUploadReplace => '置き換える';
+
+  @override
+  String get fileUploadSkip => 'スキップ';
+
+  @override
+  String get fileUploadPreparing => '準備中…';
+
+  @override
+  String get fileUploadUploading => 'アップロード中…';
+
+  @override
+  String get fileUploadFinalizing => '検証中…';
+
+  @override
+  String get fileUploadComplete => 'アップロード完了';
+
+  @override
+  String get fileUploadSkipped => 'スキップ済み';
+
+  @override
+  String get fileUploadTooMany => '一度にアップロードできるのは20ファイルまでです。';
+
+  @override
+  String get fileUploadTotalTooLarge => '選択したファイルの合計が1 GBの上限を超えています。';
+
+  @override
+  String get fileUploadSelectionFailed => '選択したファイルを開けませんでした。';
+
+  @override
+  String get fileUploadFileTooLarge => '各ファイルは512 MB以下にしてください。';
+
+  @override
+  String get fileUploadErrorNotAllowed => '現在のフォルダまたはファイル名にはアップロードできません。';
+
+  @override
+  String get fileUploadErrorTooLarge => 'このファイルはBridgeのアップロード上限を超えています。';
+
+  @override
+  String get fileUploadErrorUnavailable =>
+      'ファイルをアップロードできません。Bridgeを更新または再起動してください。';
+
+  @override
+  String get fileUploadErrorBridgeUpdate => 'ファイルをアップロードするにはBridgeを更新してください。';
+
+  @override
+  String get fileUploadErrorFailed => 'ファイルをアップロードできませんでした。';
+
+  @override
   String get fileTransferPreparing => 'ダウンロードを準備中…';
 
   @override

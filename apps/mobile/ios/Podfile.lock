@@ -9,6 +9,8 @@ PODS:
   - CwlCatchExceptionSupport (2.2.1)
   - device_info_plus (0.0.1):
     - Flutter
+  - file_selector_ios (0.0.1):
+    - Flutter
   - Firebase/CoreOnly (12.17.0):
     - FirebaseCore (~> 12.17.0)
   - Firebase/Messaging (12.17.0):
@@ -127,6 +129,7 @@ DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - bonsoir_darwin (from `.symlinks/plugins/bonsoir_darwin/darwin`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - file_selector_ios (from `.symlinks/plugins/file_selector_ios/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
@@ -172,6 +175,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/bonsoir_darwin/darwin"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
+  file_selector_ios:
+    :path: ".symlinks/plugins/file_selector_ios/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -221,6 +226,7 @@ SPEC CHECKSUMS:
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  file_selector_ios: ec57ec07954363dd730b642e765e58f199bb621a
   Firebase: e8400c058702940d53f31fc0653e4e7a06332326
   firebase_core: c94f9efeed0ded590b7eecaf6110a374eb865d7a
   firebase_messaging: 00bcc97454f71d0dbe0a8adc6f2abf952320cfb2

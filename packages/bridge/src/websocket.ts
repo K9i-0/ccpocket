@@ -59,6 +59,11 @@ import {
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { MediaStore } from "./media-store.js";
 import {
+  isSafeUploadFileName,
+  UploadStoreError,
+  type UploadStore,
+} from "./upload-store.js";
+import {
   formatResumePerformanceLog,
   summarizeResumeHistory,
 } from "./resume-metrics.js";
@@ -697,6 +702,7 @@ export interface BridgeServerOptions {
   allowedDirs?: string[];
   imageStore?: ImageStore;
   mediaStore?: MediaStore;
+  uploadStore?: UploadStore;
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
   debugTraceStore?: DebugTraceStore;
@@ -708,6 +714,7 @@ export interface BridgeServerOptions {
   fileListMaxEntries?: number;
   fileListMaxBytes?: number;
   fileDownloadMaxBytes?: number;
+  fileUploadMaxBytes?: number;
   deltaBatchMs?: number;
   deltaBatchMaxChars?: number;
 }
@@ -735,6 +742,7 @@ export class BridgeWebSocketServer {
   private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
   private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
   private static readonly DEFAULT_FILE_DOWNLOAD_MAX_BYTES = 512 * 1024 * 1024;
+  private static readonly DEFAULT_FILE_UPLOAD_MAX_BYTES = 512 * 1024 * 1024;
   private static readonly DEFAULT_DELTA_BATCH_MS = 100;
   private static readonly DEFAULT_DELTA_BATCH_MAX_CHARS = 4096;
 
@@ -744,6 +752,7 @@ export class BridgeWebSocketServer {
   private allowedDirs: string[];
   private imageStore: ImageStore | null;
   private mediaStore: MediaStore | null;
+  private uploadStore: UploadStore | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
   private debugTraceStore: DebugTraceStore;
@@ -799,6 +808,7 @@ export class BridgeWebSocketServer {
   private readonly fileListMaxEntries: number;
   private readonly fileListMaxBytes: number;
   private readonly fileDownloadMaxBytes: number;
+  private readonly fileUploadMaxBytes: number;
   private readonly deltaBatchMs: number;
   private readonly deltaBatchMaxChars: number;
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
@@ -817,6 +827,7 @@ export class BridgeWebSocketServer {
       allowedDirs,
       imageStore,
       mediaStore,
+      uploadStore,
       galleryStore,
       projectHistory,
       debugTraceStore,
@@ -828,6 +839,7 @@ export class BridgeWebSocketServer {
       fileListMaxEntries,
       fileListMaxBytes,
       fileDownloadMaxBytes,
+      fileUploadMaxBytes,
       deltaBatchMs,
       deltaBatchMaxChars,
     } = options;
@@ -835,6 +847,7 @@ export class BridgeWebSocketServer {
     this.allowedDirs = allowedDirs ?? [];
     this.imageStore = imageStore ?? null;
     this.mediaStore = mediaStore ?? null;
+    this.uploadStore = uploadStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
@@ -863,6 +876,13 @@ export class BridgeWebSocketServer {
       positiveEnvInt(
         "BRIDGE_FILE_DOWNLOAD_MAX_SIZE_MB",
         BridgeWebSocketServer.DEFAULT_FILE_DOWNLOAD_MAX_BYTES / 1024 / 1024,
+      ) * 1024 * 1024,
+    );
+    this.fileUploadMaxBytes = normalizePositiveLimit(
+      fileUploadMaxBytes,
+      positiveEnvInt(
+        "BRIDGE_FILE_UPLOAD_MAX_SIZE_MB",
+        BridgeWebSocketServer.DEFAULT_FILE_UPLOAD_MAX_BYTES / 1024 / 1024,
       ) * 1024 * 1024,
     );
     this.deltaBatchMs = normalizeNonNegativeLimit(
@@ -1125,6 +1145,116 @@ export class BridgeWebSocketServer {
         "file_download_failed",
         "Unable to prepare the file download.",
       );
+    }
+  }
+
+  private sendFileUploadError(
+    ws: WebSocket,
+    requestId: string,
+    errorCode: string,
+    message: string,
+    path?: string,
+  ): void {
+    this.send(ws, { type: "error", errorCode, message, requestId, path });
+  }
+
+  private async prepareFileUpload(
+    ws: WebSocket,
+    request: Extract<ClientMessage, { type: "prepare_file_upload" }>,
+  ): Promise<void> {
+    const pathApi = this.platform === "win32" ? win32 : posix;
+    const projectPath = pathApi.resolve(request.projectPath);
+    if (
+      !this.uploadStore ||
+      pathApi.isAbsolute(request.directoryPath) ||
+      !isSafeUploadFileName(request.fileName)
+    ) {
+      this.sendFileUploadError(
+        ws,
+        request.requestId,
+        !this.uploadStore ? "file_upload_unavailable" : "file_upload_not_allowed",
+        !this.uploadStore
+          ? "File uploads are unavailable on this Bridge."
+          : "The upload destination or file name is not allowed.",
+        request.directoryPath,
+      );
+      return;
+    }
+    if (request.sizeBytes > this.fileUploadMaxBytes) {
+      this.sendFileUploadError(
+        ws,
+        request.requestId,
+        "file_upload_too_large",
+        `File is too large to upload. Maximum size is ${Math.ceil(this.fileUploadMaxBytes / 1024 / 1024)} MB.`,
+        request.fileName,
+      );
+      return;
+    }
+
+    const requestedDirectory = pathApi.resolve(projectPath, request.directoryPath || ".");
+    if (
+      !this.isPathAllowed(projectPath) ||
+      !isPathWithinAllowedDirectory(requestedDirectory, projectPath, this.platform)
+    ) {
+      this.sendFileUploadError(ws, request.requestId, "file_upload_not_allowed", "The upload destination is outside the current project.", request.directoryPath);
+      return;
+    }
+
+    try {
+      const canonicalProject = await realpath(projectPath);
+      const canonicalDirectory = await realpath(requestedDirectory);
+      const directoryStat = await stat(canonicalDirectory);
+      if (
+        !directoryStat.isDirectory() ||
+        !isPathWithinAllowedDirectory(canonicalDirectory, canonicalProject, this.platform) ||
+        !(await this.isCanonicalPathAllowed(canonicalDirectory))
+      ) {
+        throw new UploadStoreError("file_upload_directory_changed", "The upload destination is not allowed.");
+      }
+      const ref = await this.uploadStore.register({
+        directoryPath: canonicalDirectory,
+        relativeDirectoryPath: pathApi
+          .relative(projectPath, requestedDirectory)
+          .split(pathApi.sep)
+          .join("/"),
+        fileName: request.fileName,
+        sizeBytes: request.sizeBytes,
+        conflictPolicy: request.conflictPolicy,
+      });
+      this.send(ws, {
+        type: "file_upload_ready",
+        requestId: request.requestId,
+        fileName: request.fileName,
+        sizeBytes: request.sizeBytes,
+        uploadUrl: ref.url,
+        uploadToken: ref.token,
+      });
+    } catch (error) {
+      const known = error instanceof UploadStoreError ? error : null;
+      this.sendFileUploadError(
+        ws,
+        request.requestId,
+        known?.code ?? "file_upload_directory_not_found",
+        known?.message ?? "The upload destination was not found or is not allowed.",
+        request.directoryPath,
+      );
+    }
+  }
+
+  private async finalizeFileUpload(
+    ws: WebSocket,
+    request: Extract<ClientMessage, { type: "finalize_file_upload" }>,
+  ): Promise<void> {
+    if (!this.uploadStore) {
+      this.sendFileUploadError(ws, request.requestId, "file_upload_unavailable", "File uploads are unavailable on this Bridge.");
+      return;
+    }
+    try {
+      const result = await this.uploadStore.finalize(request.uploadToken, request.sha256);
+      this.send(ws, { type: "file_upload_complete", requestId: request.requestId, ...result });
+    } catch (error) {
+      const known = error instanceof UploadStoreError ? error : null;
+      this.sendFileUploadError(ws, request.requestId, known?.code ?? "file_upload_failed", known?.message ?? "Unable to finish the file upload.");
     }
   }
 
@@ -5523,6 +5653,21 @@ export class BridgeWebSocketServer {
 
       case "prepare_file_download": {
         void this.prepareFileDownload(ws, msg);
+        break;
+      }
+
+      case "prepare_file_upload": {
+        void this.prepareFileUpload(ws, msg);
+        break;
+      }
+
+      case "finalize_file_upload": {
+        void this.finalizeFileUpload(ws, msg);
+        break;
+      }
+
+      case "cancel_file_upload": {
+        if (this.uploadStore) void this.uploadStore.cancel(msg.uploadToken);
         break;
       }
 

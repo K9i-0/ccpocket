@@ -495,6 +495,67 @@ void main() {
     expect(message.downloadUrl, '/api/media/token');
   });
 
+  test('serializes and parses the file upload lifecycle', () {
+    expect(
+      jsonDecode(
+        ClientMessage.prepareFileUpload(
+          projectPath: '/project',
+          directoryPath: 'docs',
+          fileName: 'report.pdf',
+          sizeBytes: 2048,
+          conflictPolicy: 'rename',
+          requestId: 'upload-1',
+        ).toJson(),
+      ),
+      {
+        'type': 'prepare_file_upload',
+        'projectPath': '/project',
+        'directoryPath': 'docs',
+        'fileName': 'report.pdf',
+        'sizeBytes': 2048,
+        'conflictPolicy': 'rename',
+        'requestId': 'upload-1',
+      },
+    );
+    expect(
+      jsonDecode(
+        ClientMessage.finalizeFileUpload(
+          uploadToken: 'token',
+          sha256: 'digest',
+          requestId: 'upload-1',
+        ).toJson(),
+      ),
+      {
+        'type': 'finalize_file_upload',
+        'uploadToken': 'token',
+        'sha256': 'digest',
+        'requestId': 'upload-1',
+      },
+    );
+
+    final ready = ServerMessage.fromJson({
+      'type': 'file_upload_ready',
+      'requestId': 'upload-1',
+      'fileName': 'report.pdf',
+      'sizeBytes': 2048,
+      'uploadUrl': '/api/uploads/token',
+      'uploadToken': 'token',
+    }) as FileUploadReadyMessage;
+    expect(ready.uploadToken, 'token');
+
+    final complete = ServerMessage.fromJson({
+      'type': 'file_upload_complete',
+      'requestId': 'upload-1',
+      'filePath': 'docs/report (1).pdf',
+      'fileName': 'report (1).pdf',
+      'sizeBytes': 2048,
+      'sha256': 'digest',
+      'skipped': false,
+    }) as FileUploadCompleteMessage;
+    expect(complete.filePath, 'docs/report (1).pdf');
+    expect(complete.skipped, isFalse);
+  });
+
   group('ToolUseSummaryMessage', () {
     test('parses from JSON correctly', () {
       final json = {

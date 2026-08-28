@@ -46,6 +46,45 @@ describe("normalizeToolResultContent", () => {
 // ---- parseClientMessage ----
 
 describe("parseClientMessage", () => {
+  it("parses file upload lifecycle messages and rejects invalid policies", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "prepare_file_upload",
+          projectPath: "/repo",
+          directoryPath: "docs",
+          fileName: "report.pdf",
+          sizeBytes: 10,
+          conflictPolicy: "rename",
+          requestId: "upload-1",
+        }),
+      ),
+    ).toMatchObject({ type: "prepare_file_upload", sizeBytes: 10 });
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "prepare_file_upload",
+          projectPath: "/repo",
+          directoryPath: "",
+          fileName: "report.pdf",
+          sizeBytes: 10,
+          conflictPolicy: "delete",
+          requestId: "upload-1",
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "finalize_file_upload",
+          uploadToken: "a".repeat(48),
+          sha256: "b".repeat(64),
+          requestId: "upload-1",
+        }),
+      ),
+    ).toMatchObject({ type: "finalize_file_upload" });
+  });
+
   it("parses client capabilities", () => {
     const msg = parseClientMessage(
       '{"type":"client_capabilities","protocolVersion":1,"appVersion":"1.72.1","supportedServerMessages":["conversation_queue"]}',

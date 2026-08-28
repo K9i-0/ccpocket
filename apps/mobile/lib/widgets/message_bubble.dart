@@ -244,6 +244,8 @@ class ServerMessageWidget extends StatelessWidget {
       FileListMessage() => const SizedBox.shrink(),
       FileContentMessage() => const SizedBox.shrink(),
       FileDownloadReadyMessage() => const SizedBox.shrink(),
+      FileUploadReadyMessage() => const SizedBox.shrink(),
+      FileUploadCompleteMessage() => const SizedBox.shrink(),
       ProjectHistoryMessage() => const SizedBox.shrink(),
       DirectoryListingMessage() => const SizedBox.shrink(),
       DiffResultMessage() => const SizedBox.shrink(),

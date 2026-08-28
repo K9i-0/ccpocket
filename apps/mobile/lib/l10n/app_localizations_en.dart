@@ -159,6 +159,75 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileTransferShareOrSave => 'Share or save';
 
   @override
+  String get fileUploadTitle => 'Upload files';
+
+  @override
+  String get fileUploadAction => 'Upload';
+
+  @override
+  String get fileUploadDestination => 'Destination';
+
+  @override
+  String get fileUploadConflictLabel => 'If a file already exists';
+
+  @override
+  String get fileUploadKeepBoth => 'Keep both';
+
+  @override
+  String get fileUploadReplace => 'Replace';
+
+  @override
+  String get fileUploadSkip => 'Skip';
+
+  @override
+  String get fileUploadPreparing => 'Preparing…';
+
+  @override
+  String get fileUploadUploading => 'Uploading…';
+
+  @override
+  String get fileUploadFinalizing => 'Verifying…';
+
+  @override
+  String get fileUploadComplete => 'Upload complete';
+
+  @override
+  String get fileUploadSkipped => 'Skipped';
+
+  @override
+  String get fileUploadTooMany => 'You can upload up to 20 files at once.';
+
+  @override
+  String get fileUploadTotalTooLarge =>
+      'The selected files exceed the 1 GB total limit.';
+
+  @override
+  String get fileUploadSelectionFailed =>
+      'The selected files could not be opened.';
+
+  @override
+  String get fileUploadFileTooLarge => 'Each file must be 512 MB or smaller.';
+
+  @override
+  String get fileUploadErrorNotAllowed =>
+      'The current folder or file name is not allowed for uploads.';
+
+  @override
+  String get fileUploadErrorTooLarge =>
+      'This file exceeds the Bridge upload size limit.';
+
+  @override
+  String get fileUploadErrorUnavailable =>
+      'File uploads are unavailable. Update or restart the Bridge.';
+
+  @override
+  String get fileUploadErrorBridgeUpdate =>
+      'Update the Bridge to upload files.';
+
+  @override
+  String get fileUploadErrorFailed => 'The file could not be uploaded.';
+
+  @override
   String get fileTransferPreparing => 'Preparing download…';
 
   @override

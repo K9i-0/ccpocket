@@ -156,6 +156,69 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fileTransferShareOrSave => '分享或保存';
 
   @override
+  String get fileUploadTitle => '上传文件';
+
+  @override
+  String get fileUploadAction => '上传';
+
+  @override
+  String get fileUploadDestination => '目标位置';
+
+  @override
+  String get fileUploadConflictLabel => '存在同名文件时';
+
+  @override
+  String get fileUploadKeepBoth => '保留两者';
+
+  @override
+  String get fileUploadReplace => '替换';
+
+  @override
+  String get fileUploadSkip => '跳过';
+
+  @override
+  String get fileUploadPreparing => '正在准备…';
+
+  @override
+  String get fileUploadUploading => '正在上传…';
+
+  @override
+  String get fileUploadFinalizing => '正在验证…';
+
+  @override
+  String get fileUploadComplete => '上传完成';
+
+  @override
+  String get fileUploadSkipped => '已跳过';
+
+  @override
+  String get fileUploadTooMany => '一次最多可上传20个文件。';
+
+  @override
+  String get fileUploadTotalTooLarge => '所选文件超过1 GB总大小限制。';
+
+  @override
+  String get fileUploadSelectionFailed => '无法打开所选文件。';
+
+  @override
+  String get fileUploadFileTooLarge => '每个文件不得超过512 MB。';
+
+  @override
+  String get fileUploadErrorNotAllowed => '不允许上传到当前文件夹或使用此文件名。';
+
+  @override
+  String get fileUploadErrorTooLarge => '此文件超过Bridge上传大小限制。';
+
+  @override
+  String get fileUploadErrorUnavailable => '文件上传不可用。请更新或重启Bridge。';
+
+  @override
+  String get fileUploadErrorBridgeUpdate => '请更新Bridge以上传文件。';
+
+  @override
+  String get fileUploadErrorFailed => '无法上传文件。';
+
+  @override
   String get fileTransferPreparing => '正在准备下载…';
 
   @override

@@ -56,6 +56,9 @@ ccpocket-bridge --version
 | `BRIDGE_FILE_LIST_MAX_ENTRIES` | `5000` | Maximum file and directory entries returned to a client; non-positive or invalid values use the default |
 | `BRIDGE_FILE_LIST_MAX_BYTES` | `524288` | Maximum serialized path bytes returned in a client file list; non-positive or invalid values use the default |
 | `BRIDGE_FILE_DOWNLOAD_MAX_SIZE_MB` | `512` | Maximum size in MiB for a file downloaded from Explorer; non-positive or invalid values use the default |
+| `BRIDGE_FILE_UPLOAD_MAX_SIZE_MB` | `512` | Maximum size in MiB for one file uploaded from Explorer; non-positive or invalid values use the default |
+| `BRIDGE_FILE_UPLOAD_MAX_RESERVED_MB` | `2048` | Maximum total declared bytes reserved by pending Explorer uploads |
+| `BRIDGE_FILE_UPLOAD_MAX_CONCURRENT` | `4` | Maximum number of Explorer upload bodies received concurrently |
 | `BRIDGE_DELTA_BATCH_MS` | `100` | Milliseconds to batch streaming deltas per connected client; set to `0` to disable batching |
 | `BRIDGE_DELTA_BATCH_MAX_CHARS` | `4096` | Maximum Unicode characters per batched streaming payload; non-positive or invalid values use the default |
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` (1 MB) | Auto-display diff images up to this size, in KB |

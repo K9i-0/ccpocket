@@ -290,6 +290,22 @@ export type ClientMessage =
       filePath: string;
       requestId: string;
     }
+  | {
+      type: "prepare_file_upload";
+      projectPath: string;
+      directoryPath: string;
+      fileName: string;
+      sizeBytes: number;
+      conflictPolicy: "rename" | "overwrite" | "skip";
+      requestId: string;
+    }
+  | {
+      type: "finalize_file_upload";
+      uploadToken: string;
+      sha256: string;
+      requestId: string;
+    }
+  | { type: "cancel_file_upload"; uploadToken: string }
   | { type: "list_files"; projectPath: string }
   | {
       type: "list_directory";
@@ -658,6 +674,23 @@ export type ServerMessage =
       mimeType: string;
       sizeBytes: number;
       downloadUrl: string;
+    }
+  | {
+      type: "file_upload_ready";
+      requestId: string;
+      fileName: string;
+      sizeBytes: number;
+      uploadUrl: string;
+      uploadToken: string;
+    }
+  | {
+      type: "file_upload_complete";
+      requestId: string;
+      filePath: string;
+      fileName: string;
+      sizeBytes: number;
+      sha256: string;
+      skipped: boolean;
     }
   | { type: "project_history"; projects: string[] }
   | {
@@ -1445,6 +1478,54 @@ export function parseClientMessage(data: string): ClientMessage | null {
           typeof msg.requestId !== "string" ||
           msg.requestId.trim().length === 0 ||
           msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH
+        )
+          return null;
+        break;
+      case "prepare_file_upload":
+        if (
+          !hasOnlyKeys([
+            "type",
+            "projectPath",
+            "directoryPath",
+            "fileName",
+            "sizeBytes",
+            "conflictPolicy",
+            "requestId",
+          ]) ||
+          typeof msg.projectPath !== "string" ||
+          msg.projectPath.trim().length === 0 ||
+          typeof msg.directoryPath !== "string" ||
+          typeof msg.fileName !== "string" ||
+          msg.fileName.length === 0 ||
+          msg.fileName.length > 255 ||
+          typeof msg.sizeBytes !== "number" ||
+          !Number.isSafeInteger(msg.sizeBytes) ||
+          msg.sizeBytes < 0 ||
+          !["rename", "overwrite", "skip"].includes(msg.conflictPolicy as string) ||
+          typeof msg.requestId !== "string" ||
+          msg.requestId.trim().length === 0 ||
+          msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH
+        )
+          return null;
+        break;
+      case "finalize_file_upload":
+        if (
+          !hasOnlyKeys(["type", "uploadToken", "sha256", "requestId"]) ||
+          typeof msg.uploadToken !== "string" ||
+          !/^[a-f0-9]{48}$/.test(msg.uploadToken) ||
+          typeof msg.sha256 !== "string" ||
+          !/^[a-f0-9]{64}$/i.test(msg.sha256) ||
+          typeof msg.requestId !== "string" ||
+          msg.requestId.trim().length === 0 ||
+          msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH
+        )
+          return null;
+        break;
+      case "cancel_file_upload":
+        if (
+          !hasOnlyKeys(["type", "uploadToken"]) ||
+          typeof msg.uploadToken !== "string" ||
+          !/^[a-f0-9]{48}$/.test(msg.uploadToken)
         )
           return null;
         break;

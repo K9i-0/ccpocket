@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePlatformPath } from "./path-utils.js";
 import { MediaStore } from "./media-store.js";
+import { UploadStore } from "./upload-store.js";
 
 const {
   getSessionHistoryMock,
@@ -5058,6 +5059,94 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally {
       bridge.close();
       rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("prepares a capability URL for uploading into the current project folder", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-upload-"));
+    mkdirSync(resolve(projectPath, "docs"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      uploadStore: new UploadStore(),
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "prepare_file_upload",
+          projectPath,
+          directoryPath: "docs",
+          fileName: "report.pdf",
+          sizeBytes: 123,
+          conflictPolicy: "rename",
+          requestId: "upload-1",
+        },
+        ws,
+      );
+
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "file_upload_ready");
+      expect(response).toMatchObject({
+        type: "file_upload_ready",
+        requestId: "upload-1",
+        fileName: "report.pdf",
+        sizeBytes: 123,
+      });
+      expect(response.uploadUrl).toMatch(/^\/api\/uploads\/[a-f0-9]{48}$/);
+      expect(response.uploadToken).toMatch(/^[a-f0-9]{48}$/);
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unsafe upload destinations, names, and configured size overflow", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-upload-root-"));
+    const projectPath = resolve(root, "project");
+    mkdirSync(projectPath);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [root],
+      uploadStore: new UploadStore(),
+      fileUploadMaxBytes: 4,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      for (const [directoryPath, fileName, sizeBytes, requestId] of [
+        ["..", "report.pdf", 1, "upload-escape"],
+        ["", "../private.txt", 1, "upload-name"],
+        ["", "large.zip", 5, "upload-large"],
+      ] as const) {
+        await (bridge as any).handleClientMessage(
+          {
+            type: "prepare_file_upload",
+            projectPath,
+            directoryPath,
+            fileName,
+            sizeBytes,
+            conflictPolicy: "rename",
+            requestId,
+          },
+          ws,
+        );
+      }
+      await expect.poll(() => ws.send.mock.calls.length).toBe(3);
+      const errors = ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+      expect(errors.map((error: any) => error.errorCode)).toEqual([
+        "file_upload_not_allowed",
+        "file_upload_not_allowed",
+        "file_upload_too_large",
+      ]);
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
     }
   });
 

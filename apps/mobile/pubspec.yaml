@@ -91,6 +91,7 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
+  file_selector: ^1.1.0
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged

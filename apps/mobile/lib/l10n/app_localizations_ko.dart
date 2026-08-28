@@ -156,6 +156,70 @@ class AppLocalizationsKo extends AppLocalizations {
   String get fileTransferShareOrSave => '공유 또는 저장';
 
   @override
+  String get fileUploadTitle => '파일 업로드';
+
+  @override
+  String get fileUploadAction => '업로드';
+
+  @override
+  String get fileUploadDestination => '대상';
+
+  @override
+  String get fileUploadConflictLabel => '같은 이름의 파일이 있는 경우';
+
+  @override
+  String get fileUploadKeepBoth => '둘 다 유지';
+
+  @override
+  String get fileUploadReplace => '교체';
+
+  @override
+  String get fileUploadSkip => '건너뛰기';
+
+  @override
+  String get fileUploadPreparing => '준비 중…';
+
+  @override
+  String get fileUploadUploading => '업로드 중…';
+
+  @override
+  String get fileUploadFinalizing => '확인 중…';
+
+  @override
+  String get fileUploadComplete => '업로드 완료';
+
+  @override
+  String get fileUploadSkipped => '건너뜀';
+
+  @override
+  String get fileUploadTooMany => '한 번에 최대 20개 파일을 업로드할 수 있습니다.';
+
+  @override
+  String get fileUploadTotalTooLarge => '선택한 파일이 총 1GB 제한을 초과합니다.';
+
+  @override
+  String get fileUploadSelectionFailed => '선택한 파일을 열 수 없습니다.';
+
+  @override
+  String get fileUploadFileTooLarge => '각 파일은 512MB 이하여야 합니다.';
+
+  @override
+  String get fileUploadErrorNotAllowed => '현재 폴더 또는 파일 이름에는 업로드할 수 없습니다.';
+
+  @override
+  String get fileUploadErrorTooLarge => '이 파일은 Bridge 업로드 크기 제한을 초과합니다.';
+
+  @override
+  String get fileUploadErrorUnavailable =>
+      '파일 업로드를 사용할 수 없습니다. Bridge를 업데이트하거나 다시 시작하세요.';
+
+  @override
+  String get fileUploadErrorBridgeUpdate => '파일을 업로드하려면 Bridge를 업데이트하세요.';
+
+  @override
+  String get fileUploadErrorFailed => '파일을 업로드할 수 없습니다.';
+
+  @override
   String get fileTransferPreparing => '다운로드 준비 중…';
 
   @override

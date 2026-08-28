@@ -1,17 +1,27 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../file_peek/file_peek_sheet.dart';
 import '../file_transfer/widgets/file_transfer_dialog.dart';
+import '../file_upload/widgets/file_upload_dialog.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'state/explore_cubit.dart';
 import 'state/explore_state.dart';
 import 'widgets/explore_breadcrumbs.dart';
 import 'widgets/explore_empty_state.dart';
 import 'widgets/explore_file_list.dart';
+
+String _projectName(String projectPath) {
+  final parts = projectPath
+      .split(RegExp(r'[/\\]'))
+      .where((part) => part.isNotEmpty);
+  return parts.isEmpty ? projectPath : parts.last;
+}
 
 @RoutePage()
 class ExploreScreen extends StatelessWidget {
@@ -111,6 +121,47 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
     await _openFilePeek(cubit, picked, navigateToFileDirectory: true);
   }
 
+  Future<void> _pickAndUploadFiles(ExploreCubit cubit) async {
+    final l = AppLocalizations.of(context);
+    try {
+      final files = await openFiles();
+      if (!mounted || files.isEmpty) return;
+      if (files.length > maxUploadFileCount) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.fileUploadTooMany)));
+        return;
+      }
+      final sizes = await Future.wait(files.map((file) => file.length()));
+      if (!mounted) return;
+      if (sizes.any((size) => size > maxUploadFileBytes)) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.fileUploadFileTooLarge)));
+        return;
+      }
+      if (sizes.fold<int>(0, (total, size) => total + size) >
+          maxUploadTotalBytes) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.fileUploadTotalTooLarge)));
+        return;
+      }
+      final uploadedPaths = await showProjectFileUploadDialog(
+        context,
+        bridge: context.read<BridgeService>(),
+        projectPath: widget.projectPath,
+        directoryPath: cubit.state.currentPath,
+        files: files,
+        fileSizes: sizes,
+      );
+      if (!mounted || uploadedPaths == null || uploadedPaths.isEmpty) return;
+      setState(() => _highlightedFilePath = uploadedPaths.last);
+      context.read<BridgeService>().requestFileList(widget.projectPath);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.fileUploadSelectionFailed)));
+    }
+  }
+
   Future<void> _openFilePeek(
     ExploreCubit cubit,
     String filePath, {
@@ -139,10 +190,11 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
   }
 
   void _ensureHighlightedVisible() {
-    final currentContext = _highlightedEntryKey.currentContext;
-    if (_highlightedFilePath == null || currentContext == null) return;
+    if (_highlightedFilePath == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _highlightedFilePath == null) return;
+      final currentContext = _highlightedEntryKey.currentContext;
+      if (currentContext == null) return;
       Scrollable.ensureVisible(
         currentContext,
         duration: const Duration(milliseconds: 220),
@@ -191,6 +243,16 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
               ),
               titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
               actions: chrome.padActions([
+                if (supportsProjectFileUpload)
+                  IconButton(
+                    key: const ValueKey('explore_upload_button'),
+                    onPressed: () => _pickAndUploadFiles(cubit),
+                    style: chrome.useMacOSAdaptiveChrome
+                        ? chrome.compactButtonStyle()
+                        : null,
+                    icon: const Icon(Icons.upload_file),
+                    tooltip: AppLocalizations.of(context).fileUploadTitle,
+                  ),
                 IconButton(
                   key: const ValueKey('explore_recent_files_button'),
                   onPressed: () => _openRecentFilesSheet(cubit),
@@ -206,7 +268,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
           body: Column(
             children: [
               ExploreBreadcrumbs(
-                projectName: widget.projectPath.split('/').last,
+                projectName: _projectName(widget.projectPath),
                 currentPath: state.currentPath,
                 breadcrumbs: cubit.breadcrumbs,
                 onTapCrumb: (crumb) {

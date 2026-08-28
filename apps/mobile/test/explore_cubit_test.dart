@@ -215,6 +215,11 @@ void main() {
           ),
         ),
       );
+
+      expect(
+        find.byKey(const ValueKey('explore_upload_button')),
+        findsOneWidget,
+      );
       bridge.emitFileList(
         const FileListMessage(
           files: ['lib/main.dart', 'README.md'],
