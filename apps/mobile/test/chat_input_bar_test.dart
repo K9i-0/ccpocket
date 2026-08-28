@@ -438,14 +438,16 @@ void main() {
       );
     });
 
-    testWidgets('Android backgrounding releases input focus for IME recovery', (
+    testWidgets('Android backgrounding repairs IME after focus closes first', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      addTearDown(tester.view.resetViewInsets);
       inputController.text = 'draft stays intact';
       await tester.pumpWidget(buildSubject());
       await tester.tap(find.byKey(const ValueKey('message_input')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pump();
 
       final input = tester.widget<TextField>(
@@ -453,18 +455,124 @@ void main() {
       );
       expect(input.focusNode!.hasFocus, isTrue);
 
+      input.focusNode!.unfocus();
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isA<FocusScopeNode>());
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.testTextInput.log.clear();
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
 
       expect(input.focusNode!.hasFocus, isFalse);
       expect(inputController.text, 'draft stays intact');
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isTrue,
+      );
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
-      expect(input.focusNode!.hasFocus, isFalse);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Android inactive resume keeps a focused keyboard open', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+
+      final input = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      tester.testTextInput.log.clear();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(input.focusNode!.hasFocus, isTrue);
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isFalse,
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('hidden chat does not hide another route keyboard', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(
+              body: TextField(key: ValueKey('top_route_input')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('top_route_input')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+
+      final topInput = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const ValueKey('top_route_input')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      tester.testTextInput.log.clear();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(topInput.focusNode.hasFocus, isTrue);
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isFalse,
+      );
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Android resume repairs a stale inset if hidden was skipped', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(tester.view.resetViewInsets);
+      inputController.text = 'draft stays intact';
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+
+      final input = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      input.focusNode!.unfocus();
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isA<FocusScopeNode>());
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.testTextInput.log.clear();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(inputController.text, 'draft stays intact');
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isTrue,
+      );
       debugDefaultTargetPlatformOverride = null;
     });
 

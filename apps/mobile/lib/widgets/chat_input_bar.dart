@@ -698,8 +698,11 @@ class _InputTextField extends StatefulWidget {
 
 class _InputTextFieldState extends State<_InputTextField>
     with WidgetsBindingObserver {
+  static _InputTextFieldState? _androidImeOwner;
+
   late final FocusNode _focusNode;
   var _androidImeResetPending = false;
+  var _androidImeWasActiveBeforeInactive = false;
   var _clipboardProbeGeneration = 0;
   var _hasImageInClipboard = false;
 
@@ -708,7 +711,8 @@ class _InputTextFieldState extends State<_InputTextField>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
-    _focusNode.addListener(_syncNativePasteBridge);
+    _focusNode.addListener(_handleFocusChanged);
+    FocusManager.instance.addListener(_syncAndroidImeOwner);
   }
 
   @override
@@ -722,8 +726,10 @@ class _InputTextFieldState extends State<_InputTextField>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FocusManager.instance.removeListener(_syncAndroidImeOwner);
+    if (identical(_androidImeOwner, this)) _androidImeOwner = null;
     NativePasteBridge.instance.deactivate(this);
-    _focusNode.removeListener(_syncNativePasteBridge);
+    _focusNode.removeListener(_handleFocusChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -732,26 +738,59 @@ class _InputTextFieldState extends State<_InputTextField>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     switch (state) {
+      case AppLifecycleState.inactive:
+        _androidImeWasActiveBeforeInactive =
+            identical(_androidImeOwner, this) &&
+            (_focusNode.hasFocus || _hasAndroidImeInset);
       case AppLifecycleState.hidden ||
           AppLifecycleState.paused ||
           AppLifecycleState.detached:
-        if (_androidImeResetPending || !_focusNode.hasFocus) return;
+        if (_androidImeResetPending ||
+            (!_androidImeWasActiveBeforeInactive &&
+                !_focusNode.hasFocus &&
+                !(identical(_androidImeOwner, this) && _hasAndroidImeInset))) {
+          return;
+        }
         _androidImeResetPending = true;
         _resetAndroidIme();
       case AppLifecycleState.resumed:
-        if (!_androidImeResetPending) return;
+        final shouldRepairStaleInset =
+            _androidImeWasActiveBeforeInactive &&
+            identical(_androidImeOwner, this) &&
+            !_focusNode.hasFocus &&
+            _hasAndroidImeInset;
+        _androidImeWasActiveBeforeInactive = false;
+        if (!_androidImeResetPending && !shouldRepairStaleInset) return;
         _androidImeResetPending = false;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _resetAndroidIme();
         });
-      case AppLifecycleState.inactive:
-        break;
     }
   }
 
+  bool get _hasAndroidImeInset =>
+      (View.maybeOf(context)?.viewInsets.bottom ?? 0) > 0;
+
   void _resetAndroidIme() {
     _focusNode.unfocus();
+    if (identical(_androidImeOwner, this)) _androidImeOwner = null;
     unawaited(_hideAndroidIme());
+  }
+
+  void _handleFocusChanged() {
+    _syncAndroidImeOwner();
+    _syncNativePasteBridge();
+  }
+
+  void _syncAndroidImeOwner() {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (_focusNode.hasFocus) {
+      _androidImeOwner = this;
+    } else if (FocusManager.instance.primaryFocus case final primaryFocus?
+        when primaryFocus is! FocusScopeNode &&
+            identical(_androidImeOwner, this)) {
+      _androidImeOwner = null;
+    }
   }
 
   Future<void> _hideAndroidIme() async {
