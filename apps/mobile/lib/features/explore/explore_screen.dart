@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../services/bridge_service.dart';
+import '../../widgets/file_type_icon.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../file_peek/file_peek_sheet.dart';
 import '../file_transfer/widgets/file_transfer_dialog.dart';
@@ -453,9 +454,9 @@ class _RecentFilesSheet extends StatelessWidget {
                   final dir = parentDirectoryOf(path);
                   return ListTile(
                     enabled: exists,
-                    leading: Icon(
-                      exists ? Icons.description_outlined : Icons.error_outline,
-                    ),
+                    leading: exists
+                        ? FileTypeIcon(path: path)
+                        : const Icon(Icons.error_outline),
                     title: Text(fileName),
                     subtitle: Text(
                       dir.isEmpty ? '/' : dir,

@@ -62,6 +62,8 @@ MaterialVideoControlsThemeData _mobileTheme(
   Color accent, {
   bool fullscreen = false,
 }) {
+  final controlBottom = fullscreen ? 16.0 : 12.0;
+  final seekBottom = controlBottom + 56;
   return MaterialVideoControlsThemeData(
     automaticallyImplySkipNextButton: false,
     automaticallyImplySkipPreviousButton: false,
@@ -93,12 +95,8 @@ MaterialVideoControlsThemeData _mobileTheme(
       _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
       const _VideoFullscreenButton(),
     ],
-    bottomButtonBarMargin: fullscreen
-        ? const EdgeInsets.fromLTRB(16, 0, 8, 28)
-        : const EdgeInsets.only(left: 16, right: 8),
-    seekBarMargin: fullscreen
-        ? const EdgeInsets.fromLTRB(16, 0, 16, 68)
-        : const EdgeInsets.fromLTRB(16, 0, 16, 10),
+    bottomButtonBarMargin: EdgeInsets.fromLTRB(16, 0, 8, controlBottom),
+    seekBarMargin: EdgeInsets.fromLTRB(16, 0, 16, seekBottom),
     seekBarHeight: 4,
     seekBarContainerHeight: 40,
     seekBarPositionColor: accent,
@@ -113,6 +111,8 @@ MaterialDesktopVideoControlsThemeData _desktopTheme(
   Color accent, {
   bool fullscreen = false,
 }) {
+  final controlBottom = fullscreen ? 16.0 : 12.0;
+  final seekBottom = controlBottom + 56;
   return MaterialDesktopVideoControlsThemeData(
     automaticallyImplySkipNextButton: false,
     automaticallyImplySkipPreviousButton: false,
@@ -142,12 +142,8 @@ MaterialDesktopVideoControlsThemeData _desktopTheme(
       _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
       const _VideoFullscreenButton(),
     ],
-    bottomButtonBarMargin: fullscreen
-        ? const EdgeInsets.fromLTRB(16, 0, 16, 24)
-        : const EdgeInsets.symmetric(horizontal: 16),
-    seekBarMargin: fullscreen
-        ? const EdgeInsets.fromLTRB(16, 0, 16, 64)
-        : const EdgeInsets.symmetric(horizontal: 16),
+    bottomButtonBarMargin: EdgeInsets.fromLTRB(16, 0, 16, controlBottom),
+    seekBarMargin: EdgeInsets.fromLTRB(16, 0, 16, seekBottom),
     seekBarHeight: 4,
     seekBarHoverHeight: 6,
     seekBarPositionColor: accent,

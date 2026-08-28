@@ -20,6 +20,7 @@ import '../../theme/markdown_style.dart'
         highlightToTextSpans,
         markdownBuilders;
 import '../../widgets/bubbles/image_preview.dart';
+import '../../widgets/file_type_icon.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'html_preview_document.dart';
 import 'widgets/html_file_preview.dart';
@@ -162,11 +163,7 @@ Future<String?> _showFilePickerSheet(
                     ? path.substring(0, path.lastIndexOf('/'))
                     : '';
                 return ListTile(
-                  leading: Icon(
-                    Icons.description_outlined,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  leading: FileTypeIcon(path: path),
                   title: Text(fileName, style: const TextStyle(fontSize: 14)),
                   subtitle: dir.isNotEmpty
                       ? Text(
@@ -361,11 +358,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
           child: Row(
             children: [
-              Icon(
-                Icons.description_outlined,
-                size: 18,
-                color: appColors.subtleText,
-              ),
+              FileTypeIcon(path: widget.filePath, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

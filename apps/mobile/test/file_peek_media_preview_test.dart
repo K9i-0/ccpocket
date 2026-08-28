@@ -1,6 +1,7 @@
 import 'package:ccpocket/features/file_peek/widgets/file_peek_media_preview.dart';
 import 'package:ccpocket/features/file_peek/widgets/file_peek_media_controls.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:media_kit/media_kit.dart';
 
 void main() {
   group('resolveFilePeekMediaUrl', () {
@@ -39,6 +40,58 @@ void main() {
 
     test('keeps ordinary playback errors fatal', () {
       expect(isFatalFilePeekMediaError('HTTP 404'), isTrue);
+    });
+  });
+
+  group('filePeekVideoAspectRatio', () {
+    test('uses the declared display aspect ratio', () {
+      expect(
+        filePeekVideoAspectRatio(const VideoParams(aspect: 4 / 3)),
+        closeTo(4 / 3, 0.001),
+      );
+    });
+
+    test('falls back to display dimensions and then 16:9', () {
+      expect(
+        filePeekVideoAspectRatio(const VideoParams(dw: 1080, dh: 1920)),
+        closeTo(9 / 16, 0.001),
+      );
+      expect(
+        filePeekVideoAspectRatio(const VideoParams()),
+        closeTo(16 / 9, 0.001),
+      );
+    });
+  });
+
+  group('filePeekVideoViewportHeight', () {
+    test('keeps controls usable on narrow phones', () {
+      expect(
+        filePeekVideoViewportHeight(
+          width: 320,
+          aspectRatio: 16 / 9,
+          maxHeight: 600,
+        ),
+        filePeekVideoMinimumViewportHeight,
+      );
+      expect(
+        filePeekVideoViewportHeight(
+          width: 393,
+          aspectRatio: 16 / 9,
+          maxHeight: 600,
+        ),
+        filePeekVideoMinimumViewportHeight,
+      );
+    });
+
+    test('uses natural media height and respects the available height', () {
+      expect(
+        filePeekVideoViewportHeight(
+          width: 320,
+          aspectRatio: 9 / 16,
+          maxHeight: 500,
+        ),
+        500,
+      );
     });
   });
 

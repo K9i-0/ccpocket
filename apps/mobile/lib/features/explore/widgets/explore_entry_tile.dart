@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../widgets/file_type_icon.dart';
 import '../state/explore_state.dart';
 
 class ExploreEntryTile extends StatelessWidget {
@@ -28,10 +29,11 @@ class ExploreEntryTile extends StatelessWidget {
                 .withValues(alpha: 0.4)
           : null,
       dense: true,
-      leading: Icon(
-        entry.isDirectory ? Icons.folder_outlined : Icons.description_outlined,
+      leading: FileTypeIcon(
+        path: entry.name,
+        isDirectory: entry.isDirectory,
+        isIgnored: entry.isIgnored,
         size: 20,
-        color: entry.isIgnored ? ignoredColor : null,
       ),
       title: Text(
         entry.name,

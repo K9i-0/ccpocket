@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -26,6 +27,37 @@ bool isFatalFilePeekMediaError(String error) {
   // mpv can report this warning on simulators/headless devices even though
   // video decoding and controls are fully available.
   return !error.contains('Could not open/initialize audio device -> no sound.');
+}
+
+double filePeekVideoAspectRatio(VideoParams params) {
+  final declaredAspect = params.aspect;
+  if (declaredAspect != null && declaredAspect.isFinite && declaredAspect > 0) {
+    return declaredAspect;
+  }
+
+  final width = params.dw ?? params.w;
+  final height = params.dh ?? params.h;
+  if (width != null && height != null && width > 0 && height > 0) {
+    return width / height;
+  }
+  return 16 / 9;
+}
+
+const filePeekVideoMinimumViewportHeight = 224.0;
+
+double filePeekVideoViewportHeight({
+  required double width,
+  required double aspectRatio,
+  required double maxHeight,
+}) {
+  final naturalHeight = width / aspectRatio;
+  final preferredHeight = math.max(
+    naturalHeight,
+    filePeekVideoMinimumViewportHeight,
+  );
+  return maxHeight.isFinite
+      ? math.min(preferredHeight, maxHeight)
+      : preferredHeight;
 }
 
 class FilePeekMediaPreview extends StatefulWidget {
@@ -154,12 +186,48 @@ class _VideoPreview extends StatelessWidget {
       child: ColoredBox(
         key: const ValueKey('file_peek_video_player'),
         color: Colors.black,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Video(controller: controller, fit: BoxFit.contain),
-            if (loading) const CircularProgressIndicator.adaptive(),
-          ],
+        child: SafeArea(
+          top: false,
+          left: false,
+          right: false,
+          minimum: const EdgeInsets.only(bottom: 12),
+          child: Center(
+            child: StreamBuilder<VideoParams>(
+              stream: controller.player.stream.videoParams,
+              initialData: controller.player.state.videoParams,
+              builder: (context, snapshot) {
+                final aspectRatio = filePeekVideoAspectRatio(
+                  snapshot.data ?? const VideoParams(),
+                );
+                return LayoutBuilder(
+                  key: const ValueKey('file_peek_video_viewport'),
+                  builder: (context, constraints) {
+                    final height = filePeekVideoViewportHeight(
+                      width: constraints.maxWidth,
+                      aspectRatio: aspectRatio,
+                      maxHeight: constraints.maxHeight,
+                    );
+                    return SizedBox(
+                      width: constraints.maxWidth,
+                      height: height,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Video(
+                            controller: controller,
+                            fit: BoxFit.contain,
+                            aspectRatio: aspectRatio,
+                          ),
+                          if (loading)
+                            const CircularProgressIndicator.adaptive(),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
