@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.76.0] - 2026-08-28
+
+### Added
+- Add secure, project-scoped file uploads with expiring capabilities, streamed HTTP transfers, SHA-256 integrity verification, conflict handling, cancellation, and configurable size and concurrency limits.
+
 ## [1.75.0] - 2026-08-28
 
 ### Added
