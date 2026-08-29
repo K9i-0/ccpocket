@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _TestBridgeService extends BridgeService {
   final controller = StreamController<ServerMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
+  void Function(ClientMessage message)? onSend;
 
   @override
   Stream<ServerMessage> get messages => controller.stream;
@@ -26,7 +27,10 @@ class _TestBridgeService extends BridgeService {
   String? get httpBaseUrl => 'http://bridge.local:8765';
 
   @override
-  void send(ClientMessage message) => sentMessages.add(message);
+  void send(ClientMessage message) {
+    sentMessages.add(message);
+    onSend?.call(message);
+  }
 
   void emit(ServerMessage message) => controller.add(message);
 
@@ -364,57 +368,71 @@ void main() {
     );
   });
 
-  test('retries finalization with the same capability after a timeout', () async {
-    final bridge = _TestBridgeService();
-    final cubit = FileUploadCubit(
-      bridge: bridge,
-      projectPath: '/project',
-      directoryPath: '',
-      files: [_testFile('one.bin')],
-      fileSizes: const [1],
-      transport: _TestTransport(),
-      requestIdFactory: () => 'upload-retry-finalize',
-      requestTimeout: const Duration(milliseconds: 30),
-    );
-    addTearDown(() async {
-      await cubit.close();
-      bridge.dispose();
-    });
+  test(
+    'retries finalization with the same capability after a timeout',
+    () async {
+      final bridge = _TestBridgeService();
+      var finalizeAttempts = 0;
+      bridge.onSend = (message) {
+        final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+        if (json['type'] != 'finalize_file_upload') return;
+        finalizeAttempts += 1;
+        if (finalizeAttempts == 2) {
+          scheduleMicrotask(
+            () => bridge.emit(
+              const FileUploadCompleteMessage(
+                requestId: 'upload-retry-finalize',
+                filePath: 'one.bin',
+                fileName: 'one.bin',
+                sizeBytes: 1,
+                sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                skipped: false,
+              ),
+            ),
+          );
+        }
+      };
+      final cubit = FileUploadCubit(
+        bridge: bridge,
+        projectPath: '/project',
+        directoryPath: '',
+        files: [_testFile('one.bin')],
+        fileSizes: const [1],
+        transport: _TestTransport(),
+        requestIdFactory: () => 'upload-retry-finalize',
+        requestTimeout: const Duration(milliseconds: 30),
+      );
+      addTearDown(() async {
+        await cubit.close();
+        bridge.dispose();
+      });
 
-    final upload = cubit.start();
-    await Future<void>.delayed(Duration.zero);
-    bridge.emit(
-      const FileUploadReadyMessage(
-        requestId: 'upload-retry-finalize',
-        fileName: 'one.bin',
-        sizeBytes: 1,
-        uploadUrl:
-            '/api/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        uploadToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      ),
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 45));
-    final finalizeMessages = bridge.sentMessages
-        .map((message) => jsonDecode(message.toJson()) as Map<String, dynamic>)
-        .where((message) => message['type'] == 'finalize_file_upload')
-        .toList();
-    expect(finalizeMessages, hasLength(2));
-    expect(finalizeMessages.map((message) => message['uploadToken']).toSet(), {
-      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    });
-    bridge.emit(
-      const FileUploadCompleteMessage(
-        requestId: 'upload-retry-finalize',
-        filePath: 'one.bin',
-        fileName: 'one.bin',
-        sizeBytes: 1,
-        sha256:
-            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        skipped: false,
-      ),
-    );
-    await upload;
+      final upload = cubit.start();
+      await Future<void>.delayed(Duration.zero);
+      bridge.emit(
+        const FileUploadReadyMessage(
+          requestId: 'upload-retry-finalize',
+          fileName: 'one.bin',
+          sizeBytes: 1,
+          uploadUrl:
+              '/api/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          uploadToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        ),
+      );
+      await upload;
+      final finalizeMessages = bridge.sentMessages
+          .map(
+            (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,
+          )
+          .where((message) => message['type'] == 'finalize_file_upload')
+          .toList();
+      expect(finalizeMessages, hasLength(2));
+      expect(
+        finalizeMessages.map((message) => message['uploadToken']).toSet(),
+        {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},
+      );
 
-    expect(cubit.state.isComplete, isTrue);
-  });
+      expect(cubit.state.isComplete, isTrue);
+    },
+  );
 }
