@@ -391,6 +391,42 @@ test('requires an exact CodeRabbit review-completed description', () => {
   );
 });
 
+test('rejects a CodeRabbit context status from an explicitly foreign creator', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed',
+          creator: { login: 'unrelated-bot' },
+        },
+      ],
+      'head-sha',
+    ),
+    {
+      state: 'pending',
+      detail: 'Waiting for CodeRabbit review on the latest commit.',
+    },
+  );
+});
+
+test('finds a CodeRabbit status after the first API page', () => {
+  const statuses = Array.from({ length: 100 }, (_, index) => ({
+    context: `other-check-${index}`,
+    state: 'success',
+    description: 'Completed',
+  }));
+  statuses.push({
+    context: 'CodeRabbit',
+    state: 'success',
+    description: 'Review completed',
+  });
+
+  assert.equal(codeRabbitGate([], statuses, 'head-sha').state, 'success');
+});
+
 test('uses the latest CodeRabbit status when older completed statuses remain', () => {
   assert.deepEqual(
     codeRabbitGate(

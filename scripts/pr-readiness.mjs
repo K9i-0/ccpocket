@@ -447,7 +447,15 @@ export function codeRabbitGate(reviews, statuses, headSha) {
   }
 
   const status = statuses
-    .filter((item) => String(item.context ?? '').toLowerCase() === 'coderabbit')
+    .filter((item) => {
+      if (String(item.context ?? '').toLowerCase() !== 'coderabbit') return false;
+      const creator = item.creator?.login;
+      // CodeRabbit's current commit statuses use a null creator. Reject an
+      // explicitly foreign creator while retaining compatibility with that output.
+      return (
+        !creator || CODERABBIT_REVIEWERS.has(String(creator).toLowerCase())
+      );
+    })
     .sort((left, right) =>
       String(right.updated_at ?? right.created_at ?? '').localeCompare(
         String(left.updated_at ?? left.created_at ?? ''),
@@ -684,11 +692,11 @@ async function evaluatePullRequest({ repo, number, maintainer }) {
   const ci = shouldEvaluateCi({ oversized: intake.oversized, override })
     ? await ciGate(repo, ciCheckSha(pr))
     : { state: 'skipped', detail: 'Not run for an oversized PR.' };
-  const commitStatus = reviewEligible
-    ? await request(`/repos/${repo}/commits/${pr.head.sha}/status`)
-    : { statuses: [] };
+  const commitStatuses = reviewEligible
+    ? await paginate(`/repos/${repo}/commits/${pr.head.sha}/statuses`)
+    : [];
   const coderabbit = reviewEligible
-    ? codeRabbitGate(reviews, commitStatus.statuses ?? [], pr.head.sha)
+    ? codeRabbitGate(reviews, commitStatuses, pr.head.sha)
     : deferredCodeRabbitGate({
         draft: pr.draft,
         oversized: intake.oversized,
