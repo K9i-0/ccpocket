@@ -115,6 +115,10 @@ class _MockBridgeService extends BridgeService {
     _stoppedSessionsController.add(sessionId);
   }
 
+  void emitMessage(ServerMessage message) {
+    _messageController.add(message);
+  }
+
   void setGalleryImages(List<GalleryImage> images) {
     _images = images;
     _galleryController.add(images);
@@ -503,6 +507,41 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     NotificationService.instance.clearActiveSession();
+  });
+
+  testWidgets('shows localized guidance for a Codex writer conflict', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        debugRecentSessions: const [],
+      ),
+    );
+    await _pumpUi(tester);
+
+    bridge.emitMessage(
+      const ErrorMessage(
+        message: 'writer conflict',
+        errorCode: 'codex_thread_writer_conflict',
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('Stop: Codex Desktop / Codex App. Retry.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('settings overlay back restores selected session root', (

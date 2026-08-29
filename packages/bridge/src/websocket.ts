@@ -22,6 +22,7 @@ import {
 import type { StartOptions } from "./sdk-process.js";
 import {
   codexErrorMessage,
+  isCodexThreadWriterConflict,
   CodexRpcError,
   CodexProcess,
   type CodexModelMetadata,
@@ -5323,6 +5324,7 @@ export class BridgeWebSocketServer {
           let historyLoaded = false;
           let sessionCreateMs = 0;
           let nameLoadMs = 0;
+          let createdBridgeSessionId: string | undefined;
           const historyStartedAt = Date.now();
           try {
             const pastMessages = await this.getCodexThreadHistory(
@@ -5371,8 +5373,18 @@ export class BridgeWebSocketServer {
                   : ("default" as const),
               }),
             );
+            createdBridgeSessionId = sessionId;
             sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
+            const waitUntilReady = (
+              createdSession?.process as
+                | { waitUntilReady?: () => Promise<void> }
+                | undefined
+            )?.waitUntilReady;
+            if (!waitUntilReady) {
+              throw new Error("Codex session readiness is unavailable");
+            }
+            await waitUntilReady.call(createdSession?.process);
             if (createdSession) {
               // get_history immediately follows session_created on the app.
               // Reuse the canonical history loaded above instead of issuing a
@@ -5473,10 +5485,19 @@ export class BridgeWebSocketServer {
                 totalMs: Date.now() - resumeStartedAt,
               }),
             );
+            const activeWriterConflict = isCodexThreadWriterConflict(err);
+            if (createdBridgeSessionId) {
+              this.sessionManager.destroy(createdBridgeSessionId);
+            }
             this.failResumeOperation(
               resumeOperation.key,
               resumeOperation.operationId,
-              `Failed to load Codex session history: ${err}`,
+              activeWriterConflict
+                ? codexErrorMessage(err)
+                : `Failed to load Codex session history: ${err}`,
+              activeWriterConflict
+                ? "codex_thread_writer_conflict"
+                : undefined,
             );
           }
           break;
@@ -7560,6 +7581,7 @@ export class BridgeWebSocketServer {
     key: string,
     operationId: string,
     message: string,
+    errorCode?: string,
   ): void {
     const operation = this.resumeOperations.get(key);
     if (!operation || operation.id !== operationId) return;
@@ -7570,7 +7592,11 @@ export class BridgeWebSocketServer {
         operation.sourceSessionId,
       );
       this.sendResumeFailed(waiter, operation);
-      this.send(waiter, { type: "error", message });
+      this.send(waiter, {
+        type: "error",
+        message,
+        ...(errorCode ? { errorCode } : {}),
+      });
     }
   }
 

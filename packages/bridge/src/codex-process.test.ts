@@ -243,7 +243,7 @@ describe("CodexProcess (app-server)", () => {
       data: { threadId: "thread-1" },
     });
     expect(codexErrorMessage(rejected)).toBe(
-      "This Codex thread is already open in another client. Close it there and try again.",
+      "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
     );
   });
 
@@ -769,6 +769,8 @@ describe("CodexProcess (app-server)", () => {
       })}\n`,
     );
     await tick();
+
+    await expect(proc.waitUntilReady()).resolves.toBeUndefined();
 
     expect(messages).toContainEqual(
       expect.objectContaining({

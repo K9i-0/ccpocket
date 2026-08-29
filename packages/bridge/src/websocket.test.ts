@@ -117,6 +117,7 @@ vi.mock("./session.js", () => ({
       const process = {
         status: "idle",
         isRunning: true,
+        waitUntilReady: vi.fn(async () => {}),
         sessionId: codexOptions && typeof codexOptions === "object" && "threadId" in codexOptions
           ? (codexOptions as { threadId?: string }).threadId
           : options?.sessionId,
@@ -1163,7 +1164,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId: "codex-thread-1",
       success: false,
       error:
-        "This Codex thread is already open in another client. Close it there and try again.",
+        "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
     });
 
     bridge.close();
@@ -5696,6 +5697,89 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(firstCreated.sessionId).toBe("s-1");
     expect(reconnectCreated.sessionId).toBe(firstCreated.sessionId);
     expect(getCodexSessionHistoryMock).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("fails joined Codex resumes when another client owns the writer", async () => {
+    let resolveHistory!: (history: unknown[]) => void;
+    getCodexSessionHistoryMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      platform: "darwin",
+    });
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    const createSpy = vi
+      .spyOn(sessionManager, "create")
+      .mockImplementation((...args: any[]) => {
+        const sessionId = realCreate(...args);
+        sessionManager.get(sessionId).process.waitUntilReady = vi
+          .fn()
+          .mockRejectedValue(
+            new CodexRpcError("thread/resume", {
+              code: -32600,
+              message: "thread codex-thread-owned already has an active writer",
+            }),
+          );
+        return sessionId;
+      });
+    const firstWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const reconnectWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const request = {
+      type: "resume_session",
+      sessionId: "codex-thread-owned",
+      projectPath: "/tmp/project-codex",
+      provider: "codex",
+    };
+
+    const firstResume = (bridge as any).handleClientMessage(request, firstWs);
+    const duplicateResume = (bridge as any).handleClientMessage(
+      request,
+      reconnectWs,
+    );
+    resolveHistory([]);
+    await Promise.all([firstResume, duplicateResume]);
+
+    expect(getCodexSessionHistoryMock).toHaveBeenCalledTimes(1);
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    for (const ws of [firstWs, reconnectWs]) {
+      const sends = ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+      expect(sends).toContainEqual(
+        expect.objectContaining({
+          type: "system",
+          subtype: "session_resume_failed",
+          sourceSessionId: "codex-thread-owned",
+        }),
+      );
+      expect(sends).toContainEqual({
+        type: "error",
+        errorCode: "codex_thread_writer_conflict",
+        message:
+          "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
+      });
+      expect(
+        sends.some(
+          (message: any) =>
+            message.type === "system" &&
+            message.subtype === "session_created",
+        ),
+      ).toBe(false);
+    }
+    expect(sessionManager.get("s-1")).toBeUndefined();
 
     bridge.close();
   });

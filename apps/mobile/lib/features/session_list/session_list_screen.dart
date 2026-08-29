@@ -315,6 +315,20 @@ class _SessionListScreenState extends State<SessionListScreen>
         _pendingNavigation = false;
       }
 
+      if (msg is ErrorMessage &&
+          msg.errorCode == 'codex_thread_writer_conflict' &&
+          mounted) {
+        _pendingResumeProjectPath = null;
+        _pendingResumeGitBranch = null;
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l.stop}: Codex Desktop / Codex App. ${l.retry}.'),
+          ),
+        );
+        return;
+      }
+
       if (msg is ArchiveResultMessage) {
         if (_archiveRequests.complete(msg.sessionId) && mounted) {
           setState(() {});
