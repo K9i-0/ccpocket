@@ -84,6 +84,32 @@ jobs:
       - run: flutter test
         working-directory: apps/mobile
 
+  mobile-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        shell: pwsh
+        run: |
+          $mise = Get-Content .mise.toml -Raw
+          if ($mise -notmatch 'flutter\s*=\s*"([^"]+)"') {
+            Write-Error "Could not read Flutter version from .mise.toml"
+            exit 1
+          }
+          "flutter_version=$($Matches[1])" >> $env:GITHUB_OUTPUT
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - name: Run Flutter tests on Windows
+        run: flutter test
+        working-directory: apps/mobile
+
   bridge:
     runs-on: ubuntu-latest
     steps:

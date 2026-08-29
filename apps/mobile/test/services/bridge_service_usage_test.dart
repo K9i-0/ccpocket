@@ -1140,45 +1140,67 @@ void main() {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         final sockets = <WebSocket>[];
         final firstSocketReady = Completer<WebSocket>();
-        final requests = <Map<String, dynamic>>[];
+        final secondSocketReady = Completer<WebSocket>();
+        final firstRequestReady = Completer<Map<String, dynamic>>();
+        final secondRequestReady = Completer<Map<String, dynamic>>();
         server.transform(WebSocketTransformer()).listen((socket) {
           sockets.add(socket);
-          if (!firstSocketReady.isCompleted) firstSocketReady.complete(socket);
+          final socketIndex = sockets.length;
+          if (socketIndex == 1) {
+            firstSocketReady.complete(socket);
+          } else if (socketIndex == 2) {
+            secondSocketReady.complete(socket);
+          }
           socket.listen((data) {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
-            if (json['type'] == 'list_worktrees') requests.add(json);
+            if (json['type'] != 'list_worktrees') return;
+            if (socketIndex == 1 && !firstRequestReady.isCompleted) {
+              firstRequestReady.complete(json);
+            } else if (socketIndex == 2 && !secondRequestReady.isCompleted) {
+              secondRequestReady.complete(json);
+            }
           });
         });
 
         final bridge = BridgeService();
-        bridge.connect('ws://127.0.0.1:${server.port}');
-        final firstSocket = await firstSocketReady.future;
-        await bridge.connectionStatus.firstWhere(
+        addTearDown(() async {
+          bridge.disconnect();
+          for (final socket in sockets) {
+            unawaited(socket.close());
+          }
+          try {
+            await server.close(force: true);
+          } finally {
+            bridge.dispose();
+          }
+        });
+        final connected = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.connected,
         );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        final firstSocket = await firstSocketReady.future.timeout(
+          const Duration(seconds: 5),
+        );
+        await connected.timeout(const Duration(seconds: 5));
         bridge.requestWorktreeList('/project-a');
-        while (requests.isEmpty) {
-          await Future<void>.delayed(const Duration(milliseconds: 5));
-        }
+        await firstRequestReady.future.timeout(const Duration(seconds: 5));
 
         final reconnecting = bridge.connectionStatus.firstWhere(
           (state) => state == BridgeConnectionState.reconnecting,
         );
-        await firstSocket.close();
-        await reconnecting;
+        // A server-side WebSocket close waits for the peer's close frame on
+        // Windows. Sending the close is enough to exercise reconnect behavior.
+        unawaited(firstSocket.close());
+        await reconnecting.timeout(const Duration(seconds: 5));
         bridge.requestWorktreeList('/project-a');
 
-        while (requests.length < 2 || sockets.length < 2) {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-        expect(requests.last['projectPath'], '/project-a');
-
-        bridge.disconnect();
-        for (final socket in sockets) {
-          await socket.close();
-        }
-        await server.close(force: true);
-        bridge.dispose();
+        // Automatic reconnect uses a two-second initial backoff, so leave
+        // scheduling headroom for slower Windows GitHub runners.
+        await secondSocketReady.future.timeout(const Duration(seconds: 5));
+        final retriedRequest = await secondRequestReady.future.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(retriedRequest['projectPath'], '/project-a');
       },
     );
 

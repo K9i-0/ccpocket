@@ -100,13 +100,56 @@ cd apps/mobile && flutter test
 
 失敗した場合はユーザーに報告し、修正を待つ。
 
-### 6. コミット & タグ
+### 6. コミット & push
 
 ```bash
 git add apps/mobile/pubspec.yaml CHANGELOG.md
 git commit -m "chore: bump version to X.Y.Z+N"
 git push origin main
 ```
+
+### 6.1. Windows preflight（Windowsを選択した場合）
+
+Windowsタグを含むリリースでは、**いずれのプラットフォームタグも作成する前に**、
+リリースコミットと同じSHAで起動した `Test` workflowの成功を確認する。
+通常CIの `mobile-windows` jobが、リリースworkflowと同じFlutter全テストを
+`windows-2022` で実行する。
+
+```bash
+release_sha=$(git rev-parse HEAD)
+test_run_id=""
+
+for _ in {1..20}; do
+  test_run_id=$(gh run list \
+    --workflow=test.yml \
+    --branch=main \
+    --commit="$release_sha" \
+    --event=push \
+    --limit=1 \
+    --json databaseId \
+    --jq '.[0].databaseId // empty')
+  [ -n "$test_run_id" ] && break
+  sleep 15
+done
+
+if [ -z "$test_run_id" ]; then
+  echo "Test workflow did not start for $release_sha"
+  exit 1
+fi
+
+gh run watch "$test_run_id" --exit-status
+```
+
+`gh run watch` が失敗した場合はタグを作成しない。
+`gh run view "$test_run_id" --log-failed` で原因を確認し、修正コミットをpushして、
+新しい `release_sha` のpreflightを最初から確認する。同じバージョン番号・build numberは、
+まだタグが存在しないためそのまま使用できる。
+
+### 6.2. タグ
+
+ローカル検証と、Windows選択時のpreflightがすべて成功した後で、
+ステップ2で選択されたプラットフォームのタグを作成・pushする。
+Windowsを含む複数プラットフォームのリリースでは、preflight成功前に他のタグも作成しない。
 
 ステップ 2 で選択されたプラットフォームのタグを打つ:
 
