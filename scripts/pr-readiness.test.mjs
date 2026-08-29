@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   MAX_REVIEW_FILES,
   SMALL_PR_FILES,
+  ciCheckSha,
   deferredCodeRabbitGate,
   evaluateIntake,
   getField,
@@ -286,6 +287,17 @@ test('evaluates CI independently from intake readiness', () => {
   );
   assert.equal(shouldEvaluateCi({ oversized: true, override: false }), false);
   assert.equal(shouldEvaluateCi({ oversized: true, override: true }), true);
+});
+
+test('reads Test check runs from the PR head commit', () => {
+  assert.equal(
+    ciCheckSha({
+      head: { sha: 'head-sha' },
+      merge_commit_sha: 'temporary-merge-sha',
+    }),
+    'head-sha',
+  );
+  assert.equal(ciCheckSha({}), null);
 });
 
 test('explains why CodeRabbit was not requested', () => {

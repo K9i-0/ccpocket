@@ -445,13 +445,13 @@ function codeRabbitGate(reviews, headSha) {
   return { state: 'pending', detail: `CodeRabbit review state: ${review.state}.` };
 }
 
-async function ciGate(repo, mergeCommitSha) {
-  if (!mergeCommitSha) {
-    return { state: 'failure', detail: 'The PR has no testable merge commit.' };
+async function ciGate(repo, commitSha) {
+  if (!commitSha) {
+    return { state: 'failure', detail: 'The PR has no testable head commit.' };
   }
 
   const result = await request(
-    `/repos/${repo}/commits/${mergeCommitSha}/check-runs?filter=latest&per_page=100`,
+    `/repos/${repo}/commits/${commitSha}/check-runs?filter=latest&per_page=100`,
   );
   const requiredJobs = ['repository', 'mobile', 'bridge', 'functions'];
   const checks = new Map(result.check_runs?.map((check) => [check.name, check]) ?? []);
@@ -484,6 +484,10 @@ function gateIcon(state) {
 
 export function shouldEvaluateCi({ oversized, override }) {
   return !oversized || override;
+}
+
+export function ciCheckSha(pr) {
+  return pr.head?.sha ?? null;
 }
 
 export function deferredCodeRabbitGate({ draft, oversized, intakePassed, override }) {
@@ -655,7 +659,7 @@ async function evaluatePullRequest({ repo, number, maintainer }) {
     override,
   });
   const ci = shouldEvaluateCi({ oversized: intake.oversized, override })
-    ? await ciGate(repo, pr.merge_commit_sha)
+    ? await ciGate(repo, ciCheckSha(pr))
     : { state: 'skipped', detail: 'Not run for an oversized PR.' };
   const coderabbit = reviewEligible
     ? codeRabbitGate(reviews, pr.head.sha)
