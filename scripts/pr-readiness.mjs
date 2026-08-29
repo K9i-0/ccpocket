@@ -429,20 +429,43 @@ function latestReviewFor(reviews, predicate) {
     )[0];
 }
 
-function codeRabbitGate(reviews, headSha) {
-  const review = latestReviewFor(reviews, (item) =>
-    CODERABBIT_REVIEWERS.has(String(item.user?.login ?? '').toLowerCase()),
+export function codeRabbitGate(reviews, statuses, headSha) {
+  const review = latestReviewFor(
+    reviews,
+    (item) =>
+      item.commit_id === headSha &&
+      CODERABBIT_REVIEWERS.has(String(item.user?.login ?? '').toLowerCase()),
   );
-  if (!review || review.commit_id !== headSha) {
-    return { state: 'pending', detail: 'Waiting for CodeRabbit review on the latest commit.' };
+  if (review) {
+    if (review.state === 'APPROVED') {
+      return { state: 'success', detail: 'CodeRabbit approved the latest commit.' };
+    }
+    if (review.state === 'CHANGES_REQUESTED') {
+      return { state: 'failure', detail: 'Resolve CodeRabbit change requests.' };
+    }
+    return { state: 'pending', detail: `CodeRabbit review state: ${review.state}.` };
   }
-  if (review.state === 'APPROVED') {
-    return { state: 'success', detail: 'CodeRabbit approved the latest commit.' };
+
+  const status = statuses
+    .filter((item) => String(item.context ?? '').toLowerCase() === 'coderabbit')
+    .sort((left, right) =>
+      String(right.updated_at ?? right.created_at ?? '').localeCompare(
+        String(left.updated_at ?? left.created_at ?? ''),
+      ),
+    )[0];
+  if (
+    status?.state === 'success' &&
+    /^review completed$/i.test(String(status.description ?? '').trim())
+  ) {
+    return {
+      state: 'success',
+      detail: 'CodeRabbit completed the latest review with no change request.',
+    };
   }
-  if (review.state === 'CHANGES_REQUESTED') {
-    return { state: 'failure', detail: 'Resolve CodeRabbit change requests.' };
+  if (status?.state === 'failure' || status?.state === 'error') {
+    return { state: 'failure', detail: 'Resolve CodeRabbit check failures.' };
   }
-  return { state: 'pending', detail: `CodeRabbit review state: ${review.state}.` };
+  return { state: 'pending', detail: 'Waiting for CodeRabbit review on the latest commit.' };
 }
 
 async function ciGate(repo, commitSha) {
@@ -661,8 +684,11 @@ async function evaluatePullRequest({ repo, number, maintainer }) {
   const ci = shouldEvaluateCi({ oversized: intake.oversized, override })
     ? await ciGate(repo, ciCheckSha(pr))
     : { state: 'skipped', detail: 'Not run for an oversized PR.' };
+  const commitStatus = reviewEligible
+    ? await request(`/repos/${repo}/commits/${pr.head.sha}/status`)
+    : { statuses: [] };
   const coderabbit = reviewEligible
-    ? codeRabbitGate(reviews, pr.head.sha)
+    ? codeRabbitGate(reviews, commitStatus.statuses ?? [], pr.head.sha)
     : deferredCodeRabbitGate({
         draft: pr.draft,
         oversized: intake.oversized,

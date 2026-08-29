@@ -5,6 +5,7 @@ import {
   MAX_REVIEW_FILES,
   SMALL_PR_FILES,
   ciCheckSha,
+  codeRabbitGate,
   deferredCodeRabbitGate,
   evaluateIntake,
   getField,
@@ -327,6 +328,147 @@ test('explains why CodeRabbit was not requested', () => {
       override: true,
     }),
     { state: 'skipped', detail: 'Skipped by maintainer override.' },
+  );
+});
+
+test('accepts a completed CodeRabbit status when no review object was created', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed',
+        },
+      ],
+      'head-sha',
+    ),
+    {
+      state: 'success',
+      detail: 'CodeRabbit completed the latest review with no change request.',
+    },
+  );
+});
+
+test('does not accept a skipped CodeRabbit success status', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review skipped: excluded by label configuration',
+        },
+      ],
+      'head-sha',
+    ),
+    {
+      state: 'pending',
+      detail: 'Waiting for CodeRabbit review on the latest commit.',
+    },
+  );
+});
+
+test('requires an exact CodeRabbit review-completed description', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed: review skipped',
+        },
+      ],
+      'head-sha',
+    ),
+    {
+      state: 'pending',
+      detail: 'Waiting for CodeRabbit review on the latest commit.',
+    },
+  );
+});
+
+test('uses the latest CodeRabbit status when older completed statuses remain', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed',
+          updated_at: '2026-08-29T00:00:00Z',
+        },
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review skipped: excluded by label configuration',
+          updated_at: '2026-08-29T00:01:00Z',
+        },
+      ],
+      'head-sha',
+    ),
+    {
+      state: 'pending',
+      detail: 'Waiting for CodeRabbit review on the latest commit.',
+    },
+  );
+});
+
+test('keeps latest CodeRabbit change requests blocking', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [
+        {
+          user: { login: 'coderabbitai' },
+          commit_id: 'head-sha',
+          state: 'CHANGES_REQUESTED',
+          submitted_at: '2026-08-29T00:00:00Z',
+        },
+      ],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed',
+        },
+      ],
+      'head-sha',
+    ),
+    { state: 'failure', detail: 'Resolve CodeRabbit change requests.' },
+  );
+});
+
+test('does not let a late old-commit review hide head change requests', () => {
+  assert.deepEqual(
+    codeRabbitGate(
+      [
+        {
+          user: { login: 'coderabbitai' },
+          commit_id: 'head-sha',
+          state: 'CHANGES_REQUESTED',
+          submitted_at: '2026-08-29T00:00:00Z',
+        },
+        {
+          user: { login: 'coderabbitai' },
+          commit_id: 'old-sha',
+          state: 'APPROVED',
+          submitted_at: '2026-08-29T00:01:00Z',
+        },
+      ],
+      [
+        {
+          context: 'CodeRabbit',
+          state: 'success',
+          description: 'Review completed',
+        },
+      ],
+      'head-sha',
+    ),
+    { state: 'failure', detail: 'Resolve CodeRabbit change requests.' },
   );
 });
 
