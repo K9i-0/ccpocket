@@ -502,6 +502,15 @@ export function deferredCodeRabbitGate({ draft, oversized, intakePassed, overrid
   return { state: 'pending', detail: 'Not requested.' };
 }
 
+export function isCodeRabbitReviewEligible({
+  draft,
+  oversized,
+  intakePassed,
+  override,
+}) {
+  return !draft && !override && !oversized && intakePassed;
+}
+
 function readinessComment({ intake, ci, coderabbit, draft, override, fileCount }) {
   const intakeState = intake.errors.length === 0 ? 'success' : 'failure';
   const actionItems = [...intake.errors];
@@ -639,7 +648,12 @@ async function evaluatePullRequest({ repo, number, maintainer }) {
 
   const reviews = await paginate(`/repos/${repo}/pulls/${number}/reviews`);
   const intakePassed = intake.errors.length === 0;
-  const reviewEligible = !pr.draft && !intake.oversized && intakePassed;
+  const reviewEligible = isCodeRabbitReviewEligible({
+    draft: pr.draft,
+    oversized: intake.oversized,
+    intakePassed,
+    override,
+  });
   const ci = shouldEvaluateCi({ oversized: intake.oversized, override })
     ? await ciGate(repo, pr.merge_commit_sha)
     : { state: 'skipped', detail: 'Not run for an oversized PR.' };

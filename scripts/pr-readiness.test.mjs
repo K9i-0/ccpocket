@@ -8,6 +8,7 @@ import {
   evaluateIntake,
   getField,
   getSection,
+  isCodeRabbitReviewEligible,
   isHighRiskPath,
   isReviewPolicyPath,
   isUiRelatedPath,
@@ -314,5 +315,26 @@ test('explains why CodeRabbit was not requested', () => {
       override: true,
     }),
     { state: 'skipped', detail: 'Skipped by maintainer override.' },
+  );
+});
+
+test('does not request CodeRabbit when a maintainer override applies', () => {
+  assert.equal(
+    isCodeRabbitReviewEligible({
+      draft: false,
+      oversized: false,
+      intakePassed: true,
+      override: true,
+    }),
+    false,
+  );
+  assert.equal(
+    isCodeRabbitReviewEligible({
+      draft: false,
+      oversized: false,
+      intakePassed: true,
+      override: false,
+    }),
+    true,
   );
 });
