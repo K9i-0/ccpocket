@@ -17,6 +17,7 @@ class SessionRuntimeSnapshot {
     this.historySeq = 0,
     this.cachedHistorySeq = 0,
     this.projectPath,
+    this.sessionContext,
     this.explorerHistory = const ExplorerHistorySnapshot(),
   });
 
@@ -33,6 +34,7 @@ class SessionRuntimeSnapshot {
   /// user_input is cached).
   final int cachedHistorySeq;
   final String? projectPath;
+  final SessionInfo? sessionContext;
   final ExplorerHistorySnapshot explorerHistory;
 }
 
@@ -45,6 +47,7 @@ class SessionRuntimeState {
   int historySeq = 0;
   int cachedHistorySeq = 0;
   String? projectPath;
+  SessionInfo? sessionContext;
   ExplorerHistorySnapshot explorerHistory = const ExplorerHistorySnapshot();
 
   List<ServerMessage> get messages => List.unmodifiable(_messages);
@@ -67,6 +70,7 @@ class SessionRuntimeStore {
       historySeq: state.historySeq,
       cachedHistorySeq: state.cachedHistorySeq,
       projectPath: state.projectPath,
+      sessionContext: state.sessionContext,
       explorerHistory: state.explorerHistory,
     );
   }
@@ -151,6 +155,14 @@ class SessionRuntimeStore {
     _trim(state);
   }
 
+  void applySessionContext(SessionInfo context) {
+    final state = _stateFor(context.id);
+    state.sessionContext = context;
+    if (context.projectPath.trim().isNotEmpty) {
+      state.projectPath = context.projectPath.trim();
+    }
+  }
+
   ExplorerHistorySnapshot getExplorerHistory(String sessionId) =>
       snapshot(sessionId).explorerHistory;
 
@@ -215,6 +227,7 @@ class SessionRuntimeStore {
 
   bool _shouldIgnore(ServerMessage message) {
     return message is PastHistoryMessage ||
+        message is SessionContextMessage ||
         message is StreamDeltaMessage ||
         message is ThinkingDeltaMessage ||
         message is InputAckMessage ||
@@ -236,6 +249,10 @@ class SessionRuntimeStore {
         if (normalizedPath?.isNotEmpty == true) {
           state.projectPath = normalizedPath;
         }
+      case SessionContextMessage(:final context):
+        state.sessionContext = context;
+        final normalizedPath = context.projectPath.trim();
+        if (normalizedPath.isNotEmpty) state.projectPath = normalizedPath;
       case HistoryMessage(:final messages):
         for (final message in messages) {
           _recordSessionMetadata(state, message);
@@ -351,6 +368,7 @@ class SessionRuntimeStore {
   void _removeIfEmpty(SessionRuntimeState state) {
     if (state._messages.isEmpty &&
         state.projectPath == null &&
+        state.sessionContext == null &&
         state.explorerHistory.currentPath.isEmpty &&
         state.explorerHistory.recentPeekedFiles.isEmpty) {
       _sessions.remove(state.sessionId);

@@ -881,6 +881,10 @@ sealed class ServerMessage {
           _ => null,
         },
       ),
+      'session_context' => SessionContextMessage(
+        sessionId: json['sessionId'] as String,
+        context: SessionInfo.fromJson(json['context'] as Map<String, dynamic>),
+      ),
       'status' => StatusMessage(
         status: ProcessStatus.fromString(json['status'] as String),
       ),
@@ -1781,6 +1785,13 @@ class SessionLinkResolutionMessage implements ServerMessage {
     this.provider,
     this.recentSession,
   });
+}
+
+class SessionContextMessage implements ServerMessage {
+  final String sessionId;
+  final SessionInfo context;
+
+  const SessionContextMessage({required this.sessionId, required this.context});
 }
 
 enum GuardianApprovalRisk {
@@ -4102,6 +4113,7 @@ class SessionInfo {
   final String? codexApprovalsReviewer;
   final String? codexPermissionsMode;
   final String? codexSandboxMode;
+  final bool? sandboxEnabled;
   final String? codexModel;
   final String? codexProfile;
   final String? codexModelReasoningEffort;
@@ -4135,6 +4147,7 @@ class SessionInfo {
     this.codexApprovalsReviewer,
     this.codexPermissionsMode,
     this.codexSandboxMode,
+    this.sandboxEnabled,
     this.codexModel,
     this.codexProfile,
     this.codexModelReasoningEffort,
@@ -4213,6 +4226,7 @@ class SessionInfo {
           codexApprovalsReviewer ?? this.codexApprovalsReviewer,
       codexPermissionsMode: codexPermissionsMode ?? this.codexPermissionsMode,
       codexSandboxMode: codexSandboxMode ?? this.codexSandboxMode,
+      sandboxEnabled: sandboxEnabled,
       codexModel: codexModel ?? this.codexModel,
       codexProfile: codexProfile ?? this.codexProfile,
       codexModelReasoningEffort:
@@ -4269,6 +4283,7 @@ class SessionInfo {
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
       codexPermissionsMode: _resolveCodexPermissionsMode(codexSettings),
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
+      sandboxEnabled: json['sandboxEnabled'] as bool?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
       codexProfile: codexSettings?['profile'] as String?,
       codexModelReasoningEffort:
@@ -4316,6 +4331,7 @@ class ClientMessage {
       'git_status_result',
       'prompt_history_status',
       'push_registration_result',
+      'session_context',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{
@@ -4621,6 +4637,9 @@ class ClientMessage {
     'sessionId': sessionId,
     'sinceSeq': sinceSeq,
   });
+
+  factory ClientMessage.getSessionContext(String sessionId) =>
+      ClientMessage._({'type': 'get_session_context', 'sessionId': sessionId});
 
   factory ClientMessage.resolveSessionLink({
     required String requestId,

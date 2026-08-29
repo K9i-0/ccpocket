@@ -583,6 +583,17 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "get_history", sessionId: "s2" });
   });
 
+  it("parses get_session_context message", () => {
+    const msg = parseClientMessage(
+      '{"type":"get_session_context","sessionId":"s2"}',
+    );
+    expect(msg).toEqual({ type: "get_session_context", sessionId: "s2" });
+  });
+
+  it("rejects get_session_context without sessionId", () => {
+    expect(parseClientMessage('{"type":"get_session_context"}')).toBeNull();
+  });
+
   it("parses resolve_session_link message", () => {
     const msg = parseClientMessage(
       '{"type":"resolve_session_link","requestId":"req-1","sessionId":"session-1","provider":"claude"}',

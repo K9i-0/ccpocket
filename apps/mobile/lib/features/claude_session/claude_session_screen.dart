@@ -45,6 +45,7 @@ import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
+import '../chat_session/widgets/session_file_list_scope.dart';
 import '../chat_session/widgets/session_mode_bar.dart';
 import '../chat_session/widgets/status_line_flexible_space.dart';
 import '../explore/state/explore_state.dart';
@@ -504,15 +505,6 @@ class _ChatScreenProviders extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => StreamingStateCubit()),
-        if (projectPath != null)
-          BlocProvider<FileListCubit>(
-            create: (_) => FileListCubit(
-              bridge.fileListForProject(projectPath!),
-              bridge
-                  .fileListMessagesForProject(projectPath!)
-                  .map((message) => message.files),
-            ),
-          ),
         BlocProvider(
           create: (context) => ChatSessionCubit(
             sessionId: sessionId,
@@ -524,16 +516,22 @@ class _ChatScreenProviders extends StatelessWidget {
             initialPermissionMode: permissionMode,
             initialSandboxMode: sandboxMode,
             initialProjectPath: projectPath,
+            initialWorktreePath: worktreePath,
+            initialGitBranch: gitBranch,
           ),
         ),
       ],
-      child: _ChatScreenBody(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        onBackToSessions: onBackToSessions,
-        hideSessionBackButton: hideSessionBackButton,
+      child: SessionFileListScope(
+        bridge: bridge,
+        fallbackProjectPath: projectPath,
+        child: _ChatScreenBody(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          gitBranch: gitBranch,
+          worktreePath: worktreePath,
+          onBackToSessions: onBackToSessions,
+          hideSessionBackButton: hideSessionBackButton,
+        ),
       ),
     );
   }
@@ -631,10 +629,14 @@ class _ChatScreenBody extends HookWidget {
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
     final effectiveProjectPath = _firstNonEmptyProjectPath(
-      projectPath,
       sessionState.projectPath,
+      projectPath,
     );
-    final gitProjectPath = worktreePath ?? effectiveProjectPath;
+    final effectiveWorktreePath = _firstNonEmptyProjectPath(
+      sessionState.worktreePath,
+      worktreePath,
+    );
+    final gitProjectPath = effectiveWorktreePath ?? effectiveProjectPath;
     final gitBadgeTone = _gitBadgeToneOf(
       context,
       sessionId,
@@ -1033,10 +1035,10 @@ class _ChatScreenBody extends HookWidget {
                           onPressed: () {
                             _openGitScreen(
                               context,
-                              worktreePath ?? effectiveProjectPath,
+                              effectiveWorktreePath ?? effectiveProjectPath,
                               diffSelectionFromNav,
                               sessionId: sessionId,
-                              worktreePath: worktreePath,
+                              worktreePath: effectiveWorktreePath,
                               onFilePeekOpened: handleFilePeekOpened,
                             );
                           },
@@ -1271,21 +1273,23 @@ class _ChatScreenBody extends HookWidget {
                               ),
                             ),
                           ),
-                    topOverlay: Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: SessionModeBar(
-                          onBeforeRestart: () async {
-                            draftService.saveDraft(
-                              sessionId,
-                              chatInputController.text,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                    topOverlay: sessionState.sessionContextLoaded
+                        ? Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: SessionModeBar(
+                                onBeforeRestart: () async {
+                                  draftService.saveDraft(
+                                    sessionId,
+                                    chatInputController.text,
+                                  );
+                                },
+                              ),
+                            ),
+                          )
+                        : null,
                     floatingButtonBuilder: (overlayHeight) {
                       if (!scroll.showScrollToLatest) {
                         return const SizedBox.shrink();
@@ -1343,10 +1347,10 @@ class _ChatScreenBody extends HookWidget {
                     onOpenGitScreen: effectiveProjectPath != null
                         ? (_) => _openGitScreen(
                             context,
-                            worktreePath ?? effectiveProjectPath,
+                            effectiveWorktreePath ?? effectiveProjectPath,
                             diffSelectionFromNav,
                             sessionId: sessionId,
-                            worktreePath: worktreePath,
+                            worktreePath: effectiveWorktreePath,
                             onFilePeekOpened: handleFilePeekOpened,
                           )
                         : null,

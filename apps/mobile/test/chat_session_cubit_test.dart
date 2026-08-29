@@ -13,11 +13,14 @@ class MockBridgeService extends BridgeService {
   final _messageController = StreamController<ServerMessage>.broadcast();
   final _taggedController =
       StreamController<(ServerMessage, String?)>.broadcast();
+  final _sessionListController =
+      StreamController<List<SessionInfo>>.broadcast();
   final sentMessages = <ClientMessage>[];
   final updatedOfflineInputs = <Map<String, dynamic>>[];
   final canceledOfflineInputs = <Map<String, dynamic>>[];
   final cachedMessagesBySession = <String, List<ServerMessage>>{};
   final historySeqBySession = <String, int>{};
+  int requestSessionContextCallCount = 0;
   bool connected = true;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
@@ -25,8 +28,15 @@ class MockBridgeService extends BridgeService {
     _messageController.add(msg);
   }
 
+  void emitSessionList(List<SessionInfo> sessions) {
+    _sessionListController.add(sessions);
+  }
+
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
+
+  @override
+  Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
 
   @override
   bool get isConnected => connected;
@@ -103,6 +113,11 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
+  void requestSessionContext(String sessionId) {
+    requestSessionContextCallCount++;
+  }
+
+  @override
   List<ServerMessage> cachedSessionMessages(String sessionId) {
     return cachedMessagesBySession[sessionId] ?? const [];
   }
@@ -116,6 +131,7 @@ class MockBridgeService extends BridgeService {
   void dispose() {
     _messageController.close();
     _taggedController.close();
+    _sessionListController.close();
     super.dispose();
   }
 }
@@ -138,6 +154,8 @@ void main() {
     String sessionId, {
     Provider? provider,
     String? initialProjectPath,
+    String? initialWorktreePath,
+    String? initialGitBranch,
   }) {
     return ChatSessionCubit(
       sessionId: sessionId,
@@ -145,6 +163,8 @@ void main() {
       bridge: mockBridge,
       streamingCubit: streamingCubit,
       initialProjectPath: initialProjectPath,
+      initialWorktreePath: initialWorktreePath,
+      initialGitBranch: initialGitBranch,
     );
   }
 
@@ -201,6 +221,200 @@ void main() {
       await Future.microtask(() {});
 
       expect(cubit.state.projectPath, '/Users/me/Workspace/ccpocket');
+    });
+
+    test('canonical session context hydrates all screen metadata', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        SessionContextMessage(
+          sessionId: 's1',
+          context: SessionInfo(
+            id: 's1',
+            provider: 'codex',
+            projectPath: '/repo',
+            claudeSessionId: 'thread-1',
+            status: 'waiting_approval',
+            createdAt: '',
+            lastActivityAt: '',
+            gitBranch: 'main',
+            worktreePath: '/repo-worktree',
+            worktreeBranch: 'feature/context',
+            permissionMode: 'plan',
+            executionMode: 'fullAccess',
+            planMode: true,
+            codexApprovalPolicy: 'never',
+            codexApprovalsReviewer: 'auto_review',
+            codexPermissionsMode: 'autoReview',
+            codexSandboxMode: 'danger-full-access',
+            codexModel: 'gpt-5.5',
+            codexModelReasoningEffort: 'high',
+            codexServiceTier: 'fast',
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tool-1',
+              toolName: 'Bash',
+              input: {'command': 'git status'},
+            ),
+          ),
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(mockBridge.requestSessionContextCallCount, 1);
+      expect(cubit.state.sessionContextLoaded, isTrue);
+      expect(cubit.state.projectPath, '/repo');
+      expect(cubit.state.worktreePath, '/repo-worktree');
+      expect(cubit.state.gitBranch, 'feature/context');
+      expect(cubit.state.status, ProcessStatus.waitingApproval);
+      expect(cubit.state.permissionMode, PermissionMode.plan);
+      expect(cubit.state.executionMode, ExecutionMode.fullAccess);
+      expect(cubit.state.planMode, isTrue);
+      expect(cubit.state.sandboxMode, SandboxMode.off);
+      expect(cubit.state.codexApprovalPolicy, CodexApprovalPolicy.never);
+      expect(cubit.state.codexApprovalsReviewer, 'auto_review');
+      expect(cubit.state.codexPermissionsMode, CodexPermissionsMode.autoReview);
+      expect(cubit.state.codexModel, 'gpt-5.5');
+      expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.high);
+      expect(cubit.state.codexSpeed, CodexSpeed.fast);
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+    });
+
+    test('canonical context clears stale route worktree metadata', () async {
+      final cubit = createCubit(
+        's1',
+        provider: Provider.claude,
+        initialProjectPath: '/old/repo',
+        initialWorktreePath: '/old/worktree',
+        initialGitBranch: 'old-branch',
+      );
+      addTearDown(cubit.close);
+
+      mockBridge.emitMessage(
+        SessionContextMessage(
+          sessionId: 's1',
+          context: const SessionInfo(
+            id: 's1',
+            provider: 'claude',
+            projectPath: '/current/repo',
+            status: 'idle',
+            createdAt: '',
+            lastActivityAt: '',
+            permissionMode: 'default',
+          ),
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.projectPath, '/current/repo');
+      expect(cubit.state.worktreePath, isNull);
+      expect(cubit.state.gitBranch, isNull);
+    });
+
+    test('cached history does not expose modes before context loads', () async {
+      mockBridge.cachedMessagesBySession['s1'] = const [
+        SystemMessage(
+          subtype: 'set_permission_mode',
+          permissionMode: 'plan',
+          planMode: true,
+        ),
+      ];
+
+      final cubit = createCubit('s1', provider: Provider.claude);
+      addTearDown(cubit.close);
+
+      expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+      expect(cubit.state.sessionContextLoaded, isFalse);
+
+      mockBridge.emitMessage(
+        SessionContextMessage(
+          sessionId: 's1',
+          context: const SessionInfo(
+            id: 's1',
+            provider: 'claude',
+            projectPath: '/repo',
+            status: 'idle',
+            createdAt: '',
+            lastActivityAt: '',
+            permissionMode: 'default',
+          ),
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.sessionContextLoaded, isTrue);
+      expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+    });
+
+    test('history cannot overwrite newer canonical session context', () async {
+      final cubit = createCubit('s1', provider: Provider.claude);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        SessionContextMessage(
+          sessionId: 's1',
+          context: const SessionInfo(
+            id: 's1',
+            provider: 'claude',
+            projectPath: '/repo',
+            status: 'running',
+            createdAt: '',
+            lastActivityAt: '',
+            permissionMode: 'plan',
+            sandboxEnabled: true,
+          ),
+        ),
+        sessionId: 's1',
+      );
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'session_created',
+              projectPath: '/old-repo',
+              permissionMode: 'default',
+              sandboxMode: 'off',
+            ),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.projectPath, '/repo');
+      expect(cubit.state.status, ProcessStatus.running);
+      expect(cubit.state.permissionMode, PermissionMode.plan);
+      expect(cubit.state.sandboxMode, SandboxMode.on);
+    });
+
+    test('session list hydrates context for older bridge fallback', () async {
+      final cubit = createCubit('s1', provider: Provider.claude);
+      addTearDown(cubit.close);
+
+      mockBridge.emitSessionList(const [
+        SessionInfo(
+          id: 's1',
+          provider: 'claude',
+          projectPath: '/legacy-repo',
+          status: 'idle',
+          createdAt: '',
+          lastActivityAt: '',
+          permissionMode: 'acceptEdits',
+          sandboxEnabled: false,
+        ),
+      ]);
+      await Future.microtask(() {});
+
+      expect(cubit.state.sessionContextLoaded, isTrue);
+      expect(cubit.state.projectPath, '/legacy-repo');
+      expect(cubit.state.permissionMode, PermissionMode.acceptEdits);
+      expect(cubit.state.sandboxMode, SandboxMode.off);
     });
 
     test('history message restores project path metadata', () async {

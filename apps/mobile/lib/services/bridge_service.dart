@@ -182,6 +182,9 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsProjectRequestCorrelation =>
       _protocolCapabilities.contains('project_request_correlation_v1');
 
+  bool get supportsSessionContext =>
+      _protocolCapabilities.contains('session_context_v1');
+
   String? projectRequestIdForWire(String requestId) =>
       supportsProjectRequestCorrelation ? requestId : null;
 
@@ -595,7 +598,7 @@ class BridgeService implements BridgeServiceBase {
               ):
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
                 _clearPendingStartActionsForSessions(_sessions);
-                _sessionListController.add(_sessions);
+                _publishSessionList();
                 _allowedDirs = allowedDirs;
                 _claudeModels = claudeModels;
                 _claudeModelEfforts = claudeModelEfforts;
@@ -611,6 +614,26 @@ class BridgeService implements BridgeServiceBase {
                 _dispatchNextLegacyFileListRequest();
                 _dispatchNextLegacyWorktreeListRequest();
                 _dispatchNextLegacyWorktreeRemoveRequest();
+              case SessionContextMessage(:final context):
+                final effectiveContext = _applyLocalDeliveryPendingInputs([
+                  context,
+                ]).single;
+                final effectiveMessage = SessionContextMessage(
+                  sessionId: msg.sessionId,
+                  context: effectiveContext,
+                );
+                final index = _sessions.indexWhere(
+                  (session) => session.id == effectiveContext.id,
+                );
+                _sessions = List.of(_sessions);
+                if (index < 0) {
+                  _sessions.add(effectiveContext);
+                } else {
+                  _sessions[index] = effectiveContext;
+                }
+                _publishSessionList();
+                _taggedMessageController.add((effectiveMessage, sessionId));
+                _messageController.add(effectiveMessage);
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 if (!_acceptRecentSessionsResponse(msg)) return;
                 _lastRecentSessionsMessage = msg;
@@ -800,7 +823,7 @@ class BridgeService implements BridgeServiceBase {
                   _sessions = _sessions
                       .where((session) => session.id != sessionId)
                       .toList();
-                  _sessionListController.add(_sessions);
+                  _publishSessionList();
                   _sessionStoppedController.add(sessionId);
                   clearDiffImageCache();
                 }
@@ -1236,7 +1259,7 @@ class BridgeService implements BridgeServiceBase {
     _runtimeStore.clearAll();
     clearDiffImageCache();
 
-    _sessionListController.add(_sessions);
+    _publishSessionList();
     _recentSessionsController.add(_recentSessions);
     _galleryController.add(_galleryImages);
     _projectHistoryController.add(_projectHistory);
@@ -2748,6 +2771,14 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.getHistory(sessionId));
   }
 
+  void requestSessionContext(String sessionId) {
+    if (supportsSessionContext) {
+      send(ClientMessage.getSessionContext(sessionId));
+      return;
+    }
+    requestSessionList();
+  }
+
   void refreshBranch(String sessionId) {
     send(ClientMessage.refreshBranch(sessionId));
   }
@@ -2896,6 +2927,11 @@ class BridgeService implements BridgeServiceBase {
 
   String? cachedSessionProjectPath(String sessionId) {
     return _runtimeStore.snapshot(sessionId).projectPath;
+  }
+
+  SessionInfo? cachedSessionContext(String sessionId) {
+    return _runtimeStore.snapshot(sessionId).sessionContext ??
+        _sessions.where((session) => session.id == sessionId).firstOrNull;
   }
 
   Set<String> respondedToolUseIds(String sessionId) =>
@@ -3533,6 +3569,15 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.pushUnregister(token));
   }
 
+  /// Publishes the cached session list and keeps the per-session runtime
+  /// snapshots in lockstep with every live metadata patch.
+  void _publishSessionList() {
+    for (final session in _sessions) {
+      _runtimeStore.applySessionContext(session);
+    }
+    _sessionListController.add(_sessions);
+  }
+
   /// Update the cached [_sessions] list when a [StatusMessage] arrives,
   /// so the session list screen reflects the change in real-time.
   void _patchSessionStatus(String sessionId, ProcessStatus status) {
@@ -3557,7 +3602,7 @@ class BridgeService implements BridgeServiceBase {
         status: statusStr,
         clearPermission: shouldClear,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   /// Attach a [PermissionRequestMessage] to the cached session for real-time
@@ -3572,7 +3617,7 @@ class BridgeService implements BridgeServiceBase {
     if (idx < 0) return;
     _sessions = List.of(_sessions)
       ..[idx] = _sessions[idx].copyWith(pendingPermission: permission);
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   void _patchSessionPermissionMode(
@@ -3660,7 +3705,7 @@ class BridgeService implements BridgeServiceBase {
         codexPermissionsMode:
             codexPermissionsMode ?? current.codexPermissionsMode,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   void _patchSessionSystemSettings(String sessionId, SystemMessage message) {
@@ -3694,7 +3739,7 @@ class BridgeService implements BridgeServiceBase {
             message.networkAccessEnabled ?? current.codexNetworkAccessEnabled,
         codexWebSearchMode: message.webSearchMode ?? current.codexWebSearchMode,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   /// Update the cached lastMessage when an [AssistantMessage] arrives so the
@@ -3721,7 +3766,7 @@ class BridgeService implements BridgeServiceBase {
         lastMessage: text.isNotEmpty ? preview : null,
         codexModel: shouldPatchModel ? messageModel : null,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   String _assistantContentPreviewText(AssistantContent content) {
@@ -3742,7 +3787,7 @@ class BridgeService implements BridgeServiceBase {
     if (idx < 0) return;
     _sessions = List.of(_sessions)
       ..[idx] = _sessions[idx].copyWith(clearPermission: true);
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   void patchSessionCodexModel(
@@ -3764,7 +3809,7 @@ class BridgeService implements BridgeServiceBase {
         codexModelReasoningEffort:
             modelReasoningEffort ?? current.codexModelReasoningEffort,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   void patchSessionCodexSpeed(String sessionId, String serviceTier) {
@@ -3774,7 +3819,7 @@ class BridgeService implements BridgeServiceBase {
     if (current.codexServiceTier == serviceTier) return;
     _sessions = List.of(_sessions)
       ..[idx] = current.copyWith(codexServiceTier: serviceTier);
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   void _patchSessionQueuedInput(String sessionId, QueuedInputItem? item) {
@@ -3785,7 +3830,7 @@ class BridgeService implements BridgeServiceBase {
         queuedInput: item,
         clearQueuedInput: item == null,
       );
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   List<SessionInfo> _applyLocalDeliveryPendingInputs(
@@ -3825,7 +3870,7 @@ class BridgeService implements BridgeServiceBase {
     if (current.codexSandboxMode == sandboxMode) return;
     _sessions = List.of(_sessions)
       ..[idx] = current.copyWith(codexSandboxMode: sandboxMode);
-    _sessionListController.add(_sessions);
+    _publishSessionList();
   }
 
   @override

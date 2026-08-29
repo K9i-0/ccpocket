@@ -106,6 +106,7 @@ vi.mock("./session.js", () => ({
         continueMode?: boolean;
         permissionMode?: string;
         initialInput?: string;
+        sandboxEnabled?: boolean;
       },
       pastMessages?: unknown[],
       _worktreeOptions?: unknown,
@@ -206,6 +207,7 @@ vi.mock("./session.js", () => ({
         createdAt: new Date(),
         lastActivityAt: new Date(),
         process,
+        sandboxEnabled: options?.sandboxEnabled,
       });
       return id;
     }
@@ -353,9 +355,21 @@ vi.mock("./session.js", () => ({
         lastActivityAt: "",
         gitBranch: "",
         lastMessage: "",
+        permissionMode: s.startOptions?.permissionMode,
+        executionMode:
+          s.startOptions?.permissionMode === "bypassPermissions"
+            ? "fullAccess"
+            : s.startOptions?.permissionMode === "acceptEdits"
+              ? "acceptEdits"
+              : "default",
+        sandboxEnabled: s.sandboxEnabled,
         codexSettings: s.codexSettings,
         queuedInput: s.codexQueuedInput,
       }));
+    }
+
+    summary(sessionId: string) {
+      return this.list().find((session) => session.id === sessionId);
     }
 
     getCachedCommands() {
@@ -768,6 +782,64 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       provider: "claude",
     });
     expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("returns canonical context for a live session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const sessionId = (bridge as any).sessionManager.create(
+      "/tmp/project",
+      { permissionMode: "acceptEdits", sandboxEnabled: true },
+    );
+
+    await (bridge as any).handleClientMessage(
+      { type: "get_session_context", sessionId },
+      ws,
+    );
+
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "session_context"),
+    ).toMatchObject({
+      type: "session_context",
+      sessionId,
+      context: {
+        id: sessionId,
+        provider: "claude",
+        projectPath: "/tmp/project",
+        permissionMode: "acceptEdits",
+        executionMode: "acceptEdits",
+        sandboxEnabled: true,
+      },
+    });
+
+    bridge.close();
+  });
+
+  it("returns session_not_found for missing session context", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      { type: "get_session_context", sessionId: "missing-session" },
+      ws,
+    );
+
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toEqual({
+      type: "error",
+      message: "Session missing-session not found",
+      errorCode: "session_not_found",
+      sessionId: "missing-session",
+    });
 
     bridge.close();
   });

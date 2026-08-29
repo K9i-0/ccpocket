@@ -810,91 +810,103 @@ export class SessionManager {
   }
 
   list(): SessionSummary[] {
-    return Array.from(this.sessions.values()).map((s) => {
-      const codexSettings = s.process instanceof CodexProcess
-        ? withDerivedCodexPermissionsMode(
-            s.codexSettings ??
-              (s.process.codexPermissionsMode
-                ? { codexPermissionsMode: s.process.codexPermissionsMode }
-                : undefined),
-          )
-        : s.codexSettings;
-      const processWithPending = s.process as {
-        getPendingPermission?: () =>
-          | {
-              toolUseId: string;
-              toolName: string;
-              input: Record<string, unknown>;
-            }
-          | undefined;
-      };
-      const pendingPermission =
-        s.status === "waiting_approval"
-          ? processWithPending.getPendingPermission?.()
-          : undefined;
-      const executionMode =
-        s.process instanceof SdkProcess
-          ? s.process.permissionMode === "bypassPermissions"
+    return Array.from(this.sessions.values()).map((session) =>
+      this.buildSessionSummary(session),
+    );
+  }
+
+  summary(sessionId: string): SessionSummary | undefined {
+    const session = this.sessions.get(sessionId);
+    return session ? this.buildSessionSummary(session) : undefined;
+  }
+
+  private buildSessionSummary(session: SessionInfo): SessionSummary {
+    const codexSettings = session.process instanceof CodexProcess
+      ? withDerivedCodexPermissionsMode(
+          session.codexSettings ??
+            (session.process.codexPermissionsMode
+              ? { codexPermissionsMode: session.process.codexPermissionsMode }
+              : undefined),
+        )
+      : session.codexSettings;
+    const processWithPending = session.process as {
+      getPendingPermission?: () =>
+        | {
+            toolUseId: string;
+            toolName: string;
+            input: Record<string, unknown>;
+          }
+        | undefined;
+    };
+    const pendingPermission =
+      session.status === "waiting_approval"
+        ? processWithPending.getPendingPermission?.()
+        : undefined;
+    const executionMode =
+      session.process instanceof SdkProcess
+        ? session.process.permissionMode === "bypassPermissions"
+          ? "fullAccess"
+          : session.process.permissionMode === "acceptEdits"
+            ? "acceptEdits"
+            : "default"
+        : session.process instanceof CodexProcess
+          ? (codexSettings?.approvalPolicy ??
+              session.process.approvalPolicy) === "never"
             ? "fullAccess"
-            : s.process.permissionMode === "acceptEdits"
-              ? "acceptEdits"
-              : "default"
-          : s.process instanceof CodexProcess
-            ? (codexSettings?.approvalPolicy ?? s.process.approvalPolicy) ===
-              "never"
-              ? "fullAccess"
-              : "default"
-            : undefined;
-      const planMode =
-        s.process instanceof SdkProcess
-          ? s.process.permissionMode === "plan"
-          : s.process instanceof CodexProcess
-            ? s.process.collaborationMode === "plan"
-            : undefined;
-      return {
-        id: s.id,
-        provider: s.provider,
-        projectPath: s.projectPath,
-        claudeSessionId: s.claudeSessionId,
-        name: s.name,
-        status: s.status,
-        createdAt: s.createdAt.toISOString(),
-        lastActivityAt: s.lastActivityAt.toISOString(),
-        gitBranch: s.gitBranch,
-        lastMessage: this.extractLastMessage(s),
-        worktreePath: s.worktreePath,
-        worktreeBranch: s.worktreeBranch,
-        permissionMode:
-          s.process instanceof SdkProcess
-            ? s.process.permissionMode
-            : s.process instanceof CodexProcess
-              ? s.process.collaborationMode === "plan"
-                ? "plan"
-                : (codexSettings?.approvalPolicy ??
-                    s.process.approvalPolicy) === "never"
-                  ? "bypassPermissions"
-                  : "acceptEdits"
-              : undefined,
-        executionMode,
-        planMode,
-        model: s.process instanceof SdkProcess ? s.process.model : undefined,
-        codexSettings,
-        agentNickname:
-          s.process instanceof CodexProcess
-            ? (s.process.agentNickname ?? undefined)
+            : "default"
+          : undefined;
+    const planMode =
+      session.process instanceof SdkProcess
+        ? session.process.permissionMode === "plan"
+        : session.process instanceof CodexProcess
+          ? session.process.collaborationMode === "plan"
+          : undefined;
+    return {
+      id: session.id,
+      provider: session.provider,
+      projectPath: session.projectPath,
+      claudeSessionId: session.claudeSessionId,
+      name: session.name,
+      status: session.status,
+      createdAt: session.createdAt.toISOString(),
+      lastActivityAt: session.lastActivityAt.toISOString(),
+      gitBranch: session.gitBranch,
+      lastMessage: this.extractLastMessage(session),
+      worktreePath: session.worktreePath,
+      worktreeBranch: session.worktreeBranch,
+      permissionMode:
+        session.process instanceof SdkProcess
+          ? session.process.permissionMode
+          : session.process instanceof CodexProcess
+            ? session.process.collaborationMode === "plan"
+              ? "plan"
+              : (codexSettings?.approvalPolicy ??
+                  session.process.approvalPolicy) === "never"
+                ? "bypassPermissions"
+                : "acceptEdits"
             : undefined,
-        agentRole:
-          s.process instanceof CodexProcess
-            ? (s.process.agentRole ?? undefined)
-            : undefined,
-        sandboxEnabled: s.sandboxEnabled,
-        pendingPermission,
-        queuedInput:
-          s.provider === "codex"
-            ? publicQueuedInput(s.codexQueuedInput)
-            : undefined,
-      };
-    });
+      executionMode,
+      planMode,
+      model:
+        session.process instanceof SdkProcess
+          ? session.process.model
+          : undefined,
+      codexSettings,
+      agentNickname:
+        session.process instanceof CodexProcess
+          ? (session.process.agentNickname ?? undefined)
+          : undefined,
+      agentRole:
+        session.process instanceof CodexProcess
+          ? (session.process.agentRole ?? undefined)
+          : undefined,
+      sandboxEnabled: session.sandboxEnabled,
+      pendingPermission,
+      queuedInput:
+        session.provider === "codex"
+          ? publicQueuedInput(session.codexQueuedInput)
+          : undefined,
+    };
   }
 
   private appendHistoryToSession(

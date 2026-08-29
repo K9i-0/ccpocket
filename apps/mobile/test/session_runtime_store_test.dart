@@ -4,6 +4,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SessionRuntimeStore', () {
+    test('stores canonical context outside the chat timeline', () {
+      final store = SessionRuntimeStore();
+      final context = SessionInfo(
+        id: 's1',
+        provider: 'claude',
+        projectPath: '/repo',
+        status: 'idle',
+        createdAt: '',
+        lastActivityAt: '',
+        sandboxEnabled: true,
+      );
+
+      store.applyServerMessage(
+        's1',
+        SessionContextMessage(sessionId: 's1', context: context),
+      );
+
+      expect(store.snapshot('s1').sessionContext, same(context));
+      expect(store.snapshot('s1').projectPath, '/repo');
+      expect(store.messages('s1'), isEmpty);
+    });
+
     test('keeps goal state out of the chat timeline cache', () {
       final store = SessionRuntimeStore();
       store.applyServerMessage(
@@ -323,6 +345,16 @@ void main() {
         currentPath: '/repo',
         recentPeekedFiles: const ['README.md'],
       );
+      store.applySessionContext(
+        const SessionInfo(
+          id: 'pending',
+          provider: 'claude',
+          projectPath: '/repo',
+          status: 'running',
+          createdAt: '',
+          lastActivityAt: '',
+        ),
+      );
 
       store.migrateSession('pending', 'real');
 
@@ -332,6 +364,7 @@ void main() {
       expect(store.getExplorerHistory('real').currentPath, '/repo');
       expect(store.latestHistorySeq('real'), 0);
       expect(store.cachedHistorySeq('real'), 0);
+      expect(store.snapshot('real').sessionContext, isNull);
     });
 
     test('trims old messages per session', () {

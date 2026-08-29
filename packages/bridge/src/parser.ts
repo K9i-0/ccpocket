@@ -222,6 +222,7 @@ export type ClientMessage =
     }
   | { type: "get_history"; sessionId: string }
   | { type: "get_history_delta"; sessionId: string; sinceSeq: number }
+  | { type: "get_session_context"; sessionId: string }
   | {
       type: "resolve_session_link";
       requestId: string;
@@ -643,6 +644,11 @@ export type ServerMessage =
       bridgeSessionId?: string;
       provider?: Provider;
       recentSession?: Record<string, unknown>;
+    }
+  | {
+      type: "session_context";
+      sessionId: string;
+      context: Record<string, unknown>;
     }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
@@ -1467,6 +1473,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.sinceSeq < 0
         )
           return null;
+        break;
+      case "get_session_context":
+        if (typeof msg.sessionId !== "string") return null;
         break;
       case "resolve_session_link":
         if (

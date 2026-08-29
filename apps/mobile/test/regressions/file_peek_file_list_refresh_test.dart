@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ccpocket/features/claude_session/claude_session_screen.dart';
 import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
+import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -28,6 +29,7 @@ class _RecordingBridgeService extends BridgeService {
       StreamController<List<SessionInfo>>.broadcast();
 
   final requestedFileLists = <String>[];
+  final sentMessages = <ClientMessage>[];
   String? cachedProjectPath;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
@@ -63,7 +65,7 @@ class _RecordingBridgeService extends BridgeService {
   String? cachedSessionProjectPath(String sessionId) => cachedProjectPath;
 
   @override
-  void send(ClientMessage message) {}
+  void send(ClientMessage message) => sentMessages.add(message);
 
   @override
   void interrupt(String sessionId) {}
@@ -334,6 +336,87 @@ void main() {
       expect(find.byKey(const ValueKey('appbar_view_changes')), findsOneWidget);
       expect(bridge.requestedFileLists, contains('/tmp/project'));
     });
+
+    testWidgets(
+      'notification-style Claude screen hydrates actions, modes, and file peek from context',
+      (tester) async {
+        final bridge = _RecordingBridgeService();
+        addTearDown(bridge.dispose);
+
+        await tester.pumpWidget(
+          await _wrap(
+            const ClaudeSessionScreen(sessionId: 'claude-session'),
+            bridge,
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(SessionModeBar), findsNothing);
+        expect(find.byKey(const ValueKey('appbar_view_changes')), findsNothing);
+        bridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.idle),
+          sessionId: 'claude-session',
+        );
+        await tester.pump();
+        await tester.enterText(
+          find.byKey(const ValueKey('message_input')),
+          'draft survives context hydration',
+        );
+
+        bridge.emitMessage(
+          SessionContextMessage(
+            sessionId: 'claude-session',
+            context: const SessionInfo(
+              id: 'claude-session',
+              provider: 'claude',
+              projectPath: '/tmp/project',
+              status: 'idle',
+              createdAt: '',
+              lastActivityAt: '',
+              permissionMode: 'plan',
+              sandboxEnabled: true,
+            ),
+          ),
+          sessionId: 'claude-session',
+        );
+        bridge.emitMessage(
+          AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'assistant-1',
+              role: 'assistant',
+              content: const [TextContent(text: '[main.dart](lib/main.dart)')],
+              model: 'claude',
+            ),
+          ),
+          sessionId: 'claude-session',
+        );
+        await tester.pump();
+
+        expect(find.byType(SessionModeBar), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('appbar_explore_button')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('appbar_view_changes')),
+          findsOneWidget,
+        );
+        expect(bridge.requestedFileLists, contains('/tmp/project'));
+        final input = tester.widget<TextField>(
+          find.byKey(const ValueKey('message_input')),
+        );
+        expect(input.controller?.text, 'draft survives context hydration');
+
+        await tester.tap(find.text('main.dart'));
+        await tester.pump();
+
+        final outgoing = bridge.sentMessages
+            .map((message) => message.toJson())
+            .join('\n');
+        expect(outgoing, contains('read_file'));
+        expect(outgoing, contains('/tmp/project'));
+      },
+    );
 
     testWidgets('Codex restores app bar project actions from history', (
       tester,

@@ -216,6 +216,7 @@ class ServerMessageWidget extends StatelessWidget {
       final ErrorMessage msg => ErrorBubble(message: msg),
       PushRegistrationResultMessage() => const SizedBox.shrink(),
       SessionLinkResolutionMessage() => const SizedBox.shrink(),
+      SessionContextMessage() => const SizedBox.shrink(),
       final StatusMessage msg => StatusChip(message: msg),
       HistoryMessage() => const SizedBox.shrink(),
       HistoryDeltaMessage() => const SizedBox.shrink(),

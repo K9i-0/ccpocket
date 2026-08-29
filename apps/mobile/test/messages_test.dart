@@ -634,6 +634,7 @@ void main() {
         'git_status_result',
         'prompt_history_status',
         'push_registration_result',
+        'session_context',
       ]);
     });
 
@@ -644,6 +645,15 @@ void main() {
         'type': 'get_history_delta',
         'sessionId': 's1',
         'sinceSeq': 42,
+      });
+    });
+
+    test('ClientMessage.getSessionContext serializes session id', () {
+      final msg = ClientMessage.getSessionContext('s1');
+
+      expect(jsonDecode(msg.toJson()), {
+        'type': 'get_session_context',
+        'sessionId': 's1',
       });
     });
 
@@ -856,6 +866,29 @@ void main() {
         sessionList.protocolCapabilities,
         contains('project_request_correlation_v1'),
       );
+    });
+
+    test('SessionContextMessage parses canonical session metadata', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'session_context',
+        'sessionId': 's1',
+        'context': {
+          'id': 's1',
+          'provider': 'claude',
+          'projectPath': '/repo',
+          'status': 'idle',
+          'createdAt': '',
+          'lastActivityAt': '',
+          'permissionMode': 'acceptEdits',
+          'sandboxEnabled': true,
+        },
+      });
+
+      expect(msg, isA<SessionContextMessage>());
+      final context = (msg as SessionContextMessage).context;
+      expect(context.projectPath, '/repo');
+      expect(context.effectivePermissionMode, 'acceptEdits');
+      expect(context.sandboxEnabled, isTrue);
     });
 
     test('RecentSessionsMessage parses request metadata', () {

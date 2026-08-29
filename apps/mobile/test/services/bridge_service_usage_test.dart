@@ -2161,6 +2161,96 @@ void main() {
       bridge.dispose();
     });
 
+    test(
+      'session context replaces stale list metadata before live patches',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+        });
+
+        final bridge = BridgeService();
+        bridge.setDeliveryPendingInput(
+          's1',
+          const QueuedInputItem(
+            itemId: 'pending:local-1',
+            text: 'Local pending input',
+            createdAt: '2026-08-29T00:00:00.000Z',
+          ),
+        );
+        final streamedContexts = <SessionContextMessage>[];
+        final contextSubscription = bridge.messagesForSession('s1').listen((
+          message,
+        ) {
+          if (message is SessionContextMessage) {
+            streamedContexts.add(message);
+          }
+        });
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        final socket = await socketReady.future;
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': [
+              {
+                'id': 's1',
+                'provider': 'claude',
+                'projectPath': '/stale/project',
+                'status': 'running',
+                'permissionMode': 'default',
+              },
+            ],
+            'protocolCapabilities': ['session_context_v1'],
+          }),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        socket.add(
+          jsonEncode({
+            'type': 'session_context',
+            'sessionId': 's1',
+            'context': {
+              'id': 's1',
+              'provider': 'claude',
+              'projectPath': '/current/project',
+              'worktreePath': '/current/worktree',
+              'gitBranch': 'feature/current',
+              'status': 'running',
+              'permissionMode': 'plan',
+              'planMode': true,
+              'sandboxEnabled': true,
+            },
+          }),
+        );
+        socket.add(
+          jsonEncode({'type': 'status', 'sessionId': 's1', 'status': 'idle'}),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        final context = bridge.cachedSessionContext('s1');
+        expect(bridge.sessions.single.projectPath, '/current/project');
+        expect(context?.projectPath, '/current/project');
+        expect(context?.worktreePath, '/current/worktree');
+        expect(context?.gitBranch, 'feature/current');
+        expect(context?.permissionMode, 'plan');
+        expect(context?.status, 'idle');
+        expect(context?.queuedInput?.itemId, 'pending:local-1');
+        expect(
+          streamedContexts.single.context.queuedInput?.itemId,
+          'pending:local-1',
+        );
+
+        bridge.disconnect();
+        await contextSubscription.cancel();
+        await socket.close();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
     test('session list preserves visible delivery pending input', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();

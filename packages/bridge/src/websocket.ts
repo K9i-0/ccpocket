@@ -4776,6 +4776,25 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "get_session_context": {
+        const context = this.sessionManager.summary(msg.sessionId);
+        if (context) {
+          this.send(ws, {
+            type: "session_context",
+            sessionId: msg.sessionId,
+            context: { ...context },
+          });
+        } else {
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+            errorCode: "session_not_found",
+            sessionId: msg.sessionId,
+          });
+        }
+        break;
+      }
+
       case "resolve_session_link": {
         const provider = msg.provider ?? "claude";
         const activeSession = this.sessionManager
@@ -7729,7 +7748,10 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
-      protocolCapabilities: ["project_request_correlation_v1"],
+      protocolCapabilities: [
+        "project_request_correlation_v1",
+        "session_context_v1",
+      ],
     });
   }
 
@@ -7767,7 +7789,10 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
-      protocolCapabilities: ["project_request_correlation_v1"],
+      protocolCapabilities: [
+        "project_request_correlation_v1",
+        "session_context_v1",
+      ],
     });
   }
 

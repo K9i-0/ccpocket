@@ -21,6 +21,7 @@ abstract class ChatSessionState with _$ChatSessionState {
     // Session metadata
     String? claudeSessionId,
     String? projectPath,
+    String? worktreePath,
     String? gitBranch,
     @Default('') String explorerCurrentPath,
     @Default([]) List<String> recentPeekedFiles,
@@ -31,6 +32,7 @@ abstract class ChatSessionState with _$ChatSessionState {
     @Default(false) bool inPlanMode,
     @Default(false) bool collapseToolResults,
     @Default(false) bool sessionUnavailable,
+    @Default(false) bool sessionContextLoaded,
 
     // Legacy permission mode kept for compatibility with older bridge/app flows.
     @Default(PermissionMode.defaultMode) PermissionMode permissionMode,

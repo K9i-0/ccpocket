@@ -120,7 +120,11 @@ Future<Widget> buildTestClaudeSessionScreen({
 }) => _buildTestSessionScreen(
   bridge: bridge,
   openGalleryDirectly: openGalleryDirectly,
-  child: ClaudeSessionScreen(sessionId: sessionId, projectPath: projectPath),
+  child: ClaudeSessionScreen(
+    sessionId: sessionId,
+    projectPath: projectPath,
+    initialPermissionMode: PermissionMode.defaultMode.value,
+  ),
 );
 
 Future<Widget> _buildTestSessionScreen({

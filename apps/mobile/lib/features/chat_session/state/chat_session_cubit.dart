@@ -32,6 +32,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   final ChatMessageHandler _handler = ChatMessageHandler();
 
   StreamSubscription<ServerMessage>? _subscription;
+  StreamSubscription<List<SessionInfo>>? _sessionContextSubscription;
+  SessionInfo? _latestSessionContext;
   bool _pastHistoryLoaded = false;
   Timer? _statusRefreshTimer;
   final Map<String, Timer> _deliveryPendingTimers = {};
@@ -106,6 +108,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     String? initialCodexApprovalsReviewer,
     CodexPermissionsMode? initialCodexPermissionsMode,
     String? initialProjectPath,
+    String? initialWorktreePath,
+    String? initialGitBranch,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
        super(
@@ -159,9 +163,34 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
            projectPath: initialProjectPath?.trim().isNotEmpty == true
                ? initialProjectPath!.trim()
                : bridge.cachedSessionProjectPath(sessionId),
+           worktreePath: initialWorktreePath?.trim().isNotEmpty == true
+               ? initialWorktreePath!.trim()
+               : null,
+           gitBranch: initialGitBranch?.trim().isNotEmpty == true
+               ? initialGitBranch!.trim()
+               : null,
+           sessionContextLoaded:
+               initialProjectPath?.trim().isNotEmpty == true ||
+               initialWorktreePath?.trim().isNotEmpty == true ||
+               initialPermissionMode != null ||
+               initialSandboxMode != null ||
+               initialCodexApprovalPolicy != null ||
+               initialCodexPermissionsMode != null,
          ),
        ) {
     _respondedToolUseIds.addAll(_bridge.respondedToolUseIds(sessionId));
+    final cachedContext = _bridge.cachedSessionContext(sessionId);
+    if (cachedContext != null) {
+      _applySessionContext(cachedContext);
+    }
+    _sessionContextSubscription = _bridge.sessionList.listen((sessions) {
+      for (final session in sessions) {
+        if (session.id == sessionId) {
+          _applySessionContext(session);
+          break;
+        }
+      }
+    });
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -178,6 +207,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     // Request in-memory history from the bridge server
+    _bridge.requestSessionContext(sessionId);
     _bridge.requestSessionHistory(sessionId);
 
     // Re-query history while status is "starting" to handle lost broadcasts
@@ -236,6 +266,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void _onMessage(ServerMessage msg) {
+    if (msg is SessionContextMessage) {
+      _applySessionContext(msg.context);
+      return;
+    }
     // Log errors prominently
     if (msg is ErrorMessage) {
       logger.error('[session:$sessionId] Error from bridge: ${msg.message}');
@@ -279,6 +313,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         ignoredToolUseIds: _respondedToolUseIds,
       );
       _applyUpdate(update, msg);
+      if (msg is HistoryMessage && _latestSessionContext != null) {
+        _applySessionContext(_latestSessionContext!);
+      }
     } catch (e, st) {
       logger.error(
         '[session:$sessionId] Failed to handle message: '
@@ -288,6 +325,84 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       );
     }
   }
+
+  void _applySessionContext(SessionInfo context) {
+    if (context.id != sessionId) return;
+    if (context.provider?.isNotEmpty == true &&
+        provider != null &&
+        context.provider != provider!.value) {
+      return;
+    }
+    _latestSessionContext = context;
+
+    final permissionMode = PermissionMode.values
+        .where((mode) => mode.value == context.effectivePermissionMode)
+        .firstOrNull;
+    final sandboxMode = isCodex
+        ? _sandboxModeFromContext(context.codexSandboxMode)
+        : switch (context.sandboxEnabled) {
+            true => SandboxMode.on,
+            false => SandboxMode.off,
+            null => null,
+          };
+    final pendingPermission = context.pendingPermission;
+    final approval =
+        pendingPermission != null &&
+            !_respondedToolUseIds.contains(pendingPermission.toolUseId)
+        ? ApprovalState.permission(
+            toolUseId: pendingPermission.toolUseId,
+            request: pendingPermission,
+          )
+        : context.status == 'waiting_approval'
+        ? state.approval
+        : const ApprovalState.none();
+    final projectPath = context.projectPath.trim();
+    final worktreePath = context.worktreePath?.trim();
+    final branch =
+        (context.worktreeBranch?.trim().isNotEmpty == true
+                ? context.worktreeBranch
+                : context.gitBranch)!
+            .trim();
+
+    emit(
+      state.copyWith(
+        status: ProcessStatus.fromString(context.status),
+        approval: approval,
+        claudeSessionId: context.claudeSessionId,
+        projectPath: projectPath.isNotEmpty ? projectPath : null,
+        worktreePath: worktreePath?.isNotEmpty == true ? worktreePath : null,
+        gitBranch: branch.isNotEmpty ? branch : null,
+        permissionMode: permissionMode ?? state.permissionMode,
+        executionMode: context.resolvedExecutionMode,
+        codexApprovalPolicy:
+            codexApprovalPolicyFromRaw(context.codexApprovalPolicy) ??
+            state.codexApprovalPolicy,
+        codexApprovalsReviewer:
+            context.codexApprovalsReviewer ?? state.codexApprovalsReviewer,
+        codexPermissionsMode:
+            codexPermissionsModeFromRaw(context.codexPermissionsMode) ??
+            state.codexPermissionsMode,
+        codexModel:
+            sanitizeCodexModelName(context.codexModel) ?? state.codexModel,
+        codexModelReasoningEffort:
+            reasoningEffortByValue(context.codexModelReasoningEffort) ??
+            state.codexModelReasoningEffort,
+        codexSpeed: codexSpeedFromRaw(context.codexServiceTier),
+        planMode: context.resolvedPlanMode,
+        inPlanMode: context.resolvedPlanMode,
+        sandboxMode: sandboxMode ?? state.sandboxMode,
+        queuedInput: context.queuedInput,
+        sessionUnavailable: false,
+        sessionContextLoaded: true,
+      ),
+    );
+  }
+
+  SandboxMode? _sandboxModeFromContext(String? raw) => switch (raw) {
+    'on' || 'workspace-write' => SandboxMode.on,
+    'off' || 'danger-full-access' => SandboxMode.off,
+    _ => null,
+  };
 
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     final current = state;
@@ -681,7 +796,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       );
     }
     final usage = _calculateUsageTotals(nextEntries);
-
     emit(
       current.copyWith(
         status: update.status ?? current.status,
@@ -2036,6 +2150,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// restoring approval state that may have arrived while disconnected.
   void refreshHistory() {
     _pastHistoryLoaded = false;
+    _bridge.requestSessionContext(sessionId);
     _bridge.requestSessionHistory(sessionId);
   }
 
@@ -2188,6 +2303,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _deliveryPendingTimers.clear();
     _deliveryPendingInputs.clear();
     _subscription?.cancel();
+    _sessionContextSubscription?.cancel();
     _sideEffectsController.close();
     return super.close();
   }

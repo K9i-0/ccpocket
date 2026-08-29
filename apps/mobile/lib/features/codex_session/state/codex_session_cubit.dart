@@ -20,5 +20,7 @@ class CodexSessionCubit extends ChatSessionCubit {
     super.initialCodexApprovalsReviewer,
     super.initialCodexPermissionsMode,
     super.initialProjectPath,
+    super.initialWorktreePath,
+    super.initialGitBranch,
   }) : super(provider: Provider.codex);
 }
