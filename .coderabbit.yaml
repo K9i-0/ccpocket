@@ -41,13 +41,14 @@ reviews:
           Pass when the selected UI Evidence category matches the diff.
           User-visible text-only changes may use successful automated UI test
           evidence instead of images and must explain why visual evidence is not
-          needed. Copy or localization changes alone are text-only. Changes to
-          component placement, size, styling, visibility, interactive behavior,
-          or state transitions are not text-only. Visual or interaction changes
-          must include a GitHub-uploaded Before image, or "N/A — reason" for a
-          new UI, plus an After image or recording and the tested device/platform.
-          When mobile UI-area files change without a visible effect, the author
-          must explain why.
+          needed. The evidence must include a backticked `flutter test ...`
+          command and its explicit successful result. Copy or localization
+          changes alone are text-only. Changes to component placement, size,
+          styling, visibility, interactive behavior, or state transitions are not
+          text-only. Visual or interaction changes must include a GitHub-uploaded
+          Before image, or "N/A — reason" for a new UI, plus an After image or
+          recording and the tested device/platform. When mobile UI-area files
+          change without a visible effect, the author must explain why.
       - name: Validation evidence
         mode: error
         instructions: >-

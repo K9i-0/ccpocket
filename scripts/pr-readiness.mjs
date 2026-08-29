@@ -158,11 +158,15 @@ function isCompletedField(value) {
 }
 
 function hasAutomatedUiTestEvidence(value) {
-  const success = /(?:\bpass(?:ed|es|ing)?\b|\bsuccess(?:ful(?:ly)?)?\b|exit\s*(?:code\s*)?0|✅|成功|通過)/i;
+  const success = /(?:\bpass(?:ed|es)?\b|\bsuccess(?:ful(?:ly)?)?\b|exit\s*(?:code\s*)?0|✅|成功|通過)/i;
+  const failure = /(?:\bnot\s+pass(?:ed|es)?\b|\bfail(?:ed|ure)?\b|exit\s*(?:code\s*)?[1-9]\d*|❌|失敗)/i;
   const lines = value.split('\n');
   return lines.some((line, index) => {
-    if (!/flutter\s+test/i.test(line)) return false;
-    return success.test(`${line}\n${lines[index + 1] ?? ''}`);
+    const command = /`[^`]*flutter\s+test[^`]*`/i.exec(line);
+    if (!command) return false;
+    const result = `${line.slice(command.index + command[0].length)}\n${lines[index + 1] ?? ''}`;
+    const normalizedResult = result.replace(/\b0\s+failed\b/gi, '');
+    return success.test(normalizedResult) && !failure.test(normalizedResult);
   });
 }
 

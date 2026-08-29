@@ -250,6 +250,48 @@ test('rejects failed automated UI test evidence for a text-only change', () => {
   assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
 });
 
+test('rejects negated success evidence for a text-only change', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/error_test.dart` — not passed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
+});
+
+test('rejects mixed passing and failing UI test evidence', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/error_test.dart` — 1 passed, 1 failed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
+});
+
+test('accepts an explicit zero-failure UI test result', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/error_test.dart` — 1 passed, 0 failed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.deepEqual(result.errors, []);
+});
+
 test('accepts a passing UI test whose filename contains failure', () => {
   const result = evaluateIntake({
     body: body({
@@ -262,6 +304,20 @@ test('accepts a passing UI test whose filename contains failure', () => {
     fileCount: 1,
   });
   assert.deepEqual(result.errors, []);
+});
+
+test('rejects a passing filename without an explicit test result', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/passing-banner-test.dart`',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
 });
 
 test('rejects a UI test claim without the executed flutter command', () => {
