@@ -153,6 +153,10 @@ Windowsを含む複数プラットフォームのリリースでは、preflight�
 
 ステップ 2 で選択されたプラットフォームのタグを打つ:
 
+**各タグは必ず別々の `git push` で送信すること。** GitHubは4個以上のタグを
+1回のpushで送るとtag pushイベントを生成しないため、複数タグを1つの
+`git push origin <tag> <tag> ...` にまとめてはならない。
+
 ```bash
 # iOS（選択された場合）
 git tag ios/vX.Y.Z+N
