@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../mock/mock_scenarios.dart';
 import '../models/messages.dart';
+import '../utils/media_file_types.dart';
 import 'bridge_service.dart';
 
 class MockBridgeService extends BridgeService {
@@ -597,16 +598,11 @@ class MockBridgeService extends BridgeService {
   }
 
   static FileContentMessage? _mockMediaFile(String filePath) {
-    final ext = filePath.split('.').lastOrNull?.toLowerCase();
-    final media = switch (ext) {
-      'wav' => (kind: 'audio', mimeType: 'audio/wav'),
-      'mp4' => (kind: 'video', mimeType: 'video/mp4'),
-      _ => null,
-    };
+    final media = mediaFileTypeForPath(filePath);
     if (media == null) return null;
     return FileContentMessage(
       filePath: filePath,
-      kind: media.kind,
+      kind: media.kind.name,
       content: '',
       mediaUrl: '/api/media/mock-media-token',
       mimeType: media.mimeType,

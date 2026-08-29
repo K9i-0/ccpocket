@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 - Show distinct, color-coded icons for folders, media, source code, data, archives, documents, and other file types throughout Explorer and file previews.
+- Preview common audio and video formats including MP3, M4A, AAC, FLAC, Ogg, Opus, AIFF, MOV, WebM, MKV, M4V, AVI, and MPEG files.
 
 ### Changed
 - Size video previews from their reported aspect ratio and keep playback controls clear of content and device safe areas.

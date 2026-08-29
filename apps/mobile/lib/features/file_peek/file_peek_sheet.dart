@@ -19,6 +19,7 @@ import '../../theme/markdown_style.dart'
         handleMarkdownLink,
         highlightToTextSpans,
         markdownBuilders;
+import '../../utils/media_file_types.dart';
 import '../../widgets/bubbles/image_preview.dart';
 import '../../widgets/file_type_icon.dart';
 import '../../widgets/workspace_pane_chrome.dart';
@@ -292,8 +293,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
         });
       }
     });
-    final extension = widget.filePath.split('.').lastOrNull?.toLowerCase();
-    final isMediaFile = extension == 'wav' || extension == 'mp4';
+    final isMediaFile = mediaFileTypeForPath(widget.filePath) != null;
     widget.bridge.send(
       isMediaFile
           ? ClientMessage.readMediaFile(
@@ -483,6 +483,8 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                     _result?.mediaUrl,
                   ),
                   isVideo: _result?.kind == 'video',
+                  formatLabel: mediaFileExtensionForPath(widget.filePath)
+                      ?.toUpperCase(),
                 )
               : (canPreviewHtml && !_showRaw)
               ? HtmlFilePreview(html: _result!.content)

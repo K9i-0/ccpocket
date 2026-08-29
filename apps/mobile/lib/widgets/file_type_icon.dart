@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/media_file_types.dart';
+
 enum FileVisualKind {
   directory,
   video,
@@ -14,26 +16,6 @@ enum FileVisualKind {
   unknown,
 }
 
-const _videoExtensions = {
-  'mp4',
-  'mov',
-  'm4v',
-  'webm',
-  'mkv',
-  'avi',
-  'mpg',
-  'mpeg',
-};
-const _audioExtensions = {
-  'wav',
-  'mp3',
-  'm4a',
-  'aac',
-  'flac',
-  'ogg',
-  'opus',
-  'aiff',
-};
 const _imageExtensions = {
   'png',
   'jpg',
@@ -131,8 +113,13 @@ FileVisualKind fileVisualKindForPath(String path, {bool isDirectory = false}) {
 
   final dotIndex = fileName.lastIndexOf('.');
   final extension = dotIndex < 0 ? '' : fileName.substring(dotIndex + 1);
-  if (_videoExtensions.contains(extension)) return FileVisualKind.video;
-  if (_audioExtensions.contains(extension)) return FileVisualKind.audio;
+  final mediaType = mediaFileTypeForPath(fileName);
+  if (mediaType != null) {
+    return switch (mediaType.kind) {
+      MediaFileKind.video => FileVisualKind.video,
+      MediaFileKind.audio => FileVisualKind.audio,
+    };
+  }
   if (_imageExtensions.contains(extension)) return FileVisualKind.image;
   if (_sourceExtensions.contains(extension)) return FileVisualKind.source;
   if (_shellExtensions.contains(extension)) return FileVisualKind.shell;

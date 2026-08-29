@@ -63,11 +63,13 @@ double filePeekVideoViewportHeight({
 class FilePeekMediaPreview extends StatefulWidget {
   final String? mediaUrl;
   final bool isVideo;
+  final String? formatLabel;
 
   const FilePeekMediaPreview({
     super.key,
     required this.mediaUrl,
     required this.isVideo,
+    this.formatLabel,
   });
 
   @override
@@ -169,7 +171,11 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
     if (widget.isVideo) {
       return _VideoPreview(controller: _videoController!, loading: _loading);
     }
-    return _AudioPreview(player: _player, loading: _loading);
+    return _AudioPreview(
+      player: _player,
+      loading: _loading,
+      formatLabel: widget.formatLabel,
+    );
   }
 }
 
@@ -237,8 +243,13 @@ class _VideoPreview extends StatelessWidget {
 class _AudioPreview extends StatelessWidget {
   final Player player;
   final bool loading;
+  final String? formatLabel;
 
-  const _AudioPreview({required this.player, required this.loading});
+  const _AudioPreview({
+    required this.player,
+    required this.loading,
+    required this.formatLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +287,7 @@ class _AudioPreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'WAV',
+                    formatLabel ?? 'AUDIO',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: colors.onSurfaceVariant,
                       fontWeight: FontWeight.w700,

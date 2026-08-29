@@ -451,6 +451,8 @@ describe("downloadMimeType", () => {
     expect(downloadMimeType("report.pdf")).toBe("application/pdf");
     expect(downloadMimeType("archive.zip")).toBe("application/zip");
     expect(downloadMimeType("audio.wav")).toBe("audio/wav");
+    expect(downloadMimeType("audio.MP3")).toBe("audio/mpeg");
+    expect(downloadMimeType("video.mkv")).toBe("video/x-matroska");
     expect(downloadMimeType("unknown.ccpocket")).toBe(
       "application/octet-stream",
     );
@@ -5086,7 +5088,23 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
   it.each([
     ["sample.wav", "audio", "audio/wav"],
+    ["sample.mp3", "audio", "audio/mpeg"],
+    ["sample.m4a", "audio", "audio/mp4"],
+    ["sample.aac", "audio", "audio/aac"],
+    ["sample.flac", "audio", "audio/flac"],
+    ["sample.ogg", "audio", "audio/ogg"],
+    ["sample.opus", "audio", "audio/ogg"],
+    ["sample.aif", "audio", "audio/aiff"],
+    ["sample.aiff", "audio", "audio/aiff"],
+    ["sample.aifc", "audio", "audio/aiff"],
     ["sample.mp4", "video", "video/mp4"],
+    ["sample.mov", "video", "video/quicktime"],
+    ["sample.m4v", "video", "video/x-m4v"],
+    ["sample.webm", "video", "video/webm"],
+    ["sample.mkv", "video", "video/x-matroska"],
+    ["sample.avi", "video", "video/x-msvideo"],
+    ["sample.mpg", "video", "video/mpeg"],
+    ["sample.mpeg", "video", "video/mpeg"],
   ])("returns a streaming URL for %s file peek", async (fileName, kind, mimeType) => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
     const contents = Buffer.from("generated media contents");

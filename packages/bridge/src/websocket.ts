@@ -615,11 +615,35 @@ function normalizeNonNegativeLimit(
     : fallback;
 }
 
+const FILE_PEEK_MEDIA_TYPES: Record<
+  string,
+  { kind: "audio" | "video"; mimeType: string }
+> = {
+  ".wav": { kind: "audio", mimeType: "audio/wav" },
+  ".mp3": { kind: "audio", mimeType: "audio/mpeg" },
+  ".m4a": { kind: "audio", mimeType: "audio/mp4" },
+  ".aac": { kind: "audio", mimeType: "audio/aac" },
+  ".flac": { kind: "audio", mimeType: "audio/flac" },
+  ".ogg": { kind: "audio", mimeType: "audio/ogg" },
+  ".opus": { kind: "audio", mimeType: "audio/ogg" },
+  ".aif": { kind: "audio", mimeType: "audio/aiff" },
+  ".aiff": { kind: "audio", mimeType: "audio/aiff" },
+  ".aifc": { kind: "audio", mimeType: "audio/aiff" },
+  ".mp4": { kind: "video", mimeType: "video/mp4" },
+  ".mov": { kind: "video", mimeType: "video/quicktime" },
+  ".m4v": { kind: "video", mimeType: "video/x-m4v" },
+  ".webm": { kind: "video", mimeType: "video/webm" },
+  ".mkv": { kind: "video", mimeType: "video/x-matroska" },
+  ".avi": { kind: "video", mimeType: "video/x-msvideo" },
+  ".mpg": { kind: "video", mimeType: "video/mpeg" },
+  ".mpeg": { kind: "video", mimeType: "video/mpeg" },
+};
+
 export function downloadMimeType(filePath: string): string {
   const extension = extname(filePath).toLowerCase();
+  const mediaType = FILE_PEEK_MEDIA_TYPES[extension];
+  if (mediaType) return mediaType.mimeType;
   const mimeTypes: Record<string, string> = {
-    ".aac": "audio/aac",
-    ".avi": "video/x-msvideo",
     ".bmp": "image/bmp",
     ".csv": "text/csv",
     ".doc": "application/msword",
@@ -631,12 +655,7 @@ export function downloadMimeType(filePath: string): string {
     ".jpeg": "image/jpeg",
     ".jpg": "image/jpeg",
     ".json": "application/json",
-    ".m4a": "audio/mp4",
     ".md": "text/markdown",
-    ".mov": "video/quicktime",
-    ".mp3": "audio/mpeg",
-    ".mp4": "video/mp4",
-    ".ogg": "audio/ogg",
     ".pdf": "application/pdf",
     ".png": "image/png",
     ".ppt": "application/vnd.ms-powerpoint",
@@ -645,8 +664,6 @@ export function downloadMimeType(filePath: string): string {
     ".svg": "image/svg+xml",
     ".tar": "application/x-tar",
     ".txt": "text/plain",
-    ".wav": "audio/wav",
-    ".webm": "video/webm",
     ".webp": "image/webp",
     ".xls": "application/vnd.ms-excel",
     ".xlsx":
@@ -5873,7 +5890,7 @@ export class BridgeWebSocketServer {
               return;
             }
             const ext = extname(absPath).toLowerCase();
-            const mediaType = BridgeWebSocketServer.FILE_PEEK_MEDIA_TYPES[ext];
+            const mediaType = FILE_PEEK_MEDIA_TYPES[ext];
             if (mediaType) {
               if (!this.mediaStore) {
                 this.send(ws, {
@@ -9039,14 +9056,6 @@ export class BridgeWebSocketServer {
     ".webp",
     ".svg",
   ]);
-
-  private static readonly FILE_PEEK_MEDIA_TYPES: Record<
-    string,
-    { kind: "audio" | "video"; mimeType: string }
-  > = {
-    ".wav": { kind: "audio", mimeType: "audio/wav" },
-    ".mp4": { kind: "video", mimeType: "video/mp4" },
-  };
 
   // Image diff thresholds (configurable via environment variables)
   // - Auto-display: images ≤ threshold are sent inline as base64
