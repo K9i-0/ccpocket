@@ -2,12 +2,19 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.79.0] - 2026-08-29
+
+### Added
+- Stream common audio and video formats for File Peek, including MP3, M4A, AAC, FLAC, Ogg, Opus, AIFF, MOV, WebM, MKV, M4V, AVI, and MPEG files.
+
+### Fixed
+- Restore persisted messages and runtime state when a session is opened from a notification.
+
 ## [1.78.0] - 2026-08-29
 
 ### Added
 - Include Git-ignored project files in Explorer listings with ignored-state metadata, while preserving tracked and untracked source files ahead of large ignored trees.
 - Report modification times for duplicate file names so clients can prioritize the most recently changed match in file peek.
-- Stream common audio and video formats for File Peek, including MP3, M4A, AAC, FLAC, Ogg, Opus, AIFF, MOV, WebM, MKV, M4V, AVI, and MPEG files.
 
 ### Changed
 - Exclude additional generated dependency and build directories from ignored-file discovery.
