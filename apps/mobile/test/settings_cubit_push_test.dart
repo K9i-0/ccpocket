@@ -187,6 +187,34 @@ class FakeSecureStorage extends Fake implements FlutterSecureStorage {
 
 void main() {
   group('SettingsCubit push sync', () {
+    test('resolves active machine for WSS on the default HTTPS port', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"$_testMachineId","host":"$_testHost","port":443}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      final bridge = FakeBridgeService()
+        ..emitConnection(
+          BridgeConnectionState.connected,
+          url: 'wss://$_testHost:443',
+        );
+      final fcm = FakeFcmService(available: false);
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      expect(cubit.state.activeMachineId, _testMachineId);
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
     test('auto registers token on init when machine is enabled', () async {
       SharedPreferences.setMockInitialValues({
         'settings_fcm_machines': '["$_testMachineId"]',
