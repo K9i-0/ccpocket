@@ -35,6 +35,7 @@ function body(overrides = {}) {
     risks: 'A retry could occur once after an intentional disconnect.',
     rollback: 'Revert this PR.',
     noVisual: true,
+    textOnly: false,
     visual: false,
     noVisualReason: 'Bridge-only behavior; no mobile rendering changes.',
     before: '',
@@ -80,7 +81,8 @@ ${values.changes}
 ## UI Evidence
 
 - [${checked(values.noVisual)}] No user-visible UI change
-- [${checked(values.visual)}] User-visible UI change
+- [${checked(values.textOnly)}] User-visible text-only change
+- [${checked(values.visual)}] Visual or interaction UI change
 - No-visual-change reason: ${values.noVisualReason}
 - Before: ${values.before}
 - After: ${values.after}
@@ -191,6 +193,140 @@ test('requires before and after attachments for a visual change', () => {
   });
   assert.ok(result.errors.some((error) => error.includes('Before image')));
   assert.ok(result.errors.some((error) => error.includes('After image')));
+});
+
+test('accepts automated test evidence instead of images for a text-only change', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; a focused widget test verifies the localized copy.',
+      automated: '`flutter test test/error_test.dart` — passed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.deepEqual(result.errors, []);
+});
+
+test('requires a reason when a text-only change omits images', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: '',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test evidence')));
+});
+
+test('requires automated UI test evidence for a text-only change', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`npm run test:bridge` — passed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
+});
+
+test('rejects failed automated UI test evidence for a text-only change', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/error_test.dart` — failed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
+});
+
+test('accepts a passing UI test whose filename contains failure', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: '`flutter test test/failure_banner_test.dart` — passed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.deepEqual(result.errors, []);
+});
+
+test('rejects a UI test claim without the executed flutter command', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: 'Existing error surface only; there is no layout change.',
+      automated: 'The widget test passed.',
+    }),
+    files: ['apps/mobile/lib/features/session_list/session_list_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test command')));
+});
+
+test('requires a text-only reason even outside mobile UI paths', () => {
+  const result = evaluateIntake({
+    body: body({
+      noVisual: false,
+      textOnly: true,
+      noVisualReason: '',
+      automated: '`flutter test test/error_test.dart` — passed.',
+    }),
+    files: ['packages/bridge/src/session.ts'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('automated UI test evidence')));
+});
+
+test('keeps accepting the legacy visible UI option', () => {
+  const legacyBody = body({
+    noVisual: false,
+    visual: true,
+    noVisualReason: '',
+    before: 'N/A — this screen is new.',
+    after: '![New screen](https://github.com/user-attachments/assets/example)',
+    device: 'iPhone 16 Pro, iOS 18.',
+  }).replace('Visual or interaction UI change', 'User-visible UI change');
+  const result = evaluateIntake({
+    body: legacyBody,
+    files: ['apps/mobile/lib/features/example/example_screen.dart'],
+    fileCount: 1,
+  });
+  assert.deepEqual(result.errors, []);
+});
+
+test('rejects selecting both current and legacy visible UI options', () => {
+  const duplicateVisualBody = body({
+    noVisual: false,
+    visual: true,
+    noVisualReason: '',
+    before: 'N/A — this screen is new.',
+    after: '![New screen](https://github.com/user-attachments/assets/example)',
+    device: 'iPhone 16 Pro, iOS 18.',
+  }).replace(
+    '- [x] Visual or interaction UI change',
+    '- [x] Visual or interaction UI change\n- [x] User-visible UI change',
+  );
+  const result = evaluateIntake({
+    body: duplicateVisualBody,
+    files: ['apps/mobile/lib/features/example/example_screen.dart'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('exactly one UI Evidence')));
 });
 
 test('accepts N/A with reason for a new UI and an uploaded After image', () => {
