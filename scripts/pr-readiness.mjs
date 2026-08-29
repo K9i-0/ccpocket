@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 export const MAX_REVIEW_FILES = 150;
 export const LARGE_PR_FILES = 50;
+export const SMALL_PR_FILES = 10;
 
 const MANAGED_LABELS = [
   'size:S',
@@ -103,6 +104,7 @@ function isMeaningful(value) {
 }
 
 export function getSection(body, title) {
+  body = body.replace(/\r\n?/g, '\n');
   const heading = new RegExp(`^##\\s+${escapeRegExp(title)}\\s*$`, 'im');
   const match = heading.exec(body);
   if (!match) return '';
@@ -169,7 +171,7 @@ function hasCheckedItem(section, text) {
 }
 
 export function sizeLabel(fileCount) {
-  if (fileCount <= 10) return 'size:S';
+  if (fileCount <= SMALL_PR_FILES) return 'size:S';
   if (fileCount <= 50) return 'size:M';
   if (fileCount <= MAX_REVIEW_FILES) return 'size:L';
   return 'size:XL';
@@ -198,7 +200,7 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
   const oversized = fileCount > MAX_REVIEW_FILES;
   const large = fileCount > LARGE_PR_FILES && !oversized;
   const uiRelated = files.some(isUiRelatedPath);
-  const highRisk = files.some(isHighRiskPath);
+  const pathHighRisk = files.some(isHighRiskPath);
 
   if (oversized) {
     errors.push(
@@ -210,7 +212,8 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
       oversized,
       large,
       uiRelated,
-      highRisk,
+      highRisk: pathHighRisk,
+      lightweight: false,
       size: sizeLabel(fileCount),
     };
   }
@@ -234,6 +237,12 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
     errors.push('PRs changing more than 50 files must link a prior Issue or Prompt Request.');
   }
 
+  const riskSelections = ['Low', 'Medium', 'High'].filter((risk) =>
+    hasCheckedItem(sections['Risk and Rollback'], risk),
+  );
+  const highRisk = pathHighRisk || riskSelections.includes('High');
+  const lightweight = fileCount <= SMALL_PR_FILES && !highRisk;
+
   const requiredFields = [
     ['Why This Is A PR', 'Why this is ready for PR review'],
     ['Scope Check', 'Single primary goal'],
@@ -245,15 +254,24 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
     ['Risk and Rollback', 'Main risks'],
     ['Risk and Rollback', 'Rollback plan'],
   ];
+  const lightweightAdvisoryFields = new Set([
+    'Why this is ready for PR review',
+    'Intentionally out of scope',
+    'Split plan or why this cannot be split',
+    'Manual validation',
+    'Target platform and version',
+  ]);
   for (const [sectionName, fieldName] of requiredFields) {
     if (!isCompletedField(getField(sections[sectionName], fieldName))) {
-      errors.push(`Complete “${fieldName}” in the ${sectionName} section.`);
+      const message = `Complete “${fieldName}” in the ${sectionName} section.`;
+      if (lightweight && lightweightAdvisoryFields.has(fieldName)) {
+        warnings.push(`Small low-risk PR: ${message}`);
+      } else {
+        errors.push(message);
+      }
     }
   }
 
-  const riskSelections = ['Low', 'Medium', 'High'].filter((risk) =>
-    hasCheckedItem(sections['Risk and Rollback'], risk),
-  );
   if (riskSelections.length !== 1) {
     errors.push('Select exactly one risk level: Low, Medium, or High.');
   }
@@ -324,6 +342,7 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
     large,
     uiRelated,
     highRisk,
+    lightweight,
     size: sizeLabel(fileCount),
   };
 }
@@ -426,13 +445,13 @@ function codeRabbitGate(reviews, headSha) {
   return { state: 'pending', detail: `CodeRabbit review state: ${review.state}.` };
 }
 
-async function ciGate(repo, mergeCommitSha) {
-  if (!mergeCommitSha) {
-    return { state: 'failure', detail: 'The PR has no testable merge commit.' };
+async function ciGate(repo, commitSha) {
+  if (!commitSha) {
+    return { state: 'failure', detail: 'The PR has no testable head commit.' };
   }
 
   const result = await request(
-    `/repos/${repo}/commits/${mergeCommitSha}/check-runs?filter=latest&per_page=100`,
+    `/repos/${repo}/commits/${commitSha}/check-runs?filter=latest&per_page=100`,
   );
   const requiredJobs = ['repository', 'mobile', 'bridge', 'functions'];
   const checks = new Map(result.check_runs?.map((check) => [check.name, check]) ?? []);
@@ -459,7 +478,41 @@ async function ciGate(repo, mergeCommitSha) {
 function gateIcon(state) {
   if (state === 'success') return '✅';
   if (state === 'failure') return '❌';
+  if (state === 'skipped') return '➖';
   return '⏳';
+}
+
+export function shouldEvaluateCi({ oversized, override }) {
+  return !oversized || override;
+}
+
+export function ciCheckSha(pr) {
+  return pr.head?.sha ?? null;
+}
+
+export function deferredCodeRabbitGate({ draft, oversized, intakePassed, override }) {
+  if (draft) {
+    return { state: 'pending', detail: 'Not requested while the PR is a draft.' };
+  }
+  if (override) {
+    return { state: 'skipped', detail: 'Skipped by maintainer override.' };
+  }
+  if (oversized) {
+    return { state: 'skipped', detail: 'Not requested for an oversized PR.' };
+  }
+  if (!intakePassed) {
+    return { state: 'pending', detail: 'Not requested until intake passes.' };
+  }
+  return { state: 'pending', detail: 'Not requested.' };
+}
+
+export function isCodeRabbitReviewEligible({
+  draft,
+  oversized,
+  intakePassed,
+  override,
+}) {
+  return !draft && !override && !oversized && intakePassed;
 }
 
 function readinessComment({ intake, ci, coderabbit, draft, override, fileCount }) {
@@ -599,13 +652,23 @@ async function evaluatePullRequest({ repo, number, maintainer }) {
 
   const reviews = await paginate(`/repos/${repo}/pulls/${number}/reviews`);
   const intakePassed = intake.errors.length === 0;
-  const reviewEligible = !pr.draft && !intake.oversized && intakePassed;
-  const ci = reviewEligible
-    ? await ciGate(repo, pr.merge_commit_sha)
-    : { state: 'pending', detail: 'Waiting for intake readiness.' };
+  const reviewEligible = isCodeRabbitReviewEligible({
+    draft: pr.draft,
+    oversized: intake.oversized,
+    intakePassed,
+    override,
+  });
+  const ci = shouldEvaluateCi({ oversized: intake.oversized, override })
+    ? await ciGate(repo, ciCheckSha(pr))
+    : { state: 'skipped', detail: 'Not run for an oversized PR.' };
   const coderabbit = reviewEligible
     ? codeRabbitGate(reviews, pr.head.sha)
-    : { state: 'pending', detail: 'Waiting for intake readiness.' };
+    : deferredCodeRabbitGate({
+        draft: pr.draft,
+        oversized: intake.oversized,
+        intakePassed,
+        override,
+      });
   const ready =
     !pr.draft &&
     (override ||
