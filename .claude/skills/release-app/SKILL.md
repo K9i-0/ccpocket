@@ -2,7 +2,7 @@
 name: release-app
 description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS / Linux / Windows の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(jq:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(bash scripts/release/run-checks.sh), Bash(node scripts/release/monitor.mjs:*), Read, Edit, AskUserQuestion
 ---
 
 # アプリ リリース
@@ -87,15 +87,12 @@ build number は現在の値 +1 で統一する。
 
 ### 5. ローカル検証
 
-タグ push 前に、CD と同じチェックをローカルで実行する。
-**すべて pass しなければ次のステップに進まない。**
+タグpush前に、CDと同じチェックをcompactラッパーで実行する。
+成功時は解析・テスト・合計時間の3行だけを返す。失敗時は一時ログのパスと
+最大120行の末尾だけを返す。**すべてpassしなければ次へ進まない。**
 
 ```bash
-# 静的解析
-dart analyze apps/mobile
-
-# テスト
-cd apps/mobile && flutter test
+bash scripts/release/run-checks.sh
 ```
 
 失敗した場合はユーザーに報告し、修正を待つ。
@@ -117,33 +114,15 @@ Windowsタグを含むリリースでは、**いずれのプラットフォー�
 
 ```bash
 release_sha=$(git rev-parse HEAD)
-test_run_id=""
-
-for _ in {1..20}; do
-  test_run_id=$(gh run list \
-    --workflow=test.yml \
-    --branch=main \
-    --commit="$release_sha" \
-    --event=push \
-    --limit=1 \
-    --json databaseId \
-    --jq '.[0].databaseId // empty')
-  [ -n "$test_run_id" ] && break
-  sleep 15
-done
-
-if [ -z "$test_run_id" ]; then
-  echo "Test workflow did not start for $release_sha"
-  exit 1
-fi
-
-gh run watch "$test_run_id" --exit-status
+node scripts/release/monitor.mjs preflight --sha "$release_sha"
 ```
 
-`gh run watch` が失敗した場合はタグを作成しない。
-`gh run view "$test_run_id" --log-failed` で原因を確認し、修正コミットをpushして、
-新しい `release_sha` のpreflightを最初から確認する。同じバージョン番号・build numberは、
-まだタグが存在しないためそのまま使用できる。
+監視スクリプトは起動検出を10秒間隔、実行中を30秒間隔で確認し、状態変化と
+3分ごとのheartbeatだけを出す。起動しなければ2分、完了しなければ15分で失敗する。
+個々の`gh`呼び出しも60秒で打ち切り、最大3回まで再試行する。
+失敗時はjob・step・run URLと、完全な失敗ログを保存した一時パスを1行で返す。
+タグは作成せず、必要なログ箇所だけを調査して修正コミットをpushし、新しいSHAで
+preflightをやり直す。タグがなければ同じversion/build numberを使用できる。
 
 ### 6.2. タグ
 
@@ -191,85 +170,19 @@ git push origin windows/vX.Y.Z+N
 | `linux/v*` | `linux-release.yml` | Linux release build → Xvfb smoke → tar.gz → GitHub Release |
 | `windows/v*` | `windows-release.yml` | Windows release build → smoke → zip → GitHub Release |
 
-```bash
-# 各プラットフォームのワークフロー確認（タグを打ったもののみ）
-gh run list --workflow=ios-release.yml --limit 1
-gh run list --workflow=android-release.yml --limit 1
-gh run list --workflow=macos-release.yml --limit 1
-gh run list --workflow=linux-release.yml --limit 1
-gh run list --workflow=windows-release.yml --limit 1
-```
-
-選択した全プラットフォームの CD が `completed/success` になるまで確認を継続する。
-失敗した場合は `gh run view <run-id> --log-failed` で原因を確認し、修正後に再実行する。
-
-#### 待機の目安
-
-リリース CD は Shorebird release、署名、公証、ストア配布を含むため、通常 15 分前後かかる。
-タグ push 直後から `gh run watch` で張り付くと出力が大きくなりやすいので、効率よく待つ場合は低頻度ポーリングにする。
-
-推奨:
+タグをpushしたプラットフォームだけをカンマ区切りで指定する:
 
 ```bash
-# 起動確認
-gh run list --workflow=ios-release.yml --limit 1
-gh run list --workflow=android-release.yml --limit 1
-gh run list --workflow=macos-release.yml --limit 1
-gh run list --workflow=linux-release.yml --limit 1
-gh run list --workflow=windows-release.yml --limit 1
-
-# 10〜15分ほど待ってから再確認
-gh run list --workflow=ios-release.yml --limit 1
-gh run list --workflow=android-release.yml --limit 1
-gh run list --workflow=macos-release.yml --limit 1
-gh run list --workflow=linux-release.yml --limit 1
-gh run list --workflow=windows-release.yml --limit 1
+node scripts/release/monitor.mjs release \
+  --version "X.Y.Z+N" \
+  --platforms "ios,android,macos,linux,windows"
 ```
 
-途中確認する場合も 2〜3 分間隔を目安にする。`failure` / `cancelled` が出た場合だけ `gh run view <run-id> --log-failed` で詳細を確認する。
+監視スクリプトは全タグが同じcommitを指すことを検証し、exact tag/SHAのrunだけを
+追跡する。起動検出は10秒間隔、開始後10分までは60秒間隔、その後は90秒間隔で確認し、
+状態変化と3分heartbeatだけを出す。起動しなければ2分、完了しなければ40分で失敗する。
+platformごとのworkflow名も照合し、同じtag/SHAで動く別workflowを成功扱いしない。
+`gh run watch`や個別の`gh run list`を直接繰り返さない。
 
-#### CD 成功までのポーリング
-
-タグを打った workflow だけを対象に、成功するまでループする。以下の例では全プラットフォームを確認するが、実行していない workflow は `release_tags` から外す。
-
-```bash
-version="X.Y.Z+N"
-declare -A release_tags=(
-  [ios-release.yml]="ios/v${version}"
-  [android-release.yml]="android/v${version}"
-  [macos-release.yml]="macos/v${version}"
-  [linux-release.yml]="linux/v${version}"
-  [windows-release.yml]="windows/v${version}"
-)
-
-while true; do
-  all_success=true
-  for workflow in "${!release_tags[@]}"; do
-    tag="${release_tags[$workflow]}"
-    run_json=$(gh run list --workflow="$workflow" --branch="$tag" --limit 1 --json databaseId,status,conclusion,url)
-    status=$(echo "$run_json" | jq -r '.[0].status')
-    conclusion=$(echo "$run_json" | jq -r '.[0].conclusion')
-    run_id=$(echo "$run_json" | jq -r '.[0].databaseId')
-    url=$(echo "$run_json" | jq -r '.[0].url')
-
-    echo "$workflow ($tag): $status/$conclusion $url"
-
-    if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
-      continue
-    fi
-
-    all_success=false
-    if [ "$status" = "completed" ]; then
-      gh run view "$run_id" --log-failed
-      exit 1
-    fi
-  done
-
-  if [ "$all_success" = true ]; then
-    echo "All selected release workflows completed successfully."
-    break
-  fi
-
-  sleep 180
-done
-```
+失敗時はcompactなjob/step要約と一時ログを調査する。全ログを会話へ貼らない。
+全対象が`completed/success`になるまでリリースを完了扱いにしない。

@@ -13,6 +13,8 @@ jobs:
           node-version: 22
       - name: Test PR readiness policy
         run: node --test scripts/pr-readiness.test.mjs
+      - name: Test release tools
+        run: npm run test:release-tools
 
   mobile:
     runs-on: ubuntu-latest

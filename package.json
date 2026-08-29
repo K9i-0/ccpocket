@@ -21,6 +21,7 @@
     "test:bridge": "npm run test --workspace=packages/bridge",
     "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge",
     "test:pr-readiness": "node --test scripts/pr-readiness.test.mjs",
+    "test:release-tools": "node --test scripts/release/*.test.mjs",
     "functions:typecheck": "npm --prefix functions run typecheck",
     "functions:build": "npm --prefix functions run build",
     "functions:deploy": "firebase deploy --only functions --project ccpocket-ca33b",
