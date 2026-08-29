@@ -148,7 +148,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
     final machine = manager.findByHostPort(
       uri.host,
-      uri.hasPort ? uri.port : 8765,
+      uri.port != 0 ? uri.port : 8765,
     );
     if (machine != null) {
       emit(state.copyWith(activeMachineId: machine.id));
