@@ -157,6 +157,19 @@ function isCompletedField(value) {
   return true;
 }
 
+function hasAutomatedUiTestEvidence(value) {
+  const success = /(?:\bpass(?:ed|es)?\b|\bsuccess(?:ful(?:ly)?)?\b|exit\s*(?:code\s*)?0|✅|成功|通過)/i;
+  const failure = /(?:\bnot\s+pass(?:ed|es)?\b|\bfail(?:ed|ure)?\b|exit\s*(?:code\s*)?[1-9]\d*|❌|失敗)/i;
+  const lines = value.split('\n');
+  return lines.some((line, index) => {
+    const command = /`[^`]*flutter\s+test[^`]*`/i.exec(line);
+    if (!command) return false;
+    const result = `${line.slice(command.index + command[0].length)}\n${lines[index + 1] ?? ''}`;
+    const normalizedResult = result.replace(/\b0\s+failed\b/gi, '');
+    return success.test(normalizedResult) && !failure.test(normalizedResult);
+  });
+}
+
 function hasAttachment(value) {
   return /https:\/\/(?:github\.com\/user-attachments|user-images\.githubusercontent\.com|github-production-user-asset-[^.]+\.s3\.amazonaws\.com)\//i.test(
     value,
@@ -280,15 +293,29 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
     sections['UI Evidence'],
     'No user-visible UI change',
   );
+  const textOnlyChange = hasCheckedItem(
+    sections['UI Evidence'],
+    'User-visible text-only change',
+  );
   const visualChange = hasCheckedItem(
+    sections['UI Evidence'],
+    'Visual or interaction UI change',
+  );
+  const legacyVisualChange = hasCheckedItem(
     sections['UI Evidence'],
     'User-visible UI change',
   );
-  if (Number(noVisualChange) + Number(visualChange) !== 1) {
+  if (
+    Number(noVisualChange) +
+      Number(textOnlyChange) +
+      Number(visualChange) +
+      Number(legacyVisualChange) !==
+    1
+  ) {
     errors.push('Select exactly one UI Evidence option.');
   }
 
-  if (visualChange) {
+  if (visualChange || legacyVisualChange) {
     const before = getField(sections['UI Evidence'], 'Before');
     const after = getField(sections['UI Evidence'], 'After');
     const device = getField(sections['UI Evidence'], 'Device / platform');
@@ -301,6 +328,26 @@ export function evaluateIntake({ body, files, fileCount, draft = false }) {
     if (!isMeaningful(device)) {
       errors.push('Complete “Device / platform” for the UI evidence.');
     }
+  }
+
+  if (
+    textOnlyChange &&
+    !hasAutomatedUiTestEvidence(
+      getField(sections['Test Evidence'], 'Automated tests (command and result)'),
+    )
+  ) {
+    errors.push(
+      'Add an automated UI test command and result for the text-only change (for example, `flutter test ...`).',
+    );
+  }
+
+  if (
+    textOnlyChange &&
+    !isMeaningful(getField(sections['UI Evidence'], 'No-visual-change reason'))
+  ) {
+    errors.push(
+      'Explain why automated UI test evidence is sufficient for this text-only change.',
+    );
   }
 
   if (

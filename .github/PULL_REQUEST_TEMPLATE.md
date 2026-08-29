@@ -48,12 +48,15 @@ Write "None — <reason>" only for a small, self-contained change.
 
 <!--
 Select exactly one option.
-For visible changes, upload images directly to GitHub. An After image or
-recording is required. Before may be "N/A — <reason>" only for a new UI.
+Text-only changes may use automated UI test evidence instead of an image. Include
+a backticked `flutter test ...` command and its explicit successful result.
+For visual or interaction changes, upload images directly to GitHub. An After
+image or recording is required. Before may be "N/A — <reason>" only for a new UI.
 -->
 
 - [ ] No user-visible UI change
-- [ ] User-visible UI change
+- [ ] User-visible text-only change
+- [ ] Visual or interaction UI change
 - No-visual-change reason:
 - Before:
 - After:
