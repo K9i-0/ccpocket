@@ -4,11 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.125.0] - 2026-08-29
+
+### Added
+- Preview common audio and video formats including MP3, M4A, AAC, FLAC, Ogg, Opus, AIFF, MOV, WebM, MKV, M4V, AVI, and MPEG files.
+
+### Changed
+- Require Bridge 1.79.0 for expanded media preview support and notification-opened session recovery.
+
+### Fixed
+- Restore persisted messages and runtime state when a session is opened from a notification.
+
 ## [1.124.0] - 2026-08-29
 
 ### Added
 - Show distinct, color-coded icons for folders, media, source code, data, archives, documents, and other file types throughout Explorer and file previews.
-- Preview common audio and video formats including MP3, M4A, AAC, FLAC, Ogg, Opus, AIFF, MOV, WebM, MKV, M4V, AVI, and MPEG files.
 
 ### Changed
 - Size video previews from their reported aspect ratio and keep playback controls clear of content and device safe areas.
