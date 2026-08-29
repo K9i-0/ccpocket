@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.124.0] - 2026-08-29
+
+### Added
+- Show distinct, color-coded icons for folders, media, source code, data, archives, documents, and other file types throughout Explorer and file previews.
+
+### Changed
+- Size video previews from their reported aspect ratio and keep playback controls clear of content and device safe areas.
+
 ## [1.123.0] - 2026-08-29
 
 ### Added
