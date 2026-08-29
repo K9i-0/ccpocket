@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   MAX_REVIEW_FILES,
+  SMALL_PR_FILES,
+  deferredCodeRabbitGate,
   evaluateIntake,
   getField,
   getSection,
@@ -10,6 +12,7 @@ import {
   isReviewPolicyPath,
   isUiRelatedPath,
   requiresReviewPolicyOverride,
+  shouldEvaluateCi,
   sizeLabel,
 } from './pr-readiness.mjs';
 
@@ -98,6 +101,15 @@ test('extracts markdown sections and multiline fields', () => {
   );
 });
 
+test('accepts CRLF line endings from GitHub web form edits', () => {
+  const result = evaluateIntake({
+    body: body().replace(/\n/g, '\r\n'),
+    files: ['apps/mobile/lib/features/settings/state/settings_cubit.dart'],
+    fileCount: 1,
+  });
+  assert.deepEqual(result.errors, []);
+});
+
 test('accepts a complete non-UI PR', () => {
   const result = evaluateIntake({
     body: body(),
@@ -107,6 +119,56 @@ test('accepts a complete non-UI PR', () => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.uiRelated, false);
   assert.equal(result.size, 'size:S');
+});
+
+test('treats supporting context as advisory for a small low-risk PR', () => {
+  const result = evaluateIntake({
+    body: body({
+      why: '',
+      outOfScope: '',
+      splitPlan: '',
+      manual: '',
+      platform: '',
+    }),
+    files: ['apps/mobile/lib/features/settings/state/settings_cubit.dart'],
+    fileCount: SMALL_PR_FILES,
+  });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.lightweight, true);
+  assert.equal(result.warnings.length, 5);
+});
+
+test('keeps supporting context mandatory for high-risk PRs', () => {
+  const result = evaluateIntake({
+    body: body({ manual: '' }),
+    files: ['packages/bridge/src/websocket.ts'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('Manual validation')));
+  assert.equal(result.lightweight, false);
+});
+
+test('keeps supporting context mandatory when the author selects high risk', () => {
+  const result = evaluateIntake({
+    body: body({ risk: 'High', manual: '' }),
+    files: ['docs/maintenance.md'],
+    fileCount: 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('Manual validation')));
+  assert.equal(result.highRisk, true);
+  assert.equal(result.lightweight, false);
+});
+
+test('keeps supporting context mandatory above the small PR limit', () => {
+  const result = evaluateIntake({
+    body: body({ splitPlan: '' }),
+    files: Array.from({ length: SMALL_PR_FILES + 1 }, (_, index) =>
+      `docs/file-${index}.md`,
+    ),
+    fileCount: SMALL_PR_FILES + 1,
+  });
+  assert.ok(result.errors.some((error) => error.includes('Split plan')));
+  assert.equal(result.lightweight, false);
 });
 
 test('requires a reason when mobile files claim no visual change', () => {
@@ -213,5 +275,44 @@ test('requires maintainer override for external review-policy changes', () => {
       override: false,
     }),
     false,
+  );
+});
+
+test('evaluates CI independently from intake readiness', () => {
+  assert.equal(
+    shouldEvaluateCi({ oversized: false, override: false, intakePassed: false }),
+    true,
+  );
+  assert.equal(shouldEvaluateCi({ oversized: true, override: false }), false);
+  assert.equal(shouldEvaluateCi({ oversized: true, override: true }), true);
+});
+
+test('explains why CodeRabbit was not requested', () => {
+  assert.deepEqual(
+    deferredCodeRabbitGate({
+      draft: true,
+      oversized: false,
+      intakePassed: true,
+      override: false,
+    }),
+    { state: 'pending', detail: 'Not requested while the PR is a draft.' },
+  );
+  assert.deepEqual(
+    deferredCodeRabbitGate({
+      draft: false,
+      oversized: false,
+      intakePassed: false,
+      override: false,
+    }),
+    { state: 'pending', detail: 'Not requested until intake passes.' },
+  );
+  assert.deepEqual(
+    deferredCodeRabbitGate({
+      draft: false,
+      oversized: false,
+      intakePassed: false,
+      override: true,
+    }),
+    { state: 'skipped', detail: 'Skipped by maintainer override.' },
   );
 });
