@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.126.0] - 2026-08-31
+
+### Added
+- Detect incompatible App–Bridge protocol ranges before starting a session and show localized guidance for updating the App, Bridge, or both.
+
+### Changed
+- Hold normal WebSocket requests until protocol compatibility is accepted, including prompt-history synchronization, and fail closed on malformed negotiation responses.
+- Pin persistent Bridge setup commands to the stable `@ccpocket/bridge@1` major and guide legacy `@latest` service installations toward the stable channel.
+- Require Bridge 1.80.0 for explicit protocol negotiation and compatibility management.
+
 ## [1.125.1] - 2026-08-29
 
 ### Fixed
