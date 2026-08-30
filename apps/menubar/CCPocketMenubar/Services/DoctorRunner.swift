@@ -27,7 +27,7 @@ final class DoctorRunner: Sendable {
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-li", "-c", "npx --yes @ccpocket/bridge@latest doctor --json"]
+            process.arguments = ["-li", "-c", "npx --yes @ccpocket/bridge@1 doctor --json"]
 
             let pipe = Pipe()
             process.standardOutput = pipe

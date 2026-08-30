@@ -34,6 +34,60 @@ void main() {
     expect(find.text('Check your Codex configuration.'), findsOneWidget);
   });
 
+  group('ErrorBubble protocol guidance', () {
+    testWidgets('asks for an App update when the Bridge protocol is newer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapErrorBubble(
+          locale: const Locale('en'),
+          child: const ErrorBubble(
+            message: ErrorMessage(
+              message: 'Protocol ranges do not overlap.',
+              errorCode: 'incompatible_protocol',
+              protocolVersion: 2,
+              minimumProtocolVersion: 2,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.text(
+          'Update CC Pocket from the source where you installed it, then reconnect.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.copy), findsNothing);
+    });
+
+    testWidgets('offers the pinned command when the Bridge must be updated', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapErrorBubble(
+          locale: const Locale('en'),
+          child: const ErrorBubble(
+            message: ErrorMessage(
+              message: 'Protocol ranges do not overlap.',
+              errorCode: 'incompatible_protocol',
+              protocolVersion: 0,
+              minimumProtocolVersion: 0,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.text(
+          'The protocol declaration is invalid or incomplete. Update both CC Pocket and the Bridge before reconnecting.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.copy), findsOneWidget);
+    });
+  });
+
   group('ErrorBubble auth UI', () {
     testWidgets('shows generic authentication guidance for auth_api_error', (
       tester,

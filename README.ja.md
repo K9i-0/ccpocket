@@ -92,7 +92,7 @@ CC Pocket app  <->  自分のマシン上の Bridge Server  <->  Codex / Claude
 常時起動するホストでは、Bridge Server をバックグラウンドサービスとして登録できます。
 
 ```bash
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 サービス化は macOS launchd と Linux systemd に対応しています。

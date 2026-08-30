@@ -1,9 +1,65 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 void main() {
+  test('does not send prompt history before rejecting protocol 2', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final received = <Map<String, dynamic>>[];
+    final capabilitiesReceived = Completer<void>();
+    server.transform(WebSocketTransformer()).listen((socket) {
+      socket.listen((raw) {
+        final message = jsonDecode(raw as String) as Map<String, dynamic>;
+        received.add(message);
+        if (message['type'] == 'client_capabilities' &&
+            !capabilitiesReceived.isCompleted) {
+          capabilitiesReceived.complete();
+          socket.add(
+            jsonEncode({
+              'type': 'session_list',
+              'sessions': <Object>[],
+              'protocolVersion': 2,
+              'minimumProtocolVersion': 2,
+            }),
+          );
+        }
+      });
+    });
+
+    final service = PromptHistoryService(DatabaseService());
+    final channel = WebSocketChannel.connect(
+      Uri.parse('ws://127.0.0.1:${server.port}'),
+    );
+    final result = await service
+        .performPromptHistorySyncHandshake(
+          channel: channel,
+          syncRequest: ClientMessage.syncPromptHistory(
+            clientId: 'test-client',
+            clientName: 'Test',
+            includeDeleted: true,
+          ),
+        )
+        .timeout(const Duration(seconds: 2));
+
+    expect(result, isA<ErrorMessage>());
+    expect((result as ErrorMessage).errorCode, 'incompatible_protocol');
+    await capabilitiesReceived.future;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      received.where((message) => message['type'] == 'sync_prompt_history'),
+      isEmpty,
+    );
+
+    await channel.sink.close();
+    await server.close(force: true);
+  });
+
   test('bridgeIdForUrl canonicalizes IPv6 and default ports', () {
     final service = PromptHistoryService(DatabaseService());
 

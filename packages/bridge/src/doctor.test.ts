@@ -32,6 +32,7 @@ const {
   checkTailscale,
   checkDataDirectory,
   checkLaunchdService,
+  checkSystemdService,
   checkScreenRecording,
   checkKeychainAccess,
   printReport,
@@ -48,6 +49,71 @@ describe("doctor checks", () => {
       const result = await checkNodeVersion();
       expect(result.status).toBe("pass");
       expect(result.message).toMatch(/^v\d+/);
+    });
+  });
+
+  describe("persistent service versioning", () => {
+    it("warns when launchd still follows unbounded latest", async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "darwin" });
+      mockExecSync.mockReturnValue("com.ccpocket.bridge");
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        "exec npx --yes @ccpocket/bridge@latest",
+      );
+      try {
+        const result = await checkLaunchdService();
+        expect(result.status).toBe("warn");
+        expect(result.remediation).toContain(
+          "npx --yes @ccpocket/bridge@1 setup",
+        );
+      } finally {
+        Object.defineProperty(process, "platform", {
+          value: originalPlatform,
+        });
+      }
+    });
+
+    it("warns about unbounded systemd even when the service is stopped", async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "linux" });
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        "ExecStart=npx --yes @ccpocket/bridge@latest",
+      );
+      mockExecSync.mockImplementation(() => {
+        throw new Error("inactive");
+      });
+      try {
+        const result = await checkSystemdService();
+        expect(result.status).toBe("warn");
+        expect(result.remediation).toContain(
+          "npx --yes @ccpocket/bridge@1 setup",
+        );
+        expect(mockExecSync).not.toHaveBeenCalled();
+      } finally {
+        Object.defineProperty(process, "platform", {
+          value: originalPlatform,
+        });
+      }
+    });
+
+    it("passes when systemd is pinned to the current major", async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "linux" });
+      mockExecSync.mockReturnValue("active");
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        "ExecStart=npx --yes @ccpocket/bridge@1",
+      );
+      try {
+        const result = await checkSystemdService();
+        expect(result.status).toBe("pass");
+      } finally {
+        Object.defineProperty(process, "platform", {
+          value: originalPlatform,
+        });
+      }
     });
   });
 

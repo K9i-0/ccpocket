@@ -18,6 +18,19 @@
   "sessionNameHint": "セッション名",
   "clearName": "名前をクリア",
   "connect": "接続",
+  "protocolIncompatibleTitle": "App と Bridge のバージョンに互換性がありません",
+  "protocolUpdateAppBody": "CC Pocket をインストール元から更新してから、もう一度接続してください。",
+  "protocolUpdateBridgeBody": "Bridge を互換性のあるリリースへ更新してから、もう一度接続してください。",
+  "protocolUpdateBothBody": "プロトコル情報が不正または不足しています。CC Pocket と Bridge の両方を更新してから再接続してください。",
+  "protocolRangeDetails": "App プロトコル {appMin}–{appMax}、Bridge プロトコル {bridgeMin}–{bridgeMax}",
+  "@protocolRangeDetails": {
+    "placeholders": {
+      "appMin": { "type": "int" },
+      "appMax": { "type": "int" },
+      "bridgeMin": { "type": "int" },
+      "bridgeMax": { "type": "int" }
+    }
+  },
   "toolSuggestionTitle": "Codex に {toolName} を追加しますか？",
   "toolSuggestionInstall": "{toolName} をインストール",
   "toolSuggestionInstalling": "インストール中…",
@@ -117,7 +130,7 @@
   "setupStep1Title": "Bridge Server を起動",
   "setupStep1Command": "npx --yes @ccpocket/bridge@latest",
   "setupStep2Title": "常時起動したい場合はサービス登録",
-  "setupStep2Command": "npx --yes @ccpocket/bridge@latest setup",
+  "setupStep2Command": "npx --yes @ccpocket/bridge@1 setup",
   "setupNetworkHint": "両方のデバイスが同じネットワーク上にあることを確認してください（または Tailscale を使用）。",
   "connectAnyway": "接続を続行",
 
@@ -295,7 +308,7 @@
   "bridgeUpdateSetupDescription": "このマシンで Bridge の更新機能を使うには、SSH 接続と Bridge の自動起動セットアップが必要です。",
   "bridgeUpdateSetupEnableSsh": "Bridge 接続設定で SSH を有効にします。",
   "bridgeUpdateSetupRunCommand": "接続先マシンでセットアップコマンドを実行しておきます。",
-  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@latest setup",
+  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@1 setup",
   "stopServer": "サーバーを停止",
   "update": "更新",
   "download": "ダウンロード",
@@ -676,7 +689,7 @@
   "guideLaunchdTitle": "常時起動の設定",
   "guideLaunchdDescription": "毎回手動で Bridge Server を起動するのが面倒な場合、マシンの起動時に自動で立ち上がるよう設定できます。",
   "guideLaunchdCommand": "セットアップコマンド",
-  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@latest setup",
+  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@1 setup",
   "guideLaunchdRecommendation": "まずは手動起動で動作確認してから、安定したらサービス登録がおすすめです。",
   "guideAutostartMacDescription": "launchd に登録。シェル環境（nvm、Homebrew 等）が自動で引き継がれます。",
   "guideAutostartLinuxDescription": "systemd ユーザーサービスを作成。Raspberry Pi 等の Linux ホストに対応。",

@@ -25,6 +25,19 @@
   "sessionNameHint": "会话名称",
   "clearName": "清除名称",
   "connect": "连接",
+  "protocolIncompatibleTitle": "App 与 Bridge 版本不兼容",
+  "protocolUpdateAppBody": "请从原安装来源更新 CC Pocket，然后重新连接。",
+  "protocolUpdateBridgeBody": "请将 Bridge 更新到兼容版本，然后重新连接。",
+  "protocolUpdateBothBody": "协议信息无效或不完整。请同时更新 CC Pocket 和 Bridge 后再重新连接。",
+  "protocolRangeDetails": "App 协议 {appMin}–{appMax}；Bridge 协议 {bridgeMin}–{bridgeMax}",
+  "@protocolRangeDetails": {
+    "placeholders": {
+      "appMin": { "type": "int" },
+      "appMax": { "type": "int" },
+      "bridgeMin": { "type": "int" },
+      "bridgeMax": { "type": "int" }
+    }
+  },
   "toolSuggestionTitle": "将 {toolName} 添加到 Codex？",
   "toolSuggestionInstall": "安装 {toolName}",
   "toolSuggestionInstalling": "正在安装…",
@@ -119,7 +132,7 @@
   "setupStep1Title": "启动 Bridge 服务器",
   "setupStep1Command": "npx --yes @ccpocket/bridge@latest",
   "setupStep2Title": "如需常驻运行，请注册为服务",
-  "setupStep2Command": "npx --yes @ccpocket/bridge@latest setup",
+  "setupStep2Command": "npx --yes @ccpocket/bridge@1 setup",
   "setupNetworkHint": "请确认两台设备位于同一网络中（或使用 Tailscale）。",
   "connectAnyway": "仍然连接",
 
@@ -272,7 +285,7 @@
   "bridgeUpdateSetupDescription": "要从应用更新 Bridge，需要为这台机器启用 SSH 连接并完成 Bridge 自动启动设置。",
   "bridgeUpdateSetupEnableSsh": "在 Bridge 连接设置中启用 SSH。",
   "bridgeUpdateSetupRunCommand": "在目标机器上运行设置命令。",
-  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@latest setup",
+  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@1 setup",
   "stopServer": "停止服务器",
   "update": "更新",
   "download": "下载",
@@ -655,7 +668,7 @@
   "guideLaunchdTitle": "自动启动设置",
   "guideLaunchdDescription": "如果每次手动启动 Bridge 服务太麻烦，你可以将它配置为设备开机时自动启动。",
   "guideLaunchdCommand": "设置命令",
-  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@latest setup",
+  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@1 setup",
   "guideLaunchdRecommendation": "建议先通过手动启动验证一切正常，再在稳定后注册为服务。",
   "guideAutostartMacDescription": "使用 launchd 注册。Shell 环境（nvm、Homebrew 等）会自动继承。",
   "guideAutostartLinuxDescription": "创建 systemd 用户服务。适用于 Raspberry Pi 及其他 Linux 主机。",

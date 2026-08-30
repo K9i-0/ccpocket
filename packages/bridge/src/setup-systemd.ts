@@ -7,6 +7,7 @@ import {
   readCodexSharedAppServerUrl,
 } from "./codex-app-server-config.js";
 import { parseBridgePort } from "./bridge-port.js";
+import { BRIDGE_STABLE_PACKAGE_SPEC } from "./distribution.js";
 
 const SERVICE_NAME = "ccpocket-bridge";
 
@@ -90,7 +91,7 @@ function buildServicePath(nodeBinDir: string): string {
 }
 
 const START_BRIDGE_COMMAND =
-  'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes @ccpocket/bridge@latest';
+  `if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes ${BRIDGE_STABLE_PACKAGE_SPEC}`;
 
 export function setupSystemd(opts: SetupOptions): void {
   const port = parseBridgePort(opts.port ?? process.env.BRIDGE_PORT);

@@ -99,7 +99,7 @@ For access away from home or the office, Tailscale is the recommended setup:
 For an always-on host, the Bridge Server can also be registered as a background service:
 
 ```bash
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 Service setup supports macOS launchd and Linux systemd.

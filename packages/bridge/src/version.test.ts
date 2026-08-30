@@ -53,6 +53,10 @@ describe("getVersionInfo", () => {
   it("returns all required fields", () => {
     const info = getVersionInfo(mockStartedAt);
     expect(info).toHaveProperty("version");
+    expect(info).toMatchObject({
+      protocolVersion: 1,
+      minimumProtocolVersion: 1,
+    });
     expect(info).toHaveProperty("nodeVersion");
     expect(info).toHaveProperty("platform");
     expect(info).toHaveProperty("arch");
