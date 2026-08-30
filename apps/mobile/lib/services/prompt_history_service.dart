@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -10,6 +11,7 @@ import 'package:crypto/crypto.dart';
 import '../core/logger.dart';
 import '../models/machine.dart';
 import '../models/messages.dart';
+import '../models/protocol_version.dart';
 import '../utils/command_parser.dart';
 import '../utils/network_endpoint.dart';
 import 'bridge_service.dart';
@@ -451,23 +453,14 @@ class PromptHistoryService {
 
     try {
       channel = WebSocketChannel.connect(Uri.parse(target.bridgeUrl));
-      channel.sink.add(ClientMessage.clientCapabilities().toJson());
-      channel.sink.add(
-        ClientMessage.syncPromptHistory(
+      final result = await performPromptHistorySyncHandshake(
+        channel: channel,
+        syncRequest: ClientMessage.syncPromptHistory(
           clientId: clientId,
           clientName: name,
           includeDeleted: true,
-        ).toJson(),
-      );
-
-      final result = await channel.stream
-          .map((raw) => ServerMessage.fromJson(jsonDecode(raw as String)))
-          .where(
-            (msg) =>
-                msg is PromptHistorySyncResultMessage || msg is ErrorMessage,
-          )
-          .first
-          .timeout(_syncTimeout);
+        ),
+      ).timeout(_syncTimeout);
 
       if (result is PromptHistorySyncResultMessage && result.success) {
         final syncedAt =
@@ -521,6 +514,67 @@ class PromptHistoryService {
     } finally {
       unawaited(channel?.sink.close());
     }
+  }
+
+  @visibleForTesting
+  Future<ServerMessage> performPromptHistorySyncHandshake({
+    required WebSocketChannel channel,
+    required ClientMessage syncRequest,
+  }) async {
+    var protocolAccepted = false;
+    channel.sink.add(ClientMessage.clientCapabilities().toJson());
+
+    await for (final raw in channel.stream) {
+      final json = jsonDecode(raw as String) as Map<String, dynamic>;
+      if (json['type'] == 'session_list') {
+        final compatibility = ProtocolCompatibility.fromBridgeJson(json);
+        if (!compatibility.isCompatible) {
+          return ErrorMessage(
+            message: compatibility.malformedBridgeRange
+                ? 'Bridge advertised a malformed protocol range.'
+                : 'App and Bridge protocol ranges do not overlap.',
+            errorCode: 'incompatible_protocol',
+            protocolVersion: compatibility.bridgeMaxVersion > 0
+                ? compatibility.bridgeMaxVersion
+                : null,
+            minimumProtocolVersion: compatibility.bridgeMinVersion > 0
+                ? compatibility.bridgeMinVersion
+                : null,
+          );
+        }
+        if (!protocolAccepted) {
+          protocolAccepted = true;
+          channel.sink.add(syncRequest.toJson());
+        }
+        continue;
+      }
+
+      if (json['type'] == 'error' &&
+          json['errorCode'] == 'incompatible_protocol') {
+        final compatibility = ProtocolCompatibility.fromBridgeRejectionJson(
+          json,
+        );
+        return ErrorMessage(
+          message: json['message'] is String
+              ? json['message'] as String
+              : 'Bridge rejected the App protocol declaration.',
+          errorCode: 'incompatible_protocol',
+          protocolVersion: compatibility.bridgeMaxVersion > 0
+              ? compatibility.bridgeMaxVersion
+              : null,
+          minimumProtocolVersion: compatibility.bridgeMinVersion > 0
+              ? compatibility.bridgeMinVersion
+              : null,
+        );
+      }
+
+      final message = ServerMessage.fromJson(json);
+      if (message is ErrorMessage ||
+          (protocolAccepted && message is PromptHistorySyncResultMessage)) {
+        return message;
+      }
+    }
+    return const ErrorMessage(message: 'Bridge connection closed during sync.');
   }
 
   Future<List<PromptHistorySyncStatus>> getSyncStatuses() async {

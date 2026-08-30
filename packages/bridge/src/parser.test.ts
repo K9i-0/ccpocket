@@ -98,14 +98,28 @@ describe("parseClientMessage", () => {
 
   it("parses client capabilities", () => {
     const msg = parseClientMessage(
-      '{"type":"client_capabilities","protocolVersion":1,"appVersion":"1.72.1","supportedServerMessages":["conversation_queue"]}',
+      '{"type":"client_capabilities","protocolVersion":1,"minimumProtocolVersion":1,"appVersion":"1.72.1","supportedServerMessages":["conversation_queue"]}',
     );
     expect(msg).toEqual({
       type: "client_capabilities",
       protocolVersion: 1,
+      minimumProtocolVersion: 1,
       appVersion: "1.72.1",
       supportedServerMessages: ["conversation_queue"],
     });
+  });
+
+  it("rejects an invalid client protocol range", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"client_capabilities","protocolVersion":1,"minimumProtocolVersion":2}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"client_capabilities","minimumProtocolVersion":1}',
+      ),
+    ).toBeNull();
   });
 
   it("rejects client capabilities with invalid supported messages", () => {

@@ -1,0 +1,6 @@
+{
+  "type": "client_capabilities",
+  "protocolVersion": 1,
+  "minimumProtocolVersion": 1,
+  "supportedServerMessages": ["session_context"]
+}

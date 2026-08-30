@@ -60,6 +60,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect => 'Connect';
 
   @override
+  String get protocolIncompatibleTitle =>
+      'App and Bridge versions are incompatible';
+
+  @override
+  String get protocolUpdateAppBody =>
+      'Update CC Pocket from the source where you installed it, then reconnect.';
+
+  @override
+  String get protocolUpdateBridgeBody =>
+      'Update the Bridge to a compatible release, then reconnect.';
+
+  @override
+  String get protocolUpdateBothBody =>
+      'The protocol declaration is invalid or incomplete. Update both CC Pocket and the Bridge before reconnecting.';
+
+  @override
+  String protocolRangeDetails(
+    int appMin,
+    int appMax,
+    int bridgeMin,
+    int bridgeMax,
+  ) {
+    return 'App protocol $appMin–$appMax; Bridge protocol $bridgeMin–$bridgeMax';
+  }
+
+  @override
   String toolSuggestionTitle(Object toolName) {
     return 'Add $toolName to Codex?';
   }
@@ -365,7 +391,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setupStep2Title => 'For persistent startup, register as service';
 
   @override
-  String get setupStep2Command => 'npx --yes @ccpocket/bridge@latest setup';
+  String get setupStep2Command => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get setupNetworkHint =>
@@ -808,7 +834,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Run the setup command on the target machine.';
 
   @override
-  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@latest setup';
+  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@1 setup';
 
   @override
   String get stopServer => 'Stop Server';
@@ -1736,8 +1762,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get guideLaunchdCommand => 'Setup Command';
 
   @override
-  String get guideLaunchdCommandValue =>
-      'npx --yes @ccpocket/bridge@latest setup';
+  String get guideLaunchdCommandValue => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get guideLaunchdRecommendation =>

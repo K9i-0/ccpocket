@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
+import '../../../models/protocol_version.dart';
 import '../../../services/server_discovery_service.dart';
 import '../../../utils/platform_helper.dart';
 import 'discovered_servers_list.dart';
 import 'machine_list.dart';
+import 'protocol_incompatibility_card.dart';
 
 class ConnectForm extends StatelessWidget {
   final List<DiscoveredServer> discoveredServers;
@@ -28,6 +30,7 @@ class ConnectForm extends StatelessWidget {
   final ValueChanged<MachineWithStatus>? onStopMachine;
   final VoidCallback? onAddMachine;
   final VoidCallback? onRefreshMachines;
+  final ProtocolCompatibility? protocolCompatibility;
 
   const ConnectForm({
     super.key,
@@ -49,6 +52,7 @@ class ConnectForm extends StatelessWidget {
     this.onStopMachine,
     this.onAddMachine,
     this.onRefreshMachines,
+    this.protocolCompatibility,
   });
 
   bool get _hasMachineHandlers =>
@@ -99,6 +103,12 @@ class ConnectForm extends StatelessWidget {
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 24),
+
+          if (protocolCompatibility case final compatibility?
+              when !compatibility.isCompatible) ...[
+            ProtocolIncompatibilityCard(compatibility: compatibility),
+            const SizedBox(height: 16),
+          ],
 
           // Machines section (favorites + recent)
           if (_hasMachineHandlers) ...[

@@ -162,7 +162,7 @@ void main() {
         command,
         contains('npx is not available in the remote login shell'),
       );
-      expect(command, contains('npx @ccpocket/bridge@latest setup'));
+      expect(command, contains('npx @ccpocket/bridge@1 setup'));
     });
 
     test('checks npx availability for the systemd service', () {
@@ -177,6 +177,16 @@ void main() {
       expect(preflight, contains(r'[ ! -x "$NPX_COMMAND" ]'));
       expect(preflight, contains('command -v npx'));
       expect(preflight, contains('exit 127'));
+      expect(preflight, isNot(contains('@ccpocket/bridge@latest setup')));
+    });
+
+    test('migrates persistent services away from unbounded latest', () {
+      final command = SshStartupService.startCommandForTest;
+
+      expect(command, contains('@ccpocket/bridge@(latest|1)'));
+      expect(command, contains('exec npx --yes @ccpocket/bridge@1'));
+      expect(command, contains(r'\@ccpocket/bridge\@latest'));
+      expect(command, contains(r'\@ccpocket/bridge\@1'));
     });
 
     test('update preflight can fail before stop command runs', () {

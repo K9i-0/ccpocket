@@ -10,6 +10,7 @@ import {
   accessSync,
   constants as fsConstants,
   existsSync,
+  readFileSync,
 } from "node:fs";
 import net from "node:net";
 import { homedir } from "node:os";
@@ -19,6 +20,10 @@ import {
   isClaudeBedrockModeEnabled,
   isClaudeBedrockRegionConfigured,
 } from "./claude-provider.js";
+import {
+  BRIDGE_STABLE_SETUP_COMMAND,
+  usesUnboundedBridgeLatest,
+} from "./distribution.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -439,6 +444,20 @@ export async function checkLaunchdService(): Promise<CheckResult> {
       message: "macOS only",
     };
   }
+  const plistPath = join(
+    homedir(),
+    "Library",
+    "LaunchAgents",
+    "com.ccpocket.bridge.plist",
+  );
+  if (serviceFileUsesUnboundedLatest(plistPath)) {
+    return {
+      name: "launchd service",
+      status: "warn",
+      message: "Configured with unbounded @latest updates",
+      remediation: `Pin to the current major: ${BRIDGE_STABLE_SETUP_COMMAND}`,
+    };
+  }
   try {
     const out = execSync("launchctl list", {
       encoding: "utf-8",
@@ -455,7 +474,7 @@ export async function checkLaunchdService(): Promise<CheckResult> {
       name: "launchd service",
       status: "skip",
       message: "Not registered",
-      remediation: "Register with: ccpocket-bridge setup",
+      remediation: `Register with: ${BRIDGE_STABLE_SETUP_COMMAND}`,
     };
   } catch {
     return {
@@ -472,6 +491,21 @@ export async function checkSystemdService(): Promise<CheckResult> {
       name: "systemd service",
       status: "skip",
       message: "Linux only",
+    };
+  }
+  const servicePath = join(
+    homedir(),
+    ".config",
+    "systemd",
+    "user",
+    "ccpocket-bridge.service",
+  );
+  if (serviceFileUsesUnboundedLatest(servicePath)) {
+    return {
+      name: "systemd service",
+      status: "warn",
+      message: "Configured with unbounded @latest updates",
+      remediation: `Pin to the current major: ${BRIDGE_STABLE_SETUP_COMMAND}`,
     };
   }
   try {
@@ -493,15 +527,26 @@ export async function checkSystemdService(): Promise<CheckResult> {
       name: "systemd service",
       status: "skip",
       message: `Status: ${out.trim()}`,
-      remediation: "Register with: ccpocket-bridge setup",
+      remediation: `Register with: ${BRIDGE_STABLE_SETUP_COMMAND}`,
     };
   } catch {
     return {
       name: "systemd service",
       status: "skip",
       message: "Not registered",
-      remediation: "Register with: ccpocket-bridge setup",
+      remediation: `Register with: ${BRIDGE_STABLE_SETUP_COMMAND}`,
     };
+  }
+}
+
+function serviceFileUsesUnboundedLatest(path: string): boolean {
+  try {
+    return (
+      existsSync(path) &&
+      usesUnboundedBridgeLatest(readFileSync(path, "utf8"))
+    );
+  } catch {
+    return false;
   }
 }
 

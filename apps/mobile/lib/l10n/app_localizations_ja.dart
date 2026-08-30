@@ -60,6 +60,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String get connect => '接続';
 
   @override
+  String get protocolIncompatibleTitle => 'App と Bridge のバージョンに互換性がありません';
+
+  @override
+  String get protocolUpdateAppBody =>
+      'CC Pocket をインストール元から更新してから、もう一度接続してください。';
+
+  @override
+  String get protocolUpdateBridgeBody =>
+      'Bridge を互換性のあるリリースへ更新してから、もう一度接続してください。';
+
+  @override
+  String get protocolUpdateBothBody =>
+      'プロトコル情報が不正または不足しています。CC Pocket と Bridge の両方を更新してから再接続してください。';
+
+  @override
+  String protocolRangeDetails(
+    int appMin,
+    int appMax,
+    int bridgeMin,
+    int bridgeMax,
+  ) {
+    return 'App プロトコル $appMin–$appMax、Bridge プロトコル $bridgeMin–$bridgeMax';
+  }
+
+  @override
   String toolSuggestionTitle(Object toolName) {
     return 'Codex に $toolName を追加しますか？';
   }
@@ -351,7 +376,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get setupStep2Title => '常時起動したい場合はサービス登録';
 
   @override
-  String get setupStep2Command => 'npx --yes @ccpocket/bridge@latest setup';
+  String get setupStep2Command => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get setupNetworkHint =>
@@ -785,7 +810,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bridgeUpdateSetupRunCommand => '接続先マシンでセットアップコマンドを実行しておきます。';
 
   @override
-  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@latest setup';
+  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@1 setup';
 
   @override
   String get stopServer => 'サーバーを停止';
@@ -1661,8 +1686,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get guideLaunchdCommand => 'セットアップコマンド';
 
   @override
-  String get guideLaunchdCommandValue =>
-      'npx --yes @ccpocket/bridge@latest setup';
+  String get guideLaunchdCommandValue => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get guideLaunchdRecommendation =>

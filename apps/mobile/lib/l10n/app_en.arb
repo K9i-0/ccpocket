@@ -25,6 +25,19 @@
   "sessionNameHint": "Session name",
   "clearName": "Clear name",
   "connect": "Connect",
+  "protocolIncompatibleTitle": "App and Bridge versions are incompatible",
+  "protocolUpdateAppBody": "Update CC Pocket from the source where you installed it, then reconnect.",
+  "protocolUpdateBridgeBody": "Update the Bridge to a compatible release, then reconnect.",
+  "protocolUpdateBothBody": "The protocol declaration is invalid or incomplete. Update both CC Pocket and the Bridge before reconnecting.",
+  "protocolRangeDetails": "App protocol {appMin}–{appMax}; Bridge protocol {bridgeMin}–{bridgeMax}",
+  "@protocolRangeDetails": {
+    "placeholders": {
+      "appMin": { "type": "int" },
+      "appMax": { "type": "int" },
+      "bridgeMin": { "type": "int" },
+      "bridgeMax": { "type": "int" }
+    }
+  },
   "toolSuggestionTitle": "Add {toolName} to Codex?",
   "@toolSuggestionTitle": {
     "placeholders": {
@@ -140,7 +153,7 @@
   "setupStep1Title": "Start the Bridge server",
   "setupStep1Command": "npx --yes @ccpocket/bridge@latest",
   "setupStep2Title": "For persistent startup, register as service",
-  "setupStep2Command": "npx --yes @ccpocket/bridge@latest setup",
+  "setupStep2Command": "npx --yes @ccpocket/bridge@1 setup",
   "setupNetworkHint": "Make sure both devices are on the same network (or use Tailscale).",
   "connectAnyway": "Connect Anyway",
 
@@ -293,7 +306,7 @@
   "bridgeUpdateSetupDescription": "To update Bridge from this app, the machine needs SSH access and Bridge auto-start setup.",
   "bridgeUpdateSetupEnableSsh": "Enable SSH in the Bridge connection settings.",
   "bridgeUpdateSetupRunCommand": "Run the setup command on the target machine.",
-  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@latest setup",
+  "bridgeUpdateSetupCommand": "npx @ccpocket/bridge@1 setup",
   "stopServer": "Stop Server",
   "update": "Update",
   "download": "Download",
@@ -656,7 +669,7 @@
   "guideLaunchdTitle": "Auto-start Setup",
   "guideLaunchdDescription": "If manually starting the Bridge Server is tedious, you can configure it to start automatically when your machine boots.",
   "guideLaunchdCommand": "Setup Command",
-  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@latest setup",
+  "guideLaunchdCommandValue": "npx --yes @ccpocket/bridge@1 setup",
   "guideLaunchdRecommendation": "We recommend verifying with manual startup first, then registering as a service once stable.",
   "guideAutostartMacDescription": "Registers with launchd. Shell environment (nvm, Homebrew, etc.) is inherited automatically.",
   "guideAutostartLinuxDescription": "Creates a systemd user service. Works with Raspberry Pi and other Linux hosts.",

@@ -61,7 +61,7 @@ describe("setup-launchd", () => {
       expect(content).toContain("<string>8765</string>");
       expect(content).toContain("<key>BRIDGE_HOST</key>");
       expect(content).toContain(
-        "<string>exec npx --yes @ccpocket/bridge@latest</string>",
+        "<string>exec npx --yes @ccpocket/bridge@1</string>",
       );
       expect(content).not.toContain("BRIDGE_API_KEY");
       expect(content).not.toContain("BRIDGE_ALLOWED_DIRS");

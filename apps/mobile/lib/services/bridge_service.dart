@@ -10,6 +10,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../core/logger.dart';
 import '../models/messages.dart';
 import '../models/offline_pending_action.dart';
+import '../models/protocol_version.dart';
 import '../utils/codex_plan_update.dart';
 import '../utils/network_endpoint.dart';
 import 'bridge_service_base.dart';
@@ -148,6 +149,7 @@ class BridgeService implements BridgeServiceBase {
   String? _defaultCodexProfile;
   bool _codexAutoReviewDisabled = false;
   String? _bridgeVersion;
+  ProtocolCompatibility? _protocolCompatibility;
   Set<String> _protocolCapabilities = const {};
   String? _promptHistoryBridgeId;
   UsageResultMessage? _lastUsageResult;
@@ -411,6 +413,7 @@ class BridgeService implements BridgeServiceBase {
   String? get defaultCodexProfile => _defaultCodexProfile;
   bool get codexAutoReviewDisabled => _codexAutoReviewDisabled;
   String? get bridgeVersion => _bridgeVersion;
+  ProtocolCompatibility? get protocolCompatibility => _protocolCompatibility;
   String? get promptHistoryBridgeId => _promptHistoryBridgeId;
   UsageResultMessage? get lastUsageResult => _lastUsageResult;
   List<OfflinePendingAction> get offlinePendingActions =>
@@ -522,6 +525,7 @@ class BridgeService implements BridgeServiceBase {
     final isReplacingConnectedSocket = _channel != null && isConnected;
     _connectionEpoch++;
     _protocolCapabilities = const {};
+    _protocolCompatibility = null;
     _legacyWorktreeRemoveFamilyQuarantined = false;
     final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
@@ -553,6 +557,26 @@ class BridgeService implements BridgeServiceBase {
           if (epoch != _connectionEpoch) return;
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
+            ProtocolCompatibility? announcedCompatibility;
+            if (json['type'] == 'session_list') {
+              announcedCompatibility = ProtocolCompatibility.fromBridgeJson(
+                json,
+              );
+              if (!announcedCompatibility.isCompatible) {
+                _rejectIncompatibleBridgeProtocol(announcedCompatibility);
+                return;
+              }
+            }
+            if (json['type'] == 'error' &&
+                json['errorCode'] == 'incompatible_protocol') {
+              _rejectIncompatibleBridgeProtocol(
+                ProtocolCompatibility.fromBridgeRejectionJson(json),
+                bridgeMessage: json['message'] is String
+                    ? json['message'] as String
+                    : 'Bridge rejected the App protocol declaration.',
+              );
+              return;
+            }
             final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
             _clearDeliveredNonReplayableToolAction(msg, sessionId: sessionId);
@@ -596,6 +620,8 @@ class BridgeService implements BridgeServiceBase {
                 :final bridgeVersion,
                 :final protocolCapabilities,
               ):
+                final compatibility = announcedCompatibility!;
+                _protocolCompatibility = compatibility;
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
                 _clearPendingStartActionsForSessions(_sessions);
                 _publishSessionList();
@@ -611,6 +637,7 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
                 _protocolCapabilities = protocolCapabilities;
+                _flushMessageQueue();
                 _dispatchNextLegacyFileListRequest();
                 _dispatchNextLegacyWorktreeListRequest();
                 _dispatchNextLegacyWorktreeRemoveRequest();
@@ -925,7 +952,9 @@ class BridgeService implements BridgeServiceBase {
               _setBridgeConnectionState(BridgeConnectionState.connected);
               _reconnectAttempt = 0;
               send(ClientMessage.clientCapabilities());
-              _flushMessageQueue();
+              if (_protocolCompatibility?.isCompatible ?? false) {
+                _flushMessageQueue();
+              }
             })
             .catchError((Object error, StackTrace stackTrace) {
               if (epoch != _connectionEpoch || _intentionalDisconnect) return;
@@ -1245,6 +1274,7 @@ class BridgeService implements BridgeServiceBase {
     _defaultCodexProfile = null;
     _codexAutoReviewDisabled = false;
     _bridgeVersion = null;
+    _protocolCompatibility = null;
     _protocolCapabilities = const {};
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
@@ -1309,6 +1339,50 @@ class BridgeService implements BridgeServiceBase {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return null;
+  }
+
+  void _rejectIncompatibleBridgeProtocol(
+    ProtocolCompatibility compatibility, {
+    String? bridgeMessage,
+  }) {
+    final rejectedChannel = _channel;
+    final rejectedSubscription = _channelSub;
+    _intentionalDisconnect = true;
+    _connectionEpoch++;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _channel = null;
+    _channelSub = null;
+    if (rejectedSubscription != null) {
+      unawaited(rejectedSubscription.cancel());
+    }
+    _requeueInFlightInputMessages();
+    _requeueInFlightPendingMessages();
+    _clearBridgeScopedState(clearOfflineQueue: false);
+    _protocolCompatibility = compatibility;
+    final message =
+        bridgeMessage ??
+        (compatibility.malformedBridgeRange
+            ? 'Bridge advertised a malformed protocol range.'
+            : 'App protocol range '
+                  '$appProtocolMinVersion-$appProtocolMaxVersion '
+                  'does not overlap Bridge protocol range '
+                  '${compatibility.bridgeMinVersion}-'
+                  '${compatibility.bridgeMaxVersion}.');
+    final error = ErrorMessage(
+      message: message,
+      errorCode: 'incompatible_protocol',
+      protocolVersion: compatibility.bridgeMaxVersion > 0
+          ? compatibility.bridgeMaxVersion
+          : null,
+      minimumProtocolVersion: compatibility.bridgeMinVersion > 0
+          ? compatibility.bridgeMinVersion
+          : null,
+    );
+    _taggedMessageController.add((error, null));
+    _messageController.add(error);
+    _setBridgeConnectionState(BridgeConnectionState.disconnected);
+    rejectedChannel?.sink.close(4406, 'Incompatible protocol version');
   }
 
   void _handleHistoryDelta(String sessionId, HistoryDeltaMessage msg) {
@@ -1410,7 +1484,11 @@ class BridgeService implements BridgeServiceBase {
     }
     onOutgoingMessage?.call(message);
     if (_disposed) return;
-    if (_channel != null && isConnected) {
+    final canSendBeforeNegotiation = message.type == 'client_capabilities';
+    final protocolReady = _protocolCompatibility?.isCompatible ?? false;
+    if (_channel != null &&
+        isConnected &&
+        (canSendBeforeNegotiation || protocolReady)) {
       if (!_trackInFlightPendingMessage(message)) return;
       _trackInFlightInputMessage(message);
       _trackNonReplayableToolAction(message);

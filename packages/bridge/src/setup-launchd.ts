@@ -7,6 +7,7 @@ import {
   readCodexSharedAppServerUrl,
 } from "./codex-app-server-config.js";
 import { parseBridgePort } from "./bridge-port.js";
+import { BRIDGE_STABLE_PACKAGE_SPEC } from "./distribution.js";
 
 const PLIST_LABEL = "com.ccpocket.bridge";
 
@@ -162,7 +163,7 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>/bin/zsh</string>
         <string>-li</string>
         <string>-c</string>
-        <string>exec npx --yes @ccpocket/bridge@latest</string>
+        <string>exec npx --yes ${BRIDGE_STABLE_PACKAGE_SPEC}</string>
     </array>
 
     <key>EnvironmentVariables</key>

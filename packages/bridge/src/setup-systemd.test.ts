@@ -73,7 +73,7 @@ describe("setup-systemd", () => {
       expect(content).toContain("[Unit]");
       expect(content).toContain("Description=CC Pocket Bridge Server");
       expect(content).toContain(
-        'ExecStart=/bin/bash -lc \'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes @ccpocket/bridge@latest\'',
+        'ExecStart=/bin/bash -lc \'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes @ccpocket/bridge@1\'',
       );
       expect(content).toContain(
         "Environment=PATH=/home/testuser/.local/bin:/home/testuser/bin:/home/testuser/.nvm/versions/node/current/bin:/home/testuser/.volta/bin:/home/testuser/.mise/shims:/home/testuser/.asdf/shims:/home/testuser/.bun/bin:/home/testuser/.npm-global/bin:/usr/local/bin:/usr/bin:/bin",
