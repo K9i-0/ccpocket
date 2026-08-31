@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.80.1] - 2026-08-31
+
+### Fixed
+- Keep Codex Fast mode synchronized across session indexing, resume, and runtime updates by normalizing current and legacy service-tier metadata.
+
 ## [1.80.0] - 2026-08-31
 
 ### Added
