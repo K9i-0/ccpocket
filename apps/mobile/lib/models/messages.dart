@@ -545,7 +545,7 @@ enum CodexSpeed {
 }
 
 CodexSpeed codexSpeedFromRaw(String? raw) => switch (raw?.trim()) {
-  'fast' => CodexSpeed.fast,
+  'fast' || 'priority' => CodexSpeed.fast,
   _ => CodexSpeed.standard,
 };
 

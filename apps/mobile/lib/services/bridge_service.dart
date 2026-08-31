@@ -3813,6 +3813,11 @@ class BridgeService implements BridgeServiceBase {
             : current.codexModel,
         codexModelReasoningEffort:
             message.modelReasoningEffort ?? current.codexModelReasoningEffort,
+        codexServiceTier:
+            message.provider == Provider.codex.value &&
+                message.serviceTier != null
+            ? codexSpeedFromRaw(message.serviceTier).value
+            : current.codexServiceTier,
         codexNetworkAccessEnabled:
             message.networkAccessEnabled ?? current.codexNetworkAccessEnabled,
         codexWebSearchMode: message.webSearchMode ?? current.codexWebSearchMode,

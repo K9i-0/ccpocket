@@ -251,7 +251,7 @@ void main() {
             codexSandboxMode: 'danger-full-access',
             codexModel: 'gpt-5.5',
             codexModelReasoningEffort: 'high',
-            codexServiceTier: 'fast',
+            codexServiceTier: 'priority',
             pendingPermission: const PermissionRequestMessage(
               toolUseId: 'tool-1',
               toolName: 'Bash',
@@ -280,6 +280,31 @@ void main() {
       expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.high);
       expect(cubit.state.codexSpeed, CodexSpeed.fast);
       expect(cubit.state.approval, isA<ApprovalPermission>());
+    });
+
+    test('partial session context preserves the current Codex speed', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      cubit.setCodexSpeed(CodexSpeed.fast);
+      mockBridge.emitMessage(
+        SessionContextMessage(
+          sessionId: 's1',
+          context: const SessionInfo(
+            id: 's1',
+            provider: 'codex',
+            projectPath: '/repo',
+            status: 'idle',
+            createdAt: '',
+            lastActivityAt: '',
+          ),
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.codexSpeed, CodexSpeed.fast);
     });
 
     test('canonical context clears stale route worktree metadata', () async {

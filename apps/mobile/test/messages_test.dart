@@ -250,6 +250,12 @@ void main() {
     expect(reasoningEffortByValue('  '), isNull);
   });
 
+  test('CodexSpeed accepts the Codex priority service tier as Fast', () {
+    expect(codexSpeedFromRaw('priority'), CodexSpeed.fast);
+    expect(codexSpeedFromRaw('fast'), CodexSpeed.fast);
+    expect(codexSpeedFromRaw('standard'), CodexSpeed.standard);
+  });
+
   group('pathBasename', () {
     test('handles POSIX and Windows path separators', () {
       expect(pathBasename('/Users/me/project-a'), 'project-a');

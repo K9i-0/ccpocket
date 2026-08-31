@@ -387,7 +387,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         codexModelReasoningEffort:
             reasoningEffortByValue(context.codexModelReasoningEffort) ??
             state.codexModelReasoningEffort,
-        codexSpeed: codexSpeedFromRaw(context.codexServiceTier),
+        codexSpeed: context.codexServiceTier == null
+            ? state.codexSpeed
+            : codexSpeedFromRaw(context.codexServiceTier),
         planMode: context.resolvedPlanMode,
         inPlanMode: context.resolvedPlanMode,
         sandboxMode: sandboxMode ?? state.sandboxMode,

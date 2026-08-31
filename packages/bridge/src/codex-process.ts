@@ -16,6 +16,10 @@ import {
   type CodexTransport,
 } from "./codex-transport.js";
 import { codexCliJoinTarget } from "./codex-app-server-config.js";
+import {
+  normalizeCodexServiceTierForClient,
+  normalizeCodexServiceTierForRpc,
+} from "./codex-service-tier.js";
 import { resolvePlatformPath } from "./path-utils.js";
 
 export { buildCodexSpawnSpec };
@@ -486,7 +490,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   /** Update Codex speed for the next turn without restarting the thread. */
   setServiceTier(serviceTier: string): void {
-    this._runtimeServiceTier = normalizeServiceTier(serviceTier);
+    this._runtimeServiceTier = normalizeCodexServiceTierForRpc(serviceTier);
     console.log(`[codex-process] Speed changed to: ${this.serviceTier}`);
   }
 
@@ -814,7 +818,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._runtimeServiceTier =
       options?.serviceTier === undefined
         ? undefined
-        : normalizeServiceTier(options.serviceTier);
+        : normalizeCodexServiceTierForRpc(options.serviceTier);
     this._approvalPolicy = options?.approvalPolicy;
     this._approvalsReviewer =
       options?.approvalsReviewer === undefined
@@ -1532,7 +1536,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         : undefined;
       if (requestedModel) threadParams.model = requestedModel;
       if (options?.serviceTier !== undefined) {
-        threadParams.serviceTier = normalizeServiceTier(options.serviceTier);
+        threadParams.serviceTier = normalizeCodexServiceTierForRpc(
+          options.serviceTier,
+        );
       }
       if (requestedReasoningEffort) {
         // app-server applies reasoning effort on thread start via config overrides,
@@ -1648,7 +1654,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           : requestedReasoningEffort
             ? { modelReasoningEffort: requestedReasoningEffort }
           : {}),
-        serviceTier: normalizeServiceTierForClient(
+        serviceTier: normalizeCodexServiceTierForClient(
           resolvedSettings.serviceTier ?? options?.serviceTier,
         ),
         ...(resolvedSettings.networkAccessEnabled !== undefined
@@ -3831,19 +3837,6 @@ function extractServiceTiers(raw: Record<string, unknown>): string[] {
     tiers.push(normalized);
   }
   return tiers;
-}
-
-function normalizeServiceTier(value: string): string | null {
-  const normalized = value.trim();
-  return !normalized || normalized === "standard" || normalized === "default"
-    ? null
-    : normalized;
-}
-
-function normalizeServiceTierForClient(value: unknown): string {
-  if (typeof value !== "string") return "standard";
-  const normalized = value.trim();
-  return !normalized || normalized === "default" ? "standard" : normalized;
 }
 
 function sanitizeCodexModel(value: unknown): string | undefined {
