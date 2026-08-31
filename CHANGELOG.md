@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.126.1] - 2026-08-31
+
+### Changed
+- Upgrade the app toolchain to Flutter 3.47.2, Dart 3.13.2, and Shorebird 1.6.120.
+
+### Fixed
+- Prevent duplicate floating action button Hero tags when navigating between workspace screens.
+
 ## [1.126.0] - 2026-08-31
 
 ### Added
