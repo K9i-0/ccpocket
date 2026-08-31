@@ -1708,6 +1708,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   bottom: 16,
                   child: FloatingActionButton.extended(
                     key: const ValueKey('new_session_fab'),
+                    heroTag: null,
                     onPressed: _showNewSessionDialog,
                     icon: const Icon(Icons.add),
                     label: const Text('New'),
@@ -1758,6 +1759,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               padding: const EdgeInsets.only(bottom: 16),
               child: FloatingActionButton.extended(
                 key: const ValueKey('new_session_fab'),
+                heroTag: null,
                 onPressed: _showNewSessionDialog,
                 icon: const Icon(Icons.add),
                 label: const Text('New'),
