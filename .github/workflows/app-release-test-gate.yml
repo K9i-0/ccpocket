@@ -1,0 +1,27 @@
+name: App Release Test Gate
+
+on:
+  workflow_call:
+    inputs:
+      release_sha:
+        description: Commit SHA that must have a successful Test workflow run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Require successful Test workflow for release SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: node scripts/release/monitor.mjs preflight --sha "$RELEASE_SHA"

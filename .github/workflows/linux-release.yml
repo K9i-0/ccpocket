@@ -6,10 +6,18 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
+  test-gate:
+    uses: ./.github/workflows/app-release-test-gate.yml
+    with:
+      release_sha: ${{ github.sha }}
+
   release:
+    needs: test-gate
+    # Quality checks run once in the Test workflow and are enforced by test-gate.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,12 +44,6 @@ jobs:
           printf '%s\n' 'use_precompiled_binaries: false' > apps/mobile/cargokit_options.yaml
 
       - run: flutter pub get
-        working-directory: apps/mobile
-
-      - run: dart analyze .
-        working-directory: apps/mobile
-
-      - run: flutter test
         working-directory: apps/mobile
 
       - name: Build Linux app
