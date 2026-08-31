@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.126.2] - 2026-08-31
+
+### Changed
+- Require Bridge 1.80.1 for reliable Codex Fast mode synchronization.
+
+### Fixed
+- Keep the Codex Fast mode selection and indicator synchronized between session cards and session screens after responses, resume, and context refreshes.
+
 ## [1.126.1] - 2026-08-31
 
 ### Changed
