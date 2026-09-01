@@ -243,7 +243,7 @@ describe("CodexProcess (app-server)", () => {
       data: { threadId: "thread-1" },
     });
     expect(codexErrorMessage(rejected)).toBe(
-      "This Codex thread is already open in another client. Close it there and try again.",
+      "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
     );
   });
 
@@ -770,6 +770,8 @@ describe("CodexProcess (app-server)", () => {
     );
     await tick();
 
+    await expect(proc.waitUntilReady()).resolves.toBeUndefined();
+
     expect(messages).toContainEqual(
       expect.objectContaining({
         type: "system",
@@ -933,6 +935,78 @@ describe("CodexProcess (app-server)", () => {
     );
 
     proc.stop();
+  });
+
+  it("rejects readiness before emitting terminal messages for a writer conflict", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+
+    try {
+      proc.start("/tmp/project-writer-conflict", {
+        threadId: "thr_owned",
+        codexPermissionsMode: "custom",
+      });
+      const readiness = proc.waitUntilReady();
+      const child = fakeChildren[0];
+      await tick();
+
+      const initReq = nextOutgoingRequest(child);
+      child.stdout.emit(
+        "data",
+        `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+      );
+      await tick();
+      nextOutgoingNotification(child);
+
+      const configReq = nextOutgoingRequest(child);
+      child.stdout.emit(
+        "data",
+        `${JSON.stringify({ id: configReq.id, result: { config: {} } })}\n`,
+      );
+      await tick();
+
+      const resumeReq = nextOutgoingRequest(child);
+      expect(resumeReq.method).toBe("thread/resume");
+      child.stdout.emit(
+        "data",
+        `${JSON.stringify({
+          id: resumeReq.id,
+          error: {
+            code: -32600,
+            message: "thread thr_owned already has an active writer",
+          },
+        })}\n`,
+      );
+
+      await expect(readiness).rejects.toMatchObject({
+        method: "thread/resume",
+        code: -32600,
+      });
+      await tick();
+
+      expect(
+        messages.some(
+          (message) =>
+            message.type === "system" && message.subtype === "init",
+        ),
+      ).toBe(false);
+      expect(messages.filter((message) => message.type === "error")).toEqual([
+        expect.objectContaining({
+          message:
+            "Codex error: This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
+        }),
+      ]);
+      expect(messages.filter((message) => message.type === "result")).toEqual([
+        expect.objectContaining({ type: "result", subtype: "error" }),
+      ]);
+    } finally {
+      proc.stop();
+      errorSpy.mockRestore();
+    }
   });
 
   it("applies selected profile permissions on resume without an explicit permissions mode", async () => {

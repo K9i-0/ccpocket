@@ -222,7 +222,7 @@ export function isCodexThreadWriterConflict(error: unknown): boolean {
 
 export function codexErrorMessage(error: unknown): string {
   if (isCodexThreadWriterConflict(error)) {
-    return "This Codex thread is already open in another client. Close it there and try again.";
+    return "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.";
   }
   return error instanceof Error ? error.message : String(error);
 }
@@ -317,6 +317,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private _agentRole: string | null = null;
   private stopped = false;
   private startModel: string | undefined;
+  private readiness: "pending" | "ready" | "failed" = "pending";
+  private readinessError: unknown;
+  private readinessWaiters = new Set<{
+    resolve: () => void;
+    reject: (error: unknown) => void;
+  }>();
 
   private inputResolve: ((input: PendingInput) => void) | null = null;
   private pendingTurnId: string | null = null;
@@ -760,6 +766,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.stop();
     }
 
+    this.resetReadiness();
     this.prepareLaunch(projectPath, options);
     this.launchAppServer(projectPath, options);
 
@@ -770,14 +777,32 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (this.transport) {
       this.stop();
     }
-    this.prepareLaunch(projectPath);
-    this.launchAppServer(projectPath);
-    await this.initializeRpcConnection();
-    this.setStatus("idle");
+    this.resetReadiness();
+    try {
+      this.prepareLaunch(projectPath);
+      this.launchAppServer(projectPath);
+      await this.initializeRpcConnection();
+      this.setStatus("idle");
+      this.resolveReadiness();
+    } catch (error) {
+      this.rejectReadiness(error);
+      throw error;
+    }
+  }
+
+  waitUntilReady(): Promise<void> {
+    if (this.readiness === "ready") return Promise.resolve();
+    if (this.readiness === "failed") {
+      return Promise.reject(this.readinessError);
+    }
+    return new Promise((resolve, reject) => {
+      this.readinessWaiters.add({ resolve, reject });
+    });
   }
 
   stop(): void {
     this.stopped = true;
+    this.rejectReadiness(new Error("codex app-server stopped"));
 
     if (this.inputResolve) {
       this.inputResolve({ text: "" });
@@ -1669,6 +1694,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(cliJoin ? { codexCliJoin: cliJoin } : {}),
       });
       this.setStatus("idle");
+      this.resolveReadiness();
 
       // Fetch completion entities in background (non-blocking).
       this._projectPath = projectPath;
@@ -1680,6 +1706,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       await this.runInputLoop(options);
     } catch (err) {
+      this.rejectReadiness(err);
       if (!this.stopped) {
         const message = codexErrorMessage(err);
         console.error("[codex-process] bootstrap error:", err);
@@ -3398,6 +3425,26 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.pendingTurnCompletion.reject(error);
       this.pendingTurnCompletion = null;
     }
+  }
+
+  private resetReadiness(): void {
+    this.rejectReadiness(new Error("codex app-server restarted"));
+    this.readiness = "pending";
+    this.readinessError = undefined;
+  }
+
+  private resolveReadiness(): void {
+    if (this.readiness !== "pending") return;
+    this.readiness = "ready";
+    for (const waiter of this.readinessWaiters) waiter.resolve();
+    this.readinessWaiters.clear();
+  }
+
+  private rejectReadiness(error: unknown): void {
+    this.readiness = "failed";
+    this.readinessError = error;
+    for (const waiter of this.readinessWaiters) waiter.reject(error);
+    this.readinessWaiters.clear();
   }
 
   private setStatus(status: ProcessStatus): void {

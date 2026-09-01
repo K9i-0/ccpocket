@@ -775,6 +775,71 @@ describe("SessionManager codex path", () => {
     expect(summary).toBeDefined();
   });
 
+  it("defers process messages until the session is published", () => {
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_, msg) => forwarded.push(msg));
+    const sessionId = manager.create(
+      "/tmp/project-deferred-resume",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      { threadId: "thread-deferred" },
+      { deferProcessMessages: true },
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "init",
+      sessionId: "thread-deferred",
+      provider: "codex",
+    } satisfies ServerMessage);
+    codexInstances[0].emit("message", {
+      type: "status",
+      status: "idle",
+    } satisfies ServerMessage);
+
+    expect(forwarded).toEqual([]);
+    expect(manager.list()).toEqual([]);
+    expect(manager.summary(sessionId)).toBeUndefined();
+    expect(manager.releaseDeferredProcessMessages(sessionId)).toBe(true);
+    expect(forwarded.map((message) => message.type)).toEqual([
+      "system",
+      "status",
+    ]);
+    expect(manager.list().map((session) => session.id)).toEqual([sessionId]);
+    expect(manager.summary(sessionId)?.id).toBe(sessionId);
+    expect(manager.releaseDeferredProcessMessages(sessionId)).toBe(false);
+  });
+
+  it("discards deferred process messages when the session is destroyed", () => {
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_, msg) => forwarded.push(msg));
+    const sessionId = manager.create(
+      "/tmp/project-failed-resume",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      { threadId: "thread-conflict" },
+      { deferProcessMessages: true },
+    );
+
+    codexInstances[0].emit("message", {
+      type: "error",
+      message: "writer conflict",
+    } satisfies ServerMessage);
+    codexInstances[0].emit("message", {
+      type: "result",
+      subtype: "error",
+      error: "writer conflict",
+    } satisfies ServerMessage);
+
+    expect(manager.destroy(sessionId)).toBe(true);
+    expect(forwarded).toEqual([]);
+    expect(manager.releaseDeferredProcessMessages(sessionId)).toBe(false);
+  });
+
   it("drains queued codex input when the process becomes ready", () => {
     const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
     const manager = new SessionManager((sessionId, msg) => {

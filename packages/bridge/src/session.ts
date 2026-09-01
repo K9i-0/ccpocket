@@ -189,6 +189,12 @@ const MAX_IDLE_SESSIONS = 30;
 export type GalleryImageCallback = (meta: GalleryImageMeta) => void;
 export type SessionUpdatedCallback = (sessionId: string) => void;
 
+type ProcessMessageDeliveryState = {
+  deferred: boolean;
+  discarded: boolean;
+  messages: ServerMessage[];
+};
+
 function mergeCodexSettings(
   current: SessionInfo["codexSettings"],
   msg: Extract<ServerMessage, { type: "system" }>,
@@ -259,6 +265,10 @@ function publicQueuedInput(item?: QueuedCodexInput): QueuedInputItem | undefined
 
 export class SessionManager {
   private sessions = new Map<string, SessionInfo>();
+  private processMessageDelivery = new Map<
+    string,
+    ProcessMessageDeliveryState
+  >();
   private onMessage: (sessionId: string, msg: ServerMessage) => void;
   private imageStore: ImageStore | null;
   private galleryStore: GalleryStore | null;
@@ -303,11 +313,27 @@ export class SessionManager {
     worktreeOpts?: WorktreeOptions,
     provider?: Provider,
     codexOptions?: CodexStartOptions,
+    creationOptions?: { deferProcessMessages?: boolean },
   ): string {
     const id = randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
     const proc =
       effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
+    const messageDelivery: ProcessMessageDeliveryState = {
+      deferred: creationOptions?.deferProcessMessages === true,
+      discarded: false,
+      messages: [],
+    };
+    this.processMessageDelivery.set(id, messageDelivery);
+
+    const deliverProcessMessage = (msg: ServerMessage): void => {
+      if (messageDelivery.discarded) return;
+      if (messageDelivery.deferred) {
+        messageDelivery.messages.push(msg);
+        return;
+      }
+      this.onMessage(id, msg);
+    };
 
     // Handle worktree: reuse existing or create new
     let wtPath: string | undefined;
@@ -388,7 +414,7 @@ export class SessionManager {
 
         if (msg.type === "goal_state") {
           session.codexGoal = msg.goal;
-          this.onMessage(id, msg);
+          deliverProcessMessage(msg);
           return;
         }
 
@@ -602,8 +628,7 @@ export class SessionManager {
           }
         }
 
-        this.onMessage(
-          id,
+        deliverProcessMessage(
           this.buildLiveProcessMessage(session, historyMsg, mergedUserInput),
         );
 
@@ -742,10 +767,17 @@ export class SessionManager {
       }
     }
 
-    if (effectiveProvider === "codex") {
-      (proc as CodexProcess).start(effectiveCwd, codexOptions);
-    } else {
-      (proc as SdkProcess).start(effectiveCwd, options);
+    try {
+      if (effectiveProvider === "codex") {
+        (proc as CodexProcess).start(effectiveCwd, codexOptions);
+      } else {
+        (proc as SdkProcess).start(effectiveCwd, options);
+      }
+    } catch (error) {
+      messageDelivery.discarded = true;
+      messageDelivery.messages.length = 0;
+      this.processMessageDelivery.delete(id);
+      throw error;
     }
 
     // Add session to Map only after proc.start() succeeds.
@@ -761,6 +793,18 @@ export class SessionManager {
 
   get(id: string): SessionInfo | undefined {
     return this.sessions.get(id);
+  }
+
+  releaseDeferredProcessMessages(id: string): boolean {
+    const delivery = this.processMessageDelivery.get(id);
+    if (!delivery || delivery.discarded || !delivery.deferred) return false;
+    delivery.deferred = false;
+    const messages = delivery.messages.splice(0);
+    for (const message of messages) {
+      if (delivery.discarded) break;
+      this.onMessage(id, message);
+    }
+    return true;
   }
 
   appendHistory(sessionId: string, msg: ServerMessage): HistoryEntry | undefined {
@@ -810,14 +854,20 @@ export class SessionManager {
   }
 
   list(): SessionSummary[] {
-    return Array.from(this.sessions.values()).map((session) =>
-      this.buildSessionSummary(session),
-    );
+    return Array.from(this.sessions.values())
+      .filter((session) => this.isSessionPublished(session.id))
+      .map((session) => this.buildSessionSummary(session));
   }
 
   summary(sessionId: string): SessionSummary | undefined {
+    if (!this.isSessionPublished(sessionId)) return undefined;
     const session = this.sessions.get(sessionId);
     return session ? this.buildSessionSummary(session) : undefined;
+  }
+
+  private isSessionPublished(sessionId: string): boolean {
+    const delivery = this.processMessageDelivery.get(sessionId);
+    return delivery != null && !delivery.deferred && !delivery.discarded;
   }
 
   private buildSessionSummary(session: SessionInfo): SessionSummary {
@@ -1746,11 +1796,17 @@ export class SessionManager {
   destroy(id: string): boolean {
     const session = this.sessions.get(id);
     if (!session) return false;
+    const delivery = this.processMessageDelivery.get(id);
+    if (delivery) {
+      delivery.discarded = true;
+      delivery.messages.length = 0;
+    }
     // Remove first so synchronous status/exit events from stop() cannot try to
     // evict the same session recursively.
     this.sessions.delete(id);
     session.process.stop();
     session.process.removeAllListeners();
+    this.processMessageDelivery.delete(id);
     console.log(`[session] Destroyed session ${id}`);
     return true;
   }

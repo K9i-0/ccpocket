@@ -221,6 +221,10 @@ class _SessionListScreenState extends State<SessionListScreen>
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
+  String? _pendingResumeSessionId;
+  String? _pendingResumeRequestId;
+  String? _failedResumeSessionId;
+  String? _failedResumeRequestId;
   NewSessionParams? _pendingClaudeDefaultsCorrection;
 
   // Flag: already navigated to chat for pending session creation
@@ -267,12 +271,13 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         unawaited(_syncPendingClaudeDefaultsWithSessionCreated(msg));
         bridge.requestSessionList();
+        final matchesPendingResume = _matchesPendingResumeSuccess(msg);
         // Clear-context recreation and session restarts (permission mode /
         // sandbox mode / rewind) are handled inside the active chat screen.
         // Navigating from the hidden session list stacks a second chat route.
         if (msg.clearContext ||
-            msg.sourceSessionId != null ||
-            msg.resumeRequestId != null) {
+            (!matchesPendingResume &&
+                (msg.sourceSessionId != null || msg.resumeRequestId != null))) {
           return;
         }
         if (msg.sessionId != null) {
@@ -298,8 +303,8 @@ class _SessionListScreenState extends State<SessionListScreen>
               approvalsReviewer: msg.approvalsReviewer,
             );
           }
-          _pendingResumeProjectPath = null;
-          _pendingResumeGitBranch = null;
+          _clearPendingResumeState();
+          _clearFailedResumeCorrelation();
         }
         return;
       }
@@ -311,9 +316,31 @@ class _SessionListScreenState extends State<SessionListScreen>
                 'Failed to load Claude session history:',
               ))) {
         _pendingClaudeDefaultsCorrection = null;
-        _pendingResumeProjectPath = null;
-        _pendingResumeGitBranch = null;
+        _clearPendingResumeState();
+        _clearFailedResumeCorrelation();
         _pendingNavigation = false;
+      }
+
+      if (msg is SystemMessage &&
+          msg.subtype == 'session_resume_failed' &&
+          _matchesPendingResumeFailure(msg)) {
+        _failedResumeSessionId = msg.sourceSessionId;
+        _failedResumeRequestId = msg.resumeRequestId;
+        _clearPendingResumeState();
+        return;
+      }
+
+      if (msg is ErrorMessage && _matchesFailedResumeError(msg)) {
+        final showWriterConflict =
+            msg.errorCode == 'codex_thread_writer_conflict';
+        _clearFailedResumeCorrelation();
+        if (showWriterConflict && mounted) {
+          final l = AppLocalizations.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.codexWriterConflictGuidance)),
+          );
+        }
+        return;
       }
 
       if (msg is ArchiveResultMessage) {
@@ -806,8 +833,11 @@ class _SessionListScreenState extends State<SessionListScreen>
         (useCodexProfile ||
             result.codexPermissionsMode == CodexPermissionsMode.custom);
     final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    _clearFailedResumeCorrelation();
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
+    _pendingResumeSessionId = null;
+    _pendingResumeRequestId = null;
     bridge.send(
       ClientMessage.start(
         result.projectPath,
@@ -1362,10 +1392,19 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _resumeSession(RecentSession session) async {
     final bridge = context.read<BridgeService>();
+    final projectPath = session.resumeCwd ?? session.projectPath;
+    final resumeRequestId = _beginPendingResume(
+      sessionId: session.sessionId,
+      projectPath: projectPath,
+      gitBranch: session.gitBranch,
+    );
     final result = await SessionResumeCoordinator(bridge: bridge)
-        .resume(session);
+        .resume(session, resumeRequestId: resumeRequestId);
     if (!mounted) return;
     if (result.disposition == SessionResumeDisposition.alreadyQueued) {
+      if (_pendingResumeRequestId == resumeRequestId) {
+        _clearPendingResumeState();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).resumeAlreadyQueued),
@@ -1373,8 +1412,6 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
       return;
     }
-    _pendingResumeProjectPath = result.projectPath;
-    _pendingResumeGitBranch = result.gitBranch;
     if (!bridge.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1399,8 +1436,11 @@ class _SessionListScreenState extends State<SessionListScreen>
       return;
     }
     final resumeProjectPath = session.resumeCwd ?? session.projectPath;
-    _pendingResumeProjectPath = resumeProjectPath;
-    _pendingResumeGitBranch = session.gitBranch;
+    final resumeRequestId = _beginPendingResume(
+      sessionId: session.sessionId,
+      projectPath: resumeProjectPath,
+      gitBranch: session.gitBranch,
+    );
 
     final isCodex = edited.provider == Provider.codex;
     final useCodexProfile =
@@ -1465,6 +1505,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       additionalWritableRoots: isCodex && !useCodexCustomPermissions
           ? edited.additionalWritableRoots
           : null,
+      resumeRequestId: resumeRequestId,
     );
     if (!bridge.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1494,6 +1535,54 @@ class _SessionListScreenState extends State<SessionListScreen>
           action.sessionId == session.sessionId &&
           action.provider == provider;
     });
+  }
+
+  String _beginPendingResume({
+    required String sessionId,
+    required String projectPath,
+    required String gitBranch,
+  }) {
+    final requestId =
+        'session-list:$sessionId:${DateTime.now().microsecondsSinceEpoch}';
+    _clearFailedResumeCorrelation();
+    _pendingResumeSessionId = sessionId;
+    _pendingResumeRequestId = requestId;
+    _pendingResumeProjectPath = projectPath;
+    _pendingResumeGitBranch = gitBranch;
+    return requestId;
+  }
+
+  bool _matchesPendingResumeFailure(SystemMessage message) {
+    if (_pendingResumeSessionId == null || _pendingResumeRequestId == null) {
+      return false;
+    }
+    if (message.sourceSessionId != _pendingResumeSessionId) return false;
+    return message.resumeRequestId == _pendingResumeRequestId;
+  }
+
+  bool _matchesPendingResumeSuccess(SystemMessage message) {
+    if (_pendingResumeRequestId == null) return false;
+    return message.resumeRequestId == _pendingResumeRequestId;
+  }
+
+  bool _matchesFailedResumeError(ErrorMessage message) {
+    if (_failedResumeSessionId == null || _failedResumeRequestId == null) {
+      return false;
+    }
+    if (message.sessionId != _failedResumeSessionId) return false;
+    return message.requestId == _failedResumeRequestId;
+  }
+
+  void _clearPendingResumeState() {
+    _pendingResumeProjectPath = null;
+    _pendingResumeGitBranch = null;
+    _pendingResumeSessionId = null;
+    _pendingResumeRequestId = null;
+  }
+
+  void _clearFailedResumeCorrelation() {
+    _failedResumeSessionId = null;
+    _failedResumeRequestId = null;
   }
 
   bool _hasPendingStart(BridgeService bridge, NewSessionParams params) {

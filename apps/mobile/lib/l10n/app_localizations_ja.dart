@@ -2305,6 +2305,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get retry => 'リトライ';
 
   @override
+  String get codexWriterConflictGuidance =>
+      'Codex Desktop または Codex App を閉じてから、もう一度お試しください。';
+
+  @override
   String get clipboardNotAvailable => 'クリップボードにアクセスできません';
 
   @override

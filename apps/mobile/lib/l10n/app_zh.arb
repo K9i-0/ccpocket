@@ -997,6 +997,7 @@
     }
   },
   "retry": "重试",
+  "codexWriterConflictGuidance": "请关闭 Codex Desktop 或 Codex App，然后重试。",
 
   "clipboardNotAvailable": "无法访问剪贴板",
   "failedToLoadImage": "加载图片失败",

@@ -112,11 +112,13 @@ vi.mock("./session.js", () => ({
       _worktreeOptions?: unknown,
       provider: "claude" | "codex" = "claude",
       codexOptions?: unknown,
+      creationOptions?: { deferProcessMessages?: boolean },
     ): string {
       const id = `s-${++this.seq}`;
       const process = {
         status: "idle",
         isRunning: true,
+        waitUntilReady: vi.fn(async () => {}),
         sessionId: codexOptions && typeof codexOptions === "object" && "threadId" in codexOptions
           ? (codexOptions as { threadId?: string }).threadId
           : options?.sessionId,
@@ -197,6 +199,7 @@ vi.mock("./session.js", () => ({
         pastMessages,
         codexInitialHistoryPending: false,
         codexOptions,
+        deferProcessMessages: creationOptions?.deferProcessMessages === true,
         codexSettings: codexOptions,
         history: [],
         historyEntries: [],
@@ -345,27 +348,29 @@ vi.mock("./session.js", () => ({
     }
 
     list() {
-      return Array.from(this.sessions.values()).map((s) => ({
-        id: s.id,
-        provider: s.provider,
-        projectPath: s.projectPath,
-        claudeSessionId: s.claudeSessionId,
-        status: s.status,
-        createdAt: "",
-        lastActivityAt: "",
-        gitBranch: "",
-        lastMessage: "",
-        permissionMode: s.startOptions?.permissionMode,
-        executionMode:
-          s.startOptions?.permissionMode === "bypassPermissions"
-            ? "fullAccess"
-            : s.startOptions?.permissionMode === "acceptEdits"
-              ? "acceptEdits"
-              : "default",
-        sandboxEnabled: s.sandboxEnabled,
-        codexSettings: s.codexSettings,
-        queuedInput: s.codexQueuedInput,
-      }));
+      return Array.from(this.sessions.values())
+        .filter((s) => !s.deferProcessMessages)
+        .map((s) => ({
+          id: s.id,
+          provider: s.provider,
+          projectPath: s.projectPath,
+          claudeSessionId: s.claudeSessionId,
+          status: s.status,
+          createdAt: "",
+          lastActivityAt: "",
+          gitBranch: "",
+          lastMessage: "",
+          permissionMode: s.startOptions?.permissionMode,
+          executionMode:
+            s.startOptions?.permissionMode === "bypassPermissions"
+              ? "fullAccess"
+              : s.startOptions?.permissionMode === "acceptEdits"
+                ? "acceptEdits"
+                : "default",
+          sandboxEnabled: s.sandboxEnabled,
+          codexSettings: s.codexSettings,
+          queuedInput: s.codexQueuedInput,
+        }));
     }
 
     summary(sessionId: string) {
@@ -374,6 +379,13 @@ vi.mock("./session.js", () => ({
 
     getCachedCommands() {
       return undefined;
+    }
+
+    releaseDeferredProcessMessages(id: string) {
+      const session = this.sessions.get(id);
+      if (!session?.deferProcessMessages) return false;
+      session.deferProcessMessages = false;
+      return true;
     }
 
     destroy(id: string) {
@@ -1163,7 +1175,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId: "codex-thread-1",
       success: false,
       error:
-        "This Codex thread is already open in another client. Close it there and try again.",
+        "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
     });
 
     bridge.close();
@@ -5625,6 +5637,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       readyState: OPEN_STATE,
       send: vi.fn(),
     } as any;
+    const sessionManager = (bridge as any).sessionManager;
+    const createSpy = vi.spyOn(sessionManager, "create");
+    const releaseSpy = vi.spyOn(
+      sessionManager,
+      "releaseDeferredProcessMessages",
+    );
 
     await (bridge as any).handleClientMessage(
       {
@@ -5664,6 +5682,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       projectPath: "/tmp/project-codex",
       resumeRequestId: "link-request-codex",
     });
+    expect(createSpy.mock.calls[0]?.[6]).toEqual({
+      deferProcessMessages: true,
+    });
+    expect(releaseSpy).toHaveBeenCalledWith(created.sessionId);
+    expect(
+      ws.send.mock.invocationCallOrder[sessionCreatedIndex],
+    ).toBeLessThan(releaseSpy.mock.invocationCallOrder[0]);
 
     bridge.close();
   });
@@ -5787,6 +5812,194 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(firstCreated.sessionId).toBe("s-1");
     expect(reconnectCreated.sessionId).toBe(firstCreated.sessionId);
     expect(getCodexSessionHistoryMock).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("fails joined Codex resumes when another client owns the writer", async () => {
+    let resolveHistory!: (history: unknown[]) => void;
+    getCodexSessionHistoryMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      platform: "darwin",
+    });
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    const createSpy = vi
+      .spyOn(sessionManager, "create")
+      .mockImplementation((...args: any[]) => {
+        const sessionId = realCreate(...args);
+        sessionManager.get(sessionId).process.waitUntilReady = vi
+          .fn()
+          .mockRejectedValue(
+            new CodexRpcError("thread/resume", {
+              code: -32600,
+              message: "thread codex-thread-owned already has an active writer",
+            }),
+          );
+        return sessionId;
+      });
+    const firstWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const reconnectWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const request = {
+      type: "resume_session",
+      sessionId: "codex-thread-owned",
+      projectPath: "/tmp/project-codex",
+      provider: "codex",
+      resumeRequestId: "resume-owned",
+    };
+
+    const firstResume = (bridge as any).handleClientMessage(request, firstWs);
+    const duplicateResume = (bridge as any).handleClientMessage(
+      request,
+      reconnectWs,
+    );
+    resolveHistory([]);
+    await Promise.all([firstResume, duplicateResume]);
+
+    expect(getCodexSessionHistoryMock).toHaveBeenCalledTimes(1);
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    for (const ws of [firstWs, reconnectWs]) {
+      const sends = ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+      expect(sends).toContainEqual(
+        expect.objectContaining({
+          type: "system",
+          subtype: "session_resume_failed",
+          sourceSessionId: "codex-thread-owned",
+        }),
+      );
+      expect(sends).toContainEqual({
+        type: "error",
+        errorCode: "codex_thread_writer_conflict",
+        message:
+          "This Codex thread is already open in Codex Desktop or the Codex App. Close it there, then try again.",
+        sessionId: "codex-thread-owned",
+        requestId: "resume-owned",
+      });
+      expect(
+        sends.some(
+          (message: any) =>
+            message.type === "system" &&
+            message.subtype === "session_created",
+        ),
+      ).toBe(false);
+    }
+    expect(sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("reports a Codex restore failure after history has loaded", async () => {
+    getCodexSessionHistoryMock.mockResolvedValue([]);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      platform: "darwin",
+    });
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    vi.spyOn(sessionManager, "create").mockImplementation(
+      (...args: any[]) => {
+        const sessionId = realCreate(...args);
+        sessionManager.get(sessionId).process.waitUntilReady = vi
+          .fn()
+          .mockRejectedValue(new Error("initialize failed"));
+        return sessionId;
+      },
+    );
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "codex-thread-invalid",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        resumeRequestId: "resume-invalid",
+      },
+      ws,
+    );
+
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "error"),
+    ).toEqual({
+      type: "error",
+      message: "Failed to restore Codex session: Error: initialize failed",
+      sessionId: "codex-thread-invalid",
+      requestId: "resume-invalid",
+    });
+    expect(sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("destroys a provisional Codex session when readiness times out", async () => {
+    vi.useFakeTimers();
+    getCodexSessionHistoryMock.mockResolvedValue([]);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      platform: "darwin",
+    });
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    vi.spyOn(sessionManager, "create").mockImplementation(
+      (...args: any[]) => {
+        const sessionId = realCreate(...args);
+        sessionManager.get(sessionId).process.waitUntilReady = vi.fn(
+          () => new Promise<void>(() => {}),
+        );
+        return sessionId;
+      },
+    );
+    const destroySpy = vi.spyOn(sessionManager, "destroy");
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    void (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "codex-thread-timeout",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        resumeRequestId: "resume-timeout",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+    expect(destroySpy).toHaveBeenCalledWith("s-1");
+    expect(sessionManager.get("s-1")).toBeUndefined();
+    expect((bridge as any).resumeOperations.size).toBe(0);
+    expect(
+      ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "error"),
+    ).toMatchObject({
+      message: expect.stringContaining("taking longer than expected"),
+      sessionId: "codex-thread-timeout",
+      requestId: "resume-timeout",
+    });
 
     bridge.close();
   });

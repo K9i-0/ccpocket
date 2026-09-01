@@ -927,6 +927,7 @@
     }
   },
   "retry": "Retry",
+  "codexWriterConflictGuidance": "Close Codex Desktop or the Codex App, then try again.",
 
   "clipboardNotAvailable": "Cannot access clipboard",
   "failedToLoadImage": "Failed to load image",

@@ -2275,6 +2275,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get codexWriterConflictGuidance =>
+      '请关闭 Codex Desktop 或 Codex App，然后重试。';
+
+  @override
   String get clipboardNotAvailable => '无法访问剪贴板';
 
   @override

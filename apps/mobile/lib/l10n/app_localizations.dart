@@ -4349,6 +4349,12 @@ abstract class AppLocalizations {
   /// **'リトライ'**
   String get retry;
 
+  /// No description provided for @codexWriterConflictGuidance.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex Desktop または Codex App を閉じてから、もう一度お試しください。'**
+  String get codexWriterConflictGuidance;
+
   /// No description provided for @clipboardNotAvailable.
   ///
   /// In ja, this message translates to:

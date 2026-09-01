@@ -957,6 +957,7 @@
     }
   },
   "retry": "リトライ",
+  "codexWriterConflictGuidance": "Codex Desktop または Codex App を閉じてから、もう一度お試しください。",
 
   "clipboardNotAvailable": "クリップボードにアクセスできません",
   "failedToLoadImage": "画像の読み込みに失敗しました",

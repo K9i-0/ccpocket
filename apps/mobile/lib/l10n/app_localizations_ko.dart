@@ -2317,6 +2317,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get retry => '재시도';
 
   @override
+  String get codexWriterConflictGuidance =>
+      'Codex Desktop 또는 Codex App을 닫은 후 다시 시도하세요.';
+
+  @override
   String get clipboardNotAvailable => '클립보드를 사용할 수 없습니다';
 
   @override

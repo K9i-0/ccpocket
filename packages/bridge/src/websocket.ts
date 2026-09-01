@@ -22,6 +22,7 @@ import {
 import type { StartOptions } from "./sdk-process.js";
 import {
   codexErrorMessage,
+  isCodexThreadWriterConflict,
   CodexRpcError,
   CodexProcess,
   type CodexModelMetadata,
@@ -152,6 +153,7 @@ type ResumeOperation = {
   resumeRequestId?: string;
   fingerprint: string;
   waiters: Set<WebSocket>;
+  provisionalSessionId?: string;
   timeout?: ReturnType<typeof setTimeout>;
   completed?: {
     sessionId: string;
@@ -5410,9 +5412,29 @@ export class BridgeWebSocketServer {
                   ? ("plan" as const)
                   : ("default" as const),
               }),
+              { deferProcessMessages: true },
             );
+            if (
+              !this.attachProvisionalResumeSession(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                sessionId,
+              )
+            ) {
+              this.sessionManager.destroy(sessionId);
+              break;
+            }
             sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
+            const waitUntilReady = (
+              createdSession?.process as
+                | { waitUntilReady?: () => Promise<void> }
+                | undefined
+            )?.waitUntilReady;
+            if (!waitUntilReady) {
+              throw new Error("Codex session readiness is unavailable");
+            }
+            await waitUntilReady.call(createdSession?.process);
             if (createdSession) {
               // get_history immediately follows session_created on the app.
               // Reuse the canonical history loaded above instead of issuing a
@@ -5476,6 +5498,7 @@ export class BridgeWebSocketServer {
               this.sessionManager.destroy(sessionId);
               break;
             }
+            this.sessionManager.releaseDeferredProcessMessages(sessionId);
             this.broadcastSessionList();
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -5513,10 +5536,18 @@ export class BridgeWebSocketServer {
                 totalMs: Date.now() - resumeStartedAt,
               }),
             );
+            const activeWriterConflict = isCodexThreadWriterConflict(err);
             this.failResumeOperation(
               resumeOperation.key,
               resumeOperation.operationId,
-              `Failed to load Codex session history: ${err}`,
+              activeWriterConflict
+                ? codexErrorMessage(err)
+                : historyLoaded
+                  ? `Failed to restore Codex session: ${err}`
+                  : `Failed to load Codex session history: ${err}`,
+              activeWriterConflict
+                ? "codex_thread_writer_conflict"
+                : undefined,
             );
           }
           break;
@@ -7573,6 +7604,7 @@ export class BridgeWebSocketServer {
     const operation = this.resumeOperations.get(key);
     if (!operation || operation.id !== operationId) return false;
     if (operation.timeout) clearTimeout(operation.timeout);
+    operation.provisionalSessionId = undefined;
     operation.completed = {
       sessionId,
       message,
@@ -7600,9 +7632,14 @@ export class BridgeWebSocketServer {
     key: string,
     operationId: string,
     message: string,
+    errorCode?: string,
   ): void {
     const operation = this.resumeOperations.get(key);
     if (!operation || operation.id !== operationId) return;
+    if (operation.provisionalSessionId) {
+      this.sessionManager.destroy(operation.provisionalSessionId);
+      operation.provisionalSessionId = undefined;
+    }
     this.clearResumeOperation(key, operation);
     for (const waiter of operation.waiters) {
       this.rejectPendingClaudeResumeInputs(
@@ -7610,8 +7647,29 @@ export class BridgeWebSocketServer {
         operation.sourceSessionId,
       );
       this.sendResumeFailed(waiter, operation);
-      this.send(waiter, { type: "error", message });
+      this.send(waiter, {
+        type: "error",
+        message,
+        sessionId: operation.sourceSessionId,
+        ...(operation.resumeRequestId
+          ? { requestId: operation.resumeRequestId }
+          : {}),
+        ...(errorCode ? { errorCode } : {}),
+      });
     }
+  }
+
+  private attachProvisionalResumeSession(
+    key: string,
+    operationId: string,
+    sessionId: string,
+  ): boolean {
+    const operation = this.resumeOperations.get(key);
+    if (!operation || operation.id !== operationId || operation.completed) {
+      return false;
+    }
+    operation.provisionalSessionId = sessionId;
+    return true;
   }
 
   private sendResumeFailed(
