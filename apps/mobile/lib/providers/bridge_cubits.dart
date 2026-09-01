@@ -26,3 +26,8 @@ class FileListCubit extends StreamCubit<List<String>> {
 class ProjectHistoryCubit extends StreamCubit<List<String>> {
   ProjectHistoryCubit(super.initial, super.stream);
 }
+
+/// Named multi-root Projects owned by the Bridge.
+class WorkspaceProjectsCubit extends StreamCubit<ProjectsMessage> {
+  WorkspaceProjectsCubit(super.initial, super.stream);
+}

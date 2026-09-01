@@ -735,6 +735,43 @@ describe("codex sessions integration", () => {
     expect(entry?.firstPrompt).toBe("hello codex");
   });
 
+  it("applies a caller session filter before pagination", async () => {
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    for (const [id, timestamp] of [
+      ["newer-other", "2026-02-13T12:00:00.000Z"],
+      ["older-target", "2026-02-13T11:00:00.000Z"],
+    ] as const) {
+      writeFileSync(
+        join(codexDir, `rollout-${id}.jsonl`),
+        [
+          JSON.stringify({
+            timestamp,
+            type: "session_meta",
+            payload: { id, cwd: "/tmp/shared" },
+          }),
+          JSON.stringify({
+            timestamp,
+            type: "event_msg",
+            payload: { type: "user_message", message: id },
+          }),
+        ].join("\n"),
+      );
+    }
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 1,
+      sessionFilter: (session) => session.sessionId === "older-target",
+    });
+
+    expect(result.sessions.map((session) => session.sessionId)).toEqual([
+      "older-target",
+    ]);
+    expect(result.hasMore).toBe(false);
+  });
+
   it("excludes codex subagent sessions from recent sessions", async () => {
     const userThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68020";
     const subagentThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68021";

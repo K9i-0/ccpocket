@@ -74,6 +74,12 @@ export interface GetRecentSessionsOptions {
   namedOnly?: boolean;
   /** Free-text search across name, firstPrompt, lastPrompt and summary. */
   searchQuery?: string;
+  /**
+   * Bridge-owned filter applied before pagination. This keeps workspace
+   * filtering to a single filesystem scan even when matching sessions are
+   * sparse in a large history.
+   */
+  sessionFilter?: (session: SessionIndexEntry) => boolean;
 }
 
 export interface GetRecentSessionsResult {
@@ -1138,6 +1144,10 @@ export async function getAllRecentSessions(
     );
   }
   perfStats.counts.afterSearch = filtered.length;
+
+  if (options.sessionFilter) {
+    filtered = filtered.filter(options.sessionFilter);
+  }
 
   // Sort by modified descending
   const sortStartedAt = process.hrtime.bigint();

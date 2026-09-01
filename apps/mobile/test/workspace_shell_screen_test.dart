@@ -416,6 +416,10 @@ Widget _buildWorkspaceApp({
     const [],
     bridge.projectHistoryStream,
   );
+  final workspaceProjectsCubit = WorkspaceProjectsCubit(
+    bridge.projectsState,
+    bridge.projectsStream,
+  );
   final resolvedMachineManagerCubit =
       machineManagerCubit ??
       MachineManagerCubit(_StaticMachineManagerService(), null);
@@ -436,6 +440,9 @@ Widget _buildWorkspaceApp({
         BlocProvider<GalleryCubit>.value(value: galleryCubit),
         BlocProvider<FileListCubit>.value(value: fileListCubit),
         BlocProvider<ProjectHistoryCubit>.value(value: projectHistoryCubit),
+        BlocProvider<WorkspaceProjectsCubit>.value(
+          value: workspaceProjectsCubit,
+        ),
         BlocProvider<SessionListCubit>.value(value: sessionListCubit),
         BlocProvider<MachineManagerCubit>.value(
           value: resolvedMachineManagerCubit,

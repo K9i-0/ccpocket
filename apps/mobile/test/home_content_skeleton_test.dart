@@ -76,16 +76,28 @@ RecentSession _session({
   );
 }
 
-SessionInfo _runningSession({required String id}) {
+SessionInfo _runningSession({
+  required String id,
+  String projectPath = '/home/user/project-a',
+  String? projectId,
+  String? projectName,
+}) {
   return SessionInfo.fromJson({
     'id': id,
-    'projectPath': '/home/user/project-a',
+    'projectPath': projectPath,
     'status': 'running',
     'createdAt': '2025-01-01T12:00:00Z',
     'lastActivityAt': '2025-01-01T12:00:00Z',
     'gitBranch': 'main',
     'lastMessage': 'Working on something',
     'messageCount': 1,
+    if (projectId != null)
+      'workspace': {
+        'kind': 'project',
+        'projectId': projectId,
+        'projectName': projectName,
+        'rootPaths': [projectPath],
+      },
   });
 }
 
@@ -93,7 +105,9 @@ Widget _buildHomeContent({
   List<SessionInfo> sessions = const [],
   List<OfflinePendingAction> offlinePendingActions = const [],
   List<RecentSession> recentSessions = const [],
+  List<WorkspaceProject> workspaceProjects = const [],
   Set<String> accumulatedProjectPaths = const {},
+  Set<String> pinnedProjectPaths = const {},
   Set<String> exhaustedProjectPaths = const {},
   Map<String, int> projectSessionDisplayLimits = const {},
   String? currentProjectFilter,
@@ -103,6 +117,7 @@ Widget _buildHomeContent({
   UsageInfo? codexUsageOverride,
   VoidCallback? onOpenUsageSettings,
   VoidCallback? onDismissMacOSNativeAppBanner,
+  ValueChanged<String?>? onSelectProject,
   required SessionListCubit cubit,
   required DraftService draftService,
   required RevenueCatService revenueCatService,
@@ -129,7 +144,9 @@ Widget _buildHomeContent({
             sessions: sessions,
             offlinePendingActions: offlinePendingActions,
             recentSessions: recentSessions,
+            workspaceProjects: workspaceProjects,
             accumulatedProjectPaths: accumulatedProjectPaths,
+            pinnedProjectPaths: pinnedProjectPaths,
             exhaustedProjectPaths: exhaustedProjectPaths,
             projectSessionDisplayLimits: projectSessionDisplayLimits,
             searchQuery: '',
@@ -154,7 +171,7 @@ Widget _buildHomeContent({
             onLongPressRecentSession: (_, _) {},
             onArchiveSession: (_) {},
             onLongPressRunningSession: (_, _) {},
-            onSelectProject: (_) {},
+            onSelectProject: onSelectProject ?? (_) {},
             onLoadMore: () {},
             onLoadMoreProject: (_) {},
             providerFilter: ProviderFilter.all,
@@ -205,6 +222,166 @@ void main() {
   });
 
   group('HomeContent skeleton', () {
+    testWidgets('lists a workspace Project with no loaded recent session', (
+      tester,
+    ) async {
+      String? selectedProject;
+      await tester.pumpWidget(
+        _buildHomeContent(
+          workspaceProjects: const [
+            WorkspaceProject(
+              id: 'mobile-api',
+              name: 'Mobile + API',
+              rootPaths: ['/workspace/mobile', '/workspace/api'],
+              createdAt: '2026-09-01T00:00:00Z',
+              updatedAt: '2026-09-01T00:00:00Z',
+            ),
+          ],
+          onSelectProject: (project) => selectedProject = project,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pumpAndSettle();
+      expect(find.text('Mobile + API'), findsOneWidget);
+
+      await tester.tap(find.text('Mobile + API'));
+      await tester.pumpAndSettle();
+      expect(selectedProject, 'project:mobile-api');
+    });
+
+    testWidgets('lists both a workspace Project and its primary folder', (
+      tester,
+    ) async {
+      String? selectedProject;
+      final assignedSession = RecentSession(
+        sessionId: 'assigned-session',
+        firstPrompt: 'assigned prompt',
+        created: '2025-01-01T00:00:00Z',
+        modified: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/workspace/.worktrees/feature',
+        isSidechain: false,
+        workspace: const SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'flutter-apps',
+          projectName: 'Flutter apps',
+          rootPaths: ['/workspace/flutter-primary', '/workspace/flutter-ui'],
+        ),
+      );
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [assignedSession],
+          accumulatedProjectPaths: const {'/workspace/.worktrees/feature'},
+          workspaceProjects: const [
+            WorkspaceProject(
+              id: 'flutter-apps',
+              name: 'Flutter apps',
+              rootPaths: [
+                '/workspace/flutter-primary',
+                '/workspace/flutter-ui',
+              ],
+              createdAt: '2026-09-01T00:00:00Z',
+              updatedAt: '2026-09-01T00:00:00Z',
+            ),
+          ],
+          onSelectProject: (project) => selectedProject = project,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pumpAndSettle();
+      expect(find.text('Flutter apps'), findsWidgets);
+      expect(find.text('flutter-primary'), findsOneWidget);
+      expect(find.text('feature'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Flutter apps').first).dy,
+        lessThan(tester.getTopLeft(find.text('flutter-primary')).dy),
+      );
+
+      await tester.tap(find.text('flutter-primary'));
+      await tester.pumpAndSettle();
+      expect(selectedProject, '/workspace/flutter-primary');
+
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Flutter apps').first);
+      await tester.pumpAndSettle();
+      expect(selectedProject, 'project:flutter-apps');
+    });
+
+    testWidgets('prioritizes a pinned workspace Project in running sessions '
+        'and the project filter', (tester) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          sessions: [
+            _runningSession(
+              id: 'other',
+              projectPath: '/workspace/other',
+              projectId: 'other',
+              projectName: 'Other Project',
+            ),
+            _runningSession(
+              id: 'pinned',
+              projectPath: '/workspace/pinned',
+              projectId: 'pinned',
+              projectName: 'Pinned Project',
+            ),
+          ],
+          workspaceProjects: const [
+            WorkspaceProject(
+              id: 'other',
+              name: 'Other Project',
+              rootPaths: ['/workspace/other'],
+              createdAt: '2026-09-01T00:00:00Z',
+              updatedAt: '2026-09-01T00:00:00Z',
+            ),
+            WorkspaceProject(
+              id: 'pinned',
+              name: 'Pinned Project',
+              rootPaths: ['/workspace/pinned'],
+              createdAt: '2026-09-01T00:00:00Z',
+              updatedAt: '2026-09-01T00:00:00Z',
+            ),
+          ],
+          pinnedProjectPaths: const {'project:pinned'},
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('running_session_pinned')))
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const ValueKey('running_session_other')))
+              .dy,
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester.getTopLeft(find.text('Pinned Project').last).dy,
+        lessThan(tester.getTopLeft(find.text('Other Project').last).dy),
+      );
+    });
+
     testWidgets('shows Skeletonizer when isInitialLoading is true and '
         'no sessions exist', (tester) async {
       final semantics = tester.ensureSemantics();

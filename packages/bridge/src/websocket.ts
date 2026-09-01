@@ -11,6 +11,7 @@ import {
   MAX_HISTORY_PER_SESSION,
   type HistoryEntry,
   type SessionInfo,
+  type SessionSummary,
   type WorktreeOptions,
 } from "./session.js";
 import {
@@ -76,6 +77,10 @@ import {
 } from "./resume-metrics.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
+import {
+  type ResolvedWorkspace,
+  type WorkspaceStore,
+} from "./workspace-store.js";
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import {
@@ -246,6 +251,7 @@ const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "goal_state",
   "guardian_approval",
   "prompt_history_status",
+  "projects",
   "push_registration_result",
 ]);
 
@@ -743,6 +749,7 @@ export interface BridgeServerOptions {
   uploadStore?: UploadStore;
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
+  workspaceStore?: WorkspaceStore;
   debugTraceStore?: DebugTraceStore;
   recordingStore?: RecordingStore;
   firebaseAuth?: FirebaseAuthClient;
@@ -793,6 +800,8 @@ export class BridgeWebSocketServer {
   private uploadStore: UploadStore | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
+  private workspaceStore: WorkspaceStore | null;
+  private pendingSessionWorkspaces = new Map<string, ResolvedWorkspace>();
   private debugTraceStore: DebugTraceStore;
   private recordingStore: RecordingStore | null;
   private worktreeStore: WorktreeStore;
@@ -870,6 +879,7 @@ export class BridgeWebSocketServer {
       uploadStore,
       galleryStore,
       projectHistory,
+      workspaceStore,
       debugTraceStore,
       recordingStore,
       firebaseAuth,
@@ -890,6 +900,7 @@ export class BridgeWebSocketServer {
     this.uploadStore = uploadStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
+    this.workspaceStore = workspaceStore ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
     this.recordingStore = recordingStore ?? null;
     this.worktreeStore = new WorktreeStore();
@@ -974,7 +985,10 @@ export class BridgeWebSocketServer {
         }
       },
       this.worktreeStore,
-      () => this.broadcastSessionList(),
+      (sessionId) => {
+        void this.persistPendingSessionWorkspace(sessionId);
+        this.broadcastSessionList();
+      },
     );
 
     this.wss.on("connection", (ws, req) => {
@@ -1644,6 +1658,7 @@ export class BridgeWebSocketServer {
 
     const projectPath = session.projectPath;
     const codexSettings = session.codexSettings;
+    const workspace = this.workspaceForRuntimeSession(session);
     const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
       ? {
           existingWorktreePath: session.worktreePath,
@@ -1670,6 +1685,7 @@ export class BridgeWebSocketServer {
         threadId,
       } as CodexStartOptions),
     );
+    this.attachWorkspaceToRuntimeSession(newSessionId, workspace);
     const newSession = this.sessionManager.get(newSessionId);
 
     this.send(ws, {
@@ -1749,6 +1765,7 @@ export class BridgeWebSocketServer {
 
     const projectPath = session.projectPath;
     const codexSettings = session.codexSettings;
+    const workspace = this.workspaceForRuntimeSession(session);
     const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
       ? {
           existingWorktreePath: session.worktreePath,
@@ -1783,6 +1800,7 @@ export class BridgeWebSocketServer {
         threadId: forkedThreadId,
       } as CodexStartOptions),
     );
+    this.attachWorkspaceToRuntimeSession(newSessionId, workspace);
     const newSession = this.sessionManager.get(newSessionId);
 
     this.send(
@@ -2670,7 +2688,7 @@ export class BridgeWebSocketServer {
     // Send session list and project history on connect
     this.refreshConnectionMetadata();
     this.sendSessionList(ws);
-    const projects = this.projectHistory?.getProjects() ?? [];
+    const projects = this.legacyProjectHistoryProjects();
     this.send(ws, { type: "project_history", projects });
 
     ws.on("message", (data) => {
@@ -2791,7 +2809,37 @@ export class BridgeWebSocketServer {
 
     switch (msg.type) {
       case "start": {
-        const projectPath = resolvePlatformPath(msg.projectPath, this.platform);
+        let projectPath = resolvePlatformPath(msg.projectPath, this.platform);
+        let resolvedWorkspace: ResolvedWorkspace | undefined;
+        if (msg.projectId) {
+          const project = this.workspaceStore?.getProject(msg.projectId);
+          if (!project) {
+            this.send(ws, {
+              type: "error",
+              requestId: msg.requestId,
+              errorCode: "project_not_found",
+              message: `Project not found: ${msg.projectId}`,
+            });
+            break;
+          }
+          const normalized = this.normalizeWorkspaceRoots(project.rootPaths);
+          if (normalized.deniedRoot || !normalized.roots) {
+            this.send(
+              ws,
+              this.buildPathNotAllowedError(
+                normalized.deniedRoot ?? project.rootPaths[0],
+              ),
+            );
+            break;
+          }
+          projectPath = normalized.roots[0];
+          resolvedWorkspace = {
+            kind: "project",
+            projectId: project.id,
+            projectName: project.name,
+            rootPaths: normalized.roots,
+          };
+        }
         if (!this.isPathAllowed(projectPath)) {
           this.send(ws, {
             ...this.buildPathNotAllowedError(msg.projectPath),
@@ -2869,13 +2917,13 @@ export class BridgeWebSocketServer {
               break;
             }
           }
-          const additionalWritableRoots =
-            provider === "codex"
-              ? this.normalizeAdditionalWritableRoots(
-                  msg.additionalWritableRoots,
-                  projectPath,
-                )
-              : {};
+          const requestedAdditionalRoots =
+            resolvedWorkspace?.rootPaths.slice(1) ??
+            msg.additionalWritableRoots;
+          const additionalWritableRoots = this.normalizeAdditionalWritableRoots(
+            requestedAdditionalRoots,
+            projectPath,
+          );
           if (additionalWritableRoots.deniedRoot) {
             this.send(
               ws,
@@ -2914,6 +2962,7 @@ export class BridgeWebSocketServer {
                     ...(msg.sandboxMode
                       ? { sandboxEnabled: msg.sandboxMode === "on" }
                       : {}),
+                    additionalDirectories: additionalWritableRoots.roots,
                   },
                   worktreeOptions: {
                     useWorktree: msg.useWorktree,
@@ -2972,6 +3021,10 @@ export class BridgeWebSocketServer {
                   usedFallback: false,
                 };
           const createdSession = this.sessionManager.get(sessionId);
+          if (resolvedWorkspace) {
+            this.pendingSessionWorkspaces.set(sessionId, resolvedWorkspace);
+            void this.persistPendingSessionWorkspace(sessionId);
+          }
           const cached = this.sessionManager.getCachedCommands(
             provider,
             createdSession?.worktreePath ?? projectPath,
@@ -3058,7 +3111,9 @@ export class BridgeWebSocketServer {
             projectPath,
             createdAt: new Date().toISOString(),
           });
-          this.projectHistory?.addProject(projectPath);
+          if (!resolvedWorkspace) {
+            this.projectHistory?.addProject(projectPath);
+          }
         } catch (err) {
           console.error(`[ws] Failed to start session:`, err);
           this.send(ws, {
@@ -3791,6 +3846,7 @@ export class BridgeWebSocketServer {
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
           const sessionName = session.name;
+          const workspace = this.workspaceForRuntimeSession(session);
 
           this.destroySession(oldSessionId);
           console.log(
@@ -3836,9 +3892,11 @@ export class BridgeWebSocketServer {
                   | "cached"
                   | "live"
                   | undefined,
+                additionalWritableRoots: oldSettings.additionalWritableRoots,
                 collaborationMode: newCollaboration,
               }),
             );
+            this.attachWorkspaceToRuntimeSession(newId, workspace);
             const newSession = this.sessionManager.get(newId);
             if (newSession && sessionName) newSession.name = sessionName;
             this.broadcast(
@@ -3927,9 +3985,11 @@ export class BridgeWebSocketServer {
                     | "cached"
                     | "live"
                     | undefined,
+                  additionalWritableRoots: oldSettings.additionalWritableRoots,
                   collaborationMode: newCollaboration,
                 }),
               );
+              this.attachWorkspaceToRuntimeSession(newId, workspace);
 
               const newSession = this.sessionManager.get(newId);
               if (newSession && sessionName) {
@@ -4248,6 +4308,7 @@ export class BridgeWebSocketServer {
           const sessionName = session.name;
           const permissionMode = (session.process as SdkProcess).permissionMode;
           const model = (session.process as SdkProcess).model;
+          const workspace = this.workspaceForRuntimeSession(session);
 
           this.destroySession(oldSessionId);
           console.log(
@@ -4261,6 +4322,7 @@ export class BridgeWebSocketServer {
               permissionMode,
               model,
               sandboxEnabled: newEnabled,
+              additionalDirectories: workspace?.rootPaths.slice(1),
             },
             undefined,
             worktreePath
@@ -4268,6 +4330,7 @@ export class BridgeWebSocketServer {
               : undefined,
             "claude",
           );
+          this.attachWorkspaceToRuntimeSession(newId, workspace);
 
           const newSession = this.sessionManager.get(newId);
           if (newSession && sessionName) newSession.name = sessionName;
@@ -4325,6 +4388,7 @@ export class BridgeWebSocketServer {
         const sessionName = session.name;
         const collaborationMode = (session.process as CodexProcess)
           .collaborationMode;
+        const workspace = this.workspaceForRuntimeSession(session);
         const executionMode =
           oldSettings.approvalPolicy === "never" ? "fullAccess" : "default";
         const planMode = collaborationMode === "plan";
@@ -4391,9 +4455,11 @@ export class BridgeWebSocketServer {
                 | "cached"
                 | "live"
                 | undefined,
+              additionalWritableRoots: oldSettings.additionalWritableRoots,
               collaborationMode,
             }),
           );
+          this.attachWorkspaceToRuntimeSession(newId, workspace);
           const newSession = this.sessionManager.get(newId);
           if (newSession && sessionName) newSession.name = sessionName;
           this.broadcast(
@@ -4480,9 +4546,11 @@ export class BridgeWebSocketServer {
                   | "cached"
                   | "live"
                   | undefined,
+                additionalWritableRoots: oldSettings.additionalWritableRoots,
                 collaborationMode,
               }),
             );
+            this.attachWorkspaceToRuntimeSession(newId, workspace);
 
             // Restore session name
             const newSession = this.sessionManager.get(newId);
@@ -4569,6 +4637,7 @@ export class BridgeWebSocketServer {
           const permissionMode = sdkProc.permissionMode;
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
+          const workspace = this.workspaceForRuntimeSession(session);
 
           this.destroySession(sessionId);
           console.log(`[ws] Clear context: destroyed session ${sessionId}`);
@@ -4584,12 +4653,14 @@ export class BridgeWebSocketServer {
                 : {}),
               permissionMode,
               initialInput: planText || undefined,
+              additionalDirectories: workspace?.rootPaths.slice(1),
             },
             undefined,
             worktreePath
               ? { existingWorktreePath: worktreePath, worktreeBranch }
-              : undefined,
+            : undefined,
           );
+          this.attachWorkspaceToRuntimeSession(newId, workspace);
           console.log(
             `[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`,
           );
@@ -4841,7 +4912,7 @@ export class BridgeWebSocketServer {
           this.send(ws, {
             type: "session_context",
             sessionId: msg.sessionId,
-            context: { ...context },
+            context: { ...this.runtimeSessionWithWorkspace(context) },
           });
         } else {
           this.send(ws, {
@@ -5142,6 +5213,8 @@ export class BridgeWebSocketServer {
               limit: msg.limit,
               offset: msg.offset,
               projectPath: msg.projectPath,
+              projectId: msg.projectId,
+              workspaceKind: msg.workspaceKind,
               requestScope: msg.requestScope,
               requestId: msg.requestId,
             } as Record<string, unknown>);
@@ -5158,6 +5231,8 @@ export class BridgeWebSocketServer {
               message: `Failed to list recent sessions: ${err}`,
               errorCode: "recent_sessions_failed",
               path: msg.projectPath,
+              projectId: msg.projectId,
+              workspaceKind: msg.workspaceKind,
               requestId: msg.requestId,
               requestScope: msg.requestScope,
               offset: msg.offset,
@@ -5227,14 +5302,53 @@ export class BridgeWebSocketServer {
 
       case "resume_session": {
         const resumeStartedAt = Date.now();
+        const provider = msg.provider ?? "claude";
+        const storedAssignment = this.workspaceStore?.getAssignment(
+          provider,
+          msg.sessionId,
+        );
+        const requestedProject =
+          !storedAssignment && msg.projectId
+            ? this.workspaceStore?.getProject(msg.projectId)
+            : undefined;
+        const assignedProject = storedAssignment?.projectId
+          ? this.workspaceStore?.getProject(storedAssignment.projectId)
+          : undefined;
+        const resumeRoots =
+          storedAssignment?.rootPaths ?? requestedProject?.rootPaths;
         console.log(
           `[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
         );
+        // A stored assignment supplies the root snapshot and secondary roots,
+        // while the recent-session path may be a worktree cwd that must win.
         const resumeProjectPath = resolvePlatformPath(
-          msg.projectPath,
+          storedAssignment
+            ? msg.projectPath
+            : (resumeRoots?.[0] ?? msg.projectPath),
           this.platform,
         );
-        const provider = msg.provider ?? "claude";
+        const resumeAdditionalRoots =
+          resumeRoots?.slice(1) ?? msg.additionalWritableRoots;
+        const resolvedResumeWorkspace: ResolvedWorkspace | undefined =
+          storedAssignment
+            ? {
+                kind: storedAssignment.kind,
+                ...(storedAssignment.projectId
+                  ? { projectId: storedAssignment.projectId }
+                  : {}),
+                ...(assignedProject
+                  ? { projectName: assignedProject.name }
+                  : {}),
+                rootPaths: storedAssignment.rootPaths,
+              }
+            : requestedProject
+              ? {
+                  kind: "project",
+                  projectId: requestedProject.id,
+                  projectName: requestedProject.name,
+                  rootPaths: requestedProject.rootPaths,
+                }
+              : undefined;
         if (!this.isPathAllowed(resumeProjectPath)) {
           this.sendResumeFailed(ws, {
             provider,
@@ -5244,6 +5358,19 @@ export class BridgeWebSocketServer {
           });
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
+        }
+        if (
+          resolvedResumeWorkspace &&
+          !storedAssignment &&
+          this.workspaceStore
+        ) {
+          void this.workspaceStore.assignSession(
+            provider,
+            msg.sessionId,
+            resolvedResumeWorkspace,
+          ).catch((error) => {
+            console.error("[workspace] Failed to persist resume assignment:", error);
+          });
         }
         const normalizedCodexPermissionsMode =
           provider === "codex"
@@ -5314,7 +5441,7 @@ export class BridgeWebSocketServer {
             : undefined;
           const additionalWritableRoots =
             this.normalizeAdditionalWritableRoots(
-              msg.additionalWritableRoots,
+              resumeAdditionalRoots,
               effectiveProjectPath,
             );
           if (additionalWritableRoots.deniedRoot) {
@@ -5507,7 +5634,9 @@ export class BridgeWebSocketServer {
               type: "session_resumed",
               detail: `provider=codex thread=${sessionRefId}`,
             });
-            this.projectHistory?.addProject(effectiveProjectPath);
+            if (!resolvedResumeWorkspace) {
+              this.projectHistory?.addProject(effectiveProjectPath);
+            }
             console.info(
               formatResumePerformanceLog({
                 provider: "codex",
@@ -5554,6 +5683,23 @@ export class BridgeWebSocketServer {
         }
 
         const claudeSessionId = sessionRefId;
+        const additionalDirectories = this.normalizeAdditionalWritableRoots(
+          resumeAdditionalRoots,
+          resumeProjectPath,
+        );
+        if (additionalDirectories.deniedRoot) {
+          this.sendResumeFailed(ws, {
+            provider,
+            sourceSessionId: sessionRefId,
+            projectPath: resumeProjectPath,
+            resumeRequestId: msg.resumeRequestId,
+          });
+          this.send(
+            ws,
+            this.buildPathNotAllowedError(additionalDirectories.deniedRoot),
+          );
+          break;
+        }
         // Look up worktree mapping for this Claude session
         const wtMapping = this.worktreeStore.get(claudeSessionId);
         let worktreeOpts:
@@ -5620,6 +5766,7 @@ export class BridgeWebSocketServer {
                 ...(msg.sandboxMode
                   ? { sandboxEnabled: msg.sandboxMode === "on" }
                   : {}),
+                additionalDirectories: additionalDirectories.roots,
               },
               pastMessages,
               worktreeOptions: worktreeOpts,
@@ -5712,7 +5859,9 @@ export class BridgeWebSocketServer {
               type: "session_resumed",
               detail: `provider=claude session=${claudeSessionId}`,
             });
-            this.projectHistory?.addProject(resumeProjectPath);
+            if (!resolvedResumeWorkspace) {
+              this.projectHistory?.addProject(resumeProjectPath);
+            }
           })
           .catch((err) => {
             if (!historyLoaded) {
@@ -5811,15 +5960,123 @@ export class BridgeWebSocketServer {
       }
 
       case "list_project_history": {
-        const projects = this.projectHistory?.getProjects() ?? [];
+        const projects = this.legacyProjectHistoryProjects();
         this.send(ws, { type: "project_history", projects });
         break;
       }
 
       case "remove_project_history": {
         this.projectHistory?.removeProject(msg.projectPath);
-        const projects = this.projectHistory?.getProjects() ?? [];
+        const projects = this.legacyProjectHistoryProjects();
         this.send(ws, { type: "project_history", projects });
+        break;
+      }
+
+      case "list_projects": {
+        this.send(ws, this.projectsMessage(msg.requestId));
+        break;
+      }
+
+      case "create_project": {
+        if (!this.workspaceStore) {
+          this.send(ws, {
+            type: "error",
+            requestId: msg.requestId,
+            errorCode: "projects_unavailable",
+            message: "Project storage is unavailable",
+          });
+          break;
+        }
+        const normalized = this.normalizeWorkspaceRoots(msg.rootPaths);
+        if (normalized.deniedRoot || !normalized.roots) {
+          this.send(
+            ws,
+            this.buildPathNotAllowedError(
+              normalized.deniedRoot ?? msg.rootPaths[0],
+            ),
+          );
+          break;
+        }
+        try {
+          await this.workspaceStore.createProject(msg.name, normalized.roots);
+          this.broadcast(this.projectsMessage(msg.requestId));
+        } catch (error) {
+          this.sendWorkspaceMutationError(ws, msg.requestId, "create Project", error);
+        }
+        break;
+      }
+
+      case "update_project": {
+        if (!this.workspaceStore) {
+          this.send(ws, {
+            type: "error",
+            requestId: msg.requestId,
+            errorCode: "projects_unavailable",
+            message: "Project storage is unavailable",
+          });
+          break;
+        }
+        const normalized = this.normalizeWorkspaceRoots(msg.rootPaths);
+        if (normalized.deniedRoot || !normalized.roots) {
+          this.send(
+            ws,
+            this.buildPathNotAllowedError(
+              normalized.deniedRoot ?? msg.rootPaths[0],
+            ),
+          );
+          break;
+        }
+        let updated;
+        try {
+          updated = await this.workspaceStore.updateProject(
+            msg.projectId,
+            msg.name,
+            normalized.roots,
+          );
+        } catch (error) {
+          this.sendWorkspaceMutationError(ws, msg.requestId, "update Project", error);
+          break;
+        }
+        if (!updated) {
+          this.send(ws, {
+            type: "error",
+            requestId: msg.requestId,
+            errorCode: "project_not_found",
+            message: `Project not found: ${msg.projectId}`,
+          });
+          break;
+        }
+        this.broadcast(this.projectsMessage(msg.requestId));
+        break;
+      }
+
+      case "remove_project": {
+        if (!this.workspaceStore) {
+          this.sendWorkspaceMutationError(
+            ws,
+            msg.requestId,
+            "remove Project",
+            new Error("Project storage is unavailable"),
+          );
+          break;
+        }
+        let removed;
+        try {
+          removed = await this.workspaceStore.removeProject(msg.projectId);
+        } catch (error) {
+          this.sendWorkspaceMutationError(ws, msg.requestId, "remove Project", error);
+          break;
+        }
+        if (!removed) {
+          this.send(ws, {
+            type: "error",
+            requestId: msg.requestId,
+            errorCode: "project_not_found",
+            message: `Project not found: ${msg.projectId}`,
+          });
+          break;
+        }
+        this.broadcast(this.projectsMessage(msg.requestId));
         break;
       }
 
@@ -7849,7 +8106,7 @@ export class BridgeWebSocketServer {
 
   private sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
-    const sessions = this.sessionManager.list();
+    const sessions = this.runtimeSessionsWithWorkspaces();
     this.send(ws, {
       type: "session_list",
       sessions,
@@ -7892,7 +8149,7 @@ export class BridgeWebSocketServer {
   /** Broadcast session list to all connected clients. */
   private broadcastSessionList(): void {
     this.pruneDebugEvents();
-    const sessions = this.sessionManager.list();
+    const sessions = this.runtimeSessionsWithWorkspaces();
     this.broadcast({
       type: "session_list",
       sessions,
@@ -7913,6 +8170,24 @@ export class BridgeWebSocketServer {
         "session_context_v1",
       ],
     });
+  }
+
+  private runtimeSessionsWithWorkspaces(): Array<
+    SessionSummary & { workspace?: ResolvedWorkspace }
+  > {
+    return this.sessionManager
+      .list()
+      .map((summary) => this.runtimeSessionWithWorkspace(summary));
+  }
+
+  private runtimeSessionWithWorkspace(
+    summary: SessionSummary,
+  ): SessionSummary & { workspace?: ResolvedWorkspace } {
+    const session = this.sessionManager.get(summary.id);
+    const workspace = session
+      ? this.workspaceForRuntimeSession(session)
+      : undefined;
+    return workspace ? { ...summary, workspace } : summary;
   }
 
   private broadcastPromptHistoryStatus(): void {
@@ -8064,6 +8339,7 @@ export class BridgeWebSocketServer {
 
   private destroySession(sessionId: string): void {
     this.flushSessionDeltaBatches(sessionId);
+    this.pendingSessionWorkspaces.delete(sessionId);
     this.sessionManager.destroy(sessionId);
   }
 
@@ -8120,6 +8396,186 @@ export class BridgeWebSocketServer {
   private async listRecentSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    const primaryProjectIds = new Set(
+      msg.projectPath === undefined
+        ? []
+        : (this.workspaceStore?.listProjects() ?? [])
+            .filter((project) => project.rootPaths[0] === msg.projectPath)
+            .map((project) => project.id),
+    );
+    const workspaceFilterRequested =
+      msg.projectId !== undefined ||
+      msg.workspaceKind !== undefined ||
+      primaryProjectIds.size > 0;
+    if (!workspaceFilterRequested) {
+      const rawResult = await this.listRecentSessionsRaw(msg);
+      const enriched = rawResult.sessions.map((session) =>
+        this.enrichRecentSessionWorkspace(session),
+      );
+      return { sessions: enriched, hasMore: rawResult.hasMore };
+    }
+
+    const matchesWorkspace = (session: unknown): boolean => {
+      const value = session as {
+        projectPath?: unknown;
+        workspace?: Record<string, unknown>;
+      };
+      const workspace = value.workspace;
+      if (msg.projectId && workspace?.projectId !== msg.projectId) return false;
+      if (msg.workspaceKind && workspace?.kind !== msg.workspaceKind) return false;
+      if (msg.projectPath !== undefined) {
+        const matchesPrimaryProject =
+          typeof workspace?.projectId === "string" &&
+          primaryProjectIds.has(workspace.projectId);
+        if (
+          value.projectPath !== msg.projectPath &&
+          !matchesPrimaryProject
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+    const offset = msg.offset ?? 0;
+    const limit = msg.limit ?? 20;
+    const requiredMatches = offset + limit + 1;
+    let filtered: unknown[];
+    if (msg.provider === "codex") {
+      filtered = await this.listWorkspaceFilteredCodexSessions(
+        msg,
+        matchesWorkspace,
+        requiredMatches,
+      );
+    } else if (msg.provider === "claude") {
+      filtered = await this.listWorkspaceFilteredIndexedSessions(
+        msg,
+        matchesWorkspace,
+        requiredMatches,
+      );
+    } else {
+      // The filesystem index includes both providers and is also the fallback
+      // for Codex rollouts not returned by app-server. Merge it with one
+      // cursor-preserving app-server scan for the freshest Codex metadata.
+      const [indexed, codex] = await Promise.all([
+        this.listWorkspaceFilteredIndexedSessions(
+          msg,
+          matchesWorkspace,
+          requiredMatches,
+        ),
+        this.listWorkspaceFilteredCodexSessions(
+          { ...msg, provider: "codex" },
+          matchesWorkspace,
+          requiredMatches,
+        ),
+      ]);
+      filtered = mergeRecentSessionPages([...codex, ...indexed]);
+    }
+    return {
+      sessions: filtered.slice(offset, offset + limit),
+      hasMore: filtered.length > offset + limit,
+    };
+  }
+
+  private async listWorkspaceFilteredIndexedSessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+    matchesWorkspace: (session: unknown) => boolean,
+    limit: number,
+  ): Promise<unknown[]> {
+    const result = await getAllRecentSessions({
+      limit,
+      offset: 0,
+      // Project identity is authoritative. Do not pre-filter by the current
+      // primary root: assignments may retain an older snapshot or worktree cwd.
+      provider: msg.provider,
+      namedOnly: msg.namedOnly,
+      searchQuery: msg.searchQuery,
+      archivedSessionIds: this.archiveStore.archivedIds(),
+      sessionFilter: (session) =>
+        matchesWorkspace(this.enrichRecentSessionWorkspace(session)),
+    });
+    return result.sessions.map((session) =>
+      this.enrichRecentSessionWorkspace(session),
+    );
+  }
+
+  private async listWorkspaceFilteredCodexSessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+    matchesWorkspace: (session: unknown) => boolean,
+    limit: number,
+  ): Promise<unknown[]> {
+    try {
+      return await this.listWorkspaceFilteredCodexThreads(
+        msg,
+        matchesWorkspace,
+        limit,
+      );
+    } catch (err) {
+      console.warn(
+        `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
+      );
+      return this.listWorkspaceFilteredIndexedSessions(
+        { ...msg, provider: "codex" },
+        matchesWorkspace,
+        limit,
+      );
+    }
+  }
+
+  private async listWorkspaceFilteredCodexThreads(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+    matchesWorkspace: (session: unknown) => boolean,
+    limit: number,
+  ): Promise<unknown[]> {
+    const activeProcess = this.getActiveCodexProcess();
+    const process =
+      activeProcess ?? (await this.createStandaloneCodexProcess(undefined));
+    const isStandalone = activeProcess === null;
+
+    try {
+      const archivedIds = this.archiveStore.archivedIds();
+      const matchingThreads: CodexThreadSummary[] = [];
+      let cursor: string | null | undefined;
+
+      do {
+        const request: Parameters<CodexProcess["listThreads"]>[0] = {
+          limit: 500,
+          searchTerm: msg.searchQuery,
+          sourceKinds: CODEX_RECENT_THREAD_SOURCE_KINDS,
+        };
+        if (cursor != null) request.cursor = cursor;
+
+        const result = await process.listThreads(request);
+        for (const thread of result.data) {
+          if (archivedIds.has(thread.id)) continue;
+          if (msg.namedOnly && !thread.name) continue;
+          const workspaceProbe = this.enrichRecentSessionWorkspace({
+            provider: "codex",
+            sessionId: thread.id,
+            projectPath: thread.cwd,
+          });
+          if (!matchesWorkspace(workspaceProbe)) continue;
+          matchingThreads.push(thread);
+          if (matchingThreads.length >= limit) break;
+        }
+        cursor = result.nextCursor;
+      } while (matchingThreads.length < limit && cursor != null);
+
+      const indexedById = await getCodexSessionIndexMetadata(
+        matchingThreads.map((thread) => thread.id),
+      );
+      return matchingThreads.map((thread) =>
+        this.enrichRecentSessionWorkspace(
+          codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+        ),
+      );
+    } finally {
+      if (isStandalone) process.stop();
+    }
+  }
+
+  private async listRecentSessionsRaw(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
     if (msg.provider === "codex") {
       return this.listRecentCodexSessions(msg);
     }
@@ -8139,6 +8595,124 @@ export class BridgeWebSocketServer {
     });
   }
 
+  private enrichRecentSessionWorkspace(session: unknown): unknown {
+    if (!session || typeof session !== "object") return session;
+    const value = session as Record<string, unknown>;
+    const provider = value.provider;
+    const providerSessionId = value.sessionId;
+    const projectPath = value.projectPath;
+    if (
+      (provider !== "claude" && provider !== "codex") ||
+      typeof providerSessionId !== "string" ||
+      typeof projectPath !== "string"
+    ) {
+      return session;
+    }
+    const workspace = this.workspaceStore?.resolveRecentWorkspace(
+      provider,
+      providerSessionId,
+    );
+    return {
+      ...value,
+      workspace: workspace ?? {
+        kind: "unassigned",
+        rootPaths: projectPath ? [projectPath] : [],
+      },
+    };
+  }
+
+  private normalizeWorkspaceRoots(rootPaths: string[]): {
+    roots?: string[];
+    deniedRoot?: string;
+  } {
+    const roots: string[] = [];
+    const seen = new Set<string>();
+    for (const rawPath of rootPaths) {
+      const path = resolvePlatformPath(rawPath, this.platform);
+      if (!this.isPathAllowed(path)) return { deniedRoot: rawPath };
+      if (!seen.has(path)) {
+        seen.add(path);
+        roots.push(path);
+      }
+    }
+    return roots.length > 0 ? { roots } : {};
+  }
+
+  private async persistPendingSessionWorkspace(sessionId: string): Promise<void> {
+    const workspace = this.pendingSessionWorkspaces.get(sessionId);
+    const session = this.sessionManager.get(sessionId);
+    if (!workspace || !session?.claudeSessionId || !this.workspaceStore) return;
+    try {
+      await this.workspaceStore.assignSession(
+        session.provider,
+        session.claudeSessionId,
+        workspace,
+      );
+      this.pendingSessionWorkspaces.delete(sessionId);
+    } catch (error) {
+      console.error("[workspace] Failed to persist session assignment:", error);
+    }
+  }
+
+  private workspaceForRuntimeSession(
+    session: SessionInfo,
+  ): ResolvedWorkspace | undefined {
+    const pending = this.pendingSessionWorkspaces.get(session.id);
+    if (pending) {
+      return { ...pending, rootPaths: [...pending.rootPaths] };
+    }
+    if (!session.claudeSessionId || !this.workspaceStore) return undefined;
+    const assignment = this.workspaceStore.getAssignment(
+      session.provider,
+      session.claudeSessionId,
+    );
+    if (!assignment) return undefined;
+    const project = assignment.projectId
+      ? this.workspaceStore.getProject(assignment.projectId)
+      : undefined;
+    return {
+      kind: assignment.kind,
+      ...(assignment.projectId ? { projectId: assignment.projectId } : {}),
+      ...(project ? { projectName: project.name } : {}),
+      rootPaths: [...assignment.rootPaths],
+    };
+  }
+
+  private attachWorkspaceToRuntimeSession(
+    sessionId: string,
+    workspace: ResolvedWorkspace | undefined,
+  ): void {
+    if (!workspace) return;
+    this.pendingSessionWorkspaces.set(sessionId, workspace);
+    void this.persistPendingSessionWorkspace(sessionId);
+  }
+
+  private projectsMessage(requestId?: string): ServerMessage {
+    return {
+      type: "projects",
+      projects: this.workspaceStore?.listProjects() ?? [],
+      ...(requestId ? { requestId } : {}),
+    };
+  }
+
+  private sendWorkspaceMutationError(
+    ws: WebSocket,
+    requestId: string | undefined,
+    action: string,
+    error: unknown,
+  ): void {
+    this.send(ws, {
+      type: "error",
+      requestId,
+      errorCode: "workspace_write_failed",
+      message: `Failed to ${action}: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+
+  private legacyProjectHistoryProjects(): string[] {
+    return this.projectHistory?.getProjects() ?? [];
+  }
+
   private listRecentSessionsCoalesced(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
@@ -8146,6 +8720,8 @@ export class BridgeWebSocketServer {
       limit: msg.limit ?? null,
       offset: msg.offset ?? null,
       projectPath: msg.projectPath ?? null,
+      projectId: msg.projectId ?? null,
+      workspaceKind: msg.workspaceKind ?? null,
       provider: msg.provider ?? null,
       namedOnly: msg.namedOnly ?? null,
       searchQuery: msg.searchQuery ?? null,

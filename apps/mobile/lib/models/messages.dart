@@ -865,6 +865,8 @@ sealed class ServerMessage {
         sessionId: json['sessionId'] as String?,
         toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
+        projectId: json['projectId'] as String?,
+        workspaceKind: json['workspaceKind'] as String?,
         requestId: json['requestId'] as String?,
         requestScope: json['requestScope'] as String?,
         offset: json['offset'] as int?,
@@ -1013,6 +1015,8 @@ sealed class ServerMessage {
         limit: json['limit'] as int?,
         offset: json['offset'] as int?,
         projectPath: json['projectPath'] as String?,
+        projectId: json['projectId'] as String?,
+        workspaceKind: json['workspaceKind'] as String?,
         requestScope: json['requestScope'] as String?,
         requestId: json['requestId'] as String?,
       ),
@@ -1125,6 +1129,7 @@ sealed class ServerMessage {
       'project_history' => ProjectHistoryMessage(
         projects: (json['projects'] as List).cast<String>(),
       ),
+      'projects' => ProjectsMessage.fromJson(json),
       'directory_listing' => DirectoryListingMessage(
         path: json['path'] as String? ?? '',
         directories: _parseDirectoryListingEntries(json['directories']),
@@ -1736,6 +1741,8 @@ class ErrorMessage implements ServerMessage {
   final String? sessionId;
   final String? toolUseId;
   final String? path;
+  final String? projectId;
+  final String? workspaceKind;
   final String? requestId;
   final String? requestScope;
   final int? offset;
@@ -1748,6 +1755,8 @@ class ErrorMessage implements ServerMessage {
     this.sessionId,
     this.toolUseId,
     this.path,
+    this.projectId,
+    this.workspaceKind,
     this.requestId,
     this.requestScope,
     this.offset,
@@ -2570,6 +2579,8 @@ class RecentSessionsMessage implements ServerMessage {
   final int? limit;
   final int? offset;
   final String? projectPath;
+  final String? projectId;
+  final String? workspaceKind;
   final String? requestScope;
   final String? requestId;
   const RecentSessionsMessage({
@@ -2578,6 +2589,8 @@ class RecentSessionsMessage implements ServerMessage {
     this.limit,
     this.offset,
     this.projectPath,
+    this.projectId,
+    this.workspaceKind,
     this.requestScope,
     this.requestId,
   });
@@ -2939,6 +2952,54 @@ class FileUploadCompleteMessage implements ServerMessage {
 class ProjectHistoryMessage implements ServerMessage {
   final List<String> projects;
   const ProjectHistoryMessage({required this.projects});
+}
+
+class WorkspaceProject {
+  final String id;
+  final String name;
+  final List<String> rootPaths;
+  final String createdAt;
+  final String updatedAt;
+
+  const WorkspaceProject({
+    required this.id,
+    required this.name,
+    required this.rootPaths,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  String get primaryPath => rootPaths.first;
+  List<String> get secondaryPaths => rootPaths.skip(1).toList();
+
+  factory WorkspaceProject.fromJson(Map<String, dynamic> json) =>
+      WorkspaceProject(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        rootPaths: _stringList(json['rootPaths']),
+        createdAt: json['createdAt'] as String? ?? '',
+        updatedAt: json['updatedAt'] as String? ?? '',
+      );
+}
+
+class ProjectsMessage implements ServerMessage {
+  final List<WorkspaceProject> projects;
+  final String? requestId;
+
+  const ProjectsMessage({required this.projects, this.requestId});
+
+  factory ProjectsMessage.fromJson(Map<String, dynamic> json) =>
+      ProjectsMessage(
+        projects: (json['projects'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (project) =>
+                  WorkspaceProject.fromJson(Map<String, dynamic>.from(project)),
+            )
+            .where((project) => project.rootPaths.isNotEmpty)
+            .toList(),
+        requestId: json['requestId'] as String?,
+      );
 }
 
 class DirectoryListingEntry {
@@ -3888,6 +3949,28 @@ String pathBasename(String path) {
   return last.isNotEmpty ? last : path;
 }
 
+class SessionWorkspaceInfo {
+  final String kind;
+  final String? projectId;
+  final String? projectName;
+  final List<String> rootPaths;
+
+  const SessionWorkspaceInfo({
+    required this.kind,
+    this.projectId,
+    this.projectName,
+    this.rootPaths = const [],
+  });
+
+  factory SessionWorkspaceInfo.fromJson(Map<String, dynamic> json) =>
+      SessionWorkspaceInfo(
+        kind: json['kind'] as String? ?? 'unassigned',
+        projectId: json['projectId'] as String?,
+        projectName: json['projectName'] as String?,
+        rootPaths: _stringList(json['rootPaths']),
+      );
+}
+
 class RecentSession {
   final String sessionId;
   final String? provider;
@@ -3919,6 +4002,7 @@ class RecentSession {
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
+  final SessionWorkspaceInfo? workspace;
 
   const RecentSession({
     required this.sessionId,
@@ -3949,6 +4033,7 @@ class RecentSession {
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
+    this.workspace,
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -4017,13 +4102,31 @@ class RecentSession {
       codexAdditionalWritableRoots: _stringList(
         codexSettings?['additionalWritableRoots'],
       ),
+      workspace: switch (json['workspace']) {
+        final Map workspace => SessionWorkspaceInfo.fromJson(
+          Map<String, dynamic>.from(workspace),
+        ),
+        _ => null,
+      },
     );
   }
 
   /// Extract project name from path (last segment)
   String get projectName {
-    return pathBasename(projectPath);
+    return workspace?.projectName ?? pathBasename(projectPath);
   }
+
+  String get workspaceKind => workspace?.kind ?? 'unassigned';
+
+  String get workspaceGroupKey => switch (workspaceKind) {
+    'project' when workspace?.projectId != null =>
+      'project:${workspace!.projectId}',
+    _ => projectPath,
+  };
+
+  List<String> get workspaceRootPaths => workspace?.rootPaths.isNotEmpty == true
+      ? workspace!.rootPaths
+      : [projectPath];
 
   /// Display text: summary if available, otherwise firstPrompt
   String get displayText {
@@ -4062,6 +4165,7 @@ class RecentSession {
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
+      workspace: workspace,
     );
   }
 
@@ -4099,6 +4203,7 @@ class RecentSession {
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
+      workspace: workspace,
     );
   }
 }
@@ -4140,6 +4245,7 @@ class SessionInfo {
   final List<String> codexAdditionalWritableRoots;
   final PermissionRequestMessage? pendingPermission;
   final QueuedInputItem? queuedInput;
+  final SessionWorkspaceInfo? workspace;
 
   const SessionInfo({
     required this.id,
@@ -4174,7 +4280,22 @@ class SessionInfo {
     this.codexAdditionalWritableRoots = const [],
     this.pendingPermission,
     this.queuedInput,
+    this.workspace,
   });
+
+  String get projectName => workspace?.projectName ?? pathBasename(projectPath);
+
+  String get workspaceKind => workspace?.kind ?? 'unassigned';
+
+  String get workspaceGroupKey => switch (workspaceKind) {
+    'project' when workspace?.projectId != null =>
+      'project:${workspace!.projectId}',
+    _ => projectPath,
+  };
+
+  List<String> get workspaceRootPaths => workspace?.rootPaths.isNotEmpty == true
+      ? workspace!.rootPaths
+      : [projectPath];
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
     provider: provider,
@@ -4258,6 +4379,7 @@ class SessionInfo {
           ? null
           : (pendingPermission ?? this.pendingPermission),
       queuedInput: clearQueuedInput ? null : (queuedInput ?? this.queuedInput),
+      workspace: workspace,
     );
   }
 
@@ -4322,6 +4444,12 @@ class SessionInfo {
       queuedInput: queueJson != null
           ? QueuedInputItem.fromJson(queueJson)
           : null,
+      workspace: switch (json['workspace']) {
+        final Map workspace => SessionWorkspaceInfo.fromJson(
+          Map<String, dynamic>.from(workspace),
+        ),
+        _ => null,
+      },
     );
   }
 }
@@ -4348,6 +4476,7 @@ class ClientMessage {
       'history_snapshot',
       'git_status_result',
       'prompt_history_status',
+      'projects',
       'push_registration_result',
       'session_context',
     ],
@@ -4390,6 +4519,8 @@ class ClientMessage {
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
+    String? projectId,
+    String? workspaceKind,
     bool? autoRename,
     String? requestId,
   }) {
@@ -4424,6 +4555,8 @@ class ClientMessage {
       'webSearchMode': ?webSearchMode,
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
         'additionalWritableRoots': additionalWritableRoots,
+      'projectId': ?projectId,
+      'workspaceKind': ?workspaceKind,
       'autoRename': ?autoRename,
       'requestId': ?requestId,
     });
@@ -4714,6 +4847,8 @@ class ClientMessage {
     int? limit,
     int? offset,
     String? projectPath,
+    String? projectId,
+    String? workspaceKind,
     String? requestScope,
     String? requestId,
     String? provider,
@@ -4725,6 +4860,8 @@ class ClientMessage {
       'limit': ?limit,
       'offset': ?offset,
       'projectPath': ?projectPath,
+      'projectId': ?projectId,
+      'workspaceKind': ?workspaceKind,
       'requestScope': ?requestScope,
       'requestId': ?requestId,
       'provider': ?provider,
@@ -4757,6 +4894,8 @@ class ClientMessage {
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
+    String? projectId,
+    String? workspaceKind,
     String? resumeRequestId,
   }) {
     return ClientMessage._(<String, dynamic>{
@@ -4786,6 +4925,8 @@ class ClientMessage {
       'resumeRequestId': ?resumeRequestId,
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
         'additionalWritableRoots': additionalWritableRoots,
+      'projectId': ?projectId,
+      'workspaceKind': ?workspaceKind,
     });
   }
 
@@ -4923,6 +5064,42 @@ class ClientMessage {
         'type': 'remove_project_history',
         'projectPath': projectPath,
       });
+
+  factory ClientMessage.listProjects({String? requestId}) =>
+      ClientMessage._({'type': 'list_projects', 'requestId': ?requestId});
+
+  factory ClientMessage.createProject({
+    required String name,
+    required List<String> rootPaths,
+    String? requestId,
+  }) => ClientMessage._({
+    'type': 'create_project',
+    'name': name,
+    'rootPaths': rootPaths,
+    'requestId': ?requestId,
+  });
+
+  factory ClientMessage.updateProject({
+    required String projectId,
+    required String name,
+    required List<String> rootPaths,
+    String? requestId,
+  }) => ClientMessage._({
+    'type': 'update_project',
+    'projectId': projectId,
+    'name': name,
+    'rootPaths': rootPaths,
+    'requestId': ?requestId,
+  });
+
+  factory ClientMessage.removeProject({
+    required String projectId,
+    String? requestId,
+  }) => ClientMessage._({
+    'type': 'remove_project',
+    'projectId': projectId,
+    'requestId': ?requestId,
+  });
 
   factory ClientMessage.listWorktrees(
     String projectPath, {

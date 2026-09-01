@@ -36,13 +36,17 @@ import 'session_reconnect_banner.dart';
 import 'support_banner.dart';
 
 class _ProjectSessionGroup {
+  final String groupKey;
   final String projectPath;
   final String projectName;
+  final String workspaceKind;
   final List<RecentSession> sessions;
 
   const _ProjectSessionGroup({
+    required this.groupKey,
     required this.projectPath,
     required this.projectName,
+    required this.workspaceKind,
     required this.sessions,
   });
 }
@@ -56,16 +60,20 @@ List<_ProjectSessionGroup> _groupSessionsByProject({
       if (path.isNotEmpty) path: <RecentSession>[],
   };
   for (final session in sessions) {
-    grouped.putIfAbsent(session.projectPath, () => <RecentSession>[]);
-    grouped[session.projectPath]!.add(session);
+    grouped.putIfAbsent(session.workspaceGroupKey, () => <RecentSession>[]);
+    grouped[session.workspaceGroupKey]!.add(session);
   }
   return [
     for (final entry in grouped.entries)
-      _ProjectSessionGroup(
-        projectPath: entry.key,
-        projectName: pathBasename(entry.key),
-        sessions: entry.value,
-      ),
+      if (entry.value.isNotEmpty || !entry.key.contains(':'))
+        _ProjectSessionGroup(
+          groupKey: entry.key,
+          projectPath: entry.value.firstOrNull?.projectPath ?? entry.key,
+          projectName:
+              entry.value.firstOrNull?.projectName ?? pathBasename(entry.key),
+          workspaceKind: entry.value.firstOrNull?.workspaceKind ?? 'unassigned',
+          sessions: entry.value,
+        ),
   ];
 }
 
@@ -76,6 +84,7 @@ class HomeContent extends StatefulWidget {
   final List<SessionInfo> sessions;
   final List<OfflinePendingAction> offlinePendingActions;
   final List<RecentSession> recentSessions;
+  final List<WorkspaceProject> workspaceProjects;
   final Set<String> accumulatedProjectPaths;
   final Set<String> collapsedProjectPaths;
   final Set<String> loadingProjectPaths;
@@ -151,6 +160,7 @@ class HomeContent extends StatefulWidget {
     required this.sessions,
     this.offlinePendingActions = const [],
     required this.recentSessions,
+    this.workspaceProjects = const [],
     required this.accumulatedProjectPaths,
     this.collapsedProjectPaths = const {},
     this.loadingProjectPaths = const {},
@@ -477,7 +487,9 @@ class HomeContentState extends State<HomeContent> {
     final hasPendingActions = widget.offlinePendingActions.isNotEmpty;
     final hasRunningSessions = widget.sessions.isNotEmpty || hasPendingActions;
     final hasRecentSessions = widget.recentSessions.isNotEmpty;
-    final hasKnownProjects = widget.accumulatedProjectPaths.isNotEmpty;
+    final hasKnownProjects =
+        widget.accumulatedProjectPaths.isNotEmpty ||
+        widget.workspaceProjects.isNotEmpty;
     final isReconnecting =
         widget.connectionState == BridgeConnectionState.reconnecting;
     final updateBanner = _buildUpdateBanner();
@@ -553,14 +565,35 @@ class HomeContentState extends State<HomeContent> {
       isPinned: (session) =>
           widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
       isProjectPinned: (session) =>
-          widget.pinnedProjectPaths.contains(session.projectPath),
+          widget.pinnedProjectPaths.contains(session.workspaceGroupKey),
     );
+    final assignedSessionPaths = widget.recentSessions
+        .where((session) => session.workspaceKind != 'unassigned')
+        .map((session) => session.projectPath)
+        .toSet();
+    final projectFilterNames = <String, String>{
+      // Named Projects stay ahead of the usually much longer folder history.
+      // Session-derived entries cover the short window before the Project
+      // catalog response arrives.
+      for (final project in widget.workspaceProjects)
+        'project:${project.id}': project.name,
+      for (final session in widget.recentSessions)
+        if (session.workspaceKind == 'project' &&
+            session.workspaceGroupKey.isNotEmpty)
+          session.workspaceGroupKey: session.projectName,
+      for (final project in widget.workspaceProjects)
+        if (project.rootPaths.isNotEmpty)
+          project.primaryPath: pathBasename(project.primaryPath),
+      for (final path in widget.accumulatedProjectPaths)
+        if (path.isNotEmpty && !assignedSessionPaths.contains(path))
+          path: pathBasename(path),
+    };
     final projectPathsWithPinnedSessions = filteredSessions
         .where(
           (session) =>
               widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
         )
-        .map((session) => session.projectPath)
+        .map((session) => session.workspaceGroupKey)
         .toSet();
     final allProjectPaths = prioritizePinned(
       <String>{
@@ -568,7 +601,7 @@ class HomeContentState extends State<HomeContent> {
         if (widget.currentProjectFilter == null)
           ...widget.accumulatedProjectPaths,
         if (widget.currentProjectFilter == null)
-          ...filteredSessions.map((session) => session.projectPath),
+          ...filteredSessions.map((session) => session.workspaceGroupKey),
       }.where((path) => path.isNotEmpty),
       isPinned: projectPathsWithPinnedSessions.contains,
       isProjectPinned: widget.pinnedProjectPaths.contains,
@@ -584,7 +617,7 @@ class HomeContentState extends State<HomeContent> {
         return key != null && widget.pinnedSessionKeys.contains(key);
       },
       isProjectPinned: (session) =>
-          widget.pinnedProjectPaths.contains(session.projectPath),
+          widget.pinnedProjectPaths.contains(session.workspaceGroupKey),
     );
 
     final hasActiveFilter =
@@ -815,10 +848,11 @@ class HomeContentState extends State<HomeContent> {
             onToggleProviderFilter: widget.onToggleProvider,
             projects:
                 prioritizePinned(
-                  widget.accumulatedProjectPaths,
-                  isPinned: widget.pinnedProjectPaths.contains,
-                ).map((path) {
-                  return (path: path, name: pathBasename(path));
+                  projectFilterNames.entries,
+                  isPinned: (entry) =>
+                      widget.pinnedProjectPaths.contains(entry.key),
+                ).map((entry) {
+                  return (key: entry.key, name: entry.value);
                 }).toList(),
             currentProjectFilter: widget.currentProjectFilter,
             onProjectFilterChanged: widget.onSelectProject,
@@ -876,27 +910,26 @@ class HomeContentState extends State<HomeContent> {
                   group: group,
                   displayMode: _displayMode,
                   isCollapsed: widget.collapsedProjectPaths.contains(
-                    group.projectPath,
+                    group.groupKey,
                   ),
                   isLoadingMore: widget.loadingProjectPaths.contains(
-                    group.projectPath,
+                    group.groupKey,
                   ),
                   displayLimit:
                       widget.projectSessionDisplayLimits[group.projectPath] ??
                       5,
                   canLoadFromBridge:
                       widget.currentProjectFilter == null &&
+                      group.workspaceKind == 'unassigned' &&
                       !widget.exhaustedProjectPaths.contains(group.projectPath),
                   archivingSessionIds: widget.archivingSessionIds,
                   pinnedSessionKeys: widget.pinnedSessionKeys,
-                  isPinned: widget.pinnedProjectPaths.contains(
-                    group.projectPath,
-                  ),
+                  isPinned: widget.pinnedProjectPaths.contains(group.groupKey),
                   onToggleCollapsed: () =>
-                      widget.onToggleProjectCollapsed?.call(group.projectPath),
+                      widget.onToggleProjectCollapsed?.call(group.groupKey),
                   onTogglePinned: widget.onToggleProjectPinned == null
                       ? null
-                      : () => widget.onToggleProjectPinned!(group.projectPath),
+                      : () => widget.onToggleProjectPinned!(group.groupKey),
                   onLoadMore: () =>
                       widget.onLoadMoreProject?.call(group.projectPath),
                   onArchiveSession: widget.onArchiveSession,

@@ -366,6 +366,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _bridge.requestSessionList();
     _requestWithCurrentFilters();
     _bridge.requestProjectHistory();
+    _bridge.requestProjects();
   }
 
   /// Reset all filter state (used on disconnect).

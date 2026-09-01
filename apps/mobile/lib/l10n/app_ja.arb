@@ -3,6 +3,20 @@
 
   "appTitle": "CC Pocket",
 
+  "projects": "プロジェクト",
+  "manageProjects": "管理",
+  "createProject": "プロジェクトを作成",
+  "editProject": "プロジェクトを編集",
+  "projectName": "プロジェクト名",
+  "sourceFolders": "ソースフォルダ",
+  "primary": "プライマリ",
+  "makePrimary": "プライマリにする",
+  "removeFolder": "フォルダを削除",
+  "addFolder": "フォルダを追加",
+  "removeWorkspaceProject": "プロジェクトを削除",
+  "noProjectsYet": "プロジェクトはまだありません",
+  "unavailable": "利用できません",
+
   "cancel": "キャンセル",
   "save": "保存",
   "delete": "削除",

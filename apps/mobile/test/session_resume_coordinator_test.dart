@@ -115,6 +115,36 @@ void main() {
     expect(message, isNot(contains('sandboxMode')));
   });
 
+  test('resumes a multi-root Project with its stable identity', () async {
+    const projectSession = RecentSession(
+      sessionId: 'project-thread',
+      provider: 'codex',
+      firstPrompt: 'Continue',
+      created: '2026-09-01T00:00:00Z',
+      modified: '2026-09-01T01:00:00Z',
+      gitBranch: 'main',
+      projectPath: '/workspace/app',
+      isSidechain: false,
+      workspace: SessionWorkspaceInfo(
+        kind: 'project',
+        projectId: 'project-1',
+        projectName: 'App and API',
+        rootPaths: ['/workspace/app', '/workspace/api'],
+      ),
+    );
+
+    await SessionResumeCoordinator(bridge: bridge).resume(projectSession);
+
+    final message =
+        jsonDecode(bridge.sentMessages.single.toJson()) as Map<String, dynamic>;
+    expect(message, containsPair('projectId', 'project-1'));
+    expect(message, containsPair('workspaceKind', 'project'));
+    expect(
+      message,
+      containsPair('additionalWritableRoots', ['/workspace/api']),
+    );
+  });
+
   test('does not enqueue the same offline resume twice', () async {
     bridge.pendingActions = [
       OfflinePendingAction(

@@ -16,6 +16,7 @@ class SessionStartDefaultsStore {
 
   Future<NewSessionParams?> loadFor(Provider provider) async {
     final prefs = await SharedPreferences.getInstance();
+    await _removeObsoleteProjectlessDefaults(prefs);
     final scoped = _loadScoped(prefs, provider);
     if (scoped != null) return scoped;
 
@@ -27,6 +28,7 @@ class SessionStartDefaultsStore {
 
   Future<NewSessionParams?> loadInitial() async {
     final prefs = await SharedPreferences.getInstance();
+    await _removeObsoleteProjectlessDefaults(prefs);
     final lastProvider = _providerFromRaw(prefs.getString(_lastProviderKey));
     if (lastProvider != null) {
       final latest = _loadScoped(prefs, lastProvider);
@@ -105,6 +107,23 @@ class SessionStartDefaultsStore {
 
   Future<bool> _saveSelection(SharedPreferences prefs, Provider provider) {
     return prefs.setString(_lastProviderKey, provider.value);
+  }
+
+  Future<void> _removeObsoleteProjectlessDefaults(
+    SharedPreferences prefs,
+  ) async {
+    for (final key in [_legacyKey, _claudeKey, _codexKey]) {
+      final raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final json = jsonDecode(raw) as Map<String, dynamic>;
+        if (json['workspaceKind'] == 'projectless') {
+          await prefs.remove(key);
+        }
+      } catch (_) {
+        // Existing decode behavior handles corrupt values as unusable defaults.
+      }
+    }
   }
 
   String _keyFor(Provider provider) => switch (provider) {

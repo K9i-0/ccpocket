@@ -126,7 +126,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } else {
       _syncPlanApprovalState(null);
     }
-    final projectName = pathBasename(session.projectPath);
+    final projectName = session.projectName;
     final provider = providerFromRaw(session.provider);
     final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);

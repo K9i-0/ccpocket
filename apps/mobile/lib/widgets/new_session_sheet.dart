@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/session_list/session_list_screen.dart'
     show recentProjects, shortenPath;
+import '../features/projects/widgets/project_manager_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../models/new_session_tab.dart';
@@ -20,6 +21,8 @@ import 'codex_effort_slider.dart';
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
   final String projectPath;
+  final String? projectId;
+  final String? workspaceKind;
   final Provider provider;
   final PermissionMode? claudePermissionMode;
   final ExecutionMode executionMode;
@@ -55,6 +58,8 @@ class NewSessionParams {
 
   NewSessionParams({
     required this.projectPath,
+    this.projectId,
+    this.workspaceKind,
     this.provider = Provider.codex,
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
@@ -134,6 +139,8 @@ class NewSessionParams {
 
   NewSessionParams copyWith({
     String? projectPath,
+    String? projectId,
+    String? workspaceKind,
     Provider? provider,
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
@@ -169,6 +176,8 @@ class NewSessionParams {
   }) {
     return NewSessionParams(
       projectPath: projectPath ?? this.projectPath,
+      projectId: projectId ?? this.projectId,
+      workspaceKind: workspaceKind ?? this.workspaceKind,
       provider: provider ?? this.provider,
       claudePermissionMode: claudePermissionMode ?? this.claudePermissionMode,
       executionMode: executionMode ?? this.executionMode,
@@ -334,6 +343,8 @@ List<ClaudeEffort> _claudeEffortsForModel(
 Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
   return {
     'projectPath': params.projectPath,
+    'projectId': params.projectId,
+    'workspaceKind': params.workspaceKind,
     'provider': params.provider.value,
     'executionMode': params.executionMode.value,
     'codexPermissionsMode': params.codexPermissionsMode.value,
@@ -363,12 +374,16 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
 NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
   final projectPath = json['projectPath'] as String?;
   if (projectPath == null || projectPath.isEmpty) return null;
+  final workspaceKind = json['workspaceKind'] as String?;
+  if (workspaceKind != null && workspaceKind != 'project') return null;
   final codexModel = normalizeCodexModelForAvailableList(
     json['model'] as String?,
     _defaultCodexModels,
   );
   return NewSessionParams(
     projectPath: projectPath,
+    projectId: json['projectId'] as String?,
+    workspaceKind: workspaceKind,
     provider: _providerFromRaw(json['provider'] as String?),
     claudePermissionMode: permissionModeFromRaw(
       json['permissionMode'] as String?,
@@ -459,6 +474,38 @@ const _defaultRecentProjects = 5;
 /// Maximum number of recent projects shown when expanded.
 const _maxRecentProjects = 20;
 
+enum _ProjectChoiceKind { workspaceProject, recent }
+
+class _ProjectChoice {
+  const _ProjectChoice({
+    required this.kind,
+    required this.id,
+    required this.name,
+    required this.path,
+    this.workspaceProject,
+  });
+
+  final _ProjectChoiceKind kind;
+  final String id;
+  final String name;
+  final String path;
+  final WorkspaceProject? workspaceProject;
+
+  String get tileKey => switch (kind) {
+    _ProjectChoiceKind.workspaceProject => 'workspace_project_${id}_tile',
+    _ProjectChoiceKind.recent => 'recent_project_${path}_tile',
+  };
+}
+
+bool _isSameOrDescendantPath(String path, String root) {
+  String normalize(String value) =>
+      value.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+  final normalizedPath = normalize(path);
+  final normalizedRoot = normalize(root);
+  return normalizedPath == normalizedRoot ||
+      normalizedPath.startsWith('$normalizedRoot/');
+}
+
 const _additionalWritableRootHistoryKey =
     'new_session_additional_writable_root_history';
 const _maxAdditionalWritableRootHistory = 20;
@@ -533,8 +580,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
+  StreamSubscription<ProjectsMessage>? _projectsSub;
   StreamSubscription<bool>? _codexAutoReviewPolicySub;
   bool _codexAutoReviewDisabled = false;
+  ProjectsMessage _workspaceProjectsState = const ProjectsMessage(projects: []);
+  String? _selectedProjectId;
+  String? _workspaceKind;
+  bool _pendingInitialWorkspaceSelection = false;
 
   /// Live-updated recent projects (initially from widget, updated via stream).
   late List<({String path, String name})> _liveRecentProjects;
@@ -628,7 +680,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
-  /// All merged projects (up to [_maxRecentProjects]).
+  /// All merged projects before managed workspace paths are filtered out.
   List<({String path, String name})> get _allMergedProjects {
     List<({String path, String name})> merged;
     if (_liveProjectHistory.isEmpty) {
@@ -649,17 +701,48 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       }
       merged = result;
     }
-    if (merged.length > _maxRecentProjects) {
-      return merged.sublist(0, _maxRecentProjects);
-    }
     return merged;
   }
 
-  /// Merge projectHistory (Bridge-managed, preferred) with recentProjects (session fallback).
-  /// projectHistory paths are shown first; recentProjects paths not already covered are appended.
-  /// Returns collapsed ([_defaultRecentProjects]) or expanded ([_maxRecentProjects]) list.
-  List<({String path, String name})> get _effectiveProjects {
-    final all = _allMergedProjects;
+  List<_ProjectChoice> get _allProjectChoices {
+    final result = <_ProjectChoice>[];
+    for (final project in _workspaceProjectsState.projects) {
+      result.add(
+        _ProjectChoice(
+          kind: _ProjectChoiceKind.workspaceProject,
+          id: project.id,
+          name: project.name,
+          path: project.primaryPath,
+          workspaceProject: project,
+        ),
+      );
+    }
+
+    final managedRoots = _workspaceProjectsState.projects
+        .expand((project) => project.rootPaths)
+        .toList();
+    for (final project in _allMergedProjects) {
+      final isManagedProject = managedRoots.any(
+        (root) => _isSameOrDescendantPath(project.path, root),
+      );
+      if (isManagedProject) continue;
+      result.add(
+        _ProjectChoice(
+          kind: _ProjectChoiceKind.recent,
+          id: project.path,
+          name: project.name,
+          path: project.path,
+        ),
+      );
+    }
+    return result.length > _maxRecentProjects
+        ? result.sublist(0, _maxRecentProjects)
+        : result;
+  }
+
+  /// Returns the unified ccpocket Project and folder history.
+  List<_ProjectChoice> get _effectiveProjectChoices {
+    final all = _allProjectChoices;
     if (!_isProjectListExpanded && all.length > _defaultRecentProjects) {
       return all.sublist(0, _defaultRecentProjects);
     }
@@ -668,7 +751,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   /// Whether the project list has more items than the default collapsed count.
   bool get _canExpandProjects =>
-      _allMergedProjects.length > _defaultRecentProjects;
+      _allProjectChoices.length > _defaultRecentProjects;
 
   @override
   void initState() {
@@ -692,6 +775,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     // was registered.
     _liveProjectHistory =
         widget.bridge?.projectHistory ?? widget.projectHistory;
+    _workspaceProjectsState =
+        widget.bridge?.projectsState ?? _workspaceProjectsState;
 
     // Load available models from Bridge (with hardcoded fallbacks).
     final bridgeClaudeModels = widget.bridge?.claudeModels ?? const [];
@@ -732,6 +817,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         setState(() => _liveProjectHistory = projects);
       }
     });
+    _projectsSub = widget.bridge?.projectsStream.listen((state) {
+      if (!mounted) return;
+      setState(() => _applyWorkspaceProjectsState(state));
+    });
+    widget.bridge?.requestProjects();
     _codexAutoReviewPolicySub = widget.bridge?.codexAutoReviewPolicyStream
         .listen((disabled) {
           if (!mounted) return;
@@ -766,6 +856,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
+    _projectsSub?.cancel();
     _codexAutoReviewPolicySub?.cancel();
     _pageController.dispose();
     _pathController.dispose();
@@ -816,6 +907,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     if (p == null) return;
 
     _pathController.text = p.projectPath;
+    _pendingInitialWorkspaceSelection = p.projectId != null;
+    _resolveInitialWorkspaceSelection();
     // Validate provider is in visibleTabs; fall back to first tab if hidden.
     final isVisible = widget.visibleTabs.any(
       (t) => t.toProvider() == p.provider,
@@ -862,7 +955,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _normalizeSelectedCodexReasoningEffort();
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
-    _additionalWritableRoots = [...p.additionalWritableRoots];
+    if (_selectedProjectId == null) {
+      _additionalWritableRoots = [...p.additionalWritableRoots];
+    }
     _selectedClaudeModel = _claudeModelList.contains(p.claudeModel)
         ? p.claudeModel
         : null;
@@ -905,6 +1000,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   void _onProjectSelected(String path) {
     setState(() {
+      _pendingInitialWorkspaceSelection = false;
+      _selectedProjectId = null;
+      _workspaceKind = null;
+      _additionalWritableRoots = const [];
       _pathController.text = path;
       // Re-fetch worktrees if worktree mode is active
       if (_useWorktree) {
@@ -913,6 +1012,83 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         widget.bridge?.requestWorktreeList(path);
       }
     });
+  }
+
+  void _onWorkspaceProjectSelected(WorkspaceProject project) {
+    setState(() {
+      _pendingInitialWorkspaceSelection = false;
+      _selectedProjectId = project.id;
+      _workspaceKind = 'project';
+      _pathController.text = project.primaryPath;
+      _additionalWritableRoots = project.secondaryPaths;
+    });
+    if (_useWorktree) _fetchWorktrees();
+  }
+
+  void _onProjectChoiceSelected(_ProjectChoice choice) {
+    switch (choice.kind) {
+      case _ProjectChoiceKind.workspaceProject:
+        final project = choice.workspaceProject;
+        if (project != null) _onWorkspaceProjectSelected(project);
+      case _ProjectChoiceKind.recent:
+        _onProjectSelected(choice.path);
+    }
+  }
+
+  Future<void> _openProjectManager() async {
+    final bridge = widget.bridge;
+    if (bridge == null) return;
+    await showProjectManagerSheet(
+      context: context,
+      bridge: bridge,
+      showHiddenDirectories: widget.showHiddenDirectories,
+    );
+  }
+
+  void _resolveInitialWorkspaceSelection() {
+    if (!_pendingInitialWorkspaceSelection) return;
+    final initial = widget.initialParams;
+    if (initial == null) {
+      _pendingInitialWorkspaceSelection = false;
+      return;
+    }
+    if (initial.projectId != null) {
+      final project = _workspaceProjectsState.projects
+          .where((item) => item.id == initial.projectId)
+          .firstOrNull;
+      if (project == null) return;
+      _selectedProjectId = project.id;
+      _workspaceKind = 'project';
+      _pathController.text = project.primaryPath;
+      _additionalWritableRoots = project.secondaryPaths;
+      _pendingInitialWorkspaceSelection = false;
+      return;
+    }
+  }
+
+  void _applyWorkspaceProjectsState(ProjectsMessage state) {
+    _workspaceProjectsState = state;
+    if (_pendingInitialWorkspaceSelection) {
+      _resolveInitialWorkspaceSelection();
+      if (!_pendingInitialWorkspaceSelection) return;
+      // This is an authoritative Projects response. If the referenced
+      // Project no longer exists, fall back to the recorded legacy path.
+      _pendingInitialWorkspaceSelection = false;
+    }
+    final selectedProjectId = _selectedProjectId;
+    if (selectedProjectId != null) {
+      final project = state.projects
+          .where((item) => item.id == selectedProjectId)
+          .firstOrNull;
+      if (project == null) {
+        _selectedProjectId = null;
+        _workspaceKind = null;
+        _additionalWritableRoots = const [];
+      } else {
+        _pathController.text = project.primaryPath;
+        _additionalWritableRoots = project.secondaryPaths;
+      }
+    }
   }
 
   Future<void> _openDirectoryBrowser() async {
@@ -1130,6 +1306,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
     return NewSessionParams(
       projectPath: path,
+      projectId: _selectedProjectId,
+      workspaceKind: _workspaceKind,
       provider: _provider,
       claudePermissionMode: !isCodex ? _claudePermissionMode : null,
       executionMode: _executionMode,
@@ -1161,7 +1339,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       codexSpeed: isCodex ? _codexSpeed : CodexSpeed.standard,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
-      additionalWritableRoots: isCodex ? _additionalWritableRoots : const [],
+      additionalWritableRoots: _additionalWritableRoots,
       claudeModel: !isCodex ? _selectedClaudeModel : null,
       claudeEffort: !isCodex ? _claudeEffort : null,
       claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
@@ -1223,14 +1401,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_effectiveProjects.isNotEmpty) ...[
+          if (_effectiveProjectChoices.isNotEmpty) ...[
             _RecentProjectsSection(
               appColors: appColors,
               accentColor: accent,
-              projects: _effectiveProjects,
+              projects: _effectiveProjectChoices,
               selectedPath: _pathController.text,
-              onProjectSelected: _onProjectSelected,
+              selectedProjectId: _selectedProjectId,
+              workspaceKind: _workspaceKind,
+              onProjectSelected: _onProjectChoiceSelected,
               onProjectRemoved: _onProjectRemoved,
+              onManage: widget.bridge == null ? null : _openProjectManager,
               canExpand: _canExpandProjects,
               isExpanded: _isProjectListExpanded,
               onToggleExpand: () {
@@ -1247,6 +1428,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               onSelected: (dir) {
                 final prefix = dir.endsWith('/') ? dir : '$dir/';
                 setState(() {
+                  _pendingInitialWorkspaceSelection = false;
+                  _selectedProjectId = null;
+                  _workspaceKind = null;
+                  _additionalWritableRoots = const [];
                   _pathController.text = prefix;
                   _pathController.selection = TextSelection.collapsed(
                     offset: prefix.length,
@@ -1261,9 +1446,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               hintText: AppLocalizations.of(context).projectPathHint,
             ),
             onBrowse: widget.bridge == null ? null : _openDirectoryBrowser,
-            onChanged: () => setState(() {}),
+            onChanged: () => setState(() {
+              _pendingInitialWorkspaceSelection = false;
+              _selectedProjectId = null;
+              _workspaceKind = null;
+              _additionalWritableRoots = const [];
+            }),
           ),
-          if (pageProvider == Provider.codex) ...[
+          if (_selectedProjectId == null) ...[
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
               roots: _additionalWritableRoots,
@@ -1508,6 +1698,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 provider: _provider,
                 canStart:
                     _hasPath &&
+                    !_pendingInitialWorkspaceSelection &&
                     (!_useWorktree ||
                         _worktreeMode == _WorktreeMode.createNew ||
                         _selectedWorktree != null),
@@ -1630,10 +1821,13 @@ class _SheetTitle extends StatelessWidget {
 class _RecentProjectsSection extends StatelessWidget {
   final AppColors appColors;
   final Color accentColor;
-  final List<({String path, String name})> projects;
+  final List<_ProjectChoice> projects;
   final String selectedPath;
-  final ValueChanged<String> onProjectSelected;
+  final String? selectedProjectId;
+  final String? workspaceKind;
+  final ValueChanged<_ProjectChoice> onProjectSelected;
   final Future<void> Function(String path)? onProjectRemoved;
+  final VoidCallback? onManage;
   final bool canExpand;
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
@@ -1643,8 +1837,11 @@ class _RecentProjectsSection extends StatelessWidget {
     required this.accentColor,
     required this.projects,
     required this.selectedPath,
+    required this.selectedProjectId,
+    required this.workspaceKind,
     required this.onProjectSelected,
     this.onProjectRemoved,
+    this.onManage,
     this.canExpand = false,
     this.isExpanded = false,
     this.onToggleExpand,
@@ -1658,53 +1855,51 @@ class _RecentProjectsSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            l.recentProjects,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: appColors.subtleText,
-              letterSpacing: 0.5,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.recentProjects,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.subtleText,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              if (onManage != null)
+                TextButton.icon(
+                  key: const ValueKey('manage_projects_button'),
+                  onPressed: onManage,
+                  icon: const Icon(Icons.settings_outlined, size: 16),
+                  label: Text(l.manageProjects),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 4),
         for (final project in projects)
-          Slidable(
-            key: ValueKey('project_${project.path}'),
-            endActionPane: onProjectRemoved != null
-                ? ActionPane(
-                    motion: const BehindMotion(),
-                    extentRatio: 0.18,
-                    children: [
-                      CustomSlidableAction(
-                        onPressed: (_) => onProjectRemoved?.call(project.path),
-                        backgroundColor: Colors.transparent,
-                        padding: EdgeInsets.zero,
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
+          _RecentProjectRow(
+            project: project,
+            appColors: appColors,
+            accentColor: accentColor,
+            isSelected: switch (project.kind) {
+              _ProjectChoiceKind.workspaceProject =>
+                selectedProjectId == project.id,
+              _ProjectChoiceKind.recent =>
+                selectedProjectId == null &&
+                    workspaceKind == null &&
+                    selectedPath == project.path,
+            },
+            onTap: () => onProjectSelected(project),
+            onProjectRemoved: project.kind == _ProjectChoiceKind.recent
+                ? onProjectRemoved
                 : null,
-            child: _ProjectTile(
-              project: project,
-              appColors: appColors,
-              accentColor: accentColor,
-              isSelected: selectedPath == project.path,
-              onTap: () => onProjectSelected(project.path),
-            ),
           ),
         if (canExpand)
           Padding(
@@ -1733,14 +1928,74 @@ class _RecentProjectsSection extends StatelessWidget {
   }
 }
 
+class _RecentProjectRow extends StatelessWidget {
+  const _RecentProjectRow({
+    required this.project,
+    required this.appColors,
+    required this.accentColor,
+    required this.isSelected,
+    required this.onTap,
+    this.onProjectRemoved,
+  });
+
+  final _ProjectChoice project;
+  final AppColors appColors;
+  final Color accentColor;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Future<void> Function(String path)? onProjectRemoved;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = _ProjectTile(
+      key: ValueKey(project.tileKey),
+      project: project,
+      appColors: appColors,
+      accentColor: accentColor,
+      isSelected: isSelected,
+      onTap: onTap,
+    );
+    if (onProjectRemoved == null) return tile;
+    return Slidable(
+      key: ValueKey('project_${project.path}'),
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        extentRatio: 0.18,
+        children: [
+          CustomSlidableAction(
+            onPressed: (_) => onProjectRemoved?.call(project.path),
+            backgroundColor: Colors.transparent,
+            padding: EdgeInsets.zero,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: tile,
+    );
+  }
+}
+
 class _ProjectTile extends StatelessWidget {
-  final ({String path, String name}) project;
+  final _ProjectChoice project;
   final AppColors appColors;
   final Color accentColor;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _ProjectTile({
+    super.key,
     required this.project,
     required this.appColors,
     required this.accentColor,
@@ -1750,6 +2005,19 @@ class _ProjectTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final icon = switch (project.kind) {
+      _ProjectChoiceKind.workspaceProject => Icons.folder_copy_outlined,
+      _ProjectChoiceKind.recent => Icons.folder_outlined,
+    };
+    final identityColor = switch (project.kind) {
+      _ProjectChoiceKind.workspaceProject => colorScheme.primary,
+      _ProjectChoiceKind.recent => appColors.subtleText,
+    };
+    final subtitle = switch (project.kind) {
+      _ProjectChoiceKind.workspaceProject ||
+      _ProjectChoiceKind.recent => shortenPath(project.path),
+    };
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Material(
@@ -1777,9 +2045,9 @@ class _ProjectTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               leading: Icon(
-                Icons.folder_outlined,
+                icon,
                 size: 22,
-                color: isSelected ? accentColor : appColors.subtleText,
+                color: isSelected ? accentColor : identityColor,
               ),
               title: Text(
                 project.name,
@@ -1790,7 +2058,7 @@ class _ProjectTile extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                shortenPath(project.path),
+                subtitle,
                 style: TextStyle(fontSize: 11, color: appColors.subtleText),
               ),
               trailing: isSelected

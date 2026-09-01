@@ -61,6 +61,7 @@ class BridgeService implements BridgeServiceBase {
   final Map<String, String> _latestFileListRequestIdsByProject = {};
   final Map<String, String> _queuedLegacyFileListProjects = {};
   final _projectHistoryController = StreamController<List<String>>.broadcast();
+  final _projectsController = StreamController<ProjectsMessage>.broadcast();
   final _codexAutoReviewPolicyController = StreamController<bool>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
   final _diffImageResultController =
@@ -139,6 +140,7 @@ class BridgeService implements BridgeServiceBase {
   RecentSessionsMessage? _lastRecentSessionsMessage;
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
+  ProjectsMessage _projectsState = const ProjectsMessage(projects: []);
   List<String> _allowedDirs = [];
   List<String> _claudeModels = [];
   Map<String, List<String>> _claudeModelEfforts = {};
@@ -305,6 +307,7 @@ class BridgeService implements BridgeServiceBase {
 
   Stream<List<String>> get projectHistoryStream =>
       _projectHistoryController.stream;
+  Stream<ProjectsMessage> get projectsStream => _projectsController.stream;
   Stream<bool> get codexAutoReviewPolicyStream =>
       _codexAutoReviewPolicyController.stream;
   @override
@@ -401,6 +404,7 @@ class BridgeService implements BridgeServiceBase {
   }
 
   List<String> get projectHistory => _projectHistory;
+  ProjectsMessage get projectsState => _projectsState;
   List<String> get allowedDirs => _allowedDirs;
   List<String> get claudeModels => _claudeModels;
   Map<String, List<String>> get claudeModelEfforts => _claudeModelEfforts;
@@ -666,8 +670,12 @@ class BridgeService implements BridgeServiceBase {
                 _lastRecentSessionsMessage = msg;
                 final isProjectMerge =
                     msg.requestScope == 'project' &&
-                    msg.projectPath != null &&
-                    msg.projectPath!.isNotEmpty;
+                    _recentSessionsFilterKey(
+                          projectPath: msg.projectPath,
+                          projectId: msg.projectId,
+                          workspaceKind: msg.workspaceKind,
+                        ) !=
+                        null;
                 if (isProjectMerge) {
                   _recentSessions = _mergeRecentSessions(
                     _recentSessions,
@@ -712,6 +720,9 @@ class BridgeService implements BridgeServiceBase {
               case ProjectHistoryMessage(:final projects):
                 _projectHistory = projects;
                 _projectHistoryController.add(projects);
+              case ProjectsMessage():
+                _projectsState = msg;
+                _projectsController.add(msg);
               case DiffResultMessage():
                 _diffResultController.add(msg);
               case DiffImageResultMessage():
@@ -1264,6 +1275,10 @@ class BridgeService implements BridgeServiceBase {
       state.controller.add(const []);
     }
     _projectHistory = const [];
+    _projectsState = const ProjectsMessage(projects: []);
+    if (!_projectsController.isClosed) {
+      _projectsController.add(_projectsState);
+    }
     _allowedDirs = const [];
     _claudeModels = const [];
     _claudeModelEfforts = const {};
@@ -1994,6 +2009,7 @@ class BridgeService implements BridgeServiceBase {
         entry.value,
         provider: provider,
         projectPath: projectPath,
+        requestId: message.requestId,
       )) {
         if (!matches(entry.value)) continue;
       }
@@ -2010,6 +2026,7 @@ class BridgeService implements BridgeServiceBase {
           pending,
           provider: provider,
           projectPath: projectPath,
+          requestId: message.requestId,
         )) {
           if (!matches(pending)) return false;
         }
@@ -2092,12 +2109,17 @@ class BridgeService implements BridgeServiceBase {
     ClientMessage pending, {
     required String provider,
     required String? projectPath,
+    required String? requestId,
   }) {
     final action = _offlinePendingActionFor(pending);
     if (action == null ||
         action.kind != OfflinePendingActionKind.start ||
         action.provider != provider) {
       return false;
+    }
+    final pendingJson = jsonDecode(pending.toJson()) as Map<String, dynamic>;
+    if (requestId != null && pendingJson['requestId'] == requestId) {
+      return true;
     }
     if (projectPath == null || projectPath.isEmpty) {
       return true;
@@ -2109,46 +2131,47 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _clearPendingStartActionsForSessions(List<SessionInfo> sessions) {
-    if (sessions.isEmpty ||
-        (_messageQueue.isEmpty && _inFlightPendingMessages.isEmpty)) {
+    // A queued start has not reached the Bridge yet, so an existing session
+    // with the same workspace cannot acknowledge it. Only reconcile starts
+    // that were actually sent on this connection.
+    if (sessions.isEmpty || _inFlightPendingMessages.isEmpty) {
       return;
     }
 
-    bool overlapsActiveSession(OfflinePendingAction action) {
+    bool overlapsActiveSession(
+      ClientMessage pending,
+      OfflinePendingAction action,
+    ) {
       if (action.kind != OfflinePendingActionKind.start) return false;
+      final pendingJson = jsonDecode(pending.toJson()) as Map<String, dynamic>;
       final sameProviderSessions = sessions.where((session) {
         final provider = session.provider ?? Provider.claude.value;
         return provider == action.provider;
       }).toList();
       if (sameProviderSessions.isEmpty) return false;
-      return sameProviderSessions.any(
-        (session) => _compatiblePendingProjectPath(
+      return sameProviderSessions.any((session) {
+        final projectId = pendingJson['projectId'];
+        if (projectId is String && projectId.isNotEmpty) {
+          return session.workspace?.projectId == projectId;
+        }
+        return _compatiblePendingProjectPath(
           action.projectPath,
           session.projectPath,
-        ),
-      );
+        );
+      });
     }
 
     var removed = false;
     for (final entry in List.of(_inFlightPendingMessages.entries)) {
       final action = _offlinePendingActionFor(entry.value, canCancel: false);
-      if (action == null || !overlapsActiveSession(action)) continue;
+      if (action == null || !overlapsActiveSession(entry.value, action)) {
+        continue;
+      }
       _clearInFlightPendingMessage(entry.key);
       removed = true;
     }
 
-    final before = _messageQueue.length;
-    _messageQueue.removeWhere((message) {
-      final action = _offlinePendingActionFor(message);
-      return action != null && overlapsActiveSession(action);
-    });
-    final removedQueued = before != _messageQueue.length;
-    removed = removed || removedQueued;
-
     if (!removed) return;
-    if (removedQueued) {
-      unawaited(_persistOfflinePendingMessages());
-    }
     _publishOfflinePendingActions();
   }
 
@@ -2160,6 +2183,7 @@ class BridgeService implements BridgeServiceBase {
       if (encoded == null || encoded.isEmpty) return;
       if (generation != _offlineQueueGeneration) return;
 
+      final retainedEncoded = <String>[];
       final existingJson = _messageQueue
           .map((message) => message.toJson())
           .toSet();
@@ -2172,6 +2196,11 @@ class BridgeService implements BridgeServiceBase {
         try {
           final json = jsonDecode(raw);
           if (json is! Map<String, dynamic>) continue;
+          final isObsoleteWorkspaceStart =
+              (json['type'] == 'start' || json['type'] == 'resume_session') &&
+              json['workspaceKind'] == 'projectless';
+          if (isObsoleteWorkspaceStart) continue;
+          retainedEncoded.add(raw);
           final message = ClientMessage.raw(json);
           if (!_isPersistableOfflineMessage(message)) continue;
           final dedupeKey = _offlineMessageDedupeKey(message);
@@ -2187,6 +2216,16 @@ class BridgeService implements BridgeServiceBase {
             'Failed to restore offline pending message',
             error,
             stackTrace,
+          );
+        }
+      }
+      if (retainedEncoded.length != encoded.length) {
+        if (retainedEncoded.isEmpty) {
+          await prefs.remove(_prefKeyOfflinePendingMessages);
+        } else {
+          await prefs.setStringList(
+            _prefKeyOfflinePendingMessages,
+            retainedEncoded,
           );
         }
       }
@@ -2477,7 +2516,11 @@ class BridgeService implements BridgeServiceBase {
   bool _acceptRecentSessionsResponse(RecentSessionsMessage message) {
     return _acceptRecentSessionsResult(
       requestScope: message.requestScope ?? 'list',
-      projectPath: message.projectPath,
+      projectPath: _recentSessionsFilterKey(
+        projectPath: message.projectPath,
+        projectId: message.projectId,
+        workspaceKind: message.workspaceKind,
+      ),
       offset: message.offset,
       requestId: message.requestId,
     );
@@ -2486,7 +2529,11 @@ class BridgeService implements BridgeServiceBase {
   bool _acceptRecentSessionsFailure(ErrorMessage message) {
     return _acceptRecentSessionsResult(
       requestScope: message.requestScope ?? 'list',
-      projectPath: message.path,
+      projectPath: _recentSessionsFilterKey(
+        projectPath: message.path,
+        projectId: message.projectId,
+        workspaceKind: message.workspaceKind,
+      ),
       offset: message.offset,
       requestId: message.requestId,
     );
@@ -2533,6 +2580,7 @@ class BridgeService implements BridgeServiceBase {
     required bool? namedOnly,
     required String? searchQuery,
   }) {
+    final workspaceFilter = _decodeWorkspaceFilter(projectPath);
     final scopeKey = _recentSessionsScopeKey(
       requestScope: requestScope,
       projectPath: projectPath,
@@ -2564,7 +2612,9 @@ class BridgeService implements BridgeServiceBase {
       ClientMessage.listRecentSessions(
         limit: limit,
         offset: offset,
-        projectPath: projectPath,
+        projectPath: workspaceFilter.projectPath,
+        projectId: workspaceFilter.projectId,
+        workspaceKind: workspaceFilter.workspaceKind,
         requestScope: requestScope,
         requestId: requestId,
         provider: provider,
@@ -2572,6 +2622,32 @@ class BridgeService implements BridgeServiceBase {
         searchQuery: searchQuery,
       ),
     );
+  }
+
+  ({String? projectPath, String? projectId, String? workspaceKind})
+  _decodeWorkspaceFilter(String? filterKey) {
+    if (filterKey == null) {
+      return (projectPath: null, projectId: null, workspaceKind: null);
+    }
+    const projectPrefix = 'project:';
+    if (filterKey.startsWith(projectPrefix) &&
+        filterKey.length > projectPrefix.length) {
+      return (
+        projectPath: null,
+        projectId: filterKey.substring(projectPrefix.length),
+        workspaceKind: 'project',
+      );
+    }
+    return (projectPath: filterKey, projectId: null, workspaceKind: null);
+  }
+
+  String? _recentSessionsFilterKey({
+    String? projectPath,
+    String? projectId,
+    String? workspaceKind,
+  }) {
+    if (projectId != null && projectId.isNotEmpty) return 'project:$projectId';
+    return projectPath;
   }
 
   void _armRecentSessionsRequestTimeout(
@@ -2897,6 +2973,8 @@ class BridgeService implements BridgeServiceBase {
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
+    String? projectId,
+    String? workspaceKind,
     String? resumeRequestId,
   }) {
     send(
@@ -2924,6 +3002,8 @@ class BridgeService implements BridgeServiceBase {
         networkAccessEnabled: networkAccessEnabled,
         webSearchMode: webSearchMode,
         additionalWritableRoots: additionalWritableRoots,
+        projectId: projectId,
+        workspaceKind: workspaceKind,
         resumeRequestId: resumeRequestId,
       ),
     );
@@ -3097,6 +3177,32 @@ class BridgeService implements BridgeServiceBase {
 
   void requestProjectHistory() {
     send(ClientMessage.listProjectHistory());
+  }
+
+  void requestProjects() {
+    send(ClientMessage.listProjects());
+  }
+
+  void createProject({required String name, required List<String> rootPaths}) {
+    send(ClientMessage.createProject(name: name, rootPaths: rootPaths));
+  }
+
+  void updateProject({
+    required String projectId,
+    required String name,
+    required List<String> rootPaths,
+  }) {
+    send(
+      ClientMessage.updateProject(
+        projectId: projectId,
+        name: name,
+        rootPaths: rootPaths,
+      ),
+    );
+  }
+
+  void removeProject(String projectId) {
+    send(ClientMessage.removeProject(projectId: projectId));
   }
 
   void requestDebugBundle(
@@ -4209,6 +4315,7 @@ class BridgeService implements BridgeServiceBase {
     }
     _fileListScopeStates.clear();
     _projectHistoryController.close();
+    _projectsController.close();
     _codexAutoReviewPolicyController.close();
     _diffResultController.close();
     _diffImageResultController.close();

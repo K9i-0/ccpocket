@@ -13,6 +13,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
+  String get projects => '项目';
+
+  @override
+  String get manageProjects => '管理';
+
+  @override
+  String get createProject => '创建项目';
+
+  @override
+  String get editProject => '编辑项目';
+
+  @override
+  String get projectName => '项目名称';
+
+  @override
+  String get sourceFolders => '源文件夹';
+
+  @override
+  String get primary => '主文件夹';
+
+  @override
+  String get makePrimary => '设为主文件夹';
+
+  @override
+  String get removeFolder => '移除文件夹';
+
+  @override
+  String get addFolder => '添加文件夹';
+
+  @override
+  String get removeWorkspaceProject => '移除项目';
+
+  @override
+  String get noProjectsYet => '还没有项目';
+
+  @override
+  String get unavailable => '不可用';
+
+  @override
   String get cancel => '取消';
 
   @override

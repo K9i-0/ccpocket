@@ -132,6 +132,8 @@ export type ClientMessage =
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
       additionalWritableRoots?: string[];
+      projectId?: string;
+      workspaceKind?: "project";
       useWorktree?: boolean;
       worktreeBranch?: string;
       existingWorktreePath?: string;
@@ -235,6 +237,8 @@ export type ClientMessage =
       limit?: number;
       offset?: number;
       projectPath?: string;
+      projectId?: string;
+      workspaceKind?: "project" | "unassigned";
       requestScope?: "list" | "project";
       requestId?: string;
       provider?: "claude" | "codex";
@@ -266,6 +270,8 @@ export type ClientMessage =
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
       additionalWritableRoots?: string[];
+      projectId?: string;
+      workspaceKind?: "project";
       resumeRequestId?: string;
     }
   | {
@@ -334,6 +340,21 @@ export type ClientMessage =
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
+  | { type: "list_projects"; requestId?: string }
+  | {
+      type: "create_project";
+      name: string;
+      rootPaths: string[];
+      requestId?: string;
+    }
+  | {
+      type: "update_project";
+      projectId: string;
+      name: string;
+      rootPaths: string[];
+      requestId?: string;
+    }
+  | { type: "remove_project"; projectId: string; requestId?: string }
   | { type: "list_worktrees"; projectPath: string; requestId?: string }
   | {
       type: "remove_worktree";
@@ -628,6 +649,8 @@ export type ServerMessage =
       sessionId?: string;
       toolUseId?: string;
       path?: string;
+      projectId?: string;
+      workspaceKind?: "project" | "unassigned";
       requestId?: string;
       requestScope?: "list" | "project";
       offset?: number;
@@ -746,6 +769,17 @@ export type ServerMessage =
       skipped: boolean;
     }
   | { type: "project_history"; projects: string[] }
+  | {
+      type: "projects";
+      projects: Array<{
+        id: string;
+        name: string;
+        rootPaths: string[];
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      requestId?: string;
+    }
   | {
       type: "gallery_list";
       images: GalleryImageInfo[];
@@ -1110,6 +1144,10 @@ const CODEX_PERMISSION_MODES = [
 ] as const;
 const WEB_SEARCH_MODES = ["disabled", "cached", "live"] as const;
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function isOptionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
 }
@@ -1170,7 +1208,9 @@ function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
     isOptionalEnum(msg.codexPermissionsMode, CODEX_PERMISSION_MODES) &&
     isOptionalBoolean(msg.planMode) &&
     isOptionalEnum(msg.webSearchMode, WEB_SEARCH_MODES) &&
-    isOptionalStringArray(msg.additionalWritableRoots)
+    isOptionalStringArray(msg.additionalWritableRoots) &&
+    isOptionalNonEmptyString(msg.projectId) &&
+    isOptionalEnum(msg.workspaceKind, ["project"])
   );
 }
 
@@ -1528,6 +1568,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
         )
           return null;
         if (
+          msg.projectId !== undefined &&
+          !isNonEmptyString(msg.projectId)
+        )
+          return null;
+        if (
+          msg.workspaceKind !== undefined &&
+          msg.workspaceKind !== "project" &&
+          msg.workspaceKind !== "unassigned"
+        )
+          return null;
+        if (
           msg.requestScope !== undefined &&
           msg.requestScope !== "list" &&
           msg.requestScope !== "project"
@@ -1728,6 +1779,42 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "remove_project_history":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "list_projects":
+        if (msg.requestId !== undefined && typeof msg.requestId !== "string")
+          return null;
+        break;
+      case "create_project":
+        if (!isOptionalNonEmptyString(msg.name) || msg.name === undefined)
+          return null;
+        if (
+          !Array.isArray(msg.rootPaths) ||
+          msg.rootPaths.length === 0 ||
+          !msg.rootPaths.every(isNonEmptyString)
+        )
+          return null;
+        if (msg.requestId !== undefined && typeof msg.requestId !== "string")
+          return null;
+        break;
+      case "update_project":
+        if (!isOptionalNonEmptyString(msg.projectId) || msg.projectId === undefined)
+          return null;
+        if (!isOptionalNonEmptyString(msg.name) || msg.name === undefined)
+          return null;
+        if (
+          !Array.isArray(msg.rootPaths) ||
+          msg.rootPaths.length === 0 ||
+          !msg.rootPaths.every(isNonEmptyString)
+        )
+          return null;
+        if (msg.requestId !== undefined && typeof msg.requestId !== "string")
+          return null;
+        break;
+      case "remove_project":
+        if (!isOptionalNonEmptyString(msg.projectId) || msg.projectId === undefined)
+          return null;
+        if (msg.requestId !== undefined && typeof msg.requestId !== "string")
+          return null;
         break;
       case "list_worktrees":
         if (typeof msg.projectPath !== "string") return null;

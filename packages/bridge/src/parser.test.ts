@@ -200,6 +200,14 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses Project session identity", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","projectId":"project-1","workspaceKind":"project"}',
+      ),
+    ).toMatchObject({ projectId: "project-1", workspaceKind: "project" });
+  });
+
   it("parses auto permission mode", () => {
     const msg = parseClientMessage(
       '{"type":"set_permission_mode","mode":"auto","sessionId":"s1"}',
@@ -659,21 +667,66 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_recent_sessions" });
   });
 
-  it("parses list_recent_sessions with offset and projectPath", () => {
+  it("parses list_recent_sessions with workspace filters", () => {
     const msg = parseClientMessage(
-      '{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project","requestScope":"project","requestId":"recent-1","provider":"codex","namedOnly":true,"searchQuery":"needle"}',
+      '{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project","projectId":"project-1","workspaceKind":"project","requestScope":"project","requestId":"recent-1","provider":"codex","namedOnly":true,"searchQuery":"needle"}',
     );
     expect(msg).toEqual({
       type: "list_recent_sessions",
       limit: 10,
       offset: 20,
       projectPath: "/tmp/project",
+      projectId: "project-1",
+      workspaceKind: "project",
       requestScope: "project",
       requestId: "recent-1",
       provider: "codex",
       namedOnly: true,
       searchQuery: "needle",
     });
+  });
+
+  it("parses Project CRUD messages", () => {
+    expect(parseClientMessage('{"type":"list_projects"}')).toEqual({
+      type: "list_projects",
+    });
+    expect(
+      parseClientMessage(
+        '{"type":"create_project","name":"App","rootPaths":["/app","/api"]}',
+      ),
+    ).toMatchObject({ name: "App", rootPaths: ["/app", "/api"] });
+    expect(
+      parseClientMessage(
+        '{"type":"update_project","projectId":"p1","name":"App 2","rootPaths":["/app"]}',
+      ),
+    ).toMatchObject({ projectId: "p1", name: "App 2" });
+    expect(
+      parseClientMessage('{"type":"remove_project","projectId":"p1"}'),
+    ).toMatchObject({ projectId: "p1" });
+  });
+
+  it("rejects invalid Project mutations", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"create_project","name":"App","rootPaths":[]}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"update_project","projectId":"p1","name":" ","rootPaths":["/app"]}',
+      ),
+    ).toBeNull();
+    expect(parseClientMessage('{"type":"remove_project"}')).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/tasks","workspaceKind":"projectless"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_projectless_root","projectlessRoot":"/tasks"}',
+      ),
+    ).toBeNull();
   });
 
   it("rejects invalid list_recent_sessions options", () => {

@@ -13,6 +13,45 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
+  String get projects => 'プロジェクト';
+
+  @override
+  String get manageProjects => '管理';
+
+  @override
+  String get createProject => 'プロジェクトを作成';
+
+  @override
+  String get editProject => 'プロジェクトを編集';
+
+  @override
+  String get projectName => 'プロジェクト名';
+
+  @override
+  String get sourceFolders => 'ソースフォルダ';
+
+  @override
+  String get primary => 'プライマリ';
+
+  @override
+  String get makePrimary => 'プライマリにする';
+
+  @override
+  String get removeFolder => 'フォルダを削除';
+
+  @override
+  String get addFolder => 'フォルダを追加';
+
+  @override
+  String get removeWorkspaceProject => 'プロジェクトを削除';
+
+  @override
+  String get noProjectsYet => 'プロジェクトはまだありません';
+
+  @override
+  String get unavailable => '利用できません';
+
+  @override
   String get cancel => 'キャンセル';
 
   @override

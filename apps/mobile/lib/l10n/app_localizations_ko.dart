@@ -13,6 +13,45 @@ class AppLocalizationsKo extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
+  String get projects => '프로젝트';
+
+  @override
+  String get manageProjects => '관리';
+
+  @override
+  String get createProject => '프로젝트 만들기';
+
+  @override
+  String get editProject => '프로젝트 편집';
+
+  @override
+  String get projectName => '프로젝트 이름';
+
+  @override
+  String get sourceFolders => '소스 폴더';
+
+  @override
+  String get primary => '기본';
+
+  @override
+  String get makePrimary => '기본으로 설정';
+
+  @override
+  String get removeFolder => '폴더 제거';
+
+  @override
+  String get addFolder => '폴더 추가';
+
+  @override
+  String get removeWorkspaceProject => '프로젝트 제거';
+
+  @override
+  String get noProjectsYet => '아직 프로젝트가 없습니다';
+
+  @override
+  String get unavailable => '사용할 수 없음';
+
+  @override
   String get cancel => '취소';
 
   @override

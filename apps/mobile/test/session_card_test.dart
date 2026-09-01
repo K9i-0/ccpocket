@@ -86,6 +86,25 @@ void main() {
       expect(info.agentRole, 'explorer');
     });
 
+    test('parses running session workspace identity', () {
+      final info = SessionInfo.fromJson({
+        'id': 'workspace-session',
+        'provider': 'codex',
+        'projectPath': '/workspace/primary',
+        'status': 'running',
+        'workspace': {
+          'kind': 'project',
+          'projectId': 'project-1',
+          'projectName': 'App and API',
+          'rootPaths': ['/workspace/primary', '/workspace/api'],
+        },
+      });
+
+      expect(info.projectName, 'App and API');
+      expect(info.workspaceGroupKey, 'project:project-1');
+      expect(info.workspaceRootPaths, ['/workspace/primary', '/workspace/api']);
+    });
+
     test(
       'keeps canonical codex execution mode when legacy permission differs',
       () {
@@ -113,6 +132,32 @@ void main() {
   });
 
   group('RunningSessionCard', () {
+    testWidgets('shows the ccpocket Project name while running', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'workspace-session',
+        provider: 'codex',
+        projectPath: '/workspace/primary',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        workspace: const SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'project-1',
+          projectName: 'App and API',
+          rootPaths: ['/workspace/primary', '/workspace/api'],
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(find.text('App and API'), findsOneWidget);
+      expect(find.text('primary'), findsNothing);
+    });
+
     testWidgets('always shows an empty pin button and calls toggle', (
       tester,
     ) async {

@@ -47,6 +47,12 @@ void main() {
               create: (_) =>
                   ProjectHistoryCubit(const [], bridge.projectHistoryStream),
             ),
+            BlocProvider(
+              create: (_) => WorkspaceProjectsCubit(
+                bridge.projectsState,
+                bridge.projectsStream,
+              ),
+            ),
             BlocProvider(create: (_) => ServerDiscoveryCubit()),
             BlocProvider(
               create: (ctx) =>

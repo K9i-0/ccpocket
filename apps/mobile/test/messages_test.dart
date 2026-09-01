@@ -653,6 +653,7 @@ void main() {
         'history_snapshot',
         'git_status_result',
         'prompt_history_status',
+        'projects',
         'push_registration_result',
         'session_context',
       ]);
@@ -923,6 +924,8 @@ void main() {
         'limit': 20,
         'offset': 40,
         'projectPath': '/tmp/project',
+        'projectId': 'project-1',
+        'workspaceKind': 'project',
         'requestScope': 'project',
       });
 
@@ -932,7 +935,53 @@ void main() {
       expect(recentSessions.limit, 20);
       expect(recentSessions.offset, 40);
       expect(recentSessions.projectPath, '/tmp/project');
+      expect(recentSessions.projectId, 'project-1');
+      expect(recentSessions.workspaceKind, 'project');
       expect(recentSessions.requestScope, 'project');
+    });
+
+    test(
+      'RecentSession parses Project workspace identity and root snapshot',
+      () {
+        final session = RecentSession.fromJson({
+          'sessionId': 's-project',
+          'provider': 'codex',
+          'firstPrompt': 'resume',
+          'created': '2026-09-01T00:00:00Z',
+          'modified': '2026-09-01T00:00:00Z',
+          'gitBranch': 'main',
+          'projectPath': '/repo/app',
+          'isSidechain': false,
+          'workspace': {
+            'kind': 'project',
+            'projectId': 'project-1',
+            'projectName': 'App and API',
+            'rootPaths': ['/repo/app', '/repo/api'],
+          },
+        });
+
+        expect(session.workspaceGroupKey, 'project:project-1');
+        expect(session.projectName, 'App and API');
+        expect(session.workspaceRootPaths, ['/repo/app', '/repo/api']);
+      },
+    );
+
+    test('parses ProjectsMessage', () {
+      final message = ServerMessage.fromJson({
+        'type': 'projects',
+        'projects': [
+          {
+            'id': 'project-1',
+            'name': 'App',
+            'rootPaths': ['/app', '/api'],
+            'createdAt': '2026-09-01T00:00:00Z',
+            'updatedAt': '2026-09-01T00:00:00Z',
+          },
+        ],
+      }) as ProjectsMessage;
+
+      expect(message.projects.single.primaryPath, '/app');
+      expect(message.projects.single.secondaryPaths, ['/api']);
     });
 
     test('RecentSession parses resumeCwd for worktree resume target', () {

@@ -379,6 +379,8 @@ export interface StartOptions {
   sandboxEnabled?: boolean;
   /** Generate a session name after the first completed turn. Bridge-only. */
   autoRename?: boolean;
+  /** Additional workspace roots Claude may read and edit. */
+  additionalDirectories?: string[];
 }
 
 export interface RewindFilesResult {
@@ -817,6 +819,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       prompt: this.createUserMessageStream(),
       options: {
         cwd: projectPath,
+        ...(options?.additionalDirectories?.length
+          ? { additionalDirectories: options.additionalDirectories }
+          : {}),
         resume: options?.sessionId,
         continue: options?.continueMode,
         permissionMode: this._permissionMode ?? "default",

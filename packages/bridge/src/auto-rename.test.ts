@@ -162,6 +162,7 @@ describe("auto rename", () => {
       "codex",
       [
         "exec",
+        "--skip-git-repo-check",
         "-m",
         "gpt-5.6-luna",
         "-c",

@@ -243,8 +243,14 @@ class SessionResumeCoordinator {
           : null,
       webSearchMode: isCodex ? codexSettings?.webSearchMode : null,
       additionalWritableRoots: isCodex
-          ? codexSettings?.additionalWritableRoots
-          : null,
+          ? (session.workspaceRootPaths.length > 1
+                ? session.workspaceRootPaths.skip(1).toList()
+                : codexSettings?.additionalWritableRoots)
+          : session.workspaceRootPaths.skip(1).toList(),
+      projectId: session.workspace?.projectId,
+      workspaceKind: session.workspaceKind == 'unassigned'
+          ? null
+          : session.workspaceKind,
       resumeRequestId: resumeRequestId,
     );
 

@@ -13,6 +13,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
+  String get projects => 'Projects';
+
+  @override
+  String get manageProjects => 'Manage';
+
+  @override
+  String get createProject => 'Create project';
+
+  @override
+  String get editProject => 'Edit project';
+
+  @override
+  String get projectName => 'Project name';
+
+  @override
+  String get sourceFolders => 'Source folders';
+
+  @override
+  String get primary => 'Primary';
+
+  @override
+  String get makePrimary => 'Make primary';
+
+  @override
+  String get removeFolder => 'Remove folder';
+
+  @override
+  String get addFolder => 'Add folder';
+
+  @override
+  String get removeWorkspaceProject => 'Remove project';
+
+  @override
+  String get noProjectsYet => 'No projects yet';
+
+  @override
+  String get unavailable => 'Unavailable';
+
+  @override
   String get cancel => 'Cancel';
 
   @override

@@ -316,6 +316,19 @@ void main() {
       expect(decoded['projectPath'], '/tmp/project');
     });
 
+    test('serializes Project identity filters', () {
+      final decoded = jsonDecode(
+        ClientMessage.listRecentSessions(
+          projectId: 'project-1',
+          workspaceKind: 'project',
+        ).toJson(),
+      ) as Map<String, dynamic>;
+
+      expect(decoded['projectId'], 'project-1');
+      expect(decoded['workspaceKind'], 'project');
+      expect(decoded.containsKey('projectPath'), isFalse);
+    });
+
     test('omits null optional params', () {
       final msg = ClientMessage.listRecentSessions(limit: 5);
       final decoded = jsonDecode(msg.toJson()) as Map<String, dynamic>;

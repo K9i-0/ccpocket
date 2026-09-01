@@ -238,6 +238,7 @@ class ServerMessageWidget extends StatelessWidget {
       StreamDeltaMessage() => const SizedBox.shrink(),
       ThinkingDeltaMessage() => const SizedBox.shrink(),
       RecentSessionsMessage() => const SizedBox.shrink(),
+      ProjectsMessage() => const SizedBox.shrink(),
       PastHistoryMessage() => const SizedBox.shrink(),
       SessionListMessage() => const SizedBox.shrink(),
       GalleryListMessage() => const SizedBox.shrink(),

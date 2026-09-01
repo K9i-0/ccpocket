@@ -130,6 +130,7 @@ function runCodexAutoRename(cwd: string, prompt: string): string {
       "codex",
       [
         "exec",
+        "--skip-git-repo-check",
         "-m",
         getCodexAssistModel(),
         "-c",

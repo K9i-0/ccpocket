@@ -108,6 +108,84 @@ abstract class AppLocalizations {
   /// **'CC Pocket'**
   String get appTitle;
 
+  /// No description provided for @projects.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクト'**
+  String get projects;
+
+  /// No description provided for @manageProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'管理'**
+  String get manageProjects;
+
+  /// No description provided for @createProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトを作成'**
+  String get createProject;
+
+  /// No description provided for @editProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトを編集'**
+  String get editProject;
+
+  /// No description provided for @projectName.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクト名'**
+  String get projectName;
+
+  /// No description provided for @sourceFolders.
+  ///
+  /// In ja, this message translates to:
+  /// **'ソースフォルダ'**
+  String get sourceFolders;
+
+  /// No description provided for @primary.
+  ///
+  /// In ja, this message translates to:
+  /// **'プライマリ'**
+  String get primary;
+
+  /// No description provided for @makePrimary.
+  ///
+  /// In ja, this message translates to:
+  /// **'プライマリにする'**
+  String get makePrimary;
+
+  /// No description provided for @removeFolder.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダを削除'**
+  String get removeFolder;
+
+  /// No description provided for @addFolder.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダを追加'**
+  String get addFolder;
+
+  /// No description provided for @removeWorkspaceProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトを削除'**
+  String get removeWorkspaceProject;
+
+  /// No description provided for @noProjectsYet.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトはまだありません'**
+  String get noProjectsYet;
+
+  /// No description provided for @unavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用できません'**
+  String get unavailable;
+
   /// No description provided for @cancel.
   ///
   /// In ja, this message translates to:

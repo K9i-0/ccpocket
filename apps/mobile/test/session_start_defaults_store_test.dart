@@ -61,6 +61,28 @@ void main() {
     expect(loaded, isNull);
   });
 
+  test(
+    'removes obsolete Projectless defaults instead of reusing its path',
+    () async {
+      final obsolete = sessionStartDefaultsToJson(
+        NewSessionParams(
+          projectPath: '/workspace/projectless-tasks/2026-09-01/new-chat',
+          workspaceKind: 'projectless',
+        ),
+      );
+      SharedPreferences.setMockInitialValues({
+        _lastProviderKey: Provider.codex.value,
+        _codexKey: jsonEncode(obsolete),
+      });
+
+      final loaded = await store.loadInitial();
+
+      expect(loaded, isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(_codexKey), isFalse);
+    },
+  );
+
   test('migrates matching legacy defaults and removes the fallback', () async {
     final legacy = _defaults(Provider.claude, '/workspace/legacy');
     SharedPreferences.setMockInitialValues({_legacyKey: _encode(legacy)});

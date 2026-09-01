@@ -10,6 +10,7 @@ import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
+import { WorkspaceStore } from "./workspace-store.js";
 import { getVersionInfo } from "./version.js";
 import { fetchAllUsage } from "./usage.js";
 import { runDoctor } from "./doctor.js";
@@ -95,6 +96,11 @@ export async function startServer() {
   });
   const galleryStore = new GalleryStore();
   const projectHistory = new ProjectHistory();
+  const workspaceStore = new WorkspaceStore({
+    ...(process.env.BRIDGE_WORKSPACE_FILE
+      ? { filePath: process.env.BRIDGE_WORKSPACE_FILE }
+      : {}),
+  });
   const debugTraceStore = new DebugTraceStore();
   const RECORDING_ENABLED = !!process.env.BRIDGE_RECORDING;
   const recordingStore = RECORDING_ENABLED ? new RecordingStore() : undefined;
@@ -118,6 +124,12 @@ export async function startServer() {
     console.log("[bridge] Project history initialized");
   }).catch((err) => {
     console.error("[bridge] Failed to initialize project history:", err);
+  });
+
+  await workspaceStore.init().then(() => {
+    console.log("[bridge] Workspace store initialized");
+  }).catch((err) => {
+    console.error("[bridge] Failed to initialize workspace store:", err);
   });
 
   debugTraceStore.init().then(() => {
@@ -265,6 +277,7 @@ export async function startServer() {
     uploadStore,
     galleryStore,
     projectHistory,
+    workspaceStore,
     debugTraceStore,
     recordingStore,
     firebaseAuth,

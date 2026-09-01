@@ -3,6 +3,20 @@
 
   "appTitle": "CC Pocket",
 
+  "projects": "Projects",
+  "manageProjects": "Manage",
+  "createProject": "Create project",
+  "editProject": "Edit project",
+  "projectName": "Project name",
+  "sourceFolders": "Source folders",
+  "primary": "Primary",
+  "makePrimary": "Make primary",
+  "removeFolder": "Remove folder",
+  "addFolder": "Add folder",
+  "removeWorkspaceProject": "Remove project",
+  "noProjectsYet": "No projects yet",
+  "unavailable": "Unavailable",
+
   "cancel": "Cancel",
   "save": "Save",
   "delete": "Delete",

@@ -841,6 +841,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     bridge.send(
       ClientMessage.start(
         result.projectPath,
+        projectId: result.projectId,
+        workspaceKind: result.workspaceKind,
         permissionMode: result.provider == Provider.codex && useCodexProfile
             ? null
             : result.permissionMode.value,
@@ -907,7 +909,9 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : result.webSearchMode?.value,
         additionalWritableRoots:
-            result.provider == Provider.codex && !useCodexCustomPermissions
+            result.provider == Provider.claude ||
+                result.projectId != null ||
+                !useCodexCustomPermissions
             ? result.additionalWritableRoots
             : null,
         autoRename: autoRenameForProvider(settings, result.provider),
@@ -1099,6 +1103,10 @@ class _SessionListScreenState extends State<SessionListScreen>
 
     return NewSessionParams(
       projectPath: session.projectPath,
+      projectId: session.workspace?.projectId,
+      workspaceKind: session.workspaceKind == 'unassigned'
+          ? null
+          : session.workspaceKind,
       provider: provider,
       executionMode: deriveExecutionMode(
         provider: provider.value,
@@ -1139,9 +1147,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       codexSpeed: codexSpeedFromRaw(session.codexServiceTier),
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: webSearchModeFromRaw(session.codexWebSearchMode),
-      additionalWritableRoots: provider == Provider.codex
-          ? session.codexAdditionalWritableRoots
-          : const [],
+      additionalWritableRoots: session.workspaceRootPaths.skip(1).toList(),
       claudeModel: sessionSettings?['claudeModel'] as String?,
       claudeEffort: claudeEffortFromRaw(
         sessionSettings?['claudeEffort'] as String?,
@@ -1661,6 +1667,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final recentSessionsList = _factualRecentSessions(
       widget.debugRecentSessions ?? slState.sessions,
     );
+    final workspaceProjects = context
+        .watch<WorkspaceProjectsCubit>()
+        .state
+        .projects;
     final discoveredServers = context.watch<ServerDiscoveryCubit>().state;
 
     final isConnected = connectionState == BridgeConnectionState.connected;
@@ -1718,6 +1728,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     connectionState: connectionState,
                     sessions: sessions,
                     recentSessionsList: recentSessionsList,
+                    workspaceProjects: workspaceProjects,
                     slState: slState,
                     unseenSessionIds: unseenSessionIds,
                     discoveredServers: discoveredServers,
@@ -1739,6 +1750,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     required BridgeConnectionState connectionState,
     required List<SessionInfo> sessions,
     required List<RecentSession> recentSessionsList,
+    required List<WorkspaceProject> workspaceProjects,
     required SessionListState slState,
     required Set<String> unseenSessionIds,
     required List<DiscoveredServer> discoveredServers,
@@ -1762,6 +1774,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       connectionState: connectionState,
       sessions: sessions,
       recentSessionsList: recentSessionsList,
+      workspaceProjects: workspaceProjects,
       slState: slState,
       unseenSessionIds: unseenSessionIds,
       discoveredServers: discoveredServers,
@@ -1864,6 +1877,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     required BridgeConnectionState connectionState,
     required List<SessionInfo> sessions,
     required List<RecentSession> recentSessionsList,
+    required List<WorkspaceProject> workspaceProjects,
     required SessionListState slState,
     required Set<String> unseenSessionIds,
     required List<DiscoveredServer> discoveredServers,
@@ -1905,6 +1919,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               sessions: sessions,
               offlinePendingActions: offlinePendingActions,
               recentSessions: recentSessionsList,
+              workspaceProjects: workspaceProjects,
               accumulatedProjectPaths: slState.accumulatedProjectPaths,
               collapsedProjectPaths: slState.collapsedProjectPaths,
               loadingProjectPaths: slState.loadingProjectPaths,

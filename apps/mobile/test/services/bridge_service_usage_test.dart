@@ -3411,6 +3411,44 @@ void main() {
       },
     );
 
+    test('drops persisted starts for the removed workspace mode', () async {
+      SharedPreferences.setMockInitialValues({
+        'bridge_offline_pending_messages_v1': [
+          jsonEncode({
+            'type': 'start',
+            'projectPath': '/home/user/old-task-root',
+            'provider': 'codex',
+            'workspaceKind': 'projectless',
+            'requestId': 'obsolete-start',
+          }),
+        ],
+      });
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final received = <Map<String, dynamic>>[];
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socket.listen((data) {
+          received.add(jsonDecode(data as String) as Map<String, dynamic>);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(received.where((message) => message['type'] == 'start'), isEmpty);
+      expect(bridge.offlinePendingActions, isEmpty);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('bridge_offline_pending_messages_v1'), isNull);
+
+      bridge.disconnect();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test(
       'restores persisted offline messages and clears them after flush',
       () async {
@@ -4062,6 +4100,43 @@ void main() {
       }
       await server.close(force: true);
     });
+
+    test(
+      'workspace filter keys serialize as Project identity filters',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final requestReady = Completer<Map<String, dynamic>>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] != 'list_recent_sessions') return;
+            if (!requestReady.isCompleted) {
+              requestReady.complete(json);
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await bridge.connectionStatus.firstWhere(
+          (state) => state == BridgeConnectionState.connected,
+        );
+
+        bridge.switchProjectFilter('project:project-1');
+        final request = await requestReady.future.timeout(
+          const Duration(seconds: 1),
+        );
+
+        expect(request['projectId'], 'project-1');
+        expect(request['workspaceKind'], 'project');
+        expect(request.containsKey('projectPath'), isFalse);
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
 
     test(
       'legacy recent sessions response must match pending project and offset',

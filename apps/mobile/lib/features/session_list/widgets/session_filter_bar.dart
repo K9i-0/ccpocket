@@ -12,7 +12,7 @@ class SessionFilterBar extends StatelessWidget {
   final VoidCallback onToggleRecentGrouping;
   final ProviderFilter providerFilter;
   final VoidCallback onToggleProviderFilter;
-  final List<({String path, String name})> projects;
+  final List<({String key, String name})> projects;
   final String? currentProjectFilter;
   final ValueChanged<String?> onProjectFilterChanged;
   final bool namedOnly;
@@ -106,16 +106,22 @@ class SessionFilterBar extends StatelessWidget {
   Widget _buildProjectDropdown(BuildContext context) {
     final l = AppLocalizations.of(context);
     final currentProject = projects
-        .where((p) => p.path == currentProjectFilter)
+        .where((p) => p.key == currentProjectFilter)
         .firstOrNull;
+    final fallbackLabel = switch (currentProjectFilter) {
+      final key? when key.startsWith('project:') => l.projects,
+      final path? => pathBasename(path),
+      null => l.allProjects,
+    };
 
     return _DropdownChip<String?>(
+      anchorKey: const ValueKey('project_filter_chip'),
       icon: Icons.folder_outlined,
-      label: currentProject != null ? currentProject.name : l.allProjects,
+      label: currentProject?.name ?? fallbackLabel,
       tooltip: l.tooltipProjectFilter,
       items: [
         (value: null, label: l.allProjects),
-        ...projects.map((p) => (value: p.path, label: p.name)),
+        ...projects.map((p) => (value: p.key, label: p.name)),
       ],
       onSelected: onProjectFilterChanged,
       isActive: currentProjectFilter != null,
@@ -247,6 +253,7 @@ class _ActionChip extends StatelessWidget {
 }
 
 class _DropdownChip<T> extends StatelessWidget {
+  final Key? anchorKey;
   final IconData icon;
   final String label;
   final String? tooltip;
@@ -255,6 +262,7 @@ class _DropdownChip<T> extends StatelessWidget {
   final bool isActive;
 
   const _DropdownChip({
+    this.anchorKey,
     required this.icon,
     required this.label,
     this.tooltip,
@@ -270,6 +278,7 @@ class _DropdownChip<T> extends StatelessWidget {
     final appColors = theme.extension<AppColors>()!;
 
     Widget chip = MenuAnchor(
+      key: anchorKey,
       builder: (context, controller, child) {
         return Material(
           color: isActive ? cs.primaryContainer : cs.surfaceContainerHigh,
