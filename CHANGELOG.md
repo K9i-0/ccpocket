@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.127.0] - 2026-09-01
+
+### Added
+- Add named Projects with ordered multi-root workspaces, Project management, and Project selection when starting Claude or Codex sessions.
+- Add Project-aware Recent Sessions grouping and filtering while preserving ordinary folder-based sessions.
+
+### Changed
+- Restore each session's assigned Project roots when resuming and require Bridge 1.81.0 for Project workspace support.
+
 ## [1.126.3] - 2026-09-01
 
 ### Changed
