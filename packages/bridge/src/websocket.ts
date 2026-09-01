@@ -147,6 +147,7 @@ type ResumeOperation = {
   resumeRequestId?: string;
   fingerprint: string;
   waiters: Set<WebSocket>;
+  provisionalSessionId?: string;
   timeout?: ReturnType<typeof setTimeout>;
   completed?: {
     sessionId: string;
@@ -5324,7 +5325,6 @@ export class BridgeWebSocketServer {
           let historyLoaded = false;
           let sessionCreateMs = 0;
           let nameLoadMs = 0;
-          let createdBridgeSessionId: string | undefined;
           const historyStartedAt = Date.now();
           try {
             const pastMessages = await this.getCodexThreadHistory(
@@ -5372,8 +5372,18 @@ export class BridgeWebSocketServer {
                   ? ("plan" as const)
                   : ("default" as const),
               }),
+              { deferProcessMessages: true },
             );
-            createdBridgeSessionId = sessionId;
+            if (
+              !this.attachProvisionalResumeSession(
+                resumeOperation.key,
+                resumeOperation.operationId,
+                sessionId,
+              )
+            ) {
+              this.sessionManager.destroy(sessionId);
+              break;
+            }
             sessionCreateMs = Date.now() - createStartedAt;
             const createdSession = this.sessionManager.get(sessionId);
             const waitUntilReady = (
@@ -5448,6 +5458,7 @@ export class BridgeWebSocketServer {
               this.sessionManager.destroy(sessionId);
               break;
             }
+            this.sessionManager.releaseDeferredProcessMessages(sessionId);
             this.broadcastSessionList();
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -5486,15 +5497,14 @@ export class BridgeWebSocketServer {
               }),
             );
             const activeWriterConflict = isCodexThreadWriterConflict(err);
-            if (createdBridgeSessionId) {
-              this.sessionManager.destroy(createdBridgeSessionId);
-            }
             this.failResumeOperation(
               resumeOperation.key,
               resumeOperation.operationId,
               activeWriterConflict
                 ? codexErrorMessage(err)
-                : `Failed to load Codex session history: ${err}`,
+                : historyLoaded
+                  ? `Failed to restore Codex session: ${err}`
+                  : `Failed to load Codex session history: ${err}`,
               activeWriterConflict
                 ? "codex_thread_writer_conflict"
                 : undefined,
@@ -7554,6 +7564,7 @@ export class BridgeWebSocketServer {
     const operation = this.resumeOperations.get(key);
     if (!operation || operation.id !== operationId) return false;
     if (operation.timeout) clearTimeout(operation.timeout);
+    operation.provisionalSessionId = undefined;
     operation.completed = {
       sessionId,
       message,
@@ -7585,6 +7596,10 @@ export class BridgeWebSocketServer {
   ): void {
     const operation = this.resumeOperations.get(key);
     if (!operation || operation.id !== operationId) return;
+    if (operation.provisionalSessionId) {
+      this.sessionManager.destroy(operation.provisionalSessionId);
+      operation.provisionalSessionId = undefined;
+    }
     this.clearResumeOperation(key, operation);
     for (const waiter of operation.waiters) {
       this.rejectPendingClaudeResumeInputs(
@@ -7595,9 +7610,26 @@ export class BridgeWebSocketServer {
       this.send(waiter, {
         type: "error",
         message,
+        sessionId: operation.sourceSessionId,
+        ...(operation.resumeRequestId
+          ? { requestId: operation.resumeRequestId }
+          : {}),
         ...(errorCode ? { errorCode } : {}),
       });
     }
+  }
+
+  private attachProvisionalResumeSession(
+    key: string,
+    operationId: string,
+    sessionId: string,
+  ): boolean {
+    const operation = this.resumeOperations.get(key);
+    if (!operation || operation.id !== operationId || operation.completed) {
+      return false;
+    }
+    operation.provisionalSessionId = sessionId;
+    return true;
   }
 
   private sendResumeFailed(

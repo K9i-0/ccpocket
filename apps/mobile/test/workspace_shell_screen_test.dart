@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/session_list/session_list_screen.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -45,6 +47,7 @@ class _MockBridgeService extends BridgeService {
   List<SessionInfo> _sessions = const [];
   List<GalleryImage> _images = const [];
   final String? _lastUrl;
+  final sentMessages = <ClientMessage>[];
   bool disconnectCalled = false;
 
   _MockBridgeService({
@@ -115,6 +118,10 @@ class _MockBridgeService extends BridgeService {
     _stoppedSessionsController.add(sessionId);
   }
 
+  void emitRecentSessions(List<RecentSession> sessions) {
+    _recentSessionsController.add(sessions);
+  }
+
   void emitMessage(ServerMessage message) {
     _messageController.add(message);
   }
@@ -170,7 +177,9 @@ class _MockBridgeService extends BridgeService {
   void interrupt(String sessionId) {}
 
   @override
-  void send(ClientMessage message) {}
+  void send(ClientMessage message) {
+    sentMessages.add(message);
+  }
 
   @override
   void disconnect() {
@@ -388,7 +397,10 @@ Widget _buildWorkspaceApp({
   List<RecentSession>? debugRecentSessions,
   GlobalKey<WorkspaceShellScreenState>? shellKey,
   TargetPlatform platform = TargetPlatform.macOS,
+  Locale locale = const Locale('en'),
+  bool sessionListOnly = false,
   MachineManagerCubit? machineManagerCubit,
+  ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession,
 }) {
   final sessionListCubit = SessionListCubit(bridge: bridge);
   final connectionCubit = ConnectionCubit(
@@ -436,16 +448,22 @@ Widget _buildWorkspaceApp({
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en'),
+        locale: locale,
         theme: AppTheme.darkTheme.copyWith(platform: platform),
         home: Scaffold(
           body: SizedBox(
             width: 1400,
             height: 900,
-            child: WorkspaceShellScreen(
-              key: shellKey,
-              debugRecentSessions: debugRecentSessions,
-            ),
+            child: sessionListOnly
+                ? SessionListScreen(
+                    debugRecentSessions: debugRecentSessions,
+                    embedded: onSelectWorkspaceSession != null,
+                    onSelectWorkspaceSession: onSelectWorkspaceSession,
+                  )
+                : WorkspaceShellScreen(
+                    key: shellKey,
+                    debugRecentSessions: debugRecentSessions,
+                  ),
           ),
         ),
       ),
@@ -509,9 +527,7 @@ void main() {
     NotificationService.instance.clearActiveSession();
   });
 
-  testWidgets('shows localized guidance for a Codex writer conflict', (
-    tester,
-  ) async {
+  testWidgets('shows a scoped localized Codex writer conflict', (tester) async {
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -525,24 +541,194 @@ void main() {
         draftService: draftService,
         revenueCatService: revenueCatService,
         supportBannerService: supportBannerService,
-        debugRecentSessions: const [],
+        debugRecentSessions: [_recentSession('one')],
+        locale: const Locale('ja'),
+        sessionListOnly: true,
       ),
     );
+    bridge.emitRecentSessions([_recentSession('one')]);
     await _pumpUi(tester);
 
+    await tester.tap(find.byKey(const ValueKey('recent_session_one')));
+    await _pumpUi(tester);
+    final firstResumeRequestId =
+        (jsonDecode(bridge.sentMessages.last.toJson())
+                as Map<String, dynamic>)['resumeRequestId']
+            as String;
+
     bridge.emitMessage(
-      const ErrorMessage(
+      SystemMessage(
+        subtype: 'session_resume_failed',
+        sourceSessionId: 'other-session',
+        resumeRequestId: firstResumeRequestId,
+      ),
+    );
+    await tester.pump();
+
+    bridge.emitMessage(
+      ErrorMessage(
         message: 'writer conflict',
         errorCode: 'codex_thread_writer_conflict',
+        sessionId: 'other-session',
+        requestId: firstResumeRequestId,
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text('Codex Desktop または Codex App を閉じてから、もう一度お試しください。'),
+      findsNothing,
+    );
+
+    bridge.emitMessage(
+      SystemMessage(
+        subtype: 'session_resume_failed',
+        sourceSessionId: 'one',
+        resumeRequestId: firstResumeRequestId,
+      ),
+    );
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'writer conflict',
+        errorCode: 'codex_thread_writer_conflict',
+        sessionId: 'one',
+        requestId: firstResumeRequestId,
       ),
     );
     await tester.pump();
 
     expect(
-      find.text('Stop: Codex Desktop / Codex App. Retry.'),
+      find.text('Codex Desktop または Codex App を閉じてから、もう一度お試しください。'),
       findsOneWidget,
     );
+
+    final messenger = tester.state<ScaffoldMessengerState>(
+      find.byType(ScaffoldMessenger),
+    );
+    messenger.hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'writer conflict',
+        errorCode: 'codex_thread_writer_conflict',
+        sessionId: 'one',
+        requestId: firstResumeRequestId,
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text('Codex Desktop または Codex App を閉じてから、もう一度お試しください。'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recent_session_one')));
+    await _pumpUi(tester);
+    final secondResumeRequestId =
+        (jsonDecode(bridge.sentMessages.last.toJson())
+                as Map<String, dynamic>)['resumeRequestId']
+            as String;
+    expect(secondResumeRequestId, isNot(firstResumeRequestId));
+    bridge.emitMessage(
+      SystemMessage(
+        subtype: 'session_resume_failed',
+        sourceSessionId: 'one',
+        resumeRequestId: secondResumeRequestId,
+      ),
+    );
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'restore timed out',
+        sessionId: 'one',
+        requestId: secondResumeRequestId,
+      ),
+    );
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'late writer conflict',
+        errorCode: 'codex_thread_writer_conflict',
+        sessionId: 'one',
+        requestId: secondResumeRequestId,
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text('Codex Desktop または Codex App を閉じてから、もう一度お試しください。'),
+      findsNothing,
+    );
   });
+
+  testWidgets(
+    'matching resume creation selects session and clears correlation',
+    (tester) async {
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      WorkspaceSessionSelection? selectedSession;
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          debugRecentSessions: [_recentSession('one')],
+          sessionListOnly: true,
+          onSelectWorkspaceSession: (selection) => selectedSession = selection,
+        ),
+      );
+      bridge.emitRecentSessions([_recentSession('one')]);
+      await _pumpUi(tester);
+
+      final recentSession = find.byKey(const ValueKey('recent_session_one'));
+      await tester.scrollUntilVisible(
+        recentSession,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(recentSession);
+      await _pumpUi(tester);
+      final resumeRequestId =
+          (jsonDecode(bridge.sentMessages.last.toJson())
+                  as Map<String, dynamic>)['resumeRequestId']
+              as String;
+
+      bridge.emitMessage(
+        SystemMessage(
+          subtype: 'session_created',
+          sessionId: 'resumed-one',
+          resumeRequestId: resumeRequestId,
+          provider: 'codex',
+          projectPath: '/Users/demo/project-one',
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(selectedSession?.sessionId, 'resumed-one');
+
+      bridge.emitMessage(
+        SystemMessage(
+          subtype: 'session_resume_failed',
+          sourceSessionId: 'one',
+          resumeRequestId: resumeRequestId,
+        ),
+      );
+      bridge.emitMessage(
+        ErrorMessage(
+          message: 'late writer conflict',
+          errorCode: 'codex_thread_writer_conflict',
+          sessionId: 'one',
+          requestId: resumeRequestId,
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.text('Close Codex Desktop or the Codex App, then try again.'),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('settings overlay back restores selected session root', (
     tester,
