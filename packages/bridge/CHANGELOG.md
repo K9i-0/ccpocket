@@ -4,6 +4,14 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.0] - 2026-09-01
+
+### Added
+- Add Bridge-managed named Projects with ordered multi-root workspaces, persistent CRUD, and session assignments for Claude and Codex.
+
+### Changed
+- Restore Project workspace roots when sessions resume and classify Recent Sessions by their explicit Project assignment.
+
 ## [1.80.2] - 2026-09-01
 
 ### Fixed
