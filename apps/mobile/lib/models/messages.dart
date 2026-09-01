@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
+import 'protocol_version.dart';
 
 bool isCodexAutoReviewApprovalsReviewer(String? value) {
   return value == 'auto_review' || value == 'guardian_subagent';
@@ -544,7 +545,7 @@ enum CodexSpeed {
 }
 
 CodexSpeed codexSpeedFromRaw(String? raw) => switch (raw?.trim()) {
-  'fast' => CodexSpeed.fast,
+  'fast' || 'priority' => CodexSpeed.fast,
   _ => CodexSpeed.standard,
 };
 
@@ -855,6 +856,12 @@ sealed class ServerMessage {
       'error' => ErrorMessage(
         message: json['message'] as String,
         errorCode: json['errorCode'] as String?,
+        protocolVersion: json['protocolVersion'] is int
+            ? json['protocolVersion'] as int
+            : null,
+        minimumProtocolVersion: json['minimumProtocolVersion'] is int
+            ? json['minimumProtocolVersion'] as int
+            : null,
         sessionId: json['sessionId'] as String?,
         toolUseId: json['toolUseId'] as String?,
         path: json['path'] as String?,
@@ -990,6 +997,8 @@ sealed class ServerMessage {
         codexAutoReviewDisabled:
             json['codexAutoReviewDisabled'] as bool? ?? false,
         bridgeVersion: json['bridgeVersion'] as String?,
+        protocolVersion: json['protocolVersion'] as int?,
+        minimumProtocolVersion: json['minimumProtocolVersion'] as int?,
         protocolCapabilities:
             (json['protocolCapabilities'] as List?)
                 ?.whereType<String>()
@@ -1722,6 +1731,8 @@ class ResultMessage implements ServerMessage {
 class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
+  final int? protocolVersion;
+  final int? minimumProtocolVersion;
   final String? sessionId;
   final String? toolUseId;
   final String? path;
@@ -1732,6 +1743,8 @@ class ErrorMessage implements ServerMessage {
   const ErrorMessage({
     required this.message,
     this.errorCode,
+    this.protocolVersion,
+    this.minimumProtocolVersion,
     this.sessionId,
     this.toolUseId,
     this.path,
@@ -2530,6 +2543,8 @@ class SessionListMessage implements ServerMessage {
   final String? defaultCodexProfile;
   final bool codexAutoReviewDisabled;
   final String? bridgeVersion;
+  final int? protocolVersion;
+  final int? minimumProtocolVersion;
   final Set<String> protocolCapabilities;
   const SessionListMessage({
     required this.sessions,
@@ -2543,6 +2558,8 @@ class SessionListMessage implements ServerMessage {
     this.defaultCodexProfile,
     this.codexAutoReviewDisabled = false,
     this.bridgeVersion,
+    this.protocolVersion,
+    this.minimumProtocolVersion,
     this.protocolCapabilities = const {},
   });
 }
@@ -4321,7 +4338,8 @@ class ClientMessage {
 
   factory ClientMessage.clientCapabilities({
     String? appVersion,
-    int protocolVersion = 1,
+    int protocolVersion = appProtocolMaxVersion,
+    int minimumProtocolVersion = appProtocolMinVersion,
     List<String> supportedServerMessages = const [
       'conversation_queue',
       'goal_state',
@@ -4337,6 +4355,7 @@ class ClientMessage {
     return ClientMessage._(<String, dynamic>{
       'type': 'client_capabilities',
       'protocolVersion': protocolVersion,
+      'minimumProtocolVersion': minimumProtocolVersion,
       'appVersion': ?appVersion,
       if (supportedServerMessages.isNotEmpty)
         'supportedServerMessages': supportedServerMessages,

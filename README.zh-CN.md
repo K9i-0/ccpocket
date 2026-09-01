@@ -76,7 +76,7 @@ App 是操作界面。Bridge Server 在能够访问你的项目、shell、git �
 对于长期在线的主机，也可以把 Bridge Server 注册为后台服务：
 
 ```bash
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 服务化设置支持 macOS launchd 和 Linux systemd。

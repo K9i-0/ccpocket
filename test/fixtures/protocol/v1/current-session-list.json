@@ -1,0 +1,7 @@
+{
+  "type": "session_list",
+  "sessions": [],
+  "protocolVersion": 1,
+  "minimumProtocolVersion": 1,
+  "protocolCapabilities": ["session_context_v1"]
+}

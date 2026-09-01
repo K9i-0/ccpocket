@@ -7,6 +7,20 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 ### Fixed
 - Fail Codex resume attempts cleanly when another client owns the thread writer, without exposing or retaining a provisional session.
 
+## [1.80.1] - 2026-08-31
+
+### Fixed
+- Keep Codex Fast mode synchronized across session indexing, resume, and runtime updates by normalizing current and legacy service-tier metadata.
+
+## [1.80.0] - 2026-08-31
+
+### Added
+- Negotiate an explicit App–Bridge protocol range and reject incompatible clients before processing normal WebSocket messages.
+- Publish the supported protocol range through session metadata and the version endpoint.
+
+### Changed
+- Pin persistent Bridge service setup to the stable `@ccpocket/bridge@1` major and have doctor detect and migrate legacy unbounded `@latest` configurations.
+
 ## [1.79.0] - 2026-08-29
 
 ### Added

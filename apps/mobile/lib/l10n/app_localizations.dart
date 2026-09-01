@@ -198,6 +198,41 @@ abstract class AppLocalizations {
   /// **'接続'**
   String get connect;
 
+  /// No description provided for @protocolIncompatibleTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'App と Bridge のバージョンに互換性がありません'**
+  String get protocolIncompatibleTitle;
+
+  /// No description provided for @protocolUpdateAppBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket をインストール元から更新してから、もう一度接続してください。'**
+  String get protocolUpdateAppBody;
+
+  /// No description provided for @protocolUpdateBridgeBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge を互換性のあるリリースへ更新してから、もう一度接続してください。'**
+  String get protocolUpdateBridgeBody;
+
+  /// No description provided for @protocolUpdateBothBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロトコル情報が不正または不足しています。CC Pocket と Bridge の両方を更新してから再接続してください。'**
+  String get protocolUpdateBothBody;
+
+  /// No description provided for @protocolRangeDetails.
+  ///
+  /// In ja, this message translates to:
+  /// **'App プロトコル {appMin}–{appMax}、Bridge プロトコル {bridgeMin}–{bridgeMax}'**
+  String protocolRangeDetails(
+    int appMin,
+    int appMax,
+    int bridgeMin,
+    int bridgeMax,
+  );
+
   /// No description provided for @toolSuggestionTitle.
   ///
   /// In ja, this message translates to:
@@ -759,7 +794,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupStep2Command.
   ///
   /// In ja, this message translates to:
-  /// **'npx --yes @ccpocket/bridge@latest setup'**
+  /// **'npx --yes @ccpocket/bridge@1 setup'**
   String get setupStep2Command;
 
   /// No description provided for @setupNetworkHint.
@@ -1557,7 +1592,7 @@ abstract class AppLocalizations {
   /// No description provided for @bridgeUpdateSetupCommand.
   ///
   /// In ja, this message translates to:
-  /// **'npx @ccpocket/bridge@latest setup'**
+  /// **'npx @ccpocket/bridge@1 setup'**
   String get bridgeUpdateSetupCommand;
 
   /// No description provided for @stopServer.
@@ -3171,7 +3206,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideLaunchdCommandValue.
   ///
   /// In ja, this message translates to:
-  /// **'npx --yes @ccpocket/bridge@latest setup'**
+  /// **'npx --yes @ccpocket/bridge@1 setup'**
   String get guideLaunchdCommandValue;
 
   /// No description provided for @guideLaunchdRecommendation.

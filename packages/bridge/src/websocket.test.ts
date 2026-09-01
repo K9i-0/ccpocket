@@ -1659,6 +1659,97 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("advertises the supported protocol range in session lists", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).sendSessionList(ws);
+
+    const message = JSON.parse(ws.send.mock.calls[0][0]);
+    expect(message).toMatchObject({
+      type: "session_list",
+      protocolVersion: 1,
+      minimumProtocolVersion: 1,
+    });
+    bridge.close();
+  });
+
+  it("rejects clients without an overlapping protocol version", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+      close: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        protocolVersion: 2,
+        minimumProtocolVersion: 2,
+      },
+      ws,
+    );
+
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+      type: "error",
+      errorCode: "incompatible_protocol",
+      protocolVersion: 1,
+      minimumProtocolVersion: 1,
+    });
+    expect(ws.close).toHaveBeenCalledWith(
+      4406,
+      "Incompatible protocol version",
+    );
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "list_sessions" },
+      ws,
+    );
+    expect(ws.send).not.toHaveBeenCalled();
+    bridge.close();
+  });
+
+  it("fails closed when client protocol metadata is malformed", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const handlers = new Map<string, (data?: unknown) => void>();
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn((event: string, handler: (data?: unknown) => void) => {
+        handlers.set(event, handler);
+      }),
+    } as any;
+    (bridge as any).handleConnection(ws);
+    ws.send.mockClear();
+
+    handlers.get("message")!(
+      Buffer.from(
+        JSON.stringify({
+          type: "client_capabilities",
+          minimumProtocolVersion: 1,
+        }),
+      ),
+    );
+
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+      type: "error",
+      errorCode: "incompatible_protocol",
+      protocolVersion: 1,
+      minimumProtocolVersion: 1,
+    });
+    expect(ws.close).toHaveBeenCalledWith(
+      4406,
+      "Incompatible protocol version",
+    );
+    bridge.close();
+  });
+
   it("suppresses guardian approvals unless the client opts in", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

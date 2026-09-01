@@ -60,6 +60,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connect => '连接';
 
   @override
+  String get protocolIncompatibleTitle => 'App 与 Bridge 版本不兼容';
+
+  @override
+  String get protocolUpdateAppBody => '请从原安装来源更新 CC Pocket，然后重新连接。';
+
+  @override
+  String get protocolUpdateBridgeBody => '请将 Bridge 更新到兼容版本，然后重新连接。';
+
+  @override
+  String get protocolUpdateBothBody =>
+      '协议信息无效或不完整。请同时更新 CC Pocket 和 Bridge 后再重新连接。';
+
+  @override
+  String protocolRangeDetails(
+    int appMin,
+    int appMax,
+    int bridgeMin,
+    int bridgeMax,
+  ) {
+    return 'App 协议 $appMin–$appMax；Bridge 协议 $bridgeMin–$bridgeMax';
+  }
+
+  @override
   String toolSuggestionTitle(Object toolName) {
     return '将 $toolName 添加到 Codex？';
   }
@@ -348,7 +371,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupStep2Title => '如需常驻运行，请注册为服务';
 
   @override
-  String get setupStep2Command => 'npx --yes @ccpocket/bridge@latest setup';
+  String get setupStep2Command => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get setupNetworkHint => '请确认两台设备位于同一网络中（或使用 Tailscale）。';
@@ -777,7 +800,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bridgeUpdateSetupRunCommand => '在目标机器上运行设置命令。';
 
   @override
-  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@latest setup';
+  String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@1 setup';
 
   @override
   String get stopServer => '停止服务器';
@@ -1640,8 +1663,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guideLaunchdCommand => '设置命令';
 
   @override
-  String get guideLaunchdCommandValue =>
-      'npx --yes @ccpocket/bridge@latest setup';
+  String get guideLaunchdCommandValue => 'npx --yes @ccpocket/bridge@1 setup';
 
   @override
   String get guideLaunchdRecommendation => '建议先通过手动启动验证一切正常，再在稳定后注册为服务。';

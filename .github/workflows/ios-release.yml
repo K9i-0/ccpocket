@@ -6,10 +6,18 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
+  test-gate:
+    uses: ./.github/workflows/app-release-test-gate.yml
+    with:
+      release_sha: ${{ github.sha }}
+
   release:
+    needs: test-gate
+    # Quality checks run once in the Test workflow and are enforced by test-gate.
     runs-on: macos-26
     env:
       SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
@@ -40,10 +48,6 @@ jobs:
         run: |
           printf '%s\n' 'use_precompiled_binaries: true' > apps/mobile/cargokit_options.yaml
       - run: flutter pub get
-        working-directory: apps/mobile
-      - run: dart analyze .
-        working-directory: apps/mobile
-      - run: flutter test
         working-directory: apps/mobile
       - name: Fetch signing files
         run: |

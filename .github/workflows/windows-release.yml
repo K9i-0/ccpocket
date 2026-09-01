@@ -6,10 +6,18 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
+  test-gate:
+    uses: ./.github/workflows/app-release-test-gate.yml
+    with:
+      release_sha: ${{ github.sha }}
+
   release:
+    needs: test-gate
+    # Quality checks run once in the Test workflow and are enforced by test-gate.
     # Pin to VS 2022 for now. windows-latest has moved to VS 2026/MSVC 14.51,
     # which rejects <experimental/coroutine> used by current Windows plugins.
     runs-on: windows-2022
@@ -36,12 +44,6 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - run: flutter pub get
-        working-directory: apps/mobile
-
-      - run: dart analyze .
-        working-directory: apps/mobile
-
-      - run: flutter test
         working-directory: apps/mobile
 
       - name: Build Windows app

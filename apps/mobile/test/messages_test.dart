@@ -250,6 +250,12 @@ void main() {
     expect(reasoningEffortByValue('  '), isNull);
   });
 
+  test('CodexSpeed accepts the Codex priority service tier as Fast', () {
+    expect(codexSpeedFromRaw('priority'), CodexSpeed.fast);
+    expect(codexSpeedFromRaw('fast'), CodexSpeed.fast);
+    expect(codexSpeedFromRaw('standard'), CodexSpeed.standard);
+  });
+
   group('pathBasename', () {
     test('handles POSIX and Windows path separators', () {
       expect(pathBasename('/Users/me/project-a'), 'project-a');
@@ -618,6 +624,19 @@ void main() {
   });
 
   group('Codex thread options', () {
+    test('parses protocol range details on compatibility errors', () {
+      final message = ServerMessage.fromJson({
+        'type': 'error',
+        'message': 'Incompatible protocol',
+        'errorCode': 'incompatible_protocol',
+        'protocolVersion': 2,
+        'minimumProtocolVersion': 2,
+      }) as ErrorMessage;
+
+      expect(message.protocolVersion, 2);
+      expect(message.minimumProtocolVersion, 2);
+    });
+
     test('ClientMessage.clientCapabilities advertises supported messages', () {
       final msg = ClientMessage.clientCapabilities(appVersion: '1.72.1');
 
@@ -625,6 +644,7 @@ void main() {
       expect(json['type'], 'client_capabilities');
       expect(json['appVersion'], '1.72.1');
       expect(json['protocolVersion'], 1);
+      expect(json['minimumProtocolVersion'], 1);
       expect(json['supportedServerMessages'], [
         'conversation_queue',
         'goal_state',
@@ -835,6 +855,8 @@ void main() {
         'codexProfiles': ['ccpocket', 'research'],
         'defaultCodexProfile': 'ccpocket',
         'codexAutoReviewDisabled': true,
+        'protocolVersion': 1,
+        'minimumProtocolVersion': 1,
         'protocolCapabilities': ['project_request_correlation_v1'],
       });
 
@@ -862,6 +884,8 @@ void main() {
       expect(sessionList.codexProfiles, ['ccpocket', 'research']);
       expect(sessionList.defaultCodexProfile, 'ccpocket');
       expect(sessionList.codexAutoReviewDisabled, isTrue);
+      expect(sessionList.protocolVersion, 1);
+      expect(sessionList.minimumProtocolVersion, 1);
       expect(
         sessionList.protocolCapabilities,
         contains('project_request_correlation_v1'),

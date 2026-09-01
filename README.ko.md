@@ -75,7 +75,7 @@ CC Pocket app  <->  사용자의 머신에서 실행되는 Bridge Server  <->  C
 항상 켜두는 호스트라면 Bridge Server를 백그라운드 서비스로 등록할 수도 있습니다.
 
 ```bash
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 서비스 설정은 macOS launchd와 Linux systemd를 지원합니다.

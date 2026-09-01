@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
+import '../../models/protocol_version.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
@@ -21,6 +22,7 @@ String? _errorTitle(String? errorCode, AppLocalizations l) {
     'path_not_allowed' => 'Path Not Allowed',
     'git_not_available' => l.gitUnavailableTitle,
     'bridge_update_required' => 'Bridge Update Required',
+    'incompatible_protocol' => l.protocolIncompatibleTitle,
     'auto_mode_unavailable' => 'Auto Mode Unavailable',
     'codex_warning' => 'Codex Warning',
     _ => null,
@@ -28,7 +30,11 @@ String? _errorTitle(String? errorCode, AppLocalizations l) {
 }
 
 /// Maps errorCode to a short remedy hint shown below the message.
-String? _errorHint(String? errorCode, AppLocalizations l) {
+String? _errorHint(
+  String? errorCode,
+  AppLocalizations l,
+  ErrorMessage message,
+) {
   return switch (errorCode) {
     'auth_login_required' ||
     'auth_token_expired' => 'Run "claude auth login" on the Bridge machine',
@@ -41,17 +47,32 @@ String? _errorHint(String? errorCode, AppLocalizations l) {
     'path_not_allowed' => 'Update BRIDGE_ALLOWED_DIRS on the Bridge server',
     'git_not_available' => l.gitUnavailableHint,
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
+    'incompatible_protocol' => switch (_protocolUpdateTarget(message)) {
+      ProtocolUpdateTarget.app => l.protocolUpdateAppBody,
+      ProtocolUpdateTarget.bridge => l.protocolUpdateBridgeBody,
+      ProtocolUpdateTarget.both => l.protocolUpdateBothBody,
+    },
     'auto_mode_unavailable' => 'Use Default mode here, or switch to a Claude environment that supports Auto mode',
     _ => null,
   };
 }
 
 /// Copyable command for the hint tap action.
-String? _copyableCommand(String? errorCode) {
+ProtocolUpdateTarget _protocolUpdateTarget(ErrorMessage message) {
+  return ProtocolCompatibility.rejectedByBridge(
+    minimumProtocolVersion: message.minimumProtocolVersion,
+    protocolVersion: message.protocolVersion,
+  ).updateTarget;
+}
+
+String? _copyableCommand(String? errorCode, ErrorMessage message) {
   return switch (errorCode) {
     'auth_login_required' || 'auth_token_expired' => 'claude auth login',
     'claude_oauth_opt_in_required' => 'BRIDGE_ALLOW_CLAUDE_OAUTH=1',
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
+    'incompatible_protocol'
+        when _protocolUpdateTarget(message) != ProtocolUpdateTarget.app =>
+      bridgeStableMajorSetupCommand,
     'codex_cli_not_found' =>
       'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
     _ => null,
@@ -89,7 +110,7 @@ class ErrorBubble extends StatelessWidget {
     );
     final l = AppLocalizations.of(context);
     final title = _errorTitle(resolvedErrorCode, l);
-    final hint = _errorHint(resolvedErrorCode, l);
+    final hint = _errorHint(resolvedErrorCode, l, message);
     final hasStructured = title != null;
     final isWarn = _isWarning(resolvedErrorCode);
 
@@ -201,6 +222,7 @@ class ErrorBubble extends StatelessWidget {
         message: message.message,
         explicitErrorCode: message.errorCode,
       ),
+      message,
     );
     final child = Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),

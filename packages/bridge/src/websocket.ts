@@ -41,6 +41,12 @@ import {
   type ServerMessage,
 } from "./parser.js";
 import {
+  BRIDGE_PROTOCOL_MAX_VERSION,
+  BRIDGE_PROTOCOL_MIN_VERSION,
+  clientProtocolRange,
+  negotiateProtocolVersion,
+} from "./protocol-version.js";
+import {
   getAllRecentSessions,
   getCodexSessionHistory,
   getSessionHistory,
@@ -846,6 +852,8 @@ export class BridgeWebSocketServer {
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  private clientProtocolVersions = new WeakMap<WebSocket, number>();
+  private rejectedProtocolClients = new WeakSet<WebSocket>();
   private pendingClaudeResumeInputs = new WeakMap<
     WebSocket,
     Map<string, InputClientMessage[]>
@@ -2666,6 +2674,7 @@ export class BridgeWebSocketServer {
     this.send(ws, { type: "project_history", projects });
 
     ws.on("message", (data) => {
+      if (this.rejectedProtocolClients.has(ws)) return;
       const raw = data.toString();
       const msg = parseClientMessage(raw);
 
@@ -2678,6 +2687,18 @@ export class BridgeWebSocketServer {
             ?.type as string;
         } catch {
           /* ignore */
+        }
+        if (rawType === "client_capabilities") {
+          this.rejectedProtocolClients.add(ws);
+          this.send(ws, {
+            type: "error",
+            errorCode: "incompatible_protocol",
+            message: "Client advertised a malformed protocol range.",
+            protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
+            minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
+          });
+          ws.close(4406, "Incompatible protocol version");
+          return;
         }
         console.error(
           "[ws] Unsupported message:",
@@ -2726,7 +2747,26 @@ export class BridgeWebSocketServer {
     msg: ClientMessage,
     ws: WebSocket,
   ): Promise<void> {
+    if (this.rejectedProtocolClients.has(ws)) return;
     if (msg.type === "client_capabilities") {
+      const clientRange = clientProtocolRange(msg);
+      const selectedProtocolVersion = negotiateProtocolVersion(clientRange);
+      if (selectedProtocolVersion === null) {
+        this.rejectedProtocolClients.add(ws);
+        this.send(ws, {
+          type: "error",
+          errorCode: "incompatible_protocol",
+          protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
+          minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
+          message:
+            `Client protocol range ${clientRange.min}-${clientRange.max} `
+            + `does not overlap Bridge protocol range `
+            + `${BRIDGE_PROTOCOL_MIN_VERSION}-${BRIDGE_PROTOCOL_MAX_VERSION}.`,
+        });
+        ws.close(4406, "Incompatible protocol version");
+        return;
+      }
+      this.clientProtocolVersions.set(ws, selectedProtocolVersion);
       this.clientSupportedServerMessages.set(
         ws,
         new Set(msg.supportedServerMessages ?? []),
@@ -7823,6 +7863,8 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
+      protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
+      minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
       protocolCapabilities: [
         "project_request_correlation_v1",
         "session_context_v1",
@@ -7864,6 +7906,8 @@ export class BridgeWebSocketServer {
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
       bridgeVersion: getPackageVersion(),
+      protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
+      minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
       protocolCapabilities: [
         "project_request_correlation_v1",
         "session_context_v1",

@@ -214,7 +214,7 @@ make the Bedrock configuration reachable from the service environment:
 Register the Bridge as a user-level background service:
 
 ```bash
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 Setup supports macOS launchd and Linux systemd. It persists the Bridge settings
@@ -237,13 +237,13 @@ Example:
 ```bash
 BRIDGE_ALLOWED_DIRS="$HOME,/scratch/$USER" \
 BRIDGE_API_KEY=my-secret \
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 To persist the explicit subscription-authentication opt-in:
 
 ```bash
-BRIDGE_ALLOW_CLAUDE_OAUTH=1 npx @ccpocket/bridge@latest setup
+BRIDGE_ALLOW_CLAUDE_OAUTH=1 npx @ccpocket/bridge@1 setup
 ```
 
 Custom gateway users can persist assist overrides in the same way:
@@ -251,7 +251,7 @@ Custom gateway users can persist assist overrides in the same way:
 ```bash
 BRIDGE_CODEX_ASSIST_MODEL=gpt-oss:20b-cloud \
 BRIDGE_CODEX_ASSIST_REASONING_EFFORT=none \
-npx @ccpocket/bridge@latest setup
+npx @ccpocket/bridge@1 setup
 ```
 
 On Linux, setup gives standalone Codex installs priority by including

@@ -5,6 +5,7 @@ import { basename, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-agent-sdk";
 import { isAutoRenamePromptText } from "./auto-rename.js";
+import { normalizeCodexServiceTierForClient } from "./codex-service-tier.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -1249,13 +1250,14 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let lastAssistantText = "";
   let agentNickname: string | undefined;
   let agentRole: string | undefined;
-  // Settings extracted from the first turn_context entry
+  // Settings extracted from turn_context and thread_settings_applied entries.
   let approvalPolicy: string | undefined;
   let approvalsReviewer: string | undefined;
   let sandboxMode: string | undefined;
   let model: string | undefined;
   let modelReasoningEffort: string | undefined;
   let serviceTier: string | undefined;
+  let hasThreadSettingsServiceTier = false;
   let networkAccessEnabled: boolean | undefined;
   let webSearchMode: string | undefined;
 
@@ -1339,15 +1341,18 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         if (typeof collaborationSettings?.reasoning_effort === "string") {
           modelReasoningEffort = collaborationSettings.reasoning_effort;
         }
-        // Codex omits service_tier from standard-speed turn_context records.
-        // Treat every new context as authoritative so Fast -> Standard clears
-        // a previous persisted "fast" value.
-        serviceTier =
-          typeof payload.service_tier === "string" &&
-          payload.service_tier.trim().length > 0 &&
-          payload.service_tier !== "default"
-            ? payload.service_tier
-            : "standard";
+        // Legacy Codex omitted service_tier for Standard, so a missing value
+        // clears Fast until the newer thread_settings_applied format appears.
+        // In that format, service_tier is authoritative and turn_context omits
+        // it for both speeds.
+        if (
+          typeof payload.service_tier === "string" ||
+          !hasThreadSettingsServiceTier
+        ) {
+          serviceTier = normalizeCodexServiceTierForClient(
+            payload.service_tier,
+          );
+        }
         if (typeof sp?.network_access === "boolean") {
           networkAccessEnabled = sp.network_access;
         }
@@ -1360,7 +1365,20 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
 
     if (entry.type === "event_msg") {
       const payload = entry.payload as Record<string, unknown> | undefined;
-      if (payload?.type === "user_message" && typeof payload.message === "string") {
+      if (payload?.type === "thread_settings_applied") {
+        const settings = payload.thread_settings as
+          | Record<string, unknown>
+          | undefined;
+        if (settings && typeof settings.service_tier === "string") {
+          serviceTier = normalizeCodexServiceTierForClient(
+            settings.service_tier,
+          );
+          hasThreadSettingsServiceTier = true;
+        }
+      } else if (
+        payload?.type === "user_message" &&
+        typeof payload.message === "string"
+      ) {
         hasMessages = true;
         if (!firstPrompt) firstPrompt = payload.message;
         lastPrompt = payload.message;

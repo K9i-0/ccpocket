@@ -431,37 +431,37 @@ if command -v launchctl >/dev/null 2>&1; then
   LABEL=com.ccpocket.bridge
   PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
   if [ ! -f "$PLIST" ]; then
-    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@latest setup" >&2
+    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi
   if ! /bin/zsh -li -c 'command -v npx >/dev/null 2>&1'; then
-    echo "npx is not available in the remote login shell. Bridge auto-start uses npx. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
+    echo "npx is not available in the remote login shell. Bridge auto-start uses npx. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@1 setup" >&2
     exit 127
   fi
 elif command -v systemctl >/dev/null 2>&1; then
   SERVICE="$HOME/.config/systemd/user/ccpocket-bridge.service"
   if [ ! -f "$SERVICE" ]; then
-    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@latest setup" >&2
+    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi
   EXEC_START=$(grep -E '^ExecStart=' "$SERVICE" | head -n 1 | sed 's/^ExecStart=//')
   NPX_COMMAND=${EXEC_START%% *}
   if [ -z "$NPX_COMMAND" ]; then
-    echo "Bridge auto-start setup is invalid. Run: npx @ccpocket/bridge@latest setup" >&2
+    echo "Bridge auto-start setup is invalid. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi
-  if printf '%s\n' "$EXEC_START" | grep -q "^/bin/bash -lc .*npx .*@ccpocket/bridge@latest"; then
+  if printf '%s\n' "$EXEC_START" | grep -q "^/bin/bash -lc .*npx .*@ccpocket/bridge@"; then
     if ! /bin/bash -lc 'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; command -v npx >/dev/null 2>&1'; then
-      echo "npx is not available to the Bridge service. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
+      echo "npx is not available to the Bridge service. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@1 setup" >&2
       exit 127
     fi
   elif [ "${NPX_COMMAND#/}" != "$NPX_COMMAND" ]; then
     if [ ! -x "$NPX_COMMAND" ]; then
-      echo "npx configured in the Bridge service is not executable: $NPX_COMMAND. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
+      echo "npx configured in the Bridge service is not executable: $NPX_COMMAND. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@1 setup" >&2
       exit 127
     fi
   elif ! command -v "$NPX_COMMAND" >/dev/null 2>&1; then
-    echo "npx is not available in the remote SSH PATH. Bridge auto-start uses npx. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
+    echo "npx is not available in the remote SSH PATH. Bridge auto-start uses npx. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@1 setup" >&2
     exit 127
   fi
 else
@@ -471,7 +471,7 @@ fi
 ''';
 
   /// Start the Bridge service installed by
-  /// `npx @ccpocket/bridge@latest setup`.
+  /// `npx @ccpocket/bridge@1 setup`.
   ///
   /// macOS setup installs a launchd LaunchAgent, while Linux setup installs a
   /// systemd user service. Detect the remote init system at runtime because the
@@ -482,12 +482,13 @@ if command -v launchctl >/dev/null 2>&1; then
   UID_VALUE=$(id -u)
   PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
   if [ ! -f "$PLIST" ]; then
-    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@latest setup" >&2
+    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi
   MIGRATED=0
-  if /usr/libexec/PlistBuddy -c "Print :ProgramArguments:3" "$PLIST" 2>/dev/null | grep -qx "exec npx @ccpocket/bridge@latest"; then
-    /usr/libexec/PlistBuddy -c "Set :ProgramArguments:3 exec npx --yes @ccpocket/bridge@latest" "$PLIST"
+  BRIDGE_COMMAND=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:3" "$PLIST" 2>/dev/null || true)
+  if printf '%s\n' "$BRIDGE_COMMAND" | grep -Eq "^exec npx( --yes)? @ccpocket/bridge@(latest|1)$"; then
+    /usr/libexec/PlistBuddy -c "Set :ProgramArguments:3 exec npx --yes @ccpocket/bridge@1" "$PLIST"
     MIGRATED=1
   fi
   if [ "$MIGRATED" = "1" ]; then
@@ -503,11 +504,15 @@ if command -v launchctl >/dev/null 2>&1; then
 elif command -v systemctl >/dev/null 2>&1; then
   SERVICE="$HOME/.config/systemd/user/ccpocket-bridge.service"
   if [ ! -f "$SERVICE" ]; then
-    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@latest setup" >&2
+    echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi
-  if [ -f "$SERVICE" ] && grep -q "^ExecStart=.*npx @ccpocket/bridge@latest$" "$SERVICE"; then
-    perl -0pi.bak -e 's#^ExecStart=(.*npx) \@ccpocket/bridge\@latest$#ExecStart=$1 --yes \@ccpocket/bridge\@latest#m' "$SERVICE"
+  if grep -q "@ccpocket/bridge@latest" "$SERVICE"; then
+    perl -0pi.bak -e 's#\@ccpocket/bridge\@latest#\@ccpocket/bridge\@1#g' "$SERVICE"
+    systemctl --user daemon-reload
+  fi
+  if grep -q "^ExecStart=.*npx @ccpocket/bridge@1$" "$SERVICE"; then
+    perl -0pi.bak -e 's#^ExecStart=(.*npx) \@ccpocket/bridge\@1$#ExecStart=$1 --yes \@ccpocket/bridge\@1#m' "$SERVICE"
     systemctl --user daemon-reload
   fi
   systemctl --user restart ccpocket-bridge
@@ -772,7 +777,7 @@ ${_startCommand.trim()}
   /// Update Bridge Server on a remote machine via SSH.
   ///
   /// This only supports the auto-start service installed by
-  /// `npx @ccpocket/bridge@latest setup`. Source checkouts are not
+  /// `npx @ccpocket/bridge@1 setup`. Source checkouts are not
   /// updated from the app.
   Future<SshResult> updateBridgeServer(
     String machineId, {

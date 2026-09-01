@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' hide WebSocketTransformer;
+import 'dart:io' as io show WebSocketTransformer;
 
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/offline_pending_action.dart';
+import 'package:ccpocket/models/protocol_version.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,12 +25,33 @@ Map<String, dynamic> _galleryImageJson(
   'sizeBytes': 100,
 };
 
+bool _automaticallyAnnounceLegacyProtocol = true;
+
+/// Mirrors the production Bridge handshake for test servers that only care
+/// about the request or response under test. Protocol-specific tests can opt
+/// out and control the handshake themselves.
+class WebSocketTransformer
+    extends StreamTransformerBase<HttpRequest, WebSocket> {
+  @override
+  Stream<WebSocket> bind(Stream<HttpRequest> stream) {
+    return io.WebSocketTransformer().bind(stream).map((socket) {
+      if (_automaticallyAnnounceLegacyProtocol) {
+        socket.add(
+          jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+        );
+      }
+      return socket;
+    });
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('BridgeService usage cache', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+      _automaticallyAnnounceLegacyProtocol = true;
     });
 
     test('auto-connect cancellation skips the saved Bridge URL', () async {
@@ -182,6 +205,8 @@ void main() {
       expect(bridge.projectHistory, ['/old-bridge/project']);
       expect(bridge.codexProfiles, ['old-profile']);
       expect(bridge.bridgeVersion, '1.2.3');
+      expect(bridge.protocolCompatibility?.isCompatible, isTrue);
+      expect(bridge.protocolCompatibility?.assumedLegacyBridge, isTrue);
 
       bridge.disconnect();
 
@@ -189,6 +214,7 @@ void main() {
       expect(bridge.projectHistory, isEmpty);
       expect(bridge.codexProfiles, isEmpty);
       expect(bridge.bridgeVersion, isNull);
+      expect(bridge.protocolCompatibility, isNull);
 
       for (final socket in sockets) {
         await socket.close();
@@ -196,6 +222,234 @@ void main() {
       await server.close(force: true);
       bridge.dispose();
     });
+
+    test('rejects a Bridge with a non-overlapping protocol range', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<void>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': <Object>[],
+            'protocolVersion': 2,
+            'minimumProtocolVersion': 2,
+          }),
+        );
+        socket.add(
+          jsonEncode({
+            'type': 'project_history',
+            'projects': ['/must-not-be-accepted'],
+          }),
+        );
+        socketReady.complete();
+      });
+
+      final bridge = BridgeService();
+      final incompatible = bridge.messages
+          .where((message) => message is ErrorMessage)
+          .cast<ErrorMessage>()
+          .firstWhere(
+            (message) => message.errorCode == 'incompatible_protocol',
+          );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+
+      await socketReady.future;
+      final error = await incompatible.timeout(const Duration(seconds: 1));
+
+      expect(error.message, contains('Bridge protocol range 2-2'));
+      expect(bridge.protocolCompatibility?.isCompatible, isFalse);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(bridge.projectHistory, isEmpty);
+      expect(
+        bridge.currentBridgeConnectionState,
+        BridgeConnectionState.disconnected,
+      );
+
+      bridge.dispose();
+      await server.close(force: true);
+    });
+
+    test(
+      'Bridge protocol rejection is terminal and does not reconnect',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        var connectionCount = 0;
+        final firstConnection = Completer<void>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          socket.add(
+            jsonEncode({
+              'type': 'error',
+              'errorCode': 'incompatible_protocol',
+              'message': 'Client protocol is not supported by this Bridge.',
+              'protocolVersion': 2,
+              'minimumProtocolVersion': 2,
+            }),
+          );
+          unawaited(socket.close(4406, 'Incompatible protocol version'));
+          if (!firstConnection.isCompleted) firstConnection.complete();
+        });
+
+        final bridge = BridgeService();
+        final incompatible = bridge.messages
+            .where((message) => message is ErrorMessage)
+            .cast<ErrorMessage>()
+            .firstWhere(
+              (message) => message.errorCode == 'incompatible_protocol',
+            );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        await firstConnection.future;
+        final error = await incompatible.timeout(const Duration(seconds: 1));
+        await Future<void>.delayed(const Duration(milliseconds: 2200));
+
+        expect(error.message, contains('not supported'));
+        expect(connectionCount, 1);
+        expect(bridge.protocolCompatibility?.isCompatible, isFalse);
+        expect(
+          bridge.protocolCompatibility?.updateTarget,
+          ProtocolUpdateTarget.app,
+        );
+        expect(
+          bridge.currentBridgeConnectionState,
+          BridgeConnectionState.disconnected,
+        );
+
+        bridge.dispose();
+        await server.close(force: true);
+      },
+    );
+
+    test(
+      'malformed Bridge protocol rejections fail closed without reconnecting',
+      () async {
+        final declarations = <Map<String, dynamic>>[
+          <String, dynamic>{},
+          {'minimumProtocolVersion': 1},
+          {'protocolVersion': '2', 'minimumProtocolVersion': 1},
+          {'protocolVersion': 1, 'minimumProtocolVersion': 2},
+          {'protocolVersion': 0, 'minimumProtocolVersion': 0},
+        ];
+
+        for (var index = 0; index < declarations.length; index++) {
+          final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+          var connectionCount = 0;
+          server.transform(WebSocketTransformer()).listen((socket) {
+            connectionCount++;
+            socket.add(
+              jsonEncode({
+                'type': 'error',
+                'errorCode': 'incompatible_protocol',
+                'message': 'Malformed protocol rejection.',
+                ...declarations[index],
+              }),
+            );
+          });
+
+          final bridge = BridgeService();
+          final errorFuture = bridge.messages
+              .where((message) => message is ErrorMessage)
+              .cast<ErrorMessage>()
+              .firstWhere(
+                (message) => message.errorCode == 'incompatible_protocol',
+              );
+          bridge.connect('ws://127.0.0.1:${server.port}');
+          await errorFuture.timeout(const Duration(seconds: 1));
+
+          expect(
+            bridge.protocolCompatibility?.malformedBridgeRange,
+            isTrue,
+            reason: '${declarations[index]} must fail closed',
+          );
+          expect(
+            bridge.protocolCompatibility?.updateTarget,
+            ProtocolUpdateTarget.both,
+          );
+          expect(
+            bridge.currentBridgeConnectionState,
+            BridgeConnectionState.disconnected,
+          );
+          if (index == declarations.length - 1) {
+            await Future<void>.delayed(const Duration(milliseconds: 1200));
+            expect(connectionCount, 1);
+          }
+
+          bridge.dispose();
+          await server.close(force: true);
+        }
+      },
+    );
+
+    test(
+      'protocol rejection requeues in-flight input for a manual reconnect',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        var connectionCount = 0;
+        var matchingInputCount = 0;
+        final firstRejected = Completer<void>();
+        final resentInput = Completer<void>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          connectionCount++;
+          final socketNumber = connectionCount;
+          if (socketNumber == 2) {
+            socket.add(
+              jsonEncode({
+                'type': 'session_list',
+                'sessions': <Object>[],
+                'protocolVersion': 1,
+                'minimumProtocolVersion': 1,
+              }),
+            );
+          }
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            if (json['type'] != 'input' ||
+                json['clientMessageId'] != 'cm-protocol-retry') {
+              return;
+            }
+            matchingInputCount++;
+            if (socketNumber == 1) {
+              socket.add(
+                jsonEncode({
+                  'type': 'session_list',
+                  'sessions': <Object>[],
+                  'protocolVersion': 2,
+                  'minimumProtocolVersion': 2,
+                }),
+              );
+              if (!firstRejected.isCompleted) firstRejected.complete();
+            } else if (!resentInput.isCompleted) {
+              resentInput.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.send(
+          ClientMessage.input(
+            'preserve me',
+            sessionId: 's1',
+            clientMessageId: 'cm-protocol-retry',
+          ),
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        await firstRejected.future.timeout(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        bridge.connect('ws://127.0.0.1:${server.port}');
+        await resentInput.future.timeout(const Duration(seconds: 2));
+
+        expect(connectionCount, 2);
+        expect(matchingInputCount, 2);
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
 
     test(
       'switching bridge drops pending starts from previous target',
@@ -2074,7 +2328,10 @@ void main() {
             await allowStaleUpgrade.future;
           }
           try {
-            final socket = await WebSocketTransformer.upgrade(request);
+            final socket = await io.WebSocketTransformer.upgrade(request);
+            socket.add(
+              jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+            );
             if (connectionNumber == 1) firstSocketReady.complete(socket);
             socket.listen((event) {
               final json = jsonDecode(event as String) as Map<String, dynamic>;
@@ -3171,6 +3428,9 @@ void main() {
         final sawRename = Completer<void>();
 
         server.transform(WebSocketTransformer()).listen((socket) {
+          socket.add(
+            jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+          );
           socket.listen((data) {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             received.add(json);
@@ -3206,6 +3466,65 @@ void main() {
         expect(
           prefs.getStringList('bridge_offline_pending_messages_v1'),
           isNull,
+        );
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'holds normal messages until Bridge protocol compatibility is known',
+      () async {
+        _automaticallyAnnounceLegacyProtocol = false;
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final socketReady = Completer<WebSocket>();
+        final sawCapabilities = Completer<void>();
+        final sawInput = Completer<void>();
+        final received = <Map<String, dynamic>>[];
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socketReady.complete(socket);
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            received.add(json);
+            if (json['type'] == 'client_capabilities' &&
+                !sawCapabilities.isCompleted) {
+              sawCapabilities.complete();
+            }
+            if (json['type'] == 'input' && !sawInput.isCompleted) {
+              sawInput.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.send(
+          ClientMessage.input(
+            'wait for negotiation',
+            sessionId: 's1',
+            clientMessageId: 'cm-negotiation',
+          ),
+        );
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        final socket = await socketReady.future;
+        await sawCapabilities.future.timeout(const Duration(seconds: 1));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(
+          received.where((message) => message['type'] == 'input'),
+          isEmpty,
+        );
+
+        socket.add(
+          jsonEncode({'type': 'session_list', 'sessions': <Object>[]}),
+        );
+        await sawInput.future.timeout(const Duration(seconds: 1));
+
+        expect(
+          received.where((message) => message['type'] == 'input'),
+          hasLength(1),
         );
 
         bridge.disconnect();

@@ -9,6 +9,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Fixed
 - Show localized recovery guidance only for the matching Codex session when another Codex client owns its writer.
 
+## [1.126.2] - 2026-08-31
+
+### Changed
+- Require Bridge 1.80.1 for reliable Codex Fast mode synchronization.
+
+### Fixed
+- Keep the Codex Fast mode selection and indicator synchronized between session cards and session screens after responses, resume, and context refreshes.
+
+## [1.126.1] - 2026-08-31
+
+### Changed
+- Upgrade the app toolchain to Flutter 3.47.2, Dart 3.13.2, and Shorebird 1.6.120.
+
+### Fixed
+- Prevent duplicate floating action button Hero tags when navigating between workspace screens.
+
+## [1.126.0] - 2026-08-31
+
+### Added
+- Detect incompatible App–Bridge protocol ranges before starting a session and show localized guidance for updating the App, Bridge, or both.
+
+### Changed
+- Hold normal WebSocket requests until protocol compatibility is accepted, including prompt-history synchronization, and fail closed on malformed negotiation responses.
+- Pin persistent Bridge setup commands to the stable `@ccpocket/bridge@1` major and guide legacy `@latest` service installations toward the stable channel.
+- Require Bridge 1.80.0 for explicit protocol negotiation and compatibility management.
+
 ## [1.125.1] - 2026-08-29
 
 ### Fixed

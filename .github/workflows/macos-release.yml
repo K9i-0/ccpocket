@@ -6,12 +6,20 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
 
 jobs:
+  test-gate:
+    uses: ./.github/workflows/app-release-test-gate.yml
+    with:
+      release_sha: ${{ github.sha }}
+
   release:
+    needs: test-gate
+    # Quality checks run once in the Test workflow and are enforced by test-gate.
     runs-on: macos-15
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -39,12 +47,6 @@ jobs:
           cache: true
 
       - run: flutter pub get
-        working-directory: apps/mobile
-
-      - run: dart analyze .
-        working-directory: apps/mobile
-
-      - run: flutter test
         working-directory: apps/mobile
 
       - name: Install Codemagic CLI Tools

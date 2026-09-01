@@ -103,6 +103,7 @@ export type ClientMessage =
       type: "client_capabilities";
       appVersion?: string;
       protocolVersion?: number;
+      minimumProtocolVersion?: number;
       supportedServerMessages?: string[];
     }
   | {
@@ -622,6 +623,8 @@ export type ServerMessage =
       type: "error";
       message: string;
       errorCode?: string;
+      protocolVersion?: number;
+      minimumProtocolVersion?: number;
       sessionId?: string;
       toolUseId?: string;
       path?: string;
@@ -1248,6 +1251,18 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.protocolVersion !== undefined &&
           (!Number.isInteger(msg.protocolVersion) ||
             Number(msg.protocolVersion) < 1)
+        )
+          return null;
+        if (
+          msg.minimumProtocolVersion !== undefined &&
+          (!Number.isInteger(msg.minimumProtocolVersion) ||
+            Number(msg.minimumProtocolVersion) < 1)
+        )
+          return null;
+        if (
+          msg.minimumProtocolVersion !== undefined &&
+          (msg.protocolVersion === undefined ||
+            Number(msg.minimumProtocolVersion) > Number(msg.protocolVersion))
         )
           return null;
         if (msg.supportedServerMessages !== undefined) {

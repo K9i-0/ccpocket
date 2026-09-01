@@ -14,6 +14,7 @@ import '../../utils/platform_helper.dart';
 import '../../models/messages.dart';
 import '../../models/machine.dart';
 import '../../models/offline_pending_action.dart';
+import '../../models/protocol_version.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../providers/unseen_sessions_cubit.dart';
@@ -1796,6 +1797,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   bottom: 16,
                   child: FloatingActionButton.extended(
                     key: const ValueKey('new_session_fab'),
+                    heroTag: null,
                     onPressed: _showNewSessionDialog,
                     icon: const Icon(Icons.add),
                     label: const Text('New'),
@@ -1846,6 +1848,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               padding: const EdgeInsets.only(bottom: 16),
               child: FloatingActionButton.extended(
                 key: const ValueKey('new_session_fab'),
+                heroTag: null,
                 onPressed: _showNewSessionDialog,
                 icon: const Icon(Icons.add),
                 label: const Text('New'),
@@ -2057,6 +2060,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
 
     return _ConnectFormWidget(
+      protocolCompatibility: context
+          .read<BridgeService>()
+          .protocolCompatibility,
       discoveredServers: discoveredServers,
       machines: machineState?.machines ?? [],
       startingMachineId: machineState?.startingMachineId,
@@ -2627,6 +2633,7 @@ class _SetupStep extends StatelessWidget {
 }
 
 class _ConnectFormWidget extends StatelessWidget {
+  final ProtocolCompatibility? protocolCompatibility;
   final List<DiscoveredServer> discoveredServers;
   final List<MachineWithStatus> machines;
   final String? startingMachineId;
@@ -2646,6 +2653,7 @@ class _ConnectFormWidget extends StatelessWidget {
   final VoidCallback? onRefreshMachines;
 
   const _ConnectFormWidget({
+    this.protocolCompatibility,
     required this.discoveredServers,
     required this.machines,
     this.startingMachineId,
@@ -2668,6 +2676,7 @@ class _ConnectFormWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConnectForm(
+      protocolCompatibility: protocolCompatibility,
       discoveredServers: discoveredServers,
       onScanQrCode: onScanQrCode,
       onViewSetupGuide: onViewSetupGuide,

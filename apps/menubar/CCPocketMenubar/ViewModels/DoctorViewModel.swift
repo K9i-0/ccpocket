@@ -325,7 +325,7 @@ final class DoctorViewModel: ObservableObject {
 
     private func bridgeCommands() -> [(comment: String, command: String)] {
         [
-            (String(localized: "Set up Bridge (install + start service)"), "npx --yes @ccpocket/bridge@latest setup"),
+            (String(localized: "Set up Bridge (install + start service)"), "npx --yes @ccpocket/bridge@1 setup"),
         ]
     }
 
