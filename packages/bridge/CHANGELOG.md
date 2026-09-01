@@ -4,6 +4,8 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.80.2] - 2026-09-01
+
 ### Fixed
 - Fail Codex resume attempts cleanly when another client owns the thread writer, without exposing or retaining a provisional session.
 
