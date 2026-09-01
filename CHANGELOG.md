@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.126.3] - 2026-09-01
+
+### Changed
+- Require Bridge 1.80.2 for reliable recovery from Codex writer conflicts.
+- Run release validation once in the Test workflow and gate every platform release on the same successful result.
+
 ### Fixed
 - Show localized recovery guidance only for the matching Codex session when another Codex client owns its writer.
 
