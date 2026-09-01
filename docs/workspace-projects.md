@@ -95,6 +95,11 @@ matches only its explicit assignments; selecting its primary folder matches
 both ordinary sessions at that path and sessions assigned to any Project whose
 primary root is that folder.
 
+The New Session sheet follows the same identity split. It lists both the named
+Project and its primary folder. Selecting the named Project starts with all of
+its roots, while selecting the primary folder starts an ordinary single-root
+session without the Project identity or secondary roots.
+
 ## Compatibility and migration
 
 - Existing `projectPath` and `additionalWritableRoots` fields remain accepted.

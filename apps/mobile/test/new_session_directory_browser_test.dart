@@ -228,6 +228,7 @@ void main() {
     });
     final bridge = _DirectoryBrowserBridge();
     addTearDown(bridge.dispose);
+    NewSessionParams? result;
     bridge.emitProjects(
       const ProjectsMessage(
         projects: [
@@ -260,8 +261,8 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () {
-                showNewSessionSheet(
+              onPressed: () async {
+                result = await showNewSessionSheet(
                   context: context,
                   bridge: bridge,
                   recentProjects: recentProjects,
@@ -285,7 +286,11 @@ void main() {
     final recentFolderTile = find.byKey(
       const ValueKey('recent_project_/workspace/plain_tile'),
     );
+    final primaryFolderTile = find.byKey(
+      const ValueKey('workspace_primary_project-1_tile'),
+    );
     expect(workspaceProjectTile, findsOneWidget);
+    expect(primaryFolderTile, findsOneWidget);
     expect(recentFolderTile, findsOneWidget);
     expect(
       find.descendant(
@@ -302,8 +307,11 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('recent_project_/workspace/primary_tile')),
-      findsNothing,
+      find.descendant(
+        of: primaryFolderTile,
+        matching: find.byIcon(Icons.folder_outlined),
+      ),
+      findsOneWidget,
     );
     expect(
       find.byKey(
@@ -318,5 +326,21 @@ void main() {
       find.byKey(const ValueKey('dialog_project_path')),
     );
     expect(pathField.controller?.text, '/workspace/primary');
+
+    await tester.tap(primaryFolderTile);
+    await tester.pumpAndSettle();
+    final selectedPathField = tester.widget<TextField>(
+      find.byKey(const ValueKey('dialog_project_path')),
+    );
+    expect(selectedPathField.controller?.text, '/workspace/primary');
+
+    final startButton = find.byKey(const ValueKey('dialog_start_button'));
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+    expect(result?.projectPath, '/workspace/primary');
+    expect(result?.projectId, isNull);
+    expect(result?.workspaceKind, isNull);
+    expect(result?.additionalWritableRoots, isEmpty);
   });
 }

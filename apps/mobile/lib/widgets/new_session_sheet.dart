@@ -474,7 +474,7 @@ const _defaultRecentProjects = 5;
 /// Maximum number of recent projects shown when expanded.
 const _maxRecentProjects = 20;
 
-enum _ProjectChoiceKind { workspaceProject, recent }
+enum _ProjectChoiceKind { workspaceProject, workspacePrimary, recent }
 
 class _ProjectChoice {
   const _ProjectChoice({
@@ -493,6 +493,7 @@ class _ProjectChoice {
 
   String get tileKey => switch (kind) {
     _ProjectChoiceKind.workspaceProject => 'workspace_project_${id}_tile',
+    _ProjectChoiceKind.workspacePrimary => 'workspace_primary_${id}_tile',
     _ProjectChoiceKind.recent => 'recent_project_${path}_tile',
   };
 }
@@ -706,6 +707,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   List<_ProjectChoice> get _allProjectChoices {
     final result = <_ProjectChoice>[];
+    final representedFolderPaths = <String>{};
     for (final project in _workspaceProjectsState.projects) {
       result.add(
         _ProjectChoice(
@@ -716,12 +718,24 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           workspaceProject: project,
         ),
       );
+      if (project.primaryPath.isNotEmpty &&
+          representedFolderPaths.add(project.primaryPath)) {
+        result.add(
+          _ProjectChoice(
+            kind: _ProjectChoiceKind.workspacePrimary,
+            id: project.id,
+            name: pathBasename(project.primaryPath),
+            path: project.primaryPath,
+          ),
+        );
+      }
     }
 
     final managedRoots = _workspaceProjectsState.projects
         .expand((project) => project.rootPaths)
         .toList();
     for (final project in _allMergedProjects) {
+      if (!representedFolderPaths.add(project.path)) continue;
       final isManagedProject = managedRoots.any(
         (root) => _isSameOrDescendantPath(project.path, root),
       );
@@ -1030,6 +1044,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       case _ProjectChoiceKind.workspaceProject:
         final project = choice.workspaceProject;
         if (project != null) _onWorkspaceProjectSelected(project);
+      case _ProjectChoiceKind.workspacePrimary:
+        _onProjectSelected(choice.path);
       case _ProjectChoiceKind.recent:
         _onProjectSelected(choice.path);
     }
@@ -1891,6 +1907,10 @@ class _RecentProjectsSection extends StatelessWidget {
             isSelected: switch (project.kind) {
               _ProjectChoiceKind.workspaceProject =>
                 selectedProjectId == project.id,
+              _ProjectChoiceKind.workspacePrimary =>
+                selectedProjectId == null &&
+                    workspaceKind == null &&
+                    selectedPath == project.path,
               _ProjectChoiceKind.recent =>
                 selectedProjectId == null &&
                     workspaceKind == null &&
@@ -2008,14 +2028,17 @@ class _ProjectTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final icon = switch (project.kind) {
       _ProjectChoiceKind.workspaceProject => Icons.folder_copy_outlined,
+      _ProjectChoiceKind.workspacePrimary => Icons.folder_outlined,
       _ProjectChoiceKind.recent => Icons.folder_outlined,
     };
     final identityColor = switch (project.kind) {
       _ProjectChoiceKind.workspaceProject => colorScheme.primary,
+      _ProjectChoiceKind.workspacePrimary => appColors.subtleText,
       _ProjectChoiceKind.recent => appColors.subtleText,
     };
     final subtitle = switch (project.kind) {
       _ProjectChoiceKind.workspaceProject ||
+      _ProjectChoiceKind.workspacePrimary ||
       _ProjectChoiceKind.recent => shortenPath(project.path),
     };
     return Padding(
