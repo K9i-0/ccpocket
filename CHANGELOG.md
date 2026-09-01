@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.127.1] - 2026-09-01
+
+### Changed
+- Require Bridge 1.81.1 to preserve named Project and workspace identity across session metadata.
+
+### Fixed
+- Preserve Project and workspace identity when resuming sessions, opening session links, and reusing prompt history.
+- Show each Project's primary folder in the new-session picker.
+
 ## [1.127.0] - 2026-09-01
 
 ### Added
