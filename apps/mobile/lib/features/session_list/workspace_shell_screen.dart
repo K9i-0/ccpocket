@@ -223,6 +223,7 @@ class _WorkspaceToolPaneBindings {
 class WorkspaceSessionSelection {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
@@ -236,6 +237,7 @@ class WorkspaceSessionSelection {
   const WorkspaceSessionSelection({
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -1061,6 +1063,7 @@ class _WorkspaceContentHost extends StatelessWidget {
         key: ValueKey('workspace_codex_${selection.sessionId}'),
         sessionId: selection.sessionId,
         projectPath: selection.projectPath,
+        workspace: selection.workspace,
         gitBranch: selection.gitBranch,
         worktreePath: selection.worktreePath,
         isPending: selection.isPending,
@@ -1077,6 +1080,7 @@ class _WorkspaceContentHost extends StatelessWidget {
         key: ValueKey('workspace_claude_${selection.sessionId}'),
         sessionId: selection.sessionId,
         projectPath: selection.projectPath,
+        workspace: selection.workspace,
         gitBranch: selection.gitBranch,
         worktreePath: selection.worktreePath,
         isPending: selection.isPending,

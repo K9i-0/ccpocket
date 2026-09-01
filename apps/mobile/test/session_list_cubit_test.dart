@@ -159,6 +159,7 @@ class MockBridgeService extends BridgeService {
 RecentSession _session({
   required String id,
   String projectPath = '/home/user/project-a',
+  SessionWorkspaceInfo? workspace,
 }) {
   return RecentSession(
     sessionId: id,
@@ -167,6 +168,7 @@ RecentSession _session({
     modified: '2025-01-01T00:00:00Z',
     gitBranch: 'main',
     projectPath: projectPath,
+    workspace: workspace,
     isSidechain: false,
   );
 }
@@ -533,6 +535,57 @@ void main() {
         expect(mockBridge.sentMessages, isEmpty);
       },
     );
+
+    test(
+      'loadMoreProject scopes custom Projects by stable Project id',
+      () async {
+        const workspace = SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'project-a',
+          projectName: 'Flutter apps',
+          rootPaths: ['/shared/primary', '/workspace/api'],
+        );
+        mockBridge.emitSessions([
+          _session(
+            id: 's1',
+            projectPath: '/shared/primary',
+            workspace: workspace,
+          ),
+          _session(
+            id: 's2',
+            projectPath: '/shared/primary',
+            workspace: workspace,
+          ),
+        ], hasMore: true);
+        await Future.microtask(() {});
+
+        cubit.loadMoreProject('project:project-a');
+
+        final json = mockBridge.sentMessages.last.toJson();
+        expect(json, contains('"projectPath":"project:project-a"'));
+        expect(json, contains('"offset":2'));
+        expect(cubit.state.loadingProjectPaths, contains('project:project-a'));
+      },
+    );
+
+    test('custom Project response clears its stable loading key', () async {
+      cubit.loadMoreProject('project:project-a');
+      mockBridge._lastRecentSessionsMessage = const RecentSessionsMessage(
+        sessions: [],
+        hasMore: false,
+        projectId: 'project-a',
+        workspaceKind: 'project',
+        requestScope: 'project',
+      );
+      mockBridge._recentSessionsController.add(const []);
+      await Future.microtask(() {});
+
+      expect(
+        cubit.state.loadingProjectPaths,
+        isNot(contains('project:project-a')),
+      );
+      expect(cubit.state.exhaustedProjectPaths, contains('project:project-a'));
+    });
 
     test(
       'project-scoped response clears loading and marks exhausted',

@@ -20,6 +20,8 @@ export interface PromptHistoryEntry {
   id: string;
   text: string;
   projectPath: string;
+  projectId?: string;
+  projectName?: string;
   totalUseCount: number;
   isFavorite: boolean;
   createdAt: string;
@@ -36,6 +38,8 @@ export interface PromptHistoryImportEntry {
   id?: string;
   text: string;
   projectPath?: string;
+  projectId?: string;
+  projectName?: string;
   useCount?: number;
   totalUseCount?: number;
   isFavorite?: boolean;
@@ -52,6 +56,8 @@ export interface PromptHistoryImportEntry {
 export interface PromptHistoryRecordInput {
   text: string;
   projectPath?: string;
+  projectId?: string;
+  projectName?: string;
   clientId: string;
   clientName?: string;
   sessionId?: string;
@@ -62,6 +68,7 @@ export interface PromptHistoryMutationInput {
   id?: string;
   text?: string;
   projectPath?: string;
+  projectId?: string;
   action: "favorite" | "delete" | "restore";
   isFavorite?: boolean;
   updatedAt?: string;
@@ -118,8 +125,16 @@ function normalizeProjectPath(projectPath: string | undefined): string {
   return (projectPath ?? "").trim();
 }
 
-export function promptHistoryId(text: string, projectPath = ""): string {
-  const stableKey = `${normalizeProjectPath(projectPath)}\u0000${normalizeText(text)}`;
+export function promptHistoryId(
+  text: string,
+  projectPath = "",
+  projectId?: string,
+): string {
+  const normalizedProjectId = projectId?.trim();
+  const workspaceKey = normalizedProjectId
+    ? `project:${normalizedProjectId}`
+    : normalizeProjectPath(projectPath);
+  const stableKey = `${workspaceKey}\u0000${normalizeText(text)}`;
   const digest = createHash("sha256").update(stableKey).digest("hex");
   return `ph_${digest.slice(0, 24)}`;
 }
@@ -209,7 +224,7 @@ export class PromptHistoryStore {
     const text = normalizeText(input.text);
     if (!text) throw new Error("Prompt text is required");
     const projectPath = normalizeProjectPath(input.projectPath);
-    const id = promptHistoryId(text, projectPath);
+    const id = promptHistoryId(text, projectPath, input.projectId);
     const usedAt = input.usedAt ?? isoNow();
     const existing = this.findMutable(id);
 
@@ -218,6 +233,7 @@ export class PromptHistoryStore {
       existing.lastUsedAt = maxIso(existing.lastUsedAt, usedAt);
       existing.updatedAt = maxIso(existing.updatedAt, usedAt);
       existing.deletedAt = undefined;
+      existing.projectName = input.projectName ?? existing.projectName;
       this.incrementClientStat(existing, input.clientId, input.clientName, usedAt, 1);
       if (input.sessionId) this.incrementSessionStat(existing, input.sessionId, usedAt, 1);
       await this.saveBumped();
@@ -228,6 +244,8 @@ export class PromptHistoryStore {
       id,
       text,
       projectPath,
+      projectId: input.projectId?.trim() || undefined,
+      projectName: input.projectName?.trim() || undefined,
       totalUseCount: 1,
       isFavorite: false,
       createdAt: usedAt,
@@ -245,7 +263,7 @@ export class PromptHistoryStore {
   }
 
   async mutate(input: PromptHistoryMutationInput): Promise<PromptHistoryEntry | null> {
-    const id = input.id ?? (input.text ? promptHistoryId(input.text, input.projectPath ?? "") : undefined);
+    const id = input.id ?? (input.text ? promptHistoryId(input.text, input.projectPath ?? "", input.projectId) : undefined);
     if (!id) return null;
     const entry = this.findMutable(id);
     if (!entry) return null;
@@ -283,7 +301,7 @@ export class PromptHistoryStore {
       const text = normalizeText(raw.text);
       if (!text) continue;
       const projectPath = normalizeProjectPath(raw.projectPath);
-      const id = raw.id ?? promptHistoryId(text, projectPath);
+      const id = raw.id ?? promptHistoryId(text, projectPath, raw.projectId);
       const now = isoNow();
       const useCount = Math.max(1, raw.totalUseCount ?? raw.useCount ?? 1);
       const createdAt = raw.createdAt ?? now;
@@ -293,6 +311,8 @@ export class PromptHistoryStore {
         id,
         text,
         projectPath,
+        projectId: raw.projectId?.trim() || undefined,
+        projectName: raw.projectName?.trim() || undefined,
         totalUseCount: useCount,
         isFavorite: raw.isFavorite ?? false,
         createdAt,
@@ -320,9 +340,11 @@ export class PromptHistoryStore {
       if (!text) continue;
       const projectPath = normalizeProjectPath(raw.projectPath);
       this.mergeEntry({
-        id: raw.id ?? promptHistoryId(text, projectPath),
+        id: raw.id ?? promptHistoryId(text, projectPath, raw.projectId),
         text,
         projectPath,
+        projectId: raw.projectId?.trim() || undefined,
+        projectName: raw.projectName?.trim() || undefined,
         totalUseCount: Math.max(1, raw.totalUseCount ?? raw.useCount ?? 1),
         isFavorite: raw.isFavorite ?? false,
         createdAt: raw.createdAt ?? isoNow(),
@@ -383,6 +405,7 @@ export class PromptHistoryStore {
     existing.updatedAt = maxIso(existing.updatedAt, incoming.updatedAt);
     existing.commandKind =
       existing.commandKind === "none" ? incoming.commandKind : existing.commandKind;
+    existing.projectName = incoming.projectName ?? existing.projectName;
 
     if (
       incoming.favoriteUpdatedAt &&

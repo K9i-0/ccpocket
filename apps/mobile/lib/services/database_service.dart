@@ -13,7 +13,7 @@ class DatabaseService {
   bool _initialized = false;
 
   static const _dbName = 'ccpocket.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   /// Get the database instance, initializing it if needed.
   ///
@@ -96,6 +96,8 @@ class DatabaseService {
         bridge_name TEXT NOT NULL DEFAULT '',
         text TEXT NOT NULL,
         project_path TEXT NOT NULL DEFAULT '',
+        project_id TEXT,
+        project_name TEXT,
         total_use_count INTEGER NOT NULL DEFAULT 0,
         is_favorite INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
@@ -143,6 +145,13 @@ class DatabaseService {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createPromptHistoryV2(db);
+    } else if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE prompt_history_cache ADD COLUMN project_id TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE prompt_history_cache ADD COLUMN project_name TEXT',
+      );
     }
   }
 

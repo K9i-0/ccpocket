@@ -151,6 +151,25 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses prompt history custom Project identity", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "record_prompt_history",
+          text: "same prompt",
+          projectPath: "/shared/primary",
+          projectId: "project-a",
+          projectName: "Flutter apps",
+          clientId: "phone",
+          sessionId: "session-a",
+        }),
+      ),
+    ).toMatchObject({
+      projectId: "project-a",
+      projectName: "Flutter apps",
+    });
+  });
+
   it("rejects prompt history entries without text", () => {
     expect(
       parseClientMessage(

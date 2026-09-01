@@ -251,6 +251,43 @@ void main() {
       );
     });
 
+    test(
+      'matches custom Projects by id even when primary paths are shared',
+      () {
+        final selected = _entry(
+          id: 'selected',
+          projectPath: '/shared/primary',
+          projectId: 'project-a',
+        );
+        final other = _entry(
+          id: 'other',
+          projectPath: '/shared/primary',
+          projectId: 'project-b',
+        );
+
+        expect(
+          PromptHistoryService.matchesFilters(
+            selected,
+            filters: const PromptHistoryFilters(currentProjectOnly: true),
+            clientId: 'phone',
+            currentProjectPath: '/shared/primary',
+            currentProjectId: 'project-a',
+          ),
+          isTrue,
+        );
+        expect(
+          PromptHistoryService.matchesFilters(
+            other,
+            filters: const PromptHistoryFilters(currentProjectOnly: true),
+            clientId: 'phone',
+            currentProjectPath: '/shared/primary',
+            currentProjectId: 'project-a',
+          ),
+          isFalse,
+        );
+      },
+    );
+
     test('does not apply open project when the project filter is off', () {
       final otherProjectEntry = _entry(
         id: 'other',
@@ -298,11 +335,13 @@ PromptHistoryEntry _entry({
   required String projectPath,
   String text = '',
   String bridgeId = 'bridge-a',
+  String? projectId,
 }) {
   return PromptHistoryEntry(
     id: id,
     text: text.isEmpty ? 'prompt $id' : text,
     projectPath: projectPath,
+    projectId: projectId,
     useCount: 1,
     isFavorite: false,
     createdAt: DateTime.utc(2026),

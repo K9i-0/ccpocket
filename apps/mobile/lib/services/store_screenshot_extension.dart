@@ -462,6 +462,7 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
         onTapRunning: (
           _, {
           projectPath,
+          workspace,
           gitBranch,
           worktreePath,
           provider,
@@ -997,6 +998,7 @@ class _StoreNewSessionRouteState extends State<_StoreNewSessionRoute> {
         onTapRunning: (
           _, {
           projectPath,
+          workspace,
           gitBranch,
           worktreePath,
           provider,
@@ -1358,6 +1360,7 @@ class _StoreWorkspaceListPane extends StatelessWidget {
                 onTapRunning: (
                   _, {
                   projectPath,
+                  workspace,
                   gitBranch,
                   worktreePath,
                   provider,

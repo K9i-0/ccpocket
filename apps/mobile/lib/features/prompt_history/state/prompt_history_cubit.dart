@@ -13,16 +13,19 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
   final PromptHistoryService _service;
   final BridgeService? _bridgeService;
   final String? _currentProjectPath;
+  final String? _currentProjectId;
   final String? _currentBridgeId;
 
   PromptHistoryCubit(
     this._service, {
     BridgeService? bridgeService,
     String? currentProjectPath,
+    String? currentProjectId,
     String? currentBridgeId,
     PromptHistoryFilters initialFilters = const PromptHistoryFilters(),
   }) : _bridgeService = bridgeService,
        _currentProjectPath = currentProjectPath,
+       _currentProjectId = currentProjectId,
        _currentBridgeId = currentBridgeId,
        super(PromptHistoryState(filters: initialFilters));
 
@@ -50,6 +53,7 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
         sort: state.sortOrder,
         filters: state.filters,
         currentProjectPath: _currentProjectPath,
+        currentProjectId: _currentProjectId,
         currentBridgeId: _currentBridgeId,
         limit: _pageSize,
         offset: 0,
@@ -78,6 +82,7 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
         sort: state.sortOrder,
         filters: state.filters,
         currentProjectPath: _currentProjectPath,
+        currentProjectId: _currentProjectId,
         currentBridgeId: _currentBridgeId,
         limit: _pageSize,
         offset: state.prompts.length,

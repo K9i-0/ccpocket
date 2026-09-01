@@ -391,6 +391,28 @@ void main() {
       expect(message.resumeRequestId, 'link-request-1');
     });
 
+    test('parses custom Project identity from session_created', () {
+      final message = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'session_created',
+        'sessionId': 'bridge-1',
+        'projectPath': '/workspace/primary',
+        'workspace': {
+          'kind': 'project',
+          'projectId': 'project-1',
+          'projectName': 'Flutter apps',
+          'rootPaths': ['/workspace/primary', '/workspace/api'],
+        },
+      }) as SystemMessage;
+
+      expect(message.workspace?.projectId, 'project-1');
+      expect(message.workspace?.projectName, 'Flutter apps');
+      expect(message.workspace?.rootPaths, [
+        '/workspace/primary',
+        '/workspace/api',
+      ]);
+    });
+
     test('parses Codex CLI join target', () {
       final msg = ServerMessage.fromJson({
         'type': 'system',

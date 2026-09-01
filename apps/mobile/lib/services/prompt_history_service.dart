@@ -85,6 +85,8 @@ class PromptHistoryEntry {
   final String id;
   final String text;
   final String projectPath;
+  final String? projectId;
+  final String? workspaceProjectName;
   final int useCount;
   final bool isFavorite;
   final DateTime createdAt;
@@ -101,6 +103,8 @@ class PromptHistoryEntry {
     required this.id,
     required this.text,
     required this.projectPath,
+    this.projectId,
+    this.workspaceProjectName,
     required this.useCount,
     required this.isFavorite,
     required this.createdAt,
@@ -116,6 +120,9 @@ class PromptHistoryEntry {
 
   /// Display name for the project (last path component or empty string).
   String get projectName {
+    if (workspaceProjectName?.isNotEmpty == true) {
+      return workspaceProjectName!;
+    }
     if (projectPath.isEmpty) return '';
     return projectPath.split('/').last;
   }
@@ -150,6 +157,8 @@ class PromptHistoryEntry {
       id: id,
       text: text,
       projectPath: projectPath,
+      projectId: projectId,
+      workspaceProjectName: workspaceProjectName,
       useCount: useCount + other.useCount,
       isFavorite: isFavorite || other.isFavorite,
       createdAt: createdAt.isBefore(other.createdAt)
@@ -348,6 +357,7 @@ class PromptHistoryService {
   Future<void> recordPrompt(
     String text, {
     String projectPath = '',
+    SessionWorkspaceInfo? workspace,
     BridgeService? bridgeService,
     String? sessionId,
   }) async {
@@ -368,6 +378,8 @@ class PromptHistoryService {
         ClientMessage.recordPromptHistory(
           text: trimmed,
           projectPath: projectPath,
+          projectId: workspace?.projectId,
+          projectName: workspace?.projectName,
           clientId: clientId,
           clientName: name,
           sessionId: sessionId,
@@ -380,6 +392,8 @@ class PromptHistoryService {
         bridgeName: bridgeId,
         text: trimmed,
         projectPath: projectPath,
+        projectId: workspace?.projectId,
+        projectName: workspace?.projectName,
         clientId: clientId,
         clientName: name,
         sessionId: sessionId,
@@ -597,6 +611,7 @@ class PromptHistoryService {
     PromptHistoryFilters filters = const PromptHistoryFilters(),
     String? currentSessionId,
     String? currentProjectPath,
+    String? currentProjectId,
     String? currentBridgeId,
     int limit = 30,
     int offset = 0,
@@ -625,6 +640,7 @@ class PromptHistoryService {
         filters: filters,
         clientId: clientId,
         currentProjectPath: currentProjectPath,
+        currentProjectId: currentProjectId,
         currentBridgeId: currentBridgeId,
       )) {
         continue;
@@ -661,15 +677,19 @@ class PromptHistoryService {
     PromptHistoryFilters filters = const PromptHistoryFilters(),
     required String clientId,
     String? currentProjectPath,
+    String? currentProjectId,
     String? currentBridgeId,
   }) {
     if (projectPath != null && entry.projectPath != projectPath) return false;
-    if (filters.currentProjectOnly &&
-        (currentProjectPath == null ||
-            currentProjectPath.trim().isEmpty ||
-            entry.projectPath.trim().isEmpty ||
-            entry.projectPath != currentProjectPath)) {
-      return false;
+    if (filters.currentProjectOnly) {
+      if (currentProjectId?.trim().isNotEmpty == true) {
+        if (entry.projectId != currentProjectId) return false;
+      } else if (currentProjectPath == null ||
+          currentProjectPath.trim().isEmpty ||
+          entry.projectPath.trim().isEmpty ||
+          entry.projectPath != currentProjectPath) {
+        return false;
+      }
     }
     if (filters.currentBridgeOnly &&
         (currentBridgeId == null ||
@@ -980,6 +1000,8 @@ class PromptHistoryService {
     required String bridgeName,
     required String text,
     required String projectPath,
+    String? projectId,
+    String? projectName,
     required String clientId,
     required String clientName,
     required String usedAt,
@@ -987,7 +1009,7 @@ class PromptHistoryService {
   }) async {
     final db = await _db;
     if (db == null) return;
-    final id = _stableId(text, projectPath);
+    final id = _stableId(text, projectPath, projectId: projectId);
     final rows = await db.query(
       'prompt_history_cache',
       where: 'id = ? AND bridge_id = ?',
@@ -1007,6 +1029,8 @@ class PromptHistoryService {
             id: id,
             text: text,
             projectPath: projectPath,
+            projectId: projectId,
+            projectName: projectName,
             totalUseCount: 1,
             isFavorite: false,
             createdAt: usedAt,
@@ -1055,6 +1079,8 @@ class PromptHistoryService {
     await db.update(
       'prompt_history_cache',
       {
+        'project_id': projectId,
+        'project_name': projectName,
         'total_use_count': (row['total_use_count'] as int? ?? 0) + 1,
         'last_used_at': _maxIso(
           row['last_used_at'] as String? ?? usedAt,
@@ -1102,6 +1128,8 @@ class PromptHistoryService {
         'bridge_name': bridgeName,
         'text': entry.text,
         'project_path': entry.projectPath,
+        'project_id': entry.projectId,
+        'project_name': entry.projectName,
         'total_use_count': entry.totalUseCount,
         'is_favorite': entry.isFavorite ? 1 : 0,
         'created_at': entry.createdAt,
@@ -1170,6 +1198,8 @@ class PromptHistoryService {
       id: row['id'] as String,
       text: row['text'] as String,
       projectPath: row['project_path'] as String? ?? '',
+      projectId: row['project_id'] as String?,
+      workspaceProjectName: row['project_name'] as String?,
       useCount: row['total_use_count'] as int? ?? 0,
       isFavorite: (row['is_favorite'] as int? ?? 0) == 1,
       createdAt: _parseIso(row['created_at'] as String?),
@@ -1288,8 +1318,15 @@ class PromptHistoryService {
     return uri.replace(query: '').toString();
   }
 
-  static String _stableId(String text, String projectPath) {
-    final stableKey = '${projectPath.trim()}\u0000${text.trim()}';
+  static String _stableId(
+    String text,
+    String projectPath, {
+    String? projectId,
+  }) {
+    final workspaceKey = projectId?.trim().isNotEmpty == true
+        ? 'project:${projectId!.trim()}'
+        : projectPath.trim();
+    final stableKey = '$workspaceKey\u0000${text.trim()}';
     return 'ph_${sha256.convert(utf8.encode(stableKey)).toString().substring(0, 24)}';
   }
 

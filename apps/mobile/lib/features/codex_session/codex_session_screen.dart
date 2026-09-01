@@ -87,6 +87,7 @@ class _NoopListenable implements Listenable {
 class CodexSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
@@ -105,6 +106,7 @@ class CodexSessionScreen extends StatefulWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -125,6 +127,7 @@ class CodexSessionScreen extends StatefulWidget {
 class WorkspaceCodexSessionScreen extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
@@ -140,6 +143,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -157,6 +161,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
     return CodexSessionScreen(
       sessionId: sessionId,
       projectPath: projectPath,
+      workspace: workspace,
       gitBranch: gitBranch,
       worktreePath: worktreePath,
       isPending: isPending,
@@ -174,6 +179,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
 class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late String _sessionId;
   late String? _projectPath;
+  late SessionWorkspaceInfo? _workspace;
   late String? _gitBranch;
   late String? _worktreePath;
   late bool _isPending;
@@ -196,6 +202,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     final bridge = context.read<BridgeService>();
     _sessionId = widget.sessionId;
     _projectPath = widget.projectPath;
+    _workspace = widget.workspace;
     _gitBranch = widget.gitBranch;
     _worktreePath = widget.worktreePath;
     _isPending = widget.isPending;
@@ -328,6 +335,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     setState(() {
       _sessionId = newId;
       _projectPath = msg.projectPath ?? _projectPath;
+      _workspace = msg.workspace ?? _workspace;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _sandboxMode = sandboxModeFromRaw(msg.sandboxMode) ?? _sandboxMode;
@@ -358,6 +366,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     setState(() {
       _sessionId = newId;
       _projectPath = msg.projectPath ?? _projectPath;
+      _workspace = msg.workspace ?? _workspace;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _sandboxMode = sandboxModeFromRaw(msg.sandboxMode) ?? _sandboxMode;
@@ -409,6 +418,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sessionId == widget.sessionId &&
         oldWidget.projectPath == widget.projectPath &&
+        oldWidget.workspace == widget.workspace &&
         oldWidget.worktreePath == widget.worktreePath &&
         oldWidget.gitBranch == widget.gitBranch &&
         oldWidget.isPending == widget.isPending &&
@@ -425,6 +435,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     setState(() {
       _sessionId = widget.sessionId;
       _projectPath = widget.projectPath;
+      _workspace = widget.workspace;
       _worktreePath = widget.worktreePath;
       _gitBranch = widget.gitBranch;
       _isPending = widget.isPending;
@@ -499,6 +510,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       key: ValueKey(_sessionId),
       sessionId: _sessionId,
       projectPath: _projectPath,
+      workspace: _workspace,
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
       explorerCurrentPath: _explorerCurrentPath,
@@ -521,6 +533,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
 class _CodexProviders extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final String explorerCurrentPath;
@@ -537,6 +550,7 @@ class _CodexProviders extends StatelessWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.explorerCurrentPath = '',
@@ -581,6 +595,7 @@ class _CodexProviders extends StatelessWidget {
         child: _CodexChatBody(
           sessionId: sessionId,
           projectPath: projectPath,
+          workspace: workspace,
           gitBranch: gitBranch,
           worktreePath: worktreePath,
           onBackToSessions: onBackToSessions,
@@ -598,6 +613,7 @@ class _CodexProviders extends StatelessWidget {
 class _CodexChatBody extends HookWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final VoidCallback? onBackToSessions;
@@ -606,6 +622,7 @@ class _CodexChatBody extends HookWidget {
   const _CodexChatBody({
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.onBackToSessions,
@@ -1048,6 +1065,7 @@ class _CodexChatBody extends HookWidget {
                       SessionNameTitle(
                         sessionId: sessionId,
                         projectPath: effectiveProjectPath,
+                        workspace: workspace,
                       ),
                     ),
                     flexibleSpace: StatusLineFlexibleSpace(
@@ -1512,6 +1530,7 @@ class _CodexChatBody extends HookWidget {
                 if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
+                    workspace: workspace,
                     status: status,
                     onGoToLatest: scroll.goToLatest,
                     inputController: chatInputController,

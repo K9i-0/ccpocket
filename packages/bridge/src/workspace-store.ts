@@ -21,6 +21,8 @@ export interface SessionWorkspaceAssignment {
   providerSessionId: string;
   kind: WorkspaceKind;
   projectId?: string;
+  /** Display-name snapshot used after the Project is removed. */
+  projectName?: string;
   /** Snapshot used for resume even if the Project is edited or removed. */
   rootPaths: string[];
   assignedAt: string;
@@ -84,6 +86,7 @@ function validAssignment(value: unknown): value is SessionWorkspaceAssignment {
     isNonEmptyString(assignment.providerSessionId) &&
     assignment.kind === "project" &&
     (assignment.projectId === undefined || isNonEmptyString(assignment.projectId)) &&
+    (assignment.projectName === undefined || isNonEmptyString(assignment.projectName)) &&
     Array.isArray(assignment.rootPaths) &&
     assignment.rootPaths.length > 0 &&
     assignment.rootPaths.every(isNonEmptyString) &&
@@ -217,6 +220,7 @@ export class WorkspaceStore {
         providerSessionId,
         kind: workspace.kind,
         ...(workspace.projectId ? { projectId: workspace.projectId } : {}),
+        ...(workspace.projectName ? { projectName: workspace.projectName } : {}),
         rootPaths: [...workspace.rootPaths],
         assignedAt: this.now().toISOString(),
       };
@@ -254,10 +258,11 @@ export class WorkspaceStore {
     const project = assignment.projectId
       ? this.getProject(assignment.projectId)
       : undefined;
+    const projectName = project?.name ?? assignment.projectName;
     return {
       kind: assignment.kind,
       ...(assignment.projectId ? { projectId: assignment.projectId } : {}),
-      ...(project ? { projectName: project.name } : {}),
+      ...(projectName ? { projectName } : {}),
       rootPaths: assignment.rootPaths,
     };
   }

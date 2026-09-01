@@ -32,6 +32,8 @@ interface SessionWorkspaceAssignment {
   providerSessionId: string;
   kind: "project";
   projectId?: string;
+  // Display-name snapshot used if the Project is later removed.
+  projectName?: string;
   // Snapshot used to restore the original execution environment even if the
   // project is later edited or removed.
   rootPaths: string[];
@@ -71,6 +73,11 @@ access only.
    wins as the primary execution directory; legacy sessions use provider
    transcript paths as their fallback.
 
+Session-created events also carry the resolved workspace identity. Clients use
+that identity for presentation while keeping `projectPath` as the execution and
+Git root. The live Project catalog name wins after a rename; the assignment's
+name snapshot remains available after deletion.
+
 ## Recent-session classification
 
 Recent sessions use a workspace key rather than `projectPath`:
@@ -99,6 +106,20 @@ The New Session sheet follows the same identity split. It lists both the named
 Project and its primary folder. Selecting the named Project starts with all of
 its roots, while selecting the primary folder starts an ordinary single-root
 session without the Project identity or secondary roots.
+
+## Identity-aware app surfaces
+
+The AppBar, running/offline cards, notifications, grouped pagination, copied
+resume commands, per-Project Codex profile, recordings, and prompt history all
+carry the stable Project identity. Display names resolve in this order:
+
+1. current Project catalog name;
+2. session assignment name snapshot;
+3. primary path basename for ordinary folder sessions.
+
+Gallery remains intentionally scoped by physical path. Git, Explorer,
+worktrees, terminal launch, and uploads also continue to use the primary path
+because it is their execution root, not a grouping identity.
 
 ## Compatibility and migration
 

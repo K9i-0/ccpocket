@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
 class ChatAppBarTitle extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
 
@@ -12,6 +14,7 @@ class ChatAppBarTitle extends StatelessWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
   });
@@ -20,7 +23,7 @@ class ChatAppBarTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     if (projectPath != null && projectPath!.isNotEmpty) {
-      final projectName = projectPath!.split('/').last;
+      final projectName = workspace?.projectName ?? pathBasename(projectPath!);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

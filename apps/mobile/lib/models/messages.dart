@@ -757,6 +757,12 @@ sealed class ServerMessage {
         codexPermissionsMode: json['codexPermissionsMode'] as String?,
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
+        workspace: switch (json['workspace']) {
+          final Map workspace => SessionWorkspaceInfo.fromJson(
+            Map<String, dynamic>.from(workspace),
+          ),
+          _ => null,
+        },
         permissionMode: json['permissionMode'] as String?,
         executionMode: json['executionMode'] as String?,
         planMode: json['planMode'] as bool?,
@@ -1606,6 +1612,7 @@ class SystemMessage implements ServerMessage {
   final String? codexPermissionsMode;
   final String? provider;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? permissionMode;
   final String? executionMode;
   final bool? planMode;
@@ -1639,6 +1646,7 @@ class SystemMessage implements ServerMessage {
     this.codexPermissionsMode,
     this.provider,
     this.projectPath,
+    this.workspace,
     this.permissionMode,
     this.executionMode,
     this.planMode,
@@ -2594,6 +2602,13 @@ class RecentSessionsMessage implements ServerMessage {
     this.requestScope,
     this.requestId,
   });
+
+  String? get projectFilterKey {
+    if (projectId != null && projectId!.isNotEmpty) {
+      return 'project:$projectId';
+    }
+    return projectPath;
+  }
 }
 
 class PastHistoryMessage implements ServerMessage {
@@ -3386,6 +3401,8 @@ class PromptHistoryServerEntry {
   final String id;
   final String text;
   final String projectPath;
+  final String? projectId;
+  final String? projectName;
   final int totalUseCount;
   final bool isFavorite;
   final String createdAt;
@@ -3401,6 +3418,8 @@ class PromptHistoryServerEntry {
     required this.id,
     required this.text,
     required this.projectPath,
+    this.projectId,
+    this.projectName,
     required this.totalUseCount,
     required this.isFavorite,
     required this.createdAt,
@@ -3418,6 +3437,8 @@ class PromptHistoryServerEntry {
       id: json['id'] as String? ?? '',
       text: json['text'] as String? ?? '',
       projectPath: json['projectPath'] as String? ?? '',
+      projectId: json['projectId'] as String?,
+      projectName: json['projectName'] as String?,
       totalUseCount: json['totalUseCount'] as int? ?? 0,
       isFavorite: json['isFavorite'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
@@ -3449,6 +3470,8 @@ class PromptHistoryServerEntry {
     'id': id,
     'text': text,
     'projectPath': projectPath,
+    'projectId': ?projectId,
+    'projectName': ?projectName,
     'totalUseCount': totalUseCount,
     'isFavorite': isFavorite,
     'createdAt': createdAt,
@@ -3818,6 +3841,8 @@ class RecordingInfo {
   final String modified;
   final int sizeBytes;
   final String? projectPath;
+  final String? projectId;
+  final String? workspaceProjectName;
   final String? summary;
   final String? firstPrompt;
   final String? lastPrompt;
@@ -3827,6 +3852,8 @@ class RecordingInfo {
     required this.modified,
     required this.sizeBytes,
     this.projectPath,
+    this.projectId,
+    this.workspaceProjectName,
     this.summary,
     this.firstPrompt,
     this.lastPrompt,
@@ -3839,6 +3866,8 @@ class RecordingInfo {
       modified: json['modified'] as String? ?? '',
       sizeBytes: json['sizeBytes'] as int? ?? 0,
       projectPath: meta?['projectPath'] as String?,
+      projectId: meta?['projectId'] as String?,
+      workspaceProjectName: meta?['projectName'] as String?,
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String?,
       lastPrompt: json['lastPrompt'] as String?,
@@ -3854,6 +3883,9 @@ class RecordingInfo {
 
   /// Short project name (last path component).
   String? get projectName {
+    if (workspaceProjectName?.isNotEmpty == true) {
+      return workspaceProjectName;
+    }
     if (projectPath == null || projectPath!.isEmpty) return null;
     return pathBasename(projectPath!);
   }
@@ -4520,6 +4552,7 @@ class ClientMessage {
     String? webSearchMode,
     List<String>? additionalWritableRoots,
     String? projectId,
+    String? projectName,
     String? workspaceKind,
     bool? autoRename,
     String? requestId,
@@ -4556,6 +4589,7 @@ class ClientMessage {
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
         'additionalWritableRoots': additionalWritableRoots,
       'projectId': ?projectId,
+      'projectName': ?projectName,
       'workspaceKind': ?workspaceKind,
       'autoRename': ?autoRename,
       'requestId': ?requestId,
@@ -4895,6 +4929,7 @@ class ClientMessage {
     String? webSearchMode,
     List<String>? additionalWritableRoots,
     String? projectId,
+    String? projectName,
     String? workspaceKind,
     String? resumeRequestId,
   }) {
@@ -4926,6 +4961,7 @@ class ClientMessage {
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
         'additionalWritableRoots': additionalWritableRoots,
       'projectId': ?projectId,
+      'projectName': ?projectName,
       'workspaceKind': ?workspaceKind,
     });
   }
@@ -5202,6 +5238,8 @@ class ClientMessage {
     required String text,
     required String clientId,
     String? projectPath,
+    String? projectId,
+    String? projectName,
     String? clientName,
     String? sessionId,
     String? usedAt,
@@ -5209,6 +5247,8 @@ class ClientMessage {
     'type': 'record_prompt_history',
     'text': text,
     'projectPath': ?projectPath,
+    'projectId': ?projectId,
+    'projectName': ?projectName,
     'clientId': clientId,
     'clientName': ?clientName,
     'sessionId': ?sessionId,
@@ -5235,6 +5275,7 @@ class ClientMessage {
     String? id,
     String? text,
     String? projectPath,
+    String? projectId,
     required String action,
     bool? isFavorite,
     String? updatedAt,
@@ -5243,6 +5284,7 @@ class ClientMessage {
     'id': ?id,
     'text': ?text,
     'projectPath': ?projectPath,
+    'projectId': ?projectId,
     'action': action,
     'isFavorite': ?isFavorite,
     'updatedAt': ?updatedAt,

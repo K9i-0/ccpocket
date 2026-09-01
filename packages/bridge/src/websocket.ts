@@ -1411,6 +1411,9 @@ export class BridgeWebSocketServer {
     const derivedCodexSettings = provider === "codex"
       ? withDerivedCodexPermissionsMode(session?.codexSettings)
       : session?.codexSettings;
+    const workspace = session
+      ? this.workspaceForRuntimeSession(session)
+      : undefined;
 
     const msg: SystemServerMessage = {
       type: "system",
@@ -1418,6 +1421,7 @@ export class BridgeWebSocketServer {
       sessionId,
       provider,
       projectPath,
+      ...(workspace ? { workspace } : {}),
       ...(permissionMode
         ? {
             permissionMode: permissionMode as
@@ -3109,6 +3113,12 @@ export class BridgeWebSocketServer {
           this.recordingStore?.saveMeta(sessionId, {
             bridgeSessionId: sessionId,
             projectPath,
+            ...(resolvedWorkspace?.projectId
+              ? { projectId: resolvedWorkspace.projectId }
+              : {}),
+            ...(resolvedWorkspace?.projectName
+              ? { projectName: resolvedWorkspace.projectName }
+              : {}),
             createdAt: new Date().toISOString(),
           });
           if (!resolvedWorkspace) {
@@ -5311,9 +5321,27 @@ export class BridgeWebSocketServer {
           !storedAssignment && msg.projectId
             ? this.workspaceStore?.getProject(msg.projectId)
             : undefined;
+        if (!storedAssignment && msg.projectId && !requestedProject) {
+          this.sendResumeFailed(ws, {
+            provider,
+            sourceSessionId: msg.sessionId,
+            projectPath: msg.projectPath,
+            resumeRequestId: msg.resumeRequestId,
+          });
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            requestId: msg.resumeRequestId,
+            errorCode: "project_not_found",
+            message: `Project not found: ${msg.projectId}`,
+          });
+          break;
+        }
         const assignedProject = storedAssignment?.projectId
           ? this.workspaceStore?.getProject(storedAssignment.projectId)
           : undefined;
+        const resolvedResumeProjectName =
+          assignedProject?.name ?? storedAssignment?.projectName;
         const resumeRoots =
           storedAssignment?.rootPaths ?? requestedProject?.rootPaths;
         console.log(
@@ -5336,8 +5364,8 @@ export class BridgeWebSocketServer {
                 ...(storedAssignment.projectId
                   ? { projectId: storedAssignment.projectId }
                   : {}),
-                ...(assignedProject
-                  ? { projectName: assignedProject.name }
+                ...(resolvedResumeProjectName
+                  ? { projectName: resolvedResumeProjectName }
                   : {}),
                 rootPaths: storedAssignment.rootPaths,
               }
@@ -6449,6 +6477,20 @@ export class BridgeWebSocketServer {
             }
           }
 
+          // A recording keeps its name snapshot after Project deletion, but a
+          // live Project rename should be reflected when the list is read.
+          for (const recording of recordings) {
+            const projectId = recording.meta?.projectId;
+            if (!projectId) continue;
+            const project = this.workspaceStore?.getProject(projectId);
+            if (project && recording.meta) {
+              recording.meta = {
+                ...recording.meta,
+                projectName: project.name,
+              };
+            }
+          }
+
           this.send(ws, { type: "recording_list", recordings } as Record<
             string,
             unknown
@@ -7554,9 +7596,17 @@ export class BridgeWebSocketServer {
           break;
         }
         try {
+          const runtimeSession = msg.sessionId
+            ? this.resolveSession(msg.sessionId)
+            : undefined;
+          const workspace = runtimeSession
+            ? this.workspaceForRuntimeSession(runtimeSession)
+            : undefined;
           const entry = await this.promptHistoryStore.record({
             text: msg.text,
             projectPath: msg.projectPath,
+            projectId: workspace?.projectId ?? msg.projectId,
+            projectName: workspace?.projectName ?? msg.projectName,
             clientId: msg.clientId,
             clientName: msg.clientName,
             sessionId: msg.sessionId,
@@ -7627,6 +7677,7 @@ export class BridgeWebSocketServer {
             id: msg.id,
             text: msg.text,
             projectPath: msg.projectPath,
+            projectId: msg.projectId,
             action: msg.action,
             isFavorite: msg.isFavorite,
             updatedAt: msg.updatedAt,
@@ -8361,10 +8412,15 @@ export class BridgeWebSocketServer {
     ) {
       const session = this.sessionManager.get(sessionId);
       if (session) {
+        const workspace = this.workspaceForRuntimeSession(session);
         this.recordingStore?.saveMeta(sessionId, {
           bridgeSessionId: sessionId,
           claudeSessionId: msg.sessionId as string,
           projectPath: session.projectPath,
+          ...(workspace?.projectId ? { projectId: workspace.projectId } : {}),
+          ...(workspace?.projectName
+            ? { projectName: workspace.projectName }
+            : {}),
           createdAt: session.createdAt.toISOString(),
         });
       }
@@ -8670,10 +8726,11 @@ export class BridgeWebSocketServer {
     const project = assignment.projectId
       ? this.workspaceStore.getProject(assignment.projectId)
       : undefined;
+    const projectName = project?.name ?? assignment.projectName;
     return {
       kind: assignment.kind,
       ...(assignment.projectId ? { projectId: assignment.projectId } : {}),
-      ...(project ? { projectName: project.name } : {}),
+      ...(projectName ? { projectName } : {}),
       rootPaths: [...assignment.rootPaths],
     };
   }
@@ -9153,10 +9210,12 @@ export class BridgeWebSocketServer {
     }
   }
 
-  /** Extract a short project label from the full projectPath (last directory name). */
+  /** Resolve a user-facing Project label, falling back to the cwd basename. */
   private projectLabel(sessionId: string): string {
     const session = this.sessionManager.get(sessionId);
     if (!session?.projectPath) return "";
+    const workspace = this.workspaceForRuntimeSession(session);
+    if (workspace?.projectName) return workspace.projectName;
     const parts = session.projectPath.replace(/\/+$/, "").split("/");
     return parts[parts.length - 1] || "";
   }

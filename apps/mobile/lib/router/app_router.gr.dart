@@ -121,6 +121,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
     Key? key,
     required String sessionId,
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
@@ -136,6 +137,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
+           workspace: workspace,
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
@@ -158,6 +160,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
         key: args.key,
         sessionId: args.sessionId,
         projectPath: args.projectPath,
+        workspace: args.workspace,
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
@@ -176,6 +179,7 @@ class ClaudeSessionRouteArgs {
     this.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -191,6 +195,8 @@ class ClaudeSessionRouteArgs {
   final String sessionId;
 
   final String? projectPath;
+
+  final SessionWorkspaceInfo? workspace;
 
   final String? gitBranch;
 
@@ -210,7 +216,7 @@ class ClaudeSessionRouteArgs {
 
   @override
   String toString() {
-    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
@@ -220,6 +226,7 @@ class ClaudeSessionRouteArgs {
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&
+        workspace == other.workspace &&
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
@@ -235,6 +242,7 @@ class ClaudeSessionRouteArgs {
       key.hashCode ^
       sessionId.hashCode ^
       projectPath.hashCode ^
+      workspace.hashCode ^
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^
@@ -252,6 +260,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
     Key? key,
     required String sessionId,
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
@@ -269,6 +278,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
+           workspace: workspace,
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
@@ -293,6 +303,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
         key: args.key,
         sessionId: args.sessionId,
         projectPath: args.projectPath,
+        workspace: args.workspace,
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
@@ -313,6 +324,7 @@ class CodexSessionRouteArgs {
     this.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -330,6 +342,8 @@ class CodexSessionRouteArgs {
   final String sessionId;
 
   final String? projectPath;
+
+  final SessionWorkspaceInfo? workspace;
 
   final String? gitBranch;
 
@@ -353,7 +367,7 @@ class CodexSessionRouteArgs {
 
   @override
   String toString() {
-    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
@@ -363,6 +377,7 @@ class CodexSessionRouteArgs {
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&
+        workspace == other.workspace &&
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
@@ -380,6 +395,7 @@ class CodexSessionRouteArgs {
       key.hashCode ^
       sessionId.hashCode ^
       projectPath.hashCode ^
+      workspace.hashCode ^
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^
@@ -1039,6 +1055,7 @@ class WorkspaceClaudeSessionRoute
     Key? key,
     required String sessionId,
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
@@ -1054,6 +1071,7 @@ class WorkspaceClaudeSessionRoute
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
+           workspace: workspace,
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
@@ -1076,6 +1094,7 @@ class WorkspaceClaudeSessionRoute
         key: args.key,
         sessionId: args.sessionId,
         projectPath: args.projectPath,
+        workspace: args.workspace,
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
@@ -1094,6 +1113,7 @@ class WorkspaceClaudeSessionRouteArgs {
     this.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -1109,6 +1129,8 @@ class WorkspaceClaudeSessionRouteArgs {
   final String sessionId;
 
   final String? projectPath;
+
+  final SessionWorkspaceInfo? workspace;
 
   final String? gitBranch;
 
@@ -1128,7 +1150,7 @@ class WorkspaceClaudeSessionRouteArgs {
 
   @override
   String toString() {
-    return 'WorkspaceClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'WorkspaceClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
@@ -1138,6 +1160,7 @@ class WorkspaceClaudeSessionRouteArgs {
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&
+        workspace == other.workspace &&
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
@@ -1153,6 +1176,7 @@ class WorkspaceClaudeSessionRouteArgs {
       key.hashCode ^
       sessionId.hashCode ^
       projectPath.hashCode ^
+      workspace.hashCode ^
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^
@@ -1171,6 +1195,7 @@ class WorkspaceCodexSessionRoute
     Key? key,
     required String sessionId,
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
@@ -1188,6 +1213,7 @@ class WorkspaceCodexSessionRoute
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
+           workspace: workspace,
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
@@ -1212,6 +1238,7 @@ class WorkspaceCodexSessionRoute
         key: args.key,
         sessionId: args.sessionId,
         projectPath: args.projectPath,
+        workspace: args.workspace,
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
@@ -1232,6 +1259,7 @@ class WorkspaceCodexSessionRouteArgs {
     this.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -1249,6 +1277,8 @@ class WorkspaceCodexSessionRouteArgs {
   final String sessionId;
 
   final String? projectPath;
+
+  final SessionWorkspaceInfo? workspace;
 
   final String? gitBranch;
 
@@ -1272,7 +1302,7 @@ class WorkspaceCodexSessionRouteArgs {
 
   @override
   String toString() {
-    return 'WorkspaceCodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'WorkspaceCodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
@@ -1282,6 +1312,7 @@ class WorkspaceCodexSessionRouteArgs {
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&
+        workspace == other.workspace &&
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
@@ -1299,6 +1330,7 @@ class WorkspaceCodexSessionRouteArgs {
       key.hashCode ^
       sessionId.hashCode ^
       projectPath.hashCode ^
+      workspace.hashCode ^
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^

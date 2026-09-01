@@ -53,6 +53,7 @@ const _supportedClipboardImageFormats = [
 /// Overlay controllers and voice input are managed via hooks.
 class ChatInputWithOverlays extends HookWidget {
   final String sessionId;
+  final SessionWorkspaceInfo? workspace;
   final ProcessStatus status;
   final VoidCallback onGoToLatest;
   final TextEditingController inputController;
@@ -78,6 +79,7 @@ class ChatInputWithOverlays extends HookWidget {
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
+    this.workspace,
     required this.status,
     required this.onGoToLatest,
     required this.inputController,
@@ -652,6 +654,7 @@ class ChatInputWithOverlays extends HookWidget {
         context.read<PromptHistoryService>().recordPrompt(
           finalText,
           projectPath: projectPath,
+          workspace: workspace,
           bridgeService: context.read<BridgeService>(),
           sessionId: sessionId,
         );
@@ -947,6 +950,7 @@ class ChatInputWithOverlays extends HookWidget {
           service: service,
           bridgeService: bridge,
           currentProjectPath: projectPath,
+          currentProjectId: workspace?.projectId,
           currentBridgeId:
               bridge.promptHistoryBridgeId ??
               service.bridgeIdForUrl(bridge.lastUrl),

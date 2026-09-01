@@ -763,6 +763,51 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("uses the current Project name when listing existing recordings", async () => {
+    const recordingStore = {
+      init: vi.fn().mockResolvedValue(undefined),
+      listRecordings: vi.fn().mockResolvedValue([
+        {
+          name: "recording-1",
+          path: "/tmp/recording-1.jsonl",
+          modified: "2026-09-01T00:00:00.000Z",
+          sizeBytes: 10,
+          meta: {
+            bridgeSessionId: "recording-1",
+            projectPath: "/tmp/project",
+            projectId: "project-1",
+            projectName: "Old name",
+            createdAt: "2026-09-01T00:00:00.000Z",
+          },
+        },
+      ]),
+      extractInfoFromJsonl: vi.fn().mockResolvedValue({}),
+    };
+    const workspaceStore = {
+      getProject: vi.fn(() => ({
+        id: "project-1",
+        name: "Current name",
+        rootPaths: ["/tmp/project"],
+      })),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      recordingStore: recordingStore as any,
+      workspaceStore: workspaceStore as any,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    await (bridge as any).handleClientMessage({ type: "list_recordings" }, ws);
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalled());
+
+    const message = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find((item: any) => item.type === "recording_list");
+    expect(message.recordings[0].meta.projectName).toBe("Current name");
+
+    bridge.close();
+  });
+
   it("resolves a live Claude provider session id to its bridge session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -2414,6 +2459,107 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.codexOptions).toMatchObject({
       threadId: "thr_123",
       additionalWritableRoots: [resolve("/tmp/shared")],
+    });
+
+    bridge.close();
+  });
+
+  it("rejects resume when its Project identity is unavailable", async () => {
+    const workspaceStore = {
+      getAssignment: vi.fn(() => undefined),
+      getProject: vi.fn(() => undefined),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      workspaceStore: workspaceStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_missing_project",
+        projectPath: "/tmp/project-a",
+        projectId: "project-missing",
+        workspaceKind: "project",
+        provider: "codex",
+        resumeRequestId: "resume-missing-project",
+      },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toContainEqual({
+      type: "system",
+      subtype: "session_resume_failed",
+      provider: "codex",
+      sourceSessionId: "thr_missing_project",
+      projectPath: "/tmp/project-a",
+      resumeRequestId: "resume-missing-project",
+    });
+    expect(messages).toContainEqual({
+      type: "error",
+      sessionId: "thr_missing_project",
+      requestId: "resume-missing-project",
+      errorCode: "project_not_found",
+      message: "Project not found: project-missing",
+    });
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("keeps a removed Project name snapshot when resuming its session", async () => {
+    const workspaceStore = {
+      getAssignment: vi.fn(() => ({
+        provider: "codex",
+        providerSessionId: "thr_removed",
+        kind: "project",
+        projectId: "project-removed",
+        projectName: "Removed workspace",
+        rootPaths: ["/tmp/project-a", "/tmp/shared"],
+        assignedAt: "2026-09-01T00:00:00.000Z",
+      })),
+      getProject: vi.fn(() => undefined),
+      assignSession: vi.fn().mockResolvedValue(undefined),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      workspaceStore: workspaceStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_removed",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((call: unknown[]) => JSON.parse(call[0] as string))
+      .find(
+        (message: any) =>
+          message.type === "system" && message.subtype === "session_created",
+      );
+    expect(created.workspace).toEqual({
+      kind: "project",
+      projectId: "project-removed",
+      projectName: "Removed workspace",
+      rootPaths: ["/tmp/project-a", "/tmp/shared"],
     });
 
     bridge.close();
@@ -6866,6 +7012,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((message: any) =>
         message.type === "system" && message.subtype === "session_created"
       );
+    expect(created.workspace).toEqual({
+      kind: "project",
+      projectId: "project-1",
+      projectName: "App and API",
+      rootPaths: [resolve("/tmp/project-codex"), resolve("/tmp/shared")],
+    });
     const session = (bridge as any).sessionManager.get(created.sessionId);
     session.claudeSessionId = "thread-1";
 

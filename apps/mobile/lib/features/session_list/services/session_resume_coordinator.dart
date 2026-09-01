@@ -248,6 +248,7 @@ class SessionResumeCoordinator {
                 : codexSettings?.additionalWritableRoots)
           : session.workspaceRootPaths.skip(1).toList(),
       projectId: session.workspace?.projectId,
+      projectName: session.workspace?.projectName,
       workspaceKind: session.workspaceKind == 'unassigned'
           ? null
           : session.workspaceKind,
@@ -256,7 +257,11 @@ class SessionResumeCoordinator {
 
     if (isCodex) {
       unawaited(
-        _codexProfileStore.save(session.projectPath, session.codexProfile),
+        _codexProfileStore.save(
+          session.projectPath,
+          session.codexProfile,
+          projectId: session.workspace?.projectId,
+        ),
       );
     } else {
       unawaited(

@@ -1895,6 +1895,13 @@ class BridgeService implements BridgeServiceBase {
     final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
     final projectPath = json['projectPath'] as String?;
     if (projectPath == null || projectPath.isEmpty) return null;
+    final projectId = json['projectId'] as String?;
+    final queuedProjectName = json['projectName'] as String?;
+    final currentProjectName = _projectsState.projects
+        .where((project) => project.id == projectId)
+        .firstOrNull
+        ?.name;
+    final projectName = currentProjectName ?? queuedProjectName;
     final provider = json['provider'] as String? ?? Provider.claude.value;
     final createdAt = DateTime.now();
     final state = canCancel
@@ -1905,6 +1912,8 @@ class BridgeService implements BridgeServiceBase {
         id: _offlinePendingActionId(message),
         kind: OfflinePendingActionKind.start,
         projectPath: projectPath,
+        projectId: projectId,
+        workspaceProjectName: projectName,
         provider: provider,
         createdAt: createdAt,
         state: state,
@@ -1914,6 +1923,8 @@ class BridgeService implements BridgeServiceBase {
         id: _offlinePendingActionId(message),
         kind: OfflinePendingActionKind.resume,
         projectPath: projectPath,
+        projectId: projectId,
+        workspaceProjectName: projectName,
         provider: provider,
         createdAt: createdAt,
         state: state,
@@ -2974,6 +2985,7 @@ class BridgeService implements BridgeServiceBase {
     String? webSearchMode,
     List<String>? additionalWritableRoots,
     String? projectId,
+    String? projectName,
     String? workspaceKind,
     String? resumeRequestId,
   }) {
@@ -3003,6 +3015,7 @@ class BridgeService implements BridgeServiceBase {
         webSearchMode: webSearchMode,
         additionalWritableRoots: additionalWritableRoots,
         projectId: projectId,
+        projectName: projectName,
         workspaceKind: workspaceKind,
         resumeRequestId: resumeRequestId,
       ),

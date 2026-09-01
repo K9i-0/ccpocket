@@ -8,25 +8,43 @@ const _storageKey = 'codex_profile_by_project_v1';
 class CodexProjectProfileStore {
   const CodexProjectProfileStore();
 
-  Future<String?> load(String projectPath) async {
+  Future<String?> load(String projectPath, {String? projectId}) async {
     final normalizedPath = projectPath.trim();
-    if (normalizedPath.isEmpty) return null;
+    final key = _key(normalizedPath, projectId);
+    if (key == null) return null;
     final prefs = await SharedPreferences.getInstance();
-    return _loadAll(prefs)[normalizedPath];
+    final profiles = _loadAll(prefs);
+    return profiles[key] ??
+        (projectId?.trim().isNotEmpty == true
+            ? profiles[normalizedPath]
+            : null);
   }
 
-  Future<void> save(String projectPath, String? profile) async {
+  Future<void> save(
+    String projectPath,
+    String? profile, {
+    String? projectId,
+  }) async {
     final normalizedPath = projectPath.trim();
-    if (normalizedPath.isEmpty) return;
+    final key = _key(normalizedPath, projectId);
+    if (key == null) return;
 
     final prefs = await SharedPreferences.getInstance();
     final profiles = _loadAll(prefs);
     if (profile == null || profile.isEmpty) {
-      profiles.remove(normalizedPath);
+      profiles.remove(key);
     } else {
-      profiles[normalizedPath] = profile;
+      profiles[key] = profile;
     }
     await prefs.setString(_storageKey, jsonEncode(profiles));
+  }
+
+  String? _key(String normalizedPath, String? projectId) {
+    final normalizedId = projectId?.trim();
+    if (normalizedId != null && normalizedId.isNotEmpty) {
+      return 'project:$normalizedId';
+    }
+    return normalizedPath.isEmpty ? null : normalizedPath;
   }
 
   Map<String, String> _loadAll(SharedPreferences prefs) {

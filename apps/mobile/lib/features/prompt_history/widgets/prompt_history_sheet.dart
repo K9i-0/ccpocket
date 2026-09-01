@@ -16,6 +16,7 @@ class PromptHistorySheet extends StatelessWidget {
   final PromptHistoryService service;
   final BridgeService? bridgeService;
   final String? currentProjectPath;
+  final String? currentProjectId;
   final String? currentBridgeId;
   final void Function(String text) onSelect;
 
@@ -24,6 +25,7 @@ class PromptHistorySheet extends StatelessWidget {
     required this.service,
     this.bridgeService,
     this.currentProjectPath,
+    this.currentProjectId,
     this.currentBridgeId,
     required this.onSelect,
   });
@@ -36,6 +38,7 @@ class PromptHistorySheet extends StatelessWidget {
           service,
           bridgeService: bridgeService,
           currentProjectPath: currentProjectPath,
+          currentProjectId: currentProjectId,
           currentBridgeId: currentBridgeId,
         );
         Future.wait([service.getDefaultFilters(), service.getFiltersExpanded()])

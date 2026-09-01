@@ -40,7 +40,7 @@ class SessionSwitcher extends StatelessWidget {
         onSessionSelected(session);
       },
       itemBuilder: (context) => otherSessions.map((s) {
-        final projectName = s.projectPath.split('/').last;
+        final projectName = s.projectName;
         final isApproval = s.status == 'waiting_approval';
         return PopupMenuItem<String>(
           value: s.id,

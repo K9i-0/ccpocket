@@ -7,6 +7,8 @@ class OfflinePendingAction {
     required this.id,
     required this.kind,
     required this.projectPath,
+    this.projectId,
+    this.workspaceProjectName,
     required this.provider,
     required this.createdAt,
     this.state = OfflinePendingActionState.queuedForReconnect,
@@ -17,6 +19,8 @@ class OfflinePendingAction {
   final String id;
   final OfflinePendingActionKind kind;
   final String projectPath;
+  final String? projectId;
+  final String? workspaceProjectName;
   final String provider;
   final DateTime createdAt;
   final OfflinePendingActionState state;
@@ -24,6 +28,9 @@ class OfflinePendingAction {
   final String? sessionId;
 
   String get projectName {
+    if (workspaceProjectName?.isNotEmpty == true) {
+      return workspaceProjectName!;
+    }
     final normalized = projectPath.trim();
     if (normalized.isEmpty) return 'Unknown project';
     final parts = normalized.split('/').where((part) => part.isNotEmpty);

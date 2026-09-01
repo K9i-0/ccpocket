@@ -21,6 +21,7 @@ const _buttonHeight = 44.0;
 /// Card for a currently running session
 class RunningSessionCard extends StatefulWidget {
   final SessionInfo session;
+  final String? projectNameOverride;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<Offset?>? onShowActions;
@@ -37,6 +38,7 @@ class RunningSessionCard extends StatefulWidget {
   const RunningSessionCard({
     super.key,
     required this.session,
+    this.projectNameOverride,
     required this.onTap,
     this.onLongPress,
     this.onShowActions,
@@ -126,7 +128,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } else {
       _syncPlanApprovalState(null);
     }
-    final projectName = session.projectName;
+    final projectName = widget.projectNameOverride ?? session.projectName;
     final provider = providerFromRaw(session.provider);
     final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);
@@ -2566,6 +2568,7 @@ class _AgentLabel extends StatelessWidget {
 
 class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
+  final String? projectNameOverride;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<Offset?>? onShowActions;
@@ -2580,6 +2583,7 @@ class RecentSessionCard extends StatelessWidget {
   const RecentSessionCard({
     super.key,
     required this.session,
+    this.projectNameOverride,
     required this.onTap,
     this.onLongPress,
     this.onShowActions,
@@ -2683,7 +2687,7 @@ class RecentSessionCard extends StatelessWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    session.projectName,
+                                    projectNameOverride ?? session.projectName,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 12,

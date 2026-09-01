@@ -325,6 +325,7 @@ class _FakePromptHistoryService extends PromptHistoryService {
     PromptHistoryFilters filters = const PromptHistoryFilters(),
     String? currentSessionId,
     String? currentProjectPath,
+    String? currentProjectId,
     String? currentBridgeId,
     int limit = 30,
     int offset = 0,
@@ -339,6 +340,7 @@ class _FakePromptHistoryService extends PromptHistoryService {
             filters: filters,
             clientId: 'phone',
             currentProjectPath: currentProjectPath,
+            currentProjectId: currentProjectId,
             currentBridgeId: currentBridgeId,
           ),
         )

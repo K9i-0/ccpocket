@@ -115,7 +115,7 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   void _onSessionsUpdate(List<RecentSession> sessions) {
     final response = _bridge.lastRecentSessionsMessage;
-    final projectPath = response?.projectPath;
+    final projectPath = response?.projectFilterKey;
     final isProjectPage =
         response?.requestScope == 'project' &&
         projectPath != null &&
@@ -178,7 +178,9 @@ class SessionListCubit extends Cubit<SessionListState> {
         isClosed) {
       return;
     }
-    final projectPath = message.path;
+    final projectPath = message.projectId?.isNotEmpty == true
+        ? 'project:${message.projectId}'
+        : message.path;
     if (message.requestScope == 'project' &&
         projectPath != null &&
         projectPath.isNotEmpty) {
@@ -272,7 +274,7 @@ class SessionListCubit extends Cubit<SessionListState> {
       return;
     }
     final loadedCount = state.sessions
-        .where((session) => session.projectPath == projectPath)
+        .where((session) => session.workspaceGroupKey == projectPath)
         .length;
     final currentLimit =
         state.projectSessionDisplayLimits[projectPath] ??

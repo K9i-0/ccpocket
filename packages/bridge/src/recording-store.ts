@@ -10,6 +10,8 @@ export interface RecordingMeta {
   bridgeSessionId: string;
   claudeSessionId?: string;
   projectPath: string;
+  projectId?: string;
+  projectName?: string;
   createdAt: string;
 }
 

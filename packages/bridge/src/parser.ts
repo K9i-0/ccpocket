@@ -133,6 +133,7 @@ export type ClientMessage =
       webSearchMode?: string;
       additionalWritableRoots?: string[];
       projectId?: string;
+      projectName?: string;
       workspaceKind?: "project";
       useWorktree?: boolean;
       worktreeBranch?: string;
@@ -271,6 +272,7 @@ export type ClientMessage =
       webSearchMode?: string;
       additionalWritableRoots?: string[];
       projectId?: string;
+      projectName?: string;
       workspaceKind?: "project";
       resumeRequestId?: string;
     }
@@ -401,6 +403,8 @@ export type ClientMessage =
       type: "record_prompt_history";
       text: string;
       projectPath?: string;
+      projectId?: string;
+      projectName?: string;
       clientId: string;
       clientName?: string;
       sessionId?: string;
@@ -419,6 +423,7 @@ export type ClientMessage =
       id?: string;
       text?: string;
       projectPath?: string;
+      projectId?: string;
       action: "favorite" | "delete" | "restore";
       isFavorite?: boolean;
       updatedAt?: string;
@@ -544,6 +549,12 @@ export type ServerMessage =
       model?: string;
       provider?: Provider;
       projectPath?: string;
+      workspace?: {
+        kind: "project";
+        projectId?: string;
+        projectName?: string;
+        rootPaths: string[];
+      };
       approvalPolicy?: string;
       approvalsReviewer?: string;
       codexPermissionsMode?: CodexPermissionsMode;
@@ -1210,6 +1221,7 @@ function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
     isOptionalEnum(msg.webSearchMode, WEB_SEARCH_MODES) &&
     isOptionalStringArray(msg.additionalWritableRoots) &&
     isOptionalNonEmptyString(msg.projectId) &&
+    isOptionalNonEmptyString(msg.projectName) &&
     isOptionalEnum(msg.workspaceKind, ["project"])
   );
 }
@@ -1258,6 +1270,10 @@ export function parseClientMessage(data: string): ClientMessage | null {
         entry.projectPath !== undefined &&
         typeof entry.projectPath !== "string"
       )
+        return false;
+      if (entry.projectId !== undefined && typeof entry.projectId !== "string")
+        return false;
+      if (entry.projectName !== undefined && typeof entry.projectName !== "string")
         return false;
       if (
         entry.id !== undefined &&
@@ -1566,6 +1582,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.projectPath !== undefined &&
           typeof msg.projectPath !== "string"
         )
+          return null;
+        if (msg.projectId !== undefined && typeof msg.projectId !== "string")
           return null;
         if (
           msg.projectId !== undefined &&
@@ -1906,6 +1924,10 @@ export function parseClientMessage(data: string): ClientMessage | null {
           typeof msg.projectPath !== "string"
         )
           return null;
+        if (msg.projectId !== undefined && typeof msg.projectId !== "string")
+          return null;
+        if (msg.projectName !== undefined && typeof msg.projectName !== "string")
+          return null;
         if (msg.clientName !== undefined && typeof msg.clientName !== "string")
           return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
@@ -1943,6 +1965,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.projectPath !== undefined &&
           typeof msg.projectPath !== "string"
         )
+          return null;
+        if (msg.projectId !== undefined && typeof msg.projectId !== "string")
           return null;
         if (
           msg.isFavorite !== undefined &&

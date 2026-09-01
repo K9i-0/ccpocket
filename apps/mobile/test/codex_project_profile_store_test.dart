@@ -59,4 +59,29 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.containsKey(_storageKey), isFalse);
   });
+
+  test('keeps profiles separate for Projects sharing a primary path', () async {
+    await store.save('/workspace/app', 'frontend', projectId: 'project-a');
+    await store.save('/workspace/app', 'backend', projectId: 'project-b');
+
+    expect(
+      await store.load('/workspace/app', projectId: 'project-a'),
+      'frontend',
+    );
+    expect(
+      await store.load('/workspace/app', projectId: 'project-b'),
+      'backend',
+    );
+  });
+
+  test('falls back to a legacy path profile for a custom Project', () async {
+    SharedPreferences.setMockInitialValues({
+      _storageKey: jsonEncode({'/workspace/app': 'trusted'}),
+    });
+
+    expect(
+      await store.load('/workspace/app', projectId: 'project-a'),
+      'trusted',
+    );
+  });
 }

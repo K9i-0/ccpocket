@@ -116,6 +116,7 @@ Widget _buildHomeContent({
             onTapRunning: (
               id, {
               projectPath,
+              workspace,
               gitBranch,
               worktreePath,
               provider,

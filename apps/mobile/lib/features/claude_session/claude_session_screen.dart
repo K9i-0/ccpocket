@@ -84,6 +84,7 @@ class _NoopListenable implements Listenable {
 class ClaudeSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
@@ -100,6 +101,7 @@ class ClaudeSessionScreen extends StatefulWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -118,6 +120,7 @@ class ClaudeSessionScreen extends StatefulWidget {
 class WorkspaceClaudeSessionScreen extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
@@ -131,6 +134,7 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
@@ -146,6 +150,7 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
     return ClaudeSessionScreen(
       sessionId: sessionId,
       projectPath: projectPath,
+      workspace: workspace,
       gitBranch: gitBranch,
       worktreePath: worktreePath,
       isPending: isPending,
@@ -161,6 +166,7 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
 class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
   late String _sessionId;
   late String? _projectPath;
+  late SessionWorkspaceInfo? _workspace;
   late String? _worktreePath;
   late String? _gitBranch;
   late bool _isPending;
@@ -180,6 +186,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     final bridge = context.read<BridgeService>();
     _sessionId = widget.sessionId;
     _projectPath = widget.projectPath;
+    _workspace = widget.workspace;
     _worktreePath = widget.worktreePath;
     _gitBranch = widget.gitBranch;
     _isPending = widget.isPending;
@@ -308,6 +315,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     setState(() {
       _sessionId = newId;
       _projectPath = msg.projectPath ?? _projectPath;
+      _workspace = msg.workspace ?? _workspace;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _permissionMode =
@@ -359,6 +367,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     setState(() {
       _sessionId = newId;
       _projectPath = msg.projectPath ?? _projectPath;
+      _workspace = msg.workspace ?? _workspace;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _permissionMode =
@@ -375,6 +384,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sessionId == widget.sessionId &&
         oldWidget.projectPath == widget.projectPath &&
+        oldWidget.workspace == widget.workspace &&
         oldWidget.worktreePath == widget.worktreePath &&
         oldWidget.gitBranch == widget.gitBranch &&
         oldWidget.isPending == widget.isPending &&
@@ -389,6 +399,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     setState(() {
       _sessionId = widget.sessionId;
       _projectPath = widget.projectPath;
+      _workspace = widget.workspace;
       _worktreePath = widget.worktreePath;
       _gitBranch = widget.gitBranch;
       _isPending = widget.isPending;
@@ -460,6 +471,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
       key: ValueKey(_sessionId),
       sessionId: _sessionId,
       projectPath: _projectPath,
+      workspace: _workspace,
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
       explorerCurrentPath: _explorerCurrentPath,
@@ -476,6 +488,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
 class _ChatScreenProviders extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final String explorerCurrentPath;
@@ -489,6 +502,7 @@ class _ChatScreenProviders extends StatelessWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.explorerCurrentPath = '',
@@ -527,6 +541,7 @@ class _ChatScreenProviders extends StatelessWidget {
         child: _ChatScreenBody(
           sessionId: sessionId,
           projectPath: projectPath,
+          workspace: workspace,
           gitBranch: gitBranch,
           worktreePath: worktreePath,
           onBackToSessions: onBackToSessions,
@@ -540,6 +555,7 @@ class _ChatScreenProviders extends StatelessWidget {
 class _ChatScreenBody extends HookWidget {
   final String sessionId;
   final String? projectPath;
+  final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
   final String? worktreePath;
   final VoidCallback? onBackToSessions;
@@ -548,6 +564,7 @@ class _ChatScreenBody extends HookWidget {
   const _ChatScreenBody({
     required this.sessionId,
     this.projectPath,
+    this.workspace,
     this.gitBranch,
     this.worktreePath,
     this.onBackToSessions,
@@ -947,6 +964,7 @@ class _ChatScreenBody extends HookWidget {
                       SessionNameTitle(
                         sessionId: sessionId,
                         projectPath: effectiveProjectPath,
+                        workspace: workspace,
                       ),
                     ),
                     flexibleSpace: StatusLineFlexibleSpace(
@@ -1334,6 +1352,7 @@ class _ChatScreenBody extends HookWidget {
                 if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
+                    workspace: workspace,
                     status: status,
                     onGoToLatest: scroll.goToLatest,
                     inputController: chatInputController,

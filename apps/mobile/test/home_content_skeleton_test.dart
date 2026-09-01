@@ -64,6 +64,7 @@ class _MockBridgeService extends BridgeService {
 RecentSession _session({
   required String id,
   String projectPath = '/home/user/project-a',
+  SessionWorkspaceInfo? workspace,
 }) {
   return RecentSession(
     sessionId: id,
@@ -72,6 +73,7 @@ RecentSession _session({
     modified: '2025-01-01T00:00:00Z',
     gitBranch: 'main',
     projectPath: projectPath,
+    workspace: workspace,
     isSidechain: false,
   );
 }
@@ -118,6 +120,7 @@ Widget _buildHomeContent({
   VoidCallback? onOpenUsageSettings,
   VoidCallback? onDismissMacOSNativeAppBanner,
   ValueChanged<String?>? onSelectProject,
+  ValueChanged<String>? onLoadMoreProject,
   required SessionListCubit cubit,
   required DraftService draftService,
   required RevenueCatService revenueCatService,
@@ -158,6 +161,7 @@ Widget _buildHomeContent({
             onTapRunning: (
               id, {
               projectPath,
+              workspace,
               gitBranch,
               worktreePath,
               provider,
@@ -173,7 +177,7 @@ Widget _buildHomeContent({
             onLongPressRunningSession: (_, _) {},
             onSelectProject: onSelectProject ?? (_) {},
             onLoadMore: () {},
-            onLoadMoreProject: (_) {},
+            onLoadMoreProject: onLoadMoreProject ?? (_) {},
             providerFilter: ProviderFilter.all,
             namedOnly: false,
             onToggleProvider: () {},
@@ -319,6 +323,49 @@ void main() {
       await tester.pumpAndSettle();
       expect(selectedProject, 'project:flutter-apps');
     });
+
+    testWidgets(
+      'keeps a folder filter when assigned and unassigned sessions share it',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildHomeContent(
+            recentSessions: [
+              _session(
+                id: 'removed-project-session',
+                projectPath: '/workspace/shared',
+                workspace: const SessionWorkspaceInfo(
+                  kind: 'project',
+                  projectId: 'removed-project',
+                  projectName: 'Removed Project',
+                  rootPaths: ['/workspace/shared'],
+                ),
+              ),
+              _session(
+                id: 'ordinary-session',
+                projectPath: '/workspace/shared',
+              ),
+            ],
+            accumulatedProjectPaths: const {'/workspace/shared'},
+            cubit: cubit,
+            draftService: draftService,
+            revenueCatService: revenueCatService,
+            supportBannerService: supportBannerService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+        await tester.pumpAndSettle();
+        expect(find.text('Removed Project'), findsWidgets);
+        expect(
+          find.ancestor(
+            of: find.text('shared'),
+            matching: find.byType(MenuItemButton),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('prioritizes a pinned workspace Project in running sessions '
         'and the project filter', (tester) async {
@@ -631,6 +678,58 @@ void main() {
         find.byKey(const ValueKey('project_show_more_/home/user/project-a')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('uses current Project name and stable id for grouped paging', (
+      tester,
+    ) async {
+      String? requestedProject;
+      const workspace = SessionWorkspaceInfo(
+        kind: 'project',
+        projectId: 'flutter-apps',
+        projectName: 'Old Project name',
+        rootPaths: ['/workspace/ccpocket', '/workspace/api'],
+      );
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [
+            for (var i = 1; i <= 6; i++)
+              _session(
+                id: 'custom-$i',
+                projectPath: '/workspace/ccpocket',
+                workspace: workspace,
+              ),
+          ],
+          workspaceProjects: const [
+            WorkspaceProject(
+              id: 'flutter-apps',
+              name: 'Flutter apps',
+              rootPaths: ['/workspace/ccpocket', '/workspace/api'],
+              createdAt: '',
+              updatedAt: '',
+            ),
+          ],
+          onLoadMoreProject: (value) => requestedProject = value,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Old Project name'), findsNothing);
+      expect(find.text('Flutter apps'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pumpAndSettle();
+      expect(find.text('Old Project name'), findsNothing);
+      expect(find.text('Flutter apps'), findsWidgets);
+      final showMore = find.byKey(
+        const ValueKey('project_show_more_project:flutter-apps'),
+      );
+      expect(showMore, findsOneWidget);
+      tester.widget<InkWell>(showMore).onTap!();
+      expect(requestedProject, 'project:flutter-apps');
     });
 
     testWidgets(

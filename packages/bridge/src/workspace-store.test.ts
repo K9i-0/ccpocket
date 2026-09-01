@@ -55,6 +55,29 @@ describe("WorkspaceStore", () => {
       "/repo/a",
       "/repo/b",
     ]);
+    expect(
+      store.resolveRecentWorkspace("codex", "thread-1")?.projectName,
+    ).toBe("Changed");
+  });
+
+  it("keeps the assigned Project name after the Project is removed", async () => {
+    const { store } = await createStore();
+    const project = await store.createProject("Workspace", ["/repo/a"]);
+    await store.assignSession("codex", "thread-1", {
+      kind: "project",
+      projectId: project.id,
+      projectName: project.name,
+      rootPaths: project.rootPaths,
+    });
+
+    await store.removeProject(project.id);
+
+    expect(store.resolveRecentWorkspace("codex", "thread-1")).toEqual({
+      kind: "project",
+      projectId: project.id,
+      projectName: "Workspace",
+      rootPaths: ["/repo/a"],
+    });
   });
 
   it("does not infer Project identity from an unassigned primary cwd", async () => {

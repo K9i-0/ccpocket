@@ -54,6 +54,7 @@ class _ProjectSessionGroup {
 List<_ProjectSessionGroup> _groupSessionsByProject({
   required Iterable<String> projectPaths,
   required List<RecentSession> sessions,
+  required Map<String, String> currentProjectNames,
 }) {
   final grouped = <String, List<RecentSession>>{
     for (final path in projectPaths)
@@ -70,7 +71,9 @@ List<_ProjectSessionGroup> _groupSessionsByProject({
           groupKey: entry.key,
           projectPath: entry.value.firstOrNull?.projectPath ?? entry.key,
           projectName:
-              entry.value.firstOrNull?.projectName ?? pathBasename(entry.key),
+              currentProjectNames[entry.key] ??
+              entry.value.firstOrNull?.projectName ??
+              pathBasename(entry.key),
           workspaceKind: entry.value.firstOrNull?.workspaceKind ?? 'unassigned',
           sessions: entry.value,
         ),
@@ -103,6 +106,7 @@ class HomeContent extends StatefulWidget {
   final void Function(
     String sessionId, {
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     String? provider,
@@ -571,22 +575,61 @@ class HomeContentState extends State<HomeContent> {
         .where((session) => session.workspaceKind != 'unassigned')
         .map((session) => session.projectPath)
         .toSet();
+    final unassignedSessionPaths = widget.recentSessions
+        .where((session) => session.workspaceKind == 'unassigned')
+        .map((session) => session.projectPath)
+        .toSet();
     final projectFilterNames = <String, String>{
       // Named Projects stay ahead of the usually much longer folder history.
-      // Session-derived entries cover the short window before the Project
-      // catalog response arrives.
       for (final project in widget.workspaceProjects)
         'project:${project.id}': project.name,
-      for (final session in widget.recentSessions)
-        if (session.workspaceKind == 'project' &&
-            session.workspaceGroupKey.isNotEmpty)
-          session.workspaceGroupKey: session.projectName,
+    };
+    // Session-derived entries cover the short window before the Project
+    // catalog response arrives, without replacing a renamed catalog entry.
+    for (final session in widget.recentSessions) {
+      if (session.workspaceKind == 'project' &&
+          session.workspaceGroupKey.isNotEmpty) {
+        projectFilterNames.putIfAbsent(
+          session.workspaceGroupKey,
+          () => session.projectName,
+        );
+      }
+    }
+    projectFilterNames.addAll({
       for (final project in widget.workspaceProjects)
         if (project.rootPaths.isNotEmpty)
           project.primaryPath: pathBasename(project.primaryPath),
       for (final path in widget.accumulatedProjectPaths)
-        if (path.isNotEmpty && !assignedSessionPaths.contains(path))
+        if (path.isNotEmpty &&
+            (!assignedSessionPaths.contains(path) ||
+                unassignedSessionPaths.contains(path)))
           path: pathBasename(path),
+    });
+    final duplicateProjectNames = <String, int>{};
+    for (final project in widget.workspaceProjects) {
+      duplicateProjectNames.update(
+        project.name,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    for (final project in widget.workspaceProjects) {
+      if ((duplicateProjectNames[project.name] ?? 0) <= 1) continue;
+      final primaryName = pathBasename(project.primaryPath);
+      final samePrimaryCount = widget.workspaceProjects
+          .where(
+            (candidate) =>
+                candidate.name == project.name &&
+                candidate.primaryPath == project.primaryPath,
+          )
+          .length;
+      projectFilterNames['project:${project.id}'] = samePrimaryCount > 1
+          ? '${project.name} · $primaryName · ${project.id.substring(0, project.id.length < 6 ? project.id.length : 6)}'
+          : '${project.name} · $primaryName';
+    }
+    final currentProjectNames = {
+      for (final project in widget.workspaceProjects)
+        'project:${project.id}': project.name,
     };
     final projectPathsWithPinnedSessions = filteredSessions
         .where(
@@ -609,6 +652,7 @@ class HomeContentState extends State<HomeContent> {
     final groupedRecentSessions = _groupSessionsByProject(
       projectPaths: allProjectPaths,
       sessions: filteredSessions,
+      currentProjectNames: currentProjectNames,
     ).where((group) => group.sessions.isNotEmpty).toList();
     final runningSessions = prioritizePinned(
       widget.sessions,
@@ -729,6 +773,8 @@ class HomeContentState extends State<HomeContent> {
               ),
               child: RunningSessionCard(
                 session: session,
+                projectNameOverride:
+                    currentProjectNames[session.workspaceGroupKey],
                 isPinned: switch (runningSessionPinKey(session)) {
                   final key? => widget.pinnedSessionKeys.contains(key),
                   null => false,
@@ -752,6 +798,7 @@ class HomeContentState extends State<HomeContent> {
                 onTap: () => widget.onTapRunning(
                   session.id,
                   projectPath: session.projectPath,
+                  workspace: session.workspace,
                   gitBranch: session.worktreePath != null
                       ? session.worktreeBranch
                       : session.gitBranch,
@@ -884,6 +931,8 @@ class HomeContentState extends State<HomeContent> {
               for (final session in filteredSessions)
                 _RecentSessionSlidable(
                   session: session,
+                  projectNameOverride:
+                      currentProjectNames[session.workspaceGroupKey],
                   isPinned: widget.pinnedSessionKeys.contains(
                     recentSessionPinKey(session),
                   ),
@@ -916,12 +965,10 @@ class HomeContentState extends State<HomeContent> {
                     group.groupKey,
                   ),
                   displayLimit:
-                      widget.projectSessionDisplayLimits[group.projectPath] ??
-                      5,
+                      widget.projectSessionDisplayLimits[group.groupKey] ?? 5,
                   canLoadFromBridge:
                       widget.currentProjectFilter == null &&
-                      group.workspaceKind == 'unassigned' &&
-                      !widget.exhaustedProjectPaths.contains(group.projectPath),
+                      !widget.exhaustedProjectPaths.contains(group.groupKey),
                   archivingSessionIds: widget.archivingSessionIds,
                   pinnedSessionKeys: widget.pinnedSessionKeys,
                   isPinned: widget.pinnedProjectPaths.contains(group.groupKey),
@@ -931,7 +978,7 @@ class HomeContentState extends State<HomeContent> {
                       ? null
                       : () => widget.onToggleProjectPinned!(group.groupKey),
                   onLoadMore: () =>
-                      widget.onLoadMoreProject?.call(group.projectPath),
+                      widget.onLoadMoreProject?.call(group.groupKey),
                   onArchiveSession: widget.onArchiveSession,
                   onResumeSession: widget.onResumeSession,
                   onToggleSessionPinned: widget.onToggleRecentSessionPinned,
@@ -1058,6 +1105,7 @@ class _LoadMoreRecentSessionsButton extends StatelessWidget {
 
 class _RecentSessionSlidable extends StatelessWidget {
   final RecentSession session;
+  final String? projectNameOverride;
   final bool isPinned;
   final SessionDisplayMode displayMode;
   final Set<String> archivingSessionIds;
@@ -1069,6 +1117,7 @@ class _RecentSessionSlidable extends StatelessWidget {
 
   const _RecentSessionSlidable({
     required this.session,
+    this.projectNameOverride,
     required this.isPinned,
     required this.displayMode,
     required this.archivingSessionIds,
@@ -1108,6 +1157,7 @@ class _RecentSessionSlidable extends StatelessWidget {
       ),
       child: RecentSessionCard(
         session: session,
+        projectNameOverride: projectNameOverride,
         isPinned: isPinned,
         displayMode: displayMode,
         isSelected: false,
@@ -1216,7 +1266,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ProjectRecentSessionHeader(
-            projectPath: group.projectPath,
+            groupKey: group.groupKey,
             projectName: group.projectName,
             isCollapsed: isCollapsed,
             isPinned: isPinned,
@@ -1228,6 +1278,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
             for (final session in visibleSessions)
               _RecentSessionSlidable(
                 session: session,
+                projectNameOverride: group.projectName,
                 isPinned: pinnedSessionKeys.contains(
                   recentSessionPinKey(session),
                 ),
@@ -1257,7 +1308,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 28, top: 2, bottom: 4),
                   child: InkWell(
-                    key: ValueKey('project_show_more_${group.projectPath}'),
+                    key: ValueKey('project_show_more_${group.groupKey}'),
                     borderRadius: BorderRadius.circular(6),
                     onTap: onLoadMore,
                     child: Padding(
@@ -1293,7 +1344,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
 }
 
 class _ProjectRecentSessionHeader extends StatelessWidget {
-  final String projectPath;
+  final String groupKey;
   final String projectName;
   final bool isCollapsed;
   final bool isPinned;
@@ -1301,7 +1352,7 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
   final VoidCallback? onTogglePinned;
 
   const _ProjectRecentSessionHeader({
-    required this.projectPath,
+    required this.groupKey,
     required this.projectName,
     required this.isCollapsed,
     required this.isPinned,
@@ -1316,7 +1367,7 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        key: ValueKey('project_header_$projectPath'),
+        key: ValueKey('project_header_$groupKey'),
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Padding(
@@ -1344,7 +1395,7 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
                 ),
               ),
               PinToggleButton(
-                key: ValueKey('pin_project_$projectPath'),
+                key: ValueKey('pin_project_$groupKey'),
                 isPinned: isPinned,
                 onPressed: onTogglePinned,
                 pinTooltip: AppLocalizations.of(context).pinProject,

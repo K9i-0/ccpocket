@@ -77,6 +77,32 @@ describe("PromptHistoryStore", () => {
     expect(store.list()[0].sessionStats["session-a"].useCount).toBe(2);
   });
 
+  it("keeps prompts separate for Projects sharing a primary path", async () => {
+    const store = await makeStore();
+
+    const first = await store.record({
+      text: "same prompt",
+      projectPath: "/shared/primary",
+      projectId: "project-a",
+      projectName: "Frontend",
+      clientId: "phone",
+    });
+    const second = await store.record({
+      text: "same prompt",
+      projectPath: "/shared/primary",
+      projectId: "project-b",
+      projectName: "Backend",
+      clientId: "phone",
+    });
+
+    expect(second.id).not.toBe(first.id);
+    expect(store.list()).toHaveLength(2);
+    expect(store.list().map((entry) => entry.projectName)).toEqual([
+      "Frontend",
+      "Backend",
+    ]);
+  });
+
   it("keeps favorite and deletion timestamps as field-level conflicts", async () => {
     const store = await makeStore();
     const entry = await store.record({

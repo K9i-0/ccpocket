@@ -128,13 +128,27 @@ String buildResumeCommand(RecentSession session) {
       : Provider.claude;
 
   String resumeCommand;
+  final additionalRoots = (session.workspace?.rootPaths ?? const <String>[])
+      .skip(1)
+      .where((root) => root.isNotEmpty && root != cwd)
+      .toList();
   if (provider == Provider.codex) {
-    resumeCommand = 'codex resume ${shellQuote(session.sessionId)}';
+    final addDirs = additionalRoots
+        .map((root) => '--add-dir ${shellQuote(root)}')
+        .join(' ');
+    resumeCommand = [
+      'codex',
+      if (addDirs.isNotEmpty) addDirs,
+      'resume ${shellQuote(session.sessionId)}',
+    ].join(' ');
   } else {
     final buf = StringBuffer(
       'claude --resume ${shellQuote(session.sessionId)}',
     );
     final pm = session.effectivePermissionMode;
+    for (final root in additionalRoots) {
+      buf.write(' --add-dir ${shellQuote(root)}');
+    }
     if (pm == PermissionMode.bypassPermissions.value) {
       buf.write(' --dangerously-skip-permissions');
     } else if (pm == PermissionMode.auto.value) {
@@ -221,6 +235,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
+  SessionWorkspaceInfo? _pendingResumeWorkspace;
   String? _pendingResumeSessionId;
   String? _pendingResumeRequestId;
   String? _failedResumeSessionId;
@@ -292,6 +307,7 @@ class _SessionListScreenState extends State<SessionListScreen>
             _navigateToChat(
               msg.sessionId!,
               projectPath: msg.projectPath ?? _pendingResumeProjectPath,
+              workspace: msg.workspace ?? _pendingResumeWorkspace,
               gitBranch: _pendingResumeGitBranch,
               worktreePath: msg.worktreePath,
               provider: Provider.values
@@ -824,6 +840,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _startNewSession(NewSessionParams result) {
     final bridge = context.read<BridgeService>();
     final settings = context.read<SettingsCubit>().state;
+    final workspace = _workspaceForNewSession(result);
     final isOffline = !bridge.isConnected;
     final useCodexProfile =
         result.provider == Provider.codex &&
@@ -836,12 +853,14 @@ class _SessionListScreenState extends State<SessionListScreen>
     _clearFailedResumeCorrelation();
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
+    _pendingResumeWorkspace = workspace;
     _pendingResumeSessionId = null;
     _pendingResumeRequestId = null;
     bridge.send(
       ClientMessage.start(
         result.projectPath,
         projectId: result.projectId,
+        projectName: workspace?.projectName,
         workspaceKind: result.workspaceKind,
         permissionMode: result.provider == Provider.codex && useCodexProfile
             ? null
@@ -934,6 +953,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     _navigateToChat(
       pendingId,
       projectPath: result.projectPath,
+      workspace: workspace,
       gitBranch: result.worktreeBranch,
       worktreePath: result.existingWorktreePath,
       isPending: true,
@@ -946,6 +966,25 @@ class _SessionListScreenState extends State<SessionListScreen>
       approvalsReviewer: result.provider == Provider.codex
           ? result.codexApprovalsReviewer
           : null,
+    );
+  }
+
+  SessionWorkspaceInfo? _workspaceForNewSession(NewSessionParams params) {
+    final projectId = params.projectId;
+    if (projectId == null || params.workspaceKind != 'project') return null;
+    final project = context
+        .read<BridgeService>()
+        .projectsState
+        .projects
+        .where((item) => item.id == projectId)
+        .firstOrNull;
+    return SessionWorkspaceInfo(
+      kind: 'project',
+      projectId: projectId,
+      projectName: project?.name,
+      rootPaths:
+          project?.rootPaths ??
+          [params.projectPath, ...params.additionalWritableRoots],
     );
   }
 
@@ -987,6 +1026,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
     final savedProfile = await _loadProjectCodexProfile(
       mergedDefaults.projectPath,
+      projectId: mergedDefaults.projectId,
     );
     if (savedProfile == null || savedProfile.isEmpty) return mergedDefaults;
     if (!mounted) return mergedDefaults;
@@ -997,8 +1037,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     return mergedDefaults.copyWith(codexProfile: savedProfile);
   }
 
-  Future<String?> _loadProjectCodexProfile(String projectPath) =>
-      _codexProjectProfileStore.load(projectPath);
+  Future<String?> _loadProjectCodexProfile(
+    String projectPath, {
+    String? projectId,
+  }) => _codexProjectProfileStore.load(projectPath, projectId: projectId);
 
   Future<void> _saveProjectCodexProfileFromParams(NewSessionParams params) {
     if (params.provider != Provider.codex) {
@@ -1010,9 +1052,17 @@ class _SessionListScreenState extends State<SessionListScreen>
         selected != null &&
         selected.isNotEmpty &&
         !available.contains(selected)) {
-      return _codexProjectProfileStore.save(params.projectPath, null);
+      return _codexProjectProfileStore.save(
+        params.projectPath,
+        null,
+        projectId: params.projectId,
+      );
     }
-    return _codexProjectProfileStore.save(params.projectPath, selected);
+    return _codexProjectProfileStore.save(
+      params.projectPath,
+      selected,
+      projectId: params.projectId,
+    );
   }
 
   List<RecentSession> _factualRecentSessions(List<RecentSession> sessions) {
@@ -1326,6 +1376,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _navigateToChat(
     String sessionId, {
     String? projectPath,
+    SessionWorkspaceInfo? workspace,
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
@@ -1347,6 +1398,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         WorkspaceSessionSelection(
           sessionId: sessionId,
           projectPath: projectPath,
+          workspace: workspace,
           gitBranch: gitBranch,
           worktreePath: worktreePath,
           isPending: isPending,
@@ -1365,6 +1417,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       Provider.codex => CodexSessionRoute(
         sessionId: sessionId,
         projectPath: projectPath,
+        workspace: workspace,
         gitBranch: gitBranch,
         worktreePath: worktreePath,
         isPending: isPending,
@@ -1377,6 +1430,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       _ => ClaudeSessionRoute(
         sessionId: sessionId,
         projectPath: projectPath,
+        workspace: workspace,
         gitBranch: gitBranch,
         worktreePath: worktreePath,
         isPending: isPending,
@@ -1403,6 +1457,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       sessionId: session.sessionId,
       projectPath: projectPath,
       gitBranch: session.gitBranch,
+      workspace: session.workspace,
     );
     final result = await SessionResumeCoordinator(bridge: bridge)
         .resume(session, resumeRequestId: resumeRequestId);
@@ -1442,10 +1497,12 @@ class _SessionListScreenState extends State<SessionListScreen>
       return;
     }
     final resumeProjectPath = session.resumeCwd ?? session.projectPath;
+    final workspace = _workspaceForNewSession(edited);
     final resumeRequestId = _beginPendingResume(
       sessionId: session.sessionId,
       projectPath: resumeProjectPath,
       gitBranch: session.gitBranch,
+      workspace: workspace,
     );
 
     final isCodex = edited.provider == Provider.codex;
@@ -1508,9 +1565,12 @@ class _SessionListScreenState extends State<SessionListScreen>
       webSearchMode: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.webSearchMode?.value : null),
-      additionalWritableRoots: isCodex && !useCodexCustomPermissions
+      additionalWritableRoots: !isCodex || !useCodexCustomPermissions
           ? edited.additionalWritableRoots
           : null,
+      projectId: edited.projectId,
+      projectName: workspace?.projectName,
+      workspaceKind: edited.workspaceKind,
       resumeRequestId: resumeRequestId,
     );
     if (!bridge.isConnected) {
@@ -1547,6 +1607,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     required String sessionId,
     required String projectPath,
     required String gitBranch,
+    SessionWorkspaceInfo? workspace,
   }) {
     final requestId =
         'session-list:$sessionId:${DateTime.now().microsecondsSinceEpoch}';
@@ -1555,6 +1616,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     _pendingResumeRequestId = requestId;
     _pendingResumeProjectPath = projectPath;
     _pendingResumeGitBranch = gitBranch;
+    _pendingResumeWorkspace = workspace;
     return requestId;
   }
 
@@ -1582,6 +1644,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _clearPendingResumeState() {
     _pendingResumeProjectPath = null;
     _pendingResumeGitBranch = null;
+    _pendingResumeWorkspace = null;
     _pendingResumeSessionId = null;
     _pendingResumeRequestId = null;
   }
@@ -1939,6 +2002,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   (
                     sessionId, {
                     String? projectPath,
+                    SessionWorkspaceInfo? workspace,
                     String? gitBranch,
                     String? worktreePath,
                     String? provider,
@@ -1949,6 +2013,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   }) => _navigateToChat(
                     sessionId,
                     projectPath: projectPath,
+                    workspace: workspace,
                     gitBranch: gitBranch,
                     worktreePath: worktreePath,
                     provider: provider == 'codex' ? Provider.codex : null,

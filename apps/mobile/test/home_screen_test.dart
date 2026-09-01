@@ -151,6 +151,53 @@ void main() {
       );
     });
 
+    test('preserves custom Project secondary roots for Claude', () {
+      final session = RecentSession(
+        sessionId: 'multi-root',
+        firstPrompt: 'test',
+        created: '2025-01-01T00:00:00Z',
+        modified: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/workspace/primary',
+        isSidechain: false,
+        workspace: const SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'project-1',
+          projectName: 'Flutter apps',
+          rootPaths: ['/workspace/primary', "/workspace/API's"],
+        ),
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/workspace/primary' && claude --resume 'multi-root' --add-dir '/workspace/API'\\''s'",
+      );
+    });
+
+    test('preserves custom Project secondary roots for Codex', () {
+      final session = RecentSession(
+        sessionId: 'thread-1',
+        provider: Provider.codex.value,
+        firstPrompt: 'test',
+        created: '2025-01-01T00:00:00Z',
+        modified: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/workspace/primary',
+        isSidechain: false,
+        workspace: const SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'project-1',
+          projectName: 'Flutter apps',
+          rootPaths: ['/workspace/primary', '/workspace/api'],
+        ),
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/workspace/primary' && codex --add-dir '/workspace/api' resume 'thread-1'",
+      );
+    });
+
     test('escapes single quotes for shell paste', () {
       final session = _session(
         projectPath: "/tmp/it's/project",
