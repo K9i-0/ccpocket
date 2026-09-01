@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.1] - 2026-09-01
+
+### Fixed
+- Preserve named Project and workspace identity across resumed sessions, prompt history, recordings, and workspace updates.
+
 ## [1.81.0] - 2026-09-01
 
 ### Added
