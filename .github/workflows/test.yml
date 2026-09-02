@@ -183,7 +183,6 @@ jobs:
         with:
           flutter-version: ${{ steps.mise.outputs.flutter_version }}
           cache: true
-          pub-cache: false
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
       - run: flutter pub get
