@@ -159,14 +159,8 @@ jobs:
           test "$TEST_RESULT" = success
 
   mobile-windows-test:
-    name: mobile-windows-test (${{ matrix.shard }}/6)
+    name: mobile-windows-test
     runs-on: windows-2022
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5]
-    env:
-      TOTAL_SHARDS: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Read Flutter version from .mise.toml
@@ -192,38 +186,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/mobile/build/test_cache
-          key: ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
-      - name: Run Flutter test shard on Windows
+            ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
+      - name: Run host-dependent Flutter tests on Windows
         shell: pwsh
         working-directory: apps/mobile
-        env:
-          SHARD_INDEX: ${{ matrix.shard }}
         run: |
-          $weightUnit = 2048
-          $allFiles = @(Get-ChildItem test -Recurse -File -Filter '*_test.dart' | Sort-Object @{ Expression = { [math]::Ceiling($_.Length / $weightUnit) }; Descending = $true }, FullName)
-          $shards = @(0..([int]$env:TOTAL_SHARDS - 1) | ForEach-Object {
-            [PSCustomObject]@{
-              Index = $_
-              Weight = [long]0
-              Bytes = [long]0
-              Files = [System.Collections.Generic.List[string]]::new()
-            }
-          })
-          foreach ($file in $allFiles) {
-            $target = $shards | Sort-Object Weight, Index | Select-Object -First 1
-            [void]$target.Files.Add($file.FullName)
-            $target.Weight += [math]::Ceiling($file.Length / $weightUnit)
-            $target.Bytes += $file.Length
-          }
-          $selected = $shards[[int]$env:SHARD_INDEX]
-          $files = @($selected.Files)
-          Write-Host "shard $env:SHARD_INDEX/$env:TOTAL_SHARDS`: $($files.Count) files, $($selected.Bytes) bytes"
-          if ($files.Count -eq 0) {
-            Write-Error "no test files assigned to shard $env:SHARD_INDEX"
-            exit 1
-          }
+          $files = @(
+            'test/file_transfer_downloader_test.dart'
+            'test/prompt_history_service_test.dart'
+            'test/services/bridge_service_usage_test.dart'
+          )
           flutter test --no-pub @files
           exit $LASTEXITCODE
 
