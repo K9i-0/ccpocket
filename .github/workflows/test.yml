@@ -16,7 +16,23 @@ jobs:
       - name: Test release tools
         run: npm run test:release-tools
 
-  mobile:
+  mobile-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: dart analyze .
+        working-directory: apps/mobile
+
+  mobile-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,13 +97,76 @@ jobs:
       - name: Stop SSH jump smoke containers
         if: always()
         run: docker compose -f tools/ssh-jump-smoke/docker-compose.yml down -v
-      - run: dart analyze .
-        working-directory: apps/mobile
-      - run: flutter test
-        working-directory: apps/mobile
 
-  mobile-windows:
+  mobile-test:
+    name: mobile-test (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      TOTAL_SHARDS: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - name: Restore Flutter test cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/mobile/build/test_cache
+          key: ${{ runner.os }}-flutter-test-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-test-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
+      - name: Run Flutter test shard
+        shell: bash
+        working-directory: apps/mobile
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+        run: |
+          mapfile -t files < <(
+            find test -type f -name '*_test.dart' | sort \
+              | awk -v n="$TOTAL_SHARDS" -v i="$SHARD_INDEX" '(NR - 1) % n == i'
+          )
+          echo "shard $SHARD_INDEX/$TOTAL_SHARDS: ${#files[@]} files"
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no test files assigned to shard $SHARD_INDEX"
+            exit 1
+          fi
+          flutter test --no-pub "${files[@]}"
+
+  mobile:
+    name: mobile
+    if: always()
+    needs: [mobile-analyze, mobile-smoke, mobile-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify mobile jobs
+        env:
+          ANALYZE_RESULT: ${{ needs.mobile-analyze.result }}
+          SMOKE_RESULT: ${{ needs.mobile-smoke.result }}
+          TEST_RESULT: ${{ needs.mobile-test.result }}
+        run: |
+          test "$ANALYZE_RESULT" = success
+          test "$SMOKE_RESULT" = success
+          test "$TEST_RESULT" = success
+
+  mobile-windows-test:
+    name: mobile-windows-test (${{ matrix.shard }}/3)
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    env:
+      TOTAL_SHARDS: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Read Flutter version from .mise.toml
@@ -108,9 +187,45 @@ jobs:
         run: flutter config --enable-windows-desktop
       - run: flutter pub get
         working-directory: apps/mobile
-      - name: Run Flutter tests on Windows
-        run: flutter test
+      - name: Restore Flutter test cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/mobile/build/test_cache
+          key: ${{ runner.os }}-flutter-test-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-test-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
+      - name: Run Flutter test shard on Windows
+        shell: pwsh
         working-directory: apps/mobile
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+        run: |
+          $allFiles = @(Get-ChildItem test -Recurse -File -Filter '*_test.dart' | Sort-Object FullName)
+          $files = @(
+            for ($index = 0; $index -lt $allFiles.Count; $index++) {
+              if (($index % [int]$env:TOTAL_SHARDS) -eq [int]$env:SHARD_INDEX) {
+                $allFiles[$index].FullName
+              }
+            }
+          )
+          Write-Host "shard $env:SHARD_INDEX/$env:TOTAL_SHARDS`: $($files.Count) files"
+          if ($files.Count -eq 0) {
+            Write-Error "no test files assigned to shard $env:SHARD_INDEX"
+            exit 1
+          }
+          flutter test --no-pub @files
+          exit $LASTEXITCODE
+
+  mobile-windows:
+    name: mobile-windows
+    if: always()
+    needs: [mobile-windows-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Windows mobile test jobs
+        env:
+          TEST_RESULT: ${{ needs.mobile-windows-test.result }}
+        run: test "$TEST_RESULT" = success
 
   bridge:
     runs-on: ubuntu-latest
