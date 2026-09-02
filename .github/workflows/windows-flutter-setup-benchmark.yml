@@ -1,0 +1,208 @@
+name: Windows Flutter setup benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      cache_salt:
+        description: Change this value to force cold benchmark caches
+        required: true
+        default: v1
+
+permissions:
+  contents: read
+
+jobs:
+  subosito:
+    name: subosito (cache=${{ matrix.cache }})
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        cache: [true, false]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start benchmark timer
+        shell: pwsh
+        run: |
+          "BENCHMARK_STARTED_AT=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" >> $env:GITHUB_ENV
+      - name: Read Flutter version from .mise.toml
+        id: flutter
+        shell: pwsh
+        run: |
+          $mise = Get-Content .mise.toml -Raw
+          if ($mise -notmatch 'flutter\s*=\s*"([^"]+)"') {
+            throw 'Could not read Flutter version from .mise.toml'
+          }
+          "version=$($Matches[1])" >> $env:GITHUB_OUTPUT
+      - name: Set up Flutter with subosito
+        id: setup
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.flutter.outputs.version }}
+          cache: ${{ matrix.cache }}
+          pub-cache: false
+          cache-key: windows-flutter-setup-benchmark-subosito-:os:-:channel:-:version:-:arch:-:hash:-${{ inputs.cache_salt }}
+      - name: Initialize Flutter
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop
+          flutter --version
+      - name: Report benchmark duration
+        if: always()
+        shell: pwsh
+        env:
+          BENCHMARK_LABEL: subosito-cache-${{ matrix.cache }}
+          CACHE_ENABLED: ${{ matrix.cache }}
+          CACHE_HIT: ${{ steps.setup.outputs.CACHE-HIT || 'false' }}
+        run: |
+          $finishedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+          $elapsed = [math]::Round(($finishedAt - [long]$env:BENCHMARK_STARTED_AT) / 1000, 1)
+          Write-Host "BENCHMARK_RESULT label=$env:BENCHMARK_LABEL seconds=$elapsed cache_enabled=$env:CACHE_ENABLED cache_hit=$env:CACHE_HIT"
+          "### $env:BENCHMARK_LABEL`n`n- Setup + first Flutter invocation: **$elapsed seconds**`n- Cache enabled: **$env:CACHE_ENABLED**`n- Cache hit: **$env:CACHE_HIT**" >> $env:GITHUB_STEP_SUMMARY
+
+  mise:
+    name: mise (cache=${{ matrix.cache }})
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        cache: [true, false]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start benchmark timer
+        shell: pwsh
+        run: |
+          "BENCHMARK_STARTED_AT=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" >> $env:GITHUB_ENV
+      - name: Set up Flutter with mise
+        id: setup
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.9.1
+          install_args: flutter
+          cache: ${{ matrix.cache }}
+          cache_key: windows-flutter-setup-benchmark-mise-{{platform}}-{{version}}-{{file_hash}}-${{ inputs.cache_salt }}
+      - name: Initialize Flutter
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop
+          flutter --version
+      - name: Report benchmark duration
+        if: always()
+        shell: pwsh
+        env:
+          BENCHMARK_LABEL: mise-cache-${{ matrix.cache }}
+          CACHE_ENABLED: ${{ matrix.cache }}
+          CACHE_HIT: ${{ steps.setup.outputs.cache-hit || 'false' }}
+        run: |
+          $finishedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+          $elapsed = [math]::Round(($finishedAt - [long]$env:BENCHMARK_STARTED_AT) / 1000, 1)
+          Write-Host "BENCHMARK_RESULT label=$env:BENCHMARK_LABEL seconds=$elapsed cache_enabled=$env:CACHE_ENABLED cache_hit=$env:CACHE_HIT"
+          "### $env:BENCHMARK_LABEL`n`n- Setup + first Flutter invocation: **$elapsed seconds**`n- Cache enabled: **$env:CACHE_ENABLED**`n- Cache hit: **$env:CACHE_HIT**" >> $env:GITHUB_STEP_SUMMARY
+
+  direct:
+    name: direct ${{ matrix.name }}
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 7zip
+            extractor: 7zip
+            cache_archive: false
+          - name: tar
+            extractor: tar
+            cache_archive: false
+          - name: 7zip-archive-cache
+            extractor: 7zip
+            cache_archive: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start benchmark timer
+        shell: pwsh
+        run: |
+          "BENCHMARK_STARTED_AT=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" >> $env:GITHUB_ENV
+      - name: Resolve Flutter archive
+        id: flutter
+        shell: pwsh
+        run: |
+          $mise = Get-Content .mise.toml -Raw
+          if ($mise -notmatch 'flutter\s*=\s*"([^"]+)"') {
+            throw 'Could not read Flutter version from .mise.toml'
+          }
+          $version = $Matches[1]
+          $manifestUrl = 'https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json'
+          $manifest = Invoke-RestMethod -Uri $manifestUrl
+          $release = $manifest.releases |
+            Where-Object { $_.version -eq $version -and $_.channel -eq 'stable' } |
+            Select-Object -First 1
+          if ($null -eq $release) {
+            throw "Flutter $version was not found in the Windows release manifest"
+          }
+          if ($release.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw "Flutter $version does not have a valid SHA-256 in the release manifest"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "archive_url=https://storage.googleapis.com/flutter_infra_release/releases/$($release.archive)" >> $env:GITHUB_OUTPUT
+          "sha256=$($release.sha256.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "FLUTTER_ARCHIVE=$env:RUNNER_TEMP\flutter.zip" >> $env:GITHUB_ENV
+          "FLUTTER_INSTALL_ROOT=$env:RUNNER_TEMP\flutter-install" >> $env:GITHUB_ENV
+      - name: Restore compressed Flutter archive
+        if: matrix.cache_archive
+        id: archive-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\flutter.zip
+          key: windows-flutter-setup-benchmark-archive-${{ steps.flutter.outputs.version }}-${{ steps.flutter.outputs.sha256 }}-${{ inputs.cache_salt }}
+      - name: Download Flutter archive
+        if: ${{ !matrix.cache_archive || steps.archive-cache.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        env:
+          FLUTTER_ARCHIVE_URL: ${{ steps.flutter.outputs.archive_url }}
+        run: |
+          curl.exe --fail --location --retry 5 --output $env:FLUTTER_ARCHIVE $env:FLUTTER_ARCHIVE_URL
+      - name: Verify Flutter archive
+        shell: pwsh
+        env:
+          EXPECTED_SHA256: ${{ steps.flutter.outputs.sha256 }}
+        run: |
+          $actual = (Get-FileHash -Path $env:FLUTTER_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:EXPECTED_SHA256) {
+            throw "Flutter archive SHA-256 mismatch: expected $env:EXPECTED_SHA256, got $actual"
+          }
+      - name: Extract Flutter archive
+        shell: pwsh
+        env:
+          EXTRACTOR: ${{ matrix.extractor }}
+        run: |
+          New-Item -ItemType Directory -Path $env:FLUTTER_INSTALL_ROOT -Force | Out-Null
+          if ($env:EXTRACTOR -eq '7zip') {
+            7z x $env:FLUTTER_ARCHIVE "-o$env:FLUTTER_INSTALL_ROOT" -y -bd
+          } elseif ($env:EXTRACTOR -eq 'tar') {
+            tar.exe -xf $env:FLUTTER_ARCHIVE -C $env:FLUTTER_INSTALL_ROOT
+          } else {
+            throw "Unsupported extractor: $env:EXTRACTOR"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "$env:EXTRACTOR failed with exit code $LASTEXITCODE"
+          }
+          "$env:FLUTTER_INSTALL_ROOT\flutter\bin" >> $env:GITHUB_PATH
+      - name: Initialize Flutter
+        shell: pwsh
+        run: |
+          flutter config --enable-windows-desktop
+          flutter --version
+      - name: Report benchmark duration
+        if: always()
+        shell: pwsh
+        env:
+          BENCHMARK_LABEL: direct-${{ matrix.name }}
+          CACHE_ENABLED: ${{ matrix.cache_archive }}
+          CACHE_HIT: ${{ steps.archive-cache.outputs.cache-hit || 'false' }}
+        run: |
+          $finishedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+          $elapsed = [math]::Round(($finishedAt - [long]$env:BENCHMARK_STARTED_AT) / 1000, 1)
+          Write-Host "BENCHMARK_RESULT label=$env:BENCHMARK_LABEL seconds=$elapsed cache_enabled=$env:CACHE_ENABLED cache_hit=$env:CACHE_HIT"
+          "### $env:BENCHMARK_LABEL`n`n- Setup + first Flutter invocation: **$elapsed seconds**`n- Cache enabled: **$env:CACHE_ENABLED**`n- Cache hit: **$env:CACHE_HIT**" >> $env:GITHUB_STEP_SUMMARY
