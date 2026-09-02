@@ -163,21 +163,56 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Read Flutter version from .mise.toml
-        id: mise
+      - name: Set up Flutter from official archive
         shell: pwsh
         run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
           $mise = Get-Content .mise.toml -Raw
           if ($mise -notmatch 'flutter\s*=\s*"([^"]+)"') {
-            Write-Error "Could not read Flutter version from .mise.toml"
-            exit 1
+            throw 'Could not read Flutter version from .mise.toml'
           }
-          "flutter_version=$($Matches[1])" >> $env:GITHUB_OUTPUT
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+          $version = $Matches[1]
+          $manifestUrl = 'https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json'
+          $manifest = Invoke-RestMethod -Uri $manifestUrl
+          $release = $manifest.releases |
+            Where-Object { $_.version -eq $version -and $_.channel -eq 'stable' } |
+            Select-Object -First 1
+          if ($null -eq $release) {
+            throw "Flutter $version was not found in the Windows release manifest"
+          }
+          if ($release.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw "Flutter $version does not have a valid SHA-256 in the release manifest"
+          }
+
+          $archive = "$env:RUNNER_TEMP\flutter.zip"
+          $installRoot = "$env:RUNNER_TEMP\flutter-install"
+          $archiveUrl = "https://storage.googleapis.com/flutter_infra_release/releases/$($release.archive)"
+          curl.exe --fail --location --retry 5 --retry-delay 2 --output $archive $archiveUrl
+          if ($LASTEXITCODE -ne 0) {
+            throw "Flutter download failed with exit code $LASTEXITCODE"
+          }
+
+          $actualSha256 = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $release.sha256.ToLowerInvariant()) {
+            throw "Flutter archive SHA-256 mismatch: expected $($release.sha256), got $actualSha256"
+          }
+
+          New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
+          7z x $archive "-o$installRoot" -y -bd
+          if ($LASTEXITCODE -ne 0) {
+            throw "7-Zip failed with exit code $LASTEXITCODE"
+          }
+          "$installRoot\flutter\bin" >> $env:GITHUB_PATH
+          "PUB_CACHE=$env:RUNNER_TEMP\pub-cache" >> $env:GITHUB_ENV
+      - name: Restore Pub cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          flutter-version: ${{ steps.mise.outputs.flutter_version }}
-          cache: false
-          pub-cache: true
+          path: ${{ runner.temp }}\pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
       - run: flutter pub get
