@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.2] - 2026-09-05
+
+### Fixed
+- Normalize unsupported GPT-6 Astra `none` and `minimal` reasoning efforts to `low` when starting, resuming, or changing Codex models.
+
 ## [1.81.1] - 2026-09-01
 
 ### Fixed
