@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.127.2] - 2026-09-05
+
+### Changed
+- Require Bridge 1.81.2 for GPT-6 Astra reasoning-effort compatibility.
+
+### Fixed
+- Hide unsupported `None` and `Minimal` effort options for GPT-6 Astra and migrate saved selections to `Light`.
+
 ## [1.127.1] - 2026-09-01
 
 ### Changed
