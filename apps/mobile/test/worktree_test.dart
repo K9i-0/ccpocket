@@ -44,6 +44,16 @@ class _BridgeWithCodexModels extends BridgeService {
   };
 }
 
+class _BridgeWithAstra extends BridgeService {
+  @override
+  List<String> get codexModels => const ['gpt-6-astra'];
+
+  @override
+  Map<String, List<String>> get codexModelReasoningEfforts => const {
+    'gpt-6-astra': ['none', 'minimal'],
+  };
+}
+
 class _BridgeWithManagedBrowserUsePolicy extends BridgeService {
   @override
   bool get codexAutoReviewDisabled => true;
@@ -1169,6 +1179,59 @@ void main() {
       expect(result!.model, 'gpt-5.4-mini');
       expect(result!.modelReasoningEffort?.value, 'low');
       expect(result!.codexSpeed, CodexSpeed.standard);
+    });
+
+    testWidgets('GPT-6 Astra migrates saved None effort to Light', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithAstra();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    permissionMode: PermissionMode.acceptEdits,
+                    model: 'gpt-6-astra',
+                    modelReasoningEffort: ReasoningEffort.none,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('dialog_codex_effort_label')),
+            )
+            .data,
+        'Light',
+      );
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.model, 'gpt-6-astra');
+      expect(result!.modelReasoningEffort, ReasoningEffort.low);
     });
 
     testWidgets('Codex quick UI identifies an Advanced-only Effort', (

@@ -45,6 +45,7 @@ import {
   codexErrorMessage,
   CodexProcess,
   CodexRpcError,
+  normalizeCodexReasoningEffortForModel,
   parseCodexGoal,
 } from "./codex-process.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
@@ -87,6 +88,21 @@ describe("CodexProcess (app-server)", () => {
       fakeChildren.push(child);
       return child;
     });
+  });
+
+  it("normalizes unsupported GPT-6 Astra reasoning efforts to low", () => {
+    expect(
+      normalizeCodexReasoningEffortForModel("gpt-6-astra", "none"),
+    ).toBe("low");
+    expect(
+      normalizeCodexReasoningEffortForModel("gpt-6-astra", "minimal"),
+    ).toBe("low");
+    expect(
+      normalizeCodexReasoningEffortForModel("gpt-6-astra", "high"),
+    ).toBe("high");
+    expect(
+      normalizeCodexReasoningEffortForModel("gpt-5.6-sol", "none"),
+    ).toBe("none");
   });
 
   afterEach(async () => {
@@ -1495,6 +1511,41 @@ describe("CodexProcess (app-server)", () => {
         model_reasoning_effort: "xhigh",
       },
     });
+
+    proc.stop();
+  });
+
+  it("starts GPT-6 Astra with low when the client requests none", async () => {
+    const proc = new CodexProcess("linux");
+
+    proc.start("/tmp/project-astra-effort", {
+      model: "gpt-6-astra",
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+      modelReasoningEffort: "none",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.method).toBe("thread/start");
+    expect(startReq.params).toMatchObject({
+      model: "gpt-6-astra",
+      config: {
+        model_reasoning_effort: "low",
+      },
+    });
+    expect(proc.modelReasoningEffort).toBe("low");
 
     proc.stop();
   });

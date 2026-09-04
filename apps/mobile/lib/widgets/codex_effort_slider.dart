@@ -43,6 +43,10 @@ ReasoningEffort preferredCodexEffort(
   ReasoningEffort? current,
 }) {
   if (current != null && availableEfforts.contains(current)) return current;
+  if ((current == ReasoningEffort.none || current == ReasoningEffort.minimal) &&
+      availableEfforts.contains(ReasoningEffort.low)) {
+    return ReasoningEffort.low;
+  }
   if (availableEfforts.contains(ReasoningEffort.high)) {
     return ReasoningEffort.high;
   }

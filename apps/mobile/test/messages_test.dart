@@ -4,6 +4,19 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('GPT-6 Astra does not support None reasoning effort', () {
+    expect(codexSupportsNoneReasoningEffort('gpt-6-astra'), isFalse);
+    expect(
+      codexSupportsReasoningEffort('gpt-6-astra', ReasoningEffort.minimal),
+      isFalse,
+    );
+    expect(
+      codexSupportsReasoningEffort('gpt-6-astra', ReasoningEffort.low),
+      isTrue,
+    );
+    expect(codexSupportsNoneReasoningEffort('gpt-5.6-sol'), isTrue);
+  });
+
   test('parses file list metadata', () {
     final message = ServerMessage.fromJson({
       'type': 'file_list',

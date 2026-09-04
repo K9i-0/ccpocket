@@ -24,6 +24,7 @@ import type { StartOptions } from "./sdk-process.js";
 import {
   codexErrorMessage,
   isCodexThreadWriterConflict,
+  normalizeCodexReasoningEffortForModel,
   CodexRpcError,
   CodexProcess,
   type CodexModelMetadata,
@@ -4108,10 +4109,13 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        const modelReasoningEffort =
-          msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"];
         const currentModel = sanitizeCodexModel(session.codexSettings?.model);
         const currentEffort = session.codexSettings?.modelReasoningEffort;
+        const modelReasoningEffort = normalizeCodexReasoningEffortForModel(
+          model,
+          (msg.modelReasoningEffort ??
+            currentEffort) as CodexStartOptions["modelReasoningEffort"],
+        );
         if (model === currentModel && modelReasoningEffort === currentEffort) {
           break;
         }

@@ -17,7 +17,11 @@ import {
   type StartOptions,
   type RewindFilesResult,
 } from "./sdk-process.js";
-import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
+import {
+  CodexProcess,
+  normalizeCodexReasoningEffortForModel,
+  type CodexStartOptions,
+} from "./codex-process.js";
 import type {
   ServerMessage,
   ProcessStatus,
@@ -317,6 +321,15 @@ export class SessionManager {
   ): string {
     const id = randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
+    const effectiveCodexOptions = codexOptions
+      ? {
+          ...codexOptions,
+          modelReasoningEffort: normalizeCodexReasoningEffortForModel(
+            codexOptions.model,
+            codexOptions.modelReasoningEffort,
+          ),
+        }
+      : undefined;
     const proc =
       effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
     const messageDelivery: ProcessMessageDeliveryState = {
@@ -392,7 +405,7 @@ export class SessionManager {
         options?.autoRename === true &&
         !options.sessionId &&
         !options.continueMode &&
-        !codexOptions?.threadId,
+        !effectiveCodexOptions?.threadId,
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
@@ -737,31 +750,34 @@ export class SessionManager {
       session.sandboxEnabled = options.sandboxEnabled;
     }
 
-    if (effectiveProvider === "codex" && codexOptions) {
+    if (effectiveProvider === "codex" && effectiveCodexOptions) {
       session.codexSettings = {
-        profile: codexOptions.profile,
-        approvalPolicy: codexOptions.approvalPolicy,
-        approvalsReviewer: codexOptions.approvalsReviewer,
-        codexPermissionsMode: codexOptions.codexPermissionsMode,
-        sandboxMode: codexOptions.sandboxMode,
-        model: codexOptions.model,
-        modelReasoningEffort: codexOptions.modelReasoningEffort,
-        serviceTier: codexOptions.serviceTier,
-        networkAccessEnabled: codexOptions.networkAccessEnabled,
-        webSearchMode: codexOptions.webSearchMode,
-        additionalWritableRoots: codexOptions.additionalWritableRoots,
+        profile: effectiveCodexOptions.profile,
+        approvalPolicy: effectiveCodexOptions.approvalPolicy,
+        approvalsReviewer: effectiveCodexOptions.approvalsReviewer,
+        codexPermissionsMode: effectiveCodexOptions.codexPermissionsMode,
+        sandboxMode: effectiveCodexOptions.sandboxMode,
+        model: effectiveCodexOptions.model,
+        modelReasoningEffort: effectiveCodexOptions.modelReasoningEffort,
+        serviceTier: effectiveCodexOptions.serviceTier,
+        networkAccessEnabled: effectiveCodexOptions.networkAccessEnabled,
+        webSearchMode: effectiveCodexOptions.webSearchMode,
+        additionalWritableRoots: effectiveCodexOptions.additionalWritableRoots,
       };
       // Resume starts know the thread id up front.
-      if (codexOptions.threadId) {
-        session.claudeSessionId = codexOptions.threadId;
+      if (effectiveCodexOptions.threadId) {
+        session.claudeSessionId = effectiveCodexOptions.threadId;
         this.saveWorktreeMapping(session);
-        if (codexOptions.profile) {
-          void saveCodexSessionProfile(codexOptions.threadId, codexOptions.profile);
+        if (effectiveCodexOptions.profile) {
+          void saveCodexSessionProfile(
+            effectiveCodexOptions.threadId,
+            effectiveCodexOptions.profile,
+          );
         }
-        if (codexOptions.additionalWritableRoots) {
+        if (effectiveCodexOptions.additionalWritableRoots) {
           void saveCodexSessionAdditionalWritableRoots(
-            codexOptions.threadId,
-            codexOptions.additionalWritableRoots,
+            effectiveCodexOptions.threadId,
+            effectiveCodexOptions.additionalWritableRoots,
           );
         }
       }
@@ -769,7 +785,7 @@ export class SessionManager {
 
     try {
       if (effectiveProvider === "codex") {
-        (proc as CodexProcess).start(effectiveCwd, codexOptions);
+        (proc as CodexProcess).start(effectiveCwd, effectiveCodexOptions);
       } else {
         (proc as SdkProcess).start(effectiveCwd, options);
       }

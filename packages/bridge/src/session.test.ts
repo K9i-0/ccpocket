@@ -74,6 +74,13 @@ vi.mock("node:fs", () => {
 });
 
 vi.mock("./codex-process.js", () => ({
+  normalizeCodexReasoningEffortForModel: (
+    model: unknown,
+    effort: string | undefined,
+  ) =>
+    model === "gpt-6-astra" && (effort === "none" || effort === "minimal")
+      ? "low"
+      : effort,
   CodexProcess: class MockCodexProcess extends EventEmitter {
     public isWaitingForInput = false;
     public start = vi.fn((_: string, __?: unknown) => {});
@@ -149,6 +156,32 @@ describe("SessionManager codex path", () => {
     expect(session?.provider).toBe("codex");
     expect(manager.list()[0].codexSettings?.codexPermissionsMode).toBe(
       "default",
+    );
+  });
+
+  it("normalizes GPT-6 Astra effort before storing and starting", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-astra",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        model: "gpt-6-astra",
+        modelReasoningEffort: "none",
+      },
+    );
+
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-astra",
+      expect.objectContaining({
+        model: "gpt-6-astra",
+        modelReasoningEffort: "low",
+      }),
+    );
+    expect(manager.get(sessionId)?.codexSettings?.modelReasoningEffort).toBe(
+      "low",
     );
   });
 

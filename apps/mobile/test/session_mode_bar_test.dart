@@ -516,6 +516,63 @@ void main() {
     );
   });
 
+  testWidgets('GPT-6 Astra excludes None and migrates it to Light', (
+    tester,
+  ) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol', 'gpt-6-astra'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+      'gpt-6-astra': [
+        'none',
+        'minimal',
+        'low',
+        'medium',
+        'high',
+        'xhigh',
+        'max',
+        'ultra',
+      ],
+    };
+    cubit.setCodexModel('gpt-5.6-sol', reasoningEffort: ReasoningEffort.none);
+    bridge.sentMessages.clear();
+
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('5.6 Sol None'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_model_advanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('6 Astra').last);
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.low);
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('model', 'gpt-6-astra'),
+    );
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('modelReasoningEffort', 'low'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('codex_effort_advanced')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('codex_effort_none_option')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('codex_effort_minimal_option')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('codex_effort_low_option')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows bar-level glow when running in plan mode', (tester) async {
     bridge.emitMessage(
       const SystemMessage(

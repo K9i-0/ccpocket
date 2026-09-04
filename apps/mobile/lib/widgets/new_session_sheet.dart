@@ -250,18 +250,22 @@ const _fallbackCodexReasoningEfforts = <ReasoningEffort>[
   ReasoningEffort.xhigh,
 ];
 
-const _ccPocketCodexReasoningOverrides = <ReasoningEffort>[
-  ReasoningEffort.none,
-];
+List<ReasoningEffort> _ccPocketCodexReasoningOverrides(String? model) =>
+    codexSupportsNoneReasoningEffort(model)
+    ? const [ReasoningEffort.none]
+    : const [];
 
 Map<String, List<ReasoningEffort>> _normalizeCodexModelReasoningEfforts(
   Map<String, List<String>> raw,
 ) {
   return raw.map((model, values) {
-    final efforts = <ReasoningEffort>[..._ccPocketCodexReasoningOverrides];
+    final efforts = <ReasoningEffort>[
+      ..._ccPocketCodexReasoningOverrides(model),
+    ];
     for (final effort
         in values.map(reasoningEffortFromRaw).whereType<ReasoningEffort>()) {
-      if (!efforts.contains(effort)) {
+      if (codexSupportsReasoningEffort(model, effort) &&
+          !efforts.contains(effort)) {
         efforts.add(effort);
       }
     }
@@ -274,10 +278,11 @@ List<ReasoningEffort> _codexReasoningEffortsForModel(
   Map<String, List<ReasoningEffort>> modelEfforts,
 ) {
   if (model != null && modelEfforts.containsKey(model)) {
-    return modelEfforts[model] ?? const [];
+    final efforts = modelEfforts[model] ?? const [];
+    if (efforts.isNotEmpty) return efforts;
   }
-  return const [
-    ..._ccPocketCodexReasoningOverrides,
+  return [
+    ..._ccPocketCodexReasoningOverrides(model),
     ..._fallbackCodexReasoningEfforts,
   ];
 }
@@ -912,7 +917,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _codexModelReasoningEfforts,
     );
     if (efforts.isNotEmpty && !efforts.contains(_modelReasoningEffort)) {
-      _modelReasoningEffort = preferredCodexEffort(efforts);
+      _modelReasoningEffort = preferredCodexEffort(
+        efforts,
+        current: _modelReasoningEffort,
+      );
     }
   }
 

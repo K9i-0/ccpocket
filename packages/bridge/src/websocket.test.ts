@@ -6878,6 +6878,26 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     ws.send.mockClear();
     (bridge as any).handleClientMessage(
       {
+        type: "set_codex_model",
+        sessionId,
+        model: "gpt-6-astra",
+        modelReasoningEffort: "none",
+      },
+      ws,
+    );
+
+    expect(session.process.setModel).toHaveBeenLastCalledWith(
+      "gpt-6-astra",
+      "low",
+    );
+    expect(session.codexSettings).toMatchObject({
+      model: "gpt-6-astra",
+      modelReasoningEffort: "low",
+    });
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
         type: "set_codex_speed",
         sessionId,
         serviceTier: "fast",

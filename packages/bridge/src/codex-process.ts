@@ -482,9 +482,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this._runtimeModel = sanitizedModel;
       this.startModel = sanitizedModel;
     }
-    if (modelReasoningEffort !== undefined) {
-      this._runtimeModelReasoningEffort =
-        normalizeReasoningEffort(modelReasoningEffort);
+    const requestedReasoningEffort =
+      modelReasoningEffort ?? this._runtimeModelReasoningEffort;
+    if (requestedReasoningEffort !== undefined) {
+      this._runtimeModelReasoningEffort = normalizeCodexReasoningEffortForModel(
+        this.model,
+        requestedReasoningEffort,
+      );
     }
     console.log(
       `[codex-process] Model changed to: ${this.model}` +
@@ -839,7 +843,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.lastTokenUsage = null;
     this.startModel = sanitizeCodexModel(options?.model);
     this._runtimeModel = undefined;
-    this._runtimeModelReasoningEffort = options?.modelReasoningEffort;
+    this._runtimeModelReasoningEffort = normalizeCodexReasoningEffortForModel(
+      this.startModel,
+      options?.modelReasoningEffort,
+    );
     this._runtimeServiceTier =
       options?.serviceTier === undefined
         ? undefined
@@ -1556,9 +1563,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
       const threadConfig: Record<string, unknown> = {};
       const requestedModel = sanitizeCodexModel(options?.model);
-      const requestedReasoningEffort = options?.modelReasoningEffort
-        ? normalizeReasoningEffort(options.modelReasoningEffort)
-        : undefined;
+      const requestedReasoningEffort = normalizeCodexReasoningEffortForModel(
+        requestedModel,
+        options?.modelReasoningEffort,
+      );
       if (requestedModel) threadParams.model = requestedModel;
       if (options?.serviceTier !== undefined) {
         threadParams.serviceTier = normalizeCodexServiceTierForRpc(
@@ -2108,9 +2116,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           sanitizeCodexModel(options?.model);
         const requestedReasoningEffort =
           this._runtimeModelReasoningEffort ??
-          (options?.modelReasoningEffort
-            ? normalizeReasoningEffort(options.modelReasoningEffort)
-            : undefined);
+          normalizeCodexReasoningEffortForModel(
+            requestedModel,
+            options?.modelReasoningEffort,
+          );
         if (requestedModel) params.model = requestedModel;
         if (requestedReasoningEffort) {
           params.effort = requestedReasoningEffort;
@@ -3820,9 +3829,16 @@ function normalizeSandboxMode(value: CodexStartOptions["sandboxMode"]): string {
   }
 }
 
-function normalizeReasoningEffort(
-  value: NonNullable<CodexStartOptions["modelReasoningEffort"]>,
-): NonNullable<CodexStartOptions["modelReasoningEffort"]> {
+export function normalizeCodexReasoningEffortForModel(
+  model: unknown,
+  value: CodexStartOptions["modelReasoningEffort"],
+): CodexStartOptions["modelReasoningEffort"] {
+  if (
+    sanitizeCodexModel(model) === "gpt-6-astra" &&
+    (value === "none" || value === "minimal")
+  ) {
+    return "low";
+  }
   return value;
 }
 

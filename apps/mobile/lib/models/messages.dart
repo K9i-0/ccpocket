@@ -218,6 +218,13 @@ String? sanitizeCodexModelName(String? model) {
   return normalized;
 }
 
+bool codexSupportsReasoningEffort(String? model, ReasoningEffort effort) =>
+    sanitizeCodexModelName(model) != 'gpt-6-astra' ||
+    (effort != ReasoningEffort.none && effort != ReasoningEffort.minimal);
+
+bool codexSupportsNoneReasoningEffort(String? model) =>
+    codexSupportsReasoningEffort(model, ReasoningEffort.none);
+
 const defaultCodexModels = <String>[
   'gpt-5.5',
   'gpt-5.4',
