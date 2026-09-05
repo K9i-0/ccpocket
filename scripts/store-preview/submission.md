@@ -1,6 +1,25 @@
-# Store submission prepared for review
+# Store submission — 1.127.2 (244)
 
-Status: awaiting the maintainer's visual/content check. No store metadata upload or review submission has run.
+Status (2026-09-05): maintainer approved the Mint assets and content. Both stores'
+metadata uploads succeeded. iOS is WAITING_FOR_REVIEW. Android's listing changes
+are in review; the prepared 1.127.2 (244) production release is saved but has not
+been sent for review.
+
+- Approved-state recheck: https://github.com/K9i-0/ccpocket/actions/runs/33936454589
+- Metadata and images upload (both succeeded): https://github.com/K9i-0/ccpocket/actions/runs/33936612925
+- Submission run (iOS succeeded, Android stopped): https://github.com/K9i-0/ccpocket/actions/runs/33936733459
+- Google Play publishing overview: https://play.google.com/console/u/0/developers/6160648729759324658/app/4972604564193312237/publishing
+
+Google Play's metadata upload sent the approved four-language listing changes
+for review before the binary submission. The Android workflow then stopped with
+FAILED_PRECONDITION under ERROR_IF_IN_REVIEW. The Console was used to prepare
+production release 1.127.2, containing only existing versionCode 244, the approved
+four-language release notes, and 100% rollout. Its final "Send 1 change for review"
+action was rejected by automatic approval review because listing changes are
+already under review. No review was canceled. Explicit authorization to add this
+release while the listing is in review, or completion of that review, is needed
+before continuing. Do not rerun the promotion workflow blindly: the release is
+already saved in the Console.
 
 - Public iOS: 1.127.1 (243), READY_FOR_DISTRIBUTION.
 - Public Android: versionCode 243, completed.
@@ -12,17 +31,15 @@ Status: awaiting the maintainer's visual/content check. No store metadata upload
 - Review SHA: a06f6793b8e919063173149929d8e02b29bdaa85
 - Source branch: feat/mint-readme-store
 
-After approval, re-read the public store state and verify the review ref still
-points to the SHA above. Upload the four-language metadata, screenshots, and
-Google Play feature graphics from that ref, then submit the existing builds.
+The public state and immutable ref were rechecked after approval and matched.
+The four-language metadata, screenshots, and Google Play feature graphics were
+uploaded from that ref. The iOS workflow submitted the existing build.
 No new app binary, tag, IAP, or subscription is included.
 
-iOS: KEEP the existing release setting; if a new App Store version must be
-created, the workflow defaults to MANUAL. Review scope is APP_VERSION_ONLY.
-Android: completed (100% rollout after approval). Managed publishing is not
-changed; if enabled, publishing still requires the existing manual action.
-The read-only workflow does not expose Managed publishing or every required
-console form, so these remain subject to the submission workflow checks.
+iOS: KEEP preserved MANUAL, confirmed by asc validation. Review scope is
+APP_VERSION_ONLY. Release requires a manual action after approval.
+Android: 100% rollout is prepared. Managed publishing is ON, confirmed in the
+Console and unchanged. Release requires a manual action after approval.
 
 The iPhone captures also serve the Android listing by explicit maintainer
 request. The app's orange accent is retained inside all genuine screenshots.
