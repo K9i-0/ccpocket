@@ -1,9 +1,9 @@
 # Store submission — 1.127.2 (244)
 
 Status (2026-09-05): maintainer approved the Mint assets and content. Both stores'
-metadata uploads succeeded. iOS is WAITING_FOR_REVIEW. Android's listing changes
-are in review; the prepared 1.127.2 (244) production release is saved but has not
-been sent for review.
+metadata uploads succeeded. iOS is WAITING_FOR_REVIEW. Android production release
+1.127.2 (244) is in review, confirmed in the Console. Android's 20 listing changes
+have been approved and are ready for manual publishing. Nothing was published.
 
 - Approved-state recheck: https://github.com/K9i-0/ccpocket/actions/runs/33936454589
 - Metadata and images upload (both succeeded): https://github.com/K9i-0/ccpocket/actions/runs/33936612925
@@ -14,12 +14,14 @@ Google Play's metadata upload sent the approved four-language listing changes
 for review before the binary submission. The Android workflow then stopped with
 FAILED_PRECONDITION under ERROR_IF_IN_REVIEW. The Console was used to prepare
 production release 1.127.2, containing only existing versionCode 244, the approved
-four-language release notes, and 100% rollout. Its final "Send 1 change for review"
-action was rejected by automatic approval review because listing changes are
-already under review. No review was canceled. Explicit authorization to add this
-release while the listing is in review, or completion of that review, is needed
-before continuing. Do not rerun the promotion workflow blindly: the release is
-already saved in the Console.
+four-language release notes, and 100% rollout. After automatic approval review
+blocked adding it to the active listing review, the maintainer explicitly
+authorized canceling and restarting that review with versionCode 244. During
+the resumed operation the listing changes became approved. The Console then
+accepted the release through its regular "Send changes for review" confirmation.
+The final publishing overview shows production release 1.127.2 under changes in
+review, all 20 listing changes ready to publish, and Managed publishing ON.
+Do not rerun the promotion workflow: the Console submission is complete.
 
 - Public iOS: 1.127.1 (243), READY_FOR_DISTRIBUTION.
 - Public Android: versionCode 243, completed.
@@ -38,7 +40,7 @@ No new app binary, tag, IAP, or subscription is included.
 
 iOS: KEEP preserved MANUAL, confirmed by asc validation. Review scope is
 APP_VERSION_ONLY. Release requires a manual action after approval.
-Android: 100% rollout is prepared. Managed publishing is ON, confirmed in the
+Android: 100% rollout is submitted. Managed publishing is ON, confirmed in the
 Console and unchanged. Release requires a manual action after approval.
 
 The iPhone captures also serve the Android listing by explicit maintainer
