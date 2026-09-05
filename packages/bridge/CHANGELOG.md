@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.3] - 2026-09-06
+
+### Fixed
+- Fetch Codex usage limits from the App Server API so refresh retrieves current quota without running a conversation. Report fetch failures instead of displaying stale session-log values.
+
 ## [1.81.2] - 2026-09-05
 
 ### Fixed
