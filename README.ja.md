@@ -1,11 +1,11 @@
 # CC Pocket
 
-CC Pocket は、Codex / Claude のコーディングエージェントセッションを操作する
-モバイル・デスクトップクライアントです。エージェントは自分の Mac / Linux / Windows
-マシン上のセルフホスト Bridge Server で実行し、iPhone、iPad、Android、
-macOS ネイティブアプリ、実験的な Linux / Windows デスクトップビルドからセッション開始、承認、質問への回答、変更レビュー、
-作業の引き継ぎを行えます。
-Linux / Windows デスクトップ版は実験的ビルドとして GitHub Releases で配布しています。
+**エージェントを、ポケットに。**
+
+CodexとClaudeを、スマホのチャット感覚で。指示を出し、次の操作を承認し、結果を確認。
+タブレットやMacでも、同じ作業の続きを開けます。
+
+[CC Pocketを見る](https://k9i-0.github.io/ccpocket/install/?lang=ja) · 無料で利用 · オープンソース
 
 [English README](README.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
 
@@ -16,10 +16,8 @@ Linux / Windows デスクトップ版は実験的ビルドとして GitHub Relea
 ## インストール
 
 1. セッションを実行するマシンに、少なくとも1つのエージェント CLI を入れます:
-   [Codex](https://github.com/openai/codex) または [Claude Code](https://docs.anthropic.com/en/docs/claude-code)。
-   macOS / Linux の Codex は、現在は standalone installer が推奨です:
-   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`。
-2. 同じマシンに [Node.js](https://nodejs.org/) 18 以上を入れます。
+   [Codex](https://github.com/openai/codex) または [Claude](https://docs.anthropic.com/en/docs/claude-code)。
+2. 同じマシンに [Node.js](https://nodejs.org/) 20.18.1 以上を入れます。
 3. CC Pocket Bridge Server を起動します。
 
 ```bash
@@ -43,14 +41,12 @@ CC Pocket は無料で利用できます。もし開発ワークフローに役�
 
 ## できること
 
-- **どこからでも Codex / Claude を操作**: アプリからセッションを開始し、CLI / App で作った Recent Sessions も再開できます。スマホ、タブレット、Mac 間で状態を引き継げます。
-- **承認待ちにすぐ対応**: コマンド、ファイル編集、MCP リクエスト、エージェントの質問に、モバイル向け UI で応答できます。
-- **ワークスペースを確認して反映**: Explorer でプロジェクトファイルを閲覧し、git diff / 画像 diff、stage、commit、push、revert に対応します。
-- **モバイルでもリッチにプロンプト作成**: Markdown、補完、音声入力、画像添付を使えます。
-- **通信が不安定でも作業を継続**: メッセージ差分の復元、オフライン中の pending 送信、オンライン復帰後の自動再送に対応しています。
-- **並列作業を安全に分離**: git worktree でセッションごとの作業ディレクトリを分けられます。
-- **マシンを管理**: 保存済みホスト、QR、mDNS、Tailscale 接続、SSH start/stop/update、プッシュ通知に対応しています。
-- **大きな画面でも使いやすく**: iPad / macOS / Linux / Windows ではチャット、Git、Explorer、画像、スクリーンショットを扱いやすいワークスペースレイアウトに適応します。
+- **チャット感覚で操作。** セッションごとに、指示・返答・承認・質問がひとつの部屋にまとまります。Markdown、音声入力、画像添付にも対応。
+- **端末をまたいで続きから。** CLIやアプリのセッションを、スマホ・タブレット・Macで再開。大きな画面ではチャット、ファイル、Gitの差分を並べて確認できます。
+- **通信が途切れても、入力を保持。** オフライン中のメッセージは再接続後に自動送信。取りこぼした応答も復元します。新しい依頼の実行には接続が必要です。
+- **つくる、見る、再生する。** CodexのImagegenで画像を生成し、チャットで確認。動画や音声ファイルもアプリ内で再生できます。
+- **確認から反映まで。** ファイル閲覧、コード・画像の差分、stage、commit、push、revertに対応。並列の作業はgit worktreeで分けられます。
+- **自分のマシンで動かす。** Mac・Linux・Windows上のBridge Serverでエージェントを実行。QRコード、保存済みホスト、Tailscaleで接続し、SSHからBridgeを管理できます。
 
 ## Why fork CC Pocket?
 

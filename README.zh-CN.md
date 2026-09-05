@@ -1,10 +1,11 @@
 # CC Pocket
 
-CC Pocket 是一款用于控制 Codex / Claude 编程代理会话的移动与桌面客户端。
-代理通过你自己的 Mac、Linux 或 Windows 主机上的自托管 Bridge Server 运行，你可以从
-iPhone、iPad、Android、原生 macOS App 或实验性的 Linux / Windows 桌面版启动会话、批准操作、回答问题、
-审查变更并继续工作。
-实验性的 Linux 和 Windows 桌面版也会通过 GitHub Releases 发布。
+**把编程代理，装进口袋。**
+
+用手机聊天的方式操作 Codex 和 Claude：发出指令、批准下一步、查看结果。
+换到平板或 Mac，也能继续同一项工作。
+
+[了解 CC Pocket](https://k9i-0.github.io/ccpocket/install/?lang=zh) · 免费使用 · 开源
 
 [English README](README.md) | [日本語 README](README.ja.md) | [한국어 README](README.ko.md)
 
@@ -15,10 +16,8 @@ iPhone、iPad、Android、原生 macOS App 或实验性的 Linux / Windows 桌�
 ## 安装
 
 1. 在运行会话的主机上安装至少一个代理 CLI：
-   [Codex](https://github.com/openai/codex) 或 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)。
-   在 macOS / Linux 上，Codex 目前推荐使用 standalone installer：
-   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`。
-2. 在同一台主机上安装 [Node.js](https://nodejs.org/) 18 或更高版本。
+   [Codex](https://github.com/openai/codex) 或 [Claude](https://docs.anthropic.com/en/docs/claude-code)。
+2. 在同一台主机上安装 [Node.js](https://nodejs.org/) 20.18.1 或更高版本。
 3. 启动 CC Pocket Bridge Server：
 
 ```bash
@@ -42,14 +41,12 @@ CC Pocket 可以免费使用。如果它对你的开发流程有帮助，欢迎�
 
 ## 可以做什么
 
-- **随时控制 Codex / Claude**：从 App 启动会话，也能恢复 CLI / App 创建的 Recent Sessions，并在手机、平板和 Mac 之间继续工作。
-- **及时处理审批**：通过移动端优先的 UI 批准命令、文件编辑、MCP 请求，并回答代理问题。
-- **查看工作区并落地变更**：用 Explorer 浏览项目文件，查看 git diff 和图片 diff，并执行 stage、commit、push 或 revert。
-- **在移动端编写丰富提示词**：支持 Markdown、补全、语音输入和图片附件。
-- **在网络不稳定时继续工作**：支持恢复消息增量、暂存离线消息，并在重新联网后自动重发。
-- **安全地并行工作**：用 git worktree 将不同会话隔离到独立工作目录。
-- **管理你的机器**：支持保存主机、二维码、mDNS、Tailscale 连接、SSH start/stop/update 和推送通知。
-- **适配大屏工作流**：在 iPad / macOS / Linux / Windows 上使用适合聊天、Git、Explorer、图片和截图的工作区布局。
+- **像聊天一样操作。** 每个会话就是一个房间，集中显示指令、回复、审批和问题。支持 Markdown、语音输入和图片附件。
+- **换个设备，继续工作。** 在手机、平板或 Mac 上恢复 CLI 或应用中的会话。大屏幕可并排显示聊天、文件和 Git 差异。
+- **断网也不丢输入。** 离线消息会暂存，重连后自动发送，并恢复遗漏的回复。执行新请求仍需要网络连接。
+- **生成、查看、播放。** 用 Codex Imagegen 生成图片，在聊天中查看结果。视频和音频文件也能直接在应用内播放。
+- **从审查到提交。** 浏览文件，查看代码和图片差异，执行 stage、commit、push 或 revert。通过 git worktree 分离并行任务。
+- **使用自己的主机。** 代理通过 Mac、Linux 或 Windows 上的 Bridge Server 运行。用二维码、已保存主机或 Tailscale 连接，也可通过 SSH 管理 Bridge。
 
 ## 工作方式
 

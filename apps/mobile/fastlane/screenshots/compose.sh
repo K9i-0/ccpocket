@@ -2,11 +2,16 @@
 # Compose store screenshots: dark background + keyword/title text + screenshot
 # Output: 1320x2868 (App Store 6.9" requirement)
 set -euo pipefail
+if [ -n "${PPO_OUTPUT_DIR:-}" ]; then
+  echo "PPO_OUTPUT_DIR belongs to the retired illustration experiment. Use a separately designed treatment for a new experiment." >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CANVAS_W=1320
 CANVAS_H=2868
-BG_COLOR="#141416"
+BG_COLOR="#101212"
+MINT="#9BDDC5"
 # Strip timestamps from PNG to avoid spurious git diffs
 PNG_STRIP="-define png:exclude-chunks=date,time"
 
@@ -52,18 +57,16 @@ FONT_KO_REG="$(resolve_font_candidates \
   Noto-Sans-CJK-KR-Regular /Library/Fonts/NotoSansCJKkr-Regular.otf \
   Pretendard-Regular /Library/Fonts/Pretendard-Regular.otf \
   Apple-SD-Gothic-Neo-Regular /System/Library/Fonts/AppleSDGothicNeo.ttc)"
-HERO_ILLUSTRATION="${SCRIPT_DIR}/assets/remote-agent-connection.png"
-
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja, keyword_zh, title_zh, keyword_ko, title_ko
 SCREENSHOTS=(
-  "01_session_list|Codex & Claude Code, anywhere|Agents run on your Mac/Linux. You stay in control.|Codex / Claude Codeをスマホで|Mac/Linuxで動かし、どこからでも操作|随时掌控 Codex 与 Claude Code|代理在 Mac/Linux 运行，手机随时操作|Codex와 Claude Code를 어디서나|Mac/Linux에서 실행하고 휴대폰으로 제어"
-  "02_recent_sessions|Continue anywhere|Resume Codex App/CLI and Claude Code sessions.|どこでも続きを再開|Codex App/CLI、Claude Codeのセッションを引き継ぎ|随处继续|继续 Codex App/CLI 和 Claude Code 会话|어디서나 이어가기|Codex App/CLI와 Claude Code 세션을 다시 열기"
-  "03_approval_list|Approve across sessions|Handle multiple approvals at a glance.|承認をまとめて処理|複数セッションの承認待ちを一目で確認|跨会话审批|一览处理多个审批|세션별 승인 처리|여러 승인 대기를 한눈에 처리"
-  "04_multi_question|Decisions built for touch|Answer agent questions without a laptop.|タッチで判断|PCを開かずにエージェントの質問へ回答|触控决策|无需打开电脑即可回答问题|터치로 판단|노트북 없이 에이전트 질문에 답변"
-  "05_explorer|Project Explorer|Browse the files behind the conversation.|プロジェクトを閲覧|会話の横でファイル構成を確認|项目 Explorer|查看对话背后的文件|프로젝트 Explorer|대화와 함께 파일 확인"
-  "06_git_actions|Review Git changes|Stage, commit, push, or revert from the app.|Git変更をレビュー|stage、commit、push、revertまで|审查 Git 变更|在应用中 stage、commit、push 或 revert|Git 변경 검토|앱에서 stage, commit, push, revert"
-  "07_images_screenshots|Visual context|Review MCP images and Mac screenshots in chat.|画像も文脈に|MCP画像やMacスクショをチャット内で確認|视觉上下文|在聊天中查看 MCP 图片和 Mac 截图|시각 맥락|채팅에서 MCP 이미지와 Mac 스크린샷 확인"
-  "08_network_resilience|Built for poor connections|Queued prompts resend when you are back online.|通信が不安定でも安心|offline中のpromptを保持し、復帰後に自動再送|弱网环境也可靠|离线提示会排队，恢复连接后自动发送|불안정한 연결도 대비|오프라인 프롬프트를 보관하고 재연결 후 자동 전송"
+  "01_conversation|Your agents.\nIn your pocket.|Codex and Claude, made for your phone.|エージェントを、\nポケットに。|CodexとClaudeを、チャット感覚で。|把编程代理，\n装进口袋。|像聊天一样使用 Codex 和 Claude。|에이전트를\n주머니에.|Codex와 Claude를 채팅처럼."
+  "02_recent_sessions|Pick up\nwhere you left off.|Open the same work on your phone or Mac.|どこでも、\n続きから。|スマホでもMacでも、同じ作業を。|换个设备，\n继续工作。|手机或 Mac，都能打开同一项工作。|어디서든\n이어서.|휴대폰이나 Mac에서 같은 작업을."
+  "03_approval_list|Your next move.\nOne tap away.|Review waiting approvals in one place.|次の判断を、\nワンタップで。|複数セッションの承認を、ひとつの一覧で。|下一步，\n轻点就好。|在一个列表中查看待审批操作。|다음 결정도\n한 번의 탭으로.|여러 세션의 승인 대기를 한곳에서."
+  "04_git_review|Review it.\nShip it.|Inspect diffs, stage, commit, and push.|差分を見て、\nそのまま反映。|レビューからコミット、pushまで。|查看差异，\n提交变更。|审查、暂存、提交和推送。|검토하고,\n반영하세요.|diff 확인부터 커밋과 push까지."
+  "05_network_resilience|Bad signal.\nKeep your place.|Queued messages send after reconnecting.|電波が途切れても、\nその先へ。|入力を保持。再接続後に自動送信。|断网也不丢\n输入。|消息暂存，重连后自动发送。|연결이 끊겨도\n입력은 그대로.|메시지를 보관하고 재연결 후 전송."
+  "06_imagegen|An idea.\nAn image.|Generate with Codex Imagegen. View in chat.|アイデアを、\n画像に。|Codex Imagegenで生成。チャットで確認。|把想法，\n变成图片。|用 Codex Imagegen 生成，在聊天中查看。|아이디어를\n이미지로.|Codex Imagegen으로 만들고 채팅에서 확인."
+  "07_video|Press play.\nStay in the app.|Preview video, seek, or go full screen.|つくった動画を、\nその場で再生。|シークも、全画面表示も。|视频预览，\n就在这里。|拖动进度，切换全屏。|만든 영상을\n바로 재생.|탐색부터 전체 화면까지."
+  "08_audio|Listen.\nKeep creating.|Play audio files without switching apps.|音も、そのまま。\nアプリの中で。|アプリを切り替えずに試聴。|听一听，\n继续创作。|无需切换应用即可播放音频。|소리도\n앱 안에서.|앱을 바꾸지 않고 오디오 재생."
 )
 
 IPAD_SCREENSHOTS=(
@@ -104,157 +107,26 @@ cleanup_obsolete_phone_outputs() {
   shopt -u nullglob
 }
 
+for entry in "${SCREENSHOTS[@]}"; do
+  IFS='|' read -r key _ <<< "$entry"
+  test -f "${SCRIPT_DIR}/en-US/${key}.png" || { echo "Missing raw capture: $key" >&2; exit 1; }
+done
+for entry in "${IPAD_SCREENSHOTS[@]}"; do
+  IFS='|' read -r key _ <<< "$entry"
+  test -f "${SCRIPT_DIR}/en-US/ipad_${key}.png" || { echo "Missing iPad capture: $key" >&2; exit 1; }
+done
+
 for lang_dir in en-US ja zh-CN ko; do
   cleanup_obsolete_phone_outputs "$lang_dir"
 done
-
-compose_hero_screenshot() {
-  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
-  local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
-  local output="${SCRIPT_DIR}/${lang_dir}/${key}_framed.png"
-
-  local text_fill="#111111"
-  local subtitle_fill="rgba(17,17,17,0.75)"
-  local bg_gradient="gradient:#FFFFFF-#F4F4F5"
-
-  local src_w src_h
-  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
-
-  local ss_y=990
-  local max_w=1020
-  local scale_ratio
-  scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
-  local scaled_w=$max_w
-  local scaled_h
-  scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
-
-  local ss_x=$(( (CANVAS_W - scaled_w) / 2 ))
-  local corner_radius=125
-
-  echo "Composing hero: $key ($lang_dir)"
-
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
-    /tmp/mask_$$.png
-
-  magick "$input" -resize "${scaled_w}x${scaled_h}" \
-    /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
-    /tmp/ss_$$.png
-
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill none -stroke "#333333" -strokewidth 12 \
-    -draw "roundrectangle 6,6 $((scaled_w-7)),$((scaled_h-7)) ${corner_radius},${corner_radius}" \
-    /tmp/bezel_$$.png
-
-  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
-
-  magick "$HERO_ILLUSTRATION" -fuzz 4% -trim +repage -resize "980x620" /tmp/hero_illustration_$$.png
-  local hero_w hero_h
-  read -r hero_w hero_h <<< "$(magick identify -format '%w %h' /tmp/hero_illustration_$$.png)"
-  local hero_x=$(( (CANVAS_W - hero_w) / 2 ))
-
-  local keyword_point=74
-  if [ "$lang_dir" = "ja" ]; then
-    keyword_point=68
-  fi
-
-  magick -background none -size "1180x120" -gravity center \
-    -font "$font_bold" -pointsize "$keyword_point" -fill "$text_fill" \
-    caption:"$keyword" /tmp/hero_keyword_$$.png
-
-  magick -background none -size "1120x140" -gravity center \
-    -font "$font_reg" -pointsize 42 -fill "$subtitle_fill" \
-    caption:"$title" /tmp/hero_title_$$.png
-
-  magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
-    /tmp/hero_keyword_$$.png -geometry "+70+104" -composite \
-    /tmp/hero_title_$$.png -geometry "+100+206" -composite \
-    /tmp/hero_illustration_$$.png -geometry "+${hero_x}+340" -composite \
-    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
-    -depth 8 $PNG_STRIP "$output"
-
-  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png \
-    /tmp/hero_illustration_$$.png /tmp/hero_keyword_$$.png /tmp/hero_title_$$.png
-  echo "  -> $output"
-}
-
-compose_ui_only_hero_screenshot() {
-  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6" output="$7"
-  local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
-  local text_fill="#111111"
-  local subtitle_fill="rgba(17,17,17,0.75)"
-  local bg_gradient="gradient:#FFFFFF-#F4F4F5"
-
-  local src_w src_h
-  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
-
-  local ss_y=430
-  local scaled_w=1160
-  local scale_ratio
-  scale_ratio=$(echo "scale=6; $scaled_w / $src_w" | bc)
-  local scaled_h
-  scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
-  local ss_x=$(( (CANVAS_W - scaled_w) / 2 ))
-  local corner_radius=145
-
-  echo "Composing PPO UI-only hero: $key ($lang_dir)"
-
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
-    /tmp/ppo_mask_$$.png
-
-  magick "$input" -resize "${scaled_w}x${scaled_h}" \
-    /tmp/ppo_mask_$$.png -alpha off -compose CopyOpacity -composite \
-    /tmp/ppo_ss_$$.png
-
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill none -stroke "#333333" -strokewidth 12 \
-    -draw "roundrectangle 6,6 $((scaled_w-7)),$((scaled_h-7)) ${corner_radius},${corner_radius}" \
-    /tmp/ppo_bezel_$$.png
-
-  magick /tmp/ppo_ss_$$.png /tmp/ppo_bezel_$$.png -composite /tmp/ppo_framed_ss_$$.png
-
-  local keyword_point=74
-  if [ "$lang_dir" = "ja" ]; then
-    keyword_point=68
-  fi
-
-  magick -background none -size "1180x120" -gravity center \
-    -font "$font_bold" -pointsize "$keyword_point" -fill "$text_fill" \
-    caption:"$keyword" /tmp/ppo_keyword_$$.png
-
-  magick -background none -size "1120x140" -gravity center \
-    -font "$font_reg" -pointsize 42 -fill "$subtitle_fill" \
-    caption:"$title" /tmp/ppo_title_$$.png
-
-  mkdir -p "$(dirname "$output")"
-  magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
-    /tmp/ppo_keyword_$$.png -geometry "+70+104" -composite \
-    /tmp/ppo_title_$$.png -geometry "+100+206" -composite \
-    /tmp/ppo_framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
-    -depth 8 $PNG_STRIP "$output"
-
-  rm -f /tmp/ppo_mask_$$.png /tmp/ppo_ss_$$.png /tmp/ppo_bezel_$$.png \
-    /tmp/ppo_framed_ss_$$.png /tmp/ppo_keyword_$$.png /tmp/ppo_title_$$.png
-  echo "  -> $output"
-}
 
 compose_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
   local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/${key}_framed.png"
 
-  # Dark theme variant: dark background + white text
-  local is_dark=false
-  case "$key" in 08_dark_theme|08_network_resilience|05_dark_workspace) is_dark=true ;; esac
-
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
-    return
-  fi
-
-  if [ "$key" = "01_session_list" ] && [ -f "$HERO_ILLUSTRATION" ]; then
-    compose_hero_screenshot "$key" "$keyword" "$title" "$lang_dir" "$font_bold" "$font_reg"
     return
   fi
 
@@ -262,77 +134,63 @@ compose_screenshot() {
   local src_w src_h
   read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
 
-  # Scale screenshot to fit with side padding
-  local pad=80
-  local max_w=$((CANVAS_W - pad * 2))
+  # Fit the complete screen inside a separate hardware bezel. Never draw the
+  # frame on top of screenshot pixels, and derive concentric corner radii.
+  local bezel=16
+  local pad=110
+  local ss_y=520
+  local max_w=$((CANVAS_W - pad * 2 - bezel * 2))
+  local max_h=$((CANVAS_H - ss_y - 90 - bezel * 2))
   local scale_ratio
-  scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
-  local scaled_w=$max_w
-  local scaled_h
-  scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
-
-  # Text area at top
-  local text_area_h=600
-
-  # Cap screenshot height if it overflows
-  local avail_h=$((CANVAS_H - text_area_h - 20))
-  if [ "$scaled_h" -gt "$avail_h" ]; then
-    scale_ratio=$(echo "scale=6; $avail_h / $src_h" | bc)
-    scaled_h=$avail_h
-    scaled_w=$(echo "$src_w * $scale_ratio / 1" | bc)
+  scale_ratio=$(echo "scale=8; $max_w / $src_w" | bc)
+  local screen_w=$max_w
+  local screen_h
+  screen_h=$(echo "$src_h * $scale_ratio / 1" | bc)
+  if [ "$screen_h" -gt "$max_h" ]; then
+    scale_ratio=$(echo "scale=8; $max_h / $src_h" | bc)
+    screen_h=$max_h
+    screen_w=$(echo "$src_w * $scale_ratio / 1" | bc)
   fi
-
-  local ss_x=$(( (CANVAS_W - scaled_w) / 2 ))
-  local ss_y=$text_area_h
-
-  local corner_radius=150
+  local device_w=$((screen_w + bezel * 2))
+  local device_h=$((screen_h + bezel * 2))
+  local ss_x=$(( (CANVAS_W - device_w) / 2 ))
+  local inner_radius=$((screen_w * 105 / 1000))
+  local outer_radius=$((inner_radius + bezel))
 
   echo "Composing: $key ($lang_dir)"
 
-  # Create rounded-corner mask for screenshot
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
+  # The mask uses luminance; the source image keeps its own native UI colors.
+  magick -size "${screen_w}x${screen_h}" xc:black \
+    -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
     /tmp/mask_$$.png
-
-  # Apply mask to resized screenshot
-  magick "$input" -resize "${scaled_w}x${scaled_h}" \
-    /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
+  magick "$input" -resize "${screen_w}x${screen_h}!" \
+    \( /tmp/mask_$$.png -alpha off \) -compose CopyOpacity -composite \
     /tmp/ss_$$.png
 
-  # Create an iPhone-like bezel (stroke around the mask)
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill none -stroke "#333333" -strokewidth 12 \
-    -draw "roundrectangle 6,6 $((scaled_w-7)),$((scaled_h-7)) ${corner_radius},${corner_radius}" \
-    /tmp/bezel_$$.png
-    
-  # Combine screenshot and bezel
-  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
+  # Keep the outer edge, bezel, and screen separate and concentric.
+  magick -size "${device_w}x${device_h}" xc:none \
+    -fill '#252828' -stroke '#525957' -strokewidth 3 \
+    -draw "roundrectangle 2,2 $((device_w-3)),$((device_h-3)) ${outer_radius},${outer_radius}" \
+    /tmp/ss_$$.png -geometry "+${bezel}+${bezel}" -composite \
+    /tmp/framed_ss_$$.png
 
-  # Compose final image with gradient background
-  local bg_gradient text_fill subtitle_fill
-  if [ "$is_dark" = true ]; then
-    bg_gradient="gradient:#1C1C1E-#111113"
-    text_fill="#F5F5F5"
-    subtitle_fill="rgba(245,245,245,0.75)"
-  else
-    bg_gradient="gradient:#FFFFFF-#F4F4F5"
-    text_fill="#111111"
-    subtitle_fill="rgba(17,17,17,0.75)"
-  fi
+  local bg_gradient="xc:$BG_COLOR"
+  local text_fill="$MINT"
+  local subtitle_fill="#A6B0AD"
 
-  magick -background none -size "1180x220" -gravity center \
-    -font "$font_bold" -pointsize 88 -fill "$text_fill" \
-    caption:"$keyword" /tmp/keyword_$$.png
+  magick -background none -size "1120x255" -gravity west \
+    -font "$font_bold" -pointsize 98 -fill "$text_fill" \
+    caption:"$(printf '%b' "$keyword")" /tmp/keyword_$$.png
 
-  magick -background none -size "1160x130" -gravity center \
-    -font "$font_reg" -pointsize 50 -fill "$subtitle_fill" \
+  magick -background none -size "1120x150" -gravity west \
+    -font "$font_reg" -pointsize 44 -fill "$subtitle_fill" \
     caption:"$title" /tmp/title_$$.png
 
   magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
     /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
-    /tmp/keyword_$$.png -geometry "+70+118" -composite \
-    /tmp/title_$$.png -geometry "+80+274" -composite \
-    -depth 8 $PNG_STRIP "$output"
+    /tmp/keyword_$$.png -geometry "+100+60" -composite \
+    /tmp/title_$$.png -geometry "+100+310" -composite \
+    -alpha off -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png \
     /tmp/keyword_$$.png /tmp/title_$$.png
@@ -388,10 +246,6 @@ compose_ipad_screenshot() {
   local input="${SCRIPT_DIR}/${src_dir}/ipad_${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/ipad_${key}_framed.png"
 
-  # Dark theme variant: dark background + white text
-  local is_dark=false
-  case "$key" in 05_dark_workspace) is_dark=true ;; esac
-
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
     return
@@ -410,7 +264,7 @@ compose_ipad_screenshot() {
 
   local text_area_h=360
 
-  local avail_h=$((IPAD_CANVAS_H - text_area_h - 20))
+  local avail_h=$((IPAD_CANVAS_H - text_area_h - 100))
   if [ "$scaled_h" -gt "$avail_h" ]; then
     scale_ratio=$(echo "scale=6; $avail_h / $src_h" | bc)
     scaled_h=$avail_h
@@ -456,17 +310,9 @@ compose_ipad_screenshot() {
     /tmp/outline_$$.png
   magick "$tmp_device" /tmp/outline_$$.png -composite "$tmp_device"
 
-  # Compose final image with gradient background
-  local bg_gradient text_fill subtitle_fill
-  if [ "$is_dark" = true ]; then
-    bg_gradient="gradient:#1C1C1E-#111113"
-    text_fill="#F5F5F5"
-    subtitle_fill="rgba(245,245,245,0.75)"
-  else
-    bg_gradient="gradient:#FFFFFF-#F4F4F5"
-    text_fill="#111111"
-    subtitle_fill="rgba(17,17,17,0.75)"
-  fi
+  local bg_gradient="xc:$BG_COLOR"
+  local text_fill="$MINT"
+  local subtitle_fill="#A6B0AD"
 
   magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" "$bg_gradient" \
     "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
@@ -475,7 +321,7 @@ compose_ipad_screenshot() {
     -annotate +0+96 "$keyword" \
     -font "$font_reg" -pointsize 62 -fill "$subtitle_fill" \
     -annotate +0+260 "$title" \
-    -depth 8 $PNG_STRIP "$output"
+    -alpha off -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
   echo "  -> $output"
@@ -516,7 +362,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 README_IMG_DIR="${REPO_ROOT}/docs/images"
 mkdir -p "$README_IMG_DIR"
 
-README_KEYS=("01_session_list" "02_recent_sessions" "05_explorer" "06_git_actions")
+README_KEYS=("01_conversation" "03_approval_list" "06_imagegen" "07_video")
 
 for lang_dir in en-US ja zh-CN ko; do
   README_INPUTS=()
@@ -530,7 +376,7 @@ for lang_dir in en-US ja zh-CN ko; do
     README_OUTPUT="${README_IMG_DIR}/screenshots-${lang_dir}.png"
   fi
 
-  magick "${README_INPUTS[@]}" +append -resize 1200x "$README_OUTPUT"
+  magick "${README_INPUTS[@]}" +append -resize 1800x -alpha off -depth 8 $PNG_STRIP "$README_OUTPUT"
   echo "  -> $README_OUTPUT ($(du -h "$README_OUTPUT" | cut -f1))"
 done
 
@@ -588,42 +434,4 @@ for lang_dir in en-US ja zh-CN ko; do
   echo "  Android -> $android_ss_dir/ ($(ls "$android_ss_dir" | wc -l | tr -d ' ') files)"
 done
 
-# === Optional Product Page Optimization upload sets ===
-# Set PPO_OUTPUT_DIR to prepare two iPhone-only treatments without changing
-# the checked-in store upload directories. iPad screenshots remain inherited
-# from the original product page so the test isolates the first iPhone image.
-if [ -n "${PPO_OUTPUT_DIR:-}" ]; then
-  echo ""
-  echo "=== Product Page Optimization ==="
-
-  IFS='|' read -r ppo_key ppo_kw_en ppo_tt_en ppo_kw_ja ppo_tt_ja ppo_kw_zh ppo_tt_zh ppo_kw_ko ppo_tt_ko <<< "${SCREENSHOTS[0]}"
-
-  prepare_ppo_locale() {
-    local source_lang="$1" ios_lang="$2" keyword="$3" title="$4" font_bold="$5" font_reg="$6"
-    local connection_dir="${PPO_OUTPUT_DIR}/connection/${ios_lang}"
-    local ui_only_dir="${PPO_OUTPUT_DIR}/ui-only/${ios_lang}"
-    mkdir -p "$connection_dir" "$ui_only_dir"
-
-    local entry key source
-    for entry in "${SCREENSHOTS[@]}"; do
-      IFS='|' read -r key _ <<< "$entry"
-      source="${SCRIPT_DIR}/store/${ios_lang}/${key}.png"
-      cp "$source" "$connection_dir/${key}.png"
-      cp "$source" "$ui_only_dir/${key}.png"
-    done
-
-    compose_ui_only_hero_screenshot \
-      "$ppo_key" "$keyword" "$title" "$source_lang" "$font_bold" "$font_reg" \
-      "$ui_only_dir/${ppo_key}.png"
-  }
-
-  prepare_ppo_locale "en-US" "en-US" "$ppo_kw_en" "$ppo_tt_en" "$FONT_EN_BOLD" "$FONT_EN_REG"
-  prepare_ppo_locale "ja" "ja" "$ppo_kw_ja" "$ppo_tt_ja" "$FONT_JA_BOLD" "$FONT_JA_REG"
-  prepare_ppo_locale "zh-CN" "zh-Hans" "$ppo_kw_zh" "$ppo_tt_zh" "$FONT_ZH_BOLD" "$FONT_ZH_REG"
-  prepare_ppo_locale "ko" "ko" "$ppo_kw_ko" "$ppo_tt_ko" "$FONT_KO_BOLD" "$FONT_KO_REG"
-
-  echo "  PPO sets -> ${PPO_OUTPUT_DIR}"
-fi
-
-echo ""
 echo "Done! Framed screenshots have '_framed' suffix."

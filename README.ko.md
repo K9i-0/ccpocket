@@ -1,10 +1,11 @@
 # CC Pocket
 
-CC Pocket은 Codex / Claude 코딩 에이전트 세션을 제어하는 모바일 및 데스크톱 클라이언트입니다.
-에이전트는 사용자의 Mac, Linux 또는 Windows 머신에 셀프 호스팅한 Bridge Server에서 실행하고,
-iPhone, iPad, Android, macOS 네이티브 앱, 실험적인 Linux / Windows 데스크톱 빌드에서 세션 시작, 승인, 질문 응답, 변경 리뷰,
-작업 이어받기를 할 수 있습니다.
-실험적인 Linux 및 Windows 데스크톱 빌드도 GitHub Releases에서 제공합니다.
+**에이전트를 주머니에.**
+
+휴대폰 채팅처럼 Codex와 Claude를 사용하세요. 작업을 요청하고, 다음 단계를 승인하고,
+결과를 확인하세요. 태블릿이나 Mac에서도 같은 작업을 이어갈 수 있습니다.
+
+[CC Pocket 둘러보기](https://k9i-0.github.io/ccpocket/install/?lang=ko) · 무료 사용 · 오픈 소스
 
 [English README](README.md) | [日本語 README](README.ja.md) | [简体中文 README](README.zh-CN.md)
 
@@ -15,10 +16,8 @@ iPhone, iPad, Android, macOS 네이티브 앱, 실험적인 Linux / Windows 데�
 ## 설치
 
 1. 세션을 실행할 머신에 에이전트 CLI를 하나 이상 설치합니다:
-   [Codex](https://github.com/openai/codex) 또는 [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
-   macOS / Linux의 Codex는 현재 standalone installer 사용이 권장됩니다:
-   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`.
-2. 같은 머신에 [Node.js](https://nodejs.org/) 18 이상을 설치합니다.
+   [Codex](https://github.com/openai/codex) 또는 [Claude](https://docs.anthropic.com/en/docs/claude-code).
+2. 같은 머신에 [Node.js](https://nodejs.org/) 20.18.1 이상을 설치합니다.
 3. CC Pocket Bridge Server를 시작합니다.
 
 ```bash
@@ -42,14 +41,12 @@ CC Pocket은 무료로 사용할 수 있습니다. 개발 워크플로에 도움
 
 ## 할 수 있는 일
 
-- **어디서든 Codex / Claude 제어**: 앱에서 세션을 시작하고, CLI / App에서 만든 Recent Sessions도 다시 열며, 휴대폰, 태블릿, Mac 사이에서 작업을 이어갈 수 있습니다.
-- **승인 흐름을 놓치지 않기**: 모바일에 맞춘 UI로 명령, 파일 편집, MCP 요청을 승인하고 에이전트 질문에 응답할 수 있습니다.
-- **워크스페이스 확인 후 반영**: Explorer로 프로젝트 파일을 살펴보고, git diff와 이미지 diff를 검토한 뒤 stage, commit, push, revert를 실행할 수 있습니다.
-- **모바일에서도 풍부한 프롬프트 작성**: Markdown, 자동완성, 음성 입력, 이미지 첨부를 사용할 수 있습니다.
-- **네트워크가 불안정해도 계속 작업**: 누락된 메시지 델타 복구, 오프라인 메시지 pending 처리, 재연결 후 자동 재전송을 지원합니다.
-- **병렬 작업을 안전하게 분리**: git worktree로 세션별 작업 디렉터리를 나눌 수 있습니다.
-- **머신 관리**: 저장된 호스트, QR 코드, mDNS 검색, Tailscale 연결, SSH start/stop/update, 푸시 알림을 지원합니다.
-- **큰 화면에서도 편하게 사용**: iPad / macOS / Linux / Windows에서는 채팅, Git, Explorer, 이미지, 스크린샷을 다루기 쉬운 워크스페이스 레이아웃에 맞춰집니다.
+- **채팅처럼 조작.** 세션마다 요청, 응답, 승인, 질문이 하나의 대화방에 모입니다. Markdown, 음성 입력, 이미지 첨부도 지원합니다.
+- **기기를 바꿔도 이어서.** CLI나 앱의 세션을 휴대폰, 태블릿, Mac에서 다시 여세요. 큰 화면에서는 채팅, 파일, Git 변경 내용을 나란히 볼 수 있습니다.
+- **연결이 끊겨도 입력은 유지.** 오프라인 메시지를 보관했다가 재연결 후 자동 전송하고, 놓친 응답도 복구합니다. 새 요청을 실행하려면 연결이 필요합니다.
+- **만들고, 보고, 재생.** Codex Imagegen으로 이미지를 만들고 채팅에서 확인하세요. 동영상과 오디오 파일도 앱 안에서 재생할 수 있습니다.
+- **검토부터 반영까지.** 파일 탐색, 코드·이미지 diff, stage, commit, push, revert를 지원합니다. 병렬 작업은 git worktree로 분리할 수 있습니다.
+- **내 컴퓨터에서 실행.** Mac, Linux, Windows의 Bridge Server로 에이전트를 실행합니다. QR 코드, 저장된 호스트, Tailscale로 연결하고 SSH로 Bridge를 관리하세요.
 
 ## 작동 방식
 
