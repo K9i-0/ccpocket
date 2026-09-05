@@ -21,6 +21,7 @@ import {
   normalizeCodexServiceTierForRpc,
 } from "./codex-service-tier.js";
 import { resolvePlatformPath } from "./path-utils.js";
+import type { CodexRateLimitsResponse } from "./usage.js";
 
 export { buildCodexSpawnSpec };
 
@@ -777,7 +778,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     void this.bootstrap(projectPath, options);
   }
 
-  async initializeOnly(projectPath: string): Promise<void> {
+  async initializeOnly(projectPath: string, timeoutMs?: number): Promise<void> {
     if (this.transport) {
       this.stop();
     }
@@ -785,13 +786,21 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     try {
       this.prepareLaunch(projectPath);
       this.launchAppServer(projectPath);
-      await this.initializeRpcConnection();
+      await this.initializeRpcConnection(timeoutMs);
       this.setStatus("idle");
       this.resolveReadiness();
     } catch (error) {
       this.rejectReadiness(error);
       throw error;
     }
+  }
+
+  async readRateLimits(timeoutMs = 10_000): Promise<CodexRateLimitsResponse> {
+    return (await this.request(
+      "account/rateLimits/read",
+      undefined,
+      timeoutMs,
+    )) as CodexRateLimitsResponse;
   }
 
   waitUntilReady(): Promise<void> {
@@ -1769,17 +1778,21 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     );
   }
 
-  private async initializeRpcConnection(): Promise<void> {
-    await this.request("initialize", {
-      clientInfo: {
-        name: "ccpocket_bridge",
-        version: "1.0.0",
-        title: "ccpocket bridge",
+  private async initializeRpcConnection(timeoutMs?: number): Promise<void> {
+    await this.request(
+      "initialize",
+      {
+        clientInfo: {
+          name: "ccpocket_bridge",
+          version: "1.0.0",
+          title: "ccpocket bridge",
+        },
+        capabilities: {
+          experimentalApi: true,
+        },
       },
-      capabilities: {
-        experimentalApi: true,
-      },
-    });
+      timeoutMs,
+    );
     this.notify("initialized", {});
   }
 

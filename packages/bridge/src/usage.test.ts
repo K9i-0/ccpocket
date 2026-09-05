@@ -1,16 +1,16 @@
-import { describe, expect, it } from "vitest";
-import { isGlobalCodexRateLimit, mapCodexRateLimits } from "./usage.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchAllUsage, fetchCodexUsage, isGlobalCodexRateLimit, mapCodexRateLimits } from "./usage.js";
 
 const fiveHourWindow = {
-  used_percent: 35,
-  window_minutes: 300,
-  resets_at: 1_800_000_000,
+  usedPercent: 35,
+  windowDurationMins: 300,
+  resetsAt: 1_800_000_000,
 };
 
 const sevenDayWindow = {
-  used_percent: 80,
-  window_minutes: 10_080,
-  resets_at: 1_800_500_000,
+  usedPercent: 80,
+  windowDurationMins: 10_080,
+  resetsAt: 1_800_500_000,
 };
 
 describe("mapCodexRateLimits", () => {
@@ -55,7 +55,7 @@ describe("mapCodexRateLimits", () => {
 
 describe("isGlobalCodexRateLimit", () => {
   it("accepts the account-wide Codex limit", () => {
-    expect(isGlobalCodexRateLimit({ limit_id: "codex" })).toBe(true);
+    expect(isGlobalCodexRateLimit({ limitId: "codex" })).toBe(true);
   });
 
   it("accepts legacy rate limits without an identifier", () => {
@@ -63,8 +63,93 @@ describe("isGlobalCodexRateLimit", () => {
   });
 
   it("rejects model-specific Codex limits", () => {
-    expect(isGlobalCodexRateLimit({ limit_id: "codex_bengalfox" })).toBe(
+    expect(isGlobalCodexRateLimit({ limitId: "codex_bengalfox" })).toBe(
       false,
     );
+  });
+});
+
+const { initializeMock, readMock, stopMock } = vi.hoisted(() => ({
+  initializeMock: vi.fn(),
+  readMock: vi.fn(),
+  stopMock: vi.fn(),
+}));
+
+vi.mock("./codex-process.js", () => ({
+  CodexProcess: class {
+    initializeOnly = initializeMock;
+    readRateLimits = readMock;
+    stop = stopMock;
+  },
+}));
+
+describe("fetchCodexUsage", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    initializeMock.mockResolvedValue(undefined);
+    readMock.mockResolvedValue({ rateLimits: { primary: sevenDayWindow } });
+  });
+
+  it("reads fresh account limits on each refresh without a session", async () => {
+    expect((await fetchAllUsage())[0].sevenDay?.utilization).toBe(80);
+    readMock.mockResolvedValue({
+      rateLimits: { primary: { ...sevenDayWindow, usedPercent: 100 } },
+    });
+    expect((await fetchAllUsage())[0].sevenDay?.utilization).toBe(100);
+    expect(readMock).toHaveBeenCalledTimes(2);
+    expect(stopMock).toHaveBeenCalledTimes(2);
+    expect(initializeMock).toHaveBeenCalledWith(expect.any(String), 10_000);
+  });
+
+  it("prefers the account-wide bucket over the legacy view", async () => {
+    readMock.mockResolvedValue({
+      rateLimits: { limitId: "codex_other", primary: fiveHourWindow },
+      rateLimitsByLimitId: {
+        codex: { limitId: "codex", primary: sevenDayWindow },
+      },
+    });
+    expect((await fetchCodexUsage()).sevenDay?.utilization).toBe(80);
+  });
+
+  it("shares concurrent requests without caching later reads", async () => {
+    const first = fetchCodexUsage();
+    const second = fetchCodexUsage();
+    expect(first).toBe(second);
+    await Promise.all([first, second]);
+    expect(readMock).toHaveBeenCalledTimes(1);
+    await fetchCodexUsage();
+    expect(readMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears old quota on RPC failure and allows retry", async () => {
+    await fetchCodexUsage();
+    readMock.mockRejectedValueOnce(new Error("Unauthorized"));
+    expect(await fetchCodexUsage()).toEqual({
+      provider: "codex", fiveHour: null, sevenDay: null,
+      error: "Failed to fetch Codex usage: Unauthorized",
+    });
+    expect(stopMock).toHaveBeenCalledTimes(2);
+    expect((await fetchCodexUsage()).sevenDay?.utilization).toBe(80);
+  });
+
+  it("stops the connection when initialization fails", async () => {
+    initializeMock.mockRejectedValue(new Error("initialize timed out"));
+    expect((await fetchCodexUsage()).error).toContain("initialize timed out");
+    expect(readMock).not.toHaveBeenCalled();
+    expect(stopMock).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { rateLimits: { limitId: "codex_other", primary: sevenDayWindow } },
+    { rateLimits: { primary: null, secondary: null } },
+    { rateLimits: { primary: { ...sevenDayWindow, resetsAt: null } } },
+    { rateLimits: { primary: { ...sevenDayWindow, usedPercent: NaN } } },
+    { rateLimits: { primary: { ...sevenDayWindow, windowDurationMins: 60 } } },
+  ])("returns an error when no supported account quota is available: %j", async (response) => {
+    readMock.mockResolvedValue(response);
+    expect(await fetchCodexUsage()).toMatchObject({
+      fiveHour: null, sevenDay: null, error: expect.any(String),
+    });
+    expect(stopMock).toHaveBeenCalledOnce();
   });
 });
