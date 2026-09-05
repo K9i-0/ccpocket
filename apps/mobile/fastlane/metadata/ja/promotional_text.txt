@@ -1,1 +1,1 @@
-自分のMac/Linuxで動くCodex / Claudeをスマホから操作。承認、Explorer、Gitレビュー、端末間の引き継ぎに対応。
+スマホでもMacでも、同じ作業の続きから。チャット感覚の承認・レビューに、Codex Imagegenでの画像生成、動画・音声の再生まで。

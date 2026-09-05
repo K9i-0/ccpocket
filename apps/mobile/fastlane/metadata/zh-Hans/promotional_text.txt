@@ -1,1 +1,1 @@
-从手机控制运行在自己 Mac/Linux 上的 Codex / Claude。审批、Explorer、Git 审查和跨设备继续工作。
+手机或Mac，都能继续同一项工作。通过聊天界面审批和审查变更，用Codex Imagegen生成图片，在应用内播放视频和音频。
