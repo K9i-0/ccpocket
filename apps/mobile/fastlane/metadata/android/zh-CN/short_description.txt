@@ -1,1 +1,1 @@
-从手机控制 Codex 和 Claude
+像聊天一样使用Codex和Claude。审批、审查变更，换个设备继续工作。

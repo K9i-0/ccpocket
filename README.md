@@ -1,10 +1,11 @@
 # CC Pocket
 
-CC Pocket is a mobile and desktop app for controlling Codex and Claude coding-agent sessions.
-Run the agents through a self-hosted Bridge Server on your own Mac, Linux, or Windows machine,
-then start sessions, approve actions, answer questions, review changes, and pick up work
-from iPhone, iPad, Android, native macOS, or experimental Linux/Windows desktop builds.
-Experimental Linux and Windows desktop builds are also available from GitHub Releases.
+**Your agents. In your pocket.**
+
+Codex and Claude, with a chat UI made for your phone. Start a task, approve the next
+step, and review the result. Pick up the same work on your tablet or Mac.
+
+[Explore CC Pocket](https://k9i-0.github.io/ccpocket/install/) · Free to use · Open source
 
 [日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
 
@@ -15,10 +16,8 @@ Experimental Linux and Windows desktop builds are also available from GitHub Rel
 ## Install
 
 1. Install at least one agent CLI on the machine that will run your sessions:
-   [Codex](https://github.com/openai/codex) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
-   For Codex on macOS/Linux, the current standalone installer is:
-   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`.
-2. Install [Node.js](https://nodejs.org/) 18 or newer on that same machine.
+   [Codex](https://github.com/openai/codex) or [Claude](https://docs.anthropic.com/en/docs/claude-code).
+2. Install [Node.js](https://nodejs.org/) 20.18.1 or newer on that same machine.
 3. Start the CC Pocket Bridge Server:
 
 ```bash
@@ -44,14 +43,12 @@ New to mobile coding agents? See [How to run Codex from iPhone or Android](https
 
 ## What You Can Do
 
-- **Control Codex and Claude anywhere**: start sessions from the app, resume recent sessions created in the CLI or app, and move between phone, tablet, and Mac without losing context.
-- **Stay in the approval loop**: approve commands, file edits, MCP requests, and agent questions from a mobile-first UI without returning to your keyboard.
-- **Explore and review the workspace**: browse project files with Explorer, inspect git diffs and image diffs, stage changes, commit, push, or revert them.
-- **Write rich prompts on mobile**: use Markdown, completions, voice input, and image attachments.
-- **Keep working on spotty networks**: recover missed streaming updates, queue outgoing messages while offline, and resend automatically after reconnecting.
-- **Work in parallel safely**: run sessions in separate git worktrees and keep long-running work isolated.
-- **Manage your machines**: save hosts, connect with QR codes or mDNS discovery, use Tailscale, start/stop/update over SSH, and receive push notifications.
-- **Use larger screens when helpful**: CC Pocket adapts to iPad, macOS, Linux, and Windows with workspace layouts for chat, Git, Explorer, screenshots, and images.
+- **Chat first.** Each session is a room for prompts, replies, approvals, and questions. Markdown, voice input, and image attachments make it easier to give direction on mobile.
+- **Continue across devices.** Resume sessions from the CLI or app on your phone, tablet, or Mac. Larger screens show chat, files, and Git changes side by side.
+- **Keep your place on weak networks.** Outgoing messages wait while you are offline and resend after reconnecting. Missed streaming updates are recovered. New agent requests need a connection.
+- **Create and preview media.** Generate images with Codex Imagegen, open results in chat, and play video or audio files in the app.
+- **Review and ship.** Browse files, inspect code and image diffs, stage changes, commit, push, or revert. Use git worktrees to separate parallel tasks.
+- **Use your own machines.** Agents run on your Mac, Linux, or Windows host through the Bridge Server. Connect by QR code, saved host, or Tailscale; manage the Bridge over SSH.
 
 ## Why Fork CC Pocket?
 

@@ -1,55 +1,37 @@
-#!/bin/bash
-# Generate Android feature graphics using Playwright CLI
+#!/usr/bin/env bash
+# Mint feature graphics, using the same real iPhone captures as the store set.
 set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ANDROID_META="$ROOT/apps/mobile/fastlane/metadata/android"
-SCREENSHOTS_ROOT="$ROOT/apps/mobile/fastlane/screenshots"
+META="$ROOT/apps/mobile/fastlane/metadata/android"
+RAW="$ROOT/apps/mobile/fastlane/screenshots/en-US"
+ICON="$ROOT/apps/mobile/assets/icon.png"
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
 
-# Use iOS app icon (1024x1024, with background — iOS-style rounded corners applied via CSS)
-ICON="$ROOT/apps/mobile/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png"
+magick "$RAW/01_conversation.png" -resize 200x "$work_dir/chat.png"
+magick "$RAW/06_imagegen.png" -resize 200x "$work_dir/imagegen.png"
+magick "$ICON" -resize 40x40 "$work_dir/icon.png"
 
 generate() {
-  local lang="$1"
-  local template_name="template-${lang}.html"
-  local screenshots_dir output_dir temp_html
-
-  if [ "$lang" = "ja" ]; then
-    screenshots_dir="$SCREENSHOTS_ROOT/ja"
-    output_dir="$ANDROID_META/ja-JP/images"
-  elif [ "$lang" = "zh-CN" ]; then
-    screenshots_dir="$SCREENSHOTS_ROOT/zh-CN"
-    output_dir="$ANDROID_META/zh-CN/images"
-  else
-    screenshots_dir="$SCREENSHOTS_ROOT/en-US"
-    output_dir="$ANDROID_META/en-US/images"
-  fi
-
-  echo "📸 Generating $(echo $lang | tr '[:lower:]' '[:upper:]') feature graphic..."
-
-  temp_html="$SCRIPT_DIR/_temp_${lang}.html"
-
-  # Use raw screenshots (no frame, no cropping)
-  sed -e "s|ICON_PATH|file://${ICON}|g" \
-      -e "s|SCREENSHOT_1_PATH|file://${screenshots_dir}/01_session_list.png|g" \
-      -e "s|SCREENSHOT_2_PATH|file://${screenshots_dir}/04_markdown_input.png|g" \
-      "$SCRIPT_DIR/$template_name" > "$temp_html"
-
-  npx playwright screenshot \
-    --viewport-size "1024,500" \
-    "file://${temp_html}" \
-    "${output_dir}/featureGraphic.png"
-
-  rm -f "$temp_html"
-  echo "✅ $(echo $lang | tr '[:lower:]' '[:upper:]'): ${output_dir}/featureGraphic.png"
+  local locale="$1" headline="$2" font="$3" point="$4"
+  local output="$META/$locale/images/featureGraphic.png"
+  mkdir -p "$(dirname "$output")"
+  magick -background none -size 540x200 -gravity west \
+    -font "$font" -pointsize "$point" -fill '#9BDDC5' \
+    caption:"$(printf '%b' "$headline")" "$work_dir/title.png"
+  magick -size 1024x500 xc:'#101212' \
+    "$work_dir/icon.png" -geometry +52+54 -composite \
+    -font Helvetica-Bold -pointsize 24 -fill '#F4F5F4' -annotate +106+83 'CC Pocket' \
+    "$work_dir/title.png" -geometry +52+150 -composite \
+    -font Helvetica -pointsize 20 -fill '#A6B0AD' -annotate +54+387 'Codex / Claude' \
+    "$work_dir/chat.png" -geometry +614+56 -composite \
+    "$work_dir/imagegen.png" -geometry +836+130 -composite \
+    -alpha off -depth 8 -define png:exclude-chunks=date,time "$output"
+  echo "$output"
 }
 
-echo "🎨 Generating feature graphics..."
-echo ""
-generate "en"
-generate "ja"
-generate "zh-CN"
-
-echo ""
-echo "🎉 Done!"
+generate en-US 'Your agents.\nIn your pocket.' Helvetica-Bold 58
+generate ja-JP 'エージェントを、\nポケットに。' '/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc' 52
+generate zh-CN '把编程代理，\n装进口袋。' PingFang-SC-Semibold 56
+generate ko-KR '에이전트를\n주머니에.' Apple-SD-Gothic-Neo-Bold 60
