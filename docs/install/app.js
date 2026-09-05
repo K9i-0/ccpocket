@@ -10,7 +10,7 @@ const english = Object.fromEntries(
 Object.assign(english, {
   metaTitle: "CC Pocket — Your agents. In your pocket.",
   metaDescription:
-    "Codex and Claude Code, built for your phone. Chat, approve, review, and pick up the same work on your Mac. Free and open source.",
+    "Codex and Claude, built for your phone. Chat, approve, review, and pick up the same work on your Mac. Free and open source.",
   copy: "Copy command",
   copied: "Copied",
   copyFailed: "Select and copy the command above.",
@@ -24,7 +24,7 @@ const translations = {
   ja: {
     metaTitle: "CC Pocket — エージェントを、ポケットに。",
     metaDescription:
-      "CodexとClaude Codeを、スマホのためのUIで。チャット、承認、差分レビュー。Macと同じセッションを、外出先でも。無料・オープンソース。",
+      "CodexとClaudeを、スマホのためのUIで。チャット、承認、差分レビュー。Macと同じセッションを、外出先でも。無料・オープンソース。",
     skip: "本文へ移動",
     navExperience: "できること",
     navSetup: "はじめ方",
@@ -32,7 +32,7 @@ const translations = {
     hero1: "エージェントを、",
     hero2: "ポケットに。",
     heroDesc:
-      "CodexとClaude Codeを、スマホのためのUIで。思いついたら話しかけて、どこからでも開発の続きを。",
+      "CodexとClaudeを、スマホのためのUIで。思いついたら話しかけて、どこからでも開発の続きを。",
     getApp: "CC Pocketを入手",
     quickStart: "はじめ方",
     freeNote: "無料。オープンソース。いつもの開発環境で。",
@@ -70,8 +70,7 @@ const translations = {
     mediaIllustration: "メディアプレビューのイメージ",
     setupKicker: "04 — はじめよう",
     setupTitle: "コマンドひとつで接続。",
-    setupDesc:
-      "PCにNode.js 20.18.1以上と、CodexまたはClaude Codeをご用意ください。",
+    setupDesc: "PCにNode.js 20.18.1以上と、CodexまたはClaudeをご用意ください。",
     step1: "Bridgeを起動。",
     step1Desc: "エージェントを使うPCで実行します。",
     step2: "QRをスキャン。",
@@ -86,13 +85,13 @@ const translations = {
     faqTitle: "気になること。",
     faq1Q: "エージェントはどこで動きますか？",
     faq1A:
-      "自分のPC上で、Bridge Serverを通じて動きます。CC PocketはそのPCに接続するクライアントです。AIへのリクエストは、お使いのCodexやClaude Codeの設定に従って各プロバイダーで処理されます。",
+      "自分のPC上で、Bridge Serverを通じて動きます。CC PocketはそのPCに接続するクライアントです。AIへのリクエストは、お使いのCodexやClaudeの設定に従って各プロバイダーで処理されます。",
     faq2Q: "オフラインで、何ができますか？",
     faq2A:
       "メッセージを送信待ちにできます。再接続すると自動で送信され、受け取れなかった更新も復元されます。エージェントの作業を継続するには、PC側の接続が必要です。",
     faq3Q: "無料で使えますか？",
     faq3A:
-      "はい。CC Pocketは無料で使えます。任意のアプリ内サポーター購入も用意しています。CodexやClaude Codeの利用環境は別途必要です。",
+      "はい。CC Pocketは無料で使えます。任意のアプリ内サポーター購入も用意しています。CodexやClaudeの利用環境は別途必要です。",
     footerNote:
       "個人開発のツールです。OpenAI・Anthropicの公式アプリではありません。",
     copy: "コマンドをコピー",
@@ -106,7 +105,7 @@ const translations = {
   zh: {
     metaTitle: "CC Pocket — 把编程智能体，装进口袋。",
     metaDescription:
-      "在手机上使用 Codex 和 Claude Code。聊天、审批、查看差异，与 Mac 接续同一会话。免费开源。",
+      "在手机上使用 Codex 和 Claude。聊天、审批、查看差异，与 Mac 接续同一会话。免费开源。",
     skip: "跳转到正文",
     navExperience: "使用体验",
     navSetup: "快速开始",
@@ -114,7 +113,7 @@ const translations = {
     hero1: "编程智能体，",
     hero2: "装进口袋。",
     heroDesc:
-      "Codex 和 Claude Code，配上为手机设计的界面。随时发起对话，随地继续开发。",
+      "Codex 和 Claude，配上为手机设计的界面。随时发起对话，随地继续开发。",
     getApp: "获取 CC Pocket",
     quickStart: "快速开始",
     freeNote: "免费。开源。使用你自己的电脑。",
@@ -150,7 +149,7 @@ const translations = {
     mediaIllustration: "媒体预览示意",
     setupKicker: "04 — 开始使用",
     setupTitle: "一条命令，连接手机。",
-    setupDesc: "电脑需安装 Node.js 20.18.1+，以及 Codex 或 Claude Code。",
+    setupDesc: "电脑需安装 Node.js 20.18.1+，以及 Codex 或 Claude。",
     step1: "启动 Bridge。",
     step1Desc: "在运行智能体的电脑上执行此命令。",
     step2: "扫码连接。",
@@ -165,13 +164,13 @@ const translations = {
     faqTitle: "你可能想知道。",
     faq1Q: "智能体在哪里运行？",
     faq1A:
-      "通过自托管的 Bridge Server 在你的电脑上运行。CC Pocket 是连接客户端。AI 请求仍按现有 Codex 或 Claude Code 配置交由各自的服务商处理。",
+      "通过自托管的 Bridge Server 在你的电脑上运行。CC Pocket 是连接客户端。AI 请求仍按现有 Codex 或 Claude 配置交由各自的服务商处理。",
     faq2Q: "离线时能做什么？",
     faq2A:
       "消息会加入发送队列。恢复连接后自动发送，并补齐错过的更新。智能体持续工作需要电脑保持联网。",
     faq3Q: "免费吗？",
     faq3A:
-      "是的。CC Pocket 免费使用，也提供可选的应用内支持者购买。你需要自行准备 Codex 或 Claude Code 的使用权限。",
+      "是的。CC Pocket 免费使用，也提供可选的应用内支持者购买。你需要自行准备 Codex 或 Claude 的使用权限。",
     footerNote: "独立开发工具，与 OpenAI 或 Anthropic 无官方关联。",
     copy: "复制命令",
     copied: "已复制",
@@ -184,7 +183,7 @@ const translations = {
   ko: {
     metaTitle: "CC Pocket — 에이전트를 주머니에.",
     metaDescription:
-      "휴대폰에서 Codex와 Claude Code를 사용하세요. 대화, 승인, 변경 검토를 하고 Mac에서 같은 세션을 이어 가세요. 무료 오픈 소스.",
+      "휴대폰에서 Codex와 Claude를 사용하세요. 대화, 승인, 변경 검토를 하고 Mac에서 같은 세션을 이어 가세요. 무료 오픈 소스.",
     skip: "본문으로 이동",
     navExperience: "기능",
     navSetup: "시작하기",
@@ -192,7 +191,7 @@ const translations = {
     hero1: "에이전트를,",
     hero2: "주머니에.",
     heroDesc:
-      "Codex와 Claude Code를 휴대폰에 맞춘 UI로. 생각나면 말을 걸고, 어디서든 개발을 이어 가세요.",
+      "Codex와 Claude를 휴대폰에 맞춘 UI로. 생각나면 말을 걸고, 어디서든 개발을 이어 가세요.",
     getApp: "CC Pocket 받기",
     quickStart: "시작하기",
     freeNote: "무료. 오픈 소스. 내 컴퓨터에서.",
@@ -232,7 +231,7 @@ const translations = {
     setupKicker: "04 — 시작해 보세요",
     setupTitle: "명령어 하나로 휴대폰과 연결.",
     setupDesc:
-      "컴퓨터에 Node.js 20.18.1 이상과 Codex 또는 Claude Code가 필요합니다.",
+      "컴퓨터에 Node.js 20.18.1 이상과 Codex 또는 Claude가 필요합니다.",
     step1: "Bridge 실행.",
     step1Desc: "에이전트가 설치된 컴퓨터에서 실행하세요.",
     step2: "QR로 연결.",
@@ -247,13 +246,13 @@ const translations = {
     faqTitle: "몇 가지 알아둘 점.",
     faq1Q: "에이전트는 어디서 실행되나요?",
     faq1A:
-      "자체 호스팅 Bridge Server를 통해 내 컴퓨터에서 실행됩니다. CC Pocket은 연결 클라이언트입니다. AI 요청은 기존 Codex 또는 Claude Code 설정에 따라 각 제공업체가 처리합니다.",
+      "자체 호스팅 Bridge Server를 통해 내 컴퓨터에서 실행됩니다. CC Pocket은 연결 클라이언트입니다. AI 요청은 기존 Codex 또는 Claude 설정에 따라 각 제공업체가 처리합니다.",
     faq2Q: "오프라인에서 무엇을 할 수 있나요?",
     faq2A:
       "메시지가 전송 대기열에 저장됩니다. 연결이 복원되면 자동 전송되고 놓친 업데이트도 복구됩니다. 에이전트가 계속 작업하려면 컴퓨터가 온라인 상태여야 합니다.",
     faq3Q: "무료인가요?",
     faq3A:
-      "네. CC Pocket은 무료이며 선택적인 앱 내 서포터 구매가 있습니다. Codex 또는 Claude Code 이용 권한은 별도로 필요합니다.",
+      "네. CC Pocket은 무료이며 선택적인 앱 내 서포터 구매가 있습니다. Codex 또는 Claude 이용 권한은 별도로 필요합니다.",
     footerNote:
       "독립 개발 도구입니다. OpenAI 또는 Anthropic의 공식 앱이 아닙니다.",
     copy: "명령어 복사",

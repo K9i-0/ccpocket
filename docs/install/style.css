@@ -5,6 +5,13 @@
   --text: #f1eee9;
   --muted: #a29e99;
   --accent: #e8a785;
+  --accent-ink: #1b1411;
+  --accent-hover: #f5b998;
+  --accent-rgb: 232 167 133;
+  --art-light: #f4d8ba;
+  --art-mid: #c48e68;
+  --art-shadow: #674735;
+  --art-dark: #27211b;
   --line: #ffffff1c;
   --green: #95c9a9;
   font-family:
@@ -81,7 +88,7 @@ select:focus-visible {
   outline-offset: 6px;
 }
 ::selection {
-  background: #e8a78555;
+  background: rgb(var(--accent-rgb) / 33%);
 }
 .wrap {
   width: min(1200px, calc(100% - 112px));
@@ -232,11 +239,11 @@ h1 {
     transform 0.2s;
 }
 .primary {
-  color: #1b1411;
+  color: var(--accent-ink);
   background: var(--accent);
 }
 .primary:hover {
-  background: #f5b998;
+  background: var(--accent-hover);
   transform: translateY(-2px);
 }
 .button > span:last-child {
@@ -286,11 +293,15 @@ h1 {
   content: "";
   position: absolute;
   inset: 60px -20px 0;
-  background: radial-gradient(ellipse at 55% 50%, #b3693930, transparent 65%);
+  background: radial-gradient(
+    ellipse at 55% 50%,
+    rgb(var(--accent-rgb) / 12%),
+    transparent 65%
+  );
   z-index: -1;
 }
 .orbit {
-  border: 1px solid #e8a78513;
+  border: 1px solid rgb(var(--accent-rgb) / 7.5%);
   border-radius: 50%;
   position: absolute;
   left: 2%;
@@ -488,8 +499,8 @@ h3 {
 .chat-prompt {
   margin-top: 17px;
   margin-left: auto;
-  background: #594133;
-  border: 1px solid #e8a78522;
+  background: rgb(var(--accent-rgb) / 25%);
+  border: 1px solid rgb(var(--accent-rgb) / 13%);
   padding: 11px 12px;
   border-radius: 9px 9px 0 9px;
   width: fit-content;
@@ -560,7 +571,7 @@ h3 {
   height: 65%;
   width: 5px;
   border-radius: 3px;
-  background: #e8a78566;
+  background: rgb(var(--accent-rgb) / 40%);
 }
 .signal-bars i:nth-child(3n) {
   height: 90%;
@@ -570,7 +581,7 @@ h3 {
 }
 .signal-bars i:nth-child(n + 9):nth-child(-n + 18) {
   height: 4px;
-  background: #706050;
+  background: rgb(var(--accent-rgb) / 30%);
 }
 .signal-bars i:nth-child(n + 19) {
   background: #95c9a98c;
@@ -698,17 +709,21 @@ h3 {
   flex-wrap: wrap;
   margin-top: 28px;
   font-size: 9px;
-  color: #d0b5a4;
+  color: var(--accent);
 }
 .media-formats span {
-  border-bottom: 1px solid #e8a78540;
+  border-bottom: 1px solid rgb(var(--accent-rgb) / 25%);
   padding-bottom: 7px;
 }
 .media-art {
   position: relative;
   height: 390px;
   border-radius: 12px;
-  background: radial-gradient(ellipse at center, #57402c24, transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgb(var(--accent-rgb) / 7%),
+    transparent 70%
+  );
 }
 .media-image {
   position: absolute;
@@ -737,10 +752,10 @@ h3 {
   left: 71px;
   background: radial-gradient(
     circle at 33% 25%,
-    #f4d8ba,
-    #c48e68 33%,
-    #674735 64%,
-    #27211b 85%
+    var(--art-light),
+    var(--art-mid) 33%,
+    var(--art-shadow) 64%,
+    var(--art-dark) 85%
   );
   box-shadow: 15px 30px 25px #0004;
   z-index: 1;
@@ -750,7 +765,7 @@ h3 {
   position: absolute;
   inset: 10px;
   border-radius: 50%;
-  border: 1px solid #ffebc82b;
+  border: 1px solid rgb(var(--accent-rgb) / 17%);
 }
 .art-pedestal {
   position: absolute;
@@ -767,7 +782,7 @@ h3 {
   display: flex;
   justify-content: space-between;
   font: 10px monospace;
-  color: #d5c6b8;
+  color: var(--text);
 }
 .video-tile {
   position: absolute;
@@ -791,7 +806,7 @@ h3 {
   height: 30px;
   border-radius: 50%;
   background: var(--accent);
-  color: #382319;
+  color: var(--accent-ink);
   font-size: 10px;
 }
 .video-timeline {
@@ -932,7 +947,12 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 12px;
   background:
-    radial-gradient(ellipse at 50% 0, #e8a7850c, transparent 70%), #141414;
+    radial-gradient(
+      ellipse at 50% 0,
+      rgb(var(--accent-rgb) / 5%),
+      transparent 70%
+    ),
+    #141414;
 }
 .download-heading > img {
   margin: 0 auto 25px;

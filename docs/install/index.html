@@ -6,7 +6,7 @@
     <title>CC Pocket — Your agents. In your pocket.</title>
     <meta
       name="description"
-      content="Codex and Claude Code, built for your phone. Chat, approve, review, and pick up the same work on your Mac. Free and open source."
+      content="Codex and Claude, built for your phone. Chat, approve, review, and pick up the same work on your Mac. Free and open source."
     />
     <meta name="theme-color" content="#101011" />
     <meta name="apple-itunes-app" content="app-id=6759188790" />
@@ -24,7 +24,7 @@
     />
     <meta
       property="og:description"
-      content="Codex and Claude Code, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
+      content="Codex and Claude, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
     />
     <meta
       property="og:image"
@@ -37,7 +37,7 @@
     />
     <meta
       name="twitter:description"
-      content="Codex and Claude Code, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
+      content="Codex and Claude, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
     />
     <meta
       name="twitter:image"
@@ -51,13 +51,16 @@
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "iOS, iPadOS, Android, macOS, Linux (experimental), Windows (experimental)",
         "url": "https://k9i-0.github.io/ccpocket/install/",
-        "description": "A mobile and desktop client for Codex and Claude Code, connected through a self-hosted Bridge Server.",
+        "description": "A mobile and desktop client for Codex and Claude, connected through a self-hosted Bridge Server.",
         "license": "https://opensource.org/license/mit",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
       }
     </script>
     <link rel="stylesheet" href="./style.css" />
     <script src="./app.js" defer></script>
+    <!-- Temporary palette comparison; remove after selecting the final palette. -->
+    <link rel="stylesheet" href="./palette-preview.css" />
+    <script src="./palette-preview.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -102,7 +105,7 @@
             >
           </h1>
           <p class="hero-description" data-i18n="heroDesc">
-            Codex and Claude Code, with a UI made for your phone. Keep building,
+            Codex and Claude, with a UI made for your phone. Keep building,
             wherever the day takes you.
           </p>
           <div class="hero-actions">
@@ -120,7 +123,7 @@
           <div class="agent-line">
             <span class="agent-mark" aria-hidden="true">⌘</span> Codex
             <span class="agent-divider"></span
-            ><span class="claude-mark" aria-hidden="true">✳</span> Claude Code
+            ><span class="claude-mark" aria-hidden="true">✳</span> Claude
           </div>
         </div>
         <div class="hero-art">
@@ -399,8 +402,7 @@
             One command. Then you’re mobile.
           </h2>
           <p data-i18n="setupDesc">
-            You’ll need Node.js 20.18.1+ and Codex or Claude Code on your
-            computer.
+            You’ll need Node.js 20.18.1+ and Codex or Claude on your computer.
           </p>
         </div>
         <div class="setup-grid">
@@ -555,7 +557,7 @@
             <summary data-i18n="faq1Q">Where do my agents run?</summary>
             <p data-i18n="faq1A">
               On your computer, through the self-hosted Bridge Server. CC Pocket
-              connects to it. Your Codex or Claude Code provider still processes
+              connects to it. Your Codex or Claude provider still processes
               requests under your existing setup.
             </p>
           </details>
@@ -571,7 +573,7 @@
             <summary data-i18n="faq3Q">Is it free?</summary>
             <p data-i18n="faq3A">
               Yes. CC Pocket is free, with optional in-app Supporter purchases.
-              You’ll need your own Codex or Claude Code access.
+              You’ll need your own Codex or Claude access.
             </p>
           </details>
         </div>
