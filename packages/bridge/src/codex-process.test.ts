@@ -1939,6 +1939,53 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("reads account quota without creating a thread or turn", async () => {
+    const proc = new CodexProcess("linux");
+    const initializing = proc.initializeOnly("/tmp/project-usage", 1000);
+    const child = fakeChildren[0];
+    const init = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: init.id, result: {} })}\n`);
+    await initializing;
+    expect(nextOutgoingNotification(child).method).toBe("initialized");
+
+    const reading = proc.readRateLimits();
+    const request = nextOutgoingRequest(child);
+    expect(request.method).toBe("account/rateLimits/read");
+    expect(request.params).toBeUndefined();
+    const result = { rateLimits: { limitId: "codex", primary: null } };
+    child.stdout.emit("data", `${JSON.stringify({ id: request.id, result })}\n`);
+    expect(await reading).toEqual(result);
+    expect(() => nextOutgoingRequest(child)).toThrow();
+    proc.stop();
+    expect(child.killed).toBe(true);
+  });
+
+  it("bounds account initialization and quota reads with timeouts", async () => {
+    vi.useFakeTimers();
+    const proc = new CodexProcess("linux");
+    try {
+      const initializing = proc.initializeOnly("/tmp/project-usage", 1000);
+      const failedInit = expect(initializing).rejects.toThrow("initialize timed out");
+      await vi.advanceTimersByTimeAsync(1000);
+      await failedInit;
+      proc.stop();
+
+      const retry = proc.initializeOnly("/tmp/project-usage", 1000);
+      const child = fakeChildren[1];
+      const init = nextOutgoingRequest(child);
+      child.stdout.emit("data", `${JSON.stringify({ id: init.id, result: {} })}\n`);
+      await retry;
+      nextOutgoingNotification(child);
+      const reading = proc.readRateLimits(1000);
+      const failedRead = expect(reading).rejects.toThrow("account/rateLimits/read timed out");
+      await vi.advanceTimersByTimeAsync(1000);
+      await failedRead;
+    } finally {
+      proc.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it("emits user_input for app-server user items from another client", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];

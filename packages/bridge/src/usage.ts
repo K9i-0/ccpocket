@@ -1,6 +1,5 @@
-import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { CodexProcess } from "./codex-process.js";
 
 // ── Types ──
 
@@ -19,24 +18,20 @@ export interface UsageInfo {
 // ── Codex ──
 
 export interface CodexRateLimitWindow {
-  used_percent: number;
-  window_minutes: number;
-  resets_at: number;  // unix timestamp (seconds)
+  usedPercent: number;
+  windowDurationMins: number | null;
+  resetsAt: number | null;  // unix timestamp (seconds)
 }
 
 export interface CodexRateLimits {
-  limit_id?: string | null;
+  limitId?: string | null;
   primary?: CodexRateLimitWindow | null;
   secondary?: CodexRateLimitWindow | null;
 }
 
-interface CodexTokenCountEvent {
-  timestamp: string;
-  type: "event_msg";
-  payload: {
-    type: "token_count";
-    rate_limits?: CodexRateLimits;
-  };
+export interface CodexRateLimitsResponse {
+  rateLimits: CodexRateLimits;
+  rateLimitsByLimitId?: Record<string, CodexRateLimits> | null;
 }
 
 const FIVE_HOUR_WINDOW_MINUTES = 5 * 60;
@@ -44,11 +39,11 @@ const SEVEN_DAY_WINDOW_MINUTES = 7 * 24 * 60;
 
 /**
  * Distinguish the account-wide Codex limit from model-specific limits.
- * Older Codex versions did not include limit_id, so keep accepting those
+ * Older Codex versions did not include limitId, so keep accepting those
  * records for backwards compatibility.
  */
 export function isGlobalCodexRateLimit(rateLimits: CodexRateLimits): boolean {
-  return rateLimits.limit_id == null || rateLimits.limit_id === "codex";
+  return rateLimits.limitId == null || rateLimits.limitId === "codex";
 }
 
 /**
@@ -64,14 +59,25 @@ export function mapCodexRateLimits(
 
   for (const window of [rateLimits.primary, rateLimits.secondary]) {
     if (!window) continue;
+    if (
+      window.windowDurationMins !== FIVE_HOUR_WINDOW_MINUTES &&
+      window.windowDurationMins !== SEVEN_DAY_WINDOW_MINUTES
+    ) continue;
+    if (
+      !Number.isFinite(window.usedPercent) ||
+      window.resetsAt == null ||
+      !Number.isFinite(window.resetsAt)
+    ) {
+      throw new Error("Invalid Codex usage window returned by app-server");
+    }
 
     const usageWindow = {
-      utilization: window.used_percent,
-      resetsAt: new Date(window.resets_at * 1000).toISOString(),
+      utilization: window.usedPercent,
+      resetsAt: new Date(window.resetsAt * 1000).toISOString(),
     };
-    if (window.window_minutes === FIVE_HOUR_WINDOW_MINUTES) {
+    if (window.windowDurationMins === FIVE_HOUR_WINDOW_MINUTES) {
       fiveHour ??= usageWindow;
-    } else if (window.window_minutes === SEVEN_DAY_WINDOW_MINUTES) {
+    } else if (window.windowDurationMins === SEVEN_DAY_WINDOW_MINUTES) {
       sevenDay ??= usageWindow;
     }
   }
@@ -79,161 +85,43 @@ export function mapCodexRateLimits(
   return { fiveHour, sevenDay };
 }
 
-/**
- * Find the latest token_count event from Codex session files.
- * Scans the most recent session directories (last 7 days).
- */
-export async function fetchCodexUsage(): Promise<UsageInfo> {
+// Share concurrent reads, but never cache a completed snapshot: refresh must
+// query the service even when no Codex conversation has run since the last read.
+let pendingUsage: Promise<UsageInfo> | null = null;
+const USAGE_RPC_TIMEOUT_MS = 10_000;
+
+export function fetchCodexUsage(): Promise<UsageInfo> {
+  pendingUsage ??= readCodexUsage().finally(() => {
+    pendingUsage = null;
+  });
+  return pendingUsage;
+}
+
+async function readCodexUsage(): Promise<UsageInfo> {
+  const proc = new CodexProcess();
   try {
-    const sessionsDir = join(homedir(), ".codex", "sessions");
-
-    // Check if sessions directory exists
-    try {
-      await stat(sessionsDir);
-    } catch {
-      return {
-        provider: "codex",
-        fiveHour: null,
-        sevenDay: null,
-        error: "Codex sessions directory not found",
-      };
+    // Initialize the account connection only; do not create a thread or turn.
+    await proc.initializeOnly(homedir(), USAGE_RPC_TIMEOUT_MS);
+    const response = await proc.readRateLimits(USAGE_RPC_TIMEOUT_MS);
+    const limits = response.rateLimitsByLimitId?.codex ?? response.rateLimits;
+    if (!limits || !isGlobalCodexRateLimit(limits)) {
+      throw new Error("No account-wide Codex rate limits returned by app-server");
     }
-
-    // Find recent session files (last 7 days)
-    const sessionFiles = await findRecentSessionFiles(sessionsDir, 7);
-    if (sessionFiles.length === 0) {
-      return {
-        provider: "codex",
-        fiveHour: null,
-        sevenDay: null,
-        error: "No recent Codex sessions found",
-      };
+    const windows = mapCodexRateLimits(limits);
+    if (!windows.fiveHour && !windows.sevenDay) {
+      throw new Error("No supported Codex usage windows returned by app-server");
     }
-
-    // Search from newest file for the latest token_count event
-    for (const filePath of sessionFiles) {
-      const event = await findLatestTokenCount(filePath);
-      if (event?.payload.rate_limits) {
-        return {
-          provider: "codex",
-          ...mapCodexRateLimits(event.payload.rate_limits),
-        };
-      }
-    }
-
-    return {
-      provider: "codex",
-      fiveHour: null,
-      sevenDay: null,
-      error: "No rate limit data found in recent Codex sessions",
-    };
+    return { provider: "codex", ...windows };
   } catch (err) {
     return {
       provider: "codex",
       fiveHour: null,
       sevenDay: null,
-      error: err instanceof Error ? err.message : String(err),
+      error: `Failed to fetch Codex usage: ${err instanceof Error ? err.message : String(err)}`,
     };
+  } finally {
+    proc.stop();
   }
-}
-
-/**
- * Walk the sessions directory to find .jsonl files, sorted newest first.
- */
-async function findRecentSessionFiles(sessionsDir: string, maxDays: number): Promise<string[]> {
-  const files: { path: string; mtime: number }[] = [];
-  const cutoff = Date.now() - maxDays * 24 * 60 * 60 * 1000;
-
-  // Walk year/month/day directories
-  try {
-    const years = await readdir(sessionsDir);
-    for (const year of years) {
-      if (!year.match(/^\d{4}$/)) continue;
-      const yearDir = join(sessionsDir, year);
-
-      let months: string[];
-      try {
-        months = await readdir(yearDir);
-      } catch {
-        continue;
-      }
-
-      for (const month of months) {
-        if (!month.match(/^\d{2}$/)) continue;
-        const monthDir = join(yearDir, month);
-
-        let days: string[];
-        try {
-          days = await readdir(monthDir);
-        } catch {
-          continue;
-        }
-
-        for (const day of days) {
-          if (!day.match(/^\d{2}$/)) continue;
-          const dayDir = join(monthDir, day);
-
-          let entries: string[];
-          try {
-            entries = await readdir(dayDir);
-          } catch {
-            continue;
-          }
-
-          for (const entry of entries) {
-            if (!entry.endsWith(".jsonl")) continue;
-            const filePath = join(dayDir, entry);
-            try {
-              const s = await stat(filePath);
-              if (s.mtimeMs >= cutoff) {
-                files.push({ path: filePath, mtime: s.mtimeMs });
-              }
-            } catch {
-              continue;
-            }
-          }
-        }
-      }
-    }
-  } catch {
-    // Sessions directory not readable
-  }
-
-  // Sort newest first
-  files.sort((a, b) => b.mtime - a.mtime);
-  return files.map((f) => f.path);
-}
-
-/**
- * Read a JSONL file from the end and find the latest token_count event.
- */
-async function findLatestTokenCount(filePath: string): Promise<CodexTokenCountEvent | null> {
-  try {
-    const content = await readFile(filePath, "utf-8");
-    const lines = content.trim().split("\n");
-
-    // Search from the end for the most recent token_count
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim();
-      if (!line || !line.includes("token_count")) continue;
-      try {
-        const event = JSON.parse(line) as CodexTokenCountEvent;
-        if (
-          event.type === "event_msg" &&
-          event.payload?.type === "token_count" &&
-          event.payload?.rate_limits &&
-          isGlobalCodexRateLimit(event.payload.rate_limits)
-        ) {
-          return event;
-        }
-      } catch {
-        continue;
-      }
-    }
-  } catch {
-    // File not readable
-  }
-  return null;
 }
 
 // ── Combined ──
