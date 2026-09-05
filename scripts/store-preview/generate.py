@@ -23,6 +23,9 @@ def main():
         parser.error('Use a temporary output directory outside the repository.')
     out.mkdir(parents=True, exist_ok=True)
     (out / 'assets').mkdir(exist_ok=True)
+    submission = Path(__file__).with_name('submission.md')
+    if submission.exists():
+        shutil.copyfile(submission, out / 'submission.txt')
 
     def asset(path):
         filename = '-'.join(path.relative_to(ROOT).parts)
@@ -59,7 +62,7 @@ def main():
     page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CC Pocket — ストア更新の確認</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#101212;color:#f3f5f4;font:16px/1.8 system-ui,sans-serif}main{max-width:1280px;margin:auto;padding:48px 24px 100px}h1{font-size:clamp(28px,5vw,48px);line-height:1.25}h2{color:#9bddc5}h3{margin-top:36px}p,small{color:#a6b0ad}a{color:#9bddc5}button{background:#1e2825;color:#eee;border:1px solid #456157;border-radius:24px;padding:12px 24px;cursor:pointer}button[aria-pressed=true]{background:#9bddc5;color:#10271f}nav{display:flex;gap:10px;flex-wrap:wrap;position:sticky;top:0;padding:15px 0;background:#101212;z-index:1}.banner{max-width:100%;width:900px}.graphic{max-width:100%;width:768px}.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}.gallery img{width:100%;border:1px solid #28342f;border-radius:8px}.gallery span{font:12px system-ui;color:#a6b0ad}.gallery a{text-decoration:none}.tablet{margin-top:28px;grid-template-columns:repeat(2,minmax(0,1fr))}.field,details,.note{background:#17201d;border:1px solid #2a3932;border-radius:12px;padding:20px;margin:20px 0}.field h3{margin:0 0 12px}.field small{font-size:12px;font-weight:normal}pre{font:15px/1.9 system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer}.note strong{color:#9bddc5}@media(max-width:650px){.gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.tablet{grid-template-columns:1fr}main{padding:24px 16px}button{padding:10px 16px}}</style>
 <main><p>CC POCKET / REVIEW</p><h1>READMEとストアを、<br>Mintのスタイルに。</h1>
-<div class="note"><strong>確認待ち — ストアへの反映・審査提出はまだ実行していません。</strong><p>提出候補：iOS / Android とも 1.127.1（243）→ 1.127.2（244）。既存ビルドを使います。iOSの公開方式はKEEP（現在設定を維持、新規バージョンなら手動公開）、審査対象はアプリバージョンのみ。Androidは承認後100%公開（Managed publishing有効時は別途手動公開）。</p><p>確認後、説明文・スクショ・Google Play画像を反映し、審査提出を続けて実行します。対象refとSHAは準備メモに記載します。</p><p><a href="https://github.com/K9i-0/ccpocket/actions/runs/33927390316">iOS候補ビルド成功</a> · <a href="https://github.com/K9i-0/ccpocket/actions/runs/33927396035">Android候補ビルド成功</a></p></div>
+<div class="note"><strong>確認待ち — ストアへの反映・審査提出はまだ実行していません。</strong><p>提出候補：iOS / Android とも 1.127.1（243）→ 1.127.2（244）。既存ビルドを使います。iOSの公開方式はKEEP（現在設定を維持、新規バージョンなら手動公開）、審査対象はアプリバージョンのみ。Androidは承認後100%公開（Managed publishing有効時は別途手動公開）。</p><p>確認後、説明文・スクショ・Google Play画像を反映し、審査提出を続けて実行します。<a href="submission.txt" target="_blank">提出内容・対象ref・SHA・全言語リリースノート</a></p><p><a href="https://github.com/K9i-0/ccpocket/actions/runs/33927390316">iOS候補ビルド成功</a> · <a href="https://github.com/K9i-0/ccpocket/actions/runs/33927396035">Android候補ビルド成功</a></p></div>
 <nav>'''+''.join(f'<button data-lang="{l}" aria-pressed="{str(l=="ja").lower()}">{label}</button>' for l,_,_,label,_ in LOCALES)+'''</nav>'''+''.join(sections)+'''
 <script>document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.locale').forEach(s=>s.hidden=s.id!==b.dataset.lang);document.querySelectorAll('[data-lang]').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))});</script></main></html>'''
     (out / 'index.html').write_text(page)
