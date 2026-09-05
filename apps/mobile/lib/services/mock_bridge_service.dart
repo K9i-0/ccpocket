@@ -12,6 +12,9 @@ class MockBridgeService extends BridgeService {
   final List<Timer> _timers = [];
   String? mockHttpBaseUrl;
 
+  /// Optional real file fixtures for screenshot and media playback previews.
+  Map<String, FileContentMessage> mockFileContents = const {};
+
   /// Original diff text split by file for stateful stage/unstage tracking.
   String? _mockDiff;
   final Set<String> _stagedFiles = {};
@@ -259,7 +262,8 @@ class MockBridgeService extends BridgeService {
         final media = _mockMediaFile(filePath);
         _scheduleMessage(
           const Duration(milliseconds: 400),
-          image ??
+          mockFileContents[filePath] ??
+              image ??
               media ??
               FileContentMessage(
                 filePath: filePath,

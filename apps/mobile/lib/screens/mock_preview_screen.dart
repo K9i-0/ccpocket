@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../l10n/app_localizations.dart';
+import 'landing_preview_screen.dart';
 import '../features/generated_image_preview/generated_image_preview_item.dart';
 import '../features/generated_image_preview/generated_image_preview_screen.dart';
 import '../features/session_list/state/session_list_cubit.dart';
@@ -112,6 +113,14 @@ Route<void>? buildMockScenarioRoute(
   BuildContext context,
   MockScenario scenario,
 ) {
+  if (scenario.section == MockScenarioSection.landingScreenshot) {
+    if (scenario.name == 'LP Network') {
+      return buildStoreScenarioRoute('Network Resilience');
+    }
+    return MaterialPageRoute(
+      builder: (_) => LandingPreviewScreen(scenario: scenario.name),
+    );
+  }
   if (scenario == generatedImageChatPreviewScenario) {
     return MaterialPageRoute(
       builder: (_) => const _MockGeneratedImageChatPreviewWrapper(),

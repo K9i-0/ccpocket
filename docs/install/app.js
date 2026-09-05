@@ -18,6 +18,10 @@ Object.assign(english, {
   zoomChat: "Enlarge chat screenshot",
   zoomSessions: "Enlarge session list screenshot",
   zoomWorkspace: "Enlarge workspace screenshot",
+  zoomNetwork: "Enlarge pending delivery screenshot",
+  zoomImagegen: "Enlarge image generation screenshot",
+  zoomVideo: "Enlarge video player screenshot",
+  zoomAudio: "Enlarge audio player screenshot",
 });
 const translations = {
   en: english,
@@ -45,15 +49,9 @@ const translations = {
     chatTitle: "いつものチャット感覚で。",
     chatDesc:
       "タスクごとに、ひとつの部屋。依頼も、質問への回答も、変更の承認も。会話の流れで完結します。",
-    demoPrompt: "チェックアウト画面を、すっきり整えて。",
-    demoReply: "変更できました。確認しますか？",
-    demoApproval: "レビューの準備ができました",
-    illustration: "会話のイメージ",
     networkTitle: "電波が途切れても、その先へ。",
     networkDesc:
       "圏外で書いたメッセージは送信待ちに。再接続すると自動で送信し、見逃した更新も取り戻します。",
-    queued: "送信待ち",
-    delivered: "再接続して、送信完了。",
     desktopKicker: "02 — 同じ作業を、どの画面でも",
     desktop1: "Macを離れても、",
     desktop2: "続きは、その手の中に。",
@@ -67,7 +65,6 @@ const translations = {
     media2: "再生する。",
     mediaDesc:
       "CodexのImagegenで画像を生成し、チャットで確認。動画や音声ファイルも、アプリを離れず再生できます。",
-    mediaIllustration: "メディアプレビューのイメージ",
     setupKicker: "04 — はじめよう",
     setupTitle: "コマンドひとつで接続。",
     setupDesc: "PCにNode.js 20.18.1以上と、CodexまたはClaudeをご用意ください。",
@@ -101,6 +98,13 @@ const translations = {
     zoomChat: "チャット画面を拡大",
     zoomSessions: "セッション一覧を拡大",
     zoomWorkspace: "ワークスペース画面を拡大",
+    zoomNetwork: "送信待ちの画面を拡大",
+    zoomImagegen: "画像生成の画面を拡大",
+    zoomVideo: "動画プレイヤーを拡大",
+    zoomAudio: "音声プレイヤーを拡大",
+    imageCaption: "生成した画像を、チャットで。",
+    videoCaption: "シークも、全画面再生も。",
+    audioCaption: "アプリの中で、そのまま聴く。",
   },
   zh: {
     metaTitle: "CC Pocket — 把编程智能体，装进口袋。",
@@ -126,14 +130,8 @@ const translations = {
     chatTitle: "就像平常聊天一样。",
     chatDesc:
       "每个任务一个聊天室。发送需求、回答问题、批准修改，在对话中完成。",
-    demoPrompt: "把结账页面整理得更简洁。",
-    demoReply: "修改已完成。要看看吗？",
-    demoApproval: "等待你的审阅",
-    illustration: "对话示意",
     networkTitle: "信号不稳，进度不丢。",
     networkDesc: "离线消息暂存队列，重新连接后自动发送。错过的更新也会恢复。",
-    queued: "等待发送",
-    delivered: "已重连，已发送。",
     desktopKicker: "02 — 同一份工作，随屏切换",
     desktop1: "离开 Mac，",
     desktop2: "在手机上接着做。",
@@ -146,7 +144,6 @@ const translations = {
     media2: "播放。",
     mediaDesc:
       "用 Codex Imagegen 生成图片，在聊天中查看结果。视频和音频文件也能直接在应用中播放。",
-    mediaIllustration: "媒体预览示意",
     setupKicker: "04 — 开始使用",
     setupTitle: "一条命令，连接手机。",
     setupDesc: "电脑需安装 Node.js 20.18.1+，以及 Codex 或 Claude。",
@@ -179,6 +176,13 @@ const translations = {
     zoomChat: "放大聊天截图",
     zoomSessions: "放大会话截图",
     zoomWorkspace: "放大工作区截图",
+    zoomNetwork: "放大待发送消息截图",
+    zoomImagegen: "放大图片生成截图",
+    zoomVideo: "放大视频播放器截图",
+    zoomAudio: "放大音频播放器截图",
+    imageCaption: "在聊天中查看生成的图片。",
+    videoCaption: "预览、拖动进度、全屏播放。",
+    audioCaption: "直接在应用中收听。",
   },
   ko: {
     metaTitle: "CC Pocket — 에이전트를 주머니에.",
@@ -204,15 +208,9 @@ const translations = {
     chatTitle: "익숙한 채팅처럼.",
     chatDesc:
       "작업마다 하나의 대화방. 요청, 질문에 대한 답변, 변경 승인까지 대화 안에서 처리하세요.",
-    demoPrompt: "결제 화면을 더 깔끔하게 정리해 줘.",
-    demoReply: "변경이 준비됐어요. 확인할까요?",
-    demoApproval: "검토할 준비가 됐어요",
-    illustration: "대화 예시",
     networkTitle: "신호가 끊겨도, 이어서.",
     networkDesc:
       "오프라인 메시지는 대기열에 저장됩니다. 다시 연결되면 자동으로 전송되고 놓친 업데이트도 복원됩니다.",
-    queued: "전송 대기",
-    delivered: "재연결. 전송 완료.",
     desktopKicker: "02 — 같은 작업, 다른 화면",
     desktop1: "Mac을 떠나도,",
     desktop2: "작업은 손안에.",
@@ -227,7 +225,6 @@ const translations = {
     media2: "재생하고.",
     mediaDesc:
       "Codex Imagegen으로 이미지를 만들고 대화에서 확인하세요. 동영상과 오디오 파일도 앱 안에서 재생할 수 있습니다.",
-    mediaIllustration: "미디어 미리보기 예시",
     setupKicker: "04 — 시작해 보세요",
     setupTitle: "명령어 하나로 휴대폰과 연결.",
     setupDesc:
@@ -262,6 +259,13 @@ const translations = {
     zoomChat: "대화 화면 확대",
     zoomSessions: "세션 목록 확대",
     zoomWorkspace: "작업 공간 확대",
+    zoomNetwork: "전송 대기 화면 확대",
+    zoomImagegen: "이미지 생성 화면 확대",
+    zoomVideo: "동영상 플레이어 확대",
+    zoomAudio: "오디오 플레이어 확대",
+    imageCaption: "생성한 이미지를 대화에서.",
+    videoCaption: "탐색부터 전체 화면까지.",
+    audioCaption: "앱 안에서 바로 듣기.",
   },
 };
 

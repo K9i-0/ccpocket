@@ -34,11 +34,19 @@ Future<List<Uint8List>> generateMockGeneratedImages() async {
 
 /// Generates a landscape image so the chat preview can verify that a single
 /// generated image keeps its original aspect ratio.
-Future<Uint8List> generateMockGeneratedLandscapeImage() async {
+Future<Uint8List> generateMockGeneratedLandscapeImage({
+  String title = 'ONE WIDE CONCEPT',
+  String subtitle = 'A single image keeps its original landscape ratio',
+}) async {
   const size = Size(1080, 640);
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-  _drawGeneratedLandscapeConcept(canvas, size);
+  _drawGeneratedLandscapeConcept(
+    canvas,
+    size,
+    title: title,
+    subtitle: subtitle,
+  );
   final picture = recorder.endRecording();
   final image = await picture.toImage(size.width.toInt(), size.height.toInt());
   final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -163,7 +171,12 @@ void _drawGeneratedConcept(Canvas canvas, Size size, int index) {
   );
 }
 
-void _drawGeneratedLandscapeConcept(Canvas canvas, Size size) {
+void _drawGeneratedLandscapeConcept(
+  Canvas canvas,
+  Size size, {
+  required String title,
+  required String subtitle,
+}) {
   const accent = Color(0xFFFFD92F);
   canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFFCF4));
   canvas.drawRRect(
@@ -185,7 +198,7 @@ void _drawGeneratedLandscapeConcept(Canvas canvas, Size size) {
   );
   _paintGeneratedText(
     canvas,
-    'ONE WIDE CONCEPT',
+    title,
     const Offset(0, 80),
     size.width,
     fontSize: 38,
@@ -194,7 +207,7 @@ void _drawGeneratedLandscapeConcept(Canvas canvas, Size size) {
   );
   _paintGeneratedText(
     canvas,
-    'A single image keeps its original landscape ratio',
+    subtitle,
     const Offset(100, 158),
     size.width - 200,
     fontSize: 21,

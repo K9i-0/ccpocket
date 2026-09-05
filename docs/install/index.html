@@ -58,9 +58,6 @@
     </script>
     <link rel="stylesheet" href="./style.css" />
     <script src="./app.js" defer></script>
-    <!-- Temporary palette comparison; remove after selecting the final palette. -->
-    <link rel="stylesheet" href="./palette-preview.css" />
-    <script src="./palette-preview.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -140,7 +137,7 @@
           >
             <img
               data-shot="sessions"
-              src="./assets/sessions-en.webp"
+              src="./assets/sessions.webp"
               width="600"
               height="1304"
               alt="CC Pocket session list with inline approvals"
@@ -154,10 +151,10 @@
           >
             <img
               data-shot="chat"
-              src="./assets/chat-en.webp"
+              src="./assets/conversation.webp"
               width="660"
               height="1434"
-              alt="CC Pocket chat with a screenshot preview"
+              alt="CC Pocket conversation with test results"
               fetchpriority="high"
             />
           </button>
@@ -212,32 +209,20 @@
                 approve a change. Everything in its place.
               </p>
             </div>
-            <div class="conversation" aria-hidden="true">
-              <div class="room-label">
-                <span class="room-icon">#</span> checkout-redesign
-                <span class="room-status">Codex</span>
-              </div>
-              <div class="chat-prompt" data-i18n="demoPrompt">
-                Give the checkout a cleaner layout.
-              </div>
-              <div class="chat-reply">
-                <span class="reply-icon">⌘</span
-                ><span data-i18n="demoReply"
-                  >Changes are ready. Take a look?</span
-                >
-              </div>
-              <div class="diff-preview">
-                <span>checkout.tsx</span><span><b>+38</b> <em>−12</em></span>
-              </div>
-              <div class="approval-preview">
-                <span class="status-dot"></span
-                ><span data-i18n="demoApproval">Ready for your review</span
-                ><span>↗</span>
-              </div>
-            </div>
-            <p class="visual-caption" data-i18n="illustration">
-              Illustrative conversation
-            </p>
+            <button
+              class="screenshot-button feature-screenshot conversation-shot"
+              data-zoom
+              data-i18n-label="zoomChat"
+              aria-label="Enlarge chat screenshot"
+            >
+              <img
+                src="./assets/conversation.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="Actual CC Pocket chat screen with a user request, agent response, and test results"
+              />
+            </button>
           </article>
           <article class="feature network-feature">
             <div class="feature-copy">
@@ -248,22 +233,20 @@
                 Missed updates catch up, too.
               </p>
             </div>
-            <div class="network-visual" aria-hidden="true">
-              <div class="signal-bars">
-                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-                ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-                ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-                ><i></i>
-              </div>
-              <div class="network-track">
-                <span data-i18n="queued">Queued</span
-                ><span class="track-line"></span
-                ><span class="sent"
-                  ><span class="status-dot"></span
-                  ><span data-i18n="delivered">Reconnected. Sent.</span></span
-                >
-              </div>
-            </div>
+            <button
+              class="screenshot-button feature-screenshot network-shot"
+              data-zoom
+              data-i18n-label="zoomNetwork"
+              aria-label="Enlarge pending delivery screenshot"
+            >
+              <img
+                src="./assets/network.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="Actual CC Pocket chat screen showing a message waiting for delivery"
+              />
+            </button>
           </article>
         </div>
       </section>
@@ -301,13 +284,6 @@
         </div>
         <figure class="workspace-figure">
           <div class="workspace-frame">
-            <div class="window-bar" aria-hidden="true">
-              <span class="window-dots"><i></i><i></i><i></i></span
-              ><span>CC Pocket <span class="muted">/</span> workspace</span
-              ><span class="window-state"
-                ><span class="status-dot"></span> Connected</span
-              >
-            </div>
             <button
               class="screenshot-button workspace-shot"
               data-zoom
@@ -359,33 +335,71 @@
             <span>IMAGEGEN</span><span>MP4 / MOV</span><span>WAV / MP3</span>
           </div>
         </div>
-        <div class="media-art" aria-hidden="true">
-          <div class="media-image">
-            <div class="generative-art">
-              <div class="art-sphere"></div>
-              <div class="art-pedestal"></div>
-            </div>
-            <div class="media-file">
-              <span>◈ &nbsp; imagegen.png</span><span>↗</span>
-            </div>
-          </div>
-          <div class="video-tile">
-            <span class="play-symbol">▶</span
-            ><span class="mono">preview.mp4</span
-            ><span class="video-timeline"></span><span class="mono">0:12</span>
-          </div>
-          <div class="audio-tile">
-            <span class="audio-play">Ⅱ</span>
-            <div class="waveform">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
-            <span class="mono">audio.wav</span>
-          </div>
-          <span class="media-art-caption" data-i18n="mediaIllustration"
-            >Media preview illustration</span
-          >
+        <div class="media-screens">
+          <figure class="media-screen">
+            <figcaption>
+              <span class="mono">01 / IMAGEGEN</span
+              ><span data-i18n="imageCaption">Generated images, in chat.</span>
+            </figcaption>
+            <button
+              class="screenshot-button media-capture imagegen-shot"
+              data-zoom
+              data-i18n-label="zoomImagegen"
+              aria-label="Enlarge image generation screenshot"
+            >
+              <img
+                src="./assets/imagegen.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="CC Pocket showing an image generation result in the real chat UI"
+              />
+            </button>
+          </figure>
+          <figure class="media-screen">
+            <figcaption>
+              <span class="mono">02 / VIDEO</span
+              ><span data-i18n="videoCaption"
+                >Preview. Scrub. Go full screen.</span
+              >
+            </figcaption>
+            <button
+              class="screenshot-button media-capture video-shot"
+              data-zoom
+              data-i18n-label="zoomVideo"
+              aria-label="Enlarge video player screenshot"
+            >
+              <img
+                src="./assets/video.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="CC Pocket video preview with seek, playback speed, and full-screen controls"
+              />
+            </button>
+          </figure>
+          <figure class="media-screen">
+            <figcaption>
+              <span class="mono">03 / AUDIO</span
+              ><span data-i18n="audioCaption"
+                >Listen without leaving the app.</span
+              >
+            </figcaption>
+            <button
+              class="screenshot-button media-capture audio-shot"
+              data-zoom
+              data-i18n-label="zoomAudio"
+              aria-label="Enlarge audio player screenshot"
+            >
+              <img
+                src="./assets/audio.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="CC Pocket WAV preview with real audio playback controls"
+              />
+            </button>
+          </figure>
         </div>
       </section>
 

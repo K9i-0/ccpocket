@@ -1,5 +1,6 @@
 // ignore_for_file: altive_lints_plugin/avoid_hardcoded_japanese
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
@@ -19,7 +20,8 @@ enum MockScenarioSection {
   chat('Chat Session', Icons.chat_bubble_outline),
   sessionList('Session List', Icons.list_alt),
   supporter('Supporter', Icons.favorite_border),
-  storeScreenshot('Store Screenshots', Icons.photo_camera);
+  storeScreenshot('Store Screenshots', Icons.photo_camera),
+  landingScreenshot('Landing Page', Icons.web);
 
   final String label;
   final IconData icon;
@@ -114,6 +116,22 @@ final List<MockScenario> mockScenarios = [
   supporterPreviewVeteran,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
+  if (kDebugMode)
+    for (final name in [
+      'LP Conversation',
+      'LP Imagegen',
+      'LP Video',
+      'LP Audio',
+      'LP Network',
+    ])
+      MockScenario(
+        name: name,
+        icon: Icons.photo_camera_outlined,
+        description: 'Landing page capture using the real app UI',
+        section: MockScenarioSection.landingScreenshot,
+        provider: MockScenarioProvider.codex,
+        steps: const [],
+      ),
   // Standalone viewers
   generatedImageChatPreviewScenario,
   generatedImagePreviewScenario,
