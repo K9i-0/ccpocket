@@ -11,7 +11,7 @@ New Session で指定された追加 roots を merge して送る方針とする
 
 関連設計:
 
-- [codex-additional-writable-roots.md](/Users/kotahayashi/Workspace/ccpocket/docs/design/codex-additional-writable-roots.md)
+- [codex-additional-writable-roots.md](codex-additional-writable-roots.md)
 
 ## Goal
 
