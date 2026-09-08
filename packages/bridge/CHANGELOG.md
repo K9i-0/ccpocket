@@ -4,6 +4,14 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.4] - 2026-09-08
+
+### Added
+- Add opt-in file sharing outside the selected project with `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS=1`, persisted by launchd and systemd setup.
+
+### Fixed
+- Accept absolute file paths for downloads within the selected project while preserving default project and allowed-directory restrictions.
+
 ## [1.81.3] - 2026-09-06
 
 ### Fixed
