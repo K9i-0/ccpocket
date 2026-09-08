@@ -745,6 +745,7 @@ export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
+  fileDownloadAllowAllPaths?: boolean;
   imageStore?: ImageStore;
   mediaStore?: MediaStore;
   uploadStore?: UploadStore;
@@ -796,6 +797,7 @@ export class BridgeWebSocketServer {
   private sessionManager: SessionManager;
   private apiKey: string | null;
   private allowedDirs: string[];
+  private fileDownloadAllowAllPaths: boolean;
   private imageStore: ImageStore | null;
   private mediaStore: MediaStore | null;
   private uploadStore: UploadStore | null;
@@ -896,6 +898,7 @@ export class BridgeWebSocketServer {
     } = options;
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
+    this.fileDownloadAllowAllPaths = options.fileDownloadAllowAllPaths ?? false;
     this.imageStore = imageStore ?? null;
     this.mediaStore = mediaStore ?? null;
     this.uploadStore = uploadStore ?? null;
@@ -1069,24 +1072,11 @@ export class BridgeWebSocketServer {
   ): Promise<void> {
     const pathApi = this.platform === "win32" ? win32 : posix;
     const projectPath = pathApi.resolve(request.projectPath);
-    if (pathApi.isAbsolute(request.filePath)) {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_not_allowed",
-        "Only project-relative file paths can be downloaded.",
-      );
-      return;
-    }
-
     const requestedPath = pathApi.resolve(projectPath, request.filePath);
     if (
       !this.isPathAllowed(projectPath) ||
-      !isPathWithinAllowedDirectory(
-        requestedPath,
-        projectPath,
-        this.platform,
-      )
+      (!this.fileDownloadAllowAllPaths &&
+        !isPathWithinAllowedDirectory(requestedPath, projectPath, this.platform))
     ) {
       this.sendFileDownloadError(
         ws,
@@ -1101,7 +1091,12 @@ export class BridgeWebSocketServer {
     try {
       canonicalProjectPath = await realpath(projectPath);
       const projectStat = await stat(canonicalProjectPath);
-      if (!projectStat.isDirectory()) throw new Error("not a directory");
+      if (
+        !projectStat.isDirectory() ||
+        !(await this.isCanonicalPathAllowed(canonicalProjectPath))
+      ) {
+        throw new Error("project not allowed");
+      }
     } catch {
       this.sendFileDownloadError(
         ws,
@@ -1126,12 +1121,12 @@ export class BridgeWebSocketServer {
     }
 
     if (
-      !isPathWithinAllowedDirectory(
+      !this.fileDownloadAllowAllPaths &&
+      (!isPathWithinAllowedDirectory(
         canonicalFilePath,
         canonicalProjectPath,
         this.platform,
-      ) ||
-      !(await this.isCanonicalPathAllowed(canonicalFilePath))
+      ) || !(await this.isCanonicalPathAllowed(canonicalFilePath)))
     ) {
       this.sendFileDownloadError(
         ws,

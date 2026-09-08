@@ -154,6 +154,9 @@ Environment=BRIDGE_HOST=${host}`;
   if (allowedDirs) {
     envLines += `\nEnvironment=BRIDGE_ALLOWED_DIRS=${allowedDirs}`;
   }
+  if (process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS === "1") {
+    envLines += "\nEnvironment=BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS=1";
+  }
   if (publicWsUrl) {
     envLines += `\nEnvironment=BRIDGE_PUBLIC_WS_URL=${publicWsUrl}`;
   }

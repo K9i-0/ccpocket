@@ -106,6 +106,12 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>${allowedDirs}</string>`;
   }
 
+  if (process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS === "1") {
+    envBlock += `
+        <key>BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS</key>
+        <string>1</string>`;
+  }
+
   if (publicWsUrl) {
     envBlock += `
         <key>BRIDGE_PUBLIC_WS_URL</key>

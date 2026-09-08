@@ -42,6 +42,7 @@ ccpocket-bridge --version
 | `BRIDGE_HOST` | `0.0.0.0` | Bind address |
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access; set exactly to `*` to allow any directory |
+| `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS` | unset (project only) | Set exactly to `1` to allow sharing/downloading any regular file readable by the Bridge process, including paths outside `BRIDGE_ALLOWED_DIRS`. Absolute and relative paths within the selected project work by default. |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
 | `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
@@ -224,6 +225,7 @@ that affect startup:
 - `BRIDGE_HOST` / `--host`
 - `BRIDGE_API_KEY` / `--api-key`
 - `BRIDGE_ALLOWED_DIRS`
+- `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS`
 - `BRIDGE_PUBLIC_WS_URL` / `--public-ws-url`
 - `BRIDGE_DISABLE_MDNS` / `--no-mdns`
 - `BRIDGE_ALLOW_CLAUDE_OAUTH`
@@ -325,3 +327,22 @@ The bridge server spawns and manages Claude Code CLI processes, translating WebS
 
 This package is MIT licensed as part of CC Pocket. See [LICENSE](./LICENSE) and
 the repository root [LICENSE](../../LICENSE).
+
+### Sharing files by absolute path
+
+Sharing accepts both project-relative and absolute file paths. By default, the
+resolved file (including symlink targets) must stay inside the selected project
+and `BRIDGE_ALLOWED_DIRS`.
+
+To explicitly allow sharing files from any location:
+
+```bash
+BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS=1 npx @ccpocket/bridge@latest
+```
+
+This opt-in grants connected clients download access to all regular files readable
+by the Bridge process. The selected project must still be an allowed, existing
+directory. Authentication, download size limits, and capability URLs remain in
+place. Uploads and other file access operations retain their existing rules.
+Set the variable when running `setup` to persist it in launchd/systemd, or update
+the service environment and restart the Bridge. No mobile app update is needed.

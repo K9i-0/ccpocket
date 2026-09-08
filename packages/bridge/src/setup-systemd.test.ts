@@ -107,6 +107,19 @@ describe("setup-systemd", () => {
       expect(content).toContain("Environment=BRIDGE_API_KEY=my-secret");
     });
 
+    it.each(["1", "0", "false", ""])("persists all-path downloads only for explicit opt-in %j", (value) => {
+      const previous = process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS;
+      try {
+        process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS = value;
+        setupSystemd({});
+        const content = mockWriteFileSync.mock.calls[0]![1] as string;
+        expect(content.includes("BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS")).toBe(value === "1");
+      } finally {
+        if (previous === undefined) delete process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS;
+        else process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS = previous;
+      }
+    });
+
     it("includes BRIDGE_ALLOWED_DIRS when provided", () => {
       process.env.BRIDGE_ALLOWED_DIRS = "/home/testuser,/scratch/testuser";
 

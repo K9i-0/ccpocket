@@ -5496,6 +5496,59 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it.each([
+    [false, "inside", "file_download_ready"],
+    [false, "outside", "file_download_not_allowed"],
+    [false, "link", "file_download_not_allowed"],
+    [true, "outside", "file_download_ready"],
+    [true, "relative", "file_download_ready"],
+    [true, "link", "file_download_ready"],
+    [true, "directory", "file_download_not_file"],
+    [true, "missing", "file_download_not_found"],
+    [true, "large", "file_download_too_large"],
+    [true, "invalidProject", "file_download_not_allowed"],
+  ] as const)("download allPaths=%s handles %s as %s", async (allPaths, kind, expected) => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-download-policy-"));
+    const projectPath = resolve(root, "project");
+    mkdirSync(projectPath);
+    writeFileSync(resolve(projectPath, "inside.txt"), "ok");
+    writeFileSync(resolve(root, "outside.txt"), "ok");
+    writeFileSync(resolve(root, "large.txt"), "too large");
+    symlinkSync(resolve(root, "outside.txt"), resolve(projectPath, "link.txt"));
+    const paths = {
+      inside: resolve(projectPath, "inside.txt"),
+      outside: resolve(root, "outside.txt"), relative: "../outside.txt",
+      link: resolve(projectPath, "link.txt"), directory: root,
+      missing: resolve(root, "missing.txt"), large: resolve(root, "large.txt"),
+      invalidProject: resolve(root, "outside.txt"),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer, allowedDirs: [projectPath],
+      fileDownloadAllowAllPaths: allPaths, fileDownloadMaxBytes: 4,
+      mediaStore: new MediaStore(),
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      await (bridge as any).handleClientMessage({
+        type: "prepare_file_download",
+        projectPath: kind === "invalidProject" ? root : projectPath,
+        filePath: paths[kind], requestId: "policy",
+      }, ws);
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = JSON.parse(ws.send.mock.calls[0][0]);
+      expect(response.requestId).toBe("policy");
+      if (expected === "file_download_ready") {
+        expect(response.type).toBe(expected);
+        expect(response.filePath).toBe(paths[kind]);
+        expect(response.downloadUrl).toMatch(/^\/api\/media\/[a-f0-9]{48}$/);
+      } else {
+        expect(response.errorCode).toBe(expected);
+      }
+    } finally {
+      bridge.close(); rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("prepares a capability URL for uploading into the current project folder", async () => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-upload-"));
     mkdirSync(resolve(projectPath, "docs"));

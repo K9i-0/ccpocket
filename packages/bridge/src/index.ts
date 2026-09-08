@@ -272,6 +272,7 @@ export async function startServer() {
     server: httpServer,
     apiKey: API_KEY,
     allowedDirs: ALLOWED_DIRS,
+    fileDownloadAllowAllPaths: process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS === "1",
     imageStore,
     mediaStore,
     uploadStore,
