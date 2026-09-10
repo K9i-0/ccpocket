@@ -4,6 +4,16 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.81.5] - 2026-09-10
+
+### Changed
+- Replace deprecated Codex rollback calls with forks at the selected turn. Conversation rewind preserves the original thread and starts a fresh thread when rewinding before the first message.
+
+### Fixed
+- Fetch Codex history through paginated turn reads and avoid deprecated full-history hydration when resuming or forking threads. Preserve compatibility with older Codex servers and handle new threads with no persisted messages.
+- Keep non-blocking Codex questions from pausing execution or reviving a completed turn, and prioritize blocking questions when approval is required.
+- Prefer the current Codex service tier catalog, using legacy speed tiers only when the current field is absent.
+
 ## [1.81.4] - 2026-09-08
 
 ### Added
