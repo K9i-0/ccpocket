@@ -1757,40 +1757,71 @@ describe("CodexProcess (app-server)", () => {
     }
   });
 
-  it("sends thread/read with includeTurns", async () => {
+  it("reads full history across turn pages in chronological order", async () => {
     const proc = new CodexProcess("linux");
-    const initializePromise = proc.initializeOnly("/tmp/project-a");
-
-    const child = fakeChildren[0];
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = proc.readThread("thr_read");
+    const reply = (result: unknown) => {
+      const req = nextOutgoingRequest(child);
+      (proc as any).handleRpcResponse({ id: req.id, result });
+      return req;
+    };
+    expect(reply({ thread: { id: "thr_read", turns: [] } }).params)
+      .toEqual({ threadId: "thr_read", includeTurns: false });
     await tick();
-
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
-      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
-    );
+    const first = { id: "turn1", items: [{ type: "userMessage", content: [] }] };
+    const second = { id: "turn2", items: [{ type: "agentMessage", text: "hello" }] };
+    expect(reply({ data: [first], nextCursor: "page2" })).toMatchObject({
+      method: "thread/turns/list",
+      params: { threadId: "thr_read", limit: 50, sortDirection: "asc", itemsView: "full" },
+    });
     await tick();
-    await initializePromise;
+    expect(reply({ data: [second], nextCursor: null }).params.cursor).toBe("page2");
+    await expect(read).resolves.toEqual({ id: "thr_read", turns: [first, second] });
+  });
 
-    const readPromise = proc.readThread("thr_read", true);
-    const readReq = nextOutgoingRequest(child);
-    expect(readReq.method).toBe("thread/read");
-    expect(readReq.params).toEqual({
-      threadId: "thr_read",
-      includeTurns: true,
-    });
+  it("falls back to legacy history only when turn pagination is unsupported", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = proc.readThread("thr_old");
+    let req = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_old" } } });
+    await tick();
+    req = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({ id: req.id, error: { code: -32601, message: "Method not found" } });
+    await tick();
+    req = nextOutgoingRequest(child);
+    expect(req).toMatchObject({ method: "thread/read", params: { includeTurns: true } });
+    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_old", turns: [] } } });
+    await expect(read).resolves.toEqual({ id: "thr_old", turns: [] });
+  });
 
-    child.stdout.emit(
-      "data",
-      `${JSON.stringify({
-        id: readReq.id,
-        result: { thread: { id: "thr_read", turns: [] } },
-      })}\n`,
-    );
-    await expect(readPromise).resolves.toEqual({
-      id: "thr_read",
-      turns: [],
-    });
+  it("reads metadata without requesting turns", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = proc.readThread("thr_meta", false);
+    const req = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_meta" } } });
+    await expect(read).resolves.toEqual({ id: "thr_meta" });
+    expect((proc as any).pendingRpc.size).toBe(0);
+  });
+
+  it("does not fall back when pagination fails for another reason", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = proc.readThread("thr_error");
+    const rejected = expect(read).rejects.toThrow("read failed");
+    let req = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_error" } } });
+    await tick();
+    req = nextOutgoingRequest(child);
+    (proc as any).handleRpcResponse({ id: req.id, error: { code: -32603, message: "read failed" } });
+    await rejected;
+    expect((proc as any).pendingRpc.size).toBe(0);
   });
 
   it("reads Browser Use auto-review policy without RPC params", async () => {

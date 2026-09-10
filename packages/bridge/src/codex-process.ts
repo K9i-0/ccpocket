@@ -614,13 +614,53 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   ): Promise<Record<string, unknown>> {
     const response = (await this.request("thread/read", {
       threadId,
-      includeTurns,
+      includeTurns: false,
     })) as Record<string, unknown>;
     const thread = response.thread as Record<string, unknown> | undefined;
     if (!thread) {
       throw new Error("thread/read returned no thread");
     }
-    return thread;
+    if (!includeTurns) return thread;
+
+    const turns: unknown[] = [];
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    do {
+      let page: Record<string, unknown>;
+      try {
+        page = (await this.request("thread/turns/list", {
+          threadId,
+          ...(cursor !== undefined ? { cursor } : {}),
+          limit: 50,
+          sortDirection: "asc",
+          itemsView: "full",
+        })) as Record<string, unknown>;
+      } catch (err) {
+        // Older app-servers do not expose turn pagination.
+        if (!(err instanceof CodexRpcError) || err.code !== -32601) throw err;
+        const legacy = (await this.request("thread/read", {
+          threadId,
+          includeTurns: true,
+        })) as Record<string, unknown>;
+        if (!legacy.thread) throw new Error("thread/read returned no thread");
+        return legacy.thread as Record<string, unknown>;
+      }
+      if (!Array.isArray(page.data)) {
+        throw new Error("thread/turns/list returned invalid data");
+      }
+      turns.push(...page.data);
+      if (page.nextCursor != null && typeof page.nextCursor !== "string") {
+        throw new Error("thread/turns/list returned an invalid cursor");
+      }
+      cursor = (page.nextCursor as string | null | undefined) ?? undefined;
+      if (cursor !== undefined) {
+        if (seenCursors.has(cursor)) {
+          throw new Error("thread/turns/list returned a repeated cursor");
+        }
+        seenCursors.add(cursor);
+      }
+    } while (cursor !== undefined);
+    return { ...thread, turns };
   }
 
   async rollbackThread(numTurns: number): Promise<Record<string, unknown>> {
