@@ -1587,7 +1587,7 @@ export class BridgeWebSocketServer {
     const codexProcess = session.process as CodexProcess;
     if (
       session.provider !== "codex" ||
-      typeof codexProcess.rollbackThread !== "function"
+      typeof codexProcess.forkThreadAtUserTurn !== "function"
     ) {
       this.send(ws, {
         type: "rewind_result",
@@ -1666,10 +1666,12 @@ export class BridgeWebSocketServer {
         }
       : undefined;
 
-    const rolledBackThread = await codexProcess.rollbackThread(numTurns);
+    const forked = targetOrdinal > 1
+      ? await codexProcess.forkThreadAtUserTurn(targetOrdinal - 1)
+      : undefined;
 
     const pastMessages = this.codexHistoryFromThreadOrFallback({
-      thread: rolledBackThread,
+      thread: forked?.thread,
       expectedUserTurns: targetOrdinal - 1,
       fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
     });
@@ -1682,7 +1684,7 @@ export class BridgeWebSocketServer {
       "codex",
       this.withCodexAutoReviewPolicy({
         ...(codexSettings ?? {}),
-        threadId,
+        threadId: forked?.threadId,
       } as CodexStartOptions),
     );
     this.attachWorkspaceToRuntimeSession(newSessionId, workspace);
@@ -1726,7 +1728,7 @@ export class BridgeWebSocketServer {
     const codexProcess = session.process as CodexProcess;
     if (
       session.provider !== "codex" ||
-      typeof codexProcess.forkThread !== "function"
+      typeof codexProcess.forkThreadAtUserTurn !== "function"
     ) {
       this.send(ws, {
         type: "error",
@@ -1773,16 +1775,9 @@ export class BridgeWebSocketServer {
         }
       : undefined;
 
-    const forked = await codexProcess.forkThread();
+    const forked = await codexProcess.forkThreadAtUserTurn(targetOrdinal);
     const forkedThreadId = forked.threadId;
-    const turnsToDrop = totalUserTurns - targetOrdinal;
-    let forkedThread: unknown = forked.thread;
-    if (turnsToDrop > 0) {
-      forkedThread = await codexProcess.rollbackThreadById(
-        forkedThreadId,
-        turnsToDrop,
-      );
-    }
+    const forkedThread = forked.thread;
 
     const pastMessages = this.codexHistoryFromThreadOrFallback({
       thread: forkedThread,

@@ -346,6 +346,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             null => null,
           };
     final pendingPermission = context.pendingPermission;
+    // Session summaries omit optional questions; history owns their lifetime.
+    final hasOptionalQuestion = switch (state.approval) {
+      ApprovalAskUser(:final input) => input['isBlocking'] == false,
+      _ => false,
+    };
     final approval =
         pendingPermission != null &&
             !_respondedToolUseIds.contains(pendingPermission.toolUseId)
@@ -353,7 +358,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             toolUseId: pendingPermission.toolUseId,
             request: pendingPermission,
           )
-        : context.status == 'waiting_approval'
+        : context.status == 'waiting_approval' || hasOptionalQuestion
         ? state.approval
         : const ApprovalState.none();
     final projectPath = context.projectPath.trim();

@@ -752,8 +752,11 @@ class ChatMessageHandler {
         // A result message means the turn completed
         if (m is ResultMessage) {
           pendingPermissions.clear();
-          lastAskToolUseId = null;
-          lastAskInput = null;
+          // Optional Codex questions remain answerable after the turn ends.
+          if (lastAskInput?['isBlocking'] != false) {
+            lastAskToolUseId = null;
+            lastAskInput = null;
+          }
         }
       }
     }
@@ -763,8 +766,9 @@ class ChatMessageHandler {
         ? pendingPermissions.values.first
         : null;
 
-    // Only restore pending state if session is actually waiting
+    // Blocking permissions require waiting; optional questions do not.
     final bool isWaiting = lastStatus == ProcessStatus.waitingApproval;
+    final restoreQuestion = isWaiting || lastAskInput?['isBlocking'] == false;
     return ChatStateUpdate(
       status: lastStatus,
       entriesToAdd: entries,
@@ -772,8 +776,8 @@ class ChatMessageHandler {
       slashCommands: commands,
       pendingToolUseId: isWaiting ? lastPermission?.toolUseId : null,
       pendingPermission: isWaiting ? lastPermission : null,
-      askToolUseId: isWaiting ? lastAskToolUseId : null,
-      askInput: isWaiting ? lastAskInput : null,
+      askToolUseId: restoreQuestion ? lastAskToolUseId : null,
+      askInput: restoreQuestion ? lastAskInput : null,
       claudeSessionId: claudeSessionId,
       projectPath: projectPath,
       codexModel: codexModel,

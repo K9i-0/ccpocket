@@ -15,6 +15,7 @@ import {
   buildCodexSpawnSpec,
   type CodexTransport,
 } from "./codex-transport.js";
+import { codexThreadToSessionHistory } from "./sessions-index.js";
 import { codexCliJoinTarget } from "./codex-app-server-config.js";
 import {
   normalizeCodexServiceTierForClient,
@@ -156,6 +157,7 @@ interface PendingUserInputQuestion {
 }
 
 interface PendingUserInputRequest {
+  isBlocking?: boolean;
   requestId: string | number;
   toolUseId: string;
   toolName: string;
@@ -636,6 +638,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           itemsView: "full",
         })) as Record<string, unknown>;
       } catch (err) {
+        // New threads have metadata but no persisted turn history yet.
+        if (
+          cursor === undefined &&
+          err instanceof CodexRpcError &&
+          err.code === -32600 &&
+          err.message.includes(
+            "is not materialized yet; thread/turns/list is unavailable before first user message",
+          )
+        ) {
+          return { ...thread, turns: [] };
+        }
         // Older app-servers do not expose turn pagination.
         if (!(err instanceof CodexRpcError) || err.code !== -32601) throw err;
         const legacy = (await this.request("thread/read", {
@@ -663,43 +676,56 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return { ...thread, turns };
   }
 
-  async rollbackThread(numTurns: number): Promise<Record<string, unknown>> {
-    if (!this._threadId) {
-      throw new Error("No thread ID available for rollback");
-    }
-    return this.rollbackThreadById(this._threadId, numTurns);
-  }
-
-  async rollbackThreadById(
-    threadId: string,
-    numTurns: number,
-  ): Promise<Record<string, unknown>> {
-    const response = (await this.request("thread/rollback", {
-      threadId,
-      numTurns,
-    })) as Record<string, unknown>;
-    const thread = response.thread as Record<string, unknown> | undefined;
-    if (!thread) {
-      throw new Error("thread/rollback returned no thread");
-    }
-    return thread;
-  }
-
-  async forkThread(): Promise<{
+  /** Fork at a complete turn boundary without mutating the source history. */
+  async forkThreadAtUserTurn(userTurnOrdinal: number): Promise<{
     threadId: string;
     thread: Record<string, unknown>;
   }> {
-    if (!this._threadId) {
-      throw new Error("No thread ID available for fork");
+    if (!this._threadId) throw new Error("No thread ID available for fork");
+    if (!Number.isInteger(userTurnOrdinal) || userTurnOrdinal < 1) {
+      throw new Error("Invalid Codex fork target");
+    }
+    const source = await this.readThread(this._threadId);
+    let userCount = 0;
+    let lastTurnId: string | undefined;
+    for (const raw of Array.isArray(source.turns) ? source.turns : []) {
+      const turn = asRecord(raw);
+      if (!turn) continue;
+      userCount += codexThreadToSessionHistory({ turns: [turn] }).filter(
+        (message) => message.role === "user",
+      ).length;
+      if (userCount > userTurnOrdinal) {
+        throw new Error(
+          "Cannot fork within a Codex turn containing multiple user messages",
+        );
+      }
+      if (userCount === userTurnOrdinal) {
+        if (turn.status === "inProgress") {
+          throw new Error("Cannot fork an in-progress Codex turn");
+        }
+        lastTurnId = typeof turn.id === "string" ? turn.id : undefined;
+        break;
+      }
+    }
+    if (!lastTurnId) {
+      throw new Error("Codex fork target was not found in stored history");
     }
     const response = (await this.request("thread/fork", {
       threadId: this._threadId,
-      persistExtendedHistory: true,
+      lastTurnId,
+      excludeTurns: true,
     })) as Record<string, unknown>;
-    const thread = response.thread as Record<string, unknown> | undefined;
-    const threadId = typeof thread?.id === "string" ? thread.id : undefined;
-    if (!thread || !threadId) {
-      throw new Error("thread/fork returned no thread id");
+    const metadata = asRecord(response.thread);
+    const threadId = typeof metadata?.id === "string" ? metadata.id : undefined;
+    if (!threadId) throw new Error("thread/fork returned no thread id");
+    const thread = await this.readThread(threadId);
+    // Older servers may silently ignore lastTurnId. Never resume excess history.
+    const turns = Array.isArray(thread.turns) ? thread.turns : [];
+    const forkedUserCount = codexThreadToSessionHistory(thread).filter(
+      (message) => message.role === "user",
+    ).length;
+    if (asRecord(turns.at(-1))?.id !== lastTurnId || forkedUserCount !== userTurnOrdinal) {
+      throw new Error("Codex did not fork at the requested turn; update Codex CLI");
     }
     return { threadId, thread };
   }
@@ -1113,7 +1139,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     );
     this.emitToolResult(pending.toolUseId, "Approved", "approved");
 
-    if (this.pendingApprovals.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
     return true;
@@ -1143,7 +1173,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       "approved_for_session",
     );
 
-    if (this.pendingApprovals.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
     return true;
@@ -1176,7 +1210,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     );
     this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
-    if (this.pendingApprovals.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
     return true;
@@ -1199,8 +1237,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     this.emitToolResult(pending.toolUseId, "Answered", "answered");
 
-    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
-      this.setStatus("running");
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
+      if (pending.isBlocking !== false || this.pendingTurnId) {
+        this.setStatus("running");
+      }
     }
     return true;
   }
@@ -1367,8 +1411,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     toolUseId?: string,
   ): PendingUserInputRequest | undefined {
     if (toolUseId) return this.pendingUserInputs.get(toolUseId);
-    const first = this.pendingUserInputs.values().next();
-    return first.done ? undefined : first.value;
+    const requests = [...this.pendingUserInputs.values()];
+    return requests.find((request) => request.isBlocking !== false) ?? requests[0];
   }
 
   /**
@@ -1406,7 +1450,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         : "approved",
     );
 
-    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
     return true;
@@ -1440,7 +1488,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       toolUseId: pending.toolUseId,
     });
     this.emitToolResult(pending.toolUseId, toolResult);
-    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
   }
@@ -1465,7 +1517,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     );
     this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
-    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+    if (
+      this.pendingApprovals.size === 0 &&
+      !this.hasBlockingUserInput() &&
+      !this.pendingPlanCompletion
+    ) {
       this.setStatus("running");
     }
     return true;
@@ -1640,6 +1696,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       const method = options?.threadId ? "thread/resume" : "thread/start";
       if (options?.threadId) {
         threadParams.threadId = options.threadId;
+        threadParams.excludeTurns = true;
       } else {
         threadParams.experimentalRawEvents = false;
       }
@@ -2414,6 +2471,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         const toolUseId = this.extractToolUseId(params, id);
         const questions = normalizeUserInputQuestions(params.questions);
         const input: Record<string, unknown> = {
+          isBlocking: params.isBlocking !== false,
           questions: questions.map((q) => ({
             id: q.id,
             question: q.question,
@@ -2435,6 +2493,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           })),
           input,
           kind: "questions",
+          isBlocking: params.isBlocking !== false,
         });
         this.emitMessage({
           type: "permission_request",
@@ -2442,7 +2501,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           toolName: "AskUserQuestion",
           input,
         });
-        this.setStatus("waiting_approval");
+        if (params.isBlocking !== false) this.setStatus("waiting_approval");
         break;
       }
 
@@ -2852,7 +2911,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.lastPlanItemText = null;
       if (
         this.pendingApprovals.size === 0 &&
-        this.pendingUserInputs.size === 0
+        !this.hasBlockingUserInput()
       ) {
         this.setStatus("idle");
       }
@@ -3509,6 +3568,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.readinessWaiters.clear();
   }
 
+  private hasBlockingUserInput(): boolean {
+    return [...this.pendingUserInputs.values()].some(
+      (request) => request.isBlocking !== false,
+    );
+  }
+
   private setStatus(status: ProcessStatus): void {
     if (this._status !== status) {
       this._status = status;
@@ -3561,7 +3626,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (
       !this.pendingPlanCompletion &&
       this.pendingApprovals.size === 0 &&
-      this.pendingUserInputs.size === 0
+      !this.hasBlockingUserInput()
     ) {
       this.setStatus(this.pendingTurnId ? "running" : "idle");
     }
@@ -3922,16 +3987,16 @@ function extractReasoningEfforts(raw: Record<string, unknown>): string[] {
 }
 
 function extractServiceTiers(raw: Record<string, unknown>): string[] {
-  // Recent app-server versions expose the user-facing Fast option as
+  // Older app-server versions expose the user-facing Fast option as
   // `additionalSpeedTiers: ["fast"]`, while the lower-level service tier is
-  // advertised as `{ id: "priority", name: "Fast" }`. Merge both shapes and
-  // normalize them to the value accepted by `service_tier` in config/RPCs.
-  const values = [
-    ...(Array.isArray(raw.additionalSpeedTiers)
+  // advertised as `{ id: "priority", name: "Fast" }`. Prefer the current
+  // catalog and normalize its values for the client.
+  // The current catalog is authoritative, including an explicitly empty list.
+  const values = Array.isArray(raw.serviceTiers)
+    ? raw.serviceTiers
+    : Array.isArray(raw.additionalSpeedTiers)
       ? raw.additionalSpeedTiers
-      : []),
-    ...(Array.isArray(raw.serviceTiers) ? raw.serviceTiers : []),
-  ];
+      : [];
   const seen = new Set<string>();
   const tiers: string[] = [];
   for (const value of values) {

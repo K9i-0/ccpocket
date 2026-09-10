@@ -223,6 +223,59 @@ void main() {
       expect(cubit.state.projectPath, '/Users/me/Workspace/ccpocket');
     });
 
+    for (final status in ['running', 'idle']) {
+      test(
+        'session context preserves an optional history question while $status',
+        () async {
+          final cubit = createCubit('s1', provider: Provider.codex);
+          addTearDown(cubit.close);
+          await Future.microtask(() {});
+          final context = SessionContextMessage(
+            sessionId: 's1',
+            context: SessionInfo(
+              id: 's1',
+              provider: 'codex',
+              projectPath: '/tmp',
+              status: status,
+              createdAt: '',
+              lastActivityAt: '',
+            ),
+          );
+          mockBridge.emitMessage(context, sessionId: 's1');
+          await Future.microtask(() {});
+          mockBridge.emitMessage(
+            HistoryMessage(
+              messages: [
+                const PermissionRequestMessage(
+                  toolUseId: 'optional',
+                  toolName: 'AskUserQuestion',
+                  input: {
+                    'isBlocking': false,
+                    'questions': [
+                      {'id': 'q', 'question': 'Choose', 'options': []},
+                    ],
+                  },
+                ),
+                if (status == 'idle') const ResultMessage(subtype: 'success'),
+                StatusMessage(status: ProcessStatus.fromString(status)),
+              ],
+            ),
+            sessionId: 's1',
+          );
+          await Future.microtask(() {});
+          expect(cubit.state.approval, isA<ApprovalAskUser>());
+          mockBridge.emitMessage(context, sessionId: 's1');
+          await Future.microtask(() {});
+          expect(cubit.state.approval, isA<ApprovalAskUser>());
+          cubit.answer('optional', 'yes');
+          mockBridge.emitMessage(context, sessionId: 's1');
+          await Future.microtask(() {});
+          expect(cubit.state.approval, isA<ApprovalNone>());
+          expect(cubit.state.status, ProcessStatus.fromString(status));
+        },
+      );
+    }
+
     test('canonical session context hydrates all screen metadata', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);

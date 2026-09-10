@@ -152,12 +152,7 @@ vi.mock("./session.js", () => ({
         listAvailableModelMetadata: vi.fn(async () => []),
         readProfileConfig: vi.fn(async () => ({ profiles: [] })),
         readThread: vi.fn(async () => ({ id: "thread-read", turns: [] })),
-        rollbackThread: vi.fn(async () => ({ id: "thread-rollback", turns: [] })),
-        rollbackThreadById: vi.fn(async () => ({
-          id: "thread-forked",
-          turns: [],
-        })),
-        forkThread: vi.fn(async () => ({
+        forkThreadAtUserTurn: vi.fn(async () => ({
           threadId: "thread-forked",
           thread: { id: "thread-forked", turns: [] },
         })),
@@ -8916,7 +8911,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("rolls back codex conversation turns and recreates the bridge session", async () => {
+  it.each([1, 2])("rewinds codex before user turn %s using a new thread", async (target) => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -8963,21 +8958,22 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         content: [{ type: "text", text: "second codex turn" }],
       },
     ];
-    const rollbackThread = session.process.rollbackThread;
+    const forkThread = session.process.forkThreadAtUserTurn;
 
     ws.send.mockClear();
     await (bridge as any).handleClientMessage(
       {
         type: "rewind",
         sessionId,
-        targetUuid: "codex:user-turn:1",
+        targetUuid: `codex:user-turn:${target}`,
         mode: "conversation",
       },
       ws,
     );
     await Promise.resolve();
 
-    expect(rollbackThread).toHaveBeenCalledWith(2);
+    if (target === 1) expect(forkThread).not.toHaveBeenCalled();
+    else expect(forkThread).toHaveBeenCalledWith(1);
     expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
@@ -8994,13 +8990,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sourceSessionId: sessionId,
     });
     const newSession = (bridge as any).sessionManager.get(newCreated.sessionId);
-    expect(newSession.codexOptions).toMatchObject({ threadId: "thread-rollback" });
-    expect(newSession.pastMessages).toEqual([]);
+    expect(newSession.codexOptions.threadId).toBe(target === 1 ? undefined : "thread-forked");
+    expect(newSession.pastMessages.filter((m: any) => m.role === "user")).toHaveLength(target - 1);
 
     bridge.close();
   });
 
-  it("forks codex conversation at a target turn and rolls back only the fork", async () => {
+  it("forks codex conversation directly at a target turn", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -9023,7 +9019,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
     session.process.sessionId = "thread-source";
-    session.process.forkThread.mockResolvedValueOnce({
+    session.process.forkThreadAtUserTurn.mockResolvedValueOnce({
       threadId: "thread-forked",
       thread: { id: "thread-forked", turns: [] },
     });
@@ -9067,11 +9063,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(session.process.forkThread).toHaveBeenCalledTimes(1);
-    expect(session.process.rollbackThreadById).toHaveBeenCalledWith(
-      "thread-forked",
-      1,
-    );
+    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledTimes(1);
+    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledWith(1);
     expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));

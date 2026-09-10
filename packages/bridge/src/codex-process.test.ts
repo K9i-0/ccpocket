@@ -987,6 +987,7 @@ describe("CodexProcess (app-server)", () => {
 
       const resumeReq = nextOutgoingRequest(child);
       expect(resumeReq.method).toBe("thread/resume");
+      expect(resumeReq.params.excludeTurns).toBe(true);
       child.stdout.emit(
         "data",
         `${JSON.stringify({
@@ -1681,48 +1682,43 @@ describe("CodexProcess (app-server)", () => {
     );
   });
 
-  it("sends thread/rollback for the active thread", async () => {
+  it("forks through a stored turn without hydrating the fork response", async () => {
     const proc = new CodexProcess("linux");
-    proc.start("/tmp/project-a");
-
-    const child = fakeChildren[0];
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    (proc as any)._threadId = "source";
+    const first = { id: "turn1", status: "completed", items: [{ type: "userMessage", content: [{ type: "text", text: "first" }] }] };
+    const second = { id: "turn2", status: "completed", items: [{ type: "userMessage", content: [{ type: "text", text: "second" }] }] };
+    vi.spyOn(proc, "readThread")
+      .mockResolvedValueOnce({ turns: [first, second] })
+      .mockResolvedValueOnce({ id: "fork", turns: [first] });
+    const fork = proc.forkThreadAtUserTurn(1);
     await tick();
+    const req = nextOutgoingRequest(child);
+    expect(req).toMatchObject({ method: "thread/fork", params: {
+      threadId: "source", lastTurnId: "turn1", excludeTurns: true,
+    } });
+    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "fork" } } });
+    await expect(fork).resolves.toEqual({ threadId: "fork", thread: { id: "fork", turns: [first] } });
+    expect(proc.sessionId).toBe("source");
+  });
 
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
-      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
-    );
+  it("rejects a fork when an older server ignores the boundary", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "source";
+    const turns = [1, 2].map((n) => ({ id: `turn${n}`, items: [{ type: "userMessage", content: [{ type: "text", text: String(n) }] }] }));
+    vi.spyOn(proc, "readThread").mockResolvedValue({ turns });
+    vi.spyOn(proc as any, "request").mockResolvedValue({ thread: { id: "fork" } });
+    await expect(proc.forkThreadAtUserTurn(1)).rejects.toThrow("update Codex CLI");
+  });
 
-    await tick();
-    nextOutgoingNotification(child);
-    const startReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
-      `${JSON.stringify({ id: startReq.id, result: { thread: { id: "thr_rollback" } } })}\n`,
-    );
-    await tick();
-    drainSkillsList(child);
-
-    const rollbackPromise = proc.rollbackThread(2);
-    const rollbackReq = nextOutgoingRequest(child);
-    expect(rollbackReq.method).toBe("thread/rollback");
-    expect(rollbackReq.params).toEqual({
-      threadId: "thr_rollback",
-      numTurns: 2,
-    });
-
-    child.stdout.emit(
-      "data",
-      `${JSON.stringify({
-        id: rollbackReq.id,
-        result: { thread: { id: "thr_rollback", turns: [] } },
-      })}\n`,
-    );
-    await expect(rollbackPromise).resolves.toEqual({
-      id: "thr_rollback",
-      turns: [],
-    });
+  it("rejects targets inside a turn with steered user messages", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "source";
+    vi.spyOn(proc, "readThread").mockResolvedValue({ turns: [{ id: "turn1", items: ["first", "steer"].map((text) => ({ type: "userMessage", content: [{ type: "text", text }] })) }] });
+    const request = vi.spyOn(proc as any, "request");
+    await expect(proc.forkThreadAtUserTurn(1)).rejects.toThrow("multiple user messages");
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("ignores a late archive reply and allows retry after timeout", async () => {
@@ -1796,6 +1792,17 @@ describe("CodexProcess (app-server)", () => {
     expect(req).toMatchObject({ method: "thread/read", params: { includeTurns: true } });
     (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_old", turns: [] } } });
     await expect(read).resolves.toEqual({ id: "thr_old", turns: [] });
+  });
+
+  it("returns empty history for a new unmaterialized thread", async () => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "new", turns: [] } })
+      .mockRejectedValueOnce(new CodexRpcError("thread/turns/list", {
+        code: -32600,
+        message: "thread new is not materialized yet; thread/turns/list is unavailable before first user message",
+      }));
+    await expect(proc.readThread("new")).resolves.toEqual({ id: "new", turns: [] });
   });
 
   it("reads metadata without requesting turns", async () => {
@@ -2556,6 +2563,56 @@ describe("CodexProcess (app-server)", () => {
     );
 
     proc.stop();
+  });
+
+  it.each([
+    [{ serviceTiers: [], additionalSpeedTiers: ["fast"] }, []],
+    [{ serviceTiers: [{ id: "priority", name: "Fast" }], additionalSpeedTiers: ["obsolete"] }, ["fast"]],
+    [{ additionalSpeedTiers: ["fast"] }, ["fast"]],
+  ])("prefers the current service tier catalog %j", async (catalog, expected) => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request").mockResolvedValue({ data: [{ model: "model", ...catalog }], nextCursor: null });
+    const models = await proc.listAvailableModelMetadata();
+    expect(models[0].supportedServiceTiers).toEqual(expected);
+  });
+
+  it("keeps waiting for a blocking question when an optional question is resolved", () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    (proc as any)._threadId = "thread";
+    (proc as any).pendingTurnId = "turn";
+    for (const isBlocking of [false, true]) {
+      (proc as any).handleRpcEnvelope({ id: String(isBlocking), method: "item/tool/requestUserInput", params: {
+        threadId: "thread", turnId: "turn", itemId: String(isBlocking), isBlocking, questions: [],
+      } });
+    }
+    expect(proc.getPendingPermission()?.toolUseId).toBe("true");
+    proc.answer("false", "yes");
+    expect(proc.status).toBe("waiting_approval");
+    proc.answer("true", "yes");
+    expect(proc.status).toBe("running");
+  });
+
+  it.each([false, true, undefined])("respects question isBlocking=%s through completion and answer", (isBlocking) => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const messages: any[] = [];
+    proc.on("message", (message) => messages.push(message));
+    (proc as any)._threadId = "thread";
+    (proc as any).pendingTurnId = "turn";
+    (proc as any).setStatus("running");
+    (proc as any).handleRpcEnvelope({ id: "question", method: "item/tool/requestUserInput", params: {
+      threadId: "thread", turnId: "turn", itemId: "item", isBlocking,
+      questions: [{ id: "q", question: "Choose", options: [] }],
+    } });
+    expect(proc.status).toBe(isBlocking === false ? "running" : "waiting_approval");
+    expect(messages.find((message) => message.type === "permission_request").input.isBlocking).toBe(isBlocking !== false);
+    (proc as any).handleRpcEnvelope({ method: "turn/completed", params: { threadId: "thread", turn: { id: "turn", status: "completed" } } });
+    if (isBlocking === false) expect(proc.status).toBe("idle");
+    expect(proc.answer("item", "yes")).toBe(true);
+    if (isBlocking === false) expect(proc.status).toBe("idle");
   });
 
   it("emits AskUserQuestion and responds on answer", async () => {

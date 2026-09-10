@@ -1738,6 +1738,64 @@ void main() {
     });
   });
 
+  group('Non-blocking Codex question restoration', () {
+    const question = PermissionRequestMessage(
+      toolUseId: 'optional-question',
+      toolName: 'AskUserQuestion',
+      input: {
+        'isBlocking': false,
+        'questions': [
+          {'id': 'q', 'question': 'Choose', 'options': []},
+        ],
+      },
+    );
+    for (final status in [ProcessStatus.running, ProcessStatus.idle]) {
+      test('restores an unanswered optional question while $status', () {
+        final update = handler.handle(
+          HistoryMessage(
+            messages: [
+              question,
+              if (status == ProcessStatus.idle)
+                const ResultMessage(subtype: 'success'),
+              StatusMessage(status: status),
+            ],
+          ),
+          isBackground: false,
+          isCodex: true,
+        );
+        expect(update.status, status);
+        expect(update.askToolUseId, 'optional-question');
+        expect(update.askInput?['isBlocking'], false);
+      });
+    }
+    for (final resolved in <ServerMessage>[
+      const PermissionResolvedMessage(toolUseId: 'optional-question'),
+      const ToolResultMessage(
+        toolUseId: 'optional-question',
+        content: 'Answered',
+      ),
+    ]) {
+      test(
+        'does not restore a question resolved by ${resolved.runtimeType}',
+        () {
+          final update = handler.handle(
+            HistoryMessage(
+              messages: [
+                question,
+                resolved,
+                const ResultMessage(subtype: 'success'),
+                const StatusMessage(status: ProcessStatus.idle),
+              ],
+            ),
+            isBackground: false,
+            isCodex: true,
+          );
+          expect(update.askToolUseId, isNull);
+        },
+      );
+    }
+  });
+
   group('History restoration — text, image, and text+image', () {
     test('restores text-only user message from in-memory history', () {
       final update = handler.handle(
