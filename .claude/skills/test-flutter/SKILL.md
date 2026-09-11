@@ -9,7 +9,7 @@ allowed-tools: Bash(flutter:*), Bash(dart:*), Read, Glob, Grep
 
 ## 実行手順
 
-以下を順番に実行し、全てパスすることを確認する。
+変更した挙動に対応するテストと静的検証を選ぶ。全体テストは、共通基盤・依存関係への変更や回帰懸念がある場合、または全体検証を依頼された場合に実行する。成功済みの検証を理由なく繰り返さない。以下はコマンドの選択肢。
 
 ### 1. 静的解析
 
@@ -17,14 +17,14 @@ allowed-tools: Bash(flutter:*), Bash(dart:*), Read, Glob, Grep
 dart analyze apps/mobile
 ```
 
-warning 以上は修正する。info レベルは必要に応じて対応。
+今回の変更で生じた warning 以上は修正する。既存の無関係な問題は報告し、info は必要に応じて対応する。
 
 **MCP代替:** `mcp__dart-mcp__analyze_files` でも実行可能だが、CLI推奨。
 
 ### 2. フォーマット
 
 ```bash
-dart format apps/mobile
+dart format <変更したDartファイル>
 ```
 
 ### 3. ユニットテスト
@@ -87,17 +87,3 @@ void main() {
 - **ロジックテスト**: サービス・ハンドラーの振る舞い検証
   - 純粋なDartクラスのメソッド呼び出しと結果確認
 - WebSocket通信やBridge接続のモックが必要なテストは避ける (E2E領域)
-
-### 既存テストファイル一覧
-
-- `approval_bar_test.dart` — 承認バーUI
-- `ask_user_question_widget_test.dart` — AskUserQuestion UI
-- `chat_input_bar_test.dart` — チャット入力バーUI
-- `chat_message_handler_test.dart` — メッセージハンドラーロジック
-- `gallery_screen_test.dart` — ギャラリー画面
-- `home_screen_test.dart` — ホーム画面
-- `plan_mode_test.dart` — プランモードUI
-- `session_card_test.dart` — セッションカードUI
-- `slash_command_test.dart` — スラッシュコマンドUI
-- `tool_result_bubble_test.dart` — ツール結果表示
-- `tool_use_tile_test.dart` — ツール使用タイル表示

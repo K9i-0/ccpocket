@@ -1,6 +1,6 @@
 ---
 name: sim-preview
-description: iOSシミュレーターでアプリをビルド・起動し、TrollVNC経由でiPhoneからリモートプレビューできるようにする。実装の確認をユーザーに依頼するとき、シミュレータープレビュー、VNCプレビュー、実機確認と言われたとき、UIの変更結果を見せたいときに使用する。
+description: iOSシミュレーターのアプリをTrollVNC経由でリモートプレビューするときに使う。
 ---
 
 # Simulator Preview (TrollVNC)

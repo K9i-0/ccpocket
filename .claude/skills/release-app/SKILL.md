@@ -1,6 +1,6 @@
 ---
 name: release-app
-description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS / Linux / Windows の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
+description: ccpocketアプリのバージョン更新と、指定プラットフォーム向けリリースを行う。
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(bash scripts/release/run-checks.sh), Bash(node scripts/release/monitor.mjs:*), Read, Edit, AskUserQuestion
 ---
@@ -14,6 +14,8 @@ Flutter アプリのリリースを行う。
 
 - main ブランチで作業中であること
 - 未コミットの変更がないこと
+
+バージョンや対象プラットフォームを指定済みなら再質問しない。未指定で判断に必要な項目だけ、以下の候補を使って確認する。
 
 ## 手順
 

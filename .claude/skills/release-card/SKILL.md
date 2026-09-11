@@ -1,6 +1,6 @@
 ---
 name: release-card
-description: ccpocket の X 向けリリース告知カード画像を作成・更新する。最新の iOS/Android/macOS リリースタグ、App Store release_notes、既存の scripts/release-card/generate.mjs を使って英語・日本語の告知PNGを生成し、画像を目視確認して不備があれば生成スクリプトを修正する。「リリースカード」「X告知画像」「リリース報告用画像」「release-card」と言われたときに使用する。
+description: ccpocketのX向けリリース告知カード画像を生成・更新するときに使う。
 ---
 
 # Release Card

@@ -1,6 +1,6 @@
 ---
 name: flutter-upgrade
-description: Flutter SDKバージョンアップグレード対応。新バージョンのリリースノート・Breaking Changes調査、コードベース影響分析、mise/CI/Shorebird含むプロジェクト全体の対応タスクリスト作成と実行。「Flutterアップグレード」「Flutter X.Y.Zがリリースされた」「Flutter最新化」「Flutter更新」と言われたとき、またはFlutterの新バージョンについて言及されたときに使用する。
+description: Flutter SDKのアップグレード、または指定バージョンへの移行影響を調査するときに使う。
 ---
 
 # Flutter Upgrade
@@ -54,7 +54,7 @@ Grep pattern="<deprecated_api>" path="apps/mobile" glob="*.dart"
 
 #### mise (バージョン管理)
 - `.mise.toml` の `flutter` バージョンを更新する必要がある
-- グローバルにも反映する (`mise use --global`)
+- リポジトリの設定を対象とする。グローバル設定の変更は依頼された場合だけ行う。
 
 #### CI/CD (GitHub Actions)
 - 全ワークフローが `.mise.toml` から Flutter バージョンを読み取る仕組み
@@ -96,7 +96,7 @@ grep -r "mise.toml" .github/workflows/
 
 ### 必須（アップグレードに必要）
 1. `.mise.toml` の Flutter バージョン更新
-2. `mise install flutter@X.Y.Z && mise use --global flutter@X.Y.Z`
+2. `mise install flutter@X.Y.Z`
 3. `flutter pub get` → `dart analyze` → `flutter test`
 4. [Breaking Changes で必要な修正があればここに]
 
@@ -115,7 +115,7 @@ grep -r "mise.toml" .github/workflows/
 
 ## フェーズ4: 実行
 
-ユーザーの確認を得てから実行に移る。
+影響調査だけの依頼なら調査結果で完了する。アップグレードを依頼済みなら対象バージョンと範囲を引き継ぎ、実装・検証まで進める。対象が不明で結果に影響する場合だけ確認する。
 
 ### 4-1. mise 更新
 
@@ -123,9 +123,8 @@ grep -r "mise.toml" .github/workflows/
 # .mise.toml 編集（Edit ツールで）
 # flutter = "旧バージョン" → "新バージョン"
 
-# インストール & グローバル反映
+# リポジトリで指定したSDKをインストール
 mise install flutter@X.Y.Z
-mise use --global flutter@X.Y.Z
 
 # 確認
 flutter --version

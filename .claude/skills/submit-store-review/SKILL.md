@@ -1,6 +1,6 @@
 ---
 name: submit-store-review
-description: App Store Connect・Google Playの現在の公開版をAPIで調べ、既存の最新安定ビルドとの差分から4言語のリリースノートを作成し、CLI/APIで審査へ提出・再提出する。新しいビルドを作るrelease-appとは分離し、「最新を審査提出して」「ストア審査へ提出して」「App Reviewに出して」「Google Playの審査を進めて」「却下対応して再提出して」と依頼されたときに使用する。
+description: 既存の安定ビルドをApp Store / Google Playの審査へ提出・再提出する。新規ビルドはrelease-appを使う。
 ---
 
 # Submit Store Review
