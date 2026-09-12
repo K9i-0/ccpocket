@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.129.0] - 2026-09-12
+
+### Added
+- Add “Draw a sketch” to image attachments with pen, eraser, text, shapes, colors, and undo/redo.
+- Attach sketches as PNG images and reopen their thumbnails for editing, with editable drafts restored across app restarts.
+
+### Changed
+- Open attachment options by long-pressing the image button when direct gallery access is enabled.
+
 ## [1.128.0] - 2026-09-12
 
 ### Added
