@@ -7,6 +7,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'image drafts preserve original bytes separately from annotations',
+    () async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAYAAAD/Rn+7AAAAM0lEQVR4nO3OMQ0AAAjAMEQgDIk4BRVkHDv6N7J6Pgs6YNAgHTBokA4YNEgHDBqkAwavLQitSbvtcAR/AAAAAElFTkSuQmCC',
+      );
+      final document = SketchDocument(
+        canvasSize: const Size(800, 400),
+        backgroundImageBytes: bytes,
+        drawables: [ArrowDrawable(position: const Offset(50, 50), length: 20)],
+      );
+      final encoded = await document.encode();
+      expect(jsonDecode(encoded)['version'], 2);
+      final restored = await SketchDocument.decode(encoded);
+      expect(restored.backgroundImageBytes, bytes);
+      expect(restored.canvasSize, const Size(800, 400));
+      expect(restored.drawables.single, isA<ArrowDrawable>());
+      expect(jsonDecode(await restored.encode()), jsonDecode(encoded));
+      expect(jsonDecode(await const SketchDocument().encode())['version'], 1);
+    },
+  );
+
+  test(
     'round trips canvas dimensions, strokes, erasing, shapes and text',
     () async {
       final original = SketchDocument(

@@ -45,6 +45,7 @@ class ChatInputBar extends StatelessWidget {
   final List<({Uint8List bytes, String mimeType})> attachedImages;
   final Set<int> editableSketchIndices;
   final ValueChanged<int>? onEditSketch;
+  final ValueChanged<Uint8List>? onAnnotateImage;
   final void Function([int? index])? onClearImage;
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
@@ -94,6 +95,7 @@ class ChatInputBar extends StatelessWidget {
     this.attachedImages = const [],
     this.editableSketchIndices = const {},
     this.onEditSketch,
+    this.onAnnotateImage,
     this.onClearImage,
     this.attachedDiffSelection,
     this.onClearDiffSelection,
@@ -141,6 +143,7 @@ class ChatInputBar extends StatelessWidget {
               onClearImage: onClearImage,
               editableSketchIndices: editableSketchIndices,
               onEditSketch: onEditSketch,
+              onAnnotateImage: onAnnotateImage,
             ),
           _InputTextField(
             controller: inputController,
@@ -496,11 +499,25 @@ class _ImagePreview extends StatelessWidget {
     required this.onClearImage,
     required this.editableSketchIndices,
     required this.onEditSketch,
+    required this.onAnnotateImage,
   });
   final List<({Uint8List bytes, String mimeType})> images;
   final void Function([int? index])? onClearImage;
   final Set<int> editableSketchIndices;
   final ValueChanged<int>? onEditSketch;
+  final ValueChanged<Uint8List>? onAnnotateImage;
+
+  Future<void> _previewImage(BuildContext context, Uint8List bytes) async {
+    final draw = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => FullScreenImageViewer(
+          bytes: bytes,
+          allowDrawing: onAnnotateImage != null,
+        ),
+      ),
+    );
+    if (context.mounted && draw == true) onAnnotateImage?.call(bytes);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -513,7 +530,7 @@ class _ImagePreview extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           itemCount: images.length,
           separatorBuilder: (_, _) => const SizedBox(width: 6),
-          itemBuilder: (context, index) {
+          itemBuilder: (_, index) {
             final isSketch =
                 editableSketchIndices.contains(index) && onEditSketch != null;
             return Stack(
@@ -523,13 +540,7 @@ class _ImagePreview extends StatelessWidget {
                   key: ValueKey('attached_image_$index'),
                   onTap: isSketch
                       ? () => onEditSketch!(index)
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => FullScreenImageViewer(
-                              bytes: images[index].bytes,
-                            ),
-                          ),
-                        ),
+                      : () => _previewImage(context, images[index].bytes),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.memory(

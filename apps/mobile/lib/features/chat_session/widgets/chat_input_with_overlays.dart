@@ -603,7 +603,11 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     Future<void> openSketch({int? imageIndex}) async {
-      if (isSketchOpen.value) return;
+      if (isSketchOpen.value || activeSessionId.value != sessionId) return;
+      if (imageIndex != null &&
+          (imageIndex < 0 || imageIndex >= attachedImages.value.length)) {
+        return;
+      }
       const maxImages = 5;
       void showImageLimit() => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -627,7 +631,10 @@ class ChatInputWithOverlays extends HookWidget {
         final result = await Navigator.of(context).push<SketchResult>(
           MaterialPageRoute(
             fullscreenDialog: true,
-            builder: (_) => SketchScreen(initialDocumentJson: document),
+            builder: (_) => SketchScreen(
+              initialDocumentJson: document,
+              backgroundImageBytes: document == null ? original?.bytes : null,
+            ),
           ),
         );
         if (result == null ||
@@ -1112,6 +1119,16 @@ class ChatInputWithOverlays extends HookWidget {
                 editableSketchIndices: attachedSketchDocuments.value.keys
                     .toSet(),
                 onEditSketch: (index) => openSketch(imageIndex: index),
+                onAnnotateImage: (bytes) {
+                  // The preview can outlive a pending removal or session change.
+                  if (!context.mounted || activeSessionId.value != sessionId) {
+                    return;
+                  }
+                  final index = attachedImages.value.indexWhere(
+                    (image) => identical(image.bytes, bytes),
+                  );
+                  if (index >= 0) openSketch(imageIndex: index);
+                },
                 onClearImage: clearAttachment,
                 attachedDiffSelection: attachedDiffSelection.value,
                 onClearDiffSelection: clearDiffSelection,

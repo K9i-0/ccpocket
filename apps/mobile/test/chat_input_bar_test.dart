@@ -54,6 +54,7 @@ void main() {
     List<({Uint8List bytes, String mimeType})> attachedImages = const [],
     Set<int> editableSketchIndices = const {},
     ValueChanged<int>? onEditSketch,
+    ValueChanged<Uint8List>? onAnnotateImage,
     VoidCallback? onIndent,
     VoidCallback? onDedent,
     bool canDedent = true,
@@ -95,6 +96,7 @@ void main() {
             attachedImages: attachedImages,
             editableSketchIndices: editableSketchIndices,
             onEditSketch: onEditSketch,
+            onAnnotateImage: onAnnotateImage,
             onIndent: onIndent ?? () {},
             onDedent: onDedent ?? () {},
             canDedent: canDedent,
@@ -124,6 +126,31 @@ void main() {
   }
 
   group('ChatInputBar', () {
+    testWidgets('photo preview offers drawing without replacing zoom or text', (
+      tester,
+    ) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+      );
+      Uint8List? selected;
+      inputController.text = 'Change this area';
+      await tester.pumpWidget(
+        buildSubject(
+          attachedImages: [(bytes: bytes, mimeType: 'image/png')],
+          onAnnotateImage: (image) => selected = image,
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('attached_image_0')));
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(selected, isNull);
+      await tester.tap(find.byKey(const ValueKey('annotate_image_button')));
+      await tester.pumpAndSettle();
+      expect(identical(selected, bytes), isTrue);
+      expect(find.byType(InteractiveViewer), findsNothing);
+      expect(inputController.text, 'Change this area');
+    });
+
     testWidgets('attachment long press opens options without picking images', (
       tester,
     ) async {

@@ -2871,10 +2871,16 @@ class AppLocalizationsZh extends AppLocalizations {
       '仅输入 IP 地址或主机名，不含协议、端口或路径。IPv6 地址请用 [ ] 括起。';
 
   @override
+  String get annotateImage => '在图片上绘制';
+
+  @override
   String get drawSketch => '绘制草图';
 
   @override
   String get sketchTitle => '草图';
+
+  @override
+  String get sketchApply => '应用';
 
   @override
   String get sketchAttach => '附加';

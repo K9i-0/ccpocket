@@ -2929,10 +2929,16 @@ class AppLocalizationsKo extends AppLocalizations {
       '스킴, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요. IPv6 주소는 [ ]로 감싸세요.';
 
   @override
+  String get annotateImage => '이미지에 그리기';
+
+  @override
   String get drawSketch => '스케치 그리기';
 
   @override
   String get sketchTitle => '스케치';
+
+  @override
+  String get sketchApply => '적용';
 
   @override
   String get sketchAttach => '첨부';

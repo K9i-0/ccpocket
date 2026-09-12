@@ -2906,10 +2906,16 @@ class AppLocalizationsJa extends AppLocalizations {
       'IPアドレスまたはホスト名のみを入力してください（スキーム・ポート・パスは不要）。IPv6は [ ] で囲みます。';
 
   @override
+  String get annotateImage => '描き込む';
+
+  @override
   String get drawSketch => 'スケッチを描く';
 
   @override
   String get sketchTitle => 'スケッチ';
+
+  @override
+  String get sketchApply => '反映';
 
   @override
   String get sketchAttach => '添付';

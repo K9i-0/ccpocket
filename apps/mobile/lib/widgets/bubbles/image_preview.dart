@@ -5,6 +5,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../workspace_pane_chrome.dart';
 
@@ -193,11 +194,13 @@ class FullScreenImageViewer extends StatelessWidget {
   final String? url;
   final Uint8List? bytes;
   final bool isSvg;
+  final bool allowDrawing;
   const FullScreenImageViewer({
     super.key,
     this.url,
     this.bytes,
     this.isSvg = false,
+    this.allowDrawing = false,
   }) : assert(url != null || bytes != null);
 
   @override
@@ -210,6 +213,16 @@ class FullScreenImageViewer extends StatelessWidget {
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
+          actions: [
+            if (allowDrawing)
+              TextButton.icon(
+                key: const ValueKey('annotate_image_button'),
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                icon: const Icon(Icons.draw_outlined),
+                label: Text(AppLocalizations.of(context).annotateImage),
+              ),
+          ],
         ),
       ),
       body: Center(

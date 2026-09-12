@@ -5459,6 +5459,12 @@ abstract class AppLocalizations {
   /// **'IPアドレスまたはホスト名のみを入力してください（スキーム・ポート・パスは不要）。IPv6は [ ] で囲みます。'**
   String get localUrlInvalidHost;
 
+  /// No description provided for @annotateImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'描き込む'**
+  String get annotateImage;
+
   /// No description provided for @drawSketch.
   ///
   /// In ja, this message translates to:
@@ -5470,6 +5476,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'スケッチ'**
   String get sketchTitle;
+
+  /// No description provided for @sketchApply.
+  ///
+  /// In ja, this message translates to:
+  /// **'反映'**
+  String get sketchApply;
 
   /// No description provided for @sketchAttach.
   ///

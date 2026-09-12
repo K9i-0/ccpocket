@@ -3019,10 +3019,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter only an IP address or hostname, without a scheme, port, or path. Enclose IPv6 addresses in [ ].';
 
   @override
+  String get annotateImage => 'Draw on image';
+
+  @override
   String get drawSketch => 'Draw a sketch';
 
   @override
   String get sketchTitle => 'Sketch';
+
+  @override
+  String get sketchApply => 'Apply';
 
   @override
   String get sketchAttach => 'Attach';

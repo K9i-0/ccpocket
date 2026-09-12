@@ -14,9 +14,14 @@ typedef SketchResult = ({Uint8List bytes, String documentJson});
 /// A local drawing editor. Attaching returns an image to the composer; this
 /// screen never sends a message or invokes image generation.
 class SketchScreen extends StatefulWidget {
-  const SketchScreen({super.key, this.initialDocumentJson});
+  const SketchScreen({
+    super.key,
+    this.initialDocumentJson,
+    this.backgroundImageBytes,
+  });
 
   final String? initialDocumentJson;
+  final Uint8List? backgroundImageBytes;
 
   @override
   State<SketchScreen> createState() => _SketchScreenState();
@@ -26,6 +31,7 @@ class _SketchScreenState extends State<SketchScreen> {
   late final PainterController _controller;
   SketchDocument _document = const SketchDocument();
   List<Drawable> _originalDrawables = const [];
+  ui.Image? _backgroundImage;
   SketchTool _tool = SketchTool.pen;
   Color _color = Colors.black;
   double _strokeWidth = 6;
@@ -47,23 +53,47 @@ class _SketchScreenState extends State<SketchScreen> {
       ),
     )..addListener(_onDrawingChanged);
     final initialJson = widget.initialDocumentJson;
-    if (initialJson != null) {
+    if (initialJson != null || widget.backgroundImageBytes != null) {
       _loading = true;
       _loadDocument(initialJson);
     }
   }
 
-  Future<void> _loadDocument(String source) async {
+  Future<void> _loadDocument(String? source) async {
+    ui.Image? image;
     try {
-      final document = await SketchDocument.decode(source);
-      if (!mounted) return;
+      var document = source == null
+          ? SketchDocument(backgroundImageBytes: widget.backgroundImageBytes)
+          : await SketchDocument.decode(source);
+      final bytes = document.backgroundImageBytes;
+      if (bytes != null) {
+        image = await SketchDocument.decodeBackground(bytes);
+        if (source == null) {
+          final imageSize = Size(
+            image.width.toDouble(),
+            image.height.toDouble(),
+          );
+          document = SketchDocument(
+            canvasSize: imageSize * (800 / imageSize.longestSide),
+            backgroundImageBytes: bytes,
+          );
+        }
+      }
+      if (!mounted) {
+        image?.dispose();
+        return;
+      }
       _document = document;
       _originalDrawables = document.drawables;
       _controller.value = _controller.value.copyWith(
         drawables: document.drawables,
-        background: ColorBackgroundDrawable(color: document.background),
+        background: image == null
+            ? ColorBackgroundDrawable(color: document.background)
+            : ImageBackgroundDrawable(image: image),
       );
+      _backgroundImage = image;
     } catch (_) {
+      image?.dispose();
       if (!mounted) return;
       _loadFailed = true;
     }
@@ -79,6 +109,7 @@ class _SketchScreenState extends State<SketchScreen> {
   void dispose() {
     _controller.removeListener(_onDrawingChanged);
     _controller.dispose();
+    _backgroundImage?.dispose();
     super.dispose();
   }
 
@@ -202,7 +233,7 @@ class _SketchScreenState extends State<SketchScreen> {
     if (_loading ||
         _loadFailed ||
         _exporting ||
-        _controller.drawables.isEmpty) {
+        (_controller.drawables.isEmpty && _backgroundImage == null)) {
       return;
     }
     setState(() => _exporting = true);
@@ -210,6 +241,7 @@ class _SketchScreenState extends State<SketchScreen> {
       final document = SketchDocument(
         canvasSize: _document.canvasSize,
         background: _document.background,
+        backgroundImageBytes: _document.backgroundImageBytes,
         drawables: List.of(_controller.drawables),
       );
       // renderImage captures the current drawables synchronously. Start it
@@ -266,7 +298,7 @@ class _SketchScreenState extends State<SketchScreen> {
                     _loading ||
                         _loadFailed ||
                         _exporting ||
-                        value.drawables.isEmpty
+                        (value.drawables.isEmpty && _backgroundImage == null)
                     ? null
                     : _attach,
                 child: _exporting
@@ -274,7 +306,12 @@ class _SketchScreenState extends State<SketchScreen> {
                         dimension: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(l10n.sketchAttach),
+                    : Text(
+                        widget.initialDocumentJson != null ||
+                                widget.backgroundImageBytes != null
+                            ? l10n.sketchApply
+                            : l10n.sketchAttach,
+                      ),
               ),
             ),
           ],
