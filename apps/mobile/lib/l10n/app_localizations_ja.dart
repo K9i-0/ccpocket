@@ -2417,7 +2417,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get openGalleryDirectly => '画像ボタンでギャラリーを直接開く';
 
   @override
-  String get openGalleryDirectlySubtitle => '添付メニューを表示せず、すぐに画像選択を開始します';
+  String get openGalleryDirectlySubtitle => 'すぐに画像選択を開始します。長押しで添付メニューを開けます';
 
   @override
   String get archive => 'アーカイブ';
@@ -2904,4 +2904,82 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get localUrlInvalidHost =>
       'IPアドレスまたはホスト名のみを入力してください（スキーム・ポート・パスは不要）。IPv6は [ ] で囲みます。';
+
+  @override
+  String get drawSketch => 'スケッチを描く';
+
+  @override
+  String get sketchTitle => 'スケッチ';
+
+  @override
+  String get sketchAttach => '添付';
+
+  @override
+  String get sketchPen => 'ペン';
+
+  @override
+  String get sketchEraser => '消しゴム';
+
+  @override
+  String get sketchText => '文字';
+
+  @override
+  String get sketchArrow => '矢印';
+
+  @override
+  String get sketchRectangle => '四角';
+
+  @override
+  String get sketchEllipse => '丸';
+
+  @override
+  String get sketchUndo => '元に戻す';
+
+  @override
+  String get sketchRedo => 'やり直す';
+
+  @override
+  String get sketchStrokeWidth => '線の太さ';
+
+  @override
+  String get sketchColor => '色';
+
+  @override
+  String get sketchDiscardTitle => '変更を破棄しますか？';
+
+  @override
+  String get sketchDiscardMessage => 'スケッチの変更は保存されません。';
+
+  @override
+  String get sketchDiscard => '破棄';
+
+  @override
+  String get sketchKeepEditing => '編集を続ける';
+
+  @override
+  String get sketchExportFailed => 'スケッチを画像にできませんでした。もう一度お試しください。';
+
+  @override
+  String get sketchLoadFailed => 'スケッチを開けませんでした。添付画像はそのまま残っています。';
+
+  @override
+  String get sketchTextHint => '文字を入力';
+
+  @override
+  String get sketchAddText => '文字を追加';
+
+  @override
+  String get sketchCancel => 'キャンセル';
+
+  @override
+  String get tooltipEditSketch => 'スケッチを編集';
+
+  @override
+  String get tooltipAttachmentOptions => '長押しで添付メニューを開く';
+
+  @override
+  String get sketchSelect => '選択';
+
+  @override
+  String get sketchDelete => '削除';
 }

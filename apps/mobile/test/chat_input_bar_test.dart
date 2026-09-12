@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -48,6 +49,11 @@ void main() {
     VoidCallback? onStop,
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
+    VoidCallback? onAttachImage,
+    VoidCallback? onShowAttachmentOptions,
+    List<({Uint8List bytes, String mimeType})> attachedImages = const [],
+    Set<int> editableSketchIndices = const {},
+    ValueChanged<int>? onEditSketch,
     VoidCallback? onIndent,
     VoidCallback? onDedent,
     bool canDedent = true,
@@ -84,6 +90,11 @@ void main() {
             onStop: onStop ?? () {},
             onInterrupt: onInterrupt ?? () {},
             onToggleVoice: onToggleVoice ?? () {},
+            onAttachImage: onAttachImage,
+            onShowAttachmentOptions: onShowAttachmentOptions,
+            attachedImages: attachedImages,
+            editableSketchIndices: editableSketchIndices,
+            onEditSketch: onEditSketch,
             onIndent: onIndent ?? () {},
             onDedent: onDedent ?? () {},
             canDedent: canDedent,
@@ -113,6 +124,49 @@ void main() {
   }
 
   group('ChatInputBar', () {
+    testWidgets('attachment long press opens options without picking images', (
+      tester,
+    ) async {
+      var picked = 0;
+      var options = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onAttachImage: () => picked++,
+          onShowAttachmentOptions: () => options++,
+        ),
+      );
+      await tester.longPress(find.byKey(const ValueKey('attach_image_button')));
+      await tester.pumpAndSettle();
+      expect(options, 1);
+      expect(picked, 0);
+      await tester.tap(find.byKey(const ValueKey('attach_image_button')));
+      expect(picked, 1);
+      expect(options, 1);
+    });
+
+    testWidgets('sketch thumbnail opens editor and keeps composer text', (
+      tester,
+    ) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aBVkAAAAASUVORK5CYII=',
+      );
+      inputController.text = 'Use this composition';
+      int? editedIndex;
+      await tester.pumpWidget(
+        buildSubject(
+          hasInputText: true,
+          attachedImages: [(bytes: bytes, mimeType: 'image/png')],
+          editableSketchIndices: {0},
+          onEditSketch: (index) => editedIndex = index,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attached_image_0')));
+      expect(editedIndex, 0);
+      expect(inputController.text, 'Use this composition');
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+
     testWidgets('shows send button when text is present', (tester) async {
       await tester.pumpWidget(buildSubject(hasInputText: true));
 

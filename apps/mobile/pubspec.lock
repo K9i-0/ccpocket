@@ -672,6 +672,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.7+1"
+  flutter_painter:
+    dependency: "direct main"
+    description:
+      name: flutter_painter
+      sha256: "3aa25445d790e7858065d140f4214b206fd058bc9bc0d124df4e9c23d8d34fee"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:

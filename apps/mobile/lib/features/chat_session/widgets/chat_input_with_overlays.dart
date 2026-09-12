@@ -28,6 +28,8 @@ import '../../settings/state/settings_cubit.dart';
 import '../../../services/draft_service.dart';
 import '../../../services/ios_clipboard_image_availability.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
+import '../../sketch/sketch_screen.dart';
+import 'image_attachment_sheet.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -132,14 +134,19 @@ class ChatInputWithOverlays extends HookWidget {
     final attachedImages = useState<List<({Uint8List bytes, String mimeType})>>(
       [],
     );
+    final attachedSketchDocuments = useState<Map<int, String>>({});
+    final activeSessionId = useRef(sessionId);
+    activeSessionId.value = sessionId;
+    final isSketchOpen = useRef(false);
 
     // Restore image draft on mount
     useEffect(() {
       final draftService = context.read<DraftService>();
       final imageDrafts = draftService.getImageDraft(sessionId);
-      if (imageDrafts != null && imageDrafts.isNotEmpty) {
-        attachedImages.value = imageDrafts;
-      }
+      attachedImages.value = imageDrafts ?? [];
+      attachedSketchDocuments.value = draftService.getSketchDocuments(
+        sessionId,
+      );
       return null;
     }, [sessionId]);
 
@@ -563,17 +570,98 @@ class ChatInputWithOverlays extends HookWidget {
       return KeyEventResult.ignored;
     }
 
-    /// Add image bytes to attachment list (shared by paste and drag-and-drop).
-    void addImageBytes(Uint8List bytes, String mimeType) {
+    void saveAttachments() {
+      context.read<DraftService>().saveImageDraft(
+        sessionId,
+        attachedImages.value,
+        sketchDocuments: attachedSketchDocuments.value,
+      );
+    }
+
+    /// Add image bytes using the same limit and persistence for every source.
+    void addImageBytes(
+      Uint8List bytes,
+      String mimeType, {
+      String? sketchDocument,
+    }) {
+      if (!context.mounted || activeSessionId.value != sessionId) return;
       const maxImages = 5;
       if (attachedImages.value.length >= maxImages) return;
+      final index = attachedImages.value.length;
       final updated = [
         ...attachedImages.value,
         (bytes: bytes, mimeType: mimeType),
       ];
       attachedImages.value = updated;
-      if (context.mounted) {
-        context.read<DraftService>().saveImageDraft(sessionId, updated);
+      if (sketchDocument != null) {
+        attachedSketchDocuments.value = {
+          ...attachedSketchDocuments.value,
+          index: sketchDocument,
+        };
+      }
+      saveAttachments();
+    }
+
+    Future<void> openSketch({int? imageIndex}) async {
+      if (isSketchOpen.value) return;
+      const maxImages = 5;
+      void showImageLimit() => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).imageLimitReached(maxImages),
+          ),
+        ),
+      );
+      if (imageIndex == null && attachedImages.value.length >= maxImages) {
+        showImageLimit();
+        return;
+      }
+      final original = imageIndex == null
+          ? null
+          : attachedImages.value[imageIndex];
+      final document = attachedSketchDocuments.value[imageIndex];
+      isSketchOpen.value = true;
+      hideAllCompletions();
+      FocusManager.instance.primaryFocus?.unfocus();
+      try {
+        final result = await Navigator.of(context).push<SketchResult>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => SketchScreen(initialDocumentJson: document),
+          ),
+        );
+        if (result == null ||
+            !context.mounted ||
+            activeSessionId.value != sessionId) {
+          return;
+        }
+        if (original == null) {
+          if (attachedImages.value.length >= maxImages) {
+            showImageLimit();
+            return;
+          }
+          addImageBytes(
+            result.bytes,
+            'image/png',
+            sketchDocument: result.documentJson,
+          );
+        } else {
+          // A pending paste/removal may have shifted the attachment's index.
+          final index = attachedImages.value.indexWhere(
+            (image) => identical(image.bytes, original.bytes),
+          );
+          if (index < 0) return;
+          final updated = [...attachedImages.value];
+          updated[index] = (bytes: result.bytes, mimeType: 'image/png');
+          attachedImages.value = updated;
+          attachedSketchDocuments.value = {
+            ...attachedSketchDocuments.value,
+            index: result.documentJson,
+          };
+          saveAttachments();
+        }
+      } finally {
+        isSketchOpen.value = false;
       }
     }
 
@@ -616,6 +704,7 @@ class ChatInputWithOverlays extends HookWidget {
         images = List.of(attachedImages.value);
         attachedImages.value = [];
       }
+      attachedSketchDocuments.value = {};
 
       // Capture and clear diff selection
       DiffSelection? selection;
@@ -705,7 +794,7 @@ class ChatInputWithOverlays extends HookWidget {
 
       // Persist image draft
       if (context.mounted) {
-        context.read<DraftService>().saveImageDraft(sessionId, updated);
+        saveAttachments();
 
         if (truncated) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -759,18 +848,7 @@ class ChatInputWithOverlays extends HookWidget {
               try {
                 final bytes = await file.readAll();
                 if (context.mounted) {
-                  // Add to list (append, not replace)
-                  final updated = [
-                    ...attachedImages.value,
-                    (bytes: bytes, mimeType: imageFormat.mimeType),
-                  ];
-                  attachedImages.value = updated;
-
-                  // Persist image draft
-                  context.read<DraftService>().saveImageDraft(
-                    sessionId,
-                    updated,
-                  );
+                  addImageBytes(bytes, imageFormat.mimeType);
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -858,67 +936,39 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     Future<void> showAttachOptions() async {
-      final hasClipImage = await hasClipboardImage();
-      if (!context.mounted) return;
-
-      showModalBottomSheet(
+      await showModalBottomSheet<void>(
         context: context,
-        builder: (sheetContext) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                key: const ValueKey('attach_from_gallery'),
-                leading: const Icon(Icons.photo_library),
-                title: Text(AppLocalizations.of(context).selectFromGallery),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  pickImageFromGallery();
-                },
-              ),
-              ListTile(
-                key: const ValueKey('attach_from_clipboard'),
-                leading: Icon(
-                  Icons.content_paste,
-                  color: hasClipImage
-                      ? null
-                      : Theme.of(sheetContext).colorScheme.outline,
-                ),
-                title: Text(
-                  AppLocalizations.of(context).pasteFromClipboard,
-                  style: hasClipImage
-                      ? null
-                      : TextStyle(
-                          color: Theme.of(sheetContext).colorScheme.outline,
-                        ),
-                ),
-                enabled: hasClipImage,
-                onTap: hasClipImage
-                    ? () {
-                        Navigator.pop(sheetContext);
-                        pasteFromClipboard();
-                      }
-                    : null,
-              ),
-            ],
-          ),
+        builder: (sheetContext) => ImageAttachmentSheet(
+          clipboardHasImage: hasContextMenuClipboardImage(),
+          onGallery: () {
+            Navigator.pop(sheetContext);
+            pickImageFromGallery();
+          },
+          onClipboard: () {
+            Navigator.pop(sheetContext);
+            pasteFromClipboard();
+          },
+          onSketch: () {
+            Navigator.pop(sheetContext);
+            openSketch();
+          },
         ),
       );
     }
 
     void clearAttachment([int? index]) {
-      if (index != null && index < attachedImages.value.length) {
-        final updated = [...attachedImages.value]..removeAt(index);
-        attachedImages.value = updated;
-        if (updated.isEmpty) {
-          context.read<DraftService>().deleteImageDraft(sessionId);
-        } else {
-          context.read<DraftService>().saveImageDraft(sessionId, updated);
-        }
+      if (index != null && index >= 0 && index < attachedImages.value.length) {
+        attachedImages.value = [...attachedImages.value]..removeAt(index);
+        attachedSketchDocuments.value = {
+          for (final entry in attachedSketchDocuments.value.entries)
+            if (entry.key != index)
+              (entry.key > index ? entry.key - 1 : entry.key): entry.value,
+        };
       } else {
         attachedImages.value = [];
-        context.read<DraftService>().deleteImageDraft(sessionId);
+        attachedSketchDocuments.value = {};
       }
+      saveAttachments();
     }
 
     void clearDiffSelection() {
@@ -1055,7 +1105,13 @@ class ChatInputWithOverlays extends HookWidget {
                 onAttachImage: settings.openGalleryDirectly
                     ? pickImageFromGallery
                     : showAttachOptions,
+                onShowAttachmentOptions: settings.openGalleryDirectly
+                    ? showAttachOptions
+                    : null,
                 attachedImages: attachedImages.value,
+                editableSketchIndices: attachedSketchDocuments.value.keys
+                    .toSet(),
+                onEditSketch: (index) => openSketch(imageIndex: index),
                 onClearImage: clearAttachment,
                 attachedDiffSelection: attachedDiffSelection.value,
                 onClearDiffSelection: clearDiffSelection,

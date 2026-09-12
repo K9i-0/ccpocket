@@ -2387,7 +2387,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openGalleryDirectly => '点击图片按钮直接打开图库';
 
   @override
-  String get openGalleryDirectlySubtitle => '跳过附件菜单，立即开始选择图片';
+  String get openGalleryDirectlySubtitle => '立即选择图片。长按可打开附件菜单';
 
   @override
   String get archive => '归档';
@@ -2869,4 +2869,82 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get localUrlInvalidHost =>
       '仅输入 IP 地址或主机名，不含协议、端口或路径。IPv6 地址请用 [ ] 括起。';
+
+  @override
+  String get drawSketch => '绘制草图';
+
+  @override
+  String get sketchTitle => '草图';
+
+  @override
+  String get sketchAttach => '附加';
+
+  @override
+  String get sketchPen => '画笔';
+
+  @override
+  String get sketchEraser => '橡皮擦';
+
+  @override
+  String get sketchText => '文字';
+
+  @override
+  String get sketchArrow => '箭头';
+
+  @override
+  String get sketchRectangle => '矩形';
+
+  @override
+  String get sketchEllipse => '圆形';
+
+  @override
+  String get sketchUndo => '撤销';
+
+  @override
+  String get sketchRedo => '重做';
+
+  @override
+  String get sketchStrokeWidth => '线条粗细';
+
+  @override
+  String get sketchColor => '颜色';
+
+  @override
+  String get sketchDiscardTitle => '放弃更改？';
+
+  @override
+  String get sketchDiscardMessage => '草图的更改将不会保存。';
+
+  @override
+  String get sketchDiscard => '放弃';
+
+  @override
+  String get sketchKeepEditing => '继续编辑';
+
+  @override
+  String get sketchExportFailed => '无法导出草图，请重试。';
+
+  @override
+  String get sketchLoadFailed => '无法打开草图，已附加的图片保持不变。';
+
+  @override
+  String get sketchTextHint => '输入文字';
+
+  @override
+  String get sketchAddText => '添加文字';
+
+  @override
+  String get sketchCancel => '取消';
+
+  @override
+  String get tooltipEditSketch => '编辑草图';
+
+  @override
+  String get tooltipAttachmentOptions => '长按打开附件菜单';
+
+  @override
+  String get sketchSelect => '选择';
+
+  @override
+  String get sketchDelete => '删除';
 }
