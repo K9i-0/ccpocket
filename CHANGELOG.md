@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.130.0] - 2026-09-12
+
+### Added
+- Draw on attached images from the zoomable preview, using the original image as a fixed background for pen, text, and shape annotations.
+- Preserve original images and annotations separately in editable drafts, and apply edits to the same attachment slot.
+
+### Changed
+- Label the sketch editor action as “Apply” when editing an attachment, while keeping “Attach” for new sketches.
+
 ## [1.129.0] - 2026-09-12
 
 ### Added
