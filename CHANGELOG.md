@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.128.0] - 2026-09-12
+
+### Added
+- Add per-Bridge settings for opening local HTTP/HTTPS links from agent messages: open unchanged, replace the host, or choose before opening. Support reachable Wi-Fi and Tailscale hosts while preserving URL ports and paths.
+
+### Changed
+- Update the expected Bridge version to 1.81.5.
+
+### Fixed
+- Keep optional Codex questions answerable after a turn completes and restore them when resuming a session.
+
 ## [1.127.2] - 2026-09-05
 
 ### Changed
