@@ -1190,5 +1190,13 @@
   "approvalQuestionNotificationTitle": "Question - ccpocket",
   "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
   "exitPlanModeNotificationBody": "The generated plan needs your review",
-  "renderErrorFallback": "This content couldn't be displayed."
+  "renderErrorFallback": "This content couldn't be displayed.",
+  "localUrlTitle": "Local URL behavior",
+  "localUrlOriginal": "Open unchanged",
+  "localUrlReplace": "Replace host and open",
+  "localUrlAsk": "Choose before opening",
+  "localUrlHost": "Replacement host",
+  "localUrlDescription": "Applies to HTTP/HTTPS links using localhost, 127.0.0.1, or [::1] in agent messages. Saved per Bridge connection; message text stays unchanged.",
+  "localUrlHostHelp": "Initially uses the Bridge connection IP address or hostname. Enter a host that this device can reach over Wi-Fi, Tailscale, or another network. URL ports and paths are preserved. The web server must also listen on an address reachable from that network.",
+  "localUrlInvalidHost": "Enter only an IP address or hostname, without a scheme, port, or path. Enclose IPv6 addresses in [ ]."
 }

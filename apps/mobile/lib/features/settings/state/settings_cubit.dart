@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/app_icon.dart';
+import '../../../models/local_url_settings.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
@@ -38,6 +39,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   String? _activePushRegistrationRequestId;
   VoidCallback? _supporterListener;
 
+  static const _localUrlKeyPrefix = 'local_url_settings:';
   static const _keyThemeMode = 'settings_theme_mode';
   static const _keyAppLocale = 'settings_app_locale';
   static const _keySpeechLocale = 'settings_speech_locale';
@@ -254,6 +256,12 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     return SettingsState(
+      localUrlSettings: {
+        for (final key in prefs.getKeys().where(
+          (key) => key.startsWith(_localUrlKeyPrefix),
+        ))
+          key.substring(_localUrlKeyPrefix.length): prefs.getString(key) ?? '',
+      },
       themeMode:
           (themeModeIndex != null &&
               themeModeIndex >= 0 &&
@@ -434,6 +442,28 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setSpeechLocaleId(String localeId) {
     _prefs.setString(_keySpeechLocale, localeId);
     emit(state.copyWith(speechLocaleId: localeId));
+  }
+
+  LocalUrlSettings localUrlSettingsFor(String? bridgeUrl) =>
+      LocalUrlSettings.decode(
+        state.localUrlSettings[localUrlConnectionKey(bridgeUrl)],
+      );
+
+  Future<void> setLocalUrlSettings(
+    String bridgeUrl,
+    LocalUrlSettings settings,
+  ) async {
+    final key = localUrlConnectionKey(bridgeUrl);
+    if (key == null) return;
+    final encoded = settings.encode();
+    await _prefs.setString('$_localUrlKeyPrefix$key', encoded);
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          localUrlSettings: {...state.localUrlSettings, key: encoded},
+        ),
+      );
+    }
   }
 
   void setTerminalApp(TerminalAppConfig config) {

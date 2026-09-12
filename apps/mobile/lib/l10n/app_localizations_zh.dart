@@ -2842,4 +2842,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get renderErrorFallback => '无法显示此内容。';
+
+  @override
+  String get localUrlTitle => '本地 URL 打开方式';
+
+  @override
+  String get localUrlOriginal => '直接打开';
+
+  @override
+  String get localUrlReplace => '替换主机后打开';
+
+  @override
+  String get localUrlAsk => '打开前选择';
+
+  @override
+  String get localUrlHost => '替换主机';
+
+  @override
+  String get localUrlDescription =>
+      '适用于代理消息中使用 localhost、127.0.0.1 或 [::1] 的 HTTP/HTTPS 链接。按 Bridge 连接保存，消息原文保持不变。';
+
+  @override
+  String get localUrlHostHelp =>
+      '初始值为 Bridge 连接的 IP 地址或主机名。请输入此设备可通过 Wi-Fi、Tailscale 等网络访问的主机。URL 的端口和路径保持不变。Web 服务器也必须监听该网络可访问的地址。';
+
+  @override
+  String get localUrlInvalidHost =>
+      '仅输入 IP 地址或主机名，不含协议、端口或路径。IPv6 地址请用 [ ] 括起。';
 }

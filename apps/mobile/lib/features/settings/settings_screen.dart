@@ -34,6 +34,7 @@ import 'code_font_settings_screen.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_icon_bottom_sheet.dart';
+import 'widgets/local_url_settings_tile.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
 import 'widgets/support_section.dart';
 
@@ -356,6 +357,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             endIndent: 16,
                             color: cs.outlineVariant,
                           ),
+                          if (bridge.lastUrl != null)
+                            LocalUrlSettingsTile(bridgeUrl: bridge.lastUrl!),
                           _BridgeUpdateStatusTile(
                             machineWithStatus: machineWithStatus,
                             isUpdating: isUpdating,

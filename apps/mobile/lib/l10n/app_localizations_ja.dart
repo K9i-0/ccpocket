@@ -2877,4 +2877,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get renderErrorFallback => 'このコンテンツを表示できませんでした';
+
+  @override
+  String get localUrlTitle => 'ローカルURLの開き方';
+
+  @override
+  String get localUrlOriginal => 'そのまま開く';
+
+  @override
+  String get localUrlReplace => 'ホストを置換して開く';
+
+  @override
+  String get localUrlAsk => '開く前に選ぶ';
+
+  @override
+  String get localUrlHost => '置換先ホスト';
+
+  @override
+  String get localUrlDescription =>
+      'エージェントメッセージ内の localhost・127.0.0.1・[::1] のHTTP/HTTPSリンクに適用します。設定はBridge接続先ごとに保存され、本文は変更しません。';
+
+  @override
+  String get localUrlHostHelp =>
+      '初期値はBridge接続先のIPアドレス／ホスト名です。Wi-FiやTailscaleなど、この端末からWebサーバーに到達できるホストを指定してください。URLのポートとパスは維持します。Webサーバー側も、そのネットワークから接続できるアドレスで待ち受ける必要があります。';
+
+  @override
+  String get localUrlInvalidHost =>
+      'IPアドレスまたはホスト名のみを入力してください（スキーム・ポート・パスは不要）。IPv6は [ ] で囲みます。';
 }

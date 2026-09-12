@@ -2900,4 +2900,31 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get renderErrorFallback => '이 콘텐츠를 표시할 수 없습니다.';
+
+  @override
+  String get localUrlTitle => '로컬 URL 열기 방식';
+
+  @override
+  String get localUrlOriginal => '그대로 열기';
+
+  @override
+  String get localUrlReplace => '호스트를 바꿔서 열기';
+
+  @override
+  String get localUrlAsk => '열기 전에 선택';
+
+  @override
+  String get localUrlHost => '대체 호스트';
+
+  @override
+  String get localUrlDescription =>
+      '에이전트 메시지의 localhost, 127.0.0.1, [::1] HTTP/HTTPS 링크에 적용합니다. Bridge 연결별로 저장하며 메시지 원문은 변경하지 않습니다.';
+
+  @override
+  String get localUrlHostHelp =>
+      '초기값은 Bridge 연결의 IP 주소 또는 호스트 이름입니다. Wi-Fi, Tailscale 등에서 이 기기가 접근할 수 있는 호스트를 입력하세요. URL의 포트와 경로는 유지됩니다. 웹 서버도 해당 네트워크에서 접근 가능한 주소에서 연결을 수신해야 합니다.';
+
+  @override
+  String get localUrlInvalidHost =>
+      '스킴, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요. IPv6 주소는 [ ]로 감싸세요.';
 }

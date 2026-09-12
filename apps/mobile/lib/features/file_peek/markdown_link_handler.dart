@@ -1,6 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../models/local_url_settings.dart';
+import '../../services/bridge_service.dart';
+import '../settings/state/settings_cubit.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
@@ -97,7 +103,8 @@ Future<void> _openMarkdownTarget(
       }
       return;
     case MarkdownLinkTargetKind.external:
-      final uri = target.uri!;
+      final uri = await resolveChatLocalUrl(context, target.uri!);
+      if (uri == null) return;
       final launched = await launchMarkdownUri(uri);
       if (!launched && context.mounted) {
         _showLinkError(context, uri.toString());
@@ -109,6 +116,44 @@ Future<void> _openMarkdownTarget(
       }
       return;
   }
+}
+
+/// Returns null when the user dismisses the URL chooser.
+Future<Uri?> resolveChatLocalUrl(BuildContext context, Uri original) async {
+  final cubit = context.read<SettingsCubit?>();
+  final bridge = context.read<BridgeService?>();
+  if (cubit == null || bridge == null) return original;
+  final settings = cubit.localUrlSettingsFor(bridge.lastUrl);
+  if (settings.mode == LocalUrlMode.original) return original;
+  final replaced = replaceLocalUrlHost(original, settings.host);
+  if (replaced == null || replaced == original) return original;
+  if (settings.mode == LocalUrlMode.replace) return replaced;
+  if (!context.mounted) return null;
+  final l = AppLocalizations.of(context);
+  return showDialog<Uri>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(l.localUrlAsk),
+      children: [
+        for (final option in [
+          (l.localUrlOriginal, original),
+          (l.localUrlReplace, replaced),
+        ])
+          SimpleDialogOption(
+            key: ValueKey(
+              option.$2 == original
+                  ? 'local_url_original_button'
+                  : 'local_url_replace_button',
+            ),
+            onPressed: () => Navigator.pop(context, option.$2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Text(option.$1), Text(option.$2.toString())],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 void _showLinkError(

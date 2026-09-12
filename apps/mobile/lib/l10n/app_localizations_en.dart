@@ -2990,4 +2990,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get renderErrorFallback => 'This content couldn\'t be displayed.';
+
+  @override
+  String get localUrlTitle => 'Local URL behavior';
+
+  @override
+  String get localUrlOriginal => 'Open unchanged';
+
+  @override
+  String get localUrlReplace => 'Replace host and open';
+
+  @override
+  String get localUrlAsk => 'Choose before opening';
+
+  @override
+  String get localUrlHost => 'Replacement host';
+
+  @override
+  String get localUrlDescription =>
+      'Applies to HTTP/HTTPS links using localhost, 127.0.0.1, or [::1] in agent messages. Saved per Bridge connection; message text stays unchanged.';
+
+  @override
+  String get localUrlHostHelp =>
+      'Initially uses the Bridge connection IP address or hostname. Enter a host that this device can reach over Wi-Fi, Tailscale, or another network. URL ports and paths are preserved. The web server must also listen on an address reachable from that network.';
+
+  @override
+  String get localUrlInvalidHost =>
+      'Enter only an IP address or hostname, without a scheme, port, or path. Enclose IPv6 addresses in [ ].';
 }

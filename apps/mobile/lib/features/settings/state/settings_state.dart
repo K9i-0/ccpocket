@@ -30,6 +30,8 @@ abstract class SettingsState with _$SettingsState {
   const SettingsState._();
 
   const factory SettingsState({
+    @Default({}) Map<String, String> localUrlSettings,
+
     /// Theme mode: system, light, or dark.
     @Default(ThemeMode.system) ThemeMode themeMode,
 
