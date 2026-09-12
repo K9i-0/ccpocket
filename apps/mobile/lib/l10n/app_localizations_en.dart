@@ -2507,7 +2507,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openGalleryDirectlySubtitle =>
-      'Skip the attachment menu and start selecting images immediately';
+      'Select images immediately. Long press to open the attachment menu';
 
   @override
   String get archive => 'Archive';
@@ -3017,4 +3017,84 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get localUrlInvalidHost =>
       'Enter only an IP address or hostname, without a scheme, port, or path. Enclose IPv6 addresses in [ ].';
+
+  @override
+  String get drawSketch => 'Draw a sketch';
+
+  @override
+  String get sketchTitle => 'Sketch';
+
+  @override
+  String get sketchAttach => 'Attach';
+
+  @override
+  String get sketchPen => 'Pen';
+
+  @override
+  String get sketchEraser => 'Eraser';
+
+  @override
+  String get sketchText => 'Text';
+
+  @override
+  String get sketchArrow => 'Arrow';
+
+  @override
+  String get sketchRectangle => 'Rectangle';
+
+  @override
+  String get sketchEllipse => 'Ellipse';
+
+  @override
+  String get sketchUndo => 'Undo';
+
+  @override
+  String get sketchRedo => 'Redo';
+
+  @override
+  String get sketchStrokeWidth => 'Stroke width';
+
+  @override
+  String get sketchColor => 'Color';
+
+  @override
+  String get sketchDiscardTitle => 'Discard changes?';
+
+  @override
+  String get sketchDiscardMessage => 'Your sketch changes will not be saved.';
+
+  @override
+  String get sketchDiscard => 'Discard';
+
+  @override
+  String get sketchKeepEditing => 'Keep editing';
+
+  @override
+  String get sketchExportFailed =>
+      'Could not export the sketch. Please try again.';
+
+  @override
+  String get sketchLoadFailed =>
+      'Could not open the sketch. Your attached image is unchanged.';
+
+  @override
+  String get sketchTextHint => 'Enter text';
+
+  @override
+  String get sketchAddText => 'Add text';
+
+  @override
+  String get sketchCancel => 'Cancel';
+
+  @override
+  String get tooltipEditSketch => 'Edit sketch';
+
+  @override
+  String get tooltipAttachmentOptions => 'Long press for attachment options';
+
+  @override
+  String get sketchSelect => 'Select';
+
+  @override
+  String get sketchDelete => 'Delete';
 }

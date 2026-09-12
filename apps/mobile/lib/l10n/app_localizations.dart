@@ -4562,7 +4562,7 @@ abstract class AppLocalizations {
   /// No description provided for @openGalleryDirectlySubtitle.
   ///
   /// In ja, this message translates to:
-  /// **'添付メニューを表示せず、すぐに画像選択を開始します'**
+  /// **'すぐに画像選択を開始します。長押しで添付メニューを開けます'**
   String get openGalleryDirectlySubtitle;
 
   /// No description provided for @archive.
@@ -5458,6 +5458,162 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'IPアドレスまたはホスト名のみを入力してください（スキーム・ポート・パスは不要）。IPv6は [ ] で囲みます。'**
   String get localUrlInvalidHost;
+
+  /// No description provided for @drawSketch.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチを描く'**
+  String get drawSketch;
+
+  /// No description provided for @sketchTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチ'**
+  String get sketchTitle;
+
+  /// No description provided for @sketchAttach.
+  ///
+  /// In ja, this message translates to:
+  /// **'添付'**
+  String get sketchAttach;
+
+  /// No description provided for @sketchPen.
+  ///
+  /// In ja, this message translates to:
+  /// **'ペン'**
+  String get sketchPen;
+
+  /// No description provided for @sketchEraser.
+  ///
+  /// In ja, this message translates to:
+  /// **'消しゴム'**
+  String get sketchEraser;
+
+  /// No description provided for @sketchText.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字'**
+  String get sketchText;
+
+  /// No description provided for @sketchArrow.
+  ///
+  /// In ja, this message translates to:
+  /// **'矢印'**
+  String get sketchArrow;
+
+  /// No description provided for @sketchRectangle.
+  ///
+  /// In ja, this message translates to:
+  /// **'四角'**
+  String get sketchRectangle;
+
+  /// No description provided for @sketchEllipse.
+  ///
+  /// In ja, this message translates to:
+  /// **'丸'**
+  String get sketchEllipse;
+
+  /// No description provided for @sketchUndo.
+  ///
+  /// In ja, this message translates to:
+  /// **'元に戻す'**
+  String get sketchUndo;
+
+  /// No description provided for @sketchRedo.
+  ///
+  /// In ja, this message translates to:
+  /// **'やり直す'**
+  String get sketchRedo;
+
+  /// No description provided for @sketchStrokeWidth.
+  ///
+  /// In ja, this message translates to:
+  /// **'線の太さ'**
+  String get sketchStrokeWidth;
+
+  /// No description provided for @sketchColor.
+  ///
+  /// In ja, this message translates to:
+  /// **'色'**
+  String get sketchColor;
+
+  /// No description provided for @sketchDiscardTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更を破棄しますか？'**
+  String get sketchDiscardTitle;
+
+  /// No description provided for @sketchDiscardMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチの変更は保存されません。'**
+  String get sketchDiscardMessage;
+
+  /// No description provided for @sketchDiscard.
+  ///
+  /// In ja, this message translates to:
+  /// **'破棄'**
+  String get sketchDiscard;
+
+  /// No description provided for @sketchKeepEditing.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集を続ける'**
+  String get sketchKeepEditing;
+
+  /// No description provided for @sketchExportFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチを画像にできませんでした。もう一度お試しください。'**
+  String get sketchExportFailed;
+
+  /// No description provided for @sketchLoadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチを開けませんでした。添付画像はそのまま残っています。'**
+  String get sketchLoadFailed;
+
+  /// No description provided for @sketchTextHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字を入力'**
+  String get sketchTextHint;
+
+  /// No description provided for @sketchAddText.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字を追加'**
+  String get sketchAddText;
+
+  /// No description provided for @sketchCancel.
+  ///
+  /// In ja, this message translates to:
+  /// **'キャンセル'**
+  String get sketchCancel;
+
+  /// No description provided for @tooltipEditSketch.
+  ///
+  /// In ja, this message translates to:
+  /// **'スケッチを編集'**
+  String get tooltipEditSketch;
+
+  /// No description provided for @tooltipAttachmentOptions.
+  ///
+  /// In ja, this message translates to:
+  /// **'長押しで添付メニューを開く'**
+  String get tooltipAttachmentOptions;
+
+  /// No description provided for @sketchSelect.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択'**
+  String get sketchSelect;
+
+  /// No description provided for @sketchDelete.
+  ///
+  /// In ja, this message translates to:
+  /// **'削除'**
+  String get sketchDelete;
 }
 
 class _AppLocalizationsDelegate

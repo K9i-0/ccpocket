@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -109,6 +110,218 @@ void main() {
       final result = draftService.getImageDraft('real_1');
       expect(result, isNotNull);
       expect(result![0].mimeType, 'image/jpeg');
+    });
+  });
+
+  group('Editable sketch image drafts', () {
+    const document = '{"strokes":[{"points":[1,2,3]}]}';
+
+    test('mixed attachments preserve sketch indexes across reload', () async {
+      draftService.saveImageDraft(
+        'session-1',
+        [
+          (bytes: Uint8List.fromList([1]), mimeType: 'image/jpeg'),
+          (bytes: Uint8List.fromList([2, 3]), mimeType: 'image/png'),
+        ],
+        sketchDocuments: {1: document},
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      final stored = jsonDecode(prefs.getString('draft_image_v1_session-1')!);
+      expect(stored[0].containsKey('sketch'), isFalse);
+      expect(stored[1]['sketch'], document);
+
+      final reloaded = DraftService(prefs);
+      expect(reloaded.getImageDraft('session-1')![0].bytes, [1]);
+      expect(reloaded.getImageDraft('session-1')![1].bytes, [2, 3]);
+      expect(reloaded.getSketchDocuments('session-1'), {1: document});
+      expect(reloaded.getSketchDocuments('unknown'), isEmpty);
+    });
+
+    test('caller mutations cannot change a saved draft snapshot', () async {
+      final bytes = Uint8List.fromList([1, 2]);
+      final images = [(bytes: bytes, mimeType: 'image/png')];
+      final documents = {0: document};
+      draftService.saveImageDraft(
+        'session-1',
+        images,
+        sketchDocuments: documents,
+      );
+
+      bytes[0] = 99;
+      images.clear();
+      documents[0] = '{"changed":true}';
+
+      final saved = draftService.getImageDraft('session-1')!;
+      expect(saved.single.bytes, [1, 2]);
+      expect(draftService.getSketchDocuments('session-1'), {0: document});
+      expect(() => saved.clear(), throwsUnsupportedError);
+      expect(() => saved.single.bytes[0] = 42, throwsUnsupportedError);
+      expect(
+        () => draftService.getSketchDocuments('session-1')[0] = 'changed',
+        throwsUnsupportedError,
+      );
+
+      final reloaded = DraftService(await SharedPreferences.getInstance());
+      expect(reloaded.getImageDraft('session-1')!.single.bytes, [1, 2]);
+      expect(reloaded.getSketchDocuments('session-1'), {0: document});
+      expect(
+        () => reloaded.getImageDraft('session-1')!.single.bytes[0] = 42,
+        throwsUnsupportedError,
+      );
+      expect(
+        () => reloaded.getSketchDocuments('session-1').clear(),
+        throwsUnsupportedError,
+      );
+    });
+
+    test(
+      'metadata must have a nonempty document and a matching index',
+      () async {
+        draftService.saveImageDraft(
+          'session-1',
+          [
+            (bytes: Uint8List.fromList([1]), mimeType: 'image/png'),
+            (bytes: Uint8List.fromList([2]), mimeType: 'image/png'),
+          ],
+          sketchDocuments: {-1: document, 0: '', 1: document, 2: document},
+        );
+
+        expect(draftService.getSketchDocuments('session-1'), {1: document});
+        final reloaded = DraftService(await SharedPreferences.getInstance());
+        expect(reloaded.getSketchDocuments('session-1'), {1: document});
+        expect(reloaded.getImageDraft('session-1'), hasLength(2));
+      },
+    );
+
+    test(
+      'replacing images without metadata clears previous documents',
+      () async {
+        final images = [
+          (bytes: Uint8List.fromList([1]), mimeType: 'image/png'),
+        ];
+        draftService.saveImageDraft(
+          'session-1',
+          images,
+          sketchDocuments: {0: document},
+        );
+        draftService.saveImageDraft('session-1', images);
+
+        expect(draftService.getSketchDocuments('session-1'), isEmpty);
+        final prefs = await SharedPreferences.getInstance();
+        final stored = jsonDecode(prefs.getString('draft_image_v1_session-1')!);
+        expect(stored[0].containsKey('sketch'), isFalse);
+        expect(DraftService(prefs).getSketchDocuments('session-1'), isEmpty);
+      },
+    );
+
+    test(
+      'migration moves images and documents together across reload',
+      () async {
+        draftService.saveImageDraft(
+          'pending_1',
+          [
+            (bytes: Uint8List.fromList([1]), mimeType: 'image/png'),
+          ],
+          sketchDocuments: {0: document},
+        );
+        draftService.migrateImageDraft('pending_1', 'real_1');
+
+        expect(draftService.getImageDraft('pending_1'), isNull);
+        expect(draftService.getSketchDocuments('pending_1'), isEmpty);
+        expect(draftService.getSketchDocuments('real_1'), {0: document});
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.containsKey('draft_image_v1_pending_1'), isFalse);
+        final reloaded = DraftService(prefs);
+        expect(reloaded.getImageDraft('pending_1'), isNull);
+        expect(reloaded.getSketchDocuments('pending_1'), isEmpty);
+        expect(reloaded.getImageDraft('real_1')!.single.bytes, [1]);
+        expect(reloaded.getSketchDocuments('real_1'), {0: document});
+      },
+    );
+
+    for (final useEmptySave in [false, true]) {
+      test(
+        '${useEmptySave ? 'saving empty images' : 'deleting images'} removes documents across reload',
+        () async {
+          draftService.saveImageDraft(
+            'session-1',
+            [
+              (bytes: Uint8List.fromList([1]), mimeType: 'image/png'),
+            ],
+            sketchDocuments: {0: document},
+          );
+          if (useEmptySave) {
+            draftService.saveImageDraft(
+              'session-1',
+              [],
+              sketchDocuments: {0: document},
+            );
+          } else {
+            draftService.deleteImageDraft('session-1');
+          }
+
+          expect(draftService.getSketchDocuments('session-1'), isEmpty);
+          final prefs = await SharedPreferences.getInstance();
+          expect(prefs.containsKey('draft_image_v1_session-1'), isFalse);
+          final reloaded = DraftService(prefs);
+          expect(reloaded.getImageDraft('session-1'), isNull);
+          expect(reloaded.getSketchDocuments('session-1'), isEmpty);
+        },
+      );
+    }
+
+    test('legacy and plain JSON image drafts still load and migrate', () async {
+      final encoded = base64Encode([1, 2, 3]);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('draft_image_v1_legacy', '$encoded|image/jpeg');
+      await prefs.setString(
+        'draft_image_v1_json',
+        jsonEncode([
+          {'b64': encoded, 'mime': 'image/png'},
+        ]),
+      );
+      final loaded = DraftService(prefs);
+      for (final sessionId in ['legacy', 'json']) {
+        expect(loaded.getImageDraft(sessionId)!.single.bytes, [1, 2, 3]);
+        expect(loaded.getSketchDocuments(sessionId), isEmpty);
+        loaded.migrateImageDraft(sessionId, 'migrated_$sessionId');
+      }
+
+      final reloaded = DraftService(prefs);
+      expect(
+        reloaded.getImageDraft('migrated_legacy')!.single.mimeType,
+        'image/jpeg',
+      );
+      expect(
+        reloaded.getImageDraft('migrated_json')!.single.mimeType,
+        'image/png',
+      );
+      expect(reloaded.getSketchDocuments('migrated_legacy'), isEmpty);
+      expect(reloaded.getSketchDocuments('migrated_json'), isEmpty);
+    });
+
+    test('corrupt optional metadata does not discard valid images', () async {
+      final invalidDocuments = [null, 42, true, <String, dynamic>{}, [], ''];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'draft_image_v1_session-1',
+        jsonEncode([
+          for (final invalid in invalidDocuments)
+            {'b64': 'AQ==', 'mime': 'image/png', 'sketch': invalid},
+          {'b64': 'Ag==', 'mime': 'image/png', 'sketch': document},
+        ]),
+      );
+
+      final loaded = DraftService(prefs);
+      expect(
+        loaded.getImageDraft('session-1'),
+        hasLength(invalidDocuments.length + 1),
+      );
+      expect(loaded.getSketchDocuments('session-1'), {
+        invalidDocuments.length: document,
+      });
+      expect(loaded.getImageDraft('session-1')!.last.bytes, [2]);
     });
   });
 }

@@ -2429,7 +2429,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get openGalleryDirectly => '이미지 버튼으로 갤러리 바로 열기';
 
   @override
-  String get openGalleryDirectlySubtitle => '첨부 메뉴를 건너뛰고 이미지 선택을 바로 시작합니다';
+  String get openGalleryDirectlySubtitle => '바로 이미지를 선택합니다. 길게 누르면 첨부 메뉴가 열립니다';
 
   @override
   String get archive => '보관';
@@ -2927,4 +2927,82 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get localUrlInvalidHost =>
       '스킴, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요. IPv6 주소는 [ ]로 감싸세요.';
+
+  @override
+  String get drawSketch => '스케치 그리기';
+
+  @override
+  String get sketchTitle => '스케치';
+
+  @override
+  String get sketchAttach => '첨부';
+
+  @override
+  String get sketchPen => '펜';
+
+  @override
+  String get sketchEraser => '지우개';
+
+  @override
+  String get sketchText => '텍스트';
+
+  @override
+  String get sketchArrow => '화살표';
+
+  @override
+  String get sketchRectangle => '사각형';
+
+  @override
+  String get sketchEllipse => '원';
+
+  @override
+  String get sketchUndo => '실행 취소';
+
+  @override
+  String get sketchRedo => '다시 실행';
+
+  @override
+  String get sketchStrokeWidth => '선 굵기';
+
+  @override
+  String get sketchColor => '색상';
+
+  @override
+  String get sketchDiscardTitle => '변경 사항을 버릴까요?';
+
+  @override
+  String get sketchDiscardMessage => '스케치 변경 사항이 저장되지 않습니다.';
+
+  @override
+  String get sketchDiscard => '버리기';
+
+  @override
+  String get sketchKeepEditing => '계속 편집';
+
+  @override
+  String get sketchExportFailed => '스케치를 이미지로 내보내지 못했습니다. 다시 시도해 주세요.';
+
+  @override
+  String get sketchLoadFailed => '스케치를 열지 못했습니다. 첨부된 이미지는 그대로 유지됩니다.';
+
+  @override
+  String get sketchTextHint => '텍스트 입력';
+
+  @override
+  String get sketchAddText => '텍스트 추가';
+
+  @override
+  String get sketchCancel => '취소';
+
+  @override
+  String get tooltipEditSketch => '스케치 편집';
+
+  @override
+  String get tooltipAttachmentOptions => '길게 눌러 첨부 메뉴 열기';
+
+  @override
+  String get sketchSelect => '선택';
+
+  @override
+  String get sketchDelete => '삭제';
 }

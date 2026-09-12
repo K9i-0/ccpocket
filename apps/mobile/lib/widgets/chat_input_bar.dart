@@ -41,7 +41,10 @@ class ChatInputBar extends StatelessWidget {
   final bool showDollarButton;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
+  final VoidCallback? onShowAttachmentOptions;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
+  final Set<int> editableSketchIndices;
+  final ValueChanged<int>? onEditSketch;
   final void Function([int? index])? onClearImage;
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
@@ -87,7 +90,10 @@ class ChatInputBar extends StatelessWidget {
     this.showDollarButton = false,
     this.onShowPromptHistory,
     this.onAttachImage,
+    this.onShowAttachmentOptions,
     this.attachedImages = const [],
+    this.editableSketchIndices = const {},
+    this.onEditSketch,
     this.onClearImage,
     this.attachedDiffSelection,
     this.onClearDiffSelection,
@@ -130,7 +136,12 @@ class ChatInputBar extends StatelessWidget {
               onClear: onClearDiffSelection,
             ),
           if (attachedImages.isNotEmpty)
-            _ImagePreview(images: attachedImages, onClearImage: onClearImage),
+            _ImagePreview(
+              images: attachedImages,
+              onClearImage: onClearImage,
+              editableSketchIndices: editableSketchIndices,
+              onEditSketch: onEditSketch,
+            ),
           _InputTextField(
             controller: inputController,
             status: status,
@@ -174,6 +185,7 @@ class ChatInputBar extends StatelessWidget {
                 hasAttachment: attachedImages.isNotEmpty,
                 imageCount: attachedImages.length,
                 onTap: onAttachImage,
+                onLongPress: onShowAttachmentOptions,
               ),
               if (onShowPromptHistory != null) ...[
                 const SizedBox(width: 8),
@@ -384,17 +396,21 @@ class _AttachButton extends StatelessWidget {
     required this.hasAttachment,
     required this.imageCount,
     required this.onTap,
+    this.onLongPress,
   });
   final bool hasAttachment;
   final int imageCount;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return Tooltip(
-      message: l.tooltipAttachImage,
+      message: onLongPress == null
+          ? l.tooltipAttachImage
+          : '${l.tooltipAttachImage}\n${l.tooltipAttachmentOptions}',
       child: Material(
         color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
@@ -402,6 +418,7 @@ class _AttachButton extends StatelessWidget {
           key: const ValueKey('attach_image_button'),
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Container(
             width: 36,
             height: 36,
@@ -474,9 +491,16 @@ class _HistoryButton extends StatelessWidget {
 }
 
 class _ImagePreview extends StatelessWidget {
-  const _ImagePreview({required this.images, required this.onClearImage});
+  const _ImagePreview({
+    required this.images,
+    required this.onClearImage,
+    required this.editableSketchIndices,
+    required this.onEditSketch,
+  });
   final List<({Uint8List bytes, String mimeType})> images;
   final void Function([int? index])? onClearImage;
+  final Set<int> editableSketchIndices;
+  final ValueChanged<int>? onEditSketch;
 
   @override
   Widget build(BuildContext context) {
@@ -490,16 +514,22 @@ class _ImagePreview extends StatelessWidget {
           itemCount: images.length,
           separatorBuilder: (_, _) => const SizedBox(width: 6),
           itemBuilder: (context, index) {
+            final isSketch =
+                editableSketchIndices.contains(index) && onEditSketch != null;
             return Stack(
               clipBehavior: Clip.none,
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          FullScreenImageViewer(bytes: images[index].bytes),
-                    ),
-                  ),
+                  key: ValueKey('attached_image_$index'),
+                  onTap: isSketch
+                      ? () => onEditSketch!(index)
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImageViewer(
+                              bytes: images[index].bytes,
+                            ),
+                          ),
+                        ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.memory(
@@ -510,12 +540,37 @@ class _ImagePreview extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (isSketch)
+                  Positioned(
+                    left: 4,
+                    bottom: 4,
+                    child: IgnorePointer(
+                      child: Tooltip(
+                        message: l.tooltipEditSketch,
+                        child: const DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.all(Radius.circular(6)),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: 4,
                   right: 4,
                   child: Tooltip(
                     message: l.tooltipRemoveImage,
                     child: GestureDetector(
+                      key: ValueKey('remove_attached_image_$index'),
                       onTap: () => onClearImage?.call(index),
                       child: Container(
                         decoration: const BoxDecoration(

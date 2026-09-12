@@ -12,6 +12,7 @@ class DraftService {
   final Map<String, String> _cache = {};
   final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache =
       {};
+  final Map<String, Map<int, String>> _sketchDocumentCache = {};
 
   static const _prefix = 'draft_v1_';
   static const _imagePrefix = 'draft_image_v1_';
@@ -28,8 +29,11 @@ class DraftService {
         final value = _prefs.getString(key);
         if (value != null && value.isNotEmpty) {
           final decoded = _decodeImageDraftList(value);
-          if (decoded.isNotEmpty) {
-            _imageCache[sessionId] = decoded;
+          if (decoded.images.isNotEmpty) {
+            _imageCache[sessionId] = _immutableImages(decoded.images);
+            _sketchDocumentCache[sessionId] = Map.unmodifiable(
+              decoded.sketchDocuments,
+            );
           }
         }
       } else if (key.startsWith(_prefix)) {
@@ -84,19 +88,35 @@ class DraftService {
   /// Save image drafts for the given session.
   ///
   /// Stores each image's bytes (Base64-encoded) and MIME type as a JSON array
-  /// in [SharedPreferences] so attachments survive navigation.
+  /// in [SharedPreferences] so attachments survive navigation. Optional
+  /// [sketchDocuments] contain opaque editor JSON keyed by attachment index.
   void saveImageDraft(
     String sessionId,
-    List<({Uint8List bytes, String mimeType})> images,
-  ) {
+    List<({Uint8List bytes, String mimeType})> images, {
+    Map<int, String> sketchDocuments = const {},
+  }) {
     if (images.isEmpty) {
       deleteImageDraft(sessionId);
       return;
     }
-    _imageCache[sessionId] = images;
-    final jsonList = images
-        .map((img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType})
-        .toList();
+    final cachedImages = _immutableImages(images);
+    final cachedDocuments = Map<int, String>.unmodifiable({
+      for (final entry in sketchDocuments.entries)
+        if (entry.key >= 0 &&
+            entry.key < cachedImages.length &&
+            entry.value.isNotEmpty)
+          entry.key: entry.value,
+    });
+    _imageCache[sessionId] = cachedImages;
+    _sketchDocumentCache[sessionId] = cachedDocuments;
+    final jsonList = [
+      for (var index = 0; index < cachedImages.length; index++)
+        {
+          'b64': base64Encode(cachedImages[index].bytes),
+          'mime': cachedImages[index].mimeType,
+          'sketch': ?cachedDocuments[index],
+        },
+    ];
     _prefs.setString('$_imagePrefix$sessionId', jsonEncode(jsonList));
   }
 
@@ -104,38 +124,52 @@ class DraftService {
   List<({Uint8List bytes, String mimeType})>? getImageDraft(String sessionId) =>
       _imageCache[sessionId];
 
+  /// Immutable editor documents keyed by their current image attachment index.
+  Map<int, String> getSketchDocuments(String sessionId) =>
+      _sketchDocumentCache[sessionId] ?? const {};
+
   /// Remove the image draft for [sessionId] (e.g. after sending or clearing).
   void deleteImageDraft(String sessionId) {
     _imageCache.remove(sessionId);
+    _sketchDocumentCache.remove(sessionId);
     _prefs.remove('$_imagePrefix$sessionId');
   }
 
   /// Migrate an image draft from [oldId] to [newId].
   void migrateImageDraft(String oldId, String newId) {
+    if (oldId == newId) return;
     final data = _imageCache[oldId];
     if (data == null) return;
-    _imageCache[newId] = data;
-    // Re-encode for the new key.
-    final jsonList = data
-        .map((img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType})
-        .toList();
-    _prefs.setString('$_imagePrefix$newId', jsonEncode(jsonList));
+    saveImageDraft(newId, data, sketchDocuments: getSketchDocuments(oldId));
     deleteImageDraft(oldId);
   }
+
+  static List<({Uint8List bytes, String mimeType})> _immutableImages(
+    List<({Uint8List bytes, String mimeType})> images,
+  ) => List.unmodifiable([
+    for (final image in images)
+      (
+        bytes: Uint8List.fromList(image.bytes).asUnmodifiableView(),
+        mimeType: image.mimeType,
+      ),
+  ]);
 
   /// Decode stored image draft string.
   ///
   /// Supports two formats:
-  /// - **New** (JSON array): `[{"b64":"...","mime":"..."},...]`
+  /// - **New** (JSON array): `[{"b64":"...","mime":"...","sketch":"..."},...]`
+  ///   The optional `sketch` field is ignored unless it is a nonempty string.
   /// - **Legacy** (single image): `base64|mimeType`
-  static List<({Uint8List bytes, String mimeType})> _decodeImageDraftList(
-    String value,
-  ) {
+  static ({
+    List<({Uint8List bytes, String mimeType})> images,
+    Map<int, String> sketchDocuments,
+  })
+  _decodeImageDraftList(String value) {
     // Try JSON array format first.
     if (value.startsWith('[')) {
       try {
         final list = jsonDecode(value) as List;
-        return list
+        final images = list
             .cast<Map<String, dynamic>>()
             .map(
               (m) => (
@@ -144,19 +178,30 @@ class DraftService {
               ),
             )
             .toList();
+        final sketchDocuments = <int, String>{};
+        for (var index = 0; index < list.length; index++) {
+          final document = (list[index] as Map<String, dynamic>)['sketch'];
+          if (document is String && document.isNotEmpty) {
+            sketchDocuments[index] = document;
+          }
+        }
+        return (images: images, sketchDocuments: sketchDocuments);
       } catch (_) {
-        return [];
+        return (images: [], sketchDocuments: {});
       }
     }
     // Legacy single-image format: `base64|mimeType`.
     final sep = value.lastIndexOf('|');
-    if (sep < 0) return [];
+    if (sep < 0) return (images: [], sketchDocuments: {});
     try {
       final bytes = base64Decode(value.substring(0, sep));
       final mimeType = value.substring(sep + 1);
-      return [(bytes: bytes, mimeType: mimeType)];
+      return (
+        images: [(bytes: bytes, mimeType: mimeType)],
+        sketchDocuments: {},
+      );
     } catch (_) {
-      return [];
+      return (images: [], sketchDocuments: {});
     }
   }
 }
