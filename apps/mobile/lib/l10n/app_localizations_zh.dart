@@ -2880,6 +2880,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sketchTitle => '草图';
 
   @override
+  String get sketchApply => '应用';
+
+  @override
   String get sketchAttach => '附加';
 
   @override

@@ -3028,6 +3028,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sketchTitle => 'Sketch';
 
   @override
+  String get sketchApply => 'Apply';
+
+  @override
   String get sketchAttach => 'Attach';
 
   @override

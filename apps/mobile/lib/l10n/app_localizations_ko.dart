@@ -2938,6 +2938,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get sketchTitle => '스케치';
 
   @override
+  String get sketchApply => '적용';
+
+  @override
   String get sketchAttach => '첨부';
 
   @override

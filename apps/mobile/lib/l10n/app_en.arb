@@ -1202,6 +1202,7 @@
   "annotateImage": "Draw on image",
   "drawSketch": "Draw a sketch",
   "sketchTitle": "Sketch",
+  "sketchApply": "Apply",
   "sketchAttach": "Attach",
   "sketchPen": "Pen",
   "sketchEraser": "Eraser",

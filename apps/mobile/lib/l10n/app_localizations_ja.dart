@@ -2915,6 +2915,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sketchTitle => 'スケッチ';
 
   @override
+  String get sketchApply => '反映';
+
+  @override
   String get sketchAttach => '添付';
 
   @override

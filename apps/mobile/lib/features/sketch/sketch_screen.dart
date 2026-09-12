@@ -306,7 +306,12 @@ class _SketchScreenState extends State<SketchScreen> {
                         dimension: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(l10n.sketchAttach),
+                    : Text(
+                        widget.initialDocumentJson != null ||
+                                widget.backgroundImageBytes != null
+                            ? l10n.sketchApply
+                            : l10n.sketchAttach,
+                      ),
               ),
             ),
           ],

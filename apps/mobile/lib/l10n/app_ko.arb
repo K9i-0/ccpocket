@@ -1166,6 +1166,7 @@
   "annotateImage": "이미지에 그리기",
   "drawSketch": "스케치 그리기",
   "sketchTitle": "스케치",
+  "sketchApply": "적용",
   "sketchAttach": "첨부",
   "sketchPen": "펜",
   "sketchEraser": "지우개",

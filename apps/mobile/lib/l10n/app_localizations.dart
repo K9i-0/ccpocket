@@ -5477,6 +5477,12 @@ abstract class AppLocalizations {
   /// **'スケッチ'**
   String get sketchTitle;
 
+  /// No description provided for @sketchApply.
+  ///
+  /// In ja, this message translates to:
+  /// **'反映'**
+  String get sketchApply;
+
   /// No description provided for @sketchAttach.
   ///
   /// In ja, this message translates to:
