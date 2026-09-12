@@ -1,4 +1,6 @@
 import 'dart:ui' as ui;
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:ccpocket/features/sketch/sketch_document.dart';
 import 'package:ccpocket/features/sketch/sketch_screen.dart';
@@ -7,9 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_painter/flutter_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/pump_native_image.dart';
+
 Future<void> openEditor(
   WidgetTester tester, {
   String? initialDocumentJson,
+  Uint8List? backgroundImageBytes,
   ValueChanged<SketchResult?>? onResult,
 }) async {
   await tester.pumpWidget(
@@ -22,8 +27,10 @@ Future<void> openEditor(
             onPressed: () async {
               final result = await Navigator.of(context).push<SketchResult>(
                 MaterialPageRoute(
-                  builder: (_) =>
-                      SketchScreen(initialDocumentJson: initialDocumentJson),
+                  builder: (_) => SketchScreen(
+                    initialDocumentJson: initialDocumentJson,
+                    backgroundImageBytes: backgroundImageBytes,
+                  ),
                 ),
               );
               onResult?.call(result);
@@ -35,13 +42,109 @@ Future<void> openEditor(
     ),
   );
   await tester.tap(find.text('Open editor'));
-  await tester.pumpAndSettle();
+  await pumpNativeImageUntil(
+    tester,
+    () =>
+        find
+            .byKey(const ValueKey('sketch_attach_button'))
+            .evaluate()
+            .isNotEmpty &&
+        find.byType(CircularProgressIndicator).evaluate().isEmpty,
+  );
 }
 
 PainterController painterController(WidgetTester tester) =>
     tester.widget<FlutterPainter>(find.byType(FlutterPainter)).controller;
 
 void main() {
+  testWidgets(
+    'image annotations export separately and erasing preserves the background',
+    (tester) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAYAAAD/Rn+7AAAAM0lEQVR4nO3OMQ0AAAjAMEQgDIk4BRVkHDv6N7J6Pgs6YNAgHTBokA4YNEgHDBqkAwavLQitSbvtcAR/AAAAAElFTkSuQmCC',
+      );
+      SketchResult? result;
+      await openEditor(
+        tester,
+        backgroundImageBytes: bytes,
+        onResult: (value) => result = value,
+      );
+      final controller = painterController(tester);
+      expect(controller.painterKey.currentContext?.size, const Size(800, 400));
+      expect(controller.value.background, isA<ImageBackgroundDrawable>());
+      controller.addDrawables([
+        FreeStyleDrawable(
+          path: const [Offset(150, 200), Offset(650, 200)],
+          color: const Color(0xffff0000),
+          strokeWidth: 40,
+        ),
+        EraseDrawable(
+          path: const [Offset(390, 200), Offset(410, 200)],
+          strokeWidth: 80,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('sketch_attach_button')));
+      await pumpNativeImageUntil(tester, () => result != null);
+      expect(result, isNotNull);
+      final restored = await SketchDocument.decode(result!.documentJson);
+      expect(restored.backgroundImageBytes, bytes);
+      expect(restored.drawables, hasLength(2));
+      await tester.runAsync(() async {
+        final image = await SketchDocument.decodeBackground(result!.bytes);
+        try {
+          expect(image.width, 1536);
+          expect(image.height, 768);
+          final pixels = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!.buffer.asUint8List();
+          List<int> at(int x, int y) => pixels.sublist(
+            (y * image.width + x) * 4,
+            (y * image.width + x) * 4 + 4,
+          );
+          expect(at(0, 0), [20, 80, 160, 255]);
+          expect(at(576, 384), [255, 0, 0, 255]);
+          expect(at(768, 384), [20, 80, 160, 255]);
+        } finally {
+          image.dispose();
+        }
+      });
+      await openEditor(tester, initialDocumentJson: result!.documentJson);
+      final reopened = painterController(tester);
+      expect(reopened.drawables, hasLength(2));
+      expect(
+        (reopened.value.background as ImageBackgroundDrawable).image.width,
+        40,
+      );
+      reopened.clearDrawables();
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const ValueKey('sketch_attach_button')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets('invalid image cannot replace an attachment', (tester) async {
+    await openEditor(
+      tester,
+      backgroundImageBytes: Uint8List.fromList([1, 2, 3]),
+    );
+    expect(find.byType(FlutterPainter), findsNothing);
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('sketch_attach_button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
   testWidgets('draws, undoes and redoes before confirming discarded changes', (
     tester,
   ) async {

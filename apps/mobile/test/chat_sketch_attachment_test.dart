@@ -6,6 +6,7 @@ import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart'
 import 'package:ccpocket/features/chat_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/sketch/sketch_screen.dart';
+import 'package:ccpocket/features/sketch/sketch_document.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
@@ -16,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_painter/flutter_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_screen/helpers/chat_test_helpers.dart' show MockBridgeService;
@@ -139,13 +141,105 @@ void main() {
   ChatInputBar composer(WidgetTester tester) =>
       tester.widget<ChatInputBar>(find.byType(ChatInputBar));
 
-  Future<void> returnSketch(WidgetTester tester) async {
+  Future<void> returnSketch(
+    WidgetTester tester, {
+    String documentJson = _editedDocument,
+  }) async {
     navigator.currentState!.pop<SketchResult>((
       bytes: Uint8List.fromList(_pngBytes),
-      documentJson: _editedDocument,
+      documentJson: documentJson,
     ));
     await tester.pumpAndSettle();
   }
+
+  Future<void> openPhotoDrawing(WidgetTester tester, int index) async {
+    await tester.tap(find.byKey(ValueKey('attached_image_$index')));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('annotate_image_button')));
+    // Inspect the route input while its native image is loading. Rasterization
+    // is covered in sketch_screen_test; this suite covers composer state.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  testWidgets(
+    'a photo at the attachment limit can be annotated and restored for editing',
+    (tester) async {
+      saveImages('session-a', 5);
+      input.text = 'Change this area';
+      await pumpComposer(tester);
+      final original = composer(tester).attachedImages[2].bytes;
+      await openPhotoDrawing(tester, 2);
+      expect(
+        identical(
+          tester
+              .widget<SketchScreen>(find.byType(SketchScreen))
+              .backgroundImageBytes,
+          original,
+        ),
+        isTrue,
+      );
+      final edited = await SketchDocument(
+        canvasSize: const Size(800, 800),
+        backgroundImageBytes: original,
+        drawables: [
+          ArrowDrawable(position: const Offset(100, 100), length: 80),
+        ],
+      ).encode();
+      await returnSketch(tester, documentJson: edited);
+      expect(composer(tester).attachedImages, hasLength(5));
+      expect(composer(tester).editableSketchIndices, {2});
+      expect(input.text, 'Change this area');
+      expect(bridge.sentMessages, isEmpty);
+      final saved = DraftService(prefs).getSketchDocuments('session-a')[2]!;
+      final document = await SketchDocument.decode(saved);
+      expect(document.backgroundImageBytes, _pngBytes);
+      expect(document.drawables.single, isA<ArrowDrawable>());
+      await tester.tap(find.byKey(const ValueKey('attached_image_2')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        tester
+            .widget<SketchScreen>(find.byType(SketchScreen))
+            .initialDocumentJson,
+        saved,
+      );
+      await tester.tap(find.byKey(const ValueKey('sketch_close_button')));
+      await tester.pumpAndSettle();
+      expect(composer(tester).attachedImages, hasLength(5));
+      expect(DraftService(prefs).getSketchDocuments('session-a')[2], saved);
+    },
+  );
+
+  testWidgets('drawing from a photo preview follows pending removals', (
+    tester,
+  ) async {
+    saveImages('session-a', 2);
+    await pumpComposer(tester);
+    final source = composer(tester).attachedImages[1].bytes;
+    final remove = composer(tester).onClearImage!;
+    await tester.tap(find.byKey(const ValueKey('attached_image_1')));
+    await tester.pumpAndSettle();
+    remove(0);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('annotate_image_button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      identical(
+        tester
+            .widget<SketchScreen>(find.byType(SketchScreen))
+            .backgroundImageBytes,
+        source,
+      ),
+      isTrue,
+    );
+    await tester.tap(find.byKey(const ValueKey('sketch_close_button')));
+    await tester.pumpAndSettle();
+    expect(composer(tester).attachedImages, hasLength(1));
+    expect(drafts.getSketchDocuments('session-a'), isEmpty);
+  });
 
   testWidgets(
     'restored sketch follows removal and keeps its document when a photo is added',
