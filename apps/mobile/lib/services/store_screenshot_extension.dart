@@ -1188,6 +1188,14 @@ class _StoreThemeModeRouteState extends State<_StoreThemeModeRoute> {
 
 /// Uses the actual workspace shell, including its deferred history request.
 class _AdaptiveWorkspaceBridge extends MockBridgeService {
+  _AdaptiveWorkspaceBridge(this.recentSessions);
+
+  final List<RecentSession> recentSessions;
+
+  @override
+  Stream<List<RecentSession>> get recentSessionsStream =>
+      Stream.value(recentSessions);
+
   @override
   void requestSessionHistory(String sessionId) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1221,7 +1229,7 @@ class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
   void initState() {
     super.initState();
     _mockBridge = widget.adaptive
-        ? _AdaptiveWorkspaceBridge()
+        ? _AdaptiveWorkspaceBridge(_workspaceRecentSessions(widget.preset))
         : MockBridgeService();
     _gitStatusCubit = GitStatusCubit(bridge: _mockBridge);
     _gitViewCache = GitViewCacheService(
