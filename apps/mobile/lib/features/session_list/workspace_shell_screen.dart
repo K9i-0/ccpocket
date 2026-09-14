@@ -23,48 +23,44 @@ import '../../utils/diff_parser.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'session_list_screen.dart';
 
-const _twoPaneBreakpoint = 600.0;
-const _threePaneBreakpoint = 1100.0;
+const workspaceMultiPaneBreakpoint = 740.0;
 const _twoPaneDividerWidth = 1.0;
 const _paneResizeHandleWidth = _twoPaneDividerWidth;
 const _paneResizePointerHandleWidth = 12.0;
 const _paneResizeTouchHandleWidth = 44.0;
 const _minCenterPaneWidth = 360.0;
-const _minRightPaneWidth = 320.0;
+const _minRightPaneWidth = 240.0;
 
-enum _WorkspaceLayoutMode { single, doublePane, triplePane }
+enum _WorkspaceLayoutMode { single, multiPane }
 
 enum _WorkspaceCenterRoot { session, offline }
 
 enum _WorkspaceCenterOverlay { none, settings, globalGallery, setupGuide }
 
-double _leftPaneWidth(double width, _WorkspaceLayoutMode mode) {
-  if (mode == _WorkspaceLayoutMode.triplePane) {
-    return width >= 1280 ? 360 : 320;
-  }
-  if (width >= 1024) return 360;
-  if (width >= 720) return 320;
-  return 320;
+double _leftPaneWidth(double width) {
+  if (width < 820) return 138 + (width - 740) * 42 / 80;
+  if (width < 1024) return 180 + (width - 820) * 82 / 204;
+  if (width < 1100) return 262;
+  return width >= 1280 ? 360 : 320;
 }
 
-double _rightPaneWidth(double width, _WorkspaceLayoutMode mode) {
-  if (mode == _WorkspaceLayoutMode.triplePane) {
-    return width >= 1360 ? 380 : 320;
-  }
-  return width >= 900 ? 360 : 320;
+double _rightPaneWidth(double width) {
+  if (width < 820) return 240;
+  if (width < 890) return 260;
+  if (width < 1024) return 280;
+  return width >= 1360 ? 380 : 320;
 }
 
 double _maxRightPaneWidth({
   required double totalWidth,
-  required _WorkspaceLayoutMode mode,
   required bool showLeftPane,
 }) {
-  final leftWidth = showLeftPane ? _leftPaneWidth(totalWidth, mode) : 0.0;
+  final leftWidth = showLeftPane ? _leftPaneWidth(totalWidth) : 0.0;
   final dividerCount = (showLeftPane ? 1 : 0) + 1;
   final reservedWidth =
       leftWidth + (dividerCount * _paneResizeHandleWidth) + _minCenterPaneWidth;
   final availableWidth = totalWidth - reservedWidth;
-  return availableWidth < _minRightPaneWidth ? availableWidth : availableWidth;
+  return availableWidth.clamp(0.0, double.infinity);
 }
 
 double _minAllowedRightPaneWidth(double maxWidth) {
@@ -82,9 +78,9 @@ double _resizeHandleHitWidth(TargetPlatform platform) {
 }
 
 _WorkspaceLayoutMode _layoutModeForWidth(double width) {
-  if (width >= _threePaneBreakpoint) return _WorkspaceLayoutMode.triplePane;
-  if (width >= _twoPaneBreakpoint) return _WorkspaceLayoutMode.doublePane;
-  return _WorkspaceLayoutMode.single;
+  return width >= workspaceMultiPaneBreakpoint
+      ? _WorkspaceLayoutMode.multiPane
+      : _WorkspaceLayoutMode.single;
 }
 
 sealed class _WorkspaceToolPaneData {
@@ -272,7 +268,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
   final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
   bool _showLeftPane = true;
-  bool _shouldRestoreLeftPaneOnToolClose = false;
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
   _WorkspaceCenterRoot _centerRoot = _WorkspaceCenterRoot.offline;
   _WorkspaceCenterOverlay _centerOverlay = _WorkspaceCenterOverlay.none;
@@ -502,12 +497,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     setState(() {
       _toolPane = pane;
       _rememberVisibleToolPane();
-      if (_layoutMode == _WorkspaceLayoutMode.doublePane) {
-        _shouldRestoreLeftPaneOnToolClose = _showLeftPane;
-        _showLeftPane = false;
-      } else {
-        _shouldRestoreLeftPaneOnToolClose = false;
-      }
     });
     _notifyPresentationChanged();
   }
@@ -516,7 +505,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     if (_toolPane == null) return;
     final maxWidth = _maxRightPaneWidth(
       totalWidth: totalWidth,
-      mode: _layoutMode,
       showLeftPane: _showLeftPane,
     );
     final minWidth = _minAllowedRightPaneWidth(maxWidth);
@@ -532,10 +520,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
         _selectedSession?.sessionId ?? _toolPane?.sessionId,
       );
       _toolPane = null;
-      if (_shouldRestoreLeftPaneOnToolClose) {
-        _showLeftPane = true;
-      }
-      _shouldRestoreLeftPaneOnToolClose = false;
     });
     _notifyPresentationChanged();
   }
@@ -555,7 +539,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       _toolPaneSnapshots.clear();
       _toolPaneBindings.clear();
       _showLeftPane = true;
-      _shouldRestoreLeftPaneOnToolClose = false;
       _selectedSession = null;
       _centerRoot = _WorkspaceCenterRoot.offline;
       _centerOverlay = _WorkspaceCenterOverlay.none;
@@ -568,17 +551,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   void toggleLeftPaneVisibility() {
     setState(() {
-      if (_layoutMode == _WorkspaceLayoutMode.doublePane && _toolPane != null) {
-        _forgetToolPaneForSession(
-          _selectedSession?.sessionId ?? _toolPane?.sessionId,
-        );
-        _toolPane = null;
-        _showLeftPane = true;
-        _shouldRestoreLeftPaneOnToolClose = false;
-        return;
-      }
       _showLeftPane = !_showLeftPane;
-      _shouldRestoreLeftPaneOnToolClose = false;
     });
     _notifyPresentationChanged();
   }
@@ -616,25 +589,12 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   void selectSession(WorkspaceSessionSelection selection) {
     setState(() {
-      final previousShouldRestoreLeftPane =
-          _layoutMode == _WorkspaceLayoutMode.doublePane &&
-          _toolPane != null &&
-          _shouldRestoreLeftPaneOnToolClose;
       _rememberVisibleToolPane();
       final restoredToolPane = _restoreToolPaneForSession(selection.sessionId);
       _selectedSession = selection;
       _toolPane = restoredToolPane;
       _centerRoot = _WorkspaceCenterRoot.session;
       _centerOverlay = _WorkspaceCenterOverlay.none;
-      if (_layoutMode == _WorkspaceLayoutMode.doublePane) {
-        if (_toolPane != null) {
-          _showLeftPane = false;
-          _shouldRestoreLeftPaneOnToolClose = true;
-        } else if (previousShouldRestoreLeftPane) {
-          _showLeftPane = true;
-          _shouldRestoreLeftPaneOnToolClose = false;
-        }
-      }
     });
     NotificationService.instance.setActiveSession(
       sessionId: selection.sessionId,
@@ -651,7 +611,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       _toolPaneSnapshots.clear();
       _toolPaneBindings.clear();
       _showLeftPane = true;
-      _shouldRestoreLeftPaneOnToolClose = false;
       _centerRoot = _WorkspaceCenterRoot.offline;
       _centerOverlay = _WorkspaceCenterOverlay.none;
     });
@@ -681,26 +640,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
         resetWorkspace();
         return;
       }
-      if (nextMode == _WorkspaceLayoutMode.triplePane &&
-          _toolPane != null &&
-          _shouldRestoreLeftPaneOnToolClose) {
-        setState(() {
-          _showLeftPane = true;
-          _shouldRestoreLeftPaneOnToolClose = false;
-        });
-        _notifyPresentationChanged();
-        return;
-      }
-
-      if (nextMode == _WorkspaceLayoutMode.doublePane &&
-          _toolPane != null &&
-          _showLeftPane) {
-        setState(() {
-          _shouldRestoreLeftPaneOnToolClose = true;
-          _showLeftPane = false;
-        });
-        _notifyPresentationChanged();
-      }
     });
   }
 
@@ -729,27 +668,27 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             deepLinkNotifier: widget.deepLinkNotifier,
             debugRecentSessions: widget.debugRecentSessions,
             embedded: true,
+            compact: _leftPaneWidth(constraints.maxWidth) < 280,
             onTogglePaneVisibility: toggleLeftPaneVisibility,
             onSelectWorkspaceSession: selectSession,
           );
 
           final showLeftPane = _showLeftPane;
           final showRightPane = _toolPane != null;
-          final leftWidth = _leftPaneWidth(constraints.maxWidth, layoutMode);
+          final leftWidth = _leftPaneWidth(constraints.maxWidth);
           final rightWidth = showRightPane
               ? (() {
                   final maxWidth = _maxRightPaneWidth(
                     totalWidth: constraints.maxWidth,
-                    mode: layoutMode,
                     showLeftPane: showLeftPane,
                   );
                   final minWidth = _minAllowedRightPaneWidth(maxWidth);
                   return (_rightPaneUserWidth ??
-                          _rightPaneWidth(constraints.maxWidth, layoutMode))
+                          _rightPaneWidth(constraints.maxWidth))
                       .clamp(minWidth, maxWidth)
                       .toDouble();
                 })()
-              : _rightPaneWidth(constraints.maxWidth, layoutMode);
+              : _rightPaneWidth(constraints.maxWidth);
           final resizeHandleHitWidth = _resizeHandleHitWidth(
             Theme.of(context).platform,
           );

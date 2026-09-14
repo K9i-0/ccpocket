@@ -399,6 +399,7 @@ Widget _buildWorkspaceApp({
   TargetPlatform platform = TargetPlatform.macOS,
   Locale locale = const Locale('en'),
   bool sessionListOnly = false,
+  bool adaptiveHome = false,
   MachineManagerCubit? machineManagerCubit,
   ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession,
 }) {
@@ -461,7 +462,9 @@ Widget _buildWorkspaceApp({
           body: SizedBox(
             width: 1400,
             height: 900,
-            child: sessionListOnly
+            child: adaptiveHome
+                ? AdaptiveHomeScreen(debugRecentSessions: debugRecentSessions)
+                : sessionListOnly
                 ? SessionListScreen(
                     debugRecentSessions: debugRecentSessions,
                     embedded: onSelectWorkspaceSession != null,
@@ -535,6 +538,8 @@ void main() {
   });
 
   testWidgets('shows a scoped localized Codex writer conflict', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -666,6 +671,8 @@ void main() {
   testWidgets(
     'matching resume creation selects session and clears correlation',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -740,6 +747,8 @@ void main() {
   testWidgets('settings overlay back restores selected session root', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -792,6 +801,8 @@ void main() {
   testWidgets('settings overlay back restores offline landing root', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -829,6 +840,8 @@ void main() {
   testWidgets(
     'opening gallery overlay replaces settings and back restores session root',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       bridge.setGalleryImages([
         const GalleryImage(
@@ -894,6 +907,8 @@ void main() {
   testWidgets(
     'opening gallery overlay replaces settings and back restores offline landing',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       bridge.setGalleryImages([
         const GalleryImage(
@@ -950,6 +965,8 @@ void main() {
   testWidgets(
     'selecting another session while overlay is open clears overlay',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       bridge.setGalleryImages([
         const GalleryImage(
@@ -1014,6 +1031,8 @@ void main() {
   );
 
   testWidgets('shows guided disconnected landing', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService(
       initialState: BridgeConnectionState.disconnected,
     );
@@ -1048,6 +1067,8 @@ void main() {
   testWidgets(
     'connecting shows session skeleton and disconnect returns to machines',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService(
         initialState: BridgeConnectionState.disconnected,
       );
@@ -1089,6 +1110,8 @@ void main() {
   testWidgets('disconnecting while overlay is open clears overlay to landing', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1133,6 +1156,8 @@ void main() {
   testWidgets(
     'bridge update from settings disconnects and returns to machine list',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -1222,7 +1247,102 @@ void main() {
     },
   );
 
+  testWidgets('adaptive home switches between 739px and 740px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(739, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final bridge = _MockBridgeService();
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: await _createSettingsCubit(bridge),
+        draftService: DraftService(await SharedPreferences.getInstance()),
+        revenueCatService: _FakeRevenueCatService(),
+        supportBannerService: await _createSupportBannerService(),
+        debugRecentSessions: [_recentSession('one')],
+        adaptiveHome: true,
+      ),
+    );
+    await _pumpUi(tester);
+    expect(find.byType(WorkspaceShellScreen), findsNothing);
+    await tester.binding.setSurfaceSize(const Size(740, 900));
+    await _pumpUi(tester);
+    expect(find.byType(WorkspaceShellScreen), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(739, 900));
+    await _pumpUi(tester);
+    expect(find.byType(WorkspaceShellScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('740px keeps sessions while tools open, close and resize', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(740, 900));
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final shellKey = GlobalKey<WorkspaceShellScreenState>();
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        debugRecentSessions: [_recentSession('one')],
+        shellKey: shellKey,
+        platform: TargetPlatform.macOS,
+      ),
+    );
+    await _pumpUi(tester);
+    final list = find.byKey(const ValueKey('compact_session_list'));
+    expect(list, findsOneWidget);
+    expect(tester.getSize(list).width, 138);
+    expect(shellKey.currentState!.canOpenToolPane, isTrue);
+    shellKey.currentState!.openGitPane(projectPath: '/tmp/project');
+    await _pumpUi(tester);
+    expect(shellKey.currentState!.isLeftPaneVisible, isTrue);
+    expect(list, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    shellKey.currentState!.resizeRightPane(600, 740);
+    await _pumpUi(tester);
+    expect(tester.takeException(), isNull);
+    shellKey.currentState!.closeToolPane();
+    await _pumpUi(tester);
+    expect(list, findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('browse_sessions_button')));
+    await _pumpUi(tester);
+    expect(find.byType(RecentSessionCard), findsWidgets);
+    expect(
+      tester
+          .widgetList<SessionListScreen>(find.byType(SessionListScreen))
+          .where((screen) => !screen.autoConnect),
+      hasLength(1),
+    );
+    bridge.emitMessage(
+      const SystemMessage(
+        subtype: 'session_created',
+        sessionId: 'created-in-browser',
+        projectPath: '/tmp/project',
+        provider: 'codex',
+      ),
+    );
+    await _pumpUi(tester);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(WorkspaceShellScreen), findsOneWidget);
+    expect(
+      shellKey.currentState!.selectedSession?.sessionId,
+      'created-in-browser',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens session gallery in right pane', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     bridge.setGalleryImages([
       const GalleryImage(
@@ -1267,6 +1387,8 @@ void main() {
   testWidgets(
     'right pane hides for other sessions and restores when returning',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1341,6 +1463,8 @@ void main() {
   testWidgets('git right pane snapshot follows selected session', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1426,6 +1550,8 @@ void main() {
   testWidgets(
     'right pane remembers one pane per session and forgets closed pane',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1540,6 +1666,8 @@ void main() {
   testWidgets(
     'workspace session keeps show sessions button when left pane is collapsed',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1583,6 +1711,8 @@ void main() {
   testWidgets('macOS adaptive left pane hides pane title wordmark', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1607,6 +1737,8 @@ void main() {
   testWidgets('non-mac adaptive left pane keeps pane title wordmark', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1634,6 +1766,8 @@ void main() {
   testWidgets(
     'selected running session remains highlighted while a popup menu is open',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1699,6 +1833,8 @@ void main() {
   testWidgets(
     'selected running session remains highlighted while a modal sheet is open',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1756,6 +1892,8 @@ void main() {
   testWidgets(
     'stopping selected running session clears center pane in workspace layout',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final bridge = _MockBridgeService();
       final settingsCubit = await _createSettingsCubit(bridge);
       final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1812,6 +1950,8 @@ void main() {
   testWidgets('remote stopped notification clears selected workspace session', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1856,6 +1996,8 @@ void main() {
   testWidgets('disconnected connect form opens setup guide in center pane', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService(
       initialState: BridgeConnectionState.disconnected,
     );
@@ -1890,6 +2032,8 @@ void main() {
   testWidgets('offline landing setup guide button opens center overlay', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService(
       initialState: BridgeConnectionState.disconnected,
     );
@@ -1923,6 +2067,8 @@ void main() {
   testWidgets('embedded setup guide back skip and done restore offline root', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService(
       initialState: BridgeConnectionState.disconnected,
     );

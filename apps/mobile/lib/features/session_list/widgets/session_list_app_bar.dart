@@ -68,6 +68,8 @@ class SessionListSliverAppBar extends StatelessWidget {
 }
 
 class SessionListPaneHeader extends StatelessWidget {
+  final bool compact;
+  final VoidCallback? onBrowseSessions;
   final VoidCallback onTitleTap;
   final VoidCallback onOpenSettings;
   final VoidCallback? onOpenGallery;
@@ -77,6 +79,8 @@ class SessionListPaneHeader extends StatelessWidget {
 
   const SessionListPaneHeader({
     super.key,
+    this.compact = false,
+    this.onBrowseSessions,
     required this.onTitleTap,
     required this.onOpenSettings,
     this.onOpenGallery,
@@ -100,6 +104,47 @@ class SessionListPaneHeader extends StatelessWidget {
     final titleStyle = Theme.of(context).textTheme.titleLarge
         ?.copyWith(fontWeight: FontWeight.w700);
     final actionGap = chrome.useMacOSAdaptiveChrome ? 8.0 : 0.0;
+
+    if (compact) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (chrome.useMacOSAdaptiveChrome)
+            const SizedBox(
+              height: 32,
+              child: MacOSWindowDragHandle(child: SizedBox.expand()),
+            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              PopupMenuButton<VoidCallback>(
+                key: const ValueKey('compact_sessions_menu_button'),
+                onSelected: (action) => action(),
+                itemBuilder: (context) => [
+                  if (onBrowseSessions != null)
+                    PopupMenuItem(
+                      value: onBrowseSessions,
+                      child: Text(l.search),
+                    ),
+                  PopupMenuItem(value: onOpenSettings, child: Text(l.settings)),
+                  if (openGallery != null)
+                    PopupMenuItem(value: openGallery, child: Text(l.gallery)),
+                  if (disconnect != null)
+                    PopupMenuItem(value: disconnect, child: Text(l.disconnect)),
+                ],
+              ),
+              if (togglePaneVisibility != null)
+                IconButton(
+                  key: const ValueKey('collapse_left_pane_button'),
+                  tooltip: l.hideSessions,
+                  onPressed: togglePaneVisibility,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
 
     return SizedBox(
       height: chrome.toolbarHeight,

@@ -51,17 +51,31 @@ class _GitHeaderControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _BranchSelectorButton(
-            state: state,
-            projectPath: cubit.projectPath,
-          ),
-        ),
-        const SizedBox(width: 8),
-        _SyncActionRow(state: state, cubit: cubit),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final branch = _BranchSelectorButton(
+          state: state,
+          projectPath: cubit.projectPath,
+        );
+        final sync = _SyncActionRow(state: state, cubit: cubit);
+        if (constraints.maxWidth < 280) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              branch,
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: sync),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: branch),
+            const SizedBox(width: 8),
+            sync,
+          ],
+        );
+      },
     );
   }
 }

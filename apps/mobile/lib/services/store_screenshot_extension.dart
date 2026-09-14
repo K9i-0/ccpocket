@@ -23,6 +23,9 @@ import '../features/claude_session/claude_session_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/git/git_screen.dart';
+import '../features/git/state/git_status_cubit.dart';
+import '../features/git/state/git_view_cache_service.dart';
+import '../features/session_list/workspace_shell_screen.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/session_list/state/session_list_state.dart';
 import '../features/session_list/widgets/home_content.dart';
@@ -70,7 +73,7 @@ void registerStoreScreenshotExtensions() {
         'Available scenarios: Self-Hosted Agents, Recent Sessions, '
         'Approval List, Multi-Question Approval, Project Explorer, '
         'Git Actions, Images & Screenshots, Network Resilience, '
-        'Workspace Overview, Workspace Explorer, '
+        'Adaptive Workspace, Workspace Overview, Workspace Explorer, '
         'Approval In Context, Approval Queue, Dark Workspace',
     callback: (params) async {
       final scenario = params['scenario'];
@@ -284,6 +287,14 @@ Route<void> buildStoreScenarioRoute(
         builder: (_) => const _StoreThemeModeRoute(
           themeMode: ThemeMode.dark,
           child: _StoreChatRoute(scenarioName: 'Network Resilience'),
+        ),
+      );
+    case 'Adaptive Workspace':
+      return MaterialPageRoute(
+        builder: (_) => _StoreWorkspaceRoute(
+          preset: _workspaceOverviewPreset,
+          draftService: draftService,
+          adaptive: true,
         ),
       );
     case 'Workspace Overview':
@@ -1175,11 +1186,26 @@ class _StoreThemeModeRouteState extends State<_StoreThemeModeRoute> {
   Widget build(BuildContext context) => widget.child;
 }
 
+/// Uses the actual workspace shell, including its deferred history request.
+class _AdaptiveWorkspaceBridge extends MockBridgeService {
+  @override
+  void requestSessionHistory(String sessionId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadHistory(storeChatMarkdownInput);
+    });
+  }
+}
+
 class _StoreWorkspaceRoute extends StatefulWidget {
   final _StoreWorkspacePreset preset;
   final DraftService? draftService;
+  final bool adaptive;
 
-  const _StoreWorkspaceRoute({required this.preset, this.draftService});
+  const _StoreWorkspaceRoute({
+    required this.preset,
+    this.draftService,
+    this.adaptive = false,
+  });
 
   @override
   State<_StoreWorkspaceRoute> createState() => _StoreWorkspaceRouteState();
@@ -1188,11 +1214,20 @@ class _StoreWorkspaceRoute extends StatefulWidget {
 class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
   late final MockBridgeService _mockBridge;
   late final SessionListCubit _sessionListCubit;
+  late final GitStatusCubit _gitStatusCubit;
+  late final GitViewCacheService _gitViewCache;
 
   @override
   void initState() {
     super.initState();
-    _mockBridge = MockBridgeService();
+    _mockBridge = widget.adaptive
+        ? _AdaptiveWorkspaceBridge()
+        : MockBridgeService();
+    _gitStatusCubit = GitStatusCubit(bridge: _mockBridge);
+    _gitViewCache = GitViewCacheService(
+      bridge: _mockBridge,
+      gitStatusCubit: _gitStatusCubit,
+    );
     _sessionListCubit = SessionListCubit(bridge: _mockBridge);
     _mockBridge.mockDiff = storeMockDiff;
     switch (widget.preset.centerKind) {
@@ -1222,6 +1257,8 @@ class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
       sessionId: widget.preset.sessionId,
       provider: 'codex',
     );
+    _gitViewCache.dispose();
+    _gitStatusCubit.close();
     _sessionListCubit.close();
     _mockBridge.dispose();
     super.dispose();
@@ -1248,8 +1285,10 @@ class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
             ),
           ),
           BlocProvider(
-            create: (_) =>
-                ActiveSessionsCubit(const [], _mockBridge.sessionList),
+            create: (_) => ActiveSessionsCubit(
+              widget.adaptive ? running : const [],
+              _mockBridge.sessionList,
+            ),
           ),
           BlocProvider(
             create: (_) =>
@@ -1259,24 +1298,32 @@ class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
         ],
         child: Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          body: Row(
-            children: [
-              SizedBox(
-                width: 320,
-                child: _StoreWorkspaceListPane(
-                  recentSessions: recent,
-                  runningSessions: running,
-                  projectPaths: projectPaths,
+          body: widget.adaptive
+              ? RepositoryProvider<GitViewCacheService>.value(
+                  value: _gitViewCache,
+                  child: BlocProvider<GitStatusCubit>.value(
+                    value: _gitStatusCubit,
+                    child: AdaptiveHomeScreen(debugRecentSessions: recent),
+                  ),
+                )
+              : Row(
+                  children: [
+                    SizedBox(
+                      width: 320,
+                      child: _StoreWorkspaceListPane(
+                        recentSessions: recent,
+                        runningSessions: running,
+                        projectPaths: projectPaths,
+                      ),
+                    ),
+                    _storePaneDivider(context),
+                    Expanded(child: _buildCenterPane()),
+                    if (rightPane != null) ...[
+                      _storePaneDivider(context),
+                      SizedBox(width: 360, child: rightPane),
+                    ],
+                  ],
                 ),
-              ),
-              _storePaneDivider(context),
-              Expanded(child: _buildCenterPane()),
-              if (rightPane != null) ...[
-                _storePaneDivider(context),
-                SizedBox(width: 360, child: rightPane),
-              ],
-            ],
-          ),
         ),
       ),
     );

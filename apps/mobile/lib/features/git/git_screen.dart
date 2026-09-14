@@ -1055,17 +1055,34 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final child = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ],
+    final child = Tooltip(
+      message: label,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final text = Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          );
+          if (constraints.maxWidth < 140) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [Icon(icon, size: 16), const SizedBox(height: 4), text],
+            );
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16),
+              const SizedBox(width: 4),
+              Flexible(child: text),
+            ],
+          );
+        },
+      ),
     );
 
     final shape = RoundedRectangleBorder(
