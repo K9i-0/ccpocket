@@ -17,6 +17,7 @@ import {
   getAllRecentSessions,
   getCodexSessionIndexMetadata,
   getCodexSessionHistory,
+  loadCodexSessionNames,
   extractMessageImages,
   codexThreadToSessionHistory,
 } from "./sessions-index.js";
@@ -692,6 +693,21 @@ describe("codex sessions integration", () => {
     rmSync(tempHome, { recursive: true, force: true });
   });
 
+  it("clears a Codex session name when a later index entry is empty", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68000";
+    const indexPath = join(tempHome, ".codex", "session_index.jsonl");
+    mkdirSync(join(tempHome, ".codex"), { recursive: true });
+    writeFileSync(
+      indexPath,
+      [
+        JSON.stringify({ id: threadId, thread_name: "nfs" }),
+        JSON.stringify({ id: threadId, thread_name: "" }),
+      ].join("\n"),
+    );
+
+    await expect(loadCodexSessionNames()).resolves.toEqual(new Map());
+  });
+
   it("includes codex sessions in getAllRecentSessions", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68010";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
@@ -733,6 +749,29 @@ describe("codex sessions integration", () => {
     expect(entry?.projectPath).toBe("/tmp/project-a");
     expect(entry?.resumeCwd).toBeUndefined();
     expect(entry?.firstPrompt).toBe("hello codex");
+  });
+
+  it("uses the newest rollout when a Codex thread has continuation files", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68001";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    const oldPath = join(codexDir, `rollout-2026-02-13T10-00-00-${threadId}.jsonl`);
+    const continuationPath = join(
+      codexDir,
+      `rollout-2026-02-13T12-00-00-${threadId}_019c56c1-0000-7000-8000-000000000001.jsonl`,
+    );
+    const entry = (text: string) => [
+      JSON.stringify({ type: "session_meta", payload: { id: threadId, cwd: "/tmp/project-a" } }),
+      JSON.stringify({ type: "event_msg", payload: { type: "user_message", message: text } }),
+    ].join("\n");
+    writeFileSync(oldPath, entry("stale history"));
+    writeFileSync(continuationPath, entry("current history"));
+    utimesSync(oldPath, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    utimesSync(continuationPath, new Date(1_700_000_100_000), new Date(1_700_000_100_000));
+
+    await expect(getCodexSessionHistory(threadId)).resolves.toMatchObject([
+      { content: [{ type: "text", text: "current history" }] },
+    ]);
   });
 
   it("applies a caller session filter before pagination", async () => {
@@ -1323,6 +1362,86 @@ describe("codex sessions integration", () => {
       "thanks, now add a test",
     );
     expect(metadata.get(wantedThreadId)?.summary).toBe("done: fixed the bug");
+  });
+
+  it("uses the newest Codex continuation rollout for recent-session last prompt", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68103";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    const oldPath = join(codexDir, `rollout-2026-02-13T10-00-00-${threadId}.jsonl`);
+    const continuationPath = join(
+      codexDir,
+      `rollout-2026-02-13T12-00-00-${threadId}_019c56c1-0000-7000-8000-000000000001.jsonl`,
+    );
+
+    writeFileSync(
+      oldPath,
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "old prompt" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "agent_message", message: "old summary" },
+        }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      continuationPath,
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "initial prompt" }],
+          },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "token_count", details: "x".repeat(200_000) },
+        }),
+        JSON.stringify({
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "latest prompt" }],
+          },
+        }),
+        JSON.stringify({
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "latest summary".padEnd(200_000, ".") }],
+          },
+        }),
+      ].join("\n"),
+    );
+    utimesSync(oldPath, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    utimesSync(
+      continuationPath,
+      new Date(1_700_000_100_000),
+      new Date(1_700_000_100_000),
+    );
+
+    const metadata = await getCodexSessionIndexMetadata([threadId]);
+
+    expect(metadata.get(threadId)).toMatchObject({
+      firstPrompt: "initial prompt",
+      lastPrompt: "latest prompt",
+      summary: expect.stringMatching(/^latest summary/),
+    });
   });
 
   it("reads codex history from jsonl", async () => {
