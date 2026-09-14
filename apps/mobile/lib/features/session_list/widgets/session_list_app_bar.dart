@@ -72,7 +72,6 @@ class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
-  final VoidCallback? onTogglePaneVisibility;
   final String? bridgeLabel;
 
   const SessionListPaneHeader({
@@ -81,7 +80,6 @@ class SessionListPaneHeader extends StatelessWidget {
     required this.onOpenSettings,
     this.onOpenGallery,
     this.onDisconnect,
-    this.onTogglePaneVisibility,
     this.bridgeLabel,
   });
 
@@ -90,7 +88,6 @@ class SessionListPaneHeader extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final openGallery = onOpenGallery;
     final disconnect = onDisconnect;
-    final togglePaneVisibility = onTogglePaneVisibility;
     final chrome = resolveWorkspacePaneChrome(
       platform: Theme.of(context).platform,
       isAdaptiveWorkspace: true,
@@ -138,9 +135,7 @@ class SessionListPaneHeader extends StatelessWidget {
                   ),
                   compact: chrome.useMacOSAdaptiveChrome,
                 ),
-                if (openGallery != null ||
-                    disconnect != null ||
-                    togglePaneVisibility != null)
+                if (openGallery != null || disconnect != null)
                   SizedBox(width: actionGap),
                 if (openGallery != null)
                   _PaneHeaderActionButton(
@@ -150,8 +145,7 @@ class SessionListPaneHeader extends StatelessWidget {
                     icon: const Icon(Icons.collections_outlined),
                     compact: chrome.useMacOSAdaptiveChrome,
                   ),
-                if (openGallery != null &&
-                    (disconnect != null || togglePaneVisibility != null))
+                if (openGallery != null && disconnect != null)
                   SizedBox(width: actionGap),
                 if (disconnect != null)
                   _PaneHeaderActionButton(
@@ -159,16 +153,6 @@ class SessionListPaneHeader extends StatelessWidget {
                     tooltip: l.disconnect,
                     onPressed: disconnect,
                     icon: const Icon(Icons.link_off),
-                    compact: chrome.useMacOSAdaptiveChrome,
-                  ),
-                if (disconnect != null && togglePaneVisibility != null)
-                  SizedBox(width: actionGap),
-                if (togglePaneVisibility != null)
-                  _PaneHeaderActionButton(
-                    key: const ValueKey('collapse_left_pane_button'),
-                    tooltip: l.hideSessions,
-                    onPressed: togglePaneVisibility,
-                    icon: const Icon(Icons.chevron_left),
                     compact: chrome.useMacOSAdaptiveChrome,
                   ),
               ],

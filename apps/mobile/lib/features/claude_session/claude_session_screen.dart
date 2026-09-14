@@ -435,8 +435,6 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
       final chrome = _resolveSessionPaneChrome(context, shell);
       final leading = _sessionAppBarLeading(
         context,
-        shell,
-        chrome: chrome,
         onBackToSessions: widget.onBackToSessions,
         hideSessionBackButton: widget.hideSessionBackButton,
       );
@@ -934,8 +932,6 @@ class _ChatScreenBody extends HookWidget {
               final chrome = _resolveSessionPaneChrome(context, currentShell);
               final leading = _sessionAppBarLeading(
                 context,
-                currentShell,
-                chrome: chrome,
                 onBackToSessions: onBackToSessions,
                 hideSessionBackButton: hideSessionBackButton,
               );
@@ -1384,37 +1380,14 @@ class _ChatScreenBody extends HookWidget {
 }
 
 Widget? _sessionAppBarLeading(
-  BuildContext context,
-  WorkspaceShellScreenState? shell, {
-  required WorkspacePaneChrome chrome,
+  BuildContext context, {
   VoidCallback? onBackToSessions,
   bool hideSessionBackButton = false,
 }) {
-  final l = AppLocalizations.of(context);
   if (!hideSessionBackButton && onBackToSessions != null) {
     return BackButton(
       key: const ValueKey('session_back_button'),
       onPressed: onBackToSessions,
-    );
-  }
-  if (shell?.shouldShowLeftPaneButton ?? false) {
-    final theme = Theme.of(context);
-    final fabTheme = theme.floatingActionButtonTheme;
-    return IconButton(
-      key: const ValueKey('show_left_pane_button'),
-      onPressed: shell!.toggleLeftPaneVisibility,
-      tooltip: l.showSessions,
-      style: chrome.useMacOSAdaptiveChrome
-          ? chrome.compactButtonStyle()
-          : IconButton.styleFrom(
-              backgroundColor:
-                  fabTheme.backgroundColor ??
-                  theme.colorScheme.primaryContainer,
-              foregroundColor:
-                  fabTheme.foregroundColor ??
-                  theme.colorScheme.onPrimaryContainer,
-            ),
-      icon: const Icon(Icons.chevron_right),
     );
   }
   if (hideSessionBackButton) {

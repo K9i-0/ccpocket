@@ -20,7 +20,6 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/notification_service.dart';
 import '../../utils/diff_parser.dart';
-import '../../widgets/workspace_pane_chrome.dart';
 import 'session_list_screen.dart';
 
 const workspaceMultiPaneBreakpoint = 862.0;
@@ -49,12 +48,9 @@ double _rightPaneWidth(double width) {
   return width >= 1360 ? 380 : 320;
 }
 
-double _maxRightPaneWidth({
-  required double totalWidth,
-  required bool showLeftPane,
-}) {
-  final leftWidth = showLeftPane ? _leftPaneWidth(totalWidth) : 0.0;
-  final dividerCount = (showLeftPane ? 1 : 0) + 1;
+double _maxRightPaneWidth({required double totalWidth}) {
+  final leftWidth = _leftPaneWidth(totalWidth);
+  const dividerCount = 2;
   final reservedWidth =
       leftWidth + (dividerCount * _paneResizeHandleWidth) + _minCenterPaneWidth;
   final availableWidth = totalWidth - reservedWidth;
@@ -265,7 +261,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   _WorkspaceToolPaneData? _toolPane;
   final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
   final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
-  bool _showLeftPane = true;
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
   _WorkspaceCenterRoot _centerRoot = _WorkspaceCenterRoot.offline;
   _WorkspaceCenterOverlay _centerOverlay = _WorkspaceCenterOverlay.none;
@@ -280,9 +275,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   bool get canOpenToolPane => _layoutMode != _WorkspaceLayoutMode.single;
   bool get isSinglePane => _layoutMode == _WorkspaceLayoutMode.single;
-  bool get isLeftPaneVisible => _showLeftPane;
-  bool get shouldShowLeftPaneButton =>
-      _layoutMode != _WorkspaceLayoutMode.single && !_showLeftPane;
+  bool get isLeftPaneVisible => true;
   WorkspaceSessionSelection? get selectedSession => _selectedSession;
   ValueNotifier<int> get presentationListenable => _presentationVersion;
 
@@ -501,10 +494,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   void resizeRightPane(double nextWidth, double totalWidth) {
     if (_toolPane == null) return;
-    final maxWidth = _maxRightPaneWidth(
-      totalWidth: totalWidth,
-      showLeftPane: _showLeftPane,
-    );
+    final maxWidth = _maxRightPaneWidth(totalWidth: totalWidth);
     final minWidth = _minAllowedRightPaneWidth(maxWidth);
     setState(() {
       _rightPaneUserWidth = nextWidth.clamp(minWidth, maxWidth).toDouble();
@@ -527,7 +517,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     final alreadyReset =
         _toolPane == null &&
         _toolPaneSnapshots.isEmpty &&
-        _showLeftPane &&
         !hadSelection &&
         _centerRoot == _WorkspaceCenterRoot.offline &&
         _centerOverlay == _WorkspaceCenterOverlay.none;
@@ -536,7 +525,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       _toolPane = null;
       _toolPaneSnapshots.clear();
       _toolPaneBindings.clear();
-      _showLeftPane = true;
       _selectedSession = null;
       _centerRoot = _WorkspaceCenterRoot.offline;
       _centerOverlay = _WorkspaceCenterOverlay.none;
@@ -544,13 +532,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     if (hadSelection) {
       NotificationService.instance.clearActiveSession();
     }
-    _notifyPresentationChanged();
-  }
-
-  void toggleLeftPaneVisibility() {
-    setState(() {
-      _showLeftPane = !_showLeftPane;
-    });
     _notifyPresentationChanged();
   }
 
@@ -608,7 +589,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       _toolPane = null;
       _toolPaneSnapshots.clear();
       _toolPaneBindings.clear();
-      _showLeftPane = true;
       _centerRoot = _WorkspaceCenterRoot.offline;
       _centerOverlay = _WorkspaceCenterOverlay.none;
     });
@@ -666,18 +646,15 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             deepLinkNotifier: widget.deepLinkNotifier,
             debugRecentSessions: widget.debugRecentSessions,
             embedded: true,
-            onTogglePaneVisibility: toggleLeftPaneVisibility,
             onSelectWorkspaceSession: selectSession,
           );
 
-          final showLeftPane = _showLeftPane;
           final showRightPane = _toolPane != null;
           final leftWidth = _leftPaneWidth(constraints.maxWidth);
           final rightWidth = showRightPane
               ? (() {
                   final maxWidth = _maxRightPaneWidth(
                     totalWidth: constraints.maxWidth,
-                    showLeftPane: showLeftPane,
                   );
                   final minWidth = _minAllowedRightPaneWidth(maxWidth);
                   return (_rightPaneUserWidth ??
@@ -690,18 +667,16 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             Theme.of(context).platform,
           );
           final children = <Widget>[
-            if (showLeftPane)
-              SizedBox(
-                width: leftWidth,
-                child: ColoredBox(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: sessionList,
-                ),
+            SizedBox(
+              width: leftWidth,
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.surface,
+                child: sessionList,
               ),
-            if (showLeftPane)
-              _WorkspacePaneDivider(
-                color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
-              ),
+            ),
+            _WorkspacePaneDivider(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
+            ),
             Expanded(
               child: _WorkspaceContentHost(
                 selection: _selectedSession,
@@ -1062,51 +1037,8 @@ class WorkspaceLandingScreen extends StatelessWidget {
       listenable:
           shell?.presentationListenable ?? const _PlaceholderNoopListenable(),
       builder: (context, _) {
-        final currentShell = WorkspaceShellScreen.maybeOf(context);
-        final fabTheme = theme.floatingActionButtonTheme;
-        final chrome = resolveWorkspacePaneChrome(
-          platform: theme.platform,
-          isAdaptiveWorkspace:
-              currentShell != null && !currentShell.isSinglePane,
-          isLeftPaneVisible: currentShell?.isLeftPaneVisible ?? false,
-          slot: WorkspacePaneSlot.center,
-        );
-        final showLeftPaneButton =
-            currentShell?.shouldShowLeftPaneButton ?? false;
-        final showSessionsButton = showLeftPaneButton
-            ? IconButton(
-                key: const ValueKey('show_left_pane_button'),
-                onPressed: currentShell!.toggleLeftPaneVisibility,
-                tooltip: l.showSessions,
-                style: chrome.useMacOSAdaptiveChrome
-                    ? chrome.compactButtonStyle()
-                    : IconButton.styleFrom(
-                        backgroundColor:
-                            fabTheme.backgroundColor ??
-                            theme.colorScheme.primaryContainer,
-                        foregroundColor:
-                            fabTheme.foregroundColor ??
-                            theme.colorScheme.onPrimaryContainer,
-                      ),
-                icon: const Icon(Icons.chevron_right),
-              )
-            : null;
-
         return Scaffold(
           backgroundColor: theme.colorScheme.surfaceContainerLowest,
-          appBar: showLeftPaneButton
-              ? AppBar(
-                  toolbarHeight: chrome.toolbarHeight,
-                  automaticallyImplyLeading: false,
-                  leading: chrome.wrapLeading(showSessionsButton),
-                  leadingWidth: chrome.resolveLeadingWidth(
-                    hasLeading: true,
-                    baseWidth: chrome.useMacOSAdaptiveChrome
-                        ? kWorkspaceMacOSToolbarLeadingSlotWidth
-                        : 64,
-                  ),
-                )
-              : null,
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
@@ -1174,7 +1106,7 @@ class WorkspaceLandingScreen extends StatelessWidget {
                           OutlinedButton.icon(
                             key: const ValueKey('workspace_setup_guide_button'),
                             onPressed:
-                                currentShell?.openSetupGuideCenter ??
+                                shell?.openSetupGuideCenter ??
                                 () => context.router.push(SetupGuideRoute()),
                             icon: const Icon(Icons.lightbulb_outline),
                             label: Text('${l.setupGuide} →'),

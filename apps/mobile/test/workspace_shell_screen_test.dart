@@ -1641,7 +1641,7 @@ void main() {
   );
 
   testWidgets(
-    'workspace session keeps show sessions button when left pane is collapsed',
+    'workspace keeps sessions visible without pane visibility buttons',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1674,14 +1674,13 @@ void main() {
       );
       await _pumpUi(tester);
 
-      shellKey.currentState!.toggleLeftPaneVisibility();
-      await _pumpUi(tester);
-
-      expect(find.byKey(const ValueKey('session_back_button')), findsNothing);
+      expect(find.byType(SessionListScreen), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('show_left_pane_button')),
-        findsOneWidget,
+        find.byKey(const ValueKey('collapse_left_pane_button')),
+        findsNothing,
       );
+      expect(find.byKey(const ValueKey('session_back_button')), findsNothing);
+      expect(find.byKey(const ValueKey('show_left_pane_button')), findsNothing);
     },
   );
 

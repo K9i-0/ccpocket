@@ -205,7 +205,6 @@ class SessionListScreen extends StatefulWidget {
   /// Pre-populated sessions for UI testing (skips bridge connection).
   final List<RecentSession>? debugRecentSessions;
   final bool embedded;
-  final VoidCallback? onTogglePaneVisibility;
   final ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession;
 
   const SessionListScreen({
@@ -213,7 +212,6 @@ class SessionListScreen extends StatefulWidget {
     this.deepLinkNotifier,
     this.debugRecentSessions,
     this.embedded = false,
-    this.onTogglePaneVisibility,
     this.onSelectWorkspaceSession,
   });
 
@@ -1860,7 +1858,6 @@ class _SessionListScreenState extends State<SessionListScreen>
                     onOpenSettings: _openSettings,
                     onOpenGallery: showConnectedUI ? _openGallery : null,
                     onDisconnect: canDisconnect ? _disconnect : null,
-                    onTogglePaneVisibility: widget.onTogglePaneVisibility,
                     bridgeLabel: connectedBridgeLabel,
                   ),
                   Expanded(child: body),

@@ -1190,6 +1190,7 @@ class _StoreThemeModeRouteState extends State<_StoreThemeModeRoute> {
 class _AdaptiveWorkspaceBridge extends MockBridgeService {
   _AdaptiveWorkspaceBridge(this.recentSessions);
 
+  @override
   final List<RecentSession> recentSessions;
 
   @override
@@ -1398,7 +1399,6 @@ class _StoreWorkspaceListPane extends StatelessWidget {
               onOpenSettings: () {},
               onOpenGallery: () {},
               onDisconnect: () {},
-              onTogglePaneVisibility: () {},
             ),
             Expanded(
               child: HomeContent(
