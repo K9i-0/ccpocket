@@ -1,5 +1,3 @@
-import 'widgets/compact_session_list.dart';
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -207,10 +205,6 @@ class SessionListScreen extends StatefulWidget {
   /// Pre-populated sessions for UI testing (skips bridge connection).
   final List<RecentSession>? debugRecentSessions;
   final bool embedded;
-  final bool compact;
-
-  /// Additional list browsers share the current connection.
-  final bool autoConnect;
   final VoidCallback? onTogglePaneVisibility;
   final ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession;
 
@@ -219,8 +213,6 @@ class SessionListScreen extends StatefulWidget {
     this.deepLinkNotifier,
     this.debugRecentSessions,
     this.embedded = false,
-    this.compact = false,
-    this.autoConnect = true,
     this.onTogglePaneVisibility,
     this.onSelectWorkspaceSession,
   });
@@ -232,7 +224,6 @@ class SessionListScreen extends StatefulWidget {
 class _SessionListScreenState extends State<SessionListScreen>
     with WidgetsBindingObserver {
   bool _isAutoConnecting = false;
-  bool _compactBrowserOpen = false;
 
   /// Key to access HomeContent state for programmatic search (Cmd+K).
   final _homeContentKey = GlobalKey<HomeContentState>();
@@ -293,9 +284,6 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
     _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
-        // The visible browser owns navigation while the compact list remains
-        // mounted behind its route. Do not pop or select the session twice.
-        if (_compactBrowserOpen) return;
         unawaited(_syncPendingClaudeDefaultsWithSessionCreated(msg));
         bridge.requestSessionList();
         final matchesPendingResume = _matchesPendingResumeSuccess(msg);
@@ -387,7 +375,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
     });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
-    if (widget.autoConnect) _loadPreferencesAndAutoConnect();
+    _loadPreferencesAndAutoConnect();
 
     // Feed active session updates to the unseen tracker.
     final activeCubit = context.read<ActiveSessionsCubit>();
@@ -1398,7 +1386,6 @@ class _SessionListScreenState extends State<SessionListScreen>
     String? approvalPolicy,
     String? approvalsReviewer,
   }) {
-    if (_compactBrowserOpen) Navigator.of(context).pop();
     // Mark session as seen when navigating into it.
     _unseenCubit.markSeen(sessionId);
     // Reset the notifier for this navigation.
@@ -1792,11 +1779,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     LogicalKeyboardKey.keyK,
                     meta: true,
                   ): () {
-                    if (widget.compact) {
-                      _showSessionBrowser();
-                    } else {
-                      _homeContentKey.currentState?.openSearch();
-                    }
+                    _homeContentKey.currentState?.openSearch();
                   },
                 },
                 child: Focus(
@@ -1821,52 +1804,6 @@ class _SessionListScreenState extends State<SessionListScreen>
             ),
       ),
     );
-  }
-
-  Future<void> _showSessionBrowser() async {
-    if (_compactBrowserOpen) return;
-    _compactBrowserOpen = true;
-    // Preserve the route's connection and filters, including mock previews.
-    final browser = RepositoryProvider<BridgeService>.value(
-      value: context.read<BridgeService>(),
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: context.read<SessionListCubit>()),
-          BlocProvider.value(value: context.read<ConnectionCubit>()),
-          BlocProvider.value(value: context.read<ActiveSessionsCubit>()),
-          BlocProvider.value(value: context.read<FileListCubit>()),
-          BlocProvider.value(value: context.read<GalleryCubit>()),
-          BlocProvider.value(value: context.read<ProjectHistoryCubit>()),
-          BlocProvider.value(value: context.read<WorkspaceProjectsCubit>()),
-        ],
-        child: SessionListScreen(
-          embedded: true,
-          autoConnect: false,
-          debugRecentSessions: widget.debugRecentSessions,
-          onTogglePaneVisibility: () => Navigator.of(context).pop(),
-          onSelectWorkspaceSession: (selection) {
-            if (!mounted) return;
-            Navigator.of(context).pop();
-            widget.onSelectWorkspaceSession?.call(selection);
-          },
-        ),
-      ),
-    );
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        constraints: const BoxConstraints(maxWidth: 640),
-        builder: (context) => SizedBox(
-          width: double.infinity,
-          height: MediaQuery.sizeOf(context).height * 0.85,
-          child: browser,
-        ),
-      );
-    } finally {
-      _compactBrowserOpen = false;
-    }
   }
 
   Widget _buildScaffoldBody({
@@ -1919,8 +1856,6 @@ class _SessionListScreenState extends State<SessionListScreen>
               Column(
                 children: [
                   SessionListPaneHeader(
-                    compact: widget.compact,
-                    onBrowseSessions: _showSessionBrowser,
                     onTitleTap: _onTitleTap,
                     onOpenSettings: _openSettings,
                     onOpenGallery: showConnectedUI ? _openGallery : null,
@@ -1928,35 +1863,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     onTogglePaneVisibility: widget.onTogglePaneVisibility,
                     bridgeLabel: connectedBridgeLabel,
                   ),
-                  Expanded(
-                    child: widget.compact
-                        ? CompactSessionList(
-                            onBrowse: _showSessionBrowser,
-                            sessions: sessions,
-                            recentSessions: recentSessionsList,
-                            selectedSessionId: WorkspaceShellScreen.maybeOf(
-                              context,
-                            )?.selectedSession?.sessionId,
-                            onRunningTap: (session) => _navigateToChat(
-                              session.id,
-                              projectPath: session.projectPath,
-                              workspace: session.workspace,
-                              gitBranch: session.gitBranch,
-                              worktreePath: session.worktreePath,
-                              permissionMode: session.permissionMode,
-                              sandboxMode: session.codexSandboxMode,
-                              approvalPolicy: session.codexApprovalPolicy,
-                              approvalsReviewer: session.codexApprovalsReviewer,
-                              provider: session.provider == 'codex'
-                                  ? Provider.codex
-                                  : null,
-                            ),
-                            onRecentTap: _resumeSession,
-                            onRunningActions: _showRunningSessionActions,
-                            onRecentActions: _showRecentSessionActions,
-                          )
-                        : body,
-                  ),
+                  Expanded(child: body),
                 ],
               ),
               if (showConnectedUI &&

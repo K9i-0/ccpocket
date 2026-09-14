@@ -23,7 +23,7 @@ import '../../utils/diff_parser.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'session_list_screen.dart';
 
-const workspaceMultiPaneBreakpoint = 740.0;
+const workspaceMultiPaneBreakpoint = 922.0;
 const _twoPaneDividerWidth = 1.0;
 const _paneResizeHandleWidth = _twoPaneDividerWidth;
 const _paneResizePointerHandleWidth = 12.0;
@@ -38,9 +38,6 @@ enum _WorkspaceCenterRoot { session, offline }
 enum _WorkspaceCenterOverlay { none, settings, globalGallery, setupGuide }
 
 double _leftPaneWidth(double width) {
-  if (width < 820) return 138 + (width - 740) * 42 / 80;
-  if (width < 1024) return 180 + (width - 820) * 82 / 204;
-  if (width < 1100) return 262;
   return width >= 1280 ? 360 : 320;
 }
 
@@ -668,7 +665,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             deepLinkNotifier: widget.deepLinkNotifier,
             debugRecentSessions: widget.debugRecentSessions,
             embedded: true,
-            compact: _leftPaneWidth(constraints.maxWidth) < 280,
             onTogglePaneVisibility: toggleLeftPaneVisibility,
             onSelectWorkspaceSession: selectSession,
           );

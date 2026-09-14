@@ -1247,8 +1247,8 @@ void main() {
     },
   );
 
-  testWidgets('adaptive home switches between 739px and 740px', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(739, 900));
+  testWidgets('adaptive home switches between 921px and 922px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(921, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     await tester.pumpWidget(
@@ -1264,21 +1264,21 @@ void main() {
     );
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsNothing);
-    await tester.binding.setSurfaceSize(const Size(740, 900));
+    await tester.binding.setSurfaceSize(const Size(922, 900));
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsOneWidget);
-    await tester.binding.setSurfaceSize(const Size(739, 900));
+    await tester.binding.setSurfaceSize(const Size(921, 900));
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('740px keeps sessions while tools open, close and resize', (
+  testWidgets('922px keeps sessions while tools open, close and resize', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.binding.setSurfaceSize(const Size(740, 900));
+    await tester.binding.setSurfaceSize(const Size(922, 900));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1298,45 +1298,22 @@ void main() {
       ),
     );
     await _pumpUi(tester);
-    final list = find.byKey(const ValueKey('compact_session_list'));
+    final list = find.byType(SessionListScreen);
     expect(list, findsOneWidget);
-    expect(tester.getSize(list).width, 138);
+    expect(tester.getSize(list).width, 320);
     expect(shellKey.currentState!.canOpenToolPane, isTrue);
     shellKey.currentState!.openGitPane(projectPath: '/tmp/project');
     await _pumpUi(tester);
     expect(shellKey.currentState!.isLeftPaneVisible, isTrue);
     expect(list, findsOneWidget);
     expect(tester.takeException(), isNull);
-    shellKey.currentState!.resizeRightPane(600, 740);
+    shellKey.currentState!.resizeRightPane(600, 922);
     await _pumpUi(tester);
     expect(tester.takeException(), isNull);
     shellKey.currentState!.closeToolPane();
     await _pumpUi(tester);
     expect(list, findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('browse_sessions_button')));
-    await _pumpUi(tester);
     expect(find.byType(RecentSessionCard), findsWidgets);
-    expect(
-      tester
-          .widgetList<SessionListScreen>(find.byType(SessionListScreen))
-          .where((screen) => !screen.autoConnect),
-      hasLength(1),
-    );
-    bridge.emitMessage(
-      const SystemMessage(
-        subtype: 'session_created',
-        sessionId: 'created-in-browser',
-        projectPath: '/tmp/project',
-        provider: 'codex',
-      ),
-    );
-    await _pumpUi(tester);
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.byType(WorkspaceShellScreen), findsOneWidget);
-    expect(
-      shellKey.currentState!.selectedSession?.sessionId,
-      'created-in-browser',
-    );
     expect(tester.takeException(), isNull);
   });
 
