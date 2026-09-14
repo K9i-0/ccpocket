@@ -27,25 +27,29 @@ class SectionHeader extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: color,
+              Flexible(
+                fit: FlexFit.tight,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: color,
+                  ),
                 ),
               ),
               if (trailing != null && shrinkTrailingToFit) ...[
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
+                  fit: FlexFit.tight,
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: trailing!,
                   ),
                 ),
               ] else if (trailing != null) ...[
-                const Spacer(),
+                const SizedBox(width: 8),
                 trailing!,
               ],
             ],

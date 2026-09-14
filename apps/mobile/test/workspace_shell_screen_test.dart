@@ -1247,8 +1247,8 @@ void main() {
     },
   );
 
-  testWidgets('adaptive home switches between 921px and 922px', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(921, 900));
+  testWidgets('adaptive home switches between 861px and 862px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(861, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
     await tester.pumpWidget(
@@ -1264,21 +1264,21 @@ void main() {
     );
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsNothing);
-    await tester.binding.setSurfaceSize(const Size(922, 900));
+    await tester.binding.setSurfaceSize(const Size(862, 900));
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsOneWidget);
-    await tester.binding.setSurfaceSize(const Size(921, 900));
+    await tester.binding.setSurfaceSize(const Size(861, 900));
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('922px keeps sessions while tools open, close and resize', (
+  testWidgets('862px keeps sessions while tools open, close and resize', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.binding.setSurfaceSize(const Size(922, 900));
+    await tester.binding.setSurfaceSize(const Size(862, 900));
     final bridge = _MockBridgeService();
     final settingsCubit = await _createSettingsCubit(bridge);
     final draftService = DraftService(await SharedPreferences.getInstance());
@@ -1300,14 +1300,14 @@ void main() {
     await _pumpUi(tester);
     final list = find.byType(SessionListScreen);
     expect(list, findsOneWidget);
-    expect(tester.getSize(list).width, 320);
+    expect(tester.getSize(list).width, 260);
     expect(shellKey.currentState!.canOpenToolPane, isTrue);
     shellKey.currentState!.openGitPane(projectPath: '/tmp/project');
     await _pumpUi(tester);
     expect(shellKey.currentState!.isLeftPaneVisible, isTrue);
     expect(list, findsOneWidget);
     expect(tester.takeException(), isNull);
-    shellKey.currentState!.resizeRightPane(600, 922);
+    shellKey.currentState!.resizeRightPane(600, 862);
     await _pumpUi(tester);
     expect(tester.takeException(), isNull);
     shellKey.currentState!.closeToolPane();

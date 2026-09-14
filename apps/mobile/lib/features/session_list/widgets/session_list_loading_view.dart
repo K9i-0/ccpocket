@@ -52,11 +52,13 @@ class SessionListLoadingStatus extends StatelessWidget {
         children: [
           Icon(Icons.sync, size: 16, color: colorScheme.primary),
           const SizedBox(width: 8),
-          Text(
-            l.loadingSessions,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              l.loadingSessions,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

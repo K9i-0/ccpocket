@@ -23,7 +23,7 @@ import '../../utils/diff_parser.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'session_list_screen.dart';
 
-const workspaceMultiPaneBreakpoint = 922.0;
+const workspaceMultiPaneBreakpoint = 862.0;
 const _twoPaneDividerWidth = 1.0;
 const _paneResizeHandleWidth = _twoPaneDividerWidth;
 const _paneResizePointerHandleWidth = 12.0;
@@ -38,6 +38,7 @@ enum _WorkspaceCenterRoot { session, offline }
 enum _WorkspaceCenterOverlay { none, settings, globalGallery, setupGuide }
 
 double _leftPaneWidth(double width) {
+  if (width < 1024) return 260;
   return width >= 1280 ? 360 : 320;
 }
 

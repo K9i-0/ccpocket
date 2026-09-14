@@ -99,77 +99,83 @@ class SessionListPaneHeader extends StatelessWidget {
     );
     final titleStyle = Theme.of(context).textTheme.titleLarge
         ?.copyWith(fontWeight: FontWeight.w700);
-    final actionGap = chrome.useMacOSAdaptiveChrome ? 8.0 : 0.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 300;
+        final actionGap = chrome.useMacOSAdaptiveChrome && !narrow ? 8.0 : 0.0;
 
-    return SizedBox(
-      height: chrome.toolbarHeight,
-      child: Padding(
-        padding: chrome.headerPadding(),
-        child: Row(
-          children: [
-            if (!chrome.useMacOSAdaptiveChrome)
-              Expanded(
-                child: GestureDetector(
-                  onTap: onTitleTap,
-                  child: _SessionListTitle(
-                    key: const ValueKey('session_list_pane_title'),
-                    title: l.appTitle,
-                    subtitle: bridgeLabel,
-                    titleStyle: titleStyle,
+        return SizedBox(
+          height: chrome.toolbarHeight,
+          child: Padding(
+            padding: chrome.headerPadding(trailing: narrow ? 0 : 8),
+            child: Row(
+              children: [
+                if (!chrome.useMacOSAdaptiveChrome)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onTitleTap,
+                      child: _SessionListTitle(
+                        key: const ValueKey('session_list_pane_title'),
+                        title: l.appTitle,
+                        subtitle: bridgeLabel,
+                        titleStyle: titleStyle,
+                      ),
+                    ),
+                  )
+                else
+                  const Expanded(
+                    child: MacOSWindowDragHandle(child: SizedBox.expand()),
                   ),
+                _PaneHeaderActionButton(
+                  key: const ValueKey('settings_button'),
+                  tooltip: l.settings,
+                  onPressed: onOpenSettings,
+                  icon: Badge(
+                    isLabelVisible:
+                        AppUpdateService.instance.cachedUpdate != null,
+                    smallSize: 8,
+                    child: const Icon(Icons.settings),
+                  ),
+                  compact: chrome.useMacOSAdaptiveChrome,
                 ),
-              )
-            else
-              const Expanded(
-                child: MacOSWindowDragHandle(child: SizedBox.expand()),
-              ),
-            _PaneHeaderActionButton(
-              key: const ValueKey('settings_button'),
-              tooltip: l.settings,
-              onPressed: onOpenSettings,
-              icon: Badge(
-                isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
-                smallSize: 8,
-                child: const Icon(Icons.settings),
-              ),
-              compact: chrome.useMacOSAdaptiveChrome,
+                if (openGallery != null ||
+                    disconnect != null ||
+                    togglePaneVisibility != null)
+                  SizedBox(width: actionGap),
+                if (openGallery != null)
+                  _PaneHeaderActionButton(
+                    key: const ValueKey('gallery_button'),
+                    tooltip: l.gallery,
+                    onPressed: openGallery,
+                    icon: const Icon(Icons.collections_outlined),
+                    compact: chrome.useMacOSAdaptiveChrome,
+                  ),
+                if (openGallery != null &&
+                    (disconnect != null || togglePaneVisibility != null))
+                  SizedBox(width: actionGap),
+                if (disconnect != null)
+                  _PaneHeaderActionButton(
+                    key: const ValueKey('disconnect_button'),
+                    tooltip: l.disconnect,
+                    onPressed: disconnect,
+                    icon: const Icon(Icons.link_off),
+                    compact: chrome.useMacOSAdaptiveChrome,
+                  ),
+                if (disconnect != null && togglePaneVisibility != null)
+                  SizedBox(width: actionGap),
+                if (togglePaneVisibility != null)
+                  _PaneHeaderActionButton(
+                    key: const ValueKey('collapse_left_pane_button'),
+                    tooltip: l.hideSessions,
+                    onPressed: togglePaneVisibility,
+                    icon: const Icon(Icons.chevron_left),
+                    compact: chrome.useMacOSAdaptiveChrome,
+                  ),
+              ],
             ),
-            if (openGallery != null ||
-                disconnect != null ||
-                togglePaneVisibility != null)
-              SizedBox(width: actionGap),
-            if (openGallery != null)
-              _PaneHeaderActionButton(
-                key: const ValueKey('gallery_button'),
-                tooltip: l.gallery,
-                onPressed: openGallery,
-                icon: const Icon(Icons.collections_outlined),
-                compact: chrome.useMacOSAdaptiveChrome,
-              ),
-            if (openGallery != null &&
-                (disconnect != null || togglePaneVisibility != null))
-              SizedBox(width: actionGap),
-            if (disconnect != null)
-              _PaneHeaderActionButton(
-                key: const ValueKey('disconnect_button'),
-                tooltip: l.disconnect,
-                onPressed: disconnect,
-                icon: const Icon(Icons.link_off),
-                compact: chrome.useMacOSAdaptiveChrome,
-              ),
-            if (disconnect != null && togglePaneVisibility != null)
-              SizedBox(width: actionGap),
-            if (togglePaneVisibility != null)
-              _PaneHeaderActionButton(
-                key: const ValueKey('collapse_left_pane_button'),
-                tooltip: l.hideSessions,
-                onPressed: togglePaneVisibility,
-                icon: const Icon(Icons.chevron_left),
-                compact: chrome.useMacOSAdaptiveChrome,
-              ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
