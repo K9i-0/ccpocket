@@ -29,7 +29,7 @@
 android_release_status=completed
 ```
 
-段階配信を使うのはユーザーが明示した場合だけ。その場合は配信率も確認して指定する。
+段階配信を使うのはユーザーが明示した場合だけ。配信率の指定があれば優先し、未指定ならworkflowの既定値 `0.1`（10%）を使い、採用した率を報告して進める。
 
 ```text
 android_release_status=inProgress

@@ -24,10 +24,10 @@ description: 既存の安定ビルドをApp Store / Google Playの審査へ提�
 3. 公開版タグから候補タグまでの累積差分を読む。
 4. 英語、日本語、韓国語、簡体字中国語のリリースノートを作る。
 5. 審査専用refへメタデータだけをコミットしてpushする。
-6. 公開版、候補、4言語のノート、公開方式、対象refを示し、確認を1回だけ求める。
-7. 承認後、iOSメタデータ反映と審査提出をdispatchし、完了まで監視する。
+6. 公開版、候補、リリースノートの要点、公開方式、対象refを報告する。
+7. iOSメタデータ反映と審査提出をdispatchし、完了まで監視する。
 
-候補選択や翻訳ごとに確認を挟まない。ストアを変更する処理は最後の明示承認後にまとめて行う。承認前に実施してよい外部操作は、読み取り専用workflowの起動と審査refのpushまでとする。
+審査提出の依頼を、既定ルールでの候補選択・ノート作成・メタデータ反映・審査提出の承認として扱い、途中や最後に追加の承認を求めない。ノート作成や提出準備だけの依頼では、ストアへの反映・提出は行わない。
 
 ## 1. 公開版と最新候補を特定する
 
@@ -113,7 +113,7 @@ apps/mobile/fastlane/metadata/android/zh-CN/changelogs/<N>.txt
 
 ブランチ名は同じ候補なら `store/review-X.Y.Z-N`、異なる候補なら `store/review-<platform>-X.Y.Z-N` とする。既存ブランチをforce pushしない。既存refがある場合は内容と親commitを検査し、安全に再利用できなければ別名を使う。
 
-次を確認して Conventional Commit でコミットし、明示した審査refへpushする。push後の完全な40文字commit SHAを `review_sha` として記録し、`git ls-remote origin refs/heads/<target-ref>` が同じSHAを返すことを確認する。以後はref名だけでなく、このSHAを承認・workflow入力・run追跡に使う。
+次を確認して Conventional Commit でコミットし、明示した審査refへpushする。push後の完全な40文字commit SHAを `review_sha` として記録し、`git ls-remote origin refs/heads/<target-ref>` が同じSHAを返すことを確認する。以後はref名だけでなく、このSHAを提出内容の固定・workflow入力・run追跡に使う。
 
 ```bash
 scripts/store-review/preflight.sh \
@@ -124,9 +124,9 @@ git diff --check
 
 iOSとAndroidの候補バージョンまたはビルド番号が異なる場合、`both` を使わず、プラットフォーム別refと提出runに分ける。
 
-## 4. 1回の最終確認
+## 4. 提出内容を検証・報告する
 
-ストアを変更する前に、次を1つの確認メッセージで提示する。
+ストアを変更する前に、次をエージェントが検証し、対象と公開方式を簡潔に報告して進める。ノート全文はファイル参照で示し、承認待ちにしない。
 
 - 各ストアの `公開版 → 候補` と候補release workflow URL
 - 4言語のリリースノート全文と文字数
@@ -135,15 +135,15 @@ iOSとAndroidの候補バージョンまたはビルド番号が異なる場合�
 - 対象ref、完全なcommit SHA、メタデータ反映・審査提出を続けて行うこと
 - Managed publishing、既知の警告、APIで確認できない必須項目
 
-ユーザーの明示承認がなければここで止める。承認後は同じ内容について再確認を求めない。
+通常の文言・翻訳・要約は差分に基づいて自動決定する。workflowの `confirmation` は選択した候補からエージェントが生成する誤操作防止入力であり、ユーザーから合言葉の入力を求めない。
 
 ## 5. メタデータ反映と審査提出
 
 詳細は [references/ios.md](references/ios.md) と [references/android.md](references/android.md) を読む。
 
-承認直後に `inspect-store-state.yml` をもう一度実行し、iOSのversion/build numberとAndroidのpublic release versionCodes/status/userFractionが承認時のsnapshotと一致することを確認する。公開版が変わっていたらメタデータを反映せず停止し、新しい差分とリリースノートを作り直す。この場合だけ、変更後の内容について改めて確認を求める。
+反映直前に `inspect-store-state.yml` をもう一度実行し、iOSのversion/build numberとAndroidのpublic release versionCodes/status/userFractionがノート作成時のsnapshotと一致することを確認する。公開版が変わっていたら未反映のまま手順1〜4をやり直し、差分・ノート・ref・SHAを更新して続行する。再計算は1回までとし、再び状態が変わる場合は競合を報告して停止する。候補が公開済みなら提出不要として終了する。
 
-各dispatch直前にも `git ls-remote` で対象refが承認済み `review_sha` を指すことを確認する。workflowへ `expected_ref_sha` を渡し、workflow側でもcheckout済み `${GITHUB_SHA}` と完全一致しなければ、ストア操作前に停止させる。
+各dispatch直前にも `git ls-remote` で対象refが検証済み `review_sha` を指すことを確認する。workflowへ `expected_ref_sha` を渡し、workflow側でもcheckout済み `${GITHUB_SHA}` と完全一致しなければ、ストア操作前に停止させる。
 
 iOSは対象バージョンを明示してメタデータを先に反映し、成功を確認する。
 
@@ -174,7 +174,7 @@ gh workflow run submit-store-review.yml \
   -f android_user_fraction=0.1
 ```
 
-Androidは全ユーザーへの100%公開（`completed`）を既定にする。段階配信を使うのはユーザーが明示した場合だけで、そのときは `inProgress` と指定された初期配信率を使う。GitHub Environment `store-review` の Required reviewers は追加の組織側ゲートとして維持する。
+Androidは全ユーザーへの100%公開（`completed`）を既定にする。段階配信を使うのはユーザーが明示した場合だけで、そのときは `inProgress` と指定された初期配信率（未指定なら `0.1`）を使う。GitHub Environment `store-review` の Required reviewers は追加の組織側ゲートとして維持する。
 
 ## 6. 完了を検証する
 
