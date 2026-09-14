@@ -1,7 +1,6 @@
 ---
 name: test-flutter
 description: Flutter App のテスト実行・静的解析・フォーマット・テスト記述ガイド
-disable-model-invocation: true
 allowed-tools: Bash(flutter:*), Bash(dart:*), Read, Glob, Grep
 ---
 

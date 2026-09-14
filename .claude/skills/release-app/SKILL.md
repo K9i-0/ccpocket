@@ -1,7 +1,6 @@
 ---
 name: release-app
 description: ccpocketアプリのバージョン更新と、指定プラットフォーム向けリリースを行う。
-disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(bash scripts/release/run-checks.sh), Bash(node scripts/release/monitor.mjs:*), Read, Edit, AskUserQuestion
 ---
 

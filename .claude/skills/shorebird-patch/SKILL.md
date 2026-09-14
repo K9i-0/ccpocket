@@ -1,7 +1,6 @@
 ---
 name: shorebird-patch
 description: Shorebird OTA パッチの作成・staging 配布（stable 昇格はユーザー実施）
-disable-model-invocation: true
 allowed-tools: Bash(bash:*), Bash(shorebird:*), Bash(dart:*), Bash(xcrun:*), Bash(grep:*), Read
 ---
 

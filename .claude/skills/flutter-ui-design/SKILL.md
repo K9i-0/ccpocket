@@ -1,7 +1,6 @@
 ---
 name: flutter-ui-design
 description: Flutter UI実装のアーキテクチャ規約・コンポーネント分割・状態管理ガイド（Bloc/Cubit版）
-disable-model-invocation: true
 allowed-tools: Bash(flutter:*), Bash(dart:*), Read, Write, Edit, Glob, Grep
 ---
 

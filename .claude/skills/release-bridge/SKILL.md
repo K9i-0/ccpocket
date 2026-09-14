@@ -1,7 +1,6 @@
 ---
 name: release-bridge
 description: Bridge Server のリリース（バージョンbump + CHANGELOG + タグ → GH Actions で npm publish）
-disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(grep:*), Bash(npm run test:bridge), Bash(npx tsc:*), Bash(npm run bridge:build), Read, Edit, AskUserQuestion
 ---
 

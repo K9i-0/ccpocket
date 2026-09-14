@@ -1,7 +1,6 @@
 ---
 name: test-bridge
 description: Bridge Server (TypeScript) のテスト実行・型チェック・テスト記述ガイド
-disable-model-invocation: true
 allowed-tools: Bash(npx:*), Bash(npm:*), Read, Glob, Grep
 ---
 

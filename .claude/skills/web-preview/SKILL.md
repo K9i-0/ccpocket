@@ -1,7 +1,6 @@
 ---
 name: web-preview
 description: Flutter Web版をビルドしてユーザーにプレビューURLを案内する。playwright-cliでアクセス確認も行う。
-disable-model-invocation: true
 allowed-tools: Bash(bash:*), Bash(playwright-cli:*)
 ---
 

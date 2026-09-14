@@ -1,7 +1,6 @@
 ---
 name: merge
 description: ブランチをメインにマージしてお掃除する
-disable-model-invocation: true
 allowed-tools: Bash(git:*)
 ---
 
