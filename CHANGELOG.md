@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.131.0] - 2026-09-14
+
+### Added
+- Support three-pane workspaces from 862 logical pixels, keeping the session list visible alongside chat and Git, Explorer, or Gallery tools.
+
+### Changed
+- Preserve the existing session cards in a narrower 260-pixel list pane, with responsive headers and loading messages.
+- Keep the session list visible in multi-pane layouts and return to two panes when the tool pane is closed.
+- Start macOS windows at 862 × 600 logical pixels.
+
+### Fixed
+- Keep Git branch controls and action buttons usable in narrow tool panes.
+
 ## [1.130.0] - 2026-09-12
 
 ### Added
