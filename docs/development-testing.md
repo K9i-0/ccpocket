@@ -140,11 +140,79 @@ find apps/mobile/build -maxdepth 1 -type d -name web
 
 ## Before opening a PR
 
-Run the checks that match the files you touched:
+Run the checks for every area you changed. The commands below start at the
+repository root; parentheses keep the Flutter commands in their own directory.
+Documentation-only changes may instead record link, command, and content checks
+and explain why application tests do not apply.
+
+### Setup
+
+Use Node.js 22 and the Flutter version pinned in [`.mise.toml`](../.mise.toml),
+matching the [Test workflow](../.github/workflows/test.yml). Install Node.js for
+Bridge work; Flutter is only needed for mobile work. Install dependencies from
+lockfiles with the commands in the relevant section below.
+
+### Bridge
 
 ```bash
+npm ci
+npm run test:bridge
 npx tsc --noEmit -p packages/bridge/tsconfig.json
-npm --workspace packages/bridge test -- src/<target>.test.ts
-cd apps/mobile && dart analyze
-cd apps/mobile && flutter test
+npm run bridge:build
 ```
+
+During development, run a targeted test for faster feedback:
+
+```bash
+npm --workspace packages/bridge test -- src/<target>.test.ts
+```
+
+Before submitting, run the full Bridge suite above, even if the targeted test
+passes. Changes to shared session or history behavior can break tests in other
+modules. Update affected fixtures and mocks when interfaces change, and preserve
+meaningful regression assertions. Type checking and building do not replace
+running tests.
+
+### Flutter mobile app
+
+```bash
+(cd apps/mobile && flutter pub get && dart analyze . && flutter test)
+```
+
+Use targeted tests during development and the full suite before submitting.
+CI also runs Docker-backed SSH smoke tests and selected host-dependent tests on
+Windows; plain `flutter test` does not replace those checks. See the
+[Test workflow](../.github/workflows/test.yml) for their setup and commands.
+For UI or OS-dependent changes, include the visual or target-platform evidence
+required by [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+### Functions
+
+```bash
+npm ci --prefix functions
+npm --prefix functions test
+npm --prefix functions run typecheck
+npm --prefix functions run build
+```
+
+### Repository tooling
+
+For PR readiness or release-tool changes, run the corresponding checks:
+
+```bash
+node --test scripts/pr-readiness.test.mjs
+npm run test:release-tools
+```
+
+### Record results and check CI
+
+Copy the exact commands and actual results into the PR template's **Test Evidence**
+section. Include failures or checks you could not run and their reasons. A newly
+added regression test or successful manual check does not establish that the
+existing automated suite passes.
+
+After pushing, inspect the **latest commit's** `Test` workflow. Fix failures caused
+by the change and rerun affected checks. For a suspected existing failure, provide
+comparison evidence from the base commit rather than assuming it is unrelated.
+Wait for required CI and CodeRabbit checks before maintainer review; a green
+`Test` workflow alone does not mean `PR Readiness` has passed.

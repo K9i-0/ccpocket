@@ -136,6 +136,8 @@ Common commands:
 | `cd apps/mobile && flutter test` | Run Flutter tests |
 | `cd apps/mobile && dart analyze` | Run Dart static analysis |
 
+For setup and checks required before submitting a PR, see
+[Pre-PR checks](docs/development-testing.md#before-opening-a-pr).
 For end-to-end checks with a local Bridge and mobile app, see
 [Development Testing](docs/development-testing.md).
 

@@ -2,6 +2,23 @@
 
 Thank you for your interest in contributing to CC Pocket!
 
+## Quick start: submitting a PR
+
+1. Start from `main` and keep one goal per PR. Agree on non-trivial scope in an
+   Issue or Prompt Request before implementing it (see [quality bar](#contribution-quality-bar)).
+2. Follow [setup and pre-PR checks](docs/development-testing.md#before-opening-a-pr)
+   for each area you changed. For Bridge changes, run targeted tests during
+   development, then the **full Bridge suite, type check, and build** before submitting.
+3. Fill out the PR template with exact commands and actual results, plus UI or
+   target-platform evidence where applicable. Adding a test does not mean it passed.
+   If a check could not run, state which check and why; do not report it as successful.
+4. Check the latest commit's `Test` workflow and address failures and CodeRabbit
+   findings before requesting maintainer review. CI success and
+   [review readiness](#automated-review-readiness) are separate requirements.
+
+If you cannot prepare a validated code change, share the goal and findings in an
+Issue or Prompt Request instead.
+
 ## Prompt Request — Contributing in the AI Era
 
 CC Pocket is a mobile client for Claude / Codex.
@@ -286,6 +303,21 @@ If you discover a vulnerability, please report it privately via [GitHub Security
 ---
 
 ## 日本語 / Japanese
+
+### PR 提出までの最短手順
+
+1. `main` を起点に、1PR 1テーマに絞ります。非自明な変更は実装前に Issue / Prompt Request
+   でスコープを合意してください（[品質基準](#コントリビューションの品質基準)を参照）。
+2. [環境準備と提出前チェック](docs/development-testing.md#before-opening-a-pr)で変更領域ごとの
+   コマンドを実行します。Bridge は開発中に対象テストを使い、提出前に **Bridge 全体のテスト・
+   型チェック・ビルド**を実行してください。
+3. PR テンプレートに実際のコマンドと結果を記載し、必要な UI・対象環境の検証証拠を添えます。
+   テストを追加しただけでは実行成功の証拠になりません。実行できないチェックは名前と理由を
+   明記し、成功扱いにしないでください。
+4. 最新コミットの `Test` Workflow を確認し、失敗と CodeRabbit の指摘に対応してから
+   メンテナレビューへ進みます。CI 成功と[レビュー準備判定](#自動レビュー準備判定)は別の条件です。
+
+検証済みのコード変更を用意できない場合は、Issue / Prompt Request で目的と調査結果を共有してください。
 
 ### Prompt Request（プロンプトリクエスト）とは？
 

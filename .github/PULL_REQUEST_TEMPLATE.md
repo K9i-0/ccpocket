@@ -30,6 +30,10 @@ Maintainer-authored PRs up to 50 files may instead document their scope decision
 ## Test Evidence
 
 <!--
+Run the checks for each changed area before submitting:
+https://github.com/K9i-0/ccpocket/blob/main/docs/development-testing.md#before-opening-a-pr
+Bridge changes need the full Bridge test suite, type check, and build; a targeted
+test alone is not sufficient. Name any checks not run and explain why.
 Include exact commands and actual results. Bug fixes need a regression test or
 reproducible before/after validation when automation is impractical.
 Write "N/A — <reason>" when validation does not apply.
