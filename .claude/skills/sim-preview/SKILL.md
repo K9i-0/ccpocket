@@ -1,122 +1,85 @@
 ---
 name: sim-preview
-description: iOSシミュレーターのアプリをTrollVNC経由でリモートプレビューするときに使う。
+description: iOSシミュレーターで動くFlutterアプリをExpo Device HubとTailscale HTTPSでスマホのブラウザへ配信・操作するときに使う。
 ---
 
-# Simulator Preview (TrollVNC)
+# Simulator Preview (Expo Device Hub)
 
-iOSシミュレーターでアプリを起動し、TrollVNC でリモートプレビュー環境を提供する。
-ユーザーは iPhone の VNC Viewer アプリ（RealVNC Viewer 推奨）から Tailscale 経由で接続し、シミュレーター画面をリアルタイムで確認・操作できる。
+MacのiOSシミュレーターを **Expo Device Hub → Tailscale Serve (HTTPS) → スマホのブラウザ** で配信する。Expoプロジェクトは不要。Flutterアプリをそのまま確認・操作できる。
 
-## ワークフロー概要
+既定はH.264・30fps・最大1000px・2.5Mbps。Device Hub 0.10.1でccpocketの配信を確認し、ユーザーから旧VNC方式より快適との評価を得た設定。TrollVNC / noVNCを既定に戻さない。
 
-```
-iPhone (ユーザー)
-  ├── ccpocket で Claude Code に指示
-  ├── RealVNC Viewer でシミュレーター画面を確認
-  └── 指示 → 変更 → hot reload → 目視確認 のループ
-```
-
-## 手順
-
-### 1. アプリをビルド・起動
-
-dart-mcp の `launch_app` でシミュレーターにアプリを起動する。
-hot reload が使えるデバッグモードで起動される。
-
-シミュレーターがまだ起動していない場合は、先にブートする:
-
-```bash
-# 利用可能なiPhoneシミュレーターを確認
-xcrun simctl list devices available | grep iPhone
-
-# 起動（UDIDを指定）
-xcrun simctl boot <UDID>
-```
-
-起動済みのシミュレーターを確認:
+## 1. シミュレーターとアプリ
 
 ```bash
 xcrun simctl list devices booted
 ```
 
-dart-mcp でアプリを起動:
-- root: プロジェクトの `apps/mobile` ディレクトリ
-- device に booted なシミュレーターの UDID を指定
+対象アプリが既に動いていれば再利用する。起動が必要な場合やhot reloadには [mobile-automation](../mobile-automation/SKILL.md) を使う。テスト用Bridgeが必要なら8766を使い、本番8765を停止・再起動しない。
 
-### 2. TrollVNC 起動（スクリプト）
+前提はMac + Xcode、Node.js/npm、MacとスマホのTailscale接続。CoreSimulatorへのアクセスがサンドボックスで拒否された場合は、シミュレーターの故障と判断せず適切な実行権限で再確認する。
+
+## 2. Device Hubを起動
+
+既存のDevice HubとTailscale Serveの状態を確認し、目的の配信が動いていれば再利用する。
+
+```bash
+lsof -nP -iTCP:3400 -sTCP:LISTEN
+tailscale serve status
+```
+
+新規起動には以下を使う。スクリプトはDevice Hubのみを起動し、アプリ起動やTailscale設定は別に行う。
 
 ```bash
 bash .claude/skills/sim-preview/scripts/sim-preview.sh
 ```
 
-スクリプトが以下を行う:
-- シミュレーターの起動確認（未起動なら自動ブート）
-- trollvncserver バイナリをシミュレーターに配置
-- VNC サーバー起動（ポート 5901、スケール 0.75、ナチュラルスクロール、サーバーサイドカーソル）
-- Tailscale IP を検出して接続情報を出力
+- ローカル待受は `127.0.0.1:3400`。npm経由で検証済みバージョンを取得し、リポジトリの依存関係は変更しない。
+- 長時間実行できるツールセッションで起動し、停止用のセッションID / PIDとログを控える。
+- 3400が使用中ならプロセスを勝手に停止せず、既存配信を確認するか `SIM_PREVIEW_PORT=3401` などの空きポートを選ぶ。起動ログの実際のポートを確認する。
+- 更新時は対象バージョンの `--help` を確認する。配信設定の変更はブラウザの「Stream options」からも試せる。
 
-出力例:
+## 3. Tailscale内限定のHTTPSを設定
 
-```text
-SIMULATOR: <UDID>
-VNC_PORT: 5901
-LOCAL_VNC: vnc://127.0.0.1:5901
-TAILSCALE_VNC: vnc://<tailscale-ip>:5901
-NOVNC_URL: http://<tailscale-ip>:5801/novnc/vnc_lite.html?...
-```
+**リモートのH.264 / WebRTCにはHTTPSが必要。** `http://<Tailscale IP>:3400` ではMJPEGへフォールバックする。localhostでH.264が動くだけではスマホ向け検証の完了にならない。
 
-### 3. ユーザーへの案内
-
-スクリプト出力の `TAILSCALE_VNC` を使って、以下の情報をユーザーに伝える:
-
-- **VNC 接続先**: `TAILSCALE_VNC` のアドレスとポート
-- **推奨アプリ**: RealVNC Viewer（無料、スワイプ操作が自然）
-- **操作方法**:
-  - タップ: 1本指タップ
-  - スワイプ: 1本指ドラッグ
-  - ホームに戻る: マウスモードで2本指タップ（右クリック）
-  - スクロール: 2本指スクロール
-- **noVNC（ブラウザ）**: `NOVNC_URL` でも接続可能だが、アプリの方が操作性が良い
-
-### 4. コード変更 → 確認ループ
-
-コード変更後は dart-mcp の `hot_reload` でシミュレーターに即時反映される。
-ユーザーは VNC Viewer で変化をリアルタイムに確認できる。
-
-## 前提条件
-
-- `~/bin/trollvncserver`: TrollVNC シミュレーター用バイナリ（ビルド済み）
-- Tailscale: Mac と iPhone の両方で接続済み
-- RealVNC Viewer: iPhone にインストール済み
-
-## TrollVNC のビルド方法（初回のみ）
-
-バイナリが存在しない場合のビルド手順:
+`tailscale serve status` に今回のHubを指す設定があれば再利用する。未設定なら、起動ログのポートに合わせて設定する。
 
 ```bash
-# Theos（未インストールの場合）
-git clone --recursive https://github.com/theos/theos.git ~/theos
-
-# TrollVNC クローン
-git clone --depth 1 https://github.com/OwnGoalStudio/TrollVNC.git /tmp/TrollVNC
-
-# シミュレーター向けビルド（シミュレーターを起動しておくこと）
-cd /tmp/TrollVNC && THEOS=~/theos make THEOS_DEVICE_SIMULATOR=1
-
-# バイナリを配置
-mkdir -p ~/bin
-cp /tmp/TrollVNC/.theos/obj/iphone_simulator/debug/trollvncserver ~/bin/
-chmod +x ~/bin/trollvncserver
-
-# noVNC webclients（オプション）
-mkdir -p ~/bin/trollvnc-webclients
-cp -R /tmp/TrollVNC/layout/usr/share/trollvnc/webclients/* ~/bin/trollvnc-webclients/
+tailscale serve --bg --https=443 http://127.0.0.1:3400
 ```
 
-## トラブルシュート
+- 443に別サービスの設定がある場合は上書きせず、未使用のHTTPSポート（例: `--https=8443`）を選ぶ。
+- Serveが未有効なら、CLIが出力した有効化URLを案内する。ログインが必要ならユーザーに操作を依頼し、完了後に上記コマンドを再実行する。有効化だけでは転送設定が作成されないことがある。
+- 出力された `https://<MacのDNS名>.ts.net[:port]/` を使う。ホスト名を固定値で書かない。
+- `tailscale` がPATHにない環境では `/Applications/Tailscale.app/Contents/MacOS/Tailscale` を確認する。
+- インターネット公開の `tailscale funnel` は使用しない。
 
-- **VNC 接続できない**: macOS ファイアウォールで trollvncserver の接続を許可する
-- **画面が映らない**: `cat /tmp/trollvnc-sim-preview.log` でログ確認
-- **既存の VNC が残っている**: `pkill -f trollvncserver` で停止してから再実行
-- **シミュレーターが見つからない**: `xcrun simctl list devices available` で確認
+## 4. 配信確認とユーザーへの案内
+
+実際のHTTPS URLをブラウザで開き、以下を確認する。
+
+- 対象シミュレーターが `Live` になり、ccpocketの映像が表示される。
+- 「Stream options」でHTTP codecが **H.264**、Video FPSが **30 FPS**、Max sizeが **1000 px**、Video bitrateが **2.5 Mbps** になっている（意図して調整した場合はその値）。
+
+スマホのTailscaleをONにして開くHTTPSリンクを案内する。ユーザーにタップ・スクロール・文字入力の体感を試してもらい、Mac側の表示確認とスマホ側の確認結果を区別して報告する。遅延が残る場合は同画面で解像度やビットレートを調整して比較する。
+
+初回のページ遷移がタイムアウトしても、再度画面状態を確認すると `Live` になっている場合がある。MJPEGになる場合はHTTPS URLとコーデック設定を確認する。
+
+## 5. 継続・終了
+
+プレビュー依頼中はDevice HubとHTTPS転送を残す。コード変更後のhot reloadはFlutter側で行い、配信画面で結果を確認する。
+
+停止を依頼されたら、自分が起動したHubのセッションまたはPIDだけを停止する。今回追加したServe設定も不要になった場合のみ、対象HTTPSポートの転送を解除する。
+
+```bash
+# 今回443に追加した転送を終了する場合。別ポートなら置き換える。
+tailscale serve --https=443 off
+```
+
+既存の共有設定を巻き込む `tailscale serve reset` やプロセス名による一括killは使わない。
+
+## 参照
+
+- [Expo Device Hub](https://github.com/expo/expo-device-hub): standalone起動と配信方式。
+- 起動オプション: `npm exec --yes --package=expo-device-hub@0.10.1 -- expo-device-hub --help`
