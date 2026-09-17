@@ -99,12 +99,14 @@ class SessionListPaneHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 300;
-        final actionGap = chrome.useMacOSAdaptiveChrome && !narrow ? 8.0 : 0.0;
+        final actionGap = chrome.useMacOSAdaptiveChrome ? 12.0 : 0.0;
 
         return SizedBox(
           height: chrome.toolbarHeight,
           child: Padding(
-            padding: chrome.headerPadding(trailing: narrow ? 0 : 8),
+            padding: chrome.headerPadding(
+              trailing: chrome.useMacOSAdaptiveChrome || !narrow ? 8 : 0,
+            ),
             child: Row(
               children: [
                 if (!chrome.useMacOSAdaptiveChrome)
