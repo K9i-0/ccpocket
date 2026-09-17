@@ -99,7 +99,6 @@ class SessionListPaneHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 300;
-        final actionGap = chrome.useMacOSAdaptiveChrome ? 12.0 : 0.0;
 
         return SizedBox(
           height: chrome.toolbarHeight,
@@ -137,8 +136,6 @@ class SessionListPaneHeader extends StatelessWidget {
                   ),
                   compact: chrome.useMacOSAdaptiveChrome,
                 ),
-                if (openGallery != null || disconnect != null)
-                  SizedBox(width: actionGap),
                 if (openGallery != null)
                   _PaneHeaderActionButton(
                     key: const ValueKey('gallery_button'),
@@ -147,8 +144,6 @@ class SessionListPaneHeader extends StatelessWidget {
                     icon: const Icon(Icons.collections_outlined),
                     compact: chrome.useMacOSAdaptiveChrome,
                   ),
-                if (openGallery != null && disconnect != null)
-                  SizedBox(width: actionGap),
                 if (disconnect != null)
                   _PaneHeaderActionButton(
                     key: const ValueKey('disconnect_button'),
@@ -235,15 +230,14 @@ class _PaneHeaderActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      style: compact
-          ? resolveWorkspacePaneChrome(
-              platform: Theme.of(context).platform,
-              isAdaptiveWorkspace: true,
-              isLeftPaneVisible: true,
-              slot: WorkspacePaneSlot.left,
-            ).compactButtonStyle()
+      // Match the chat AppBar actions in the adjacent pane.
+      iconSize: compact ? 18 : null,
+      color: compact ? Theme.of(context).colorScheme.onSurfaceVariant : null,
+      padding: compact ? EdgeInsets.zero : null,
+      constraints: compact
+          ? const BoxConstraints(minWidth: 32, minHeight: 32)
           : null,
-      visualDensity: VisualDensity.compact,
+      visualDensity: compact ? null : VisualDensity.compact,
       onPressed: onPressed,
       tooltip: tooltip,
       icon: icon,
