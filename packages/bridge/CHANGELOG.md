@@ -4,6 +4,15 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.83.0] - 2026-09-17
+
+### Added
+- Reuse temporary preview URLs for unchanged GLB files so clients can cache model downloads. Issue new URLs when file identity, size, or timestamps change.
+
+### Changed
+- Increase the GLB preview limit from 20 MiB to 50 MiB.
+- Reject outdated model URLs after file changes while preserving path authorization checks.
+
 ## [1.82.0] - 2026-09-17
 
 ### Added

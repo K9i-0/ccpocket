@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.133.0] - 2026-09-17
+
+### Added
+- Cache downloaded GLB preview data in memory for five minutes, with a 100 MiB least-recently-used budget, to avoid downloading unchanged models on each preview.
+
+### Changed
+- Increase the GLB preview limit from 20 MiB to 50 MiB.
+- Require Bridge 1.83.0 for the larger limit and reusable model URLs; changed files receive fresh preview data.
+
 ## [1.132.0] - 2026-09-17
 
 ### Added
