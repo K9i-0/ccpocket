@@ -2994,7 +2994,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '3Dモデルを読み込めませんでした。画像や形状を含むGLBファイルを確認してください。';
 
   @override
-  String get filePreviewModelTooLarge => '3Dプレビューは20 MB以下のGLBファイルに対応しています。';
+  String get filePreviewModelTooLarge => '3Dプレビューは50 MB以下のGLBファイルに対応しています。';
 
   @override
   String get filePreviewModelGestures => 'ドラッグで回転・ピンチで拡大縮小';

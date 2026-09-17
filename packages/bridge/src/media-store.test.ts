@@ -6,6 +6,7 @@ import {
   rm,
   symlink,
   unlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -242,6 +243,33 @@ describe("MediaStore", () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.body.toString()).toBe("Not Found");
+  });
+
+  it("reuses unchanged model URLs and invalidates same-size edits", async () => {
+    const { filePath } = await fixture();
+    const canonical = await realpath(filePath);
+    const store = new MediaStore();
+    const first = await store.register(canonical, "model/gltf-binary", 10);
+    expect(await store.register(canonical, "model/gltf-binary", 10)).toEqual(first);
+    const download = await store.register(canonical, "model/gltf-binary", 10, "a.glb");
+    expect(download.url).not.toBe(first.url);
+    await writeFile(filePath, "abcdefghij");
+    await utimes(filePath, new Date(1000), new Date(1000));
+    const next = await store.register(canonical, "model/gltf-binary", 10);
+    expect(next.url).not.toBe(first.url);
+    expect((await requestMedia(store, first.url)).statusCode).toBe(404);
+    expect((await requestMedia(store, next.url)).body.toString()).toBe("abcdefghij");
+  });
+
+  it("issues a new model capability after expiry", async () => {
+    const { filePath } = await fixture();
+    let now = 0;
+    const store = new MediaStore({ ttlMs: 100, now: () => now });
+    const canonical = await realpath(filePath);
+    const first = await store.register(canonical, "model/gltf-binary", 10);
+    now = 100;
+    const next = await store.register(canonical, "model/gltf-binary", 10);
+    expect(next.url).not.toBe(first.url);
   });
 
   it("expires capability URLs", async () => {

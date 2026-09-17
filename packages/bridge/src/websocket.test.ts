@@ -5409,7 +5409,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
   it.each([
     ["model.GLB", 32, undefined],
-    ["large.glb", 20 * 1024 * 1024 + 1, "model_too_large"],
+    ["limit.glb", 50 * 1024 * 1024, undefined],
+    ["large.glb", 50 * 1024 * 1024 + 1, "model_too_large"],
     ["source.blend", 32, "Unsupported 3D file type. Use a GLB file."],
   ] as const)("handles GLB preview request for %s", async (filePath, size, error) => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-glb-"));

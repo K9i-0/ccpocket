@@ -6246,7 +6246,7 @@ export class BridgeWebSocketServer {
               const error =
                 ext !== ".glb"
                   ? "Unsupported 3D file type. Use a GLB file."
-                  : resolvedFileStat.size > 20 * 1024 * 1024
+                  : resolvedFileStat.size > 50 * 1024 * 1024
                     ? "model_too_large"
                     : !this.mediaStore
                       ? "3D preview is unavailable on this Bridge."

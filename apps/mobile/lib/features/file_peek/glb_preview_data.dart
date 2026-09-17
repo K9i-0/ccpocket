@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import '../../utils/media_file_types.dart';
 
-const maxGlbPreviewBytes = 20 * 1024 * 1024;
+const maxGlbPreviewBytes = 50 * 1024 * 1024;
 
 bool isGlbPath(String path) => mediaFileExtensionForPath(path) == 'glb';
 

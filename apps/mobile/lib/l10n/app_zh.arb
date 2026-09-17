@@ -1333,7 +1333,7 @@
   "sketchSelect": "选择",
   "sketchDelete": "删除",
   "filePreviewModelLoadFailed": "无法加载3D模型。请确认GLB包含几何体和内嵌资源。",
-  "filePreviewModelTooLarge": "3D预览支持不超过20 MB的GLB文件。",
+  "filePreviewModelTooLarge": "3D预览支持不超过50 MB的GLB文件。",
   "filePreviewModelGestures": "拖动旋转 · 双指缩放",
   "filePreviewModelReset": "重置视角",
   "filePreviewModelWarning": "部分材质或功能可能无法准确显示。"

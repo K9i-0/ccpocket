@@ -5636,7 +5636,7 @@ abstract class AppLocalizations {
   /// No description provided for @filePreviewModelTooLarge.
   ///
   /// In ja, this message translates to:
-  /// **'3Dプレビューは20 MB以下のGLBファイルに対応しています。'**
+  /// **'3Dプレビューは50 MB以下のGLBファイルに対応しています。'**
   String get filePreviewModelTooLarge;
 
   /// No description provided for @filePreviewModelGestures.

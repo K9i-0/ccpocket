@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:vector_math/vector_math.dart' as vm;
 
 import '../../../l10n/app_localizations.dart';
+import '../glb_preview_cache.dart';
 import '../glb_preview_data.dart';
 
 class FilePeekModelPreview extends StatefulWidget {
@@ -56,28 +57,8 @@ class _FilePeekModelPreviewState extends State<FilePeekModelPreview> {
     try {
       final url = widget.modelUrl;
       if (url == null) throw const FormatException('Missing URL');
-      final request = http.Request('GET', Uri.parse(url))
-        ..followRedirects = false;
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 30));
-      if (response.statusCode != 200) {
-        throw const FormatException('Download failed');
-      }
-      if ((response.contentLength ?? 0) > maxGlbPreviewBytes) {
-        throw const FormatException('model_too_large');
-      }
-      final builder = BytesBuilder(copy: false);
-      await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 30),
-      )) {
-        if (builder.length + chunk.length > maxGlbPreviewBytes) {
-          throw const FormatException('model_too_large');
-        }
-        builder.add(chunk);
-      }
-      final bytes = builder.takeBytes();
-      validatePreviewGlb(bytes);
+      final bytes =
+          GlbPreviewCache.shared.get(url) ?? await _download(client, url);
       if (!mounted || generation != _generation) return;
       await fs.Scene.initializeStaticResources();
       if (!mounted || generation != _generation) return;
@@ -131,6 +112,39 @@ class _FilePeekModelPreviewState extends State<FilePeekModelPreview> {
     }
   }
 
+  Future<Uint8List> _download(http.Client client, String url) async {
+    final request = http.Request('GET', Uri.parse(url))
+      ..followRedirects = false;
+    final response = await client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      throw const FormatException('Download failed');
+    }
+    if ((response.contentLength ?? 0) > maxGlbPreviewBytes) {
+      throw const FormatException('model_too_large');
+    }
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response.stream.timeout(
+      const Duration(seconds: 30),
+    )) {
+      if (builder.length + chunk.length > maxGlbPreviewBytes) {
+        throw const FormatException('model_too_large');
+      }
+      builder.add(chunk);
+    }
+    final bytes = builder.takeBytes();
+    validatePreviewGlb(bytes);
+    GlbPreviewCache.shared.put(url, bytes);
+    return bytes;
+  }
+
+  Future<void> _retry() async {
+    final url = widget.modelUrl;
+    if (url != null) GlbPreviewCache.shared.remove(url);
+    await _load();
+  }
+
   void _resetCamera() {
     _yaw = -0.5;
     _pitch = 0.3;
@@ -148,7 +162,10 @@ class _FilePeekModelPreviewState extends State<FilePeekModelPreview> {
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return _ModelError(tooLarge: _error == 'model_too_large', onRetry: _load);
+      return _ModelError(
+        tooLarge: _error == 'model_too_large',
+        onRetry: _retry,
+      );
     }
     final scene = _scene;
     if (scene == null) {

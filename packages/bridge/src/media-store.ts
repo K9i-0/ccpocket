@@ -16,6 +16,8 @@ interface StoredMedia {
   sizeBytes: number;
   device: number;
   inode: number;
+  modifiedAt: number;
+  changedAt: number;
   expiresAt: number;
   accessedAt: number;
 }
@@ -124,8 +126,29 @@ export class MediaStore {
     } finally {
       await fileHandle.close();
     }
-    const id = randomBytes(24).toString("hex");
     const now = this.now();
+    // Reuse model capabilities only after the caller's path checks and a fresh
+    // stat. A new file version must never hit the client's GLB byte cache.
+    if (mimeType === "model/gltf-binary" && !downloadName) {
+      for (const [id, entry] of this.entries) {
+        if (
+          entry.expiresAt > now &&
+          entry.filePath === filePath &&
+          entry.mimeType === mimeType &&
+          !entry.downloadName &&
+          entry.sizeBytes === fileStat.size &&
+          entry.device === fileStat.dev &&
+          entry.inode === fileStat.ino &&
+          entry.modifiedAt === fileStat.mtimeMs &&
+          entry.changedAt === fileStat.ctimeMs
+        ) {
+          entry.accessedAt = now;
+          entry.expiresAt = now + this.ttlMs;
+          return { url: `/api/media/${id}`, mimeType, sizeBytes };
+        }
+      }
+    }
+    const id = randomBytes(24).toString("hex");
     this.entries.set(id, {
       // The caller has already canonicalized and allowlist-checked this path.
       // Resolving it again here would introduce a symlink-swap race between
@@ -136,6 +159,8 @@ export class MediaStore {
       sizeBytes,
       device: fileStat.dev,
       inode: fileStat.ino,
+      modifiedAt: fileStat.mtimeMs,
+      changedAt: fileStat.ctimeMs,
       expiresAt: now + this.ttlMs,
       accessedAt: now,
     });
@@ -200,7 +225,10 @@ export class MediaStore {
         !fileStat.isFile() ||
         fileStat.size !== entry.sizeBytes ||
         fileStat.dev !== entry.device ||
-        fileStat.ino !== entry.inode
+        fileStat.ino !== entry.inode ||
+        (entry.mimeType === "model/gltf-binary" &&
+          (fileStat.mtimeMs !== entry.modifiedAt ||
+            fileStat.ctimeMs !== entry.changedAt))
       ) {
         this.sendNotFound(res);
         return;

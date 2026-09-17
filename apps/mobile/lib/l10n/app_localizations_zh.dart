@@ -2958,7 +2958,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get filePreviewModelLoadFailed => '无法加载3D模型。请确认GLB包含几何体和内嵌资源。';
 
   @override
-  String get filePreviewModelTooLarge => '3D预览支持不超过20 MB的GLB文件。';
+  String get filePreviewModelTooLarge => '3D预览支持不超过50 MB的GLB文件。';
 
   @override
   String get filePreviewModelGestures => '拖动旋转 · 双指缩放';

@@ -3110,7 +3110,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get filePreviewModelTooLarge =>
-      '3D previews support GLB files up to 20 MB.';
+      '3D previews support GLB files up to 50 MB.';
 
   @override
   String get filePreviewModelGestures => 'Drag to rotate · Pinch to zoom';
