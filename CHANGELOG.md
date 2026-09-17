@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.133.1] - 2026-09-17
+
+### Fixed
+- Match session list header buttons to the chat AppBar in macOS multi-pane workspaces for consistent icon sizing and spacing.
+
 ## [1.133.0] - 2026-09-17
 
 ### Added
