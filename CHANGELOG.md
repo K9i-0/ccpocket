@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.132.0] - 2026-09-17
+
+### Added
+- Preview self-contained GLB 3D models from chat file links and Explorer, with drag rotation, pinch or wheel zoom, automatic framing, and view reset.
+- Show loading failures, unsupported material warnings, a 20 MB preview limit, and update guidance for older Bridge versions.
+
+### Changed
+- Require Bridge 1.82.0 for GLB model previews.
+
 ## [1.131.0] - 2026-09-14
 
 ### Added

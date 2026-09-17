@@ -4,6 +4,12 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.82.0] - 2026-09-17
+
+### Added
+- Serve GLB model previews through a dedicated `read_model_file` request with project-scoped responses and temporary media URLs.
+- Enforce a 20 MB model preview limit and reuse existing file path authorization and symlink protections.
+
 ## [1.81.5] - 2026-09-10
 
 ### Changed
