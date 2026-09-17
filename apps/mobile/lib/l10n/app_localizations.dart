@@ -5626,6 +5626,36 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'削除'**
   String get sketchDelete;
+
+  /// No description provided for @filePreviewModelLoadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'3Dモデルを読み込めませんでした。画像や形状を含むGLBファイルを確認してください。'**
+  String get filePreviewModelLoadFailed;
+
+  /// No description provided for @filePreviewModelTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'3Dプレビューは20 MB以下のGLBファイルに対応しています。'**
+  String get filePreviewModelTooLarge;
+
+  /// No description provided for @filePreviewModelGestures.
+  ///
+  /// In ja, this message translates to:
+  /// **'ドラッグで回転・ピンチで拡大縮小'**
+  String get filePreviewModelGestures;
+
+  /// No description provided for @filePreviewModelReset.
+  ///
+  /// In ja, this message translates to:
+  /// **'視点をリセット'**
+  String get filePreviewModelReset;
+
+  /// No description provided for @filePreviewModelWarning.
+  ///
+  /// In ja, this message translates to:
+  /// **'一部の素材や機能を再現できない可能性があります。'**
+  String get filePreviewModelWarning;
 }
 
 class _AppLocalizationsDelegate

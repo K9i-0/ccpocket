@@ -4,6 +4,7 @@ import '../utils/media_file_types.dart';
 
 enum FileVisualKind {
   directory,
+  model,
   video,
   audio,
   image,
@@ -124,6 +125,7 @@ FileVisualKind fileVisualKindForPath(String path, {bool isDirectory = false}) {
   if (_sourceExtensions.contains(extension)) return FileVisualKind.source;
   if (_shellExtensions.contains(extension)) return FileVisualKind.shell;
   if (_dataExtensions.contains(extension)) return FileVisualKind.data;
+  if (extension == 'glb') return FileVisualKind.model;
   if (extension == 'pdf') return FileVisualKind.pdf;
   if (_archiveExtensions.contains(extension)) return FileVisualKind.archive;
   if (_documentExtensions.contains(extension)) return FileVisualKind.document;
@@ -132,6 +134,7 @@ FileVisualKind fileVisualKindForPath(String path, {bool isDirectory = false}) {
 
 IconData fileVisualIcon(FileVisualKind kind) => switch (kind) {
   FileVisualKind.directory => Icons.folder_outlined,
+  FileVisualKind.model => Icons.view_in_ar_outlined,
   FileVisualKind.video => Icons.video_file_outlined,
   FileVisualKind.audio => Icons.audio_file_outlined,
   FileVisualKind.image => Icons.image_outlined,
@@ -174,7 +177,7 @@ class FileTypeIcon extends StatelessWidget {
 
 Color _fileVisualColor(ColorScheme colors, FileVisualKind kind) =>
     switch (kind) {
-      FileVisualKind.video => colors.primary,
+      FileVisualKind.video || FileVisualKind.model => colors.primary,
       FileVisualKind.audio || FileVisualKind.image => colors.secondary,
       FileVisualKind.directory || FileVisualKind.archive => colors.tertiary,
       FileVisualKind.pdf => colors.error,

@@ -5407,6 +5407,77 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it.each([
+    ["model.GLB", 32, undefined],
+    ["large.glb", 20 * 1024 * 1024 + 1, "model_too_large"],
+    ["source.blend", 32, "Unsupported 3D file type. Use a GLB file."],
+  ] as const)("handles GLB preview request for %s", async (filePath, size, error) => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-glb-"));
+    writeFileSync(resolve(projectPath, filePath), Buffer.alloc(size));
+    const mediaStore = new MediaStore();
+    const register = vi.spyOn(mediaStore, "register");
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+      mediaStore,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    try {
+      await (bridge as any).handleClientMessage({
+        type: "read_model_file", projectPath, filePath, requestId: "model-1",
+      }, ws);
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      const response = JSON.parse(ws.send.mock.calls[0][0]);
+      expect(response).toMatchObject({
+        type: "file_content", projectPath, filePath, requestId: "model-1",
+        kind: "model", content: "",
+      });
+      if (error) {
+        expect(response.error).toBe(error);
+        expect(response.mediaUrl).toBeUndefined();
+        expect(register).not.toHaveBeenCalled();
+      } else {
+        expect(response.error).toBeUndefined();
+        expect(response.mimeType).toBe("model/gltf-binary");
+        expect(response.sizeBytes).toBe(size);
+        expect(response.mediaUrl).toMatch(/^\/api\/media\/[a-f0-9]{48}$/);
+        expect(register).toHaveBeenCalledOnce();
+      }
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects GLB preview symlinks outside the allowed directory", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "ccpocket-glb-policy-"));
+    const projectPath = resolve(root, "project");
+    mkdirSync(projectPath);
+    writeFileSync(resolve(root, "private.glb"), "private");
+    symlinkSync(resolve(root, "private.glb"), resolve(projectPath, "linked.glb"));
+    const mediaStore = new MediaStore();
+    const register = vi.spyOn(mediaStore, "register");
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer, allowedDirs: [projectPath], mediaStore,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    try {
+      await (bridge as any).handleClientMessage({
+        type: "read_model_file", projectPath, filePath: "linked.glb", requestId: "model-2",
+      }, ws);
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+        type: "file_content", projectPath, filePath: "linked.glb",
+        requestId: "model-2", content: "", error: "Path not allowed",
+      });
+      expect(register).not.toHaveBeenCalled();
+    } finally {
+      bridge.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects media symlinks whose targets escape the allowed directory", async () => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
     const outsidePath = mkdtempSync(resolve(tmpdir(), "ccpocket-media-outside-"));

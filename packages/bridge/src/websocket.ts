@@ -659,6 +659,7 @@ export function downloadMimeType(filePath: string): string {
   const mediaType = FILE_PEEK_MEDIA_TYPES[extension];
   if (mediaType) return mediaType.mimeType;
   const mimeTypes: Record<string, string> = {
+    ".glb": "model/gltf-binary",
     ".bmp": "image/bmp",
     ".csv": "text/csv",
     ".doc": "application/msword",
@@ -6156,7 +6157,8 @@ export class BridgeWebSocketServer {
       }
 
       case "read_file":
-      case "read_media_file": {
+      case "read_media_file":
+      case "read_model_file": {
         const responseMetadata = {
           ...projectRequestMetadata(msg),
           filePath: msg.filePath,
@@ -6240,6 +6242,41 @@ export class BridgeWebSocketServer {
               return;
             }
             const ext = extname(absPath).toLowerCase();
+            if (msg.type === "read_model_file") {
+              const error =
+                ext !== ".glb"
+                  ? "Unsupported 3D file type. Use a GLB file."
+                  : resolvedFileStat.size > 20 * 1024 * 1024
+                    ? "model_too_large"
+                    : !this.mediaStore
+                      ? "3D preview is unavailable on this Bridge."
+                      : undefined;
+              if (error) {
+                this.send(ws, {
+                  type: "file_content",
+                  ...responseMetadata,
+                  kind: "model",
+                  content: "",
+                  error,
+                });
+                return;
+              }
+              const ref = await this.mediaStore!.register(
+                canonicalPath,
+                "model/gltf-binary",
+                resolvedFileStat.size,
+              );
+              this.send(ws, {
+                type: "file_content",
+                ...responseMetadata,
+                kind: "model",
+                content: "",
+                mimeType: ref.mimeType,
+                sizeBytes: ref.sizeBytes,
+                mediaUrl: ref.url,
+              });
+              return;
+            }
             const mediaType = FILE_PEEK_MEDIA_TYPES[ext];
             if (mediaType) {
               if (!this.mediaStore) {

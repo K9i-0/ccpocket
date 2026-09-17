@@ -2953,4 +2953,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sketchDelete => '删除';
+
+  @override
+  String get filePreviewModelLoadFailed => '无法加载3D模型。请确认GLB包含几何体和内嵌资源。';
+
+  @override
+  String get filePreviewModelTooLarge => '3D预览支持不超过20 MB的GLB文件。';
+
+  @override
+  String get filePreviewModelGestures => '拖动旋转 · 双指缩放';
+
+  @override
+  String get filePreviewModelReset => '重置视角';
+
+  @override
+  String get filePreviewModelWarning => '部分材质或功能可能无法准确显示。';
 }

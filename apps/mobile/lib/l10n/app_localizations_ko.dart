@@ -3011,4 +3011,20 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get sketchDelete => '삭제';
+
+  @override
+  String get filePreviewModelLoadFailed =>
+      '3D 모델을 불러올 수 없습니다. 형상과 리소스가 포함된 GLB 파일인지 확인하세요.';
+
+  @override
+  String get filePreviewModelTooLarge => '3D 미리보기는 20 MB 이하의 GLB 파일을 지원합니다.';
+
+  @override
+  String get filePreviewModelGestures => '드래그하여 회전 · 핀치하여 확대/축소';
+
+  @override
+  String get filePreviewModelReset => '시점 초기화';
+
+  @override
+  String get filePreviewModelWarning => '일부 재질이나 기능이 정확하게 표시되지 않을 수 있습니다.';
 }

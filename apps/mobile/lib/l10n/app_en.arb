@@ -1226,5 +1226,10 @@
   "tooltipEditSketch": "Edit sketch",
   "tooltipAttachmentOptions": "Long press for attachment options",
   "sketchSelect": "Select",
-  "sketchDelete": "Delete"
+  "sketchDelete": "Delete",
+  "filePreviewModelLoadFailed": "Could not load the 3D model. Check that the GLB contains geometry and embedded resources.",
+  "filePreviewModelTooLarge": "3D previews support GLB files up to 20 MB.",
+  "filePreviewModelGestures": "Drag to rotate · Pinch to zoom",
+  "filePreviewModelReset": "Reset view",
+  "filePreviewModelWarning": "Some materials or features may not display accurately."
 }

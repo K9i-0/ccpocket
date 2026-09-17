@@ -910,6 +910,12 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses read_model_file and rejects missing paths", () => {
+    expect(parseClientMessage(JSON.stringify({ type: "read_model_file", projectPath: "/p", filePath: "model.glb", requestId: "preview-1" })))
+      .toEqual({ type: "read_model_file", projectPath: "/p", filePath: "model.glb", requestId: "preview-1" });
+    expect(parseClientMessage('{"type":"read_model_file","projectPath":"/p"}')).toBeNull();
+  });
+
   it("parses read_media_file message", () => {
     const msg = parseClientMessage(
       '{"type":"read_media_file","projectPath":"/p","filePath":"output.mp4"}',

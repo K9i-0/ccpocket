@@ -2988,4 +2988,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sketchDelete => '削除';
+
+  @override
+  String get filePreviewModelLoadFailed =>
+      '3Dモデルを読み込めませんでした。画像や形状を含むGLBファイルを確認してください。';
+
+  @override
+  String get filePreviewModelTooLarge => '3Dプレビューは20 MB以下のGLBファイルに対応しています。';
+
+  @override
+  String get filePreviewModelGestures => 'ドラッグで回転・ピンチで拡大縮小';
+
+  @override
+  String get filePreviewModelReset => '視点をリセット';
+
+  @override
+  String get filePreviewModelWarning => '一部の素材や機能を再現できない可能性があります。';
 }

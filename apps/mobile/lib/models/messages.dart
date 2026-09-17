@@ -5042,6 +5042,17 @@ class ClientMessage {
     {'type': 'cancel_file_upload', 'uploadToken': uploadToken},
   );
 
+  factory ClientMessage.readModelFile(
+    String projectPath,
+    String filePath, {
+    String? requestId,
+  }) => ClientMessage._({
+    'type': 'read_model_file',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'requestId': ?requestId,
+  });
+
   factory ClientMessage.readMediaFile(
     String projectPath,
     String filePath, {

@@ -6,6 +6,7 @@
         android:label="CC Pocket"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
+        <meta-data android:name="io.flutter.embedding.android.EnableFlutterGPU" android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="false"

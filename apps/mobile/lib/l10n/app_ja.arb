@@ -1256,5 +1256,10 @@
   "tooltipEditSketch": "スケッチを編集",
   "tooltipAttachmentOptions": "長押しで添付メニューを開く",
   "sketchSelect": "選択",
-  "sketchDelete": "削除"
+  "sketchDelete": "削除",
+  "filePreviewModelLoadFailed": "3Dモデルを読み込めませんでした。画像や形状を含むGLBファイルを確認してください。",
+  "filePreviewModelTooLarge": "3Dプレビューは20 MB以下のGLBファイルに対応しています。",
+  "filePreviewModelGestures": "ドラッグで回転・ピンチで拡大縮小",
+  "filePreviewModelReset": "視点をリセット",
+  "filePreviewModelWarning": "一部の素材や機能を再現できない可能性があります。"
 }

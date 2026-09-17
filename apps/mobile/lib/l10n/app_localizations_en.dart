@@ -3103,4 +3103,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sketchDelete => 'Delete';
+
+  @override
+  String get filePreviewModelLoadFailed =>
+      'Could not load the 3D model. Check that the GLB contains geometry and embedded resources.';
+
+  @override
+  String get filePreviewModelTooLarge =>
+      '3D previews support GLB files up to 20 MB.';
+
+  @override
+  String get filePreviewModelGestures => 'Drag to rotate · Pinch to zoom';
+
+  @override
+  String get filePreviewModelReset => 'Reset view';
+
+  @override
+  String get filePreviewModelWarning =>
+      'Some materials or features may not display accurately.';
 }

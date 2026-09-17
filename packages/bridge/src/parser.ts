@@ -292,6 +292,12 @@ export type ClientMessage =
       requestId?: string;
     }
   | {
+      type: "read_model_file";
+      projectPath: string;
+      filePath: string;
+      requestId?: string;
+    }
+  | {
       type: "read_media_file";
       projectPath: string;
       filePath: string;
@@ -731,7 +737,7 @@ export type ServerMessage =
       projectPath?: string;
       requestId?: string;
       filePath: string;
-      kind?: "text" | "image" | "audio" | "video";
+      kind?: "text" | "image" | "audio" | "video" | "model";
       content: string;
       language?: string;
       error?: string;
@@ -1687,6 +1693,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "read_file":
       case "read_media_file":
+      case "read_model_file":
         if (typeof msg.projectPath !== "string") return null;
         if (typeof msg.filePath !== "string") return null;
         break;
