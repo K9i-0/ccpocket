@@ -4,7 +4,7 @@
 </style>
 <h1>ccpocket <span class="badge">Voice Lab</span></h1>
 <p>話す → 文字になる → 下書きを確認。Mac の Codex ログインを使う、音声入力の実験ページです。<br>音声は OpenAI に送信されます。サブスク枠での提供・利用上限はこのツールでは保証しません。</p>
-<p class="error">実機検証：Codex 0.153.4 では「realtime conversation requires API key auth」で接続できませんでした。対応状況を再確認するためのツールです。音声認識の精度はまだ未検証です。</p>
+<p class="error">実機検証：Codex 0.153.4 / 0.155.0 では「realtime conversation requires API key auth」で接続できませんでした。対応状況を再確認するためのツールです。音声認識の精度はまだ未検証です。</p>
 <section><strong id="status" role="status">未接続</strong><p id="error" class="error" role="alert"></p>
 <div class="row"><div><label for="model">音声モデル</label><input id="model" placeholder="空欄：app-server の既定" value="gpt-live-1"></div><div><label for="version">プロトコル</label><select id="version"><option value="v3">v3（GPT-Live 検証）</option><option value="">app-server の既定</option><option>v2</option><option>v1</option></select></div></div>
 <label for="context">認識のヒント（任意・効果も検証対象）</label><textarea id="context" rows="2">日本語のソフトウェア開発の話。用語: ccpocket, Flutter, Cubit, Bridge, Codex, app-server。</textarea>

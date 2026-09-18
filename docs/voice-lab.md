@@ -15,12 +15,13 @@ Chrome で http://127.0.0.1:8790 を開く。停止はターミナルで Ctrl+C�
 
 ## 2026-09-18 の実機結果
 
-- ローカル Codex CLI: 0.153.4。
+- ローカル Codex CLI: 初回 0.153.4、更新後 0.155.0 でも再検証。
 - ChatGPT ログインの検出と一時スレッド作成まで成功。
 - `gpt-live-1` / v3 と、モデル・プロトコルとも既定の設定で、
   `realtime conversation requires API key auth` が返りセッション開始不可。
 - v3 は `outputModality: text` も拒否する（`text realtime output modality requires realtime v2`）。
   ラボは v2 のみ text、他は audio を指定し、返答音声を再生しない。
+- 0.155.0 でも ChatGPT 認証を検出したが、GPT-Live 指定・既定設定とも同じ API キー必須エラー。
 - この環境でサブスク枠の音声認識が利用できるとは確認できなかった。
   API キー認証への切り替えは実装していない。
 - ブラウザ表示、実際のエラー表示、再接続、下書き編集・比較欄への保存を確認。
