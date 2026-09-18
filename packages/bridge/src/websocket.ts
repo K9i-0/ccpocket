@@ -8613,10 +8613,10 @@ export class BridgeWebSocketServer {
     matchesWorkspace: (session: unknown) => boolean,
     limit: number,
   ): Promise<unknown[]> {
-    const activeProcess = this.getActiveCodexProcess();
-    const process =
-      activeProcess ?? (await this.createStandaloneCodexProcess(undefined));
-    const isStandalone = activeProcess === null;
+    // A busy app-server can be blocked on a large thread/read or a running turn.
+    // Discovery must remain independent so one session cannot hide the list.
+    const process = await this.createStandaloneCodexProcess(undefined);
+    const isStandalone = true;
 
     try {
       const archivedIds = this.archiveStore.archivedIds();
@@ -8647,13 +8647,19 @@ export class BridgeWebSocketServer {
         cursor = result.nextCursor;
       } while (matchingThreads.length < limit && cursor != null);
 
-      const indexedById = await getCodexSessionIndexMetadata(
-        matchingThreads.map((thread) => thread.id),
-      );
-      return matchingThreads.map((thread) =>
-        this.enrichRecentSessionWorkspace(
-          codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+      const [indexedById, threadNames] = await Promise.all([
+        getCodexSessionIndexMetadata(
+          matchingThreads.map((thread) => thread.id),
         ),
+        loadCodexSessionNames(),
+      ]);
+      return matchingThreads.map((thread) =>
+        this.enrichRecentSessionWorkspace({
+          ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+          ...(threadNames.get(thread.id)
+            ? { name: threadNames.get(thread.id) }
+            : {}),
+        }),
       );
     } finally {
       if (isStandalone) process.stop();
@@ -9179,10 +9185,8 @@ export class BridgeWebSocketServer {
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
     const limit = msg.limit ?? 20;
     const offset = msg.offset ?? 0;
-    const process =
-      this.getActiveCodexProcess() ??
-      (await this.createStandaloneCodexProcess(msg.projectPath));
-    const isStandalone = process !== this.getActiveCodexProcess();
+    const process = await this.createStandaloneCodexProcess(msg.projectPath);
+    const isStandalone = true;
 
     try {
       const archivedIds = this.archiveStore.archivedIds();
@@ -9211,12 +9215,16 @@ export class BridgeWebSocketServer {
       } while (visibleThreads.length < targetCount && cursor != null);
 
       const pageThreads = visibleThreads.slice(offset, offset + limit);
-      const indexedById = await getCodexSessionIndexMetadata(
-        pageThreads.map((thread) => thread.id),
-      );
-      const sessions = pageThreads.map((thread) =>
-        codexThreadToRecentSession(thread, indexedById.get(thread.id)),
-      );
+      const [indexedById, threadNames] = await Promise.all([
+        getCodexSessionIndexMetadata(pageThreads.map((thread) => thread.id)),
+        loadCodexSessionNames(),
+      ]);
+      const sessions = pageThreads.map((thread) => ({
+        ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+        ...(threadNames.get(thread.id)
+          ? { name: threadNames.get(thread.id) }
+          : {}),
+      }));
       return {
         sessions,
         hasMore: hasServerMore || visibleThreads.length > offset + limit,
