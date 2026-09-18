@@ -974,7 +974,15 @@ export class BridgeWebSocketServer {
       console.log("[ws] Push relay enabled (Firebase Anonymous Auth)");
     }
 
-    this.wss = new WebSocketServer({ server });
+    this.wss = new WebSocketServer({
+      server,
+      perMessageDeflate: {
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        threshold: 1024,
+        zlibDeflateOptions: { level: 3 },
+      },
+    });
 
     this.sessionManager = new SessionManager(
       (sessionId, msg) => {
@@ -1916,7 +1924,7 @@ export class BridgeWebSocketServer {
       entries,
     );
     session.codexInitialHistoryPending = false;
-    return entries;
+    return session.codexOrderedHistoryEntries;
   }
 
   private applyCodexCanonicalHistoryBaseline(
