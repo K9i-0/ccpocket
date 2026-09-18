@@ -1,0 +1,20 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ccpocket Voice Lab</title>
+<style>
+:root{font:15px system-ui;color:#e9edf5;background:#10131b}body{max-width:1000px;margin:45px auto;padding:0 24px}h1{font-size:32px;margin-bottom:8px}p{color:#a7b2c7;line-height:1.7}section{background:#1b2130;border:1px solid #303b50;border-radius:16px;padding:24px;margin:20px 0}label{display:block;margin:14px 0 6px}input,select,textarea{box-sizing:border-box;width:100%;background:#101722;border:1px solid #45516a;color:inherit;border-radius:8px;padding:12px;font:inherit}textarea{resize:vertical;line-height:1.7}button{background:#c3f277;color:#152000;border:0;border-radius:9px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer;margin:12px 8px 0 0}button.secondary{background:#35415a;color:white}button:disabled{opacity:.4;cursor:default}.row{display:grid;grid-template-columns:1fr 1fr;gap:18px}.badge{color:#c3f277}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font-size:12px;color:#bac9e5}.error{color:#ffadad}article{border-top:1px solid #45516a;padding:15px 0;white-space:pre-wrap}#partial{min-height:24px;color:#becaec}audio{width:100%;margin-top:14px}@media(max-width:600px){.row{grid-template-columns:1fr}body{margin-top:24px}}
+</style>
+<h1>ccpocket <span class="badge">Voice Lab</span></h1>
+<p>話す → 文字になる → 下書きを確認。Mac の Codex ログインを使う、音声入力の実験ページです。<br>音声は OpenAI に送信されます。サブスク枠での提供・利用上限はこのツールでは保証しません。</p>
+<p class="error">実機検証：Codex 0.153.4 では「realtime conversation requires API key auth」で接続できませんでした。対応状況を再確認するためのツールです。音声認識の精度はまだ未検証です。</p>
+<section><strong id="status" role="status">未接続</strong><p id="error" class="error" role="alert"></p>
+<div class="row"><div><label for="model">音声モデル</label><input id="model" placeholder="空欄：app-server の既定" value="gpt-live-1"></div><div><label for="version">プロトコル</label><select id="version"><option value="v3">v3（GPT-Live 検証）</option><option value="">app-server の既定</option><option>v2</option><option>v1</option></select></div></div>
+<label for="context">認識のヒント（任意・効果も検証対象）</label><textarea id="context" rows="2">日本語のソフトウェア開発の話。用語: ccpocket, Flutter, Cubit, Bridge, Codex, app-server。</textarea>
+<button id="connect">接続テスト</button><button id="disconnect" class="secondary" disabled>切断</button>
+<p>まず接続テストでセッションを開始します。接続エラーは下のログでも確認できます。</p></section>
+<section><h2>音声から下書き</h2><button id="record" disabled>● 録音開始</button><button id="stop" class="secondary" disabled>録音停止・確定待ち</button>
+<label for="file">同じ録音で再テスト（音声ファイル・最大 60 秒）</label><input id="file" type="file" accept="audio/*" disabled><audio id="player" controls hidden></audio><button id="saveAudio" class="secondary" disabled>録音を保存</button>
+<p id="metrics">最大 60 秒。録音停止後は 2 秒の無音を送り、確定通知を待ちます。</p><div id="partial" aria-live="polite"></div>
+<label for="draft">下書き（手動編集できます。チャットには送信しません）</label><textarea id="draft" rows="5" placeholder="ここに認識結果が入ります"></textarea>
+<button id="copy" class="secondary">コピー</button><button id="save" class="secondary">結果を比較欄に残す</button></section>
+<section><h2>今回の比較結果</h2><p>結果はこのタブ内だけに保持します。必要なら JSON に保存してください。</p><div id="history"></div><button id="export" class="secondary">結果とログを保存</button></section>
+<details><summary>接続・文字起こしイベント</summary><pre id="log"></pre></details>
+<script type="module" src="/app.js"></script></html>
