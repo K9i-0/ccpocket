@@ -1,4 +1,4 @@
 [tools]
 node = "22"
-flutter = "3.47.2"
-shorebird = "1.6.120"
+flutter = "3.47.4"
+shorebird = "1.6.122"

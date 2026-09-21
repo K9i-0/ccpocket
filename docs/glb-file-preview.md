@@ -12,7 +12,7 @@ Their unsupported_message response is handled in file peek with the existing
 Bridge update guidance. Existing read_file/read_media_file behavior is unchanged.
 
 flutter_scene 0.23.0 loads downloaded GLB bytes at runtime. Native runners enable
-Flutter GPU; Flutter is pinned to 3.47.2. No model build-time conversion or
+Flutter GPU; Flutter is pinned to 3.47.4. No model build-time conversion or
 Blender installation is required. External resource URIs are rejected; export
 self-contained GLB files with embedded textures. Redirects are disabled.
 
