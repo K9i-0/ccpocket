@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.83.1] - 2026-09-21
+
+### Fixed
+- Update sharp to 0.35.4 for security fixes.
+
 ## [1.83.0] - 2026-09-17
 
 ### Added
