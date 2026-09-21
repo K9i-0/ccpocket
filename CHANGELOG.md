@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.133.2] - 2026-09-21
+
+### Changed
+- Upgrade Shorebird to 1.6.122 and Flutter to 3.47.4 with Dart 3.13.3.
+
 ## [1.133.1] - 2026-09-17
 
 ### Fixed
