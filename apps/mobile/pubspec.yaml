@@ -70,7 +70,8 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_messaging: ^16.1.1
   shorebird_code_push: ^2.0.5
-  purchases_flutter: ^9.13.1
+  # 10.2.3 includes RevenueCat iOS 5.78.0, which fixes Xcode 27 compilation.
+  purchases_flutter: ^10.2.3
   package_info_plus: ^9.0.0
   auto_route: ^11.1.0
   collection: ^1.19.1

@@ -18,12 +18,14 @@ This is a deliberate product choice. The goal is to keep CC Pocket usable withou
 
 ## How Restore Works
 
-Purchase restore is store-scoped.
+Monthly support purchase restore is store-scoped.
 
 - On Apple platforms, restore works with the same Apple ID.
 - On Android, restore works with the same Google account.
 
 If you reinstall the app or move to another device on the same store account, restore should work there.
+
+On Android, consumed one-time support purchases cannot be restored after reinstalling the app or moving to another device. Their support history may therefore be unavailable. This does not affect monthly support restore.
 
 ## Why iOS And Android Are Not Shared
 
@@ -92,7 +94,7 @@ No. The app remains fully usable without Supporter.
 
 ### Can I restore purchases after reinstalling?
 
-Yes, as long as you use the same Apple ID or Google account that made the purchase.
+Monthly support can be restored using the same Apple ID or Google account that made the purchase. On Android, consumed one-time support purchases and their history cannot be restored after reinstalling.
 
 ### Can I buy on iPhone and restore on Android?
 
