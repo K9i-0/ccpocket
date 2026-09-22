@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.134.1] - 2026-09-22
+
+### Fixed
+- Synchronize macOS RevenueCat dependencies with the Flutter plugin to restore release builds.
+
 ## [1.134.0] - 2026-09-22
 
 ### Added
