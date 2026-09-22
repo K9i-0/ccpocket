@@ -421,6 +421,14 @@ void main() {
             .hitTestable(),
         findsOneWidget,
       );
+      tester.view.viewInsets = const FakeViewPadding();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('browser_parent_button')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('browser_actions_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('browser_parent_button')));
+      await tester.pump();
+      expect(cubit.state.location.directory, 'src/components/checkout');
       await tester.pumpWidget(const SizedBox());
       unawaited(cubit.close());
       await tester.pump();
@@ -615,6 +623,12 @@ void main() {
       );
       expect(closeRect.left, headerRect.left);
       expect(closeRect.center.dy, headerRect.center.dy);
+      final backRect = tester.getRect(
+        find.byKey(const ValueKey('browser_back_button')),
+      );
+      expect(backRect.center.dy, headerRect.center.dy);
+      expect(backRect.left, greaterThanOrEqualTo(closeRect.right));
+
       expect(tester.takeException(), null);
       await tester.tap(find.byKey(const ValueKey('browser_back_button')));
       await tester.pump();

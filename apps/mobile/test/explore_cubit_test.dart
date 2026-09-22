@@ -347,10 +347,14 @@ void main() {
         ),
       );
 
+      await tester.tap(find.byKey(const ValueKey('browser_actions_button')));
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('explore_upload_button')),
         findsOneWidget,
       );
+      await tester.tapAt(const Offset(5, 250));
+      await tester.pump(const Duration(milliseconds: 300));
       bridge.emitFileList(
         const FileListMessage(
           files: ['lib/main.dart', 'README.md'],
@@ -392,6 +396,8 @@ void main() {
         ),
       );
 
+      await tester.tap(find.byKey(const ValueKey('browser_actions_button')));
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('explore_recent_files_button')),
       );
@@ -405,7 +411,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('file_peek_actions_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final copyButton = find.byKey(
         const ValueKey('file_peek_copy_path_button'),
       );

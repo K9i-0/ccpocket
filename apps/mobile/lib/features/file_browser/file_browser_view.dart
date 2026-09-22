@@ -147,6 +147,23 @@ class _FileBrowserViewState extends State<FileBrowserView> {
                               onRecent: _recent,
                               onUpload: widget.onUpload,
                               onClose: widget.onClose,
+                              onBack: state.history.isEmpty ? null : _back,
+                              onParent:
+                                  file != null && !isBrowserRelative(file) ||
+                                      file == null && location.directory.isEmpty
+                                  ? null
+                                  : cubit.showParent,
+                              onAddToChat: widget.onAddToChat == null
+                                  ? null
+                                  : () {
+                                      widget.onAddToChat!(
+                                        file ??
+                                            (location.directory.isEmpty
+                                                ? '.'
+                                                : '${location.directory}/'),
+                                      );
+                                      widget.onClose();
+                                    },
                             ),
                             Expanded(
                               child: Row(
@@ -176,25 +193,6 @@ class _FileBrowserViewState extends State<FileBrowserView> {
                                 ],
                               ),
                             ),
-                            BrowserNavigationBar(
-                              onBack: _back,
-                              onParent:
-                                  file != null && !isBrowserRelative(file) ||
-                                      file == null && location.directory.isEmpty
-                                  ? null
-                                  : cubit.showParent,
-                              onAddToChat: widget.onAddToChat == null
-                                  ? null
-                                  : () {
-                                      widget.onAddToChat!(
-                                        file ??
-                                            (location.directory.isEmpty
-                                                ? '.'
-                                                : '${location.directory}/'),
-                                      );
-                                      widget.onClose();
-                                    },
-                            ),
                           ],
                         );
                       },
@@ -213,7 +211,7 @@ class _FileBrowserViewState extends State<FileBrowserView> {
 class BrowserHeader extends StatelessWidget {
   final bool embedded, showToggle, showList;
   final VoidCallback onToggle, onRecent, onClose;
-  final VoidCallback? onUpload;
+  final VoidCallback? onUpload, onBack, onParent, onAddToChat;
   const BrowserHeader({
     super.key,
     required this.embedded,
@@ -223,6 +221,9 @@ class BrowserHeader extends StatelessWidget {
     required this.onRecent,
     required this.onClose,
     this.onUpload,
+    this.onBack,
+    this.onParent,
+    this.onAddToChat,
   });
 
   @override
@@ -231,48 +232,86 @@ class BrowserHeader extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('browser_header'),
       height: 52,
-      child: Row(
-        children: [
-          IconButton(
-            key: ValueKey(
-              embedded ? 'close_explore_pane_button' : 'file_peek_close_button',
-            ),
-            tooltip: l.browserClose,
-            onPressed: onClose,
-            icon: const Icon(Icons.close),
-          ),
-          Expanded(
-            child: Text(
-              l.browserTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          if (showToggle)
-            IconButton(
-              key: const ValueKey('browser_toggle_list_button'),
-              tooltip: l.browserToggleList,
-              onPressed: onToggle,
-              icon: Icon(
-                showList ? Icons.view_sidebar_outlined : Icons.view_sidebar,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 360;
+          return Row(
+            children: [
+              IconButton(
+                key: ValueKey(
+                  embedded
+                      ? 'close_explore_pane_button'
+                      : 'file_peek_close_button',
+                ),
+                tooltip: l.browserClose,
+                onPressed: onClose,
+                icon: const Icon(Icons.close),
               ),
-            ),
-          if (onUpload != null)
-            IconButton(
-              key: const ValueKey('explore_upload_button'),
-              tooltip: l.fileUploadTitle,
-              onPressed: onUpload,
-              icon: const Icon(Icons.upload_file),
-            ),
-          IconButton(
-            key: const ValueKey('explore_recent_files_button'),
-            tooltip: l.browserRecent,
-            onPressed: onRecent,
-            icon: const Icon(Icons.history),
-          ),
-          const SizedBox(width: 4),
-        ],
+              IconButton(
+                key: const ValueKey('browser_back_button'),
+                tooltip: l.browserBack,
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back),
+              ),
+              if (!compact)
+                IconButton(
+                  key: const ValueKey('browser_parent_button'),
+                  tooltip: l.browserParent,
+                  onPressed: onParent,
+                  icon: const Icon(Icons.arrow_upward),
+                ),
+              Expanded(
+                child: Text(
+                  l.browserTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (showToggle)
+                IconButton(
+                  key: const ValueKey('browser_toggle_list_button'),
+                  tooltip: l.browserToggleList,
+                  onPressed: onToggle,
+                  icon: Icon(
+                    showList ? Icons.view_sidebar_outlined : Icons.view_sidebar,
+                  ),
+                ),
+              if (onAddToChat != null)
+                IconButton(
+                  key: const ValueKey('browser_add_to_chat_button'),
+                  tooltip: l.browserAddToChat,
+                  onPressed: onAddToChat,
+                  icon: const Icon(Icons.add_comment_outlined),
+                ),
+              PopupMenuButton<VoidCallback>(
+                key: const ValueKey('browser_actions_button'),
+                icon: const Icon(Icons.more_vert),
+                onSelected: (action) => action(),
+                itemBuilder: (_) => [
+                  if (compact)
+                    PopupMenuItem(
+                      key: const ValueKey('browser_parent_button'),
+                      enabled: onParent != null,
+                      value: onParent,
+                      child: Text(l.browserParent),
+                    ),
+                  PopupMenuItem(
+                    key: const ValueKey('explore_recent_files_button'),
+                    value: onRecent,
+                    child: Text(l.browserRecent),
+                  ),
+                  if (onUpload != null)
+                    PopupMenuItem(
+                      key: const ValueKey('explore_upload_button'),
+                      value: onUpload,
+                      child: Text(l.fileUploadTitle),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -450,52 +489,6 @@ class _BrowserFilePreviewState extends State<BrowserFilePreview> {
       filePath: widget.filePath,
       scrollController: _scroll,
       initialLine: cubit.state.location.line,
-    );
-  }
-}
-
-class BrowserNavigationBar extends StatelessWidget {
-  final VoidCallback onBack;
-  final VoidCallback? onParent;
-  final VoidCallback? onAddToChat;
-  const BrowserNavigationBar({
-    super.key,
-    required this.onBack,
-    this.onParent,
-    this.onAddToChat,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: SizedBox(
-        height: 56,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            IconButton(
-              key: const ValueKey('browser_back_button'),
-              tooltip: l.browserBack,
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back),
-            ),
-            IconButton(
-              key: const ValueKey('browser_parent_button'),
-              tooltip: l.browserParent,
-              onPressed: onParent,
-              icon: const Icon(Icons.drive_folder_upload_outlined),
-            ),
-            if (onAddToChat != null)
-              IconButton(
-                key: const ValueKey('browser_add_to_chat_button'),
-                tooltip: l.browserAddToChat,
-                onPressed: onAddToChat,
-                icon: const Icon(Icons.add_comment_outlined),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -440,45 +440,6 @@ class FilePeekContentState extends State<FilePeekContent> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              IconButton(
-                key: const ValueKey('file_peek_copy_path_button'),
-                onPressed: _copyPath,
-                icon: Icon(
-                  Icons.content_copy,
-                  size: 18,
-                  color: appColors.subtleText,
-                ),
-                tooltip: AppLocalizations.of(context).browserCopyPath,
-              ),
-              if (PhotoLibraryService.supported &&
-                  !_loading &&
-                  _result?.error == null &&
-                  (isImage && _result?.mimeType != 'image/svg+xml' ||
-                      _result?.kind == 'video'))
-                IconButton(
-                  key: const ValueKey('file_peek_save_to_photos_button'),
-                  icon: const Icon(Icons.save_alt, size: 18),
-                  tooltip: AppLocalizations.of(context).saveToPhotos,
-                  onPressed: () => showProjectFileTransferDialog(
-                    context,
-                    bridge: widget.bridge,
-                    projectPath: widget.projectPath,
-                    filePath: widget.filePath,
-                    saveToPhotos: true,
-                  ),
-                ),
-              if (supportsProjectFileTransfer)
-                IconButton(
-                  key: const ValueKey('file_peek_share_button'),
-                  icon: const Icon(Icons.ios_share_outlined, size: 18),
-                  onPressed: () => showProjectFileTransferDialog(
-                    context,
-                    bridge: widget.bridge,
-                    projectPath: widget.projectPath,
-                    filePath: widget.filePath,
-                  ),
-                  tooltip: AppLocalizations.of(context).fileTransferShareOrSave,
-                ),
               if ((isMarkdown || canPreviewHtml) &&
                   !isImage &&
                   !_loading &&
@@ -497,6 +458,47 @@ class FilePeekContentState extends State<FilePeekContent> {
                       ? AppLocalizations.of(context).filePreviewShowPreview
                       : AppLocalizations.of(context).filePreviewShowSource,
                 ),
+              PopupMenuButton<VoidCallback>(
+                key: const ValueKey('file_peek_actions_button'),
+                icon: const Icon(Icons.more_vert, size: 18),
+                onSelected: (action) => action(),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    key: const ValueKey('file_peek_copy_path_button'),
+                    value: _copyPath,
+                    child: Text(AppLocalizations.of(context).browserCopyPath),
+                  ),
+                  if (supportsProjectFileTransfer)
+                    PopupMenuItem(
+                      key: const ValueKey('file_peek_share_button'),
+                      value: () => showProjectFileTransferDialog(
+                        context,
+                        bridge: widget.bridge,
+                        projectPath: widget.projectPath,
+                        filePath: widget.filePath,
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context).fileTransferShareOrSave,
+                      ),
+                    ),
+                  if (PhotoLibraryService.supported &&
+                      !_loading &&
+                      _result?.error == null &&
+                      (isImage && _result?.mimeType != 'image/svg+xml' ||
+                          _result?.kind == 'video'))
+                    PopupMenuItem(
+                      key: const ValueKey('file_peek_save_to_photos_button'),
+                      value: () => showProjectFileTransferDialog(
+                        context,
+                        bridge: widget.bridge,
+                        projectPath: widget.projectPath,
+                        filePath: widget.filePath,
+                        saveToPhotos: true,
+                      ),
+                      child: Text(AppLocalizations.of(context).saveToPhotos),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

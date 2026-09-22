@@ -6,12 +6,12 @@ are inserted into the originating draft without sending it.
 
 ## Presentation and navigation
 
-- Phones: full safe-area screen, top-left Close and persistent bottom Back / Parent controls.
+- Phones: full safe-area screen, a top toolbar for Close / Back / Parent / Add to chat.
 - Adaptive workspace: a separate browser layer covers center and right, retaining
   the session list and all underlying chat/tool state. Wide browsers optionally
   show a directory/search list beside the preview. Narrow browsers drill down.
 - Back traverses browsing history; Parent changes filesystem hierarchy; Close
-  leaves the entire browsing session. Esc closes. Close is always the leading header action;
+  leaves the entire browsing session. Esc closes. Close is always the leading header action; Back is disabled at the start of history;
   content gestures remain available to scrolling, zooming, and 3D interaction.
 - Each history location retains directory, query, selected file, and scroll
   position. A file opened from search returns to the same results. Width changes
@@ -81,3 +81,10 @@ independent review, and runtime layout/interaction checks on a test instance.
 Close-control follow-up: moved Close to the top-left header in every layout and
 removed header swipe dismissal. Browser and workspace tests: 55 passed, including
 close-button placement and explicit dismissal after a header drag.
+
+Toolbar follow-up: browsing controls now share the top header with no bottom bar.
+Recent files and upload live in its overflow menu; narrow panes also put Parent
+there. Preview/source stays beside the filename, while copy/share/photo saving
+use the file-specific overflow menu.
+Validation: 85 targeted tests passed across browser, Explorer, workspace and media
+preview suites; static analysis of changed UI/test files reported no issues.
