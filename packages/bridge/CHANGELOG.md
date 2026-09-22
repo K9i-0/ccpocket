@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.84.0] - 2026-09-22
+
+### Added
+- Support optional file entries in directory listings while preserving directory-only responses for existing clients and enforcing allowed-directory and symlink restrictions.
+
 ## [1.83.1] - 2026-09-21
 
 ### Fixed
