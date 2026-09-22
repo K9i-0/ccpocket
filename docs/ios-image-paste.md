@@ -5,9 +5,10 @@ programmatically. A custom menu item that subsequently calls
 `SystemClipboard.read()` still takes that path, even in a native context menu.
 
 Image attachment now uses an actual `UIPasteControl`, embedded with `UiKitView`.
-The attachment sheet displays it directly; the long-press **Paste Image** action
-opens a small sheet containing the same control (one additional tap). The normal
-text paste item continues to use Flutter's `SystemContextMenu`.
+The attachment menu retains its original icon-and-label row. Both that row and
+the long-press **Paste Image** action open a small sheet containing the native
+control (one additional tap). The normal text paste item continues to use
+Flutter's `SystemContextMenu`.
 
 The native view declares GIF, WebP, PNG and JPEG in its paste configuration. It
 loads the first supported item from the `NSItemProvider` objects delivered to
@@ -44,7 +45,7 @@ Mocked channel/widget tests cannot prove that iOS suppresses its permission aler
 
 Install a new native build, with **Paste from Other Apps** left at **Ask** in
 iOS Settings. Copy a screenshot in another app, then open the chat attachment
-menu and tap the system **Paste** button. Expect one image attachment, a closed
+menu, choose **Paste from Clipboard**, then tap the system **Paste** button. Expect one image attachment, a closed
 sheet, and no permission alert. Repeat through long-press **Paste Image** (which
 opens the small paste sheet). With only text on the clipboard, the image paste
 control should be disabled while normal text paste still works.

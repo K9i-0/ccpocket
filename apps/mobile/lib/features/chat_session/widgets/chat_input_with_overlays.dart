@@ -978,19 +978,6 @@ class ChatInputWithOverlays extends HookWidget {
         context: context,
         builder: (sheetContext) => ImageAttachmentSheet(
           clipboardHasImage: hasContextMenuClipboardImage(),
-          clipboardAction: isIOSPlatform
-              ? IOSImagePasteButton(
-                  key: const ValueKey('attach_from_clipboard'),
-                  onImage: (bytes, mimeType) {
-                    Navigator.pop(sheetContext);
-                    addNativePastedImage(bytes, mimeType);
-                  },
-                  onLegacyPaste: () {
-                    Navigator.pop(sheetContext);
-                    pasteFromClipboard(useLegacyIOS: true);
-                  },
-                )
-              : null,
           onGallery: () {
             Navigator.pop(sheetContext);
             pickImageFromGallery();
