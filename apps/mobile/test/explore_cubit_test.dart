@@ -22,6 +22,9 @@ class _TestBridgeService extends BridgeService {
   final _fileListMessageController =
       StreamController<FileListMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
+  final _messages = StreamController<ServerMessage>.broadcast();
+  @override
+  Stream<ServerMessage> get messages => _messages.stream;
 
   @override
   Stream<FileContentMessage> get fileContent => _fileContentController.stream;
@@ -41,10 +44,21 @@ class _TestBridgeService extends BridgeService {
   @override
   void send(ClientMessage message) {
     sentMessages.add(message);
+    if (jsonDecode(message.toJson())['type'] == 'list_directory') {
+      scheduleMicrotask(
+        () => _messages.add(
+          const ErrorMessage(
+            message: 'list_directory',
+            errorCode: 'unsupported_message',
+          ),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _messages.close();
     _fileContentController.close();
     _fileListMessageController.close();
     super.dispose();
@@ -276,27 +290,40 @@ void main() {
         ),
       );
 
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('z_target'),
         400,
         scrollable: find.descendant(
-          of: find.byKey(const ValueKey('explore_list')),
+          of: find.byType(ListView).first,
           matching: find.byType(Scrollable),
         ),
       );
-      final listBefore = tester.widget<ListView>(
-        find.byKey(const ValueKey('explore_list')),
+      final listBefore = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
-      expect(listBefore.controller!.offset, greaterThan(0));
+      expect(listBefore.position.pixels, greaterThan(0));
 
+      await tester.ensureVisible(find.text('z_target'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('z_target'));
       await tester.pump();
       await tester.pump();
 
-      final listAfter = tester.widget<ListView>(
-        find.byKey(const ValueKey('explore_list')),
+      final listAfter = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
-      expect(listAfter.controller!.offset, 0);
+      expect(listAfter.position.pixels, 0);
     });
 
     testWidgets('shows when the bridge truncated the file list', (
@@ -336,7 +363,10 @@ void main() {
         find.byKey(const ValueKey('explore_file_list_truncated_notice')),
         findsOneWidget,
       );
-      expect(find.text('Showing the first 2 entries'), findsOneWidget);
+      expect(
+        find.textContaining('Search covers the loaded file index'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows recent open files only and opens file peek', (
@@ -367,7 +397,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Recent open files'), findsOneWidget);
+      expect(find.text('Recently opened'), findsOneWidget);
       expect(find.text('Current location'), findsNothing);
       expect(find.text('Project root'), findsNothing);
 

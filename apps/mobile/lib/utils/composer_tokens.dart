@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
@@ -227,15 +229,42 @@ class ComposerTextEditingController extends TextEditingController {
     provider: Provider.claude,
   );
   ComposerTokenPalette? _palette;
+  final Set<String> _browserReferences = {};
+
+  /// Insert an explicit reference while preserving the draft and selection.
+  void insertFileReference(String path) {
+    final token =
+        '@${RegExp(r'[\s"\\]').hasMatch(path) ? jsonEncode(path) : path}';
+    _browserReferences.add(token.substring(1));
+    final start = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    final prefix = start > 0 && !RegExp(r'\s').hasMatch(text[start - 1])
+        ? ' '
+        : '';
+    final inserted = '$prefix$token ';
+    value = TextEditingValue(
+      text: text.replaceRange(start, end, inserted),
+      selection: TextSelection.collapsed(offset: start + inserted.length),
+    );
+  }
 
   void updateTokenState({
     required ComposerTokenConfig config,
     required ComposerTokenPalette palette,
   }) {
-    if (_config == config && _palette == palette) {
+    if (_config == config &&
+        _palette == palette &&
+        _config.fileMentions.containsAll(_browserReferences)) {
       return;
     }
-    _config = config;
+    _config = ComposerTokenConfig(
+      provider: config.provider,
+      slashCommands: config.slashCommands,
+      skillTokens: config.skillTokens,
+      appTokens: config.appTokens,
+      pluginTokens: config.pluginTokens,
+      fileMentions: {...config.fileMentions, ..._browserReferences},
+    );
     _palette = palette;
   }
 
@@ -389,6 +418,18 @@ bool _isTokenValid(
 
 int _findTokenEnd(String text, int start) {
   var cursor = start + 1;
+  if (text[start] == '@' && cursor < text.length && text[cursor] == '"') {
+    cursor++;
+    while (cursor < text.length) {
+      if (text[cursor] == '\\') {
+        cursor += 2;
+        continue;
+      }
+      if (text[cursor] == '"') return cursor + 1;
+      cursor++;
+    }
+    return text.length;
+  }
   while (cursor < text.length && !_isWhitespace(text[cursor])) {
     cursor++;
   }

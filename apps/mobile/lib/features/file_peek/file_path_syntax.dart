@@ -70,8 +70,21 @@ class FilePathSyntax extends md.InlineSyntax {
     final stopwatch = kDebugMode ? (Stopwatch()..start()) : null;
     final suffixes = <String>{};
     for (final filePath in filePaths) {
-      if (filePath.endsWith('/')) continue;
-      final parts = filePath.split('/');
+      final parts = filePath
+          .split('/')
+          .where((part) => part.isNotEmpty)
+          .toList();
+      for (
+        var end = 1;
+        end < parts.length + (filePath.endsWith('/') ? 1 : 0);
+        end++
+      ) {
+        for (var start = 0; start < end; start++) {
+          final directory = parts.sublist(start, end).join('/');
+          suffixes.add(directory);
+          suffixes.add('$directory/');
+        }
+      }
       for (var i = 0; i < parts.length; i++) {
         suffixes.add(parts.sublist(i).join('/'));
       }
@@ -113,8 +126,6 @@ class FilePathSyntax extends md.InlineSyntax {
     startMatchPos ??= parser.pos;
 
     if (parser.source.codeUnitAt(startMatchPos) != 0x60) return false;
-    if (_knownPathSuffixes.isEmpty) return false;
-
     final match = pattern.matchAsPrefix(parser.source, startMatchPos);
     if (match == null) return false;
 
@@ -124,9 +135,15 @@ class FilePathSyntax extends md.InlineSyntax {
     final matchesStripped =
         !matchesRaw && _knownPathSuffixes.contains(stripped);
 
-    if (!matchesRaw && !matchesStripped) return false;
+    final explicitPath =
+        raw.startsWith('/') ||
+        raw.startsWith('./') ||
+        raw.startsWith('../') ||
+        raw.endsWith('/') ||
+        RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw);
+    if (!matchesRaw && !matchesStripped && !explicitPath) return false;
 
-    final path = matchesRaw ? raw : stripped;
+    final path = raw;
     final el = md.Element('filePath', [md.Text(raw)]);
     el.attributes['path'] = path;
 
@@ -167,7 +184,7 @@ class BareFilePathSyntax extends md.InlineSyntax {
     : _knownPathSuffixes = knownPathSuffixes,
       // Path-like string: word chars / dots / slashes / hyphens,
       // must contain at least one dot (file extension).
-      super(r'([\w][\w./-]*\.[\w]+)');
+      super(r'([\w][\w./-]*[\w/])');
 
   @override
   bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
@@ -178,7 +195,10 @@ class BareFilePathSyntax extends md.InlineSyntax {
     if (match == null) return false;
 
     final text = match[1]!;
-    if (!_knownPathSuffixes.contains(text)) return false;
+    if ((!text.contains('/') && !text.contains('.')) ||
+        !_knownPathSuffixes.contains(text)) {
+      return false;
+    }
 
     final el = md.Element('filePath', [md.Text(text)]);
     el.attributes['path'] = text;

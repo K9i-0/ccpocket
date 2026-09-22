@@ -1,3 +1,4 @@
+import '../file_browser/open_file_browser.dart';
 import '../../services/photo_library_service.dart';
 
 import 'dart:async';
@@ -22,9 +23,7 @@ import '../../theme/markdown_style.dart'
         highlightToTextSpans,
         markdownBuilders;
 import '../../utils/media_file_types.dart';
-import '../../widgets/bubbles/image_preview.dart';
 import '../../widgets/file_type_icon.dart';
-import '../../widgets/workspace_pane_chrome.dart';
 import 'html_preview_document.dart';
 import 'widgets/html_file_preview.dart';
 import 'widgets/file_peek_media_preview.dart';
@@ -57,6 +56,7 @@ Future<void> openFilePeek(
       return showFilePeekSheet(
         context,
         bridge: bridge,
+        projectFiles: projectFiles,
         projectPath: projectPath,
         filePath: resolved.first,
       );
@@ -66,6 +66,7 @@ Future<void> openFilePeek(
       return showFilePeekSheet(
         context,
         bridge: bridge,
+        projectFiles: projectFiles,
         projectPath: projectPath,
         filePath: filePath,
       );
@@ -77,6 +78,7 @@ Future<void> openFilePeek(
         return showFilePeekSheet(
           context,
           bridge: bridge,
+          projectFiles: projectFiles,
           projectPath: projectPath,
           filePath: picked,
         );
@@ -90,12 +92,28 @@ List<String> resolveFilePeekPaths(
   List<String> projectFiles, {
   Map<String, int> modifiedAt = const {},
 }) {
-  final filesOnly = projectFiles.where((f) => !f.endsWith('/'));
+  if (filePath.startsWith('/') ||
+      RegExp(r'^[A-Za-z]:[\\/]').hasMatch(filePath)) {
+    return [filePath];
+  }
+  final lineSuffix =
+      RegExp(r'(:\d+){1,2}$').firstMatch(filePath)?.group(0) ?? '';
+  final normalized = filePath
+      .substring(0, filePath.length - lineSuffix.length)
+      .replaceFirst(RegExp(r'/$'), '');
+  final paths = <String>{};
+  for (final file in projectFiles) {
+    final parts = file.split('/').where((p) => p.isNotEmpty).toList();
+    for (var end = 1; end <= parts.length; end++) {
+      paths.add(parts.take(end).join('/'));
+    }
+  }
+  final filesOnly = paths;
   // Exact match first.
-  if (filesOnly.contains(filePath)) return [filePath];
+  if (filesOnly.contains(normalized)) return ['$normalized$lineSuffix'];
 
   // Suffix match: e.g. "lib/main.dart" matches "apps/mobile/lib/main.dart".
-  final suffix = filePath.startsWith('/') ? filePath : '/$filePath';
+  final suffix = normalized.startsWith('/') ? normalized : '/$normalized';
   final candidates = filesOnly.where((f) => '/$f'.endsWith(suffix)).toList()
     ..sort((a, b) {
       final modifiedComparison = (modifiedAt[b] ?? 0).compareTo(
@@ -104,7 +122,7 @@ List<String> resolveFilePeekPaths(
       return modifiedComparison != 0 ? modifiedComparison : a.compareTo(b);
     });
 
-  return candidates;
+  return candidates.map((path) => '$path$lineSuffix').toList();
 }
 
 /// Bottom sheet that lists candidate file paths for the user to pick from.
@@ -204,50 +222,39 @@ Future<void> showFilePeekSheet(
   required String projectPath,
   required String filePath,
   VoidCallback? onOpened,
+  List<String> projectFiles = const [],
 }) {
   onOpened?.call();
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    constraints: macOSModalBottomSheetConstraints(context),
-    useSafeArea: true,
-    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (context) => DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) => _FilePeekContent(
-        bridge: bridge,
-        projectPath: projectPath,
-        filePath: filePath,
-        scrollController: scrollController,
-      ),
-    ),
+  return showFileBrowser(
+    context,
+    bridge: bridge,
+    projectPath: projectPath,
+    target: filePath,
+    initialFiles: projectFiles,
   );
 }
 
-class _FilePeekContent extends StatefulWidget {
+class FilePeekContent extends StatefulWidget {
   final BridgeService bridge;
   final String projectPath;
   final String filePath;
   final ScrollController scrollController;
+  final int? initialLine;
 
-  const _FilePeekContent({
+  const FilePeekContent({
+    super.key,
     required this.bridge,
     required this.projectPath,
     required this.filePath,
     required this.scrollController,
+    this.initialLine,
   });
 
   @override
-  State<_FilePeekContent> createState() => _FilePeekContentState();
+  State<FilePeekContent> createState() => FilePeekContentState();
 }
 
-class _FilePeekContentState extends State<_FilePeekContent> {
+class FilePeekContentState extends State<FilePeekContent> {
   static int _nextConsumerId = 0;
   static const _responseFamily = 'file-content';
 
@@ -257,11 +264,13 @@ class _FilePeekContentState extends State<_FilePeekContent> {
   StreamSubscription<FileContentMessage>? _sub;
   StreamSubscription<ServerMessage>? _bridgeErrorSub;
   late final String _consumerId;
-  late final String _requestId;
+  late String _requestId;
+  Timer? _timeout;
 
   @override
   void initState() {
     super.initState();
+    _showRaw = widget.initialLine != null;
     _consumerId = 'file-peek-${++_nextConsumerId}';
     widget.bridge.registerProjectResponseConsumer(_responseFamily, _consumerId);
     _requestId = widget.bridge.createProjectRequestId('file-content');
@@ -276,10 +285,26 @@ class _FilePeekContentState extends State<_FilePeekContent> {
             _consumerId,
           );
       if (msg.filePath == widget.filePath && (isScopedMatch || isSafeLegacy)) {
+        _timeout?.cancel();
         setState(() {
           _result = msg;
           _loading = false;
         });
+        if (widget.initialLine case final line?) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !widget.scrollController.hasClients) return;
+            final style = codeTextSettingsOf(context).style(height: 1.5);
+            final height =
+                MediaQuery.textScalerOf(context).scale(style.fontSize ?? 13) *
+                1.5;
+            widget.scrollController.jumpTo(
+              ((line - 1) * height).clamp(
+                0,
+                widget.scrollController.position.maxScrollExtent,
+              ),
+            );
+          });
+        }
       }
     });
     _bridgeErrorSub = widget.bridge.messages.listen((msg) {
@@ -293,6 +318,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                   ? 'read_model_file'
                   : 'read_media_file')) {
         setState(() {
+          _timeout?.cancel();
           _result = FileContentMessage(
             filePath: widget.filePath,
             content: '',
@@ -301,6 +327,27 @@ class _FilePeekContentState extends State<_FilePeekContent> {
           _loading = false;
         });
       }
+    });
+    _loadFile();
+  }
+
+  void _loadFile() {
+    _timeout?.cancel();
+    _requestId = widget.bridge.createProjectRequestId('file-content');
+    setState(() {
+      _loading = true;
+      _result = null;
+    });
+    _timeout = Timer(const Duration(seconds: 20), () {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _result = FileContentMessage(
+          filePath: widget.filePath,
+          content: '',
+          error: 'timeout',
+        );
+      });
     });
     final isMediaFile = mediaFileTypeForPath(widget.filePath) != null;
     widget.bridge.send(
@@ -325,7 +372,23 @@ class _FilePeekContentState extends State<_FilePeekContent> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final raw = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: ('source', widget.filePath));
+    if (raw is bool && widget.initialLine == null) _showRaw = raw;
+  }
+
+  void _toggleSource() {
+    setState(() => _showRaw = !_showRaw);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, _showRaw, identifier: ('source', widget.filePath));
+  }
+
+  @override
   void dispose() {
+    _timeout?.cancel();
     widget.bridge.unregisterProjectResponseConsumer(
       _responseFamily,
       _consumerId,
@@ -359,16 +422,6 @@ class _FilePeekContentState extends State<_FilePeekContent> {
 
     return Column(
       children: [
-        // Drag handle
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: appColors.subtleText.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
         // Header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
@@ -395,14 +448,8 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                   size: 18,
                   color: appColors.subtleText,
                 ),
-                tooltip: 'Copy path',
+                tooltip: AppLocalizations.of(context).browserCopyPath,
               ),
-              if (isImage && !_loading && _result?.error == null)
-                IconButton(
-                  key: const ValueKey('file_peek_image_fullscreen_button'),
-                  icon: const Icon(Icons.open_in_full, size: 18),
-                  onPressed: _openImageFullScreen,
-                ),
               if (PhotoLibraryService.supported &&
                   !_loading &&
                   _result?.error == null &&
@@ -445,16 +492,11 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                         ? Theme.of(context).colorScheme.primary
                         : null,
                   ),
-                  onPressed: () => setState(() => _showRaw = !_showRaw),
+                  onPressed: _toggleSource,
                   tooltip: _showRaw
                       ? AppLocalizations.of(context).filePreviewShowPreview
                       : AppLocalizations.of(context).filePreviewShowSource,
                 ),
-              IconButton(
-                key: const ValueKey('file_peek_close_button'),
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
             ],
           ),
         ),
@@ -506,9 +548,9 @@ class _FilePeekContentState extends State<_FilePeekContent> {
           child: _loading
               ? const Center(child: CircularProgressIndicator.adaptive())
               : _result?.error != null
-              ? _buildError(appColors)
+              ? FilePeekError(error: _result!.error!, onRetry: _loadFile)
               : _result?.kind == 'image'
-              ? _buildImageContent(appColors)
+              ? FilePeekImage(result: _result!)
               : isModel
               ? FilePeekModelPreview(
                   modelUrl: resolveFilePeekMediaUrl(
@@ -529,37 +571,29 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               : (canPreviewHtml && !_showRaw)
               ? HtmlFilePreview(html: _result!.content)
               : (isMarkdown && !_showRaw)
-              ? _buildMarkdownPreview()
-              : _buildCodeContent(appColors),
+              ? FilePeekMarkdown(
+                  content: _result!.content,
+                  controller: widget.scrollController,
+                )
+              : FilePeekCode(
+                  content: _result!.content,
+                  language: _result!.language,
+                  initialLine: widget.initialLine,
+                  controller: widget.scrollController,
+                ),
         ),
       ],
     );
   }
+}
 
-  void _openImageFullScreen() {
-    final bytes = _imageBytes();
-    if (bytes == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FullScreenImageViewer(
-          bytes: bytes,
-          isSvg: _result?.mimeType == 'image/svg+xml',
-        ),
-      ),
-    );
-  }
-
-  Uint8List? _imageBytes() {
-    final base64 = _result?.base64;
-    if (base64 == null || base64.isEmpty) return null;
-    try {
-      return base64Decode(base64);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Widget _buildError(AppColors appColors) {
+class FilePeekError extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const FilePeekError({super.key, required this.error, required this.onRetry});
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -569,25 +603,43 @@ class _FilePeekContentState extends State<_FilePeekContent> {
             Icon(Icons.error_outline, size: 40, color: appColors.subtleText),
             const SizedBox(height: 12),
             Text(
-              _result!.error == 'bridge_update_required'
+              error == 'timeout'
+                  ? AppLocalizations.of(context).browserTimeout
+                  : error == 'bridge_update_required'
                   ? AppLocalizations.of(context)
                         .directoryBrowserBridgeUpdateRequired
-                  : _result!.error == 'model_too_large'
+                  : error == 'model_too_large'
                   ? AppLocalizations.of(context).filePreviewModelTooLarge
-                  : _result!.error!,
+                  : error,
               style: TextStyle(color: appColors.subtleText),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              key: const ValueKey('file_peek_retry_button'),
+              onPressed: onRetry,
+              child: Text(AppLocalizations.of(context).browserRetry),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMarkdownPreview() {
+class FilePeekMarkdown extends StatelessWidget {
+  final String content;
+  final ScrollController controller;
+  const FilePeekMarkdown({
+    super.key,
+    required this.content,
+    required this.controller,
+  });
+  @override
+  Widget build(BuildContext context) {
     return Markdown(
-      controller: widget.scrollController,
-      data: _result!.content,
+      controller: controller,
+      data: content,
       selectable: true,
       styleSheet: buildMarkdownStyle(context),
       onTapLink: handleMarkdownLink,
@@ -596,8 +648,24 @@ class _FilePeekContentState extends State<_FilePeekContent> {
       padding: const EdgeInsets.all(16),
     );
   }
+}
 
-  Widget _buildImageContent(AppColors appColors) {
+class FilePeekImage extends StatelessWidget {
+  final FileContentMessage result;
+  const FilePeekImage({super.key, required this.result});
+  Uint8List? _imageBytes() {
+    final base64 = result.base64;
+    if (base64 == null || base64.isEmpty) return null;
+    try {
+      return base64Decode(base64);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     final bytes = _imageBytes();
     if (bytes == null) {
       return Center(
@@ -606,14 +674,26 @@ class _FilePeekContentState extends State<_FilePeekContent> {
     }
     return _FilePeekImagePreview(
       bytes: bytes,
-      isSvg: _result?.mimeType == 'image/svg+xml',
-      onOpenFullScreen: _openImageFullScreen,
+      isSvg: result.mimeType == 'image/svg+xml',
     );
   }
+}
 
-  Widget _buildCodeContent(AppColors appColors) {
-    final content = _result!.content;
-    final language = _result!.language;
+class FilePeekCode extends StatelessWidget {
+  final String content;
+  final String? language;
+  final int? initialLine;
+  final ScrollController controller;
+  const FilePeekCode({
+    super.key,
+    required this.content,
+    this.language,
+    this.initialLine,
+    required this.controller,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     final lines = content.split('\n');
     final gutterWidth = '${lines.length}'.length;
 
@@ -644,14 +724,12 @@ class _FilePeekContentState extends State<_FilePeekContent> {
     }
 
     return SingleChildScrollView(
-      controller: widget.scrollController,
+      controller: controller,
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: MediaQuery.of(context).size.width,
-          ),
+          constraints: BoxConstraints(minWidth: 0),
           child: SelectableText.rich(
             TextSpan(
               style: baseStyle,
@@ -661,7 +739,16 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                     text: '${' ${i + 1}'.padLeft(gutterWidth + 1)}  ',
                     style: gutterStyle,
                   ),
-                  ...highlightedLines[i],
+                  TextSpan(
+                    style: initialLine == i + 1
+                        ? TextStyle(
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer,
+                          )
+                        : null,
+                    children: highlightedLines[i],
+                  ),
                   const TextSpan(text: '\n'),
                 ],
               ],
@@ -717,20 +804,14 @@ String _formatFileSize(int bytes) {
 class _FilePeekImagePreview extends StatelessWidget {
   final Uint8List bytes;
   final bool isSvg;
-  final VoidCallback onOpenFullScreen;
 
-  const _FilePeekImagePreview({
-    required this.bytes,
-    required this.isSvg,
-    required this.onOpenFullScreen,
-  });
+  const _FilePeekImagePreview({required this.bytes, required this.isSvg});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       key: const ValueKey('file_peek_image_preview'),
       behavior: HitTestBehavior.opaque,
-      onTap: onOpenFullScreen,
       child: Container(
         color: Colors.black,
         alignment: Alignment.center,

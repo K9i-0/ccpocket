@@ -48,22 +48,24 @@ class ExploreBreadcrumbs extends StatelessWidget {
               ),
             )
           else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                ActionChip(
-                  key: const ValueKey('explore_breadcrumb_root'),
-                  label: const Text('/'),
-                  onPressed: () => onTapCrumb(''),
-                ),
-                for (final crumb in breadcrumbs)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                spacing: 6,
+                children: [
                   ActionChip(
-                    key: ValueKey('explore_breadcrumb_$crumb'),
-                    label: Text(crumb.split('/').last),
-                    onPressed: () => onTapCrumb(crumb),
+                    key: const ValueKey('explore_breadcrumb_root'),
+                    label: const Text('/'),
+                    onPressed: () => onTapCrumb(''),
                   ),
-              ],
+                  for (final crumb in breadcrumbs)
+                    ActionChip(
+                      key: ValueKey('explore_breadcrumb_$crumb'),
+                      label: Text(crumb.split('/').last),
+                      onPressed: () => onTapCrumb(crumb),
+                    ),
+                ],
+              ),
             ),
         ],
       ),

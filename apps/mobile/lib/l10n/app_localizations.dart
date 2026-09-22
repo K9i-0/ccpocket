@@ -5680,6 +5680,126 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'画像・動画を保存するには、設定で写真の追加を許可してください。'**
   String get photosPermissionDenied;
+
+  /// No description provided for @browserTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル'**
+  String get browserTitle;
+
+  /// No description provided for @browserSearch.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル名・パスで検索'**
+  String get browserSearch;
+
+  /// No description provided for @browserBack.
+  ///
+  /// In ja, this message translates to:
+  /// **'戻る'**
+  String get browserBack;
+
+  /// No description provided for @browserParent.
+  ///
+  /// In ja, this message translates to:
+  /// **'親フォルダ'**
+  String get browserParent;
+
+  /// No description provided for @browserClose.
+  ///
+  /// In ja, this message translates to:
+  /// **'閉じる'**
+  String get browserClose;
+
+  /// No description provided for @browserAddToChat.
+  ///
+  /// In ja, this message translates to:
+  /// **'チャットに追加'**
+  String get browserAddToChat;
+
+  /// No description provided for @browserRecent.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近開いたファイル'**
+  String get browserRecent;
+
+  /// No description provided for @browserEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'このフォルダは空です'**
+  String get browserEmpty;
+
+  /// No description provided for @browserNoResults.
+  ///
+  /// In ja, this message translates to:
+  /// **'一致するファイル・フォルダはありません'**
+  String get browserNoResults;
+
+  /// No description provided for @browserRetry.
+  ///
+  /// In ja, this message translates to:
+  /// **'再試行'**
+  String get browserRetry;
+
+  /// No description provided for @browserTimeout.
+  ///
+  /// In ja, this message translates to:
+  /// **'応答がありません。接続を確認して再試行してください。'**
+  String get browserTimeout;
+
+  /// No description provided for @browserIndexLimited.
+  ///
+  /// In ja, this message translates to:
+  /// **'検索対象は取得済みの一覧です。すべての項目はフォルダを開いて確認できます。'**
+  String get browserIndexLimited;
+
+  /// No description provided for @browserLegacy.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダ内容の取得にはBridgeを更新してください。取得済みの一覧を表示しています。'**
+  String get browserLegacy;
+
+  /// No description provided for @browserToggleList.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル一覧の表示切替'**
+  String get browserToggleList;
+
+  /// No description provided for @browserRefresh.
+  ///
+  /// In ja, this message translates to:
+  /// **'更新'**
+  String get browserRefresh;
+
+  /// No description provided for @browserNotAllowed.
+  ///
+  /// In ja, this message translates to:
+  /// **'このフォルダは閲覧可能な範囲外です。'**
+  String get browserNotAllowed;
+
+  /// No description provided for @browserNotFound.
+  ///
+  /// In ja, this message translates to:
+  /// **'このパスは存在しません。'**
+  String get browserNotFound;
+
+  /// No description provided for @browserUnreadable.
+  ///
+  /// In ja, this message translates to:
+  /// **'このフォルダを読み取れません。'**
+  String get browserUnreadable;
+
+  /// No description provided for @browserCopyPath.
+  ///
+  /// In ja, this message translates to:
+  /// **'パスをコピー'**
+  String get browserCopyPath;
+
+  /// No description provided for @browserNoRecent.
+  ///
+  /// In ja, this message translates to:
+  /// **'開いたファイルがここに表示されます。'**
+  String get browserNoRecent;
 }
 
 class _AppLocalizationsDelegate

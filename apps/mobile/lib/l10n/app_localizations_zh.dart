@@ -2980,4 +2980,64 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get photosPermissionDenied => '请在设置中允许添加照片，以保存图片和视频。';
+
+  @override
+  String get browserTitle => '文件';
+
+  @override
+  String get browserSearch => '搜索文件名和路径';
+
+  @override
+  String get browserBack => '返回';
+
+  @override
+  String get browserParent => '上级文件夹';
+
+  @override
+  String get browserClose => '关闭';
+
+  @override
+  String get browserAddToChat => '添加到聊天';
+
+  @override
+  String get browserRecent => '最近打开的文件';
+
+  @override
+  String get browserEmpty => '此文件夹为空';
+
+  @override
+  String get browserNoResults => '没有匹配的文件或文件夹';
+
+  @override
+  String get browserRetry => '重试';
+
+  @override
+  String get browserTimeout => '请求超时。请检查连接后重试。';
+
+  @override
+  String get browserIndexLimited => '搜索范围为已加载的文件列表。打开文件夹可查看全部项目。';
+
+  @override
+  String get browserLegacy => '请更新 Bridge 以查看完整文件夹内容。当前显示已加载的列表。';
+
+  @override
+  String get browserToggleList => '显示或隐藏文件列表';
+
+  @override
+  String get browserRefresh => '刷新';
+
+  @override
+  String get browserNotAllowed => '此文件夹超出了允许浏览的范围。';
+
+  @override
+  String get browserNotFound => '此路径已不存在。';
+
+  @override
+  String get browserUnreadable => '无法读取此文件夹。';
+
+  @override
+  String get browserCopyPath => '复制路径';
+
+  @override
+  String get browserNoRecent => '打开的文件将显示在这里。';
 }

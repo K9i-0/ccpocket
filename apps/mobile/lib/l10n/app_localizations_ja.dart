@@ -3016,4 +3016,64 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get photosPermissionDenied => '画像・動画を保存するには、設定で写真の追加を許可してください。';
+
+  @override
+  String get browserTitle => 'ファイル';
+
+  @override
+  String get browserSearch => 'ファイル名・パスで検索';
+
+  @override
+  String get browserBack => '戻る';
+
+  @override
+  String get browserParent => '親フォルダ';
+
+  @override
+  String get browserClose => '閉じる';
+
+  @override
+  String get browserAddToChat => 'チャットに追加';
+
+  @override
+  String get browserRecent => '最近開いたファイル';
+
+  @override
+  String get browserEmpty => 'このフォルダは空です';
+
+  @override
+  String get browserNoResults => '一致するファイル・フォルダはありません';
+
+  @override
+  String get browserRetry => '再試行';
+
+  @override
+  String get browserTimeout => '応答がありません。接続を確認して再試行してください。';
+
+  @override
+  String get browserIndexLimited => '検索対象は取得済みの一覧です。すべての項目はフォルダを開いて確認できます。';
+
+  @override
+  String get browserLegacy => 'フォルダ内容の取得にはBridgeを更新してください。取得済みの一覧を表示しています。';
+
+  @override
+  String get browserToggleList => 'ファイル一覧の表示切替';
+
+  @override
+  String get browserRefresh => '更新';
+
+  @override
+  String get browserNotAllowed => 'このフォルダは閲覧可能な範囲外です。';
+
+  @override
+  String get browserNotFound => 'このパスは存在しません。';
+
+  @override
+  String get browserUnreadable => 'このフォルダを読み取れません。';
+
+  @override
+  String get browserCopyPath => 'パスをコピー';
+
+  @override
+  String get browserNoRecent => '開いたファイルがここに表示されます。';
 }

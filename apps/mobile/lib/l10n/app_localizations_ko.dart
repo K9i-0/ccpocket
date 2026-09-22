@@ -3039,4 +3039,65 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get photosPermissionDenied => '이미지와 동영상을 저장하려면 설정에서 사진 추가를 허용하세요.';
+
+  @override
+  String get browserTitle => '파일';
+
+  @override
+  String get browserSearch => '파일 이름 및 경로 검색';
+
+  @override
+  String get browserBack => '뒤로';
+
+  @override
+  String get browserParent => '상위 폴더';
+
+  @override
+  String get browserClose => '닫기';
+
+  @override
+  String get browserAddToChat => '채팅에 추가';
+
+  @override
+  String get browserRecent => '최근에 연 파일';
+
+  @override
+  String get browserEmpty => '폴더가 비어 있습니다';
+
+  @override
+  String get browserNoResults => '일치하는 파일이나 폴더가 없습니다';
+
+  @override
+  String get browserRetry => '다시 시도';
+
+  @override
+  String get browserTimeout => '응답 시간이 초과되었습니다. 연결을 확인하고 다시 시도하세요.';
+
+  @override
+  String get browserIndexLimited =>
+      '검색은 불러온 파일 목록을 대상으로 합니다. 모든 항목을 보려면 폴더를 여세요.';
+
+  @override
+  String get browserLegacy => '전체 폴더 내용을 보려면 Bridge를 업데이트하세요. 불러온 목록을 표시합니다.';
+
+  @override
+  String get browserToggleList => '파일 목록 표시 전환';
+
+  @override
+  String get browserRefresh => '새로고침';
+
+  @override
+  String get browserNotAllowed => '탐색이 허용된 범위 밖의 폴더입니다.';
+
+  @override
+  String get browserNotFound => '이 경로는 더 이상 존재하지 않습니다.';
+
+  @override
+  String get browserUnreadable => '폴더를 읽을 수 없습니다.';
+
+  @override
+  String get browserCopyPath => '경로 복사';
+
+  @override
+  String get browserNoRecent => '연 파일이 여기에 표시됩니다.';
 }

@@ -23,14 +23,14 @@ void main() {
       );
     });
 
-    test('classifies absolute file paths and removes line suffixes', () {
+    test('classifies absolute file paths and preserves line suffixes', () {
       final unix = classifyMarkdownLink('/Users/example/report.md:42:8');
       final windows = classifyMarkdownLink(r'C:\work\report.md:42');
 
       expect(unix.kind, MarkdownLinkTargetKind.file);
-      expect(unix.value, '/Users/example/report.md');
+      expect(unix.value, '/Users/example/report.md:42:8');
       expect(windows.kind, MarkdownLinkTargetKind.file);
-      expect(windows.value, r'C:\work\report.md');
+      expect(windows.value, r'C:\work\report.md:42');
     });
 
     test('classifies file URIs and relative file paths as files', () {
@@ -46,7 +46,7 @@ void main() {
       expect(fileUri.kind, MarkdownLinkTargetKind.file);
       expect(fileUri.value, '/Users/example/report.md');
       expect(fileUriWithPosition.kind, MarkdownLinkTargetKind.file);
-      expect(fileUriWithPosition.value, '/Users/example/report.md');
+      expect(fileUriWithPosition.value, '/Users/example/report.md:12:3');
       expect(windowsFileUri.kind, MarkdownLinkTargetKind.file);
       expect(windowsFileUri.value, 'C:/work/My report.md');
       expect(relative.kind, MarkdownLinkTargetKind.file);

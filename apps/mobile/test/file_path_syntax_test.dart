@@ -86,9 +86,9 @@ void main() {
       expect(suffixes, contains('pubspec.yaml'));
     });
 
-    test('ignores directory mention candidates', () {
+    test('includes directory mention candidates', () {
       final suffixes = FilePathSyntax.buildSuffixSet(['lib/', 'lib/main.dart']);
-      expect(suffixes, isNot(contains('lib/')));
+      expect(suffixes, containsAll(['lib/', 'lib']));
       expect(suffixes, contains('lib/main.dart'));
     });
   });
@@ -133,14 +133,14 @@ void main() {
       expect(paths, ['main.dart', 'package.json']);
     });
 
-    test('strips line number suffix', () {
+    test('preserves line number suffix', () {
       final paths = _detectFilePaths('Error at `main.dart:42`', suffixes);
-      expect(paths, ['main.dart']);
+      expect(paths, ['main.dart:42']);
     });
 
-    test('strips line:col suffix', () {
+    test('preserves line:col suffix', () {
       final paths = _detectFilePaths('See `main.dart:42:10`', suffixes);
-      expect(paths, ['main.dart']);
+      expect(paths, ['main.dart:42:10']);
     });
 
     test('does not detect unknown files', () {
@@ -186,8 +186,8 @@ void main() {
       final fileNode = nodes.whereType<md.Element>().firstWhere(
         (e) => e.tag == 'filePath',
       );
-      // path attribute should be stripped
-      expect(fileNode.attributes['path'], 'main.dart');
+      // Navigation retains the line number.
+      expect(fileNode.attributes['path'], 'main.dart:42');
       // display text should keep the line number
       expect(fileNode.textContent, 'main.dart:42');
     });

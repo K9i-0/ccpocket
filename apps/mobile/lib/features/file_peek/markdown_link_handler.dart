@@ -46,14 +46,14 @@ MarkdownLinkTarget classifyMarkdownLink(
   if (raw.isEmpty) return const MarkdownLinkTarget.unsupported('');
 
   if (_windowsAbsolutePath.hasMatch(raw) || raw.startsWith(r'\\')) {
-    return MarkdownLinkTarget.file(_stripLineColumn(raw));
+    return MarkdownLinkTarget.file(raw);
   }
 
   final uri = Uri.tryParse(raw);
   if (uri == null) return MarkdownLinkTarget.unsupported(raw);
 
   if (uri.scheme == 'file') {
-    return MarkdownLinkTarget.file(_stripLineColumn(_fileUriPath(uri)));
+    return MarkdownLinkTarget.file(_fileUriPath(uri));
   }
 
   if (uri.hasScheme) return MarkdownLinkTarget.external(uri);
@@ -62,10 +62,15 @@ MarkdownLinkTarget classifyMarkdownLink(
     return MarkdownLinkTarget.external(Uri.parse('https:$raw'));
   }
 
-  final path = _stripLineColumn(Uri.decodeComponent(uri.path));
+  final decodedPath = Uri.decodeComponent(uri.path);
+  final fragmentLine = RegExp(r'^L(\d+)').firstMatch(uri.fragment)?.group(1);
+  final path = fragmentLine == null
+      ? decodedPath
+      : '$decodedPath:$fragmentLine';
   if (path.startsWith('/')) return MarkdownLinkTarget.file(path);
 
-  if (_matchesKnownPath(path, knownPathSuffixes) || _looksLikeFilePath(path)) {
+  if (_matchesKnownPath(_stripLineColumn(path), knownPathSuffixes) ||
+      _looksLikeFilePath(path)) {
     return MarkdownLinkTarget.file(path);
   }
 
@@ -197,7 +202,7 @@ bool _matchesKnownPath(String path, Set<String> knownPathSuffixes) {
 bool _looksLikeFilePath(String path) {
   if (path.isEmpty || !path.contains(RegExp(r'[/\\]'))) return false;
   final name = path.split(RegExp(r'[/\\]')).last;
-  return name.contains('.') && !name.endsWith('.');
+  return name.isEmpty || name != '.' && name != '..';
 }
 
 String _stripLineColumn(String path) {

@@ -1,3 +1,5 @@
+import '../features/explore/state/explore_cubit.dart' show buildExploreEntries;
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -255,6 +257,50 @@ class MockBridgeService extends BridgeService {
           'You said: "$text". This is a mock response echoing your input.',
           startDelay: const Duration(milliseconds: 500),
         );
+      case 'list_directory':
+        final path = json['path'] as String;
+        final project = _browserMockProject;
+        final relative = path == project
+            ? ''
+            : path.startsWith('$project/')
+            ? path.substring(project.length + 1)
+            : '';
+        if (_mockProjectFiles.contains(relative) && !relative.endsWith('/')) {
+          _scheduleMessage(
+            const Duration(milliseconds: 80),
+            ErrorMessage(
+              message: 'Selected path is not a directory',
+              errorCode: 'not_a_directory',
+              requestId: json['requestId'] as String?,
+            ),
+          );
+        } else {
+          final entries = buildExploreEntries(
+            _mockProjectFiles,
+            currentPath: relative,
+          );
+          _scheduleMessage(
+            const Duration(milliseconds: 80),
+            DirectoryListingMessage(
+              path: path,
+              requestId: json['requestId'] as String?,
+              directories: [
+                for (final entry in entries.where((e) => e.isDirectory))
+                  DirectoryListingEntry(
+                    name: entry.name,
+                    path: '$path/${entry.name}',
+                  ),
+              ],
+              files: [
+                for (final entry in entries.where((e) => !e.isDirectory))
+                  DirectoryListingEntry(
+                    name: entry.name,
+                    path: '$path/${entry.name}',
+                  ),
+              ],
+            ),
+          );
+        }
       case 'read_file':
       case 'read_media_file':
         final filePath = json['filePath'] as String? ?? '';
@@ -430,8 +476,22 @@ class MockBridgeService extends BridgeService {
   @override
   Stream<List<SessionInfo>> get sessionList => const Stream.empty();
 
+  String _browserMockProject = '';
+  @override
+  Stream<FileListMessage> fileListMessagesForProject(String projectPath) =>
+      messages
+          .where((m) => m is FileListMessage && m.projectPath == projectPath)
+          .cast<FileListMessage>();
+  @override
+  List<String> fileListForProject(String projectPath) => _mockProjectFiles;
+
   @override
   void requestFileList(String projectPath) {
+    _browserMockProject = projectPath;
+    _scheduleMessage(
+      Duration.zero,
+      FileListMessage(projectPath: projectPath, files: _mockProjectFiles),
+    );
     if (!_fileListController.isClosed) {
       _fileListController.add(_mockProjectFiles);
     }

@@ -9,6 +9,7 @@ class ExploreEntryTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onShareFile;
   final bool isHighlighted;
+  final bool showPath;
 
   const ExploreEntryTile({
     super.key,
@@ -16,6 +17,7 @@ class ExploreEntryTile extends StatelessWidget {
     required this.onTap,
     this.onShareFile,
     this.isHighlighted = false,
+    this.showPath = false,
   });
 
   @override
@@ -41,7 +43,7 @@ class ExploreEntryTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: entry.isIgnored ? TextStyle(color: ignoredColor) : null,
       ),
-      subtitle: entry.isDirectory
+      subtitle: entry.isDirectory && !showPath
           ? null
           : Text(
               entry.isIgnored

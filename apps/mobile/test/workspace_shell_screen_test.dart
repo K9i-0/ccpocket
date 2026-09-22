@@ -768,6 +768,115 @@ void main() {
     },
   );
 
+  testWidgets(
+    'file browser spans center and right, restores back and closes on session change',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          debugRecentSessions: [_recentSession('one')],
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+      final shell = shellKey.currentState!;
+      shell.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'pending-browser',
+          projectPath: '/Users/demo/project-one',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+      var backs = 0;
+      var completed = false;
+      shell
+          .showFileBrowser(
+            builder: (close) => Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  key: const ValueKey('browser_test_dialog'),
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    builder: (_) => const Text('Browser child sheet'),
+                  ),
+                  child: const Text('Browser test'),
+                ),
+              ),
+            ),
+            back: (close) => () {
+              backs++;
+              close();
+            },
+          )
+          .then((_) => completed = true);
+      await _pumpUi(tester);
+      final browserRect = tester.getRect(
+        find.byKey(const ValueKey('workspace_browser_slot')),
+      );
+      final leftRect = tester.getRect(
+        find.byKey(const ValueKey('workspace_list_slot')),
+      );
+      expect(browserRect.left, greaterThanOrEqualTo(leftRect.right));
+      expect(browserRect.right, 1400);
+      expect(NotificationService.instance.activeSessionId, isNull);
+      await tester.tap(find.byKey(const ValueKey('browser_test_dialog')));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Browser child sheet'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Browser child sheet'), findsNothing);
+      expect(find.text('Browser test'), findsOneWidget);
+      expect(backs, 0);
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      await _pumpUi(tester);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('workspace_browser_slot')))
+            .width,
+        390,
+      );
+      await tester.binding.handlePopRoute();
+      await _pumpUi(tester);
+      expect(backs, 1);
+      expect(completed, true);
+      expect(shell.selectedSession?.sessionId, 'pending-browser');
+      expect(NotificationService.instance.activeSessionId, 'pending-browser');
+      var switchedCompletion = false;
+      shell
+          .showFileBrowser(
+            builder: (close) => const Scaffold(body: Text('Second browser')),
+            back: (close) => close,
+          )
+          .then((_) => switchedCompletion = true);
+      await _pumpUi(tester);
+      shell.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'pending-other',
+          projectPath: '/Users/demo/project-two',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+      expect(find.text('Second browser'), findsNothing);
+      expect(switchedCompletion, true);
+    },
+  );
+
   testWidgets('settings overlay back restores selected session root', (
     tester,
   ) async {

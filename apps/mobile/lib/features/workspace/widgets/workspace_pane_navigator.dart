@@ -81,8 +81,13 @@ class _WorkspacePaneNavigatorState extends State<WorkspacePaneNavigator> {
                   controller: _heroController,
                   child: NavigatorPopHandler<Object?>(
                     enabled: widget.handlesBack && widget.active,
-                    onPopWithResult: (result) =>
-                        widget.navigatorKey.currentState?.pop(result),
+                    onPopWithResult: (result) {
+                      // PopScope notifies every registered handler, including
+                      // disabled panes, when a sibling vetoes the root pop.
+                      if (widget.handlesBack && widget.active) {
+                        widget.navigatorKey.currentState?.pop(result);
+                      }
+                    },
                     child: Navigator(
                       key: widget.navigatorKey,
                       // The sibling list must retain focus when no page is selected.

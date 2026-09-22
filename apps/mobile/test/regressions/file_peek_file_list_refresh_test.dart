@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:ccpocket/features/claude_session/claude_session_screen.dart';
 import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
@@ -410,6 +411,21 @@ void main() {
         await tester.tap(find.text('main.dart'));
         await tester.pump();
 
+        // Unknown paths are resolved by filesystem type before previewing.
+        final probe = bridge.sentMessages
+            .map(
+              (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,
+            )
+            .lastWhere((message) => message['type'] == 'list_directory');
+        bridge.emitMessage(
+          ErrorMessage(
+            message: 'Selected path is not a directory',
+            errorCode: 'not_a_directory',
+            requestId: probe['requestId'] as String,
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
         final outgoing = bridge.sentMessages
             .map((message) => message.toJson())
             .join('\n');

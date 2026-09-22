@@ -177,6 +177,43 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   bool _rootVisible = true;
   final _centerNavigatorKey = GlobalKey<NavigatorState>();
   final _toolNavigatorKey = GlobalKey<NavigatorState>();
+  GlobalKey<NavigatorState> _browserNavigatorKey = GlobalKey<NavigatorState>();
+  WidgetBuilder? _browserBuilder;
+  VoidCallback? _browserBack;
+  Completer<void>? _browserCompletion;
+
+  Future<void> showFileBrowser({
+    required Widget Function(VoidCallback close) builder,
+    required VoidCallback Function(VoidCallback close) back,
+  }) {
+    closeFileBrowser();
+    final completion = Completer<void>();
+    void close() {
+      if (identical(_browserCompletion, completion)) closeFileBrowser();
+    }
+
+    setState(() {
+      _browserNavigatorKey = GlobalKey<NavigatorState>();
+      _browserCompletion = completion;
+      _browserBuilder = (_) => builder(close);
+      _browserBack = back(close);
+    });
+    _notifyPresentationChanged();
+    return completion.future;
+  }
+
+  void closeFileBrowser() {
+    if (_browserCompletion == null) return;
+    final completion = _browserCompletion;
+    setState(() {
+      _browserBuilder = null;
+      _browserBack = null;
+      _browserCompletion = null;
+    });
+    completion?.complete();
+    _notifyPresentationChanged();
+  }
+
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
   StreamSubscription<String>? _stoppedSessionSub;
   StreamSubscription<WorkspaceNavigationState>? _navigationSub;
@@ -220,6 +257,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     }
     final visible =
         _rootVisible &&
+        _browserBuilder == null &&
         _selectedSession != null &&
         _centerOverlay == WorkspaceCenterOverlay.none &&
         (!isSinglePane || _toolPane == null || _state.centerInFront);
@@ -477,6 +515,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   void resetWorkspace() {
+    closeFileBrowser();
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
     _navigation.reset();
@@ -519,6 +558,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   void selectSession(WorkspaceSessionSelection selection) {
+    closeFileBrowser();
     _rememberVisibleToolPane();
     _navigation.selectSession(
       selection,
@@ -528,6 +568,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   void clearSelectedSession({int? entry}) {
     if (entry != null && entry != _state.sessionEntry) return;
+    closeFileBrowser();
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
     _navigation.closeSession();
@@ -548,6 +589,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   @override
   void dispose() {
+    _browserCompletion?.complete();
+    _browserCompletion = null;
     NotificationService.instance.clearActiveSession(owner: this);
     _stoppedSessionSub?.cancel();
     _navigationSub?.cancel();
@@ -622,7 +665,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                 navigatorKey: _centerNavigatorKey,
                 onInteraction: compact ? null : _navigation.activateCenter,
                 compact: compact,
-                active: centerActive,
+                active: centerActive && _browserBuilder == null,
                 handlesBack: !showRightPane || _state.centerInFront,
                 background: compact
                     ? const SizedBox.expand()
@@ -695,7 +738,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                 navigatorKey: _toolNavigatorKey,
                 onInteraction: compact ? null : _navigation.activateTool,
                 compact: compact,
-                active: toolActive,
+                active: toolActive && _browserBuilder == null,
                 handlesBack: !hasCenter || !_state.centerInFront,
                 visible: !compact || !centerActive || _toolPane == null,
                 pages: [
@@ -727,68 +770,94 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           final resizeHandleHitWidth = _resizeHandleHitWidth(
             Theme.of(context).platform,
           );
-          return Stack(
-            children: [
-              Positioned(
-                key: const ValueKey('workspace_list_slot'),
-                top: 0,
-                bottom: 0,
-                left: 0,
-                width: leftWidth,
-                child: IgnorePointer(
-                  ignoring: compact && (hasCenter || showRightPane),
-                  child: ExcludeFocus(
-                    excluding: compact && (hasCenter || showRightPane),
-                    child: ExcludeSemantics(
+          return PopScope(
+            canPop: _browserBuilder == null,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) {
+                final navigator = _browserNavigatorKey.currentState;
+                if (navigator?.canPop() == true) {
+                  navigator!.pop();
+                } else {
+                  _browserBack?.call();
+                }
+              }
+            },
+            child: Stack(
+              children: [
+                Positioned(
+                  key: const ValueKey('workspace_list_slot'),
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: leftWidth,
+                  child: IgnorePointer(
+                    ignoring: compact && (hasCenter || showRightPane),
+                    child: ExcludeFocus(
                       excluding: compact && (hasCenter || showRightPane),
-                      child: ColoredBox(
-                        color: Theme.of(context).colorScheme.surface,
-                        child: MediaQuery.removePadding(
-                          context: context,
-                          removeRight: !compact,
-                          child: SessionListScreen(
-                            deepLinkNotifier: widget.deepLinkNotifier,
-                            debugRecentSessions: widget.debugRecentSessions,
-                            embedded: !compact,
-                            onSelectWorkspaceSession: selectSession,
+                      child: ExcludeSemantics(
+                        excluding: compact && (hasCenter || showRightPane),
+                        child: ColoredBox(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeRight: !compact,
+                            child: SessionListScreen(
+                              deepLinkNotifier: widget.deepLinkNotifier,
+                              debugRecentSessions: widget.debugRecentSessions,
+                              embedded: !compact,
+                              onSelectWorkspaceSession: selectSession,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (!compact)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: leftWidth,
-                  child: _WorkspacePaneDivider(
-                    color: Theme.of(context).dividerColor
-                        .withValues(alpha: 0.18),
-                  ),
-                ),
-              if (_state.centerInFront) tool,
-              center,
-              if (!_state.centerInFront) tool,
-              if (!compact && showRightPane)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  right:
-                      rightWidth -
-                      ((resizeHandleHitWidth - _twoPaneDividerWidth) / 2),
-                  width: resizeHandleHitWidth,
-                  child: _WorkspaceResizeHandle(
-                    color: Theme.of(context).dividerColor
-                        .withValues(alpha: 0.18),
-                    onDragUpdate: (delta) => resizeRightPane(
-                      rightWidth - padding.right - delta,
-                      usableWidth,
+                if (!compact)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: leftWidth,
+                    child: _WorkspacePaneDivider(
+                      color: Theme.of(context).dividerColor
+                          .withValues(alpha: 0.18),
                     ),
                   ),
-                ),
-            ],
+                if (_state.centerInFront) tool,
+                center,
+                if (!_state.centerInFront) tool,
+                if (!compact && showRightPane)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    right:
+                        rightWidth -
+                        ((resizeHandleHitWidth - _twoPaneDividerWidth) / 2),
+                    width: resizeHandleHitWidth,
+                    child: _WorkspaceResizeHandle(
+                      color: Theme.of(context).dividerColor
+                          .withValues(alpha: 0.18),
+                      onDragUpdate: (delta) => resizeRightPane(
+                        rightWidth - padding.right - delta,
+                        usableWidth,
+                      ),
+                    ),
+                  ),
+                if (_browserBuilder != null)
+                  Positioned(
+                    key: const ValueKey('workspace_browser_slot'),
+                    top: 0,
+                    bottom: 0,
+                    left: centerLeft,
+                    right: 0,
+                    child: Navigator(
+                      key: _browserNavigatorKey,
+                      onGenerateRoute: (_) =>
+                          MaterialPageRoute<void>(builder: _browserBuilder!),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),

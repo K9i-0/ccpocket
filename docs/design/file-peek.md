@@ -1,5 +1,8 @@
 # File Peek
 
+> 現行の画面・Explorer 統合・履歴・互換性設計は [Unified file browsing](file-browser.md) を参照。
+> 本文のボトムシート設計は導入時の記録であり、現在は共通の全画面ブラウザーで表示する。
+
 ## Context
 
 エージェントのメッセージ内に登場するファイルパス（`` `lib/main.dart` `` など）をタップ可能にし、

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -5,27 +7,42 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../services/bridge_service.dart';
-import '../../widgets/file_type_icon.dart';
-import '../../widgets/workspace_pane_chrome.dart';
-import '../file_peek/file_peek_sheet.dart';
-import '../file_transfer/widgets/file_transfer_dialog.dart';
 import '../file_upload/widgets/file_upload_dialog.dart';
+import '../file_browser/file_browser_reference.dart';
+import '../file_browser/file_browser_view.dart';
+import '../file_browser/open_file_browser.dart';
+import '../file_browser/state/file_browser_cubit.dart';
+import '../file_browser/state/file_browser_state.dart';
 import '../session_list/workspace_shell_screen.dart';
-import 'state/explore_cubit.dart';
 import 'state/explore_state.dart';
-import 'widgets/explore_breadcrumbs.dart';
-import 'widgets/explore_empty_state.dart';
-import 'widgets/explore_file_list.dart';
 
-String _projectName(String projectPath) {
-  final parts = projectPath
-      .split(RegExp(r'[/\\]'))
-      .where((part) => part.isNotEmpty);
-  return parts.isEmpty ? projectPath : parts.last;
+Future<ExploreScreenResult?> openExplorerScreen(
+  BuildContext context, {
+  required String sessionId,
+  required String projectPath,
+  List<String> initialFiles = const [],
+  String initialPath = '',
+  List<String> recentPeekedFiles = const [],
+}) {
+  final bridge = context.read<BridgeService>();
+  return Navigator.of(context).push<ExploreScreenResult>(
+    MaterialPageRoute(
+      builder: (_) => RepositoryProvider<BridgeService>.value(
+        value: bridge,
+        child: ExploreScreen(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          initialFiles: initialFiles,
+          initialPath: initialPath,
+          recentPeekedFiles: recentPeekedFiles,
+        ),
+      ),
+    ),
+  );
 }
 
 @RoutePage()
-class ExploreScreen extends StatelessWidget {
+class ExploreScreen extends StatefulWidget {
   final String sessionId;
   final String projectPath;
   final List<String> initialFiles;
@@ -34,7 +51,6 @@ class ExploreScreen extends StatelessWidget {
   final bool embedded;
   final VoidCallback? onClose;
   final ValueChanged<ExploreScreenResult>? onResultChanged;
-
   const ExploreScreen({
     super.key,
     required this.sessionId,
@@ -46,101 +62,82 @@ class ExploreScreen extends StatelessWidget {
     this.onClose,
     this.onResultChanged,
   });
-
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ExploreCubit(
-        bridge: context.read<BridgeService>(),
-        projectPath: projectPath,
-        initialFiles: initialFiles,
-        initialPath: initialPath,
-        recentPeekedFiles: recentPeekedFiles,
-      ),
-      child: _ExploreScreenBody(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        embedded: embedded,
-        onClose: onClose,
-        onResultChanged: onResultChanged,
-      ),
+  State<ExploreScreen> createState() => _ExploreScreenState();
+}
+
+class _ExploreScreenState extends State<ExploreScreen> {
+  late final FileBrowserCubit _cubit;
+  late final StreamSubscription<FileBrowserState> _subscription;
+  bool _expanded = false;
+  @override
+  void initState() {
+    super.initState();
+    _cubit = FileBrowserCubit(
+      bridge: context.read<BridgeService>(),
+      projectPath: widget.projectPath,
+      initialFiles: widget.initialFiles,
+      initialDirectory: widget.initialPath,
+      recentFiles: widget.recentPeekedFiles,
     );
-  }
-}
-
-class _ExploreScreenBody extends StatefulWidget {
-  final String sessionId;
-  final String projectPath;
-  final bool embedded;
-  final VoidCallback? onClose;
-  final ValueChanged<ExploreScreenResult>? onResultChanged;
-
-  const _ExploreScreenBody({
-    required this.sessionId,
-    required this.projectPath,
-    this.embedded = false,
-    this.onClose,
-    this.onResultChanged,
-  });
-
-  @override
-  State<_ExploreScreenBody> createState() => _ExploreScreenBodyState();
-}
-
-class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
-  final GlobalKey _highlightedEntryKey = GlobalKey();
-  final ScrollController _fileListController = ScrollController();
-  String? _highlightedFilePath;
-
-  @override
-  void dispose() {
-    _fileListController.dispose();
-    super.dispose();
-  }
-
-  void _closeExplorer() {
-    final result = context.read<ExploreCubit>().buildResult();
-    widget.onResultChanged?.call(result);
-    if (widget.embedded) {
-      widget.onClose?.call();
-      return;
-    }
-    Navigator.of(context).pop(result);
-  }
-
-  void _notifyResultChanged(ExploreCubit cubit) {
-    widget.onResultChanged?.call(cubit.buildResult());
-  }
-
-  void _openDirectory(ExploreCubit cubit, String path) {
-    setState(() => _highlightedFilePath = null);
-    cubit.openDirectory(path);
-    _notifyResultChanged(cubit);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _fileListController.hasClients) {
-        _fileListController.jumpTo(0);
-      }
+    _subscription = _cubit.stream.listen((state) {
+      widget.onResultChanged?.call(
+        ExploreScreenResult(
+          currentPath: state.location.directory,
+          recentPeekedFiles: state.recentFiles,
+        ),
+      );
     });
   }
 
-  Future<void> _openRecentFilesSheet(ExploreCubit cubit) async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => _RecentFilesSheet(
-        recentFiles: cubit.recentPeekedFiles,
-        availableFiles: cubit.allFiles.toSet(),
-      ),
-    );
-    if (!mounted || picked == null) return;
-    await _openFilePeek(cubit, picked, navigateToFileDirectory: true);
+  @override
+  void dispose() {
+    _subscription.cancel();
+    _cubit.close();
+    super.dispose();
   }
 
-  Future<void> _pickAndUploadFiles(ExploreCubit cubit) async {
+  void _close() {
+    if (widget.embedded) {
+      widget.onClose?.call();
+    } else {
+      Navigator.of(context).pop(
+        ExploreScreenResult(
+          currentPath: _cubit.state.location.directory,
+          recentPeekedFiles: _cubit.state.recentFiles,
+        ),
+      );
+    }
+  }
+
+  Future<void> _expandFile(String path) async {
+    if (_expanded) return;
+    final location = _cubit.state.location;
+    final history = _cubit.state.history;
+    _expanded = true;
+    _cubit.openFile(path);
+    var addedReference = false;
+    final reference = FileBrowserReferences.capture(
+      _cubit.bridge,
+      widget.sessionId,
+    );
+    await presentFileBrowser(
+      context,
+      cubit: _cubit,
+      onAddToChat: reference == null
+          ? null
+          : (path) {
+              reference(path);
+              addedReference = true;
+            },
+    );
+    if (!mounted) return;
+    _expanded = false;
+    _cubit.restore(location, history);
+    if (addedReference) _close();
+  }
+
+  Future<void> _pickAndUploadFiles(FileBrowserCubit cubit) async {
     final l = AppLocalizations.of(context);
     try {
       final files = await openFiles();
@@ -167,12 +164,12 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
         context,
         bridge: context.read<BridgeService>(),
         projectPath: widget.projectPath,
-        directoryPath: cubit.state.currentPath,
+        directoryPath: cubit.state.location.directory,
         files: files,
         fileSizes: sizes,
       );
       if (!mounted || uploadedPaths == null || uploadedPaths.isEmpty) return;
-      setState(() => _highlightedFilePath = uploadedPaths.last);
+      cubit.retry();
       context.read<BridgeService>().requestFileList(widget.projectPath);
     } catch (_) {
       if (!mounted) return;
@@ -181,301 +178,23 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
     }
   }
 
-  Future<void> _openFilePeek(
-    ExploreCubit cubit,
-    String filePath, {
-    bool navigateToFileDirectory = false,
-  }) async {
-    setState(() => _highlightedFilePath = filePath);
-    if (navigateToFileDirectory) {
-      cubit.jumpToFile(filePath);
-      _notifyResultChanged(cubit);
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return;
-    }
-    await showFilePeekSheet(
-      context,
-      bridge: context.read<BridgeService>(),
-      projectPath: widget.projectPath,
-      filePath: filePath,
-      onOpened: () {
-        cubit.recordPeekedFile(filePath);
-        _notifyResultChanged(cubit);
-        if (mounted) {
-          setState(() => _highlightedFilePath = filePath);
-        }
-      },
-    );
-  }
-
-  void _ensureHighlightedVisible() {
-    if (_highlightedFilePath == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _highlightedFilePath == null) return;
-      final currentContext = _highlightedEntryKey.currentContext;
-      if (currentContext == null) return;
-      Scrollable.ensureVisible(
-        currentContext,
-        duration: const Duration(milliseconds: 220),
-        alignment: 0.3,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ExploreCubit, ExploreState>(
-      builder: (context, state) {
-        _ensureHighlightedVisible();
-        final cubit = context.read<ExploreCubit>();
-        final shell = WorkspaceShellScreen.maybeOf(context);
-        final chrome = resolveWorkspacePaneChrome(
-          platform: Theme.of(context).platform,
-          isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
-          isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
-          slot: WorkspacePaneSlot.right,
-        );
-        final leading = IconButton(
-          key: ValueKey(
-            widget.embedded
-                ? 'close_explore_pane_button'
-                : 'close_explore_screen_button',
-          ),
-          onPressed: _closeExplorer,
-          style: chrome.useMacOSAdaptiveChrome
-              ? chrome.compactButtonStyle()
-              : null,
-          icon: Icon(widget.embedded ? Icons.close : Icons.arrow_back),
-        );
-        final scaffold = Scaffold(
-          appBar: chrome.wrapAppBar(
-            AppBar(
-              toolbarHeight: chrome.toolbarHeight,
-              title: chrome.wrapTitle(const Text('Explorer')),
-              automaticallyImplyLeading: !widget.embedded,
-              leading: chrome.wrapLeading(leading),
-              leadingWidth: chrome.resolveLeadingWidth(
-                hasLeading: true,
-                baseWidth: chrome.useMacOSAdaptiveChrome
-                    ? kWorkspaceMacOSToolbarLeadingSlotWidth
-                    : kToolbarHeight,
-              ),
-              titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
-              actions: chrome.padActions([
-                if (supportsProjectFileUpload)
-                  IconButton(
-                    key: const ValueKey('explore_upload_button'),
-                    onPressed: () => _pickAndUploadFiles(cubit),
-                    style: chrome.useMacOSAdaptiveChrome
-                        ? chrome.compactButtonStyle()
-                        : null,
-                    icon: const Icon(Icons.upload_file),
-                    tooltip: AppLocalizations.of(context).fileUploadTitle,
-                  ),
-                IconButton(
-                  key: const ValueKey('explore_recent_files_button'),
-                  onPressed: () => _openRecentFilesSheet(cubit),
-                  style: chrome.useMacOSAdaptiveChrome
-                      ? chrome.compactButtonStyle()
-                      : null,
-                  icon: const Icon(Icons.history),
-                  tooltip: 'Recent files',
-                ),
-              ]),
-            ),
-          ),
-          body: Column(
-            children: [
-              ExploreBreadcrumbs(
-                projectName: _projectName(widget.projectPath),
-                currentPath: state.currentPath,
-                breadcrumbs: cubit.breadcrumbs,
-                onTapCrumb: (crumb) {
-                  if (crumb == state.currentPath) return;
-                  _openDirectory(cubit, crumb);
-                },
-              ),
-              if (state.fileListTruncated)
-                _FileListTruncatedNotice(
-                  visibleCount: state.allFiles.length,
-                  totalFiles: state.totalFiles,
-                ),
-              Expanded(child: _buildBody(context, state)),
-            ],
-          ),
-        );
-
-        if (widget.embedded) {
-          return scaffold;
-        }
-
-        return PopScope<void>(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) {
-            if (didPop) return;
-            _closeExplorer();
-          },
-          child: scaffold,
-        );
-      },
-    );
-  }
-
-  Widget _buildBody(BuildContext context, ExploreState state) {
-    switch (state.status) {
-      case ExploreStatus.loading:
-        return const Center(child: CircularProgressIndicator());
-      case ExploreStatus.empty:
-        return const ExploreEmptyState();
-      case ExploreStatus.error:
-        return Center(child: Text(state.error ?? 'Failed to load files'));
-      case ExploreStatus.ready:
-        return ExploreFileList(
-          controller: _fileListController,
-          entries: state.visibleEntries,
-          highlightedFilePath: _highlightedFilePath,
-          highlightedEntryKey: _highlightedEntryKey,
-          onShareFile: supportsProjectFileTransfer
-              ? (entry) => showProjectFileTransferDialog(
-                  context,
-                  bridge: context.read<BridgeService>(),
-                  projectPath: widget.projectPath,
-                  filePath: entry.relativePath,
-                )
-              : null,
-          onTapEntry: (entry) {
-            if (entry.isDirectory) {
-              _openDirectory(context.read<ExploreCubit>(), entry.relativePath);
-              return;
-            }
-            _openFilePeek(context.read<ExploreCubit>(), entry.relativePath);
-          },
-        );
-    }
-  }
-}
-
-class _FileListTruncatedNotice extends StatelessWidget {
-  final int visibleCount;
-  final int? totalFiles;
-
-  const _FileListTruncatedNotice({
-    required this.visibleCount,
-    required this.totalFiles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final text = totalFiles == null
-        ? 'Showing the first $visibleCount entries'
-        : 'Showing $visibleCount of $totalFiles entries';
-    return Container(
-      key: const ValueKey('explore_file_list_truncated_notice'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: colorScheme.surfaceContainerHighest,
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            size: 18,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentFilesSheet extends StatelessWidget {
-  final List<String> recentFiles;
-  final Set<String> availableFiles;
-
-  const _RecentFilesSheet({
-    required this.recentFiles,
-    required this.availableFiles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final subtle = Theme.of(context).colorScheme.onSurfaceVariant;
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: subtle.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                Icon(Icons.history, size: 18),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Recent open files',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          if (recentFiles.isEmpty)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 20, 16, 24),
-              child: Text('No recent open files yet'),
-            )
-          else
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: recentFiles.length,
-                itemBuilder: (context, index) {
-                  final path = recentFiles[index];
-                  final exists = availableFiles.contains(path);
-                  final fileName = path.split('/').last;
-                  final dir = parentDirectoryOf(path);
-                  return ListTile(
-                    enabled: exists,
-                    leading: exists
-                        ? FileTypeIcon(path: path)
-                        : const Icon(Icons.error_outline),
-                    title: Text(fileName),
-                    subtitle: Text(
-                      dir.isEmpty ? '/' : dir,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        color: subtle,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: exists
-                        ? () => Navigator.of(context).pop(path)
-                        : null,
-                  );
-                },
-              ),
-            ),
-        ],
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final embedded = widget.embedded && shell != null;
+    return BlocProvider.value(
+      value: _cubit,
+      child: FileBrowserView(
+        embedded: embedded,
+        onClose: _close,
+        onOpenFile: embedded ? _expandFile : null,
+        onAddToChat: FileBrowserReferences.capture(
+          _cubit.bridge,
+          widget.sessionId,
+        ),
+        onUpload: supportsProjectFileUpload
+            ? () => _pickAndUploadFiles(_cubit)
+            : null,
       ),
     );
   }

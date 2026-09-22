@@ -1,3 +1,6 @@
+import '../explore/explore_screen.dart';
+import '../file_browser/file_browser_reference.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -763,7 +766,15 @@ class _CodexChatBody extends HookWidget {
         onExploreResultChanged: handleExploreResult,
         onFilePeekOpened: handleFilePeekOpened,
       );
-      return () => shell?.unregisterSessionToolPaneBindings(sessionId);
+      final unregisterReference = FileBrowserReferences.register(
+        context.read<BridgeService>(),
+        sessionId,
+        chatInputController.insertFileReference,
+      );
+      return () {
+        unregisterReference();
+        shell?.unregisterSessionToolPaneBindings(sessionId);
+      };
     }, [sessionId]);
 
     useEffect(() {
@@ -1114,16 +1125,13 @@ class _CodexChatBody extends HookWidget {
                               );
                               return;
                             }
-                            final result = await context.router.push(
-                              ExploreRoute(
-                                sessionId: sessionId,
-                                projectPath: effectiveProjectPath,
-                                initialFiles: context
-                                    .read<FileListCubit>()
-                                    .state,
-                                initialPath: initialPath,
-                                recentPeekedFiles: recentPeekedFiles,
-                              ),
+                            final result = await openExplorerScreen(
+                              context,
+                              sessionId: sessionId,
+                              projectPath: effectiveProjectPath,
+                              initialFiles: context.read<FileListCubit>().state,
+                              initialPath: initialPath,
+                              recentPeekedFiles: recentPeekedFiles,
                             );
                             if (result is! ExploreScreenResult ||
                                 !context.mounted) {

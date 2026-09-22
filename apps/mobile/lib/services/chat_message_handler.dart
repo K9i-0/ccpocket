@@ -326,6 +326,10 @@ class ChatMessageHandler {
         // per-session chat transcript.
         return const ChatStateUpdate();
       case ErrorMessage(:final message, :final errorCode):
+        // Directory probes and listing failures belong to the file browser.
+        if (msg.requestId?.startsWith('browser-directory-') ?? false) {
+          return const ChatStateUpdate();
+        }
         if (errorCode == 'goal_get_failed') {
           logger.warning('[handler] goal lookup unavailable: $message');
           return const ChatStateUpdate();

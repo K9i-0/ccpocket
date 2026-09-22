@@ -3135,4 +3135,68 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get photosPermissionDenied =>
       'Allow adding photos in Settings to save images and videos.';
+
+  @override
+  String get browserTitle => 'Files';
+
+  @override
+  String get browserSearch => 'Search file names and paths';
+
+  @override
+  String get browserBack => 'Back';
+
+  @override
+  String get browserParent => 'Parent folder';
+
+  @override
+  String get browserClose => 'Close';
+
+  @override
+  String get browserAddToChat => 'Add to chat';
+
+  @override
+  String get browserRecent => 'Recently opened';
+
+  @override
+  String get browserEmpty => 'This folder is empty';
+
+  @override
+  String get browserNoResults => 'No matching files or folders';
+
+  @override
+  String get browserRetry => 'Retry';
+
+  @override
+  String get browserTimeout =>
+      'The request timed out. Check the connection and retry.';
+
+  @override
+  String get browserIndexLimited =>
+      'Search covers the loaded file index. Browse folders to see all entries.';
+
+  @override
+  String get browserLegacy =>
+      'Update Bridge for complete folder contents. Showing indexed entries.';
+
+  @override
+  String get browserToggleList => 'Show or hide file list';
+
+  @override
+  String get browserRefresh => 'Refresh';
+
+  @override
+  String get browserNotAllowed =>
+      'This folder is outside the allowed browsing area.';
+
+  @override
+  String get browserNotFound => 'This path no longer exists.';
+
+  @override
+  String get browserUnreadable => 'This folder cannot be read.';
+
+  @override
+  String get browserCopyPath => 'Copy path';
+
+  @override
+  String get browserNoRecent => 'Files you open will appear here.';
 }
