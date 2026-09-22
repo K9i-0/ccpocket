@@ -30,6 +30,7 @@ import '../../../services/ios_clipboard_image_availability.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
 import '../../sketch/sketch_screen.dart';
 import 'image_attachment_sheet.dart';
+import 'ios_image_paste_button.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -818,7 +819,20 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
-    Future<void> pasteFromClipboard() async {
+    void addNativePastedImage(Uint8List bytes, String mimeType) {
+      if (!context.mounted || activeSessionId.value != sessionId) return;
+      if (attachedImages.value.length >= 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).imageLimitReached(5)),
+          ),
+        );
+        return;
+      }
+      addImageBytes(bytes, mimeType);
+    }
+
+    Future<void> pasteFromClipboard({bool useLegacyIOS = false}) async {
       const maxImages = 5;
       if (attachedImages.value.length >= maxImages) {
         if (context.mounted) {
@@ -830,6 +844,23 @@ class ChatInputWithOverlays extends HookWidget {
             ),
           );
         }
+        return;
+      }
+
+      if (isIOSPlatform && !useLegacyIOS) {
+        await showModalBottomSheet<void>(
+          context: context,
+          builder: (sheetContext) => IOSImagePasteSheet(
+            onImage: (bytes, mimeType) {
+              Navigator.pop(sheetContext);
+              addNativePastedImage(bytes, mimeType);
+            },
+            onLegacyPaste: () {
+              Navigator.pop(sheetContext);
+              pasteFromClipboard(useLegacyIOS: true);
+            },
+          ),
+        );
         return;
       }
 
@@ -947,6 +978,19 @@ class ChatInputWithOverlays extends HookWidget {
         context: context,
         builder: (sheetContext) => ImageAttachmentSheet(
           clipboardHasImage: hasContextMenuClipboardImage(),
+          clipboardAction: isIOSPlatform
+              ? IOSImagePasteButton(
+                  key: const ValueKey('attach_from_clipboard'),
+                  onImage: (bytes, mimeType) {
+                    Navigator.pop(sheetContext);
+                    addNativePastedImage(bytes, mimeType);
+                  },
+                  onLegacyPaste: () {
+                    Navigator.pop(sheetContext);
+                    pasteFromClipboard(useLegacyIOS: true);
+                  },
+                )
+              : null,
           onGallery: () {
             Navigator.pop(sheetContext);
             pickImageFromGallery();

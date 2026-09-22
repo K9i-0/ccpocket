@@ -6,6 +6,16 @@ class IOSClipboardImageAvailability {
 
   static const _channel = MethodChannel('ccpocket/clipboard');
 
+  static Future<bool> supportsPasteControl() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
+    try {
+      return await _channel.invokeMethod<bool>('supportsPasteControl') ?? false;
+    } on MissingPluginException {
+      // Older installed runners (including OTA updates) keep the old action.
+      return false;
+    }
+  }
+
   static Future<bool> hasSupportedImage() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
     try {

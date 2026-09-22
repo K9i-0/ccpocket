@@ -41,6 +41,12 @@ import Photos
         binaryMessenger: registrar.messenger()
       )
       channel.setMethodCallHandler(handleClipboardMethodCall)
+      if #available(iOS 16.0, *) {
+        registrar.register(
+          ImagePasteViewFactory(messenger: registrar.messenger()),
+          withId: "ccpocket/image_paste_button"
+        )
+      }
     }
   }
 
@@ -124,6 +130,14 @@ import Photos
   }
 
   private func handleClipboardMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    if call.method == "supportsPasteControl" {
+      if #available(iOS 16.0, *) {
+        result(true)
+      } else {
+        result(false)
+      }
+      return
+    }
     guard call.method == "hasSupportedImage" else {
       result(FlutterMethodNotImplemented)
       return

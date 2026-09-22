@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CB840AAF3130000100000001 /* ImagePasteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB840AAF3130000100000002 /* ImagePasteView.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		1E4DC1B65103A8268FED0DF9 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E8713AD49D75AFA6B6C79723 /* Pods_RunnerTests.framework */; };
 		2B888AB8E38C73701977B579 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 15370BEFB4E960E19CC0C5DD /* GoogleService-Info.plist */; };
@@ -46,6 +47,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CB840AAF3130000100000002 /* ImagePasteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePasteView.swift; sourceTree = "<group>"; };
 		02E92EEBB248911A4F2A34FC /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -176,6 +178,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				CB840AAF3130000100000002 /* ImagePasteView.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				A11CE0010000000000000001 /* Runner.entitlements */,
 				A11CE0010000000000000002 /* RunnerRelease.entitlements */,
@@ -443,6 +446,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				CB840AAF3130000100000001 /* ImagePasteView.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
