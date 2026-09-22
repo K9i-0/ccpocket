@@ -67,6 +67,28 @@ void registerStoreScreenshotExtensions() {
   if (!kDebugMode) return;
 
   registerMarionetteExtension(
+    name: 'ccpocket.setDeviceOrientation',
+    description:
+        'Debug adaptive-layout verification: portrait, landscape, or system.',
+    callback: (params) async {
+      final orientation = params['orientation'];
+      final values = switch (orientation) {
+        'portrait' => [DeviceOrientation.portraitUp],
+        'landscape' => [DeviceOrientation.landscapeLeft],
+        'system' => <DeviceOrientation>[],
+        _ => null,
+      };
+      if (values == null) {
+        return MarionetteExtensionResult.invalidParams(
+          'Use portrait, landscape, or system.',
+        );
+      }
+      await SystemChrome.setPreferredOrientations(values);
+      return MarionetteExtensionResult.success({'orientation': orientation});
+    },
+  );
+
+  registerMarionetteExtension(
     name: 'ccpocket.navigateToStoreScenario',
     description:
         'Navigate to a store screenshot scenario by name. '

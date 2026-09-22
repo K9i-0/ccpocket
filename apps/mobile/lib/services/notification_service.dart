@@ -20,6 +20,7 @@ class NotificationService extends ChangeNotifier {
   bool _initialized = false;
   String? _activeSessionId;
   String? _activeProvider;
+  Object? _activeSessionOwner;
   bool _notifyScheduled = false;
 
   String? get activeSessionId => _activeSessionId;
@@ -85,17 +86,28 @@ class NotificationService extends ChangeNotifier {
     onNotificationTap?.call(response.payload);
   }
 
-  void setActiveSession({required String sessionId, required String provider}) {
+  void setActiveSession({
+    required String sessionId,
+    required String provider,
+    Object? owner,
+  }) {
+    _activeSessionOwner = owner;
     if (_activeSessionId == sessionId && _activeProvider == provider) return;
     _activeSessionId = sessionId;
     _activeProvider = provider;
     _notifyListenersSafely();
   }
 
-  void clearActiveSession({String? sessionId, String? provider}) {
+  void clearActiveSession({
+    String? sessionId,
+    String? provider,
+    Object? owner,
+  }) {
+    if (owner != null && !identical(owner, _activeSessionOwner)) return;
     if (sessionId != null && _activeSessionId != sessionId) return;
     if (provider != null && _activeProvider != provider) return;
     if (_activeSessionId == null && _activeProvider == null) return;
+    _activeSessionOwner = null;
     _activeSessionId = null;
     _activeProvider = null;
     _notifyListenersSafely();

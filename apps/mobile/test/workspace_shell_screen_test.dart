@@ -2,11 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
+import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
+import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/features/session_list/session_list_screen.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/machine.dart';
+import 'package:ccpocket/router/app_router.dart';
+import 'package:ccpocket/router/session_stack_navigation.dart';
+import 'package:ccpocket/router/session_route_observer.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
@@ -22,6 +28,8 @@ import 'package:ccpocket/services/ssh_startup_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/session_card.dart';
+import 'package:ccpocket/widgets/chat_input_bar.dart';
+import 'package:ccpocket/features/git/git_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +70,9 @@ class _MockBridgeService extends BridgeService {
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
+
+  @override
+  Stream<ServerMessage> messagesForSession(String sessionId) => messages;
 
   @override
   Stream<List<SessionInfo>> get sessionList => _activeSessionsController.stream;
@@ -400,6 +411,7 @@ Widget _buildWorkspaceApp({
   Locale locale = const Locale('en'),
   bool sessionListOnly = false,
   bool adaptiveHome = false,
+  AppRouter? router,
   MachineManagerCubit? machineManagerCubit,
   ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession,
 }) {
@@ -453,30 +465,42 @@ Widget _buildWorkspaceApp({
           create: (_) => ServerDiscoveryCubit(),
         ),
       ],
-      child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: locale,
-        theme: AppTheme.darkTheme.copyWith(platform: platform),
-        home: Scaffold(
-          body: SizedBox(
-            width: 1400,
-            height: 900,
-            child: adaptiveHome
-                ? AdaptiveHomeScreen(debugRecentSessions: debugRecentSessions)
-                : sessionListOnly
-                ? SessionListScreen(
-                    debugRecentSessions: debugRecentSessions,
-                    embedded: onSelectWorkspaceSession != null,
-                    onSelectWorkspaceSession: onSelectWorkspaceSession,
-                  )
-                : WorkspaceShellScreen(
-                    key: shellKey,
-                    debugRecentSessions: debugRecentSessions,
-                  ),
-          ),
-        ),
-      ),
+      child: router != null
+          ? MaterialApp.router(
+              routerConfig: router.config(
+                navigatorObservers: () => [SessionRouteObserver()],
+              ),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: locale,
+              theme: AppTheme.darkTheme.copyWith(platform: platform),
+            )
+          : MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: locale,
+              theme: AppTheme.darkTheme.copyWith(platform: platform),
+              home: Scaffold(
+                body: SizedBox(
+                  width: 1400,
+                  height: 900,
+                  child: adaptiveHome
+                      ? AdaptiveHomeScreen(
+                          debugRecentSessions: debugRecentSessions,
+                        )
+                      : sessionListOnly
+                      ? SessionListScreen(
+                          debugRecentSessions: debugRecentSessions,
+                          embedded: onSelectWorkspaceSession != null,
+                          onSelectWorkspaceSession: onSelectWorkspaceSession,
+                        )
+                      : WorkspaceShellScreen(
+                          key: shellKey,
+                          debugRecentSessions: debugRecentSessions,
+                        ),
+                ),
+              ),
+            ),
     ),
   );
 }
@@ -1247,7 +1271,458 @@ void main() {
     },
   );
 
-  testWidgets('adaptive home switches between 861px and 862px', (tester) async {
+  testWidgets(
+    'real conversation retains draft, selection and Cubit across boundaries and settings',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final drafts = DraftService(await SharedPreferences.getInstance());
+      final imageBytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+      );
+      drafts.saveImageDraft(
+        'real',
+        [(bytes: imageBytes, mimeType: 'image/png')],
+        sketchDocuments: {0: 'retained sketch'},
+      );
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: await _createSettingsCubit(bridge),
+          draftService: drafts,
+          revenueCatService: _FakeRevenueCatService(),
+          supportBannerService: await _createSupportBannerService(),
+          shellKey: shellKey,
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      await _pumpUi(tester);
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'real',
+          provider: Provider.codex,
+          projectPath: '/tmp/workspace',
+        ),
+      );
+      await _pumpUi(tester);
+      bridge.emitMessage(const StatusMessage(status: ProcessStatus.idle));
+      await _pumpUi(tester);
+      final inputFinder = find.byKey(const ValueKey('message_input'));
+      await tester.enterText(inputFinder, 'draft across widths');
+      final input = tester.widget<TextField>(inputFinder);
+      input.controller!.selection = const TextSelection(
+        baseOffset: 3,
+        extentOffset: 8,
+      );
+      final screen = tester.state(find.byType(CodexSessionScreen));
+      final chat = tester
+          .element(find.byType(ChatMessageList))
+          .read<ChatSessionCubit>();
+      final controller = tester
+          .widget<ChatMessageList>(find.byType(ChatMessageList))
+          .scrollController;
+      for (final width in [861.0, 862.0, 430.0, 1400.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        await _pumpUi(tester);
+        expect(tester.state(find.byType(CodexSessionScreen)), same(screen));
+        expect(
+          tester.element(find.byType(ChatMessageList)).read<ChatSessionCubit>(),
+          same(chat),
+        );
+        expect(
+          tester
+              .widget<ChatMessageList>(find.byType(ChatMessageList))
+              .scrollController,
+          same(controller),
+        );
+        expect(
+          tester.widget<TextField>(inputFinder).controller,
+          same(input.controller),
+        );
+        expect(input.controller!.text, 'draft across widths');
+        expect(
+          tester
+              .widget<ChatInputBar>(find.byType(ChatInputBar))
+              .attachedImages
+              .single
+              .bytes,
+          imageBytes,
+        );
+        expect(
+          tester.widget<TextField>(inputFinder).focusNode!.hasFocus,
+          isTrue,
+        );
+        expect(
+          input.controller!.selection,
+          const TextSelection(baseOffset: 3, extentOffset: 8),
+        );
+      }
+      shellKey.currentState!.openGitPane(
+        projectPath: '/tmp/workspace',
+        sessionId: 'real',
+      );
+      await _pumpUi(tester);
+      await tester.tap(inputFinder);
+      await _pumpUi(tester);
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      await _pumpUi(tester);
+      expect(tester.widget<TextField>(inputFinder).focusNode!.hasFocus, isTrue);
+      expect(NotificationService.instance.activeSessionId, 'real');
+      // A retained tool does not cover the pane the user was actually editing.
+      expect(
+        tester.hitTestOnBinding(tester.getCenter(inputFinder)).path,
+        isNotEmpty,
+      );
+      shellKey.currentState!.closeToolPane();
+      await _pumpUi(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      shellKey.currentState!.openGitPane(
+        projectPath: '/tmp/workspace',
+        sessionId: 'real',
+      );
+      await _pumpUi(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        tester.widget<TextField>(inputFinder).focusNode!.hasFocus,
+        isFalse,
+      );
+      shellKey.currentState!.closeToolPane();
+      await tester.pump();
+      // The closing route remains painted while its native pop completes.
+      final toolSlot = find.byKey(const ValueKey('workspace_tool_slot'));
+      final toolOpacity = find
+          .descendant(of: toolSlot, matching: find.byType(Opacity))
+          .first;
+      expect(tester.widget<Opacity>(toolOpacity).opacity, 1);
+      await tester.pump(const Duration(milliseconds: 100));
+      final paneStack = tester.widget<Stack>(
+        find.ancestor(of: toolSlot, matching: find.byType(Stack)).first,
+      );
+      final toolIndex = paneStack.children.indexWhere(
+        (child) => child.key == const ValueKey('workspace_tool_slot'),
+      );
+      final centerIndex = paneStack.children.indexWhere(
+        (child) => child.key == const ValueKey('workspace_center_slot'),
+      );
+      expect(toolIndex, greaterThan(centerIndex));
+      expect(
+        tester.getTopLeft(find.byType(GitScreen)).dx,
+        inExclusiveRange(0, 430),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await _pumpUi(tester);
+      expect(tester.widget<TextField>(inputFinder).focusNode!.hasFocus, isTrue);
+      shellKey.currentState!.openSettingsCenter();
+      await _pumpUi(tester);
+      expect(chat.isClosed, isFalse);
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      await _pumpUi(tester);
+      shellKey.currentState!.popCenterOverlay();
+      await _pumpUi(tester);
+      expect(tester.state(find.byType(CodexSessionScreen)), same(screen));
+      expect(
+        tester.widget<TextField>(inputFinder).controller,
+        same(input.controller),
+      );
+      expect(input.controller!.text, 'draft across widths');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final provider in [Provider.claude, Provider.codex]) {
+    testWidgets(
+      '$provider pending resolution and failure survive boundary crossings',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(430, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final bridge = _MockBridgeService();
+        final shellKey = GlobalKey<WorkspaceShellScreenState>();
+        await tester.pumpWidget(
+          _buildWorkspaceApp(
+            bridge: bridge,
+            settingsCubit: await _createSettingsCubit(bridge),
+            draftService: DraftService(await SharedPreferences.getInstance()),
+            revenueCatService: _FakeRevenueCatService(),
+            supportBannerService: await _createSupportBannerService(),
+            shellKey: shellKey,
+            platform: TargetPlatform.iOS,
+          ),
+        );
+        await _pumpUi(tester);
+        shellKey.currentState!.selectSession(
+          WorkspaceSessionSelection(
+            sessionId: 'pending',
+            provider: provider,
+            isPending: true,
+          ),
+        );
+        await _pumpUi(tester);
+        await tester.binding.setSurfaceSize(const Size(1400, 900));
+        await _pumpUi(tester);
+        bridge.emitMessage(
+          const SystemMessage(
+            subtype: 'session_created',
+            requestId: 'pending',
+            sessionId: 'live',
+          ),
+        );
+        await _pumpUi(tester);
+        expect(shellKey.currentState!.liveSessionId, 'live');
+        expect(NotificationService.instance.activeSessionId, 'live');
+        shellKey.currentState!.openGitPane(
+          projectPath: '/tmp/project',
+          sessionId: 'live',
+        );
+        await _pumpUi(tester);
+        final tool = tester.state(find.byType(GitScreen));
+        await tester.binding.setSurfaceSize(const Size(430, 900));
+        await _pumpUi(tester);
+        expect(tester.state(find.byType(GitScreen)), same(tool));
+        expect(NotificationService.instance.activeSessionId, isNull);
+        await tester.binding.setSurfaceSize(const Size(1400, 900));
+        await _pumpUi(tester);
+        expect(tester.state(find.byType(GitScreen)), same(tool));
+        expect(NotificationService.instance.activeSessionId, 'live');
+        bridge.emitStopped('live');
+        await _pumpUi(tester);
+        expect(shellKey.currentState!.selectedSession, isNull);
+        shellKey.currentState!.selectSession(
+          WorkspaceSessionSelection(
+            sessionId: 'failed',
+            provider: provider,
+            isPending: true,
+          ),
+        );
+        await _pumpUi(tester);
+        await tester.binding.setSurfaceSize(const Size(430, 900));
+        await _pumpUi(tester);
+        bridge.emitMessage(
+          const ErrorMessage(message: 'creation failed', requestId: 'failed'),
+        );
+        await _pumpUi(tester);
+        expect(shellKey.currentState!.selectedSession, isNull);
+        expect(find.text('creation failed'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'direct routes, live-ID links and root overlays share one workspace owner',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final router = AppRouter();
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: await _createSettingsCubit(bridge),
+          draftService: DraftService(await SharedPreferences.getInstance()),
+          revenueCatService: _FakeRevenueCatService(),
+          supportBannerService: await _createSupportBannerService(),
+          router: router,
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      unawaited(
+        router.push(
+          CodexSessionRoute(sessionId: 'pending-link', isPending: true),
+        ),
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      final shell = tester.state<WorkspaceShellScreenState>(
+        find.byType(WorkspaceShellScreen),
+      );
+      expect(router.stack.map((page) => page.name), [AdaptiveHomeRoute.name]);
+      final screen = tester.state(find.byType(CodexSessionScreen));
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'session_created',
+          requestId: 'pending-link',
+          sessionId: 'live-link',
+        ),
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      expect(shell.liveSessionId, 'live-link');
+      expect(
+        SessionRouteRegistry.instance
+            .identityFor(router.stack.first)
+            ?.sessionId,
+        'live-link',
+        reason: 'before overlay',
+      );
+      unawaited(router.push(SettingsRoute()));
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      expect(NotificationService.instance.activeSessionId, isNull);
+      expect(
+        SessionRouteRegistry.instance
+            .identityFor(router.stack.first)
+            ?.sessionId,
+        'live-link',
+        reason: 'after overlay',
+      );
+      expect(
+        SessionRouteRegistry.instance.identityFor(router.stack.first)?.provider,
+        'codex',
+      );
+      expect(
+        router.navigatorKey.currentState,
+        isNotNull,
+        reason: 'root navigator attached',
+      );
+      expect(
+        SessionStackNavigation.revealStackedSession(
+          router,
+          sessionId: 'live-link',
+          provider: 'codex',
+        ),
+        isTrue,
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      expect(router.stack.map((page) => page.name), [AdaptiveHomeRoute.name]);
+      expect(tester.state(find.byType(CodexSessionScreen)), same(screen));
+      expect(NotificationService.instance.activeSessionId, 'live-link');
+      unawaited(router.push(CodexSessionRoute(sessionId: 'live-link')));
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      expect(tester.state(find.byType(CodexSessionScreen)), same(screen));
+      expect(router.stack.map((page) => page.name), [AdaptiveHomeRoute.name]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'cold direct route creates an adaptive home with a usable back destination',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final router = AppRouter();
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: await _createSettingsCubit(bridge),
+          draftService: DraftService(await SharedPreferences.getInstance()),
+          revenueCatService: _FakeRevenueCatService(),
+          supportBannerService: await _createSupportBannerService(),
+          router: router,
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      unawaited(
+        router.replaceAll([
+          ClaudeSessionRoute(sessionId: 'cold', isPending: true),
+        ]),
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      final shell = tester.state<WorkspaceShellScreenState>(
+        find.byType(WorkspaceShellScreen),
+      );
+      expect(shell.liveSessionId, 'cold');
+      expect(router.stack.map((page) => page.name), [AdaptiveHomeRoute.name]);
+      await tester.binding.handlePopRoute();
+      for (var frame = 0; frame < 6; frame++) {
+        await _pumpUi(tester);
+      }
+      expect(shell.selectedSession, isNull);
+      expect(find.byType(SessionListScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'safe insets count once and never force an undersized multi-pane layout',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(left: 62, right: 62);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      await tester.binding.setSurfaceSize(const Size(874, 402));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: await _createSettingsCubit(bridge),
+          draftService: DraftService(await SharedPreferences.getInstance()),
+          revenueCatService: _FakeRevenueCatService(),
+          supportBannerService: await _createSupportBannerService(),
+          shellKey: shellKey,
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      await _pumpUi(tester);
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'safe',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      shellKey.currentState!.openGitPane(
+        projectPath: '/tmp/project',
+        sessionId: 'safe',
+      );
+      await _pumpUi(tester);
+      expect(shellKey.currentState!.isSinglePane, isTrue);
+      expect(tester.getSize(find.byType(GitScreen)).width, 874);
+      await tester.binding.setSurfaceSize(const Size(986, 900));
+      await _pumpUi(tester);
+      expect(shellKey.currentState!.isSinglePane, isFalse);
+      expect(tester.getSize(find.byType(CodexSessionScreen)).width, 360);
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byType(CodexSessionScreen)))
+            .horizontal,
+        0,
+      );
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byType(GitScreen))).left,
+        0,
+      );
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byType(GitScreen))).right,
+        62,
+      );
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byType(SessionListScreen)))
+            .left,
+        62,
+      );
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byType(SessionListScreen)))
+            .right,
+        0,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('adaptive home retains its shell between 861px and 862px', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(861, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final bridge = _MockBridgeService();
@@ -1258,18 +1733,55 @@ void main() {
         draftService: DraftService(await SharedPreferences.getInstance()),
         revenueCatService: _FakeRevenueCatService(),
         supportBannerService: await _createSupportBannerService(),
-        debugRecentSessions: [_recentSession('one')],
+        debugRecentSessions: List.generate(
+          30,
+          (index) => _recentSession('session-$index'),
+        ),
         adaptiveHome: true,
       ),
     );
     await _pumpUi(tester);
-    expect(find.byType(WorkspaceShellScreen), findsNothing);
+    expect(find.byType(WorkspaceShellScreen), findsOneWidget);
+    final shell = tester.state<WorkspaceShellScreenState>(
+      find.byType(WorkspaceShellScreen),
+    );
+    final list = tester.state(find.byType(SessionListScreen));
+    bridge.emitRecentSessions(
+      List.generate(30, (index) => _recentSession('session-$index')),
+    );
+    await _pumpUi(tester);
+    expect(shell.isSinglePane, isTrue);
+    final scrollable = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('session_list')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    final position = scrollable.position;
+    expect(
+      position.maxScrollExtent,
+      greaterThan(300),
+      reason: 'scrollable fixture',
+    );
+    position.jumpTo(300);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(position.pixels, closeTo(300, 1), reason: 'before resize');
+    await _pumpUi(tester);
     await tester.binding.setSurfaceSize(const Size(862, 900));
     await _pumpUi(tester);
     expect(find.byType(WorkspaceShellScreen), findsOneWidget);
+    expect(shell.isSinglePane, isFalse);
+    expect(tester.state(find.byType(SessionListScreen)), same(list));
     await tester.binding.setSurfaceSize(const Size(861, 900));
     await _pumpUi(tester);
-    expect(find.byType(WorkspaceShellScreen), findsNothing);
+    expect(find.byType(WorkspaceShellScreen), findsOneWidget);
+    expect(tester.state(find.byType(WorkspaceShellScreen)), same(shell));
+    expect(tester.state(find.byType(SessionListScreen)), same(list));
+    expect(shell.isSinglePane, isTrue);
+    expect(scrollable.position, same(position));
+    expect(position.pixels, closeTo(300, 1));
     expect(tester.takeException(), isNull);
   });
 

@@ -13,6 +13,8 @@ import '../../../widgets/workspace_pane_chrome.dart';
 class SessionListSliverAppBar extends StatelessWidget {
   final VoidCallback onTitleTap;
   final VoidCallback onDisconnect;
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenGallery;
   final bool forceElevated;
   final double? toolbarHeight;
   final String? bridgeLabel;
@@ -21,6 +23,8 @@ class SessionListSliverAppBar extends StatelessWidget {
     super.key,
     required this.onTitleTap,
     required this.onDisconnect,
+    this.onOpenSettings,
+    this.onOpenGallery,
     this.forceElevated = false,
     this.toolbarHeight,
     this.bridgeLabel,
@@ -47,13 +51,15 @@ class SessionListSliverAppBar extends StatelessWidget {
             smallSize: 8,
             child: const Icon(Icons.settings),
           ),
-          onPressed: () => context.router.navigate(SettingsRoute()),
+          onPressed:
+              onOpenSettings ?? () => context.router.navigate(SettingsRoute()),
           tooltip: l.settings,
         ),
         IconButton(
           key: const ValueKey('gallery_button'),
           icon: const Icon(Icons.collections),
-          onPressed: () => context.router.navigate(GalleryRoute()),
+          onPressed:
+              onOpenGallery ?? () => context.router.navigate(GalleryRoute()),
           tooltip: l.gallery,
         ),
         IconButton(

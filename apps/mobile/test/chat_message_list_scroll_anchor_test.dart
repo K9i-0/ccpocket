@@ -16,6 +16,98 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/message_bubble.dart';
 
 void main() {
+  testWidgets('width reflow retains the visible message in the first frame', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final bridge = _ScrollTestBridge();
+    final streamingCubit = StreamingStateCubit();
+    final chatCubit = ChatSessionCubit(
+      sessionId: 'scroll-anchor',
+      bridge: bridge,
+      streamingCubit: streamingCubit,
+    );
+    final controller = AnchorMaintainingAutoScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(chatCubit.close);
+    addTearDown(streamingCubit.close);
+    addTearDown(bridge.dispose);
+
+    await tester.pumpWidget(
+      MultiRepositoryProvider(
+        providers: [RepositoryProvider<BridgeService>.value(value: bridge)],
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<ChatSessionCubit>.value(value: chatCubit),
+            BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            home: Scaffold(
+              body: ChatMessageList(
+                sessionId: 'scroll-anchor',
+                scrollController: controller,
+                httpBaseUrl: null,
+                onRetryMessage: null,
+                collapseToolResults: null,
+                isReadingHistory: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    bridge.emit(
+      PastHistoryMessage(
+        claudeSessionId: 'past',
+        messages: List.generate(
+          40,
+          (index) => PastMessage(
+            role: 'user',
+            content: [
+              TextContent(
+                text: index == 35
+                    ? 'message 35'
+                    : "message $index: ${List.filled(18, 'variable length text').join(' ')}",
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    bridge.emit(const StatusMessage(status: ProcessStatus.idle));
+    await tester.pumpAndSettle();
+
+    final scrollFuture = controller.scrollToIndex(
+      35,
+      preferPosition: AutoScrollPosition.middle,
+      duration: const Duration(milliseconds: 1),
+    );
+    await tester.pumpAndSettle();
+    await scrollFuture;
+    final target = find.text('message 35');
+    expect(target, findsOneWidget);
+
+    for (final width in [430.0, 862.0, 600.0, 900.0]) {
+      final before = tester.getBottomLeft(target).dy;
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      await tester.pump();
+      expect(target, findsOneWidget);
+      expect(
+        tester.getBottomLeft(target).dy,
+        closeTo(before, 1),
+        reason: 'width $width',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('streaming keeps the visible message fixed in the first frame', (
     tester,
   ) async {

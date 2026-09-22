@@ -14,6 +14,7 @@ import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
+import '../workspace/widgets/workspace_session_route_adapter.dart';
 import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
@@ -80,7 +81,6 @@ class _NoopListenable implements Listenable {
 ///
 /// When [isPending] is true, shows a loading overlay until [session_created]
 /// is received from the bridge, then swaps to the real session.
-@RoutePage()
 class ClaudeSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
@@ -116,7 +116,7 @@ class ClaudeSessionScreen extends StatefulWidget {
   State<ClaudeSessionScreen> createState() => _ClaudeSessionScreenState();
 }
 
-@RoutePage(name: 'WorkspaceClaudeSessionRoute')
+@RoutePage(name: 'ClaudeSessionRoute')
 class WorkspaceClaudeSessionScreen extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
@@ -147,18 +147,19 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClaudeSessionScreen(
-      sessionId: sessionId,
-      projectPath: projectPath,
-      workspace: workspace,
-      gitBranch: gitBranch,
-      worktreePath: worktreePath,
-      isPending: isPending,
-      initialPermissionMode: initialPermissionMode,
-      initialSandboxMode: initialSandboxMode,
-      pendingSessionCreated: pendingSessionCreated,
-      onBackToSessions: onBackToSessions,
-      hideSessionBackButton: hideSessionBackButton,
+    return WorkspaceSessionRouteAdapter(
+      selection: WorkspaceSessionSelection(
+        sessionId: sessionId,
+        provider: Provider.claude,
+        projectPath: projectPath,
+        workspace: workspace,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        permissionMode: initialPermissionMode,
+        sandboxMode: initialSandboxMode,
+        pendingSessionCreated: pendingSessionCreated,
+      ),
     );
   }
 }
@@ -229,7 +230,10 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
       sessionId: _sessionId,
       provider: 'claude',
     );
-    if (ModalRoute.of(context)?.isCurrent ?? false) {
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    if (shell != null) {
+      shell.updateLiveSession(widget.sessionId, _sessionId);
+    } else if (ModalRoute.of(context)?.isCurrent ?? false) {
       NotificationService.instance.setActiveSession(
         sessionId: _sessionId,
         provider: 'claude',
@@ -268,7 +272,11 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
         _pendingSub = null;
         widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
         final errorText = msg.message;
-        context.router.maybePop();
+        if (widget.onBackToSessions case final onBack?) {
+          onBack();
+        } else {
+          context.router.maybePop();
+        }
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(errorText)));
       }

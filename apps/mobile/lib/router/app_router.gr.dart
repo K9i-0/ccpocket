@@ -17,6 +17,7 @@ class AdaptiveHomeRoute extends PageRouteInfo<AdaptiveHomeRouteArgs> {
     Key? key,
     ValueNotifier<ConnectionParams?>? deepLinkNotifier,
     List<RecentSession>? debugRecentSessions,
+    WorkspaceSessionSelection? initialSession,
     List<PageRouteInfo>? children,
   }) : super(
          AdaptiveHomeRoute.name,
@@ -24,6 +25,7 @@ class AdaptiveHomeRoute extends PageRouteInfo<AdaptiveHomeRouteArgs> {
            key: key,
            deepLinkNotifier: deepLinkNotifier,
            debugRecentSessions: debugRecentSessions,
+           initialSession: initialSession,
          ),
          initialChildren: children,
        );
@@ -40,6 +42,7 @@ class AdaptiveHomeRoute extends PageRouteInfo<AdaptiveHomeRouteArgs> {
         key: args.key,
         deepLinkNotifier: args.deepLinkNotifier,
         debugRecentSessions: args.debugRecentSessions,
+        initialSession: args.initialSession,
       );
     },
   );
@@ -50,6 +53,7 @@ class AdaptiveHomeRouteArgs {
     this.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
+    this.initialSession,
   });
 
   final Key? key;
@@ -58,9 +62,11 @@ class AdaptiveHomeRouteArgs {
 
   final List<RecentSession>? debugRecentSessions;
 
+  final WorkspaceSessionSelection? initialSession;
+
   @override
   String toString() {
-    return 'AdaptiveHomeRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
+    return 'AdaptiveHomeRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions, initialSession: $initialSession}';
   }
 
   @override
@@ -72,14 +78,16 @@ class AdaptiveHomeRouteArgs {
         const ListEquality<RecentSession>().equals(
           debugRecentSessions,
           other.debugRecentSessions,
-        );
+        ) &&
+        initialSession == other.initialSession;
   }
 
   @override
   int get hashCode =>
       key.hashCode ^
       deepLinkNotifier.hashCode ^
-      const ListEquality<RecentSession>().hash(debugRecentSessions);
+      const ListEquality<RecentSession>().hash(debugRecentSessions) ^
+      initialSession.hashCode;
 }
 
 /// generated route for
@@ -112,300 +120,6 @@ class ChangelogRoute extends PageRouteInfo<void> {
       return const ChangelogScreen();
     },
   );
-}
-
-/// generated route for
-/// [ClaudeSessionScreen]
-class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
-  ClaudeSessionRoute({
-    Key? key,
-    required String sessionId,
-    String? projectPath,
-    SessionWorkspaceInfo? workspace,
-    String? gitBranch,
-    String? worktreePath,
-    bool isPending = false,
-    String? initialPermissionMode,
-    String? initialSandboxMode,
-    ValueNotifier<SystemMessage?>? pendingSessionCreated,
-    VoidCallback? onBackToSessions,
-    bool hideSessionBackButton = false,
-    List<PageRouteInfo>? children,
-  }) : super(
-         ClaudeSessionRoute.name,
-         args: ClaudeSessionRouteArgs(
-           key: key,
-           sessionId: sessionId,
-           projectPath: projectPath,
-           workspace: workspace,
-           gitBranch: gitBranch,
-           worktreePath: worktreePath,
-           isPending: isPending,
-           initialPermissionMode: initialPermissionMode,
-           initialSandboxMode: initialSandboxMode,
-           pendingSessionCreated: pendingSessionCreated,
-           onBackToSessions: onBackToSessions,
-           hideSessionBackButton: hideSessionBackButton,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'ClaudeSessionRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<ClaudeSessionRouteArgs>();
-      return ClaudeSessionScreen(
-        key: args.key,
-        sessionId: args.sessionId,
-        projectPath: args.projectPath,
-        workspace: args.workspace,
-        gitBranch: args.gitBranch,
-        worktreePath: args.worktreePath,
-        isPending: args.isPending,
-        initialPermissionMode: args.initialPermissionMode,
-        initialSandboxMode: args.initialSandboxMode,
-        pendingSessionCreated: args.pendingSessionCreated,
-        onBackToSessions: args.onBackToSessions,
-        hideSessionBackButton: args.hideSessionBackButton,
-      );
-    },
-  );
-}
-
-class ClaudeSessionRouteArgs {
-  const ClaudeSessionRouteArgs({
-    this.key,
-    required this.sessionId,
-    this.projectPath,
-    this.workspace,
-    this.gitBranch,
-    this.worktreePath,
-    this.isPending = false,
-    this.initialPermissionMode,
-    this.initialSandboxMode,
-    this.pendingSessionCreated,
-    this.onBackToSessions,
-    this.hideSessionBackButton = false,
-  });
-
-  final Key? key;
-
-  final String sessionId;
-
-  final String? projectPath;
-
-  final SessionWorkspaceInfo? workspace;
-
-  final String? gitBranch;
-
-  final String? worktreePath;
-
-  final bool isPending;
-
-  final String? initialPermissionMode;
-
-  final String? initialSandboxMode;
-
-  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
-
-  final VoidCallback? onBackToSessions;
-
-  final bool hideSessionBackButton;
-
-  @override
-  String toString() {
-    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! ClaudeSessionRouteArgs) return false;
-    return key == other.key &&
-        sessionId == other.sessionId &&
-        projectPath == other.projectPath &&
-        workspace == other.workspace &&
-        gitBranch == other.gitBranch &&
-        worktreePath == other.worktreePath &&
-        isPending == other.isPending &&
-        initialPermissionMode == other.initialPermissionMode &&
-        initialSandboxMode == other.initialSandboxMode &&
-        pendingSessionCreated == other.pendingSessionCreated &&
-        onBackToSessions == other.onBackToSessions &&
-        hideSessionBackButton == other.hideSessionBackButton;
-  }
-
-  @override
-  int get hashCode =>
-      key.hashCode ^
-      sessionId.hashCode ^
-      projectPath.hashCode ^
-      workspace.hashCode ^
-      gitBranch.hashCode ^
-      worktreePath.hashCode ^
-      isPending.hashCode ^
-      initialPermissionMode.hashCode ^
-      initialSandboxMode.hashCode ^
-      pendingSessionCreated.hashCode ^
-      onBackToSessions.hashCode ^
-      hideSessionBackButton.hashCode;
-}
-
-/// generated route for
-/// [CodexSessionScreen]
-class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
-  CodexSessionRoute({
-    Key? key,
-    required String sessionId,
-    String? projectPath,
-    SessionWorkspaceInfo? workspace,
-    String? gitBranch,
-    String? worktreePath,
-    bool isPending = false,
-    String? initialSandboxMode,
-    String? initialPermissionMode,
-    String? initialApprovalPolicy,
-    String? initialApprovalsReviewer,
-    ValueNotifier<SystemMessage?>? pendingSessionCreated,
-    VoidCallback? onBackToSessions,
-    bool hideSessionBackButton = false,
-    List<PageRouteInfo>? children,
-  }) : super(
-         CodexSessionRoute.name,
-         args: CodexSessionRouteArgs(
-           key: key,
-           sessionId: sessionId,
-           projectPath: projectPath,
-           workspace: workspace,
-           gitBranch: gitBranch,
-           worktreePath: worktreePath,
-           isPending: isPending,
-           initialSandboxMode: initialSandboxMode,
-           initialPermissionMode: initialPermissionMode,
-           initialApprovalPolicy: initialApprovalPolicy,
-           initialApprovalsReviewer: initialApprovalsReviewer,
-           pendingSessionCreated: pendingSessionCreated,
-           onBackToSessions: onBackToSessions,
-           hideSessionBackButton: hideSessionBackButton,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'CodexSessionRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<CodexSessionRouteArgs>();
-      return CodexSessionScreen(
-        key: args.key,
-        sessionId: args.sessionId,
-        projectPath: args.projectPath,
-        workspace: args.workspace,
-        gitBranch: args.gitBranch,
-        worktreePath: args.worktreePath,
-        isPending: args.isPending,
-        initialSandboxMode: args.initialSandboxMode,
-        initialPermissionMode: args.initialPermissionMode,
-        initialApprovalPolicy: args.initialApprovalPolicy,
-        initialApprovalsReviewer: args.initialApprovalsReviewer,
-        pendingSessionCreated: args.pendingSessionCreated,
-        onBackToSessions: args.onBackToSessions,
-        hideSessionBackButton: args.hideSessionBackButton,
-      );
-    },
-  );
-}
-
-class CodexSessionRouteArgs {
-  const CodexSessionRouteArgs({
-    this.key,
-    required this.sessionId,
-    this.projectPath,
-    this.workspace,
-    this.gitBranch,
-    this.worktreePath,
-    this.isPending = false,
-    this.initialSandboxMode,
-    this.initialPermissionMode,
-    this.initialApprovalPolicy,
-    this.initialApprovalsReviewer,
-    this.pendingSessionCreated,
-    this.onBackToSessions,
-    this.hideSessionBackButton = false,
-  });
-
-  final Key? key;
-
-  final String sessionId;
-
-  final String? projectPath;
-
-  final SessionWorkspaceInfo? workspace;
-
-  final String? gitBranch;
-
-  final String? worktreePath;
-
-  final bool isPending;
-
-  final String? initialSandboxMode;
-
-  final String? initialPermissionMode;
-
-  final String? initialApprovalPolicy;
-
-  final String? initialApprovalsReviewer;
-
-  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
-
-  final VoidCallback? onBackToSessions;
-
-  final bool hideSessionBackButton;
-
-  @override
-  String toString() {
-    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! CodexSessionRouteArgs) return false;
-    return key == other.key &&
-        sessionId == other.sessionId &&
-        projectPath == other.projectPath &&
-        workspace == other.workspace &&
-        gitBranch == other.gitBranch &&
-        worktreePath == other.worktreePath &&
-        isPending == other.isPending &&
-        initialSandboxMode == other.initialSandboxMode &&
-        initialPermissionMode == other.initialPermissionMode &&
-        initialApprovalPolicy == other.initialApprovalPolicy &&
-        initialApprovalsReviewer == other.initialApprovalsReviewer &&
-        pendingSessionCreated == other.pendingSessionCreated &&
-        onBackToSessions == other.onBackToSessions &&
-        hideSessionBackButton == other.hideSessionBackButton;
-  }
-
-  @override
-  int get hashCode =>
-      key.hashCode ^
-      sessionId.hashCode ^
-      projectPath.hashCode ^
-      workspace.hashCode ^
-      gitBranch.hashCode ^
-      worktreePath.hashCode ^
-      isPending.hashCode ^
-      initialSandboxMode.hashCode ^
-      initialPermissionMode.hashCode ^
-      initialApprovalPolicy.hashCode ^
-      initialApprovalsReviewer.hashCode ^
-      pendingSessionCreated.hashCode ^
-      onBackToSessions.hashCode ^
-      hideSessionBackButton.hashCode;
 }
 
 /// generated route for
@@ -1049,9 +763,8 @@ class SupporterRoute extends PageRouteInfo<void> {
 
 /// generated route for
 /// [WorkspaceClaudeSessionScreen]
-class WorkspaceClaudeSessionRoute
-    extends PageRouteInfo<WorkspaceClaudeSessionRouteArgs> {
-  WorkspaceClaudeSessionRoute({
+class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
+  ClaudeSessionRoute({
     Key? key,
     required String sessionId,
     String? projectPath,
@@ -1066,8 +779,8 @@ class WorkspaceClaudeSessionRoute
     bool hideSessionBackButton = false,
     List<PageRouteInfo>? children,
   }) : super(
-         WorkspaceClaudeSessionRoute.name,
-         args: WorkspaceClaudeSessionRouteArgs(
+         ClaudeSessionRoute.name,
+         args: ClaudeSessionRouteArgs(
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
@@ -1084,12 +797,12 @@ class WorkspaceClaudeSessionRoute
          initialChildren: children,
        );
 
-  static const String name = 'WorkspaceClaudeSessionRoute';
+  static const String name = 'ClaudeSessionRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<WorkspaceClaudeSessionRouteArgs>();
+      final args = data.argsAs<ClaudeSessionRouteArgs>();
       return WorkspaceClaudeSessionScreen(
         key: args.key,
         sessionId: args.sessionId,
@@ -1108,8 +821,8 @@ class WorkspaceClaudeSessionRoute
   );
 }
 
-class WorkspaceClaudeSessionRouteArgs {
-  const WorkspaceClaudeSessionRouteArgs({
+class ClaudeSessionRouteArgs {
+  const ClaudeSessionRouteArgs({
     this.key,
     required this.sessionId,
     this.projectPath,
@@ -1150,13 +863,13 @@ class WorkspaceClaudeSessionRouteArgs {
 
   @override
   String toString() {
-    return 'WorkspaceClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    if (other is! WorkspaceClaudeSessionRouteArgs) return false;
+    if (other is! ClaudeSessionRouteArgs) return false;
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&
@@ -1189,9 +902,8 @@ class WorkspaceClaudeSessionRouteArgs {
 
 /// generated route for
 /// [WorkspaceCodexSessionScreen]
-class WorkspaceCodexSessionRoute
-    extends PageRouteInfo<WorkspaceCodexSessionRouteArgs> {
-  WorkspaceCodexSessionRoute({
+class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
+  CodexSessionRoute({
     Key? key,
     required String sessionId,
     String? projectPath,
@@ -1208,8 +920,8 @@ class WorkspaceCodexSessionRoute
     bool hideSessionBackButton = false,
     List<PageRouteInfo>? children,
   }) : super(
-         WorkspaceCodexSessionRoute.name,
-         args: WorkspaceCodexSessionRouteArgs(
+         CodexSessionRoute.name,
+         args: CodexSessionRouteArgs(
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
@@ -1228,12 +940,12 @@ class WorkspaceCodexSessionRoute
          initialChildren: children,
        );
 
-  static const String name = 'WorkspaceCodexSessionRoute';
+  static const String name = 'CodexSessionRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<WorkspaceCodexSessionRouteArgs>();
+      final args = data.argsAs<CodexSessionRouteArgs>();
       return WorkspaceCodexSessionScreen(
         key: args.key,
         sessionId: args.sessionId,
@@ -1254,8 +966,8 @@ class WorkspaceCodexSessionRoute
   );
 }
 
-class WorkspaceCodexSessionRouteArgs {
-  const WorkspaceCodexSessionRouteArgs({
+class CodexSessionRouteArgs {
+  const CodexSessionRouteArgs({
     this.key,
     required this.sessionId,
     this.projectPath,
@@ -1302,13 +1014,13 @@ class WorkspaceCodexSessionRouteArgs {
 
   @override
   String toString() {
-    return 'WorkspaceCodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, initialApprovalsReviewer: $initialApprovalsReviewer, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    if (other is! WorkspaceCodexSessionRouteArgs) return false;
+    if (other is! CodexSessionRouteArgs) return false;
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&

@@ -16,11 +16,19 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../router/app_router.dart';
+import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/notification_service.dart';
 import '../../utils/diff_parser.dart';
 import 'session_list_screen.dart';
+import '../workspace/state/workspace_navigation_cubit.dart';
+import '../workspace/state/workspace_navigation_state.dart';
+import '../workspace/state/workspace_destination.dart';
+import '../workspace/widgets/workspace_pane_navigator.dart';
+
+export '../workspace/state/workspace_destination.dart'
+    show WorkspaceSessionSelection;
 
 const workspaceMultiPaneBreakpoint = 862.0;
 const _twoPaneDividerWidth = 1.0;
@@ -31,10 +39,6 @@ const _minCenterPaneWidth = 360.0;
 const _minRightPaneWidth = 240.0;
 
 enum _WorkspaceLayoutMode { single, multiPane }
-
-enum _WorkspaceCenterRoot { session, offline }
-
-enum _WorkspaceCenterOverlay { none, settings, globalGallery, setupGuide }
 
 double _leftPaneWidth(double width) {
   if (width < 1024) return 260;
@@ -77,73 +81,10 @@ _WorkspaceLayoutMode _layoutModeForWidth(double width) {
       : _WorkspaceLayoutMode.single;
 }
 
-sealed class _WorkspaceToolPaneData {
-  const _WorkspaceToolPaneData();
-
-  String get id;
-  String get title;
-  String? get sessionId;
-}
-
-class _GitToolPaneData extends _WorkspaceToolPaneData {
-  final String projectPath;
-  @override
-  final String? sessionId;
-  final String? worktreePath;
-
-  const _GitToolPaneData({
-    required this.projectPath,
-    this.sessionId,
-    this.worktreePath,
-  });
-
-  @override
-  String get id => 'git:$projectPath:${sessionId ?? ''}:${worktreePath ?? ''}';
-
-  @override
-  String get title => 'Git';
-}
-
-class _ExploreToolPaneData extends _WorkspaceToolPaneData {
-  @override
-  final String sessionId;
-  final String projectPath;
-  final List<String> initialFiles;
-  final String initialPath;
-  final List<String> recentPeekedFiles;
-
-  const _ExploreToolPaneData({
-    required this.sessionId,
-    required this.projectPath,
-    required this.initialFiles,
-    required this.initialPath,
-    required this.recentPeekedFiles,
-  });
-
-  @override
-  String get id => 'explore:$sessionId:$projectPath';
-
-  @override
-  String get title => 'Explorer';
-}
-
-class _GalleryToolPaneData extends _WorkspaceToolPaneData {
-  @override
-  final String sessionId;
-
-  const _GalleryToolPaneData({required this.sessionId});
-
-  @override
-  String get id => 'gallery:$sessionId';
-
-  @override
-  String get title => 'Gallery';
-}
-
 sealed class _WorkspaceToolPaneSnapshot {
   const _WorkspaceToolPaneSnapshot();
 
-  _WorkspaceToolPaneData restore();
+  WorkspaceToolPaneData restore();
 }
 
 class _GitToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
@@ -158,7 +99,7 @@ class _GitToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
   });
 
   @override
-  _WorkspaceToolPaneData restore() => _GitToolPaneData(
+  WorkspaceToolPaneData restore() => GitToolPaneData(
     projectPath: projectPath,
     sessionId: sessionId,
     worktreePath: worktreePath,
@@ -179,7 +120,7 @@ class _ExploreToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
   });
 
   @override
-  _WorkspaceToolPaneData restore() => _ExploreToolPaneData(
+  WorkspaceToolPaneData restore() => ExploreToolPaneData(
     sessionId: sessionId,
     projectPath: projectPath,
     initialFiles: const [],
@@ -194,8 +135,7 @@ class _GalleryToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
   const _GalleryToolPaneSnapshot({required this.sessionId});
 
   @override
-  _WorkspaceToolPaneData restore() =>
-      _GalleryToolPaneData(sessionId: sessionId);
+  WorkspaceToolPaneData restore() => GalleryToolPaneData(sessionId: sessionId);
 }
 
 class _WorkspaceToolPaneBindings {
@@ -210,44 +150,16 @@ class _WorkspaceToolPaneBindings {
   });
 }
 
-class WorkspaceSessionSelection {
-  final String sessionId;
-  final String? projectPath;
-  final SessionWorkspaceInfo? workspace;
-  final String? gitBranch;
-  final String? worktreePath;
-  final bool isPending;
-  final Provider? provider;
-  final String? permissionMode;
-  final String? sandboxMode;
-  final String? approvalPolicy;
-  final String? approvalsReviewer;
-  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
-
-  const WorkspaceSessionSelection({
-    required this.sessionId,
-    this.projectPath,
-    this.workspace,
-    this.gitBranch,
-    this.worktreePath,
-    this.isPending = false,
-    this.provider,
-    this.permissionMode,
-    this.sandboxMode,
-    this.approvalPolicy,
-    this.approvalsReviewer,
-    this.pendingSessionCreated,
-  });
-}
-
 class WorkspaceShellScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
   final List<RecentSession>? debugRecentSessions;
+  final WorkspaceSessionSelection? initialSession;
 
   const WorkspaceShellScreen({
     super.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
+    this.initialSession,
   });
 
   static WorkspaceShellScreenState? maybeOf(BuildContext context) =>
@@ -258,29 +170,70 @@ class WorkspaceShellScreen extends StatefulWidget {
 }
 
 class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
-  _WorkspaceToolPaneData? _toolPane;
+  final WorkspaceNavigationCubit _navigation = WorkspaceNavigationCubit();
   final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
   final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
+  Object? _homeRouteIdentity;
+  bool _rootVisible = true;
+  final _centerNavigatorKey = GlobalKey<NavigatorState>();
+  final _toolNavigatorKey = GlobalKey<NavigatorState>();
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
-  _WorkspaceCenterRoot _centerRoot = _WorkspaceCenterRoot.offline;
-  _WorkspaceCenterOverlay _centerOverlay = _WorkspaceCenterOverlay.none;
-  WorkspaceSessionSelection? _selectedSession;
   StreamSubscription<String>? _stoppedSessionSub;
-  bool _settingsFocusSupport = false;
-  bool _settingsFocusConnection = false;
-  bool _settingsFocusUsage = false;
-  int _settingsPresentationVersion = 0;
+  StreamSubscription<WorkspaceNavigationState>? _navigationSub;
   double? _rightPaneUserWidth;
   final ValueNotifier<int> _presentationVersion = ValueNotifier<int>(0);
 
-  bool get canOpenToolPane => _layoutMode != _WorkspaceLayoutMode.single;
+  WorkspaceNavigationState get _state => _navigation.state;
+  WorkspaceToolPaneData? get _toolPane => _state.tool;
+  WorkspaceSessionSelection? get _selectedSession => _state.selection;
+  WorkspaceCenterOverlay get _centerOverlay => _state.overlay;
+  bool get canOpenToolPane => true;
   bool get isSinglePane => _layoutMode == _WorkspaceLayoutMode.single;
-  bool get isLeftPaneVisible => true;
+  bool get isLeftPaneVisible =>
+      !isSinglePane ||
+      (_selectedSession == null &&
+          _centerOverlay == WorkspaceCenterOverlay.none &&
+          _toolPane == null);
   WorkspaceSessionSelection? get selectedSession => _selectedSession;
+  String? get liveSessionId => _state.liveSessionId;
   ValueNotifier<int> get presentationListenable => _presentationVersion;
 
   void _notifyPresentationChanged() {
     _presentationVersion.value++;
+    final routeIdentity = _homeRouteIdentity;
+    if (routeIdentity != null) {
+      if (_state.liveSessionId case final id?) {
+        SessionRouteRegistry.instance.update(
+          routeIdentity: routeIdentity,
+          owner: this,
+          sessionId: id,
+          provider: _selectedSession?.provider == Provider.codex
+              ? 'codex'
+              : 'claude',
+        );
+      } else {
+        SessionRouteRegistry.instance.remove(
+          routeIdentity: routeIdentity,
+          owner: this,
+        );
+      }
+    }
+    final visible =
+        _rootVisible &&
+        _selectedSession != null &&
+        _centerOverlay == WorkspaceCenterOverlay.none &&
+        (!isSinglePane || _toolPane == null || _state.centerInFront);
+    if (visible) {
+      NotificationService.instance.setActiveSession(
+        owner: this,
+        sessionId: _state.liveSessionId!,
+        provider: _selectedSession?.provider == Provider.codex
+            ? 'codex'
+            : 'claude',
+      );
+    } else {
+      NotificationService.instance.clearActiveSession(owner: this);
+    }
   }
 
   bool isToolPaneOpen(String paneId) => _toolPane?.id == paneId;
@@ -288,9 +241,51 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialSession case final initial?) {
+      _navigation.selectSession(initial);
+    }
     _stoppedSessionSub = context.read<BridgeService>().stoppedSessions.listen(
       _clearSelectedSessionIfStopped,
     );
+    _navigationSub = _navigation.stream.listen((_) {
+      if (!mounted) return;
+      setState(() {});
+      _notifyPresentationChanged();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final visible = route?.isCurrent ?? true;
+    if (visible != _rootVisible) {
+      _rootVisible = visible;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _notifyPresentationChanged();
+      });
+    }
+    final identity = route?.settings;
+    if (identical(identity, _homeRouteIdentity)) return;
+    if (_homeRouteIdentity case final old?) {
+      SessionRouteRegistry.instance.unregisterWorkspace(old, this);
+    }
+    _homeRouteIdentity = identity;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyPresentationChanged();
+    });
+    if (identity != null) {
+      SessionRouteRegistry.instance.registerWorkspace(
+        routeIdentity: identity,
+        owner: this,
+        reveal: _navigation.revealSession,
+        open: selectSession,
+      );
+    }
+  }
+
+  void updateLiveSession(String originalId, String liveId) {
+    _navigation.updateLiveSession(originalId, liveId);
   }
 
   void registerSessionToolPaneBindings({
@@ -328,7 +323,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       );
     }
     _openToolPane(
-      _GitToolPaneData(
+      GitToolPaneData(
         projectPath: projectPath,
         sessionId: sessionId,
         worktreePath: worktreePath,
@@ -353,7 +348,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       );
     }
     _openToolPane(
-      _ExploreToolPaneData(
+      ExploreToolPaneData(
         sessionId: sessionId,
         projectPath: projectPath,
         initialFiles: initialFiles,
@@ -364,7 +359,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   void openSessionGalleryPane({required String sessionId}) {
-    _openToolPane(_GalleryToolPaneData(sessionId: sessionId));
+    _openToolPane(GalleryToolPaneData(sessionId: sessionId));
   }
 
   void openSettingsCenter({
@@ -372,71 +367,53 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     bool focusConnection = false,
     bool focusUsage = false,
   }) {
-    setState(() {
-      if (_centerOverlay == _WorkspaceCenterOverlay.settings &&
-          !focusSupport &&
-          !focusConnection &&
-          !focusUsage) {
-        _centerOverlay = _WorkspaceCenterOverlay.none;
-      } else {
-        _centerOverlay = _WorkspaceCenterOverlay.settings;
-        _settingsFocusSupport = focusSupport;
-        _settingsFocusConnection = focusConnection;
-        _settingsFocusUsage = focusUsage;
-        _settingsPresentationVersion++;
-      }
-    });
-    _notifyPresentationChanged();
+    if (_centerOverlay == WorkspaceCenterOverlay.settings &&
+        !focusSupport &&
+        !focusConnection &&
+        !focusUsage) {
+      popCenterOverlay();
+      return;
+    }
+    _navigation.openOverlay(
+      WorkspaceCenterOverlay.settings,
+      focusSupport: focusSupport,
+      focusConnection: focusConnection,
+      focusUsage: focusUsage,
+    );
   }
 
   void openGlobalGalleryCenter() {
-    setState(() {
-      if (_centerOverlay == _WorkspaceCenterOverlay.globalGallery) {
-        _centerOverlay = _WorkspaceCenterOverlay.none;
-      } else {
-        _centerOverlay = _WorkspaceCenterOverlay.globalGallery;
-      }
-    });
-    _notifyPresentationChanged();
+    if (_centerOverlay == WorkspaceCenterOverlay.globalGallery) {
+      popCenterOverlay();
+    } else {
+      _navigation.openOverlay(WorkspaceCenterOverlay.globalGallery);
+    }
   }
 
   void openSetupGuideCenter() {
-    setState(() {
-      if (_centerOverlay == _WorkspaceCenterOverlay.setupGuide) {
-        _centerOverlay = _WorkspaceCenterOverlay.none;
-      } else {
-        _centerOverlay = _WorkspaceCenterOverlay.setupGuide;
-      }
-    });
-    _notifyPresentationChanged();
+    if (_centerOverlay == WorkspaceCenterOverlay.setupGuide) {
+      popCenterOverlay();
+    } else {
+      _navigation.openOverlay(WorkspaceCenterOverlay.setupGuide);
+    }
   }
 
-  void popCenterOverlay() {
-    if (_centerOverlay == _WorkspaceCenterOverlay.none) return;
-    setState(() {
-      _centerOverlay = _WorkspaceCenterOverlay.none;
-    });
-    _notifyPresentationChanged();
-  }
+  void popCenterOverlay({int? entry}) => _navigation.closeOverlay(entry: entry);
 
   _WorkspaceToolPaneSnapshot? _snapshotForPane(
-    _WorkspaceToolPaneData pane, {
+    WorkspaceToolPaneData pane, {
     String? fallbackSessionId,
   }) {
     return switch (pane) {
-      _GitToolPaneData(
-        :final projectPath,
-        :final sessionId,
-        :final worktreePath,
-      )
+      GitToolPaneData(:final projectPath, :final sessionId, :final worktreePath)
           when sessionId != null || fallbackSessionId != null =>
         _GitToolPaneSnapshot(
           projectPath: projectPath,
           sessionId: sessionId ?? fallbackSessionId,
           worktreePath: worktreePath,
         ),
-      _GitToolPaneData() => null,
-      _ExploreToolPaneData(
+      GitToolPaneData() => null,
+      ExploreToolPaneData(
         :final sessionId,
         :final projectPath,
         :final initialPath,
@@ -448,7 +425,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           initialPath: initialPath,
           recentPeekedFiles: List.unmodifiable(recentPeekedFiles),
         ),
-      _GalleryToolPaneData(:final sessionId) => _GalleryToolPaneSnapshot(
+      GalleryToolPaneData(:final sessionId) => _GalleryToolPaneSnapshot(
         sessionId: sessionId,
       ),
     };
@@ -463,9 +440,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   void _rememberVisibleToolPane() {
-    _rememberToolPaneForSession(
-      _selectedSession?.sessionId ?? _toolPane?.sessionId,
-    );
+    _rememberToolPaneForSession(_state.liveSessionId ?? _toolPane?.sessionId);
   }
 
   void _forgetToolPaneForSession(String? sessionId) {
@@ -473,23 +448,17 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _toolPaneSnapshots.remove(sessionId);
   }
 
-  _WorkspaceToolPaneData? _restoreToolPaneForSession(String sessionId) {
+  WorkspaceToolPaneData? _restoreToolPaneForSession(String sessionId) {
     return _toolPaneSnapshots[sessionId]?.restore();
   }
 
-  void _openToolPane(_WorkspaceToolPaneData pane) {
-    if (_layoutMode == _WorkspaceLayoutMode.single) {
-      return;
-    }
+  void _openToolPane(WorkspaceToolPaneData pane) {
     if (_toolPane?.id == pane.id) {
       closeToolPane();
       return;
     }
-    setState(() {
-      _toolPane = pane;
-      _rememberVisibleToolPane();
-    });
-    _notifyPresentationChanged();
+    _navigation.openTool(pane);
+    _rememberVisibleToolPane();
   }
 
   void resizeRightPane(double nextWidth, double totalWidth) {
@@ -501,130 +470,91 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     });
   }
 
-  void closeToolPane() {
-    if (_toolPane == null) return;
-    setState(() {
-      _forgetToolPaneForSession(
-        _selectedSession?.sessionId ?? _toolPane?.sessionId,
-      );
-      _toolPane = null;
-    });
-    _notifyPresentationChanged();
+  void closeToolPane({int? entry}) {
+    if (entry != null && entry != _state.toolEntry) return;
+    _forgetToolPaneForSession(_state.liveSessionId ?? _toolPane?.sessionId);
+    _navigation.closeTool();
   }
 
   void resetWorkspace() {
-    final hadSelection = _selectedSession != null;
-    final alreadyReset =
-        _toolPane == null &&
-        _toolPaneSnapshots.isEmpty &&
-        !hadSelection &&
-        _centerRoot == _WorkspaceCenterRoot.offline &&
-        _centerOverlay == _WorkspaceCenterOverlay.none;
-    if (alreadyReset) return;
-    setState(() {
-      _toolPane = null;
-      _toolPaneSnapshots.clear();
-      _toolPaneBindings.clear();
-      _selectedSession = null;
-      _centerRoot = _WorkspaceCenterRoot.offline;
-      _centerOverlay = _WorkspaceCenterOverlay.none;
-    });
-    if (hadSelection) {
-      NotificationService.instance.clearActiveSession();
-    }
-    _notifyPresentationChanged();
+    _toolPaneSnapshots.clear();
+    _toolPaneBindings.clear();
+    _navigation.reset();
   }
 
-  void _handleExploreResult(ExploreScreenResult result) {
+  void _handleExploreResult(ExploreScreenResult result, {int? entry}) {
+    if (entry != null && entry != _state.toolEntry) return;
     final pane = _toolPane;
-    if (pane is! _ExploreToolPaneData) return;
-    _toolPane = _ExploreToolPaneData(
-      sessionId: pane.sessionId,
-      projectPath: pane.projectPath,
-      initialFiles: pane.initialFiles,
-      initialPath: result.currentPath,
-      recentPeekedFiles: result.recentPeekedFiles,
+    if (pane is! ExploreToolPaneData) return;
+    _navigation.updateTool(
+      ExploreToolPaneData(
+        sessionId: pane.sessionId,
+        projectPath: pane.projectPath,
+        initialFiles: pane.initialFiles,
+        initialPath: result.currentPath,
+        recentPeekedFiles: result.recentPeekedFiles,
+      ),
     );
     _rememberToolPaneForSession(pane.sessionId);
     _toolPaneBindings[pane.sessionId]?.onExploreResultChanged?.call(result);
   }
 
-  void _handleDiffSelection(DiffSelection selection) {
+  void _handleDiffSelection(DiffSelection selection, {int? entry}) {
+    if (entry != null && entry != _state.toolEntry) return;
     final pane = _toolPane;
-    if (pane is! _GitToolPaneData) return;
-    final sessionId = _selectedSession?.sessionId ?? pane.sessionId;
+    if (pane is! GitToolPaneData) return;
+    final sessionId = _state.liveSessionId ?? pane.sessionId;
     _toolPaneBindings[sessionId]?.diffSelectionNotifier?.value =
         selection.isEmpty ? null : selection;
     closeToolPane();
   }
 
-  void _handleFilePeekOpened(String filePath) {
+  void _handleFilePeekOpened(String filePath, {int? entry}) {
+    if (entry != null && entry != _state.toolEntry) return;
     final pane = _toolPane;
-    if (pane is! _GitToolPaneData) return;
-    final sessionId = _selectedSession?.sessionId ?? pane.sessionId;
+    if (pane is! GitToolPaneData) return;
+    final sessionId = _state.liveSessionId ?? pane.sessionId;
     if (sessionId == null) return;
     _toolPaneBindings[sessionId]?.onFilePeekOpened?.call(filePath);
   }
 
   void selectSession(WorkspaceSessionSelection selection) {
-    setState(() {
-      _rememberVisibleToolPane();
-      final restoredToolPane = _restoreToolPaneForSession(selection.sessionId);
-      _selectedSession = selection;
-      _toolPane = restoredToolPane;
-      _centerRoot = _WorkspaceCenterRoot.session;
-      _centerOverlay = _WorkspaceCenterOverlay.none;
-    });
-    NotificationService.instance.setActiveSession(
-      sessionId: selection.sessionId,
-      provider: selection.provider == Provider.codex ? 'codex' : 'claude',
+    _rememberVisibleToolPane();
+    _navigation.selectSession(
+      selection,
+      restoredTool: _restoreToolPaneForSession(selection.sessionId),
     );
-    _notifyPresentationChanged();
   }
 
-  void clearSelectedSession() {
-    if (_selectedSession == null) return;
-    setState(() {
-      _selectedSession = null;
-      _toolPane = null;
-      _toolPaneSnapshots.clear();
-      _toolPaneBindings.clear();
-      _centerRoot = _WorkspaceCenterRoot.offline;
-      _centerOverlay = _WorkspaceCenterOverlay.none;
-    });
-    NotificationService.instance.clearActiveSession();
-    _notifyPresentationChanged();
+  void clearSelectedSession({int? entry}) {
+    if (entry != null && entry != _state.sessionEntry) return;
+    _toolPaneSnapshots.clear();
+    _toolPaneBindings.clear();
+    _navigation.closeSession();
   }
 
   void _clearSelectedSessionIfStopped(String sessionId) {
-    if (_selectedSession?.sessionId != sessionId) return;
+    if (_state.liveSessionId != sessionId) return;
     clearSelectedSession();
   }
 
   void _syncLayoutState(_WorkspaceLayoutMode nextMode) {
-    if (nextMode == _layoutMode) {
-      return;
-    }
-
-    final previousMode = _layoutMode;
+    if (nextMode == _layoutMode) return;
     _layoutMode = nextMode;
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final crossedSinglePane =
-          (previousMode == _WorkspaceLayoutMode.single) !=
-          (nextMode == _WorkspaceLayoutMode.single);
-      if (crossedSinglePane) {
-        resetWorkspace();
-        return;
-      }
+      if (mounted) _notifyPresentationChanged();
     });
   }
 
   @override
   void dispose() {
-    NotificationService.instance.clearActiveSession();
+    NotificationService.instance.clearActiveSession(owner: this);
     _stoppedSessionSub?.cancel();
+    _navigationSub?.cancel();
+    _navigation.close();
+    if (_homeRouteIdentity case final identity?) {
+      SessionRouteRegistry.instance.unregisterWorkspace(identity, this);
+    }
     _presentationVersion.dispose();
     super.dispose();
   }
@@ -640,89 +570,221 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final connectionState = context.watch<ConnectionCubit>().state;
-          final layoutMode = _layoutModeForWidth(constraints.maxWidth);
-          _syncLayoutState(layoutMode);
-          final sessionList = SessionListScreen(
-            deepLinkNotifier: widget.deepLinkNotifier,
-            debugRecentSessions: widget.debugRecentSessions,
-            embedded: true,
-            onSelectWorkspaceSession: selectSession,
+          final padding = MediaQuery.paddingOf(context);
+          final usableWidth = (constraints.maxWidth - padding.horizontal).clamp(
+            0.0,
+            double.infinity,
           );
-
+          final layoutMode = _layoutModeForWidth(usableWidth);
+          _syncLayoutState(layoutMode);
+          final compact = isSinglePane;
+          final sessionEntry = _state.sessionEntry;
+          final toolEntry = _state.toolEntry;
+          final overlayEntry = _state.overlayEntry;
+          final hasCenter =
+              _selectedSession != null ||
+              _centerOverlay != WorkspaceCenterOverlay.none;
           final showRightPane = _toolPane != null;
-          final leftWidth = _leftPaneWidth(constraints.maxWidth);
-          final rightWidth = showRightPane
-              ? (() {
-                  final maxWidth = _maxRightPaneWidth(
-                    totalWidth: constraints.maxWidth,
-                  );
-                  final minWidth = _minAllowedRightPaneWidth(maxWidth);
-                  return (_rightPaneUserWidth ??
-                          _rightPaneWidth(constraints.maxWidth))
-                      .clamp(minWidth, maxWidth)
-                      .toDouble();
-                })()
-              : _rightPaneWidth(constraints.maxWidth);
+          final centerActive =
+              !compact ||
+              (hasCenter && (!showRightPane || _state.centerInFront));
+          final toolActive =
+              showRightPane &&
+              (!compact || !hasCenter || !_state.centerInFront);
+          final leftWidth = compact
+              ? constraints.maxWidth
+              : padding.left + _leftPaneWidth(usableWidth);
+          final maxRightWidth = _maxRightPaneWidth(totalWidth: usableWidth);
+          final rightWidth = compact
+              ? constraints.maxWidth
+              : padding.right +
+                    (_rightPaneUserWidth ?? _rightPaneWidth(usableWidth))
+                        .clamp(
+                          _minAllowedRightPaneWidth(maxRightWidth),
+                          maxRightWidth,
+                        )
+                        .toDouble();
+          final centerLeft = compact ? 0.0 : leftWidth + _twoPaneDividerWidth;
+          final centerRight = !compact && showRightPane
+              ? rightWidth + _twoPaneDividerWidth
+              : 0.0;
+          final center = Positioned(
+            key: const ValueKey('workspace_center_slot'),
+            top: 0,
+            bottom: 0,
+            left: centerLeft,
+            right: centerRight,
+            child: MediaQuery.removePadding(
+              context: context,
+              removeLeft: !compact,
+              removeRight: !compact && showRightPane,
+              child: WorkspacePaneNavigator(
+                navigatorKey: _centerNavigatorKey,
+                onInteraction: compact ? null : _navigation.activateCenter,
+                compact: compact,
+                active: centerActive,
+                handlesBack: !showRightPane || _state.centerInFront,
+                background: compact
+                    ? const SizedBox.expand()
+                    : _WorkspaceContentHost(
+                        selection: null,
+                        root: WorkspaceCenterRoot.offline,
+                        overlay: WorkspaceCenterOverlay.none,
+                        connectionState: connectionState,
+                        settingsFocusSupport: false,
+                        settingsFocusConnection: false,
+                        settingsFocusUsage: false,
+                        settingsPresentationVersion: 0,
+                      ),
+                pages: [
+                  if (_selectedSession != null)
+                    WorkspacePanePage(
+                      key: ValueKey(('session', _state.sessionEntry)),
+                      compact: compact,
+                      child: _WorkspaceContentHost(
+                        sessionEntry: sessionEntry,
+                        selection: _selectedSession,
+                        root: WorkspaceCenterRoot.session,
+                        overlay: WorkspaceCenterOverlay.none,
+                        connectionState: connectionState,
+                        settingsFocusSupport: false,
+                        settingsFocusConnection: false,
+                        settingsFocusUsage: false,
+                        settingsPresentationVersion: 0,
+                      ),
+                    ),
+                  if (_centerOverlay != WorkspaceCenterOverlay.none)
+                    WorkspacePanePage(
+                      key: ValueKey(('overlay', _state.overlayEntry)),
+                      compact: compact,
+                      child: _WorkspaceContentHost(
+                        selection: null,
+                        root: WorkspaceCenterRoot.offline,
+                        overlayEntry: overlayEntry,
+                        overlay: _centerOverlay,
+                        connectionState: connectionState,
+                        settingsFocusSupport: _state.settingsFocusSupport,
+                        settingsFocusConnection: _state.settingsFocusConnection,
+                        settingsFocusUsage: _state.settingsFocusUsage,
+                        settingsPresentationVersion: _state.overlayEntry,
+                      ),
+                    ),
+                ],
+                onDidRemovePage: (page) {
+                  if (_selectedSession != null &&
+                      page.key == ValueKey(('session', _state.sessionEntry))) {
+                    clearSelectedSession();
+                  } else if (_centerOverlay != WorkspaceCenterOverlay.none &&
+                      page.key == ValueKey(('overlay', _state.overlayEntry))) {
+                    popCenterOverlay();
+                  }
+                },
+              ),
+            ),
+          );
+          final tool = Positioned(
+            key: const ValueKey('workspace_tool_slot'),
+            top: 0,
+            bottom: 0,
+            right: 0,
+            width: rightWidth,
+            child: MediaQuery.removePadding(
+              context: context,
+              removeLeft: !compact,
+              child: WorkspacePaneNavigator(
+                navigatorKey: _toolNavigatorKey,
+                onInteraction: compact ? null : _navigation.activateTool,
+                compact: compact,
+                active: toolActive,
+                handlesBack: !hasCenter || !_state.centerInFront,
+                visible: !compact || !centerActive || _toolPane == null,
+                pages: [
+                  if (_toolPane case final pane?)
+                    WorkspacePanePage(
+                      key: ValueKey(('tool', _state.toolEntry)),
+                      compact: compact,
+                      child: _WorkspaceToolPaneHost(
+                        pane: pane,
+                        onClose: () => closeToolPane(entry: toolEntry),
+                        onExploreResultChanged: (result) =>
+                            _handleExploreResult(result, entry: toolEntry),
+                        onDiffSelection: (selection) =>
+                            _handleDiffSelection(selection, entry: toolEntry),
+                        onFilePeekOpened: (path) =>
+                            _handleFilePeekOpened(path, entry: toolEntry),
+                      ),
+                    ),
+                ],
+                onDidRemovePage: (page) {
+                  if (_toolPane != null &&
+                      page.key == ValueKey(('tool', _state.toolEntry))) {
+                    closeToolPane();
+                  }
+                },
+              ),
+            ),
+          );
           final resizeHandleHitWidth = _resizeHandleHitWidth(
             Theme.of(context).platform,
           );
-          final children = <Widget>[
-            SizedBox(
-              width: leftWidth,
-              child: ColoredBox(
-                color: Theme.of(context).colorScheme.surface,
-                child: sessionList,
-              ),
-            ),
-            _WorkspacePaneDivider(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
-            ),
-            Expanded(
-              child: _WorkspaceContentHost(
-                selection: _selectedSession,
-                root: _centerRoot,
-                overlay: _centerOverlay,
-                connectionState: connectionState,
-                settingsFocusSupport: _settingsFocusSupport,
-                settingsFocusConnection: _settingsFocusConnection,
-                settingsFocusUsage: _settingsFocusUsage,
-                settingsPresentationVersion: _settingsPresentationVersion,
-              ),
-            ),
-            if (showRightPane)
-              _WorkspacePaneDivider(
-                color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
-              ),
-            if (showRightPane)
-              SizedBox(
-                width: rightWidth,
-                child: _WorkspaceToolPaneHost(
-                  pane: _toolPane!,
-                  onClose: closeToolPane,
-                  onExploreResultChanged: _handleExploreResult,
-                  onDiffSelection: _handleDiffSelection,
-                  onFilePeekOpened: _handleFilePeekOpened,
-                ),
-              ),
-          ];
-
           return Stack(
             children: [
-              Row(children: children),
-              if (showRightPane)
+              Positioned(
+                key: const ValueKey('workspace_list_slot'),
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: leftWidth,
+                child: IgnorePointer(
+                  ignoring: compact && (hasCenter || showRightPane),
+                  child: ExcludeFocus(
+                    excluding: compact && (hasCenter || showRightPane),
+                    child: ExcludeSemantics(
+                      excluding: compact && (hasCenter || showRightPane),
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: MediaQuery.removePadding(
+                          context: context,
+                          removeRight: !compact,
+                          child: SessionListScreen(
+                            deepLinkNotifier: widget.deepLinkNotifier,
+                            debugRecentSessions: widget.debugRecentSessions,
+                            embedded: !compact,
+                            onSelectWorkspaceSession: selectSession,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (!compact)
                 Positioned(
                   top: 0,
+                  bottom: 0,
+                  left: leftWidth,
+                  child: _WorkspacePaneDivider(
+                    color: Theme.of(context).dividerColor
+                        .withValues(alpha: 0.18),
+                  ),
+                ),
+              if (_state.centerInFront) tool,
+              center,
+              if (!_state.centerInFront) tool,
+              if (!compact && showRightPane)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
                   right:
                       rightWidth -
                       ((resizeHandleHitWidth - _twoPaneDividerWidth) / 2),
-                  bottom: 0,
                   width: resizeHandleHitWidth,
                   child: _WorkspaceResizeHandle(
                     color: Theme.of(context).dividerColor
                         .withValues(alpha: 0.18),
                     onDragUpdate: (delta) => resizeRightPane(
-                      rightWidth - delta,
-                      constraints.maxWidth,
+                      rightWidth - padding.right - delta,
+                      usableWidth,
                     ),
                   ),
                 ),
@@ -738,11 +800,13 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 class AdaptiveHomeScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
   final List<RecentSession>? debugRecentSessions;
+  final WorkspaceSessionSelection? initialSession;
 
   const AdaptiveHomeScreen({
     super.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
+    this.initialSession,
   });
 
   @override
@@ -752,24 +816,10 @@ class AdaptiveHomeScreen extends StatefulWidget {
 class _AdaptiveHomeScreenState extends State<AdaptiveHomeScreen> {
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSinglePane =
-            _layoutModeForWidth(constraints.maxWidth) ==
-            _WorkspaceLayoutMode.single;
-
-        if (isSinglePane) {
-          return SessionListScreen(
-            deepLinkNotifier: widget.deepLinkNotifier,
-            debugRecentSessions: widget.debugRecentSessions,
-          );
-        }
-
-        return WorkspaceShellScreen(
-          deepLinkNotifier: widget.deepLinkNotifier,
-          debugRecentSessions: widget.debugRecentSessions,
-        );
-      },
+    return WorkspaceShellScreen(
+      deepLinkNotifier: widget.deepLinkNotifier,
+      debugRecentSessions: widget.debugRecentSessions,
+      initialSession: widget.initialSession,
     );
   }
 }
@@ -839,7 +889,7 @@ class _WorkspaceResizeHandleState extends State<_WorkspaceResizeHandle> {
 }
 
 class _WorkspaceToolPaneHost extends StatelessWidget {
-  final _WorkspaceToolPaneData pane;
+  final WorkspaceToolPaneData pane;
   final VoidCallback onClose;
   final ValueChanged<ExploreScreenResult> onExploreResultChanged;
   final ValueChanged<DiffSelection> onDiffSelection;
@@ -856,7 +906,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = switch (pane) {
-      _GitToolPaneData(
+      GitToolPaneData(
         :final projectPath,
         :final sessionId,
         :final worktreePath,
@@ -870,7 +920,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
           onRequestChange: onDiffSelection,
           onFilePeekOpened: onFilePeekOpened,
         ),
-      _ExploreToolPaneData(
+      ExploreToolPaneData(
         :final sessionId,
         :final projectPath,
         :final initialFiles,
@@ -887,7 +937,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
           onClose: onClose,
           onResultChanged: onExploreResultChanged,
         ),
-      _GalleryToolPaneData(:final sessionId) => GalleryScreen(
+      GalleryToolPaneData(:final sessionId) => GalleryScreen(
         sessionId: sessionId,
         embedded: true,
         onClose: onClose,
@@ -900,13 +950,15 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
 
 class _WorkspaceContentHost extends StatelessWidget {
   final WorkspaceSessionSelection? selection;
-  final _WorkspaceCenterRoot root;
-  final _WorkspaceCenterOverlay overlay;
+  final WorkspaceCenterRoot root;
+  final WorkspaceCenterOverlay overlay;
   final BridgeConnectionState connectionState;
   final bool settingsFocusSupport;
   final bool settingsFocusConnection;
   final bool settingsFocusUsage;
   final int settingsPresentationVersion;
+  final int? sessionEntry;
+  final int? overlayEntry;
 
   const _WorkspaceContentHost({
     required this.selection,
@@ -917,6 +969,8 @@ class _WorkspaceContentHost extends StatelessWidget {
     required this.settingsFocusConnection,
     required this.settingsFocusUsage,
     required this.settingsPresentationVersion,
+    this.sessionEntry,
+    this.overlayEntry,
   });
 
   @override
@@ -928,7 +982,7 @@ class _WorkspaceContentHost extends StatelessWidget {
         bridge.sessions.isNotEmpty || bridge.recentSessions.isNotEmpty;
 
     switch (overlay) {
-      case _WorkspaceCenterOverlay.settings:
+      case WorkspaceCenterOverlay.settings:
         return SettingsScreen(
           key: ValueKey(
             'workspace_settings_$settingsPresentationVersion'
@@ -940,27 +994,27 @@ class _WorkspaceContentHost extends StatelessWidget {
           focusConnection: settingsFocusConnection,
           focusUsage: settingsFocusUsage,
           embedded: true,
-          onBack: shell?.popCenterOverlay,
+          onBack: () => shell?.popCenterOverlay(entry: overlayEntry),
         );
-      case _WorkspaceCenterOverlay.globalGallery:
+      case WorkspaceCenterOverlay.globalGallery:
         return GalleryScreen(embedded: true, onBack: shell?.popCenterOverlay);
-      case _WorkspaceCenterOverlay.setupGuide:
+      case WorkspaceCenterOverlay.setupGuide:
         return SetupGuideScreen(
           embedded: true,
-          onBack: shell?.popCenterOverlay,
-          onClose: shell?.popCenterOverlay,
+          onBack: () => shell?.popCenterOverlay(entry: overlayEntry),
+          onClose: () => shell?.popCenterOverlay(entry: overlayEntry),
         );
-      case _WorkspaceCenterOverlay.none:
+      case WorkspaceCenterOverlay.none:
         break;
     }
 
     switch (root) {
-      case _WorkspaceCenterRoot.offline:
+      case WorkspaceCenterRoot.offline:
         return WorkspaceLandingScreen(
           isConnected: connectionState != BridgeConnectionState.disconnected,
           hasSessions: hasSessions,
         );
-      case _WorkspaceCenterRoot.session:
+      case WorkspaceCenterRoot.session:
         if (selection == null) {
           return WorkspaceLandingScreen(
             isConnected: connectionState != BridgeConnectionState.disconnected,
@@ -983,9 +1037,9 @@ class _WorkspaceContentHost extends StatelessWidget {
         initialApprovalPolicy: selection.approvalPolicy,
         initialApprovalsReviewer: selection.approvalsReviewer,
         pendingSessionCreated: selection.pendingSessionCreated,
-        onBackToSessions: WorkspaceShellScreen.maybeOf(context)
-            ?.clearSelectedSession,
-        hideSessionBackButton: true,
+        onBackToSessions: () =>
+            shell?.clearSelectedSession(entry: sessionEntry),
+        hideSessionBackButton: !(shell?.isSinglePane ?? true),
       ),
       _ => ClaudeSessionScreen(
         key: ValueKey('workspace_claude_${selection.sessionId}'),
@@ -998,9 +1052,9 @@ class _WorkspaceContentHost extends StatelessWidget {
         initialPermissionMode: selection.permissionMode,
         initialSandboxMode: selection.sandboxMode,
         pendingSessionCreated: selection.pendingSessionCreated,
-        onBackToSessions: WorkspaceShellScreen.maybeOf(context)
-            ?.clearSelectedSession,
-        hideSessionBackButton: true,
+        onBackToSessions: () =>
+            shell?.clearSelectedSession(entry: sessionEntry),
+        hideSessionBackButton: !(shell?.isSinglePane ?? true),
       ),
     };
   }

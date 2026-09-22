@@ -52,6 +52,7 @@ import '../explore/state/explore_state.dart';
 import '../git/state/git_status_cubit.dart';
 import '../git/state/git_view_cache_service.dart';
 import '../../router/app_router.dart';
+import '../workspace/widgets/workspace_session_route_adapter.dart';
 import '../claude_session/widgets/rewind_message_list_sheet.dart'
     show UserMessageHistorySheet;
 import 'state/codex_session_cubit.dart';
@@ -83,7 +84,6 @@ class _NoopListenable implements Listenable {
 /// Simpler than [ClaudeSessionScreen].
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
-@RoutePage()
 class CodexSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
@@ -123,7 +123,7 @@ class CodexSessionScreen extends StatefulWidget {
   State<CodexSessionScreen> createState() => _CodexSessionScreenState();
 }
 
-@RoutePage(name: 'WorkspaceCodexSessionRoute')
+@RoutePage(name: 'CodexSessionRoute')
 class WorkspaceCodexSessionScreen extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
@@ -158,20 +158,21 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CodexSessionScreen(
-      sessionId: sessionId,
-      projectPath: projectPath,
-      workspace: workspace,
-      gitBranch: gitBranch,
-      worktreePath: worktreePath,
-      isPending: isPending,
-      initialSandboxMode: initialSandboxMode,
-      initialPermissionMode: initialPermissionMode,
-      initialApprovalPolicy: initialApprovalPolicy,
-      initialApprovalsReviewer: initialApprovalsReviewer,
-      pendingSessionCreated: pendingSessionCreated,
-      onBackToSessions: onBackToSessions,
-      hideSessionBackButton: hideSessionBackButton,
+    return WorkspaceSessionRouteAdapter(
+      selection: WorkspaceSessionSelection(
+        sessionId: sessionId,
+        provider: Provider.codex,
+        projectPath: projectPath,
+        workspace: workspace,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        permissionMode: initialPermissionMode,
+        sandboxMode: initialSandboxMode,
+        pendingSessionCreated: pendingSessionCreated,
+        approvalPolicy: initialApprovalPolicy,
+        approvalsReviewer: initialApprovalsReviewer,
+      ),
     );
   }
 }
@@ -249,7 +250,10 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       sessionId: _sessionId,
       provider: 'codex',
     );
-    if (ModalRoute.of(context)?.isCurrent ?? false) {
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    if (shell != null) {
+      shell.updateLiveSession(widget.sessionId, _sessionId);
+    } else if (ModalRoute.of(context)?.isCurrent ?? false) {
       NotificationService.instance.setActiveSession(
         sessionId: _sessionId,
         provider: 'codex',
@@ -286,7 +290,11 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
         _pendingSub?.cancel();
         _pendingSub = null;
         widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
-        context.router.maybePop();
+        if (widget.onBackToSessions case final onBack?) {
+          onBack();
+        } else {
+          context.router.maybePop();
+        }
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg.message)));
       }

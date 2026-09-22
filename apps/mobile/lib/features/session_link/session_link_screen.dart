@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../router/app_router.dart';
+import '../workspace/state/workspace_destination.dart';
 import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
 import 'state/session_link_cubit.dart';
@@ -124,56 +125,27 @@ class _SessionLinkScreenBody extends StatelessWidget {
     )) {
       return;
     }
-    context.router.replace(
-      _sessionRoute(
-        sessionId: sessionId,
-        provider: normalizedProvider,
-        projectPath: projectPath,
-        workspace: workspace,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        permissionMode: permissionMode,
-        sandboxMode: sandboxMode,
-        approvalPolicy: approvalPolicy,
-        approvalsReviewer: approvalsReviewer,
-      ),
-    );
-  }
-
-  PageRouteInfo _sessionRoute({
-    required String sessionId,
-    required String provider,
-    String? projectPath,
-    SessionWorkspaceInfo? workspace,
-    String? gitBranch,
-    String? worktreePath,
-    String? permissionMode,
-    String? sandboxMode,
-    String? approvalPolicy,
-    String? approvalsReviewer,
-  }) {
-    if (provider == Provider.codex.value) {
-      return CodexSessionRoute(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        workspace: workspace,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        initialPermissionMode: permissionMode,
-        initialSandboxMode: sandboxMode,
-        initialApprovalPolicy: approvalPolicy,
-        initialApprovalsReviewer: approvalsReviewer,
-      );
-    }
-    return ClaudeSessionRoute(
+    final selection = WorkspaceSessionSelection(
       sessionId: sessionId,
+      provider: normalizedProvider == 'codex'
+          ? Provider.codex
+          : Provider.claude,
       projectPath: projectPath,
       workspace: workspace,
       gitBranch: gitBranch,
       worktreePath: worktreePath,
-      initialPermissionMode: permissionMode,
-      initialSandboxMode: sandboxMode,
+      permissionMode: permissionMode,
+      sandboxMode: sandboxMode,
+      approvalPolicy: approvalPolicy,
+      approvalsReviewer: approvalsReviewer,
     );
+    if (SessionStackNavigation.openWorkspaceSession(
+      context.router,
+      selection,
+    )) {
+      return;
+    }
+    context.router.replaceAll([AdaptiveHomeRoute(initialSession: selection)]);
   }
 }
 

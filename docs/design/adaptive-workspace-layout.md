@@ -1,338 +1,166 @@
-# Adaptive Workspace Layout
+# Adaptive Workspace: navigation and state ownership
 
-## Context
+Updated: 2026-09-22
 
-タブレット、フォルダブル横持ち、macOS での体験を改善するため、
-CC Pocket のワークスペースを `1 / 2 / 3 pane` で可変表示できる
-adaptive layout に拡張する。
+## Contract
 
-ベンチマークとする Codex App には以下の特徴がある。
+The workspace adapts to **available window width**, without changing the identity
+or lifetime of the user's current work. Crossing a breakpoint is a presentation
+change, not a navigation action. It must not reconnect a session, reload history,
+recreate a composer, discard an attachment, close a tool, or reset a reading anchor.
 
-- 左: チャット一覧
-- 中央: チャット詳細
-- 右: Git などの補助機能
-- 左右 pane は折りたたみ可能
+The same contract applies to phones, foldable devices, tablets, and desktop window
+resizing. There is no device-model or orientation-specific navigation tree.
 
-CC Pocket でも同様に、
-「一覧」「会話」「ツール」を同時に扱える構成を目指す。
+## Ownership
 
-## Goals
+| Owner | State | Lifetime |
+| --- | --- | --- |
+| `WorkspaceNavigationCubit` | Selected session entry, current live session ID, tool entry, center overlay, compact foreground | Workspace |
+| Session screen / session Cubit | Conversation, pending creation, stream subscriptions, permissions and provider state | Selected session entry |
+| Composer and hooks | Text, selection/composition, attachments/sketches, focus and completion overlays | Session screen |
+| `ChatMessageList` / scroll controller | Visible-message anchor, latest/history reading mode, scroll state | Session screen |
+| Tool screen / tool Cubit | Explorer location, Git mode/selection/scroll, gallery position | Tool entry |
+| Session list | Search input, scroll, filters and expansion | Workspace |
+| `DraftService` and existing caches | Durable drafts and session-specific navigation snapshots | Their existing service lifetimes |
 
-- 左にセッション一覧を常時表示できる
-- 中央をチャット詳細の主表示領域とする
-- 右に `Git` / `Explorer` などの補助画面を表示できる
-- 画面幅で自動的に `1 / 2 / 3 pane` を切り替える
-- `2 pane` 幅では右 pane を開くと左 pane を自動で折りたためる
-- スマホ幅では既存の full-screen 遷移を維持する
+Layout width is not a field of navigation state. Session entry identity is a local
+monotonic generation, independent of the Bridge session ID. Pending creation,
+clear-context and rewind can change the live ID without replacing the entry.
+The original selection remains the screen's construction input; subsequent live
+state belongs to the screen, not a new constructor invocation on each resize.
 
-## Non-Goals
+A user explicitly choosing a different session creates a new entry. Drafts and
+existing per-session tool snapshots retain their usual persistence behavior. This
+is not an unbounded cache of every chat widget ever opened. Explicit close,
+selected-session stop and disconnect release the corresponding work. Process
+restart recovery remains the responsibility of the existing draft/cache services.
 
-- 4 pane 以上のレイアウト
-- すべての modal / dialog の即時最適化
-- 端末種別ベースの分岐
+## Navigation projection
 
-## Pane Roles
-
-### Left pane
-
-- セッション一覧
-- 新規セッション
-- 設定、ギャラリーなどの一部導線
-
-### Center pane
-
-- `ClaudeSessionScreen`
-- `CodexSessionScreen`
-- ワークスペースの主表示領域
-
-### Right pane
-
-- `GitScreen`
-- `ExploreScreen`
-- 将来的には `GalleryScreen` などの補助ビュー
-
-原則として、
-中央 pane は常に主役、
-左右 pane は補助領域として扱う。
-
-## Breakpoints
-
-レイアウト切り替えは端末名ではなく、利用可能幅で判定する。
-
-- `< 600dp` → 1 pane
-- `600 - 1099dp` → 2 pane
-- `1100dp+` → 3 pane
-
-左 pane 幅は段階的に拡張する。
-
-| 幅 | 左 pane |
-|---|---|
-| `600 - 1099dp` | `320dp` |
-| `1100 - 1279dp` | `320dp` |
-| `1280dp+` | `360dp` |
-
-右 pane も同様に、
-ツール画面が窮屈になりすぎない幅を優先して配分する。
-
-## Layout Modes
-
-### 1 pane
-
-- 現行どおり full-screen
-- 一覧と詳細は route push で遷移
-
-### 2 pane
-
-基本形は `left + center`。
-
-- 左: セッション一覧
-- 中央: チャット詳細
-
-右 pane を開く要求が来た場合は、
-`left + center` から `center + right` に切り替える。
-
-- 左 pane を自動で折りたたむ
-- 中央 pane は維持
-- 右 pane に `Git` / `Explorer` を表示
-
-右 pane を閉じたら、
-左 pane を自動で再展開して `left + center` に戻す。
-
-### 3 pane
-
-- 左: セッション一覧
-- 中央: チャット詳細
-- 右: Git / Explorer などの補助画面
-
-左右 pane はどちらも手動で折りたたみ可能とする。
-
-## Route Structure
-
-従来は `SessionListScreen` が `/` を担当し、
-詳細画面を root stack に push していた。
-
-まずは一覧常駐のための shell route を導入済みであり、
-これは adaptive workspace の基礎としてそのまま利用する。
-
-```
-WorkspaceShellRoute (/)
-├── WorkspacePlaceholderRoute
-├── ClaudeSessionRoute
-├── CodexSessionRoute
-├── ExploreRoute
-├── GalleryRoute
-├── GitRoute
-├── SettingsRoute
-├── LicensesRoute
-├── ChangelogRoute
-├── AuthHelpRoute
-├── SupporterRoute
-├── QrScanRoute
-├── MockPreviewRoute
-├── SetupGuideRoute
-└── DebugRoute
+```mermaid
+flowchart TD
+  Intent[Session taps / URLs / notifications / tool actions / Back] --> Navigation[WorkspaceNavigationCubit]
+  Navigation --> List[Permanent session list]
+  Navigation --> Center[Permanent center Navigator]
+  Navigation --> Tools[Permanent tool Navigator]
+  Width[Available window width] --> Geometry[Pane geometry and chrome]
+  Geometry --> List
+  Geometry --> Center
+  Geometry --> Tools
 ```
 
-ただし最終形では、
-「中央 pane の route」と「右 pane の tool panel」を分離して扱うのが望ましい。
-
-## Recommended Architecture
-
-### 現段階
-
-- `WorkspaceShellRoute`
-- 左一覧を `SessionListScreen(embedded: true)` として再利用
-- child route を右側に表示
-
-### 次段の拡張
-
-shell 内で以下を分離する。
-
-- 中央: conversation route host
-- 右: tool panel host
-
-この構成にすると、
-チャット遷移とツール表示を別々に制御しやすい。
-
-## Workspace State
-
-layout の挙動を route だけで表現せず、
-専用 state を持つ。
-
-例:
-
-```dart
-class WorkspaceLayoutState {
-  final bool showLeftPane;
-  final bool showRightPane;
-  final WorkspaceRightPaneTab? rightPaneTab;
-}
-```
-
-`rightPaneTab` の候補:
-
-- `git`
-- `explore`
-- `gallery`
-
-これにより、
-以下のような遷移を明示的に表現できる。
-
-- 通常の 2 pane: `showLeftPane = true`, `showRightPane = false`
-- 2 pane で Git を開く:
-  `showLeftPane = false`, `showRightPane = true`, `rightPaneTab = git`
-- 右 pane を閉じる:
-  `showLeftPane = true`, `showRightPane = false`
-
-## Navigation Rules
-
-### 1 pane
-
-- 従来どおり `push`
-
-### 2 pane
-
-- セッション選択時は `left + center`
-- `Git` / `Explorer` を開くと `center + right`
-- 右 pane を閉じると `left + center`
-
-### 3 pane
-
-- セッション選択で中央 pane を更新
-- `Git` / `Explorer` を右 pane に表示
-- 左右 pane は必要に応じて手動折りたたみ
-
-## Session List Adaptation
-
-`SessionListScreen` は `embedded` モードで再利用する。
-
-### 通常モード
-
-- `AppBar`
-- `NestedScrollView + SessionListSliverAppBar`
-- `FAB(New)`
-
-### embedded モード
-
-- 左 pane 専用ヘッダ `SessionListPaneHeader`
-- `New`, `Settings`, `Gallery`, `Disconnect` をヘッダに集約
-- `FAB` は非表示
-- 本文は `HomeContent` を再利用
-
-## Right Pane Targets
-
-右 pane に表示したい対象は以下。
-
-### 優先度 high
-
-- `GitScreen`
-- `ExploreScreen`
-
-### 優先度 medium
-
-- `GalleryScreen`
-
-### 原則中央のまま
-
-- `ClaudeSessionScreen`
-- `CodexSessionScreen`
-
-### 右 pane に載せないほうがよいもの
-
-- 新規セッション作成
-- 接続画面
-- マシン管理
-- アプリ全体設定
-- 破壊的確認ダイアログ
-
-## Placeholder
-
-2 pane / 3 pane で中央または右が未選択の場合、
-空白ではなく placeholder を表示する。
-
-- アプリタイトル
-- セッション選択を促す短い文言
-- macOS / タブレットでの未選択状態を自然に見せる
-
-## Modal Policy
-
-今回の段階では modal 最適化は未完了。
-
-### 方針
-
-- セッション詳細由来の軽量補助UI:
-  将来的に右 pane 文脈へ寄せる
-- 設定、接続、マシン管理、破壊的確認:
-  全体モーダルのまま維持
-
-### 重点確認対象
-
-- `showPlanDetailSheet`
-- `showScreenshotSheet`
-- `PromptHistorySheet`
-- `UserMessageHistorySheet`
-- `RewindActionSheet`
-- `showBranchSelectorSheet`
-- Git の file/hunk action sheet
-- `showNewSessionSheet`
-- `MachineEditSheet`
-
-## Design Decisions
-
-### 幅ベースの切り替え
-
-端末名ベースではなく幅ベースで切り替える。
-フォルダブルと macOS の可変ウィンドウに自然に対応できる。
-
-### 中央 pane を常に優先
-
-一覧よりも会話詳細を優先する。
-`2 pane` 幅で右 pane を開くときに左を畳むのはこのため。
-
-### 一覧ロジックの再利用
-
-左 pane 専用の別 feature は作らず、
-`SessionListScreen(embedded: true)` を再利用する。
-
-### 右 pane は tool host として扱う
-
-最終形では route を全面的に増やすより、
-right tool host で `git / explore / gallery` を切り替えるほうが扱いやすい。
-
-## Risks
-
-- `2 pane` 幅での自動折りたたみは、戻る挙動の設計を誤ると混乱を生みやすい
-- `showModalBottomSheet` / `showDialog` が全画面基準のまま残る箇所がある
-- `280dp` 幅で表示は成立しても、Git や Explorer は情報密度的に窮屈になる可能性がある
-- 中央 route と右 pane state の責務分離が曖昧だと、shell が複雑化しやすい
-
-## Implementation Plan
-
-1. `WorkspaceLayoutCubit` を追加
-2. shell を `1 / 2 / 3 pane` 対応に拡張
-3. 右 pane host を追加
-4. `Git` と `Explorer` を先に右 pane 対応
-5. `2 pane` 幅での `left auto collapse / restore` を導入
-6. 左右 pane の手動トグルを追加
-
-## Validation
-
-最低限の確認項目は以下。
-
-- `dart analyze apps/mobile`
-- `flutter test`
-- iPad mini 横持ち相当 (`>= 600dp`) で 2 pane になること
-- iPad Pro / macOS 幅 (`>= 1100dp`) で 3 pane になること
-- `2 pane` 幅で `Git` を開くと左 pane が自動で畳まれること
-- 右 pane を閉じると左 pane が自動で戻ること
-- 3 pane 幅で `Git` / `Explorer` が右 pane に共存表示されること
-- スマホ幅 (`< 600dp`) で従来どおり full-screen 遷移すること
-
-## Related Files
-
-| ファイル | 役割 |
-|---|---|
-| `apps/mobile/lib/features/session_list/workspace_shell_screen.dart` | 現行 shell と 1/2 pane 切り替え |
-| `apps/mobile/lib/router/app_router.dart` | shell 配下の route 構成 |
-| `apps/mobile/lib/features/session_list/session_list_screen.dart` | 一覧の通常/embedded 表示 |
-| `apps/mobile/lib/features/session_list/widgets/session_list_app_bar.dart` | 左 pane 用ヘッダ |
+The center Navigator contains an empty root, the selected conversation page, and
+an optional settings/gallery/setup page. The tool Navigator contains an empty
+root and the current tool page. Both Navigators remain siblings in the same
+Stack, with stable keys, across all widths. Center overlays add a page above the
+conversation; they do not replace its subtree.
+
+Below **862 logical pixels of usable width**, the panes occupy the full window;
+the last navigation intent or pane interaction chooses the foreground. At and above 862, the list
+and center are visible together, with an optional right tool pane. Minimum usable
+widths are 260 for the list, 360 for the center, and 240 for the tool, plus dividers.
+The user's preferred tool width is retained when temporary window constraints
+clamp its displayed width.
+
+Horizontal safe-area insets are excluded from the breakpoint calculation and
+allocated only to panes touching the physical window edge. Interior panes remove
+those insets. Compact routes keep the full-window surface and native edge gesture.
+A hidden pane never receives a zero-width layout.
+
+## Back, focus, and visibility
+
+Compact iOS pages use Cupertino routes, including interactive Back completion and
+cancellation. Android and desktop use themed Material routes, retaining Android
+predictive-back support. Their transparent root content reveals the actual destination
+underneath. Retained tools behind a foreground conversation are not painted, so
+a conversation-to-list swipe never previews a tool that will disappear on pop.
+Expanded routes have no pane-to-pane slide animation. Existing route animation
+controllers are updated when compactness changes, including routes created wide.
+Each Navigator owns its own Hero controller.
+
+Only the foreground compact pane accepts input, focus and accessibility traversal.
+Expanded panes remain interactive. `NavigatorPopHandler` delegates system Back to
+one current logical destination, including on tablets. Page removal and delayed
+page callbacks carry entry identity; obsolete work must not close or update a
+newer destination. Focus nodes and editing controllers stay owned by their screens. A returning
+compact pane restores its previously focused control, while merely revealing a
+side pane on expansion does not steal focus.
+
+Notification suppression follows the **visible live conversation**, including
+root-route visibility, rather than a nested route's `isCurrent` flag alone.
+Suppression has an owner token so disposal of an old workspace cannot clear a
+new owner's session. List highlighting uses the live selected ID independently
+of notification suppression.
+
+## External entry points and asynchronous creation
+
+`SessionRouteRegistry` registers the workspace's root route, live identity and
+open/reveal commands. `SessionStackNavigation` first reuses that workspace.
+Legacy `ClaudeSessionRoute` / `CodexSessionRoute` and their URL paths remain
+compatible; their screens now adapt the request into workspace navigation.
+With no existing workspace, the adapter creates `AdaptiveHomeRoute` with an initial
+selection, leaving a real session-list Back destination. Resolved session links
+use the same path, including cold starts.
+
+The always-mounted session list must not interpret a pending screen's creation
+event as a second navigation. It still buffers events for the original list-start
+race, while directly linked pending screens resolve their own matching event.
+Creation failure returns through the entry's Back callback, not an unrelated
+root router. Git/explorer result delivery and snapshots use the **live** session
+ID, including immediately after pending creation.
+
+## Reading position
+
+Keeping a pixel offset is insufficient when text reflows. The chat list measures
+a keyed visible message after layout and after scrolling. Before viewport
+constraints change, it uses the last stable measurement, then corrects the anchor
+during the viewport's layout pass, before painting. It does not read unrelated
+RenderBox sizes during layout. The existing streaming anchor and latest-message
+behavior remain in place. Active user scrolling and explicit scroll-to-message
+actions take precedence over automatic correction.
+
+The guarantee is a measured visible-message anchor; arbitrary character-level
+position within a single reflowing rich-text message is not a separate persisted
+navigation state.
+
+## Verification
+
+Regression coverage includes:
+
+- Real conversation Cubit/controller identity, unsent text, selection, attachments,
+  focus and settings overlays across 430 / 861 / 862 / 1400 pixel widths.
+- Claude and Codex pending resolution, live-ID stop, creation failure and tool
+  retention across compact/expanded transitions.
+- Native swipe completion/cancellation, resizing during a gesture, wide-created
+  routes returning with compact animations, and system Back in both layouts.
+- Direct routes, cold entry, root overlays and revealing the same live ID without
+  duplicating or replacing the conversation.
+- First-frame message anchoring during width reflow and streamed updates.
+- Session-list scroll position across 861 / 862, safe-area-aware pane sizing,
+  and tool pop paint order while composer focus is restored.
+
+Validation on 2026-09-22: the complete Flutter suite passed (1,856 tests, four
+skipped); analysis reported no errors or warnings (42 existing informational
+lints). The final iOS simulator debug build passed with Xcode 27. Independent
+navigation/state review completed with no outstanding findings.
+
+Runtime verification uses the installed iOS 27 SDK and a separate localhost
+Bridge on port 8766. iPhone portrait/landscape checks covered safe-area sizing,
+tool navigation and retained composer state. On iPad mini, the final build
+retained the same composer controller and restored its focus after closing Git;
+its draft also survived app restart. A real Codex round-trip returned
+`ADAPTIVE_STATE_OK` after the tool transition, with no runtime layout errors. Actual iPad rotation could not be automated:
+iPad multitasking ignores the app orientation request, and Device Hub's desktop
+accessibility interface timed out. Compact/expanded transitions, including their
+first frame, are covered by the automated widget tests above. iPhone Duo-specific reserved-region geometry is a separate
+platform integration: the installed Xcode 27.0 does not contain its simulator.
+This design does not depend on that simulator or invent hinge geometry.
+
+## References
+
+- [Flutter adaptive/responsive best practices](https://docs.flutter.dev/ui/adaptive-responsive/best-practices)
+- [Apple: Design for iPhone Duo](https://developer.apple.com/videos/play/tech-talks/111466/)
+- [Apple: Prepare your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo)
+- [Flutter NavigatorPopHandler](https://api.flutter.dev/flutter/widgets/NavigatorPopHandler-class.html)
+- [Flutter Navigator.onDidRemovePage](https://api.flutter.dev/flutter/widgets/Navigator/onDidRemovePage.html)

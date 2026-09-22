@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_router.dart';
+import '../features/workspace/state/workspace_destination.dart';
 
 @immutable
 class SessionRouteIdentity {
@@ -24,6 +25,32 @@ class SessionRouteRegistry {
 
   final Map<Object, ({Object owner, SessionRouteIdentity identity})> _routes =
       HashMap.identity();
+
+  final Map<
+    Object,
+    ({
+      Object owner,
+      void Function() reveal,
+      void Function(WorkspaceSessionSelection) open,
+    })
+  >
+  _workspaces = HashMap.identity();
+
+  void registerWorkspace({
+    required Object routeIdentity,
+    required Object owner,
+    required void Function() reveal,
+    required void Function(WorkspaceSessionSelection) open,
+  }) {
+    _workspaces[routeIdentity] = (owner: owner, reveal: reveal, open: open);
+  }
+
+  void unregisterWorkspace(Object routeIdentity, Object owner) {
+    if (identical(_workspaces[routeIdentity]?.owner, owner)) {
+      _workspaces.remove(routeIdentity);
+      remove(routeIdentity: routeIdentity, owner: owner);
+    }
+  }
 
   void update({
     required Object routeIdentity,
@@ -51,6 +78,7 @@ class SessionRouteRegistry {
   @visibleForTesting
   void clear() {
     _routes.clear();
+    _workspaces.clear();
   }
 }
 
@@ -77,8 +105,24 @@ class SessionStackNavigation {
     }
 
     final targetPage = rootRouter.stack[targetIndex];
+    SessionRouteRegistry.instance._workspaces[targetPage]?.reveal();
     rootRouter.popUntil((route) => identical(route.settings, targetPage));
     return true;
+  }
+
+  static bool openWorkspaceSession(
+    StackRouter router,
+    WorkspaceSessionSelection selection,
+  ) {
+    final rootRouter = router.root;
+    for (final page in rootRouter.stack.reversed) {
+      final workspace = SessionRouteRegistry.instance._workspaces[page];
+      if (workspace == null) continue;
+      workspace.open(selection);
+      rootRouter.popUntil((route) => identical(route.settings, page));
+      return true;
+    }
+    return false;
   }
 
   @visibleForTesting

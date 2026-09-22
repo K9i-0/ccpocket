@@ -281,6 +281,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       bridge.requestUsage();
     }
     _messageSub = bridge.messages.listen((msg) {
+      if (!mounted) return;
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         unawaited(_syncPendingClaudeDefaultsWithSessionCreated(msg));
         bridge.requestSessionList();
@@ -302,6 +303,19 @@ class _SessionListScreenState extends State<SessionListScreen>
             _pendingNavigation = false;
             _pendingSessionCreated.value = msg;
           } else {
+            // A directly linked pending page owns its resolution as well. The
+            // always-mounted list must not replace that page on the same event.
+            final shell = WorkspaceShellScreen.maybeOf(context);
+            final pending = shell?.selectedSession;
+            final ownedByPendingPage =
+                pending?.isPending == true &&
+                shell?.liveSessionId == pending?.sessionId &&
+                (msg.requestId == null ||
+                    msg.requestId == pending!.sessionId) &&
+                (pending!.projectPath == null ||
+                    msg.projectPath == null ||
+                    pending.projectPath == msg.projectPath);
+            if (ownedByPendingPage) return;
             _navigateToChat(
               msg.sessionId!,
               projectPath: msg.projectPath ?? _pendingResumeProjectPath,
@@ -745,7 +759,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   Future<void> _openSettings() async {
     final shell = WorkspaceShellScreen.maybeOf(context);
-    if (widget.embedded && shell != null) {
+    if (shell != null) {
       shell.openSettingsCenter();
       return;
     }
@@ -754,7 +768,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _openSupportSettings() {
     final shell = WorkspaceShellScreen.maybeOf(context);
-    if (widget.embedded && shell != null) {
+    if (shell != null) {
       shell.openSettingsCenter(focusSupport: true);
       return;
     }
@@ -763,7 +777,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _openBridgeSettings() {
     final shell = WorkspaceShellScreen.maybeOf(context);
-    if (widget.embedded && shell != null) {
+    if (shell != null) {
       shell.openSettingsCenter(focusConnection: true);
       return;
     }
@@ -772,7 +786,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _openUsageSettings() {
     final shell = WorkspaceShellScreen.maybeOf(context);
-    if (widget.embedded && shell != null) {
+    if (shell != null) {
       shell.openSettingsCenter(focusUsage: true);
       return;
     }
@@ -781,7 +795,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   Future<void> _openGallery() async {
     final shell = WorkspaceShellScreen.maybeOf(context);
-    if (widget.embedded && shell != null) {
+    if (shell != null) {
       shell.openGlobalGalleryCenter();
       return;
     }
@@ -1391,8 +1405,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       _pendingSessionCreated.value = null;
     }
     final pendingNotifier = isPending ? _pendingSessionCreated : null;
-    if (widget.embedded) {
-      widget.onSelectWorkspaceSession?.call(
+    if (widget.onSelectWorkspaceSession != null) {
+      widget.onSelectWorkspaceSession!.call(
         WorkspaceSessionSelection(
           sessionId: sessionId,
           projectPath: projectPath,
@@ -1844,46 +1858,29 @@ class _SessionListScreenState extends State<SessionListScreen>
       connectedBridgeLabel: connectedBridgeLabel,
     );
 
-    if (widget.embedded) {
-      return Material(
-        color: Theme.of(context).colorScheme.surface,
-        child: SafeArea(
-          bottom: false,
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  SessionListPaneHeader(
-                    onTitleTap: _onTitleTap,
-                    onOpenSettings: _openSettings,
-                    onOpenGallery: showConnectedUI ? _openGallery : null,
-                    onDisconnect: canDisconnect ? _disconnect : null,
-                    bridgeLabel: connectedBridgeLabel,
-                  ),
-                  Expanded(child: body),
-                ],
-              ),
-              if (showConnectedUI &&
-                  MediaQuery.of(context).viewInsets.bottom == 0)
-                Positioned(
-                  left: 16,
-                  bottom: 16,
-                  child: FloatingActionButton.extended(
-                    key: const ValueKey('new_session_fab'),
-                    heroTag: null,
-                    onPressed: _showNewSessionDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('New'),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
-      appBar: showConnectedUI
+      appBar: widget.embedded
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(
+                resolveWorkspacePaneChrome(
+                  platform: Theme.of(context).platform,
+                  isAdaptiveWorkspace: true,
+                  isLeftPaneVisible: true,
+                  slot: WorkspacePaneSlot.left,
+                ).toolbarHeight,
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: SessionListPaneHeader(
+                  onTitleTap: _onTitleTap,
+                  onOpenSettings: _openSettings,
+                  onOpenGallery: showConnectedUI ? _openGallery : null,
+                  onDisconnect: canDisconnect ? _disconnect : null,
+                  bridgeLabel: connectedBridgeLabel,
+                ),
+              ),
+            )
+          : showConnectedUI
           ? null
           : chrome.wrapAppBar(
               AppBar(
@@ -1915,6 +1912,9 @@ class _SessionListScreenState extends State<SessionListScreen>
               ),
             ),
       body: body,
+      floatingActionButtonLocation: widget.embedded
+          ? FloatingActionButtonLocation.startFloat
+          : FloatingActionButtonLocation.endFloat,
       floatingActionButton:
           showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0
           ? Padding(
@@ -2104,10 +2104,6 @@ class _SessionListScreenState extends State<SessionListScreen>
         },
       );
 
-      if (widget.embedded) {
-        return content;
-      }
-
       final chrome = resolveWorkspacePaneChrome(
         platform: Theme.of(context).platform,
         isAdaptiveWorkspace: false,
@@ -2116,17 +2112,21 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
 
       return NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          if (chrome.topInset > 0)
-            SliverToBoxAdapter(child: SizedBox(height: chrome.topInset)),
-          SessionListSliverAppBar(
-            onTitleTap: _onTitleTap,
-            onDisconnect: _disconnect,
-            forceElevated: innerBoxIsScrolled,
-            toolbarHeight: chrome.toolbarHeight,
-            bridgeLabel: connectedBridgeLabel,
-          ),
-        ],
+        headerSliverBuilder: (context, innerBoxIsScrolled) => widget.embedded
+            ? []
+            : [
+                if (chrome.topInset > 0)
+                  SliverToBoxAdapter(child: SizedBox(height: chrome.topInset)),
+                SessionListSliverAppBar(
+                  onOpenSettings: _openSettings,
+                  onOpenGallery: _openGallery,
+                  onTitleTap: _onTitleTap,
+                  onDisconnect: _disconnect,
+                  forceElevated: innerBoxIsScrolled,
+                  toolbarHeight: chrome.toolbarHeight,
+                  bridgeLabel: connectedBridgeLabel,
+                ),
+              ],
         body: content,
       );
     }
@@ -2148,7 +2148,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       onScanQrCode: _scanQrCode,
       onViewSetupGuide: () {
         final shell = WorkspaceShellScreen.maybeOf(context);
-        if (widget.embedded && shell != null) {
+        if (shell != null) {
           shell.openSetupGuideCenter();
           return;
         }

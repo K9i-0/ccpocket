@@ -506,7 +506,7 @@ class HomeContentState extends State<HomeContent> {
     final macOSNativeAppBanner = _buildMacOSNativeAppBanner();
     final shell = WorkspaceShellScreen.maybeOf(context);
     final selectedSession = shell?.selectedSession;
-    final selectedSessionId = selectedSession?.sessionId;
+    final selectedSessionId = shell?.liveSessionId;
     final selectedSessionProvider = selectedSession?.provider?.value;
     final showInlineStopButton =
         widget.showInlineStopButtonOverride ?? shell != null;
