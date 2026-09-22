@@ -140,7 +140,6 @@ class _FileBrowserViewState extends State<FileBrowserView> {
                           children: [
                             BrowserHeader(
                               embedded: widget.embedded,
-                              wide: wide,
                               showToggle: wide && file != null,
                               showList: _showList,
                               onToggle: () =>
@@ -184,7 +183,6 @@ class _FileBrowserViewState extends State<FileBrowserView> {
                                       file == null && location.directory.isEmpty
                                   ? null
                                   : cubit.showParent,
-                              onClose: widget.onClose,
                               onAddToChat: widget.onAddToChat == null
                                   ? null
                                   : () {
@@ -212,14 +210,13 @@ class _FileBrowserViewState extends State<FileBrowserView> {
   }
 }
 
-class BrowserHeader extends StatefulWidget {
-  final bool embedded, wide, showToggle, showList;
+class BrowserHeader extends StatelessWidget {
+  final bool embedded, showToggle, showList;
   final VoidCallback onToggle, onRecent, onClose;
   final VoidCallback? onUpload;
   const BrowserHeader({
     super.key,
     required this.embedded,
-    required this.wide,
     required this.showToggle,
     required this.showList,
     required this.onToggle,
@@ -227,76 +224,55 @@ class BrowserHeader extends StatefulWidget {
     required this.onClose,
     this.onUpload,
   });
-  @override
-  State<BrowserHeader> createState() => _BrowserHeaderState();
-}
 
-class _BrowserHeaderState extends State<BrowserHeader> {
-  double _drag = 0;
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return GestureDetector(
-      key: const ValueKey('browser_dismiss_handle'),
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragStart: (_) => _drag = 0,
-      onVerticalDragUpdate: (details) => _drag += details.delta.dy,
-      onVerticalDragEnd: (details) {
-        if (_drag > 72 || _drag > 20 && (details.primaryVelocity ?? 0) > 700) {
-          widget.onClose();
-        }
-      },
-      child: SizedBox(
-        height: 52,
-        child: Row(
-          children: [
-            const SizedBox(width: 12),
-            const Icon(Icons.folder_open_outlined, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                l.browserTitle,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+    return SizedBox(
+      key: const ValueKey('browser_header'),
+      height: 52,
+      child: Row(
+        children: [
+          IconButton(
+            key: ValueKey(
+              embedded ? 'close_explore_pane_button' : 'file_peek_close_button',
             ),
-            if (widget.showToggle)
-              IconButton(
-                key: const ValueKey('browser_toggle_list_button'),
-                tooltip: l.browserToggleList,
-                onPressed: widget.onToggle,
-                icon: Icon(
-                  widget.showList
-                      ? Icons.view_sidebar_outlined
-                      : Icons.view_sidebar,
-                ),
-              ),
-            if (widget.onUpload != null)
-              IconButton(
-                key: const ValueKey('explore_upload_button'),
-                tooltip: l.fileUploadTitle,
-                onPressed: widget.onUpload,
-                icon: const Icon(Icons.upload_file),
-              ),
+            tooltip: l.browserClose,
+            onPressed: onClose,
+            icon: const Icon(Icons.close),
+          ),
+          Expanded(
+            child: Text(
+              l.browserTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          if (showToggle)
             IconButton(
-              key: const ValueKey('explore_recent_files_button'),
-              tooltip: l.browserRecent,
-              onPressed: widget.onRecent,
-              icon: const Icon(Icons.history),
-            ),
-            if (widget.wide || widget.embedded)
-              IconButton(
-                key: ValueKey(
-                  widget.embedded
-                      ? 'close_explore_pane_button'
-                      : 'browser_header_close_button',
-                ),
-                tooltip: l.browserClose,
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.close),
+              key: const ValueKey('browser_toggle_list_button'),
+              tooltip: l.browserToggleList,
+              onPressed: onToggle,
+              icon: Icon(
+                showList ? Icons.view_sidebar_outlined : Icons.view_sidebar,
               ),
-            const SizedBox(width: 4),
-          ],
-        ),
+            ),
+          if (onUpload != null)
+            IconButton(
+              key: const ValueKey('explore_upload_button'),
+              tooltip: l.fileUploadTitle,
+              onPressed: onUpload,
+              icon: const Icon(Icons.upload_file),
+            ),
+          IconButton(
+            key: const ValueKey('explore_recent_files_button'),
+            tooltip: l.browserRecent,
+            onPressed: onRecent,
+            icon: const Icon(Icons.history),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
     );
   }
@@ -481,13 +457,11 @@ class _BrowserFilePreviewState extends State<BrowserFilePreview> {
 class BrowserNavigationBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback? onParent;
-  final VoidCallback onClose;
   final VoidCallback? onAddToChat;
   const BrowserNavigationBar({
     super.key,
     required this.onBack,
     this.onParent,
-    required this.onClose,
     this.onAddToChat,
   });
   @override
@@ -497,45 +471,29 @@ class BrowserNavigationBar extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: SizedBox(
         height: 56,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              key: const ValueKey('browser_back_button'),
+              tooltip: l.browserBack,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back),
+            ),
+            IconButton(
+              key: const ValueKey('browser_parent_button'),
+              tooltip: l.browserParent,
+              onPressed: onParent,
+              icon: const Icon(Icons.drive_folder_upload_outlined),
+            ),
+            if (onAddToChat != null)
               IconButton(
-                key: const ValueKey('browser_back_button'),
-                tooltip: l.browserBack,
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back),
+                key: const ValueKey('browser_add_to_chat_button'),
+                tooltip: l.browserAddToChat,
+                onPressed: onAddToChat,
+                icon: const Icon(Icons.add_comment_outlined),
               ),
-              IconButton(
-                key: const ValueKey('browser_parent_button'),
-                tooltip: l.browserParent,
-                onPressed: onParent,
-                icon: const Icon(Icons.drive_folder_upload_outlined),
-              ),
-              if (onAddToChat != null)
-                IconButton(
-                  key: const ValueKey('browser_add_to_chat_button'),
-                  tooltip: l.browserAddToChat,
-                  onPressed: onAddToChat,
-                  icon: const Icon(Icons.add_comment_outlined),
-                ),
-              if (constraints.maxWidth < 320)
-                IconButton(
-                  key: const ValueKey('file_peek_close_button'),
-                  tooltip: l.browserClose,
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                )
-              else
-                TextButton.icon(
-                  key: const ValueKey('file_peek_close_button'),
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                  label: Text(l.browserClose),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );

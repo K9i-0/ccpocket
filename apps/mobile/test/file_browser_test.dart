@@ -390,7 +390,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(
-        find.byKey(const ValueKey('file_peek_close_button')).hitTestable(),
+        find.byKey(const ValueKey('close_explore_pane_button')).hitTestable(),
         findsOneWidget,
       );
       expect(
@@ -428,87 +428,90 @@ void main() {
     },
   );
 
-  testWidgets('folder history restores list position and header drag closes', (
-    tester,
-  ) async {
-    final bridge = BrowserTestBridge();
-    // Most entries are not present in the search index.
-    final files = ['folder20/file.txt'];
-    final cubit = FileBrowserCubit(
-      bridge: bridge,
-      projectPath: '/project',
-      initialFiles: files,
-    );
-    var closed = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.darkTheme,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: BlocProvider.value(
-          value: cubit,
-          child: FileBrowserView(onClose: () => closed = true),
+  testWidgets(
+    'folder history restores list position and header close is explicit',
+    (tester) async {
+      final bridge = BrowserTestBridge();
+      // Most entries are not present in the search index.
+      final files = ['folder20/file.txt'];
+      final cubit = FileBrowserCubit(
+        bridge: bridge,
+        projectPath: '/project',
+        initialFiles: files,
+      );
+      var closed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BlocProvider.value(
+            value: cubit,
+            child: FileBrowserView(onClose: () => closed = true),
+          ),
         ),
-      ),
-    );
-    bridge.directory(
-      '',
-      directories: [for (var i = 0; i < 60; i++) 'folder$i'],
-    );
-    await tester.pump();
-    await tester.drag(
-      find.byKey(const ValueKey('explore_list')),
-      const Offset(0, -450),
-    );
-    await tester.pumpAndSettle();
-    final before = tester
-        .widget<ListView>(find.byKey(const ValueKey('explore_list')))
-        .controller!
-        .offset;
-    expect(before, greaterThan(0));
-    cubit.openDirectory('folder20');
-    bridge.directory('folder20', files: ['file.txt']);
-    await tester.pumpAndSettle();
-    expect(
-      tester
+      );
+      bridge.directory(
+        '',
+        directories: [for (var i = 0; i < 60; i++) 'folder$i'],
+      );
+      await tester.pump();
+      await tester.drag(
+        find.byKey(const ValueKey('explore_list')),
+        const Offset(0, -450),
+      );
+      await tester.pumpAndSettle();
+      final before = tester
           .widget<ListView>(find.byKey(const ValueKey('explore_list')))
           .controller!
-          .offset,
-      0,
-    );
-    cubit.back();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      tester
-          .widget<ListView>(find.byKey(const ValueKey('explore_list')))
-          .controller!
-          .offset,
-      before,
-    );
-    bridge.directory(
-      '',
-      directories: [for (var i = 0; i < 60; i++) 'folder$i'],
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<ListView>(find.byKey(const ValueKey('explore_list')))
-          .controller!
-          .offset,
-      before,
-    );
-    await tester.drag(
-      find.byKey(const ValueKey('browser_dismiss_handle')),
-      const Offset(0, 100),
-    );
-    await tester.pump();
-    expect(closed, true);
-    await tester.pumpWidget(const SizedBox());
-    unawaited(cubit.close());
-    await tester.pump();
-    bridge.dispose();
-  });
+          .offset;
+      expect(before, greaterThan(0));
+      cubit.openDirectory('folder20');
+      bridge.directory('folder20', files: ['file.txt']);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ListView>(find.byKey(const ValueKey('explore_list')))
+            .controller!
+            .offset,
+        0,
+      );
+      cubit.back();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        tester
+            .widget<ListView>(find.byKey(const ValueKey('explore_list')))
+            .controller!
+            .offset,
+        before,
+      );
+      bridge.directory(
+        '',
+        directories: [for (var i = 0; i < 60; i++) 'folder$i'],
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ListView>(find.byKey(const ValueKey('explore_list')))
+            .controller!
+            .offset,
+        before,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('browser_header')),
+        const Offset(0, 100),
+      );
+      await tester.pump();
+      expect(closed, false);
+      await tester.tap(find.byKey(const ValueKey('file_peek_close_button')));
+      expect(closed, true);
+      await tester.pumpWidget(const SizedBox());
+      unawaited(cubit.close());
+      await tester.pump();
+      bridge.dispose();
+    },
+  );
 
   testWidgets(
     'file loading timeout exposes retry and renders the requested line',
@@ -604,6 +607,14 @@ void main() {
         find.byKey(const ValueKey('file_peek_close_button')),
         findsOneWidget,
       );
+      final closeRect = tester.getRect(
+        find.byKey(const ValueKey('file_peek_close_button')),
+      );
+      final headerRect = tester.getRect(
+        find.byKey(const ValueKey('browser_header')),
+      );
+      expect(closeRect.left, headerRect.left);
+      expect(closeRect.center.dy, headerRect.center.dy);
       expect(tester.takeException(), null);
       await tester.tap(find.byKey(const ValueKey('browser_back_button')));
       await tester.pump();

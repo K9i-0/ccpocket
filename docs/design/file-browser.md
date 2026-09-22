@@ -6,12 +6,12 @@ are inserted into the originating draft without sending it.
 
 ## Presentation and navigation
 
-- Phones: full safe-area screen, persistent bottom Back / Parent / Close controls.
+- Phones: full safe-area screen, top-left Close and persistent bottom Back / Parent controls.
 - Adaptive workspace: a separate browser layer covers center and right, retaining
   the session list and all underlying chat/tool state. Wide browsers optionally
   show a directory/search list beside the preview. Narrow browsers drill down.
 - Back traverses browsing history; Parent changes filesystem hierarchy; Close
-  leaves the entire browsing session. Esc closes. Header drag-down closes;
+  leaves the entire browsing session. Esc closes. Close is always the leading header action;
   content gestures remain available to scrolling, zooming, and 3D interaction.
 - Each history location retains directory, query, selected file, and scroll
   position. A file opened from search returns to the same results. Width changes
@@ -77,3 +77,7 @@ independent review, and runtime layout/interaction checks on a test instance.
   mismatch (PurchasesHybridCommon 17.55.1 vs required 18.14.1); fresh iPad startup
   awaits a native notification prompt that the available UI tooling could not
   dismiss. No claim of completed macOS/iPad runtime verification is made.
+
+Close-control follow-up: moved Close to the top-left header in every layout and
+removed header swipe dismissal. Browser and workspace tests: 55 passed, including
+close-button placement and explicit dismissal after a header drag.
