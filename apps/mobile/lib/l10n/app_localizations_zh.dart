@@ -2968,4 +2968,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get filePreviewModelWarning => '部分材质或功能可能无法准确显示。';
+
+  @override
+  String get saveToPhotos => '保存到照片';
+
+  @override
+  String get savedToPhotos => '已保存到照片';
+
+  @override
+  String get saveToPhotosFailed => '无法保存到照片，可能是不支持的格式。';
+
+  @override
+  String get photosPermissionDenied => '请在设置中允许添加照片，以保存图片和视频。';
 }

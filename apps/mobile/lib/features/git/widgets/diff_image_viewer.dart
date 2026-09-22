@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
+import '../../../widgets/media_export_actions.dart';
 
 /// Comparison mode for the full-screen diff image viewer.
 enum DiffCompareMode { sideBySide, slider, overlay, toggle }
@@ -43,6 +44,7 @@ class DiffImageViewer extends HookWidget {
     final compareMode = useState(DiffCompareMode.sideBySide);
     final chromeVisible = useState(true);
     final overlayOpacity = useState(0.5);
+    final exportBefore = useState(false);
 
     // Hide system UI when chrome is hidden
     useEffect(() {
@@ -70,6 +72,35 @@ class DiffImageViewer extends HookWidget {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 title: Text(fileName, style: const TextStyle(fontSize: 16)),
+                actions: [
+                  if (_hasBothSides)
+                    DropdownButton<bool>(
+                      key: const ValueKey('diff_image_export_side_dropdown'),
+                      value: exportBefore.value,
+                      dropdownColor: Colors.black87,
+                      style: const TextStyle(color: Colors.white),
+                      underline: const SizedBox.shrink(),
+                      items: [
+                        DropdownMenuItem(
+                          value: false,
+                          child: Text(l.diffAfter),
+                        ),
+                        DropdownMenuItem(
+                          value: true,
+                          child: Text(l.diffBefore),
+                        ),
+                      ],
+                      onChanged: (value) => exportBefore.value = value ?? false,
+                    ),
+                  if (imageData.newBytes != null || imageData.oldBytes != null)
+                    MediaExportActions(
+                      bytes: _hasBothSides && exportBefore.value
+                          ? imageData.oldBytes
+                          : imageData.newBytes ?? imageData.oldBytes,
+                      mimeType: imageData.isSvg ? 'image/svg+xml' : null,
+                      allowSave: !imageData.isSvg,
+                    ),
+                ],
               ),
             )
           : null,

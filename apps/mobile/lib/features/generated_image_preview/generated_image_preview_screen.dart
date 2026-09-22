@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../../widgets/media_export_actions.dart';
 import 'generated_image_preview_item.dart';
 import 'widgets/generated_image_details_panel.dart';
 import 'widgets/generated_image_preview_page.dart';
@@ -171,6 +172,12 @@ class _GeneratedImagePreviewScreenState
                     ),
                   ),
                   actions: [
+                    MediaExportActions(
+                      url: currentItem.url,
+                      bytes: currentItem.bytes,
+                      mimeType: currentItem.mimeType,
+                      showShare: false,
+                    ),
                     if (_supportsGeneratedImageSharing)
                       SizedBox(
                         key: _shareButtonAnchorKey,

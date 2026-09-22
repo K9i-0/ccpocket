@@ -3004,4 +3004,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get filePreviewModelWarning => '一部の素材や機能を再現できない可能性があります。';
+
+  @override
+  String get saveToPhotos => '写真に保存';
+
+  @override
+  String get savedToPhotos => '写真に保存しました';
+
+  @override
+  String get saveToPhotosFailed => '写真に保存できませんでした。非対応の形式の可能性があります。';
+
+  @override
+  String get photosPermissionDenied => '画像・動画を保存するには、設定で写真の追加を許可してください。';
 }

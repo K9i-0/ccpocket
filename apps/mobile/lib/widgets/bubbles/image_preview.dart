@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../workspace_pane_chrome.dart';
+import '../media_export_actions.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -214,6 +215,12 @@ class FullScreenImageViewer extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
+            MediaExportActions(
+              url: url,
+              bytes: bytes,
+              mimeType: isSvg ? 'image/svg+xml' : null,
+              allowSave: !isSvg,
+            ),
             if (allowDrawing)
               TextButton.icon(
                 key: const ValueKey('annotate_image_button'),

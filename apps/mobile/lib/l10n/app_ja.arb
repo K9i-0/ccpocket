@@ -1261,5 +1261,9 @@
   "filePreviewModelTooLarge": "3Dプレビューは50 MB以下のGLBファイルに対応しています。",
   "filePreviewModelGestures": "ドラッグで回転・ピンチで拡大縮小",
   "filePreviewModelReset": "視点をリセット",
-  "filePreviewModelWarning": "一部の素材や機能を再現できない可能性があります。"
+  "filePreviewModelWarning": "一部の素材や機能を再現できない可能性があります。",
+  "saveToPhotos": "写真に保存",
+  "savedToPhotos": "写真に保存しました",
+  "saveToPhotosFailed": "写真に保存できませんでした。非対応の形式の可能性があります。",
+  "photosPermissionDenied": "画像・動画を保存するには、設定で写真の追加を許可してください。"
 }

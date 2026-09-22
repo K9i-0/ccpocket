@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import Photos
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -16,6 +17,10 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PhotoLibraryChannel") {
+      let channel = FlutterMethodChannel(name: "ccpocket/photo_library", binaryMessenger: registrar.messenger())
+      channel.setMethodCallHandler(handlePhotoLibraryMethodCall)
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AppIconChannel") {
       let channel = FlutterMethodChannel(
         name: appIconChannelName,
@@ -36,6 +41,40 @@ import UIKit
         binaryMessenger: registrar.messenger()
       )
       channel.setMethodCallHandler(handleClipboardMethodCall)
+    }
+  }
+
+  private func handlePhotoLibraryMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "save" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+    guard let args = call.arguments as? [String: Any],
+          let isVideo = args["isVideo"] as? Bool,
+          (args["path"] as? String != nil || args["bytes"] as? FlutterStandardTypedData != nil) else {
+      result(FlutterError(code: "invalid_args", message: nil, details: nil))
+      return
+    }
+    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+      guard status == .authorized || status == .limited else {
+        DispatchQueue.main.async {
+          result(FlutterError(code: "permission_denied", message: nil, details: nil))
+        }
+        return
+      }
+      PHPhotoLibrary.shared().performChanges({
+        let request = PHAssetCreationRequest.forAsset()
+        let type: PHAssetResourceType = isVideo ? .video : .photo
+        if let path = args["path"] as? String {
+          request.addResource(with: type, fileURL: URL(fileURLWithPath: path), options: nil)
+        } else if let bytes = args["bytes"] as? FlutterStandardTypedData {
+          request.addResource(with: type, data: bytes.data, options: nil)
+        }
+      }) { success, error in
+        DispatchQueue.main.async {
+          result(success ? nil : FlutterError(code: "save_failed", message: error?.localizedDescription, details: nil))
+        }
+      }
     }
   }
 

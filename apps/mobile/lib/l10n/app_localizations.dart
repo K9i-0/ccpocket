@@ -5656,6 +5656,30 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'一部の素材や機能を再現できない可能性があります。'**
   String get filePreviewModelWarning;
+
+  /// No description provided for @saveToPhotos.
+  ///
+  /// In ja, this message translates to:
+  /// **'写真に保存'**
+  String get saveToPhotos;
+
+  /// No description provided for @savedToPhotos.
+  ///
+  /// In ja, this message translates to:
+  /// **'写真に保存しました'**
+  String get savedToPhotos;
+
+  /// No description provided for @saveToPhotosFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'写真に保存できませんでした。非対応の形式の可能性があります。'**
+  String get saveToPhotosFailed;
+
+  /// No description provided for @photosPermissionDenied.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像・動画を保存するには、設定で写真の追加を許可してください。'**
+  String get photosPermissionDenied;
 }
 
 class _AppLocalizationsDelegate

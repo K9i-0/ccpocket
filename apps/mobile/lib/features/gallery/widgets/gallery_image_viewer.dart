@@ -1,16 +1,14 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:http/http.dart' as http;
-import 'package:share_plus/share_plus.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
+import '../../../widgets/media_export_actions.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -102,45 +100,6 @@ class GalleryImageViewer extends HookWidget {
       }
     }
 
-    Future<void> handleShare() async {
-      final url = '$httpBaseUrl${currentImage.url}';
-      File? tempFile;
-      try {
-        final response = await http
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 30));
-        if (response.statusCode != 200) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppLocalizations.of(context).failedToDownloadImage,
-                ),
-              ),
-            );
-          }
-          return;
-        }
-        final tempDir = Directory.systemTemp;
-        final ext = _extensionFromMime(currentImage.mimeType);
-        tempFile = File('${tempDir.path}/screenshot_${currentImage.id}$ext');
-        await tempFile.writeAsBytes(response.bodyBytes);
-        await SharePlus.instance.share(
-          ShareParams(files: [XFile(tempFile.path)]),
-        );
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).failedToShareImage),
-            ),
-          );
-        }
-      } finally {
-        tempFile?.delete().ignore();
-      }
-    }
-
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
@@ -156,10 +115,9 @@ class GalleryImageViewer extends HookWidget {
                 ),
                 centerTitle: true,
                 actions: [
-                  IconButton(
-                    icon: const Icon(Icons.share),
-                    onPressed: handleShare,
-                    tooltip: AppLocalizations.of(context).share,
+                  MediaExportActions(
+                    url: '$httpBaseUrl${currentImage.url}',
+                    mimeType: currentImage.mimeType,
                   ),
                   if (onDelete != null)
                     IconButton(
@@ -350,16 +308,6 @@ String _formatFileSize(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-}
-
-String _extensionFromMime(String mimeType) {
-  return switch (mimeType) {
-    'image/png' => '.png',
-    'image/jpeg' || 'image/jpg' => '.jpg',
-    'image/gif' => '.gif',
-    'image/webp' => '.webp',
-    _ => '.png',
-  };
 }
 
 /// Shared confirmation dialog for gallery image deletion.

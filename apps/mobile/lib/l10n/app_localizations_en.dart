@@ -3121,4 +3121,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get filePreviewModelWarning =>
       'Some materials or features may not display accurately.';
+
+  @override
+  String get saveToPhotos => 'Save to Photos';
+
+  @override
+  String get savedToPhotos => 'Saved to Photos';
+
+  @override
+  String get saveToPhotosFailed =>
+      'Could not save to Photos. The format may not be supported.';
+
+  @override
+  String get photosPermissionDenied =>
+      'Allow adding photos in Settings to save images and videos.';
 }

@@ -1231,5 +1231,9 @@
   "filePreviewModelTooLarge": "3D previews support GLB files up to 50 MB.",
   "filePreviewModelGestures": "Drag to rotate · Pinch to zoom",
   "filePreviewModelReset": "Reset view",
-  "filePreviewModelWarning": "Some materials or features may not display accurately."
+  "filePreviewModelWarning": "Some materials or features may not display accurately.",
+  "saveToPhotos": "Save to Photos",
+  "savedToPhotos": "Saved to Photos",
+  "saveToPhotosFailed": "Could not save to Photos. The format may not be supported.",
+  "photosPermissionDenied": "Allow adding photos in Settings to save images and videos."
 }

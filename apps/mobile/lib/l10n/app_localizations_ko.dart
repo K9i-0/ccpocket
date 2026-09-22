@@ -3027,4 +3027,16 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get filePreviewModelWarning => '일부 재질이나 기능이 정확하게 표시되지 않을 수 있습니다.';
+
+  @override
+  String get saveToPhotos => '사진에 저장';
+
+  @override
+  String get savedToPhotos => '사진에 저장했습니다';
+
+  @override
+  String get saveToPhotosFailed => '사진에 저장하지 못했습니다. 지원하지 않는 형식일 수 있습니다.';
+
+  @override
+  String get photosPermissionDenied => '이미지와 동영상을 저장하려면 설정에서 사진 추가를 허용하세요.';
 }

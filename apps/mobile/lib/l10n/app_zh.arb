@@ -1336,5 +1336,9 @@
   "filePreviewModelTooLarge": "3D预览支持不超过50 MB的GLB文件。",
   "filePreviewModelGestures": "拖动旋转 · 双指缩放",
   "filePreviewModelReset": "重置视角",
-  "filePreviewModelWarning": "部分材质或功能可能无法准确显示。"
+  "filePreviewModelWarning": "部分材质或功能可能无法准确显示。",
+  "saveToPhotos": "保存到照片",
+  "savedToPhotos": "已保存到照片",
+  "saveToPhotosFailed": "无法保存到照片，可能是不支持的格式。",
+  "photosPermissionDenied": "请在设置中允许添加照片，以保存图片和视频。"
 }

@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
+import '../../../services/photo_library_service.dart';
 import '../file_transfer_downloader.dart';
 import '../state/file_transfer_cubit.dart';
 import '../state/file_transfer_state.dart';
@@ -23,6 +25,7 @@ Future<void> showProjectFileTransferDialog(
   required String filePath,
   FileTransferDownloader? downloader,
   ShareFileCallback? shareFile,
+  bool saveToPhotos = false,
 }) {
   return showDialog<void>(
     context: context,
@@ -35,6 +38,7 @@ Future<void> showProjectFileTransferDialog(
         projectPath: projectPath,
         filePath: filePath,
         shareFile: shareFile,
+        saveToPhotos: saveToPhotos,
       ),
     ),
   );
@@ -44,12 +48,14 @@ class FileTransferDialog extends StatelessWidget {
   final String projectPath;
   final String filePath;
   final ShareFileCallback? shareFile;
+  final bool saveToPhotos;
 
   const FileTransferDialog({
     super.key,
     required this.projectPath,
     required this.filePath,
     this.shareFile,
+    this.saveToPhotos = false,
   });
 
   @override
@@ -66,6 +72,7 @@ class FileTransferDialog extends StatelessWidget {
         }
       },
       builder: (context, state) => _FileTransferDialogBody(
+        saveToPhotos: saveToPhotos,
         fileName: filePath.split('/').last,
         state: state,
         onCancel: context.read<FileTransferCubit>().cancel,
@@ -95,21 +102,40 @@ class FileTransferDialog extends StatelessWidget {
     );
 
     try {
-      if (shareFile != null) {
+      if (saveToPhotos) {
+        await PhotoLibraryService.save(
+          path: ready.localPath,
+          isVideo: ready.mimeType.startsWith('video/'),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context).savedToPhotos)),
+          );
+        }
+      } else if (shareFile != null) {
         await shareFile!(params);
       } else {
         await SharePlus.instance.share(params);
       }
       await cubit.cleanup();
       if (context.mounted) navigator.pop();
-    } catch (_) {
-      if (context.mounted) await cubit.markShareFailed();
+    } catch (error) {
+      if (context.mounted) {
+        await cubit.markShareFailed(
+          errorCode: saveToPhotos
+              ? (error is PlatformException && error.code == 'permission_denied'
+                    ? 'photos_permission_denied'
+                    : 'photos_save_failed')
+              : 'share_failed',
+        );
+      }
     }
   }
 }
 
 class _FileTransferDialogBody extends StatelessWidget {
   final String fileName;
+  final bool saveToPhotos;
   final FileTransferState state;
   final VoidCallback onCancel;
   final VoidCallback onClose;
@@ -117,6 +143,7 @@ class _FileTransferDialogBody extends StatelessWidget {
 
   const _FileTransferDialogBody({
     required this.fileName,
+    required this.saveToPhotos,
     required this.state,
     required this.onCancel,
     required this.onClose,
@@ -127,7 +154,7 @@ class _FileTransferDialogBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text(l.fileTransferShareOrSave),
+      title: Text(saveToPhotos ? l.saveToPhotos : l.fileTransferShareOrSave),
       content: SizedBox(
         width: 340,
         child: Column(
@@ -141,7 +168,7 @@ class _FileTransferDialogBody extends StatelessWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 20),
-            _FileTransferStatus(state: state),
+            _FileTransferStatus(state: state, saveToPhotos: saveToPhotos),
           ],
         ),
       ),
@@ -175,7 +202,8 @@ class _FileTransferDialogBody extends StatelessWidget {
 class _FileTransferStatus extends StatelessWidget {
   final FileTransferState state;
 
-  const _FileTransferStatus({required this.state});
+  final bool saveToPhotos;
+  const _FileTransferStatus({required this.state, required this.saveToPhotos});
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +218,7 @@ class _FileTransferStatus extends StatelessWidget {
         totalBytes: downloading.totalBytes,
       ),
       FileTransferReady() => _TransferInProgress(
-        label: l.fileTransferOpeningShareSheet,
+        label: saveToPhotos ? l.saveToPhotos : l.fileTransferOpeningShareSheet,
       ),
       final FileTransferFailed failed => _TransferFailure(
         message: _localizedTransferError(l, failed.errorCode),
@@ -265,6 +293,8 @@ String _localizedTransferError(AppLocalizations l, String errorCode) {
     'file_download_too_large' => l.fileTransferErrorTooLarge,
     'file_download_unavailable' => l.fileTransferErrorUnavailable,
     'bridge_update_required' => l.fileTransferErrorBridgeUpdate,
+    'photos_permission_denied' => l.photosPermissionDenied,
+    'photos_save_failed' => l.saveToPhotosFailed,
     'share_failed' => l.fileTransferErrorShareFailed,
     _ => l.fileTransferErrorFailed,
   };

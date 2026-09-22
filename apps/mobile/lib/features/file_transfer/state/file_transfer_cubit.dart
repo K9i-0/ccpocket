@@ -243,12 +243,12 @@ class FileTransferCubit extends Cubit<FileTransferState> {
 
   Future<void> cleanup() => _downloader.cleanup();
 
-  Future<void> markShareFailed() async {
+  Future<void> markShareFailed({String errorCode = 'share_failed'}) async {
     await _downloader.cleanup();
     if (isClosed) return;
     emit(
-      const FileTransferState.failed(
-        errorCode: 'share_failed',
+      FileTransferState.failed(
+        errorCode: errorCode,
         message: 'The platform share sheet could not be opened.',
       ),
     );

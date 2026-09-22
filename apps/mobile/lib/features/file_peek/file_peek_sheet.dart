@@ -1,3 +1,5 @@
+import '../../services/photo_library_service.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -400,6 +402,23 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                   key: const ValueKey('file_peek_image_fullscreen_button'),
                   icon: const Icon(Icons.open_in_full, size: 18),
                   onPressed: _openImageFullScreen,
+                ),
+              if (PhotoLibraryService.supported &&
+                  !_loading &&
+                  _result?.error == null &&
+                  (isImage && _result?.mimeType != 'image/svg+xml' ||
+                      _result?.kind == 'video'))
+                IconButton(
+                  key: const ValueKey('file_peek_save_to_photos_button'),
+                  icon: const Icon(Icons.save_alt, size: 18),
+                  tooltip: AppLocalizations.of(context).saveToPhotos,
+                  onPressed: () => showProjectFileTransferDialog(
+                    context,
+                    bridge: widget.bridge,
+                    projectPath: widget.projectPath,
+                    filePath: widget.filePath,
+                    saveToPhotos: true,
+                  ),
                 ),
               if (supportsProjectFileTransfer)
                 IconButton(
