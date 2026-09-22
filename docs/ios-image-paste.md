@@ -84,3 +84,29 @@ but displayed **Paste** rather than the requested **Paste Image** title. Native
 tests confirm the action retains its supplied title and `.paste` identifier;
 presentation-time title handling has not been established. Actual native item
 selection, image delivery, and alert suppression still require the device check.
+
+## iOS 27 keyboard paste suggestions (2026-09-22)
+
+The keyboard's image paste suggestion is a separate entry point from our custom
+long-press menu. The installed Flutter 3.47.4 iOS embedder only enables `paste:`
+when the clipboard has strings, and its `paste:` implementation inserts strings
+only. Adding a Dart `contentInsertionConfiguration` callback alone does not
+supply the missing iOS engine implementation.
+
+Upstream [Flutter PR #192896](https://github.com/flutter/flutter/pull/192896),
+created 2026-09-16, explicitly addresses the unresponsive "Paste from Photos"
+keyboard suggestion. It enables accepted non-text clipboard types and forwards
+image data through the existing `contentInsertionConfiguration` API. As checked
+on 2026-09-22 it is open, non-draft, and requires review; no stable release date
+is established. The broader tracking issue is
+[#132577](https://github.com/flutter/flutter/issues/132577).
+
+Defer an app-specific interception of Flutter's native responder while this
+upstream fix is under review. After it reaches the selected Flutter SDK, add
+`ContentInsertionConfiguration` to the composer, restrict accepted MIME types,
+and route `onContentInserted` bytes through the existing attachment/session/
+five-image-limit checks. An SDK upgrade alone will not wire that callback.
+Verify the actual keyboard suggestion on iOS 27, alongside ordinary text paste,
+long-press image paste, permission behavior, and large-image performance. The PR
+currently transports bytes as JSON numbers; upstream #188977 / #189335 track
+that performance concern. No application behavior was changed for this finding.
