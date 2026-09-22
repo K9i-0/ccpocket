@@ -76,6 +76,16 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(methods, ["error"])
     XCTAssertTrue(platformView.view().isUserInteractionEnabled)
   }
+
+  func testImageMenuUsesPasteIdentifierAndKeepsSuggestedTextActions() {
+    let copy = UICommand(title: "Copy", action: #selector(UIResponderStandardEditActions.copy(_:)))
+    let suggested = UIMenu(title: "Text", options: .displayInline, children: [copy])
+    let menu = ImagePasteMenu.menu(title: "画像をペースト", suggestedActions: [suggested]) {}
+    let paste = menu.children.first as? UIAction
+    XCTAssertEqual(paste?.identifier, .paste)
+    XCTAssertEqual(paste?.title, "画像をペースト")
+    XCTAssertTrue(menu.children[1] === suggested)
+  }
 }
 
 private final class PasteTestMessenger: NSObject, FlutterBinaryMessenger {

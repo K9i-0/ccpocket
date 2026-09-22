@@ -42,6 +42,11 @@ import Photos
       )
       channel.setMethodCallHandler(handleClipboardMethodCall)
       if #available(iOS 16.0, *) {
+        let imagePasteMenu = ImagePasteMenu()
+        let menuChannel = FlutterMethodChannel(
+          name: "ccpocket/image_paste_menu", binaryMessenger: registrar.messenger()
+        )
+        menuChannel.setMethodCallHandler(imagePasteMenu.handle)
         registrar.register(
           ImagePasteViewFactory(messenger: registrar.messenger()),
           withId: "ccpocket/image_paste_button"

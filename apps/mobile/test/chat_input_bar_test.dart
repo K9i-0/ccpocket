@@ -11,6 +11,7 @@ import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
+import 'package:ccpocket/widgets/ios_image_paste_context_menu.dart';
 
 void main() {
   const nativePasteBridgeChannel = MethodChannel(
@@ -66,6 +67,7 @@ void main() {
     DiffSelection? attachedDiffSelection,
     Future<bool> Function()? onPasteImage,
     Future<void> Function()? onPasteImageFromContextMenu,
+    void Function(Uint8List bytes, String mimeType)? onNativePasteImage,
     Future<bool> Function()? hasImageInClipboard,
     bool supportsShowingSystemContextMenu = false,
     ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
@@ -108,6 +110,7 @@ void main() {
             attachedDiffSelection: attachedDiffSelection,
             onPasteImage: onPasteImage,
             onPasteImageFromContextMenu: onPasteImageFromContextMenu,
+            onNativePasteImage: onNativePasteImage,
             hasImageInClipboard: hasImageInClipboard,
             imagePasteShortcut: imagePasteShortcut,
             onCompletionKeyEvent: onCompletionKeyEvent,
@@ -449,6 +452,30 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
+    testWidgets('iOS image menu uses native paste instead of opening a sheet', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          supportsShowingSystemContextMenu: true,
+          hasImageInClipboard: () async => true,
+          onNativePasteImage: (_, _) {},
+          onPasteImageFromContextMenu: () async {},
+        ),
+      );
+      await probeClipboardForLongPress(tester);
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      expect(
+        field.contextMenuBuilder!(editable.context, editable),
+        isA<IOSImagePasteContextMenu>(),
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     testWidgets('iOS system context menu hides image paste without an image', (
       tester,
     ) async {
@@ -459,6 +486,7 @@ void main() {
           supportsShowingSystemContextMenu: true,
           onPasteImageFromContextMenu: () async {},
           hasImageInClipboard: () async => false,
+          onNativePasteImage: (_, _) {},
         ),
       );
       await probeClipboardForLongPress(tester);

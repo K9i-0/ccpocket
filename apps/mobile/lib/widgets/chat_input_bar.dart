@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../models/image_paste_shortcut.dart';
 import '../models/messages.dart';
 import '../services/native_paste_bridge.dart';
+import 'ios_image_paste_context_menu.dart';
 import '../utils/platform_helper.dart';
 import '../utils/diff_parser.dart';
 import 'bubbles/image_preview.dart';
@@ -60,6 +61,9 @@ class ChatInputBar extends StatelessWidget {
   /// Callback to paste an image from the text field context menu.
   final Future<void> Function()? onPasteImageFromContextMenu;
 
+  /// Receives an image already read by the iOS system paste menu action.
+  final void Function(Uint8List bytes, String mimeType)? onNativePasteImage;
+
   /// Returns whether the clipboard currently contains a supported image.
   final Future<bool> Function()? hasImageInClipboard;
 
@@ -103,6 +107,7 @@ class ChatInputBar extends StatelessWidget {
     this.hintText,
     this.onPasteImage,
     this.onPasteImageFromContextMenu,
+    this.onNativePasteImage,
     this.hasImageInClipboard,
     this.imagePasteShortcut = ImagePasteShortcut.ctrlV,
     this.onCompletionKeyEvent,
@@ -153,6 +158,7 @@ class ChatInputBar extends StatelessWidget {
             hasInputText: hasInputText,
             onPasteImage: onPasteImage,
             onPasteImageFromContextMenu: onPasteImageFromContextMenu,
+            onNativePasteImage: onNativePasteImage,
             hasImageInClipboard: hasImageInClipboard,
             imagePasteShortcut: imagePasteShortcut,
             onCompletionKeyEvent: onCompletionKeyEvent,
@@ -723,6 +729,7 @@ class _InputTextField extends StatefulWidget {
     required this.hasInputText,
     this.onPasteImage,
     this.onPasteImageFromContextMenu,
+    this.onNativePasteImage,
     this.hasImageInClipboard,
     required this.imagePasteShortcut,
     this.onCompletionKeyEvent,
@@ -741,6 +748,7 @@ class _InputTextField extends StatefulWidget {
 
   /// Callback to paste an image from the long-press context menu.
   final Future<void> Function()? onPasteImageFromContextMenu;
+  final void Function(Uint8List bytes, String mimeType)? onNativePasteImage;
 
   /// Returns whether the clipboard currently contains a supported image.
   final Future<bool> Function()? hasImageInClipboard;
@@ -1158,10 +1166,19 @@ class _InputTextFieldState extends State<_InputTextField>
           ),
         );
       }
-      return SystemContextMenu.editableText(
+      final systemMenu = SystemContextMenu.editableText(
         editableTextState: editableTextState,
         items: items,
       );
+      final onNativeImage = widget.onNativePasteImage;
+      if (_hasImageInClipboard && onNativeImage != null) {
+        return IOSImagePasteContextMenu(
+          editableTextState: editableTextState,
+          onImage: onNativeImage,
+          fallback: systemMenu,
+        );
+      }
+      return systemMenu;
     }
 
     final items = List<ContextMenuButtonItem>.of(

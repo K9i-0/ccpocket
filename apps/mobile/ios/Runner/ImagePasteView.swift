@@ -40,12 +40,6 @@ private final class ImagePastePlatformView: NSObject, FlutterPlatformView {
 /// re-read UIPasteboard here: that would bring back the permission prompt.
 @available(iOS 16.0, *)
 private final class ImagePasteView: UIView {
-  private static let formats = [
-    ("com.compuserve.gif", "image/gif"),
-    ("org.webmproject.webp", "image/webp"),
-    ("public.png", "image/png"),
-    ("public.jpeg", "image/jpeg"),
-  ]
   private let channel: FlutterMethodChannel
   private var isLoading = false
 
@@ -53,7 +47,7 @@ private final class ImagePasteView: UIView {
     self.channel = channel
     super.init(frame: frame)
     pasteConfiguration = UIPasteConfiguration(
-      acceptableTypeIdentifiers: Self.formats.map { $0.0 }
+      acceptableTypeIdentifiers: ImagePasteReader.formats.map { $0.0 }
     )
     overrideUserInterfaceStyle = args?["dark"] as? Bool == true ? .dark : .light
     let configuration = UIPasteControl.Configuration()
@@ -82,30 +76,18 @@ private final class ImagePasteView: UIView {
 
   override func paste(itemProviders: [NSItemProvider]) {
     guard !isLoading else { return }
-    // Match the existing single-image paste behavior and preserve GIF/WebP.
-    for provider in itemProviders {
-      for (type, mimeType) in Self.formats where provider.hasItemConformingToTypeIdentifier(type) {
-        isLoading = true
-        isUserInteractionEnabled = false
-        provider.loadDataRepresentation(forTypeIdentifier: type) { [weak self] data, error in
-          DispatchQueue.main.async {
-            guard let self else { return }
-            self.isLoading = false
-            if let data, !data.isEmpty, error == nil {
-              // Leave disabled after success until Flutter dismisses this view.
-              self.channel.invokeMethod("image", arguments: [
-                "bytes": FlutterStandardTypedData(bytes: data), "mimeType": mimeType,
-              ])
-            } else {
-              self.isUserInteractionEnabled = true
-              self.channel.invokeMethod("error", arguments: nil)
-            }
-          }
-        }
-        return
+    isLoading = true
+    isUserInteractionEnabled = false
+    ImagePasteReader.read(itemProviders) { [weak self] payload in
+      guard let self else { return }
+      self.isLoading = false
+      if payload is FlutterError {
+        self.isUserInteractionEnabled = true
+        self.channel.invokeMethod("error", arguments: nil)
+      } else {
+        self.channel.invokeMethod("image", arguments: payload)
       }
     }
-    channel.invokeMethod("error", arguments: nil)
   }
 
   private static func color(_ argb: UInt32) -> UIColor {
@@ -115,5 +97,34 @@ private final class ImagePasteView: UIView {
       blue: CGFloat(argb & 0xff) / 255,
       alpha: CGFloat((argb >> 24) & 0xff) / 255
     )
+  }
+}
+
+/// Shared item-provider decoder for the native button and native paste menu.
+/// The caller obtains providers only from a system-authorized paste interaction.
+enum ImagePasteReader {
+  static let formats = [
+    ("com.compuserve.gif", "image/gif"),
+    ("org.webmproject.webp", "image/webp"),
+    ("public.png", "image/png"),
+    ("public.jpeg", "image/jpeg"),
+  ]
+
+  static func read(_ providers: [NSItemProvider], completion: @escaping (Any) -> Void) {
+    for provider in providers {
+      for (type, mimeType) in formats where provider.hasItemConformingToTypeIdentifier(type) {
+        provider.loadDataRepresentation(forTypeIdentifier: type) { data, error in
+          DispatchQueue.main.async {
+            if let data, !data.isEmpty, error == nil {
+              completion(["bytes": FlutterStandardTypedData(bytes: data), "mimeType": mimeType])
+            } else {
+              completion(FlutterError(code: "image_read_failed", message: nil, details: nil))
+            }
+          }
+        }
+        return
+      }
+    }
+    completion(FlutterError(code: "no_image", message: nil, details: nil))
   }
 }

@@ -1169,6 +1169,7 @@ class ChatInputWithOverlays extends HookWidget {
                 hintText: hintText,
                 onPasteImage: isDesktopPlatform ? tryPasteImage : null,
                 onPasteImageFromContextMenu: pasteFromClipboard,
+                onNativePasteImage: addNativePastedImage,
                 hasImageInClipboard: hasContextMenuClipboardImage,
                 imagePasteShortcut: settings.imagePasteShortcut,
                 onCompletionKeyEvent: handleCompletionKeyEvent,
