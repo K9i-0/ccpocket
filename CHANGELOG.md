@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.134.0] - 2026-09-22
+
+### Added
+- Save images and videos to the iOS Photos library from media previews.
+- Browse files through a shared Explorer and fullscreen file browser with navigation history.
+
+### Changed
+- Preserve workspace navigation, chat state, and scroll positions across adaptive layout changes.
+- Require Bridge 1.84.0 for directory listings that include files.
+
+### Fixed
+- Show the fast mode indicator in session lists.
+- Update RevenueCat dependencies for Xcode 27 compatibility.
+
 ## [1.133.2] - 2026-09-21
 
 ### Changed
