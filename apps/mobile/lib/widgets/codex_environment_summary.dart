@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 class CodexEnvironmentSummary extends StatelessWidget {
   final String? model;
   final String? reasoningEffort;
+  final String? serviceTier;
   final String? approvalPolicy;
   final String? approvalsReviewer;
   final String? sandboxMode;
@@ -18,6 +19,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
     super.key,
     this.model,
     this.reasoningEffort,
+    this.serviceTier,
     this.approvalPolicy,
     this.approvalsReviewer,
     this.sandboxMode,
@@ -45,6 +47,17 @@ class CodexEnvironmentSummary extends StatelessWidget {
 
     final children = <Widget>[
       if (leadingLabel != null) Text(leadingLabel!, style: textStyle),
+      if (codexSpeedFromRaw(serviceTier) == CodexSpeed.fast)
+        Tooltip(
+          message: 'Fast mode on',
+          child: Icon(
+            Icons.bolt,
+            key: const ValueKey('codex_fast_mode_indicator'),
+            size: compact ? 14 : 16,
+            color: theme.colorScheme.primary,
+            semanticLabel: 'Fast mode on',
+          ),
+        ),
       if (_displayModelSummary(
             model,
             reasoningEffort,

@@ -21,6 +21,62 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
+  for (final recent in [false, true]) {
+    testWidgets('Fast indicator follows tier updates (recent: $recent)', (
+      tester,
+    ) async {
+      for (final tier in [
+        'standard',
+        'fast',
+        'priority',
+        'standard',
+        null,
+        'flex',
+      ]) {
+        final json = <String, dynamic>{
+          'id': 'speed-session',
+          'sessionId': 'speed-session',
+          'provider': 'codex',
+          'projectPath': '/tmp/project',
+          'status': 'running',
+          'firstPrompt': 'Speed test',
+          'createdAt': DateTime.now().toIso8601String(),
+          'lastActivityAt': DateTime.now().toIso8601String(),
+          'created': DateTime.now().toIso8601String(),
+          'modified': DateTime.now().toIso8601String(),
+          'gitBranch': 'main',
+          'isSidechain': false,
+          'codexSettings': {'model': 'gpt-5.4', 'serviceTier': tier},
+        };
+        await tester.pumpWidget(
+          _wrap(
+            recent
+                ? RecentSessionCard(
+                    session: RecentSession.fromJson(json),
+                    onTap: () {},
+                  )
+                : RunningSessionCard(
+                    session: SessionInfo.fromJson(json),
+                    onTap: () {},
+                  ),
+          ),
+        );
+        final indicator = find.byKey(
+          const ValueKey('codex_fast_mode_indicator'),
+        );
+        if (tier == 'fast' || tier == 'priority') {
+          expect(indicator, findsOneWidget);
+          final icon = tester.widget<Icon>(indicator);
+          expect(icon.icon, Icons.bolt);
+          expect(icon.color, AppTheme.darkTheme.colorScheme.primary);
+          expect(icon.semanticLabel, 'Fast mode on');
+        } else {
+          expect(indicator, findsNothing);
+        }
+      }
+    });
+  }
+
   group('SessionInfo.fromJson', () {
     test('parses gitBranch, lastMessage', () {
       final json = {
