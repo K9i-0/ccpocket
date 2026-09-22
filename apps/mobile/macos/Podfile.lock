@@ -96,12 +96,12 @@ PODS:
   - package_info_plus (0.0.1):
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (9.16.1):
+  - purchases_flutter (10.2.3):
     - FlutterMacOS
-    - PurchasesHybridCommon (= 17.55.1)
-  - PurchasesHybridCommon (17.55.1):
-    - RevenueCat (= 5.67.1)
-  - RevenueCat (5.67.1)
+    - PurchasesHybridCommon (= 18.14.1)
+  - PurchasesHybridCommon (18.14.1):
+    - RevenueCat (= 5.78.0)
+  - RevenueCat (5.78.0)
   - share_plus (0.0.1):
     - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
@@ -246,9 +246,9 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: cfe4e98a24972974fd1567b3153a696e8110fda0
-  PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
-  RevenueCat: 9357239a9f0978285e68983637b8a602e65c94f0
+  purchases_flutter: d6181c89db38b34ee4974bf2ea33122a12d0bcb9
+  PurchasesHybridCommon: 825e4e748b62c919bc4cb4032b0d1e452409bd74
+  RevenueCat: f3641992451c1426da8d8d1466cec3bbdb765962
   share_plus: 510bf0af1a42cd602274b4629920c9649c52f4cc
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   Sparkle: a4115cd9a339b297a61163256e6954d9e35297ce
