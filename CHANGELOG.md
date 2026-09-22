@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.134.2] - 2026-09-22
+
+### Changed
+- Consolidate file browser actions at the top and move the close button to the top left.
+
+### Fixed
+- Paste clipboard images on iOS using native paste controls and the native context menu while preserving the attachment menu appearance.
+
 ## [1.134.1] - 2026-09-22
 
 ### Fixed
