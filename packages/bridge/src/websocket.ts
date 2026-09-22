@@ -6110,11 +6110,13 @@ export class BridgeWebSocketServer {
             this.allowedDirs,
             this.platform,
             msg.includeHidden ?? false,
+            msg.includeFiles ?? false,
           );
           this.send(ws, {
             type: "directory_listing",
             path: listing.path,
             directories: listing.directories,
+            ...(listing.files ? { files: listing.files } : {}),
             requestId: msg.requestId,
           });
         } catch (error) {

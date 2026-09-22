@@ -1146,6 +1146,9 @@ sealed class ServerMessage {
       'directory_listing' => DirectoryListingMessage(
         path: json['path'] as String? ?? '',
         directories: _parseDirectoryListingEntries(json['directories']),
+        files: json['files'] is List
+            ? _parseDirectoryListingEntries(json['files'])
+            : null,
         requestId: json['requestId'] as String?,
       ),
       'diff_result' => DiffResultMessage(
@@ -3053,11 +3056,13 @@ List<DirectoryListingEntry> _parseDirectoryListingEntries(dynamic value) {
 class DirectoryListingMessage implements ServerMessage {
   final String path;
   final List<DirectoryListingEntry> directories;
+  final List<DirectoryListingEntry>? files;
   final String? requestId;
 
   const DirectoryListingMessage({
     required this.path,
     required this.directories,
+    this.files,
     this.requestId,
   });
 }
@@ -5075,11 +5080,13 @@ class ClientMessage {
     String path, {
     String? requestId,
     bool includeHidden = false,
+    bool includeFiles = false,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'list_directory',
     'path': path,
     'requestId': ?requestId,
     if (includeHidden) 'includeHidden': true,
+    if (includeFiles) 'includeFiles': true,
   });
 
   factory ClientMessage.getDiff(

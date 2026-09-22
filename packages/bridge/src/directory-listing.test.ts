@@ -30,6 +30,21 @@ afterEach(() => {
 });
 
 describe("listAllowedDirectories", () => {
+  it("includes real files on request while preserving the directory-only contract", async () => {
+    const root = makeTempDirectory();
+    mkdirSync(resolve(root, "empty"));
+    writeFileSync(resolve(root, "a.txt"), "hello");
+    writeFileSync(resolve(root, ".hidden"), "hidden");
+    symlinkSync(resolve(root, "a.txt"), resolve(root, "link.txt"));
+    const legacy = await listAllowedDirectories(root, [root]);
+    expect(legacy.files).toBeUndefined();
+    const result = await listAllowedDirectories(root, [root], process.platform, true, true);
+    expect(result.directories.map((entry) => entry.name)).toEqual(["empty"]);
+    expect(result.files?.map((entry) => entry.name)).toEqual([".hidden", "a.txt"]);
+    const visible = await listAllowedDirectories(root, [root], process.platform, false, true);
+    expect(visible.files?.map((entry) => entry.name)).toEqual(["a.txt"]);
+  });
+
   it("returns visible real directories in deterministic order", async () => {
     const root = makeTempDirectory();
     mkdirSync(resolve(root, "zeta"));

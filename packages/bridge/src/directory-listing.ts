@@ -83,7 +83,8 @@ export async function listAllowedDirectories(
   allowedDirs: string[],
   platform: NodeJS.Platform = process.platform,
   includeHidden = false,
-): Promise<{ path: string; directories: DirectoryListingEntry[] }> {
+  includeFiles = false,
+): Promise<{ path: string; directories: DirectoryListingEntry[]; files?: DirectoryListingEntry[] }> {
   const resolvedRequestedPath = resolvePlatformPath(requestedPath, platform);
 
   if (
@@ -133,9 +134,10 @@ export async function listAllowedDirectories(
   }
 
   const directories: DirectoryListingEntry[] = [];
+  const files: DirectoryListingEntry[] = [];
   for (const entry of entries) {
     if (
-      !entry.isDirectory() ||
+      (!entry.isDirectory() && !(includeFiles && entry.isFile())) ||
       (!includeHidden && entry.name.startsWith("."))
     )
       continue;
@@ -147,10 +149,11 @@ export async function listAllowedDirectories(
     );
     try {
       const childStat = await lstat(childPath);
-      if (!childStat.isDirectory() || childStat.isSymbolicLink()) continue;
+      if (childStat.isSymbolicLink()) continue;
+      if (!childStat.isDirectory() && !(includeFiles && childStat.isFile())) continue;
       const canonicalChildPath = await realpath(childPath);
       const canonicalChildStat = await stat(canonicalChildPath);
-      if (!canonicalChildStat.isDirectory()) continue;
+      if (!canonicalChildStat.isDirectory() && !(includeFiles && canonicalChildStat.isFile())) continue;
       if (
         allowedDirs.length > 0 &&
         !isWithinAnyRoot(canonicalChildPath, roots, platform)
@@ -161,7 +164,7 @@ export async function listAllowedDirectories(
       // canonical path is only used for authorization so configured roots
       // that are symlinks (for example /tmp -> /private/tmp on macOS) remain
       // navigable on subsequent requests.
-      directories.push({
+      (canonicalChildStat.isDirectory() ? directories : files).push({
         name: entry.name,
         path: resolvePlatformPathFrom(
           resolvedRequestedPath,
@@ -182,5 +185,6 @@ export async function listAllowedDirectories(
     }),
   );
 
-  return { path: resolvedRequestedPath, directories };
+  files.sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true, sensitivity: "base" }));
+  return { path: resolvedRequestedPath, directories, ...(includeFiles ? { files } : {}) };
 }

@@ -993,10 +993,16 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses includeFiles and rejects non-boolean values", () => {
+    expect(parseClientMessage('{"type":"list_directory","path":"/workspace","includeFiles":true}'))
+      .toEqual({ type: "list_directory", path: "/workspace", includeFiles: true });
+    expect(parseClientMessage('{"type":"list_directory","path":"/workspace","includeFiles":"yes"}')).toBeNull();
+  });
+
   it("rejects list_directory with unknown fields", () => {
     expect(
       parseClientMessage(
-        '{"type":"list_directory","path":"/workspace","includeFiles":true}',
+        '{"type":"list_directory","path":"/workspace","unknownOption":true}',
       ),
     ).toBeNull();
   });

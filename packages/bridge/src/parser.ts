@@ -331,6 +331,7 @@ export type ClientMessage =
       path: string;
       requestId?: string;
       includeHidden?: boolean;
+      includeFiles?: boolean;
     }
   | {
       type: "get_diff";
@@ -809,6 +810,7 @@ export type ServerMessage =
       type: "directory_listing";
       path: string;
       directories: Array<{ name: string; path: string }>;
+      files?: Array<{ name: string; path: string }>;
       requestId?: string;
     }
   | {
@@ -1767,7 +1769,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "list_directory":
-        if (!hasOnlyKeys(["type", "path", "requestId", "includeHidden"]))
+        if (msg.includeFiles !== undefined && typeof msg.includeFiles !== "boolean") return null;
+        if (!hasOnlyKeys(["type", "path", "requestId", "includeHidden", "includeFiles"]))
           return null;
         if (
           typeof msg.path !== "string" ||
