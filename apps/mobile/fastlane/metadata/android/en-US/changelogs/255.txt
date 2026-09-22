@@ -1,5 +1,3 @@
 - Browse files with a unified Explorer and fullscreen browser, navigation history, and top toolbar. Directory listings require Bridge 1.84.0 or later.
 - Keep navigation, chat state, and scroll positions when the layout changes.
 - Fixed the fast mode indicator in session lists.
-- Save images and videos from previews to Photos.
-- Paste clipboard images using the native paste control and long-press menu.
