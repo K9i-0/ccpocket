@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.136.1] - 2026-09-23
+
+### Fixed
+- Expand the native iOS image paste button across the attachment row so taps near either edge are accepted.
+
 ## [1.136.0] - 2026-09-23
 
 ### Changed
