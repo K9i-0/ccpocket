@@ -7,7 +7,7 @@ import { resolve, extname, basename, relative, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import { textPreview } from "./text-preview.js";
-import { consumeFinderProof, revealInFinder } from "./finder-reveal.js";
+import { consumeFinderProof, verifyFinderSocketProof, revealInFinder } from "./finder-reveal.js";
 import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
@@ -6160,6 +6160,7 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "reveal_file_local":
       case "reveal_file": {
         void (async () => {
           const reply = (
@@ -6171,7 +6172,9 @@ export class BridgeWebSocketServer {
           });
           if (
             this.platform !== "darwin" ||
-            !(await consumeFinderProof(msg.proofPath, msg.proofToken))
+            !(await (msg.type === "reveal_file_local"
+              ? verifyFinderSocketProof(msg.proofPort, msg.proofToken)
+              : consumeFinderProof(msg.proofPath, msg.proofToken)))
           ) {
             reply("not_local_mac");
             return;

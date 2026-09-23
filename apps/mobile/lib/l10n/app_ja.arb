@@ -1287,7 +1287,7 @@
   "browserCopyPath": "パスをコピー",
   "browserNoRecent": "開いたファイルがここに表示されます。",
   "finderReveal": "Finderで表示",
-  "finderRevealLocalOnly": "同じMacで動いているBridgeに接続すると、Finderで表示できます。",
+  "finderRevealLocalOnly": "このMacのBridgeであることを確認できませんでした。接続先を確認して、もう一度お試しください。",
   "finderRevealUpdateBridge": "Finderで表示するにはBridgeを更新してください。",
   "finderRevealFailed": "Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。"
 }

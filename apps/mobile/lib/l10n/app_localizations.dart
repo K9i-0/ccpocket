@@ -5810,7 +5810,7 @@ abstract class AppLocalizations {
   /// No description provided for @finderRevealLocalOnly.
   ///
   /// In ja, this message translates to:
-  /// **'同じMacで動いているBridgeに接続すると、Finderで表示できます。'**
+  /// **'このMacのBridgeであることを確認できませんでした。接続先を確認して、もう一度お試しください。'**
   String get finderRevealLocalOnly;
 
   /// No description provided for @finderRevealUpdateBridge.

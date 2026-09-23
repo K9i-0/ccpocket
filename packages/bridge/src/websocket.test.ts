@@ -26,6 +26,7 @@ const {
   generateCommitMessageMock,
   gitCommitMock,
   consumeFinderProofMock,
+  verifyFinderSocketProofMock,
   revealInFinderMock,
 } = vi.hoisted(() => ({
   getSessionHistoryMock: vi.fn(),
@@ -38,11 +39,13 @@ const {
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
   consumeFinderProofMock: vi.fn(),
+  verifyFinderSocketProofMock: vi.fn(),
   revealInFinderMock: vi.fn(),
 }));
 
 vi.mock("./finder-reveal.js", () => ({
   consumeFinderProof: consumeFinderProofMock,
+  verifyFinderSocketProof: verifyFinderSocketProofMock,
   revealInFinder: revealInFinderMock,
 }));
 
@@ -493,6 +496,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
     consumeFinderProofMock.mockReset().mockResolvedValue(true);
+    verifyFinderSocketProofMock.mockReset().mockResolvedValue(true);
     revealInFinderMock.mockReset().mockResolvedValue(undefined);
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
     getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
@@ -5282,11 +5286,15 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       expect(await send()).toEqual({ type: "reveal_file_result", requestId: "finder-1" });
       expect(revealInFinderMock).toHaveBeenCalledTimes(1);
       expect(revealInFinderMock.mock.calls[0][0]).toMatch(/\/movie\.mp4$/);
+      expect(await send({ type: "reveal_file_local", proofPort: 54321 })).toEqual({ type: "reveal_file_result", requestId: "finder-1" });
+      expect(verifyFinderSocketProofMock).toHaveBeenCalledWith(54321, request.proofToken);
+      verifyFinderSocketProofMock.mockResolvedValue(false);
+      expect(await send({ type: "reveal_file_local", proofPort: 54321 })).toMatchObject({ errorCode: "not_local_mac" });
       expect(await send({ filePath: "link.mp4" })).toMatchObject({ errorCode: "path_not_allowed" });
       expect(await send({ filePath: resolve(outside, "secret.mp4") })).toMatchObject({ errorCode: "path_not_allowed" });
       consumeFinderProofMock.mockResolvedValue(false);
       expect(await send()).toMatchObject({ errorCode: "not_local_mac" });
-      expect(revealInFinderMock).toHaveBeenCalledTimes(1);
+      expect(revealInFinderMock).toHaveBeenCalledTimes(2);
     } finally {
       bridge.close();
       rmSync(projectPath, { recursive: true, force: true });

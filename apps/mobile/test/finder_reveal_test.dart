@@ -35,36 +35,51 @@ class _Bridge extends BridgeService {
   }
 }
 
+Future<void> expectClosed(int port) async {
+  await expectLater(
+    Socket.connect(
+      InternetAddress.loopbackIPv4,
+      port,
+      timeout: const Duration(milliseconds: 500),
+    ),
+    throwsA(isA<SocketException>()),
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
 
-  test(
-    'creates a local proof, correlates responses and removes the proof',
-    () async {
-      final bridge = _Bridge();
-      final cubit = FinderRevealCubit(bridge);
-      addTearDown(bridge.dispose);
-      addTearDown(cubit.close);
-      final operation = cubit.reveal('/project', 'video.mp4');
-      final request = await bridge.sent.future;
-      final file = File(request['proofPath'] as String);
-      expect(await file.readAsString(), request['proofToken']);
-      bridge.responses.add(
-        const FileRevealResultMessage(
-          requestId: 'another',
-          errorCode: 'reveal_failed',
-        ),
-      );
-      bridge.responses.add(
-        FileRevealResultMessage(requestId: request['requestId'] as String),
-      );
-      await operation;
-      expect(cubit.state.busy, isFalse);
-      expect(cubit.state.errorCode, isNull);
-      expect(await file.parent.exists(), isFalse);
-    },
-  );
+  test('serves a one-shot loopback proof, correlates responses and closes the listener', () async {
+    final bridge = _Bridge();
+    final cubit = FinderRevealCubit(bridge);
+    addTearDown(bridge.dispose);
+    addTearDown(cubit.close);
+    final operation = cubit.reveal('/project', 'video.mp4');
+    final request = await bridge.sent.future;
+    final socket = await Socket.connect(
+      InternetAddress.loopbackIPv4,
+      request['proofPort'] as int,
+    );
+    expect(
+      await socket.cast<List<int>>().transform(ascii.decoder).join(),
+      request['proofToken'],
+    );
+    socket.destroy();
+    bridge.responses.add(
+      const FileRevealResultMessage(
+        requestId: 'another',
+        errorCode: 'reveal_failed',
+      ),
+    );
+    bridge.responses.add(
+      FileRevealResultMessage(requestId: request['requestId'] as String),
+    );
+    await operation;
+    expect(cubit.state.busy, isFalse);
+    expect(cubit.state.errorCode, isNull);
+    await expectClosed(request['proofPort'] as int);
+  });
 
   test('handles old Bridge and remote-host responses', () async {
     for (final error in ['bridge_update_required', 'not_local_mac']) {
@@ -73,7 +88,7 @@ void main() {
       bridge.onSend = (request) => bridge.responses.add(
         error == 'bridge_update_required'
             ? const ErrorMessage(
-                message: 'reveal_file',
+                message: 'reveal_file_local',
                 errorCode: 'unsupported_message',
               )
             : FileRevealResultMessage(
@@ -84,10 +99,7 @@ void main() {
       await cubit.reveal('/project', 'video.mp4');
       expect(cubit.state.errorCode, error);
       final request = await bridge.sent.future;
-      expect(
-        await File(request['proofPath'] as String).parent.exists(),
-        isFalse,
-      );
+      await expectClosed(request['proofPort'] as int);
       await cubit.close();
       bridge.dispose();
     }
@@ -104,10 +116,7 @@ void main() {
       final request = await bridge.sent.future;
       if (close) await cubit.close();
       await operation;
-      expect(
-        await File(request['proofPath'] as String).parent.exists(),
-        isFalse,
-      );
+      await expectClosed(request['proofPort'] as int);
       if (!close) {
         expect(cubit.state.errorCode, 'reveal_failed');
         await cubit.close();

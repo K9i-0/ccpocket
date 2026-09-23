@@ -5015,6 +5015,21 @@ class ClientMessage {
     'requestId': ?requestId,
   });
 
+  factory ClientMessage.revealFileLocal({
+    required String projectPath,
+    required String filePath,
+    required String requestId,
+    required int proofPort,
+    required String proofToken,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'reveal_file_local',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'requestId': requestId,
+    'proofPort': proofPort,
+    'proofToken': proofToken,
+  });
+
   factory ClientMessage.revealFile({
     required String projectPath,
     required String filePath,

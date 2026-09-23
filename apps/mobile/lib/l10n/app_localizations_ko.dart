@@ -3106,7 +3106,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get finderRevealLocalOnly =>
-      '이 Mac에서 실행 중인 Bridge에 연결하면 Finder에서 파일을 볼 수 있습니다.';
+      'Bridge가 이 Mac에서 실행 중인지 확인하지 못했습니다. 연결을 확인한 후 다시 시도하세요.';
 
   @override
   String get finderRevealUpdateBridge => 'Finder에서 파일을 보려면 Bridge를 업데이트하세요.';

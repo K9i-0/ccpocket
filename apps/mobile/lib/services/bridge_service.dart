@@ -1526,7 +1526,8 @@ class BridgeService implements BridgeServiceBase {
 
   void _queueOfflineMessage(ClientMessage message) {
     // Finder actions are immediate local UI commands, never replay after reconnect.
-    if (message.type == 'reveal_file') return;
+    if (message.type == 'reveal_file' || message.type == 'reveal_file_local')
+      return;
     final dedupeKey = _offlineMessageDedupeKey(message);
     if (dedupeKey != null) {
       _clearInFlightPendingMessage(dedupeKey);

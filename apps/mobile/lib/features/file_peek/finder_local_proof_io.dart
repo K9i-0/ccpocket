@@ -1,31 +1,51 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+/// A one-shot listener accessible only on this machine, never the LAN.
 class FinderLocalProof {
-  final Directory _directory;
-  final String path;
+  final ServerSocket _server;
   final String token;
+  late final StreamSubscription<Socket> _subscription;
+  Socket? _socket;
 
-  FinderLocalProof._(this._directory, this.path, this.token);
+  int get port => _server.port;
 
-  static Future<FinderLocalProof> create() async {
-    final directory = await Directory.systemTemp.createTemp('ccpocket-finder-');
+  FinderLocalProof._(this._server, this.token) {
+    _subscription = _server.listen((socket) {
+      if (_socket != null) {
+        socket.destroy();
+        return;
+      }
+      _socket = socket;
+      unawaited(_server.close());
+      unawaited(_respond(socket));
+    });
+  }
+
+  Future<void> _respond(Socket socket) async {
     try {
-      final random = Random.secure();
-      final token = List.generate(
-        32,
-        (_) => random.nextInt(256),
-      ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-      final file = File('${directory.path}/proof');
-      await file.writeAsString(token, flush: true);
-      return FinderLocalProof._(directory, file.path, token);
+      socket.add(ascii.encode(token));
+      await socket.close();
     } catch (_) {
-      await directory.delete(recursive: true);
-      rethrow;
+      socket.destroy();
     }
   }
 
+  static Future<FinderLocalProof> create() async {
+    final random = Random.secure();
+    final token = List.generate(
+      32,
+      (_) => random.nextInt(256),
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    return FinderLocalProof._(server, token);
+  }
+
   Future<void> dispose() async {
-    if (await _directory.exists()) await _directory.delete(recursive: true);
+    await _subscription.cancel();
+    await _server.close();
+    _socket?.destroy();
   }
 }

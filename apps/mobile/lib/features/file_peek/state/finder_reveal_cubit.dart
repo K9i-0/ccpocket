@@ -42,16 +42,16 @@ class FinderRevealCubit extends Cubit<FinderRevealState> {
             response.complete(message.errorCode);
           } else if (message is ErrorMessage &&
               message.errorCode == 'unsupported_message' &&
-              message.message == 'reveal_file') {
+              message.message == 'reveal_file_local') {
             response.complete('bridge_update_required');
           }
         });
         bridge.send(
-          ClientMessage.revealFile(
+          ClientMessage.revealFileLocal(
             projectPath: projectPath,
             filePath: filePath,
             requestId: requestId,
-            proofPath: proof.path,
+            proofPort: proof.port,
             proofToken: proof.token,
           ),
         );

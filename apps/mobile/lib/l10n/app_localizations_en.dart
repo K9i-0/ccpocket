@@ -3205,7 +3205,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get finderRevealLocalOnly =>
-      'Connect to a Bridge running on this Mac to show files in Finder.';
+      'Could not verify that the Bridge is on this Mac. Check the connection and try again.';
 
   @override
   String get finderRevealUpdateBridge =>

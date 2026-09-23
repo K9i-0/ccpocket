@@ -285,6 +285,14 @@ export type ClientMessage =
       requestId?: string;
     }
   | {
+      type: "reveal_file_local";
+      projectPath: string;
+      filePath: string;
+      requestId: string;
+      proofPort: number;
+      proofToken: string;
+    }
+  | {
       type: "reveal_file";
       projectPath: string;
       filePath: string;
@@ -1705,6 +1713,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
             msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH)
         )
           return null;
+        break;
+      case "reveal_file_local":
+        if (
+          !hasOnlyKeys(["type", "projectPath", "filePath", "requestId", "proofPort", "proofToken"]) ||
+          ![msg.projectPath, msg.filePath, msg.requestId].every(
+            (value) => typeof value === "string" && value.trim().length > 0 &&
+              value.length <= 4096 && !value.includes("\0"),
+          ) ||
+          typeof msg.proofPort !== "number" || !Number.isInteger(msg.proofPort) || msg.proofPort < 1024 || msg.proofPort > 65535 ||
+          typeof msg.proofToken !== "string" || !/^[a-f0-9]{64}$/.test(msg.proofToken)
+        ) return null;
         break;
       case "reveal_file":
         if (

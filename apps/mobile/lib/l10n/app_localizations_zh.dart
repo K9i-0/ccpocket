@@ -3045,7 +3045,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get finderReveal => '在 Finder 中显示';
 
   @override
-  String get finderRevealLocalOnly => '连接到此 Mac 上运行的 Bridge，即可在 Finder 中显示文件。';
+  String get finderRevealLocalOnly => '无法确认 Bridge 是否运行在此 Mac 上。请检查连接后重试。';
 
   @override
   String get finderRevealUpdateBridge => '请更新 Bridge，以在 Finder 中显示文件。';

@@ -1257,7 +1257,7 @@
   "browserCopyPath": "Copy path",
   "browserNoRecent": "Files you open will appear here.",
   "finderReveal": "Show in Finder",
-  "finderRevealLocalOnly": "Connect to a Bridge running on this Mac to show files in Finder.",
+  "finderRevealLocalOnly": "Could not verify that the Bridge is on this Mac. Check the connection and try again.",
   "finderRevealUpdateBridge": "Update the Bridge to show files in Finder.",
   "finderRevealFailed": "Could not show the file in Finder. Check the file and Bridge connection."
 }

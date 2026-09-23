@@ -46,6 +46,16 @@ describe("normalizeToolResultContent", () => {
 // ---- parseClientMessage ----
 
 describe("parseClientMessage", () => {
+  it("validates loopback Finder proofs without accepting a remote host or file path", () => {
+    const request = { type: "reveal_file_local", projectPath: "/p", filePath: "movie.mp4",
+      requestId: "reveal-2", proofPort: 54321, proofToken: "a".repeat(64) };
+    expect(parseClientMessage(JSON.stringify(request))).toEqual(request);
+    for (const patch of [{ proofPort: 0 }, { proofPort: 80 }, { proofPort: 65536 },
+      { proofPort: "12345" }, { proofPort: 1234.5 }, { proofHost: "example.com" },
+      { proofPath: "/some/file" }, { proofToken: "bad" }]) {
+      expect(parseClientMessage(JSON.stringify({ ...request, ...patch }))).toBeNull();
+    }
+  });
   it("validates Finder reveal requests and their locality proof", () => {
     const request = { type: "reveal_file", projectPath: "/p", filePath: "video.mp4",
       requestId: "reveal-1", proofPath: "/tmp/ccpocket-finder-abc/proof", proofToken: "a".repeat(64) };

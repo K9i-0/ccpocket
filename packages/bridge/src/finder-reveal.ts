@@ -2,10 +2,39 @@ import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { open, realpath, stat, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createConnection } from "node:net";
 import { basename, dirname, isAbsolute } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+
+/** Verify the app's one-shot loopback listener without reading its sandbox. */
+export function verifyFinderSocketProof(port: number, token: string): Promise<boolean> {
+  if (!Number.isInteger(port) || port < 1024 || port > 65535 ||
+      !/^[a-f0-9]{64}$/.test(token)) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    let received = Buffer.alloc(0);
+    let settled = false;
+    const finish = (valid: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(valid);
+    };
+    // Absolute deadline, including connect time; a slow peer cannot extend it.
+    const timer = setTimeout(() => finish(false), 1500);
+    socket.on("data", (chunk: Buffer) => {
+      if (received.length + chunk.length > 64) { finish(false); return; }
+      received = Buffer.concat([received, chunk]);
+    });
+    socket.on("end", () => finish(received.equals(Buffer.from(token, "ascii"))));
+    socket.on("error", () => finish(false));
+    socket.on("close", () => finish(false));
+    // Deliberately send no bytes to the port. This is not a generic HTTP proxy.
+  });
+}
 
 /** A short-lived, one-use proof that the app can write this Mac's local disk. */
 export async function consumeFinderProof(path: string, token: string): Promise<boolean> {

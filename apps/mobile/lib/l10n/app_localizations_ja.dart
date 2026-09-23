@@ -3081,7 +3081,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get finderReveal => 'Finderで表示';
 
   @override
-  String get finderRevealLocalOnly => '同じMacで動いているBridgeに接続すると、Finderで表示できます。';
+  String get finderRevealLocalOnly =>
+      'このMacのBridgeであることを確認できませんでした。接続先を確認して、もう一度お試しください。';
 
   @override
   String get finderRevealUpdateBridge => 'Finderで表示するにはBridgeを更新してください。';

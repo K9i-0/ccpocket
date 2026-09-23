@@ -8,21 +8,31 @@ its associated application. The user can then use Finder / Quick Look / Open Wit
 
 ## Locality and permissions
 
-The app must connect to a Bridge on the same Mac, running as the same user.
-The button is macOS-only. Other Bridge hosts are rejected when the button is
-pressed, with a localized explanation; the UI does not guess locality from a URL.
-This also works when the same Mac is reached through a non-loopback address.
+The app must connect to a Bridge on the same Mac. The button is macOS-only.
+The UI does not guess locality from the Bridge URL, so a non-loopback address
+can also work for a local Bridge.
 
-`localhost` alone is not sufficient because SSH forwarding can target another
-machine. For each operation the app writes a new 32-byte cryptographically random
-token, encoded as 64 hex characters, into a temporary directory named
-`ccpocket-finder-<random>/proof`. The Bridge checks:
+For each operation the app binds a one-use TCP listener to `127.0.0.1` on an
+OS-assigned port and creates a cryptographically random 32-byte token encoded
+as 64 hex characters. The new request carries the port and token. The Bridge
+connects only to its own `127.0.0.1`, sends no data, and checks that the peer
+returns exactly those 64 bytes and closes the connection within 1.5 seconds.
+Extra data, invalid tokens, connection errors and timeouts fail closed.
+The app closes its listener on the first connection and disposes all sockets
+on completion, timeout or preview closure.
 
-- absolute proof path, expected file/directory naming, regular file, exactly 64 bytes;
-- no following the final symlink, nonblocking open, descriptor-based stat/read;
-- same filesystem device as its local temporary directory, same user ID;
-- modification age at most 30 seconds (one second tolerance for future timestamps);
-- token equality, followed by unlink to consume the proof once.
+This guards against accidental actions on another machine, including ordinary
+SSH-forwarded Bridge connections. It is not authentication or a guarantee
+against deliberately configured reverse forwarding. Existing authenticated
+Bridge access and file permissions remain necessary.
+
+The original temporary-file proof failed for the released sandboxed app:
+macOS app-container protection can deny an external process access to its
+`Data/tmp`, even under the same user. The new proof avoids that access.
+Release builds need `com.apple.security.network.server` for the listener;
+Debug/Profile already had it. The listener is bound only to loopback.
+See Apple's [app-container protection](https://developer.apple.com/documentation/xcode/protecting-local-app-data-using-containers)
+and [server entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.server).
 
 The Bridge then validates the target against its existing lexical and canonical
 path allowlist. It invokes `/usr/bin/open` with the separate arguments
@@ -30,24 +40,19 @@ path allowlist. It invokes `/usr/bin/open` with the separate arguments
 is not a replacement for Bridge authentication or its file allowlist; it prevents
 accidental actions on a different machine through an otherwise valid connection.
 
-The app removes its temporary directory after success, rejection, timeout, or
-preview disposal. Proofs expire on the Bridge even if the client process crashes.
 Finder commands are never added to the offline queue or replayed on reconnect.
 The app has a ten-second response timeout. A successful reply means the operating
 system accepted the reveal command, not that Finder window visibility was observed.
-
-No macOS sandbox entitlement changes or new native method channels are required.
-The Bridge performs the desktop action after checking the app's local proof.
 
 ## Protocol and compatibility
 
 New client message:
 
 ```text
-reveal_file { projectPath, filePath, requestId, proofPath, proofToken }
+reveal_file_local { projectPath, filePath, requestId, proofPort, proofToken }
 ```
 
-New response:
+Existing response:
 
 ```text
 reveal_file_result { requestId, errorCode? }
@@ -57,19 +62,22 @@ reveal_file_result { requestId, errorCode? }
 error means success. Responses are correlated by request ID and routed to the
 global action stream, not the chat transcript. Old Bridges' `unsupported_message`
 response is handled by the Finder UI itself, which asks the user to update Bridge.
+The Bridge retains the legacy `reveal_file` temporary-file handler for old clients.
+New clients use the new message type so older Bridges explicitly request an update.
 No protocol version bump is needed for this optional request/response extension.
 
 ## Validation
 
-- Bridge: parser, locality proof, Finder argument handling, allowlist/symlink
-  rejection and existing WebSocket tests: 396 passed; TypeScript check passed.
-- Flutter: Finder Cubit lifecycle, timeout/old-Bridge/remote-host handling,
-  button/error UI, existing media preview and file-browser regression tests:
-  27 passed. Analysis has no errors or warnings (46 existing info-level findings).
-- Independent review: no material findings.
-- A temporary local proof was consumed and the real Finder command exited with
-  success on macOS. Temporary verification files were subsequently removed.
-- Remaining runtime coverage: no full sandboxed macOS app → Bridge → Finder UI
-  verification. This session did not expose the dart-mcp app-launch tool, and
-  Finder UI inspection failed with `cgWindowNotFound`. Do not interpret the
-  command's success as a visual verification of Finder selection.
+- Bridge: socket proof, parser, Finder argument handling, allowlist/symlink
+  rejection and WebSocket tests: 400 passed; TypeScript check passed.
+- Flutter: Finder lifecycle, socket cleanup, timeout, unsupported-message and
+  error UI tests: 5 passed. Targeted analysis has no errors or warnings
+  (three existing info-level findings).
+- Independent protocol/security review: no material findings.
+- `node --import tsx scripts/verify-finder-sandbox.mts` compiles the production
+  Dart proof into an ad-hoc signed macOS app. It uses the release sandbox and
+  network entitlements, omitting the unrelated restricted Keychain entitlement
+  and expanding the bundle ID. It checks failure without the server entitlement,
+  success with it against the production Bridge verifier, and one-use behavior.
+- Full installed app → Bridge → visible Finder selection remains outside this
+  automated check. Do not interpret socket verification as a visual Finder test.
