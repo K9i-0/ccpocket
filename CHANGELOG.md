@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.136.0] - 2026-09-23
+
+### Changed
+- Use a Cupertino action sheet for iOS attachments with direct native paste support.
+- Recommend Bridge 1.85.1 for sandbox-compatible Finder integration.
+
+### Fixed
+- Fix Finder reveal incorrectly rejecting a Bridge on the same Mac when macOS protects the app container.
+
 ## [1.135.0] - 2026-09-23
 
 ### Added

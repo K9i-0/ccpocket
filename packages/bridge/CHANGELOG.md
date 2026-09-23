@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.85.1] - 2026-09-23
+
+### Fixed
+- Verify Finder locality through a short-lived loopback connection so sandboxed macOS apps can reveal files without external access to their protected container. Retain compatibility with legacy clients.
+
 ## [1.85.0] - 2026-09-23
 
 ### Added
