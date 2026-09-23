@@ -4,6 +4,15 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.85.0] - 2026-09-23
+
+### Added
+- Reveal allowed project files in Finder using a short-lived, single-use local proof to prevent accidentally opening Finder on a remote Mac.
+
+### Changed
+- Improve large-media HTTP transfer throughput with bounded 256 KiB read buffers.
+- Reduce large-text preview processing allocations while preserving exact line counts and truncation behavior.
+
 ## [1.84.0] - 2026-09-22
 
 ### Added
