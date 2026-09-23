@@ -6,6 +6,7 @@ import { lstat, readFile, readlink, realpath, stat, unlink } from "node:fs/promi
 import { resolve, extname, basename, relative, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
+import { textPreview } from "./text-preview.js";
 import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
@@ -6385,19 +6386,15 @@ export class BridgeWebSocketServer {
               gradle: "groovy",
             };
             const language = languageMap[textExt] ?? (textExt || undefined);
-            const lines = raw.split("\n");
-            const truncated = lines.length > maxLines;
-            const content = truncated
-              ? lines.slice(0, maxLines).join("\n")
-              : raw;
+            const preview = textPreview(raw, maxLines);
             this.send(ws, {
               type: "file_content",
               ...responseMetadata,
               kind: "text",
-              content,
+              content: preview.content,
               language,
-              totalLines: lines.length,
-              truncated,
+              totalLines: preview.totalLines,
+              truncated: preview.truncated,
             });
           } catch (err) {
             this.send(ws, {

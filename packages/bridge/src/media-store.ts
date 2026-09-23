@@ -272,7 +272,14 @@ export class MediaStore {
         return;
       }
 
-      const stream = fileHandle.createReadStream({ start, end, autoClose: true });
+      // 256 KiB reduces read/pipe overhead for large transfers while keeping
+      // per-stream buffering bounded. See docs/desktop-performance.md.
+      const stream = fileHandle.createReadStream({
+        start,
+        end,
+        autoClose: true,
+        highWaterMark: 256 * 1024,
+      });
       streamOwnsHandle = true;
       const destroyStream = () => stream.destroy();
       const removeResponseCloseListener = () =>
