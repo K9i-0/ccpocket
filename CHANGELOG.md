@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.135.0] - 2026-09-23
+
+### Added
+- Show original project files in Finder from macOS file previews when connected to a Bridge running on the same Mac.
+
+### Changed
+- Recommend Bridge 1.85.0 for Finder integration and more efficient large-media transfers and text previews.
+
 ## [1.134.2] - 2026-09-22
 
 ### Changed
