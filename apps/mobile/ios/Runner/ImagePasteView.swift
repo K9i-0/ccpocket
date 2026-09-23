@@ -60,6 +60,9 @@ private final class ImagePasteView: UIView {
       configuration.baseForegroundColor = Self.color(foreground.uint32Value)
     }
     let control = UIPasteControl(configuration: configuration)
+    if args?["menuStyle"] as? Bool == true {
+      control.contentHorizontalAlignment = .leading
+    }
     control.target = self
     control.accessibilityIdentifier = "ios_image_paste_button"
     control.translatesAutoresizingMaskIntoConstraints = false

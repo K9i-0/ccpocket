@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../l10n/app_localizations.dart';
+import 'ios_image_paste_button.dart';
 
 /// Image sources stay available while clipboard availability is being checked.
 class ImageAttachmentSheet extends StatelessWidget {
@@ -10,12 +12,14 @@ class ImageAttachmentSheet extends StatelessWidget {
     required this.onGallery,
     required this.onClipboard,
     required this.onSketch,
+    this.onNativeImage,
   });
 
   final Future<bool> clipboardHasImage;
   final VoidCallback onGallery;
   final VoidCallback onClipboard;
   final VoidCallback onSketch;
+  final void Function(Uint8List bytes, String mimeType)? onNativeImage;
 
   @override
   Widget build(BuildContext context) {
@@ -30,16 +34,24 @@ class ImageAttachmentSheet extends StatelessWidget {
             title: Text(l.selectFromGallery),
             onTap: onGallery,
           ),
-          FutureBuilder<bool>(
-            future: clipboardHasImage,
-            builder: (context, snapshot) => ListTile(
+          if (onNativeImage != null)
+            IOSImagePasteButton(
               key: const ValueKey('attach_from_clipboard'),
-              leading: const Icon(Icons.content_paste),
-              title: Text(l.pasteFromClipboard),
-              enabled: snapshot.data == true,
-              onTap: snapshot.data == true ? onClipboard : null,
+              menuStyle: true,
+              onImage: onNativeImage!,
+              onLegacyPaste: onClipboard,
+            )
+          else
+            FutureBuilder<bool>(
+              future: clipboardHasImage,
+              builder: (context, snapshot) => ListTile(
+                key: const ValueKey('attach_from_clipboard'),
+                leading: const Icon(Icons.content_paste),
+                title: Text(l.pasteFromClipboard),
+                enabled: snapshot.data == true,
+                onTap: snapshot.data == true ? onClipboard : null,
+              ),
             ),
-          ),
           ListTile(
             key: const ValueKey('attach_sketch'),
             leading: const Icon(Icons.draw_outlined),

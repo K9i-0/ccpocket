@@ -6,8 +6,9 @@ programmatically. An unclassified custom menu item that subsequently calls
 
 There are two native paste paths:
 
-- The attachment menu retains its original icon-and-label row and opens a small
-  sheet containing `UIPasteControl` (one additional tap).
+- The attachment menu embeds `UIPasteControl` directly in its clipboard row,
+  using neutral sheet colors and leading alignment. A tap attaches immediately;
+  its standard system label/icon replace the previous custom wording.
 - Long-press **Paste Image** uses a native `UIEditMenuInteraction` action with
   `UIAction.Identifier.paste`. Tapping that item attaches immediately, with no
   intermediate sheet. UIKit's suggested text actions remain in the menu.
@@ -65,7 +66,7 @@ Mocked channel/widget tests cannot prove that iOS suppresses its permission aler
 
 Install a new native build, with **Paste from Other Apps** left at **Ask** in
 iOS Settings. Copy a screenshot in another app, then open the chat attachment
-menu, choose **Paste from Clipboard**, then tap the system **Paste** button.
+menu and tap the embedded system **Paste** button once.
 Expect one image attachment, a closed sheet, and no permission alert. Repeat
 through long-press **Paste Image**: lift the finger after opening the menu, then
 tap the item. Expect immediate attachment with no extra sheet. With only text

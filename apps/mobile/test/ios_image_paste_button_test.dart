@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ccpocket/features/chat_session/widgets/ios_image_paste_button.dart';
+import 'package:ccpocket/features/chat_session/widgets/image_attachment_sheet.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,6 +78,42 @@ void main() {
     );
     await done.future;
   }
+
+  iosTest('attachment menu delivers directly without a paste sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ImageAttachmentSheet(
+            clipboardHasImage: Future.value(true),
+            onGallery: () {},
+            onClipboard: () => legacyPastes++,
+            onSketch: () {},
+            onNativeImage: (bytes, mimeType) =>
+                received.add((bytes: bytes, mimeType: mimeType)),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(UiKitView), findsOneWidget);
+    expect(find.byType(IOSImagePasteSheet), findsNothing);
+    expect(
+      tester
+          .widget<IOSImagePasteButton>(find.byType(IOSImagePasteButton))
+          .menuStyle,
+      isTrue,
+    );
+    await nativeEvent('image', {
+      'bytes': Uint8List.fromList([1]),
+      'mimeType': 'image/png',
+    });
+    expect(received, hasLength(1));
+    expect(legacyPastes, 0);
+  });
 
   iosTest(
     'uses native control without reading clipboard; delivers image once',

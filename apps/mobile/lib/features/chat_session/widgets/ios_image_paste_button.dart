@@ -35,10 +35,12 @@ class IOSImagePasteButton extends StatefulWidget {
     super.key,
     required this.onImage,
     required this.onLegacyPaste,
+    this.menuStyle = false,
   });
 
   final void Function(Uint8List bytes, String mimeType) onImage;
   final VoidCallback onLegacyPaste;
+  final bool menuStyle;
 
   @override
   State<IOSImagePasteButton> createState() => _IOSImagePasteButtonState();
@@ -106,7 +108,12 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final sheetColor =
+        theme.bottomSheetTheme.modalBackgroundColor ??
+        theme.bottomSheetTheme.backgroundColor ??
+        (theme.useMaterial3 ? colors.surfaceContainerLow : theme.canvasColor);
     return FutureBuilder<bool>(
       future: _supported,
       builder: (context, snapshot) {
@@ -125,7 +132,10 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
           );
         }
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: widget.menuStyle ? 2 : 8,
+          ),
           child: SizedBox(
             height: 52 * MediaQuery.textScalerOf(context).scale(14) / 14,
             child: snapshot.data == true
@@ -134,8 +144,15 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
                     viewType: 'ccpocket/image_paste_button',
                     creationParamsCodec: const StandardMessageCodec(),
                     creationParams: {
-                      'backgroundColor': colors.primary.toARGB32(),
-                      'foregroundColor': colors.onPrimary.toARGB32(),
+                      'backgroundColor':
+                          (widget.menuStyle ? sheetColor : colors.primary)
+                              .toARGB32(),
+                      'foregroundColor':
+                          (widget.menuStyle
+                                  ? colors.onSurface
+                                  : colors.onPrimary)
+                              .toARGB32(),
+                      'menuStyle': widget.menuStyle,
                       'dark': Theme.of(context).brightness == Brightness.dark,
                     },
                     onPlatformViewCreated: _onPlatformViewCreated,
