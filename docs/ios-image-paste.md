@@ -6,12 +6,11 @@ programmatically. An unclassified custom menu item that subsequently calls
 
 There are two native paste paths:
 
-- The attachment menu embeds `UIPasteControl` directly in its clipboard row,
-  using neutral sheet colors and an intrinsic-width control anchored on the left.
-  UIKit ignores content alignment on a full-width control, so the control itself
-  is positioned instead. Only the visible button area is tappable.
-  A tap attaches immediately;
-  its standard system label/icon replace the previous custom wording.
+- On iOS, the attachment menu uses `CupertinoActionSheet` in a Cupertino modal
+  popup, with three centered actions and a separate Cancel button. Its paste row
+  embeds the genuine `UIPasteControl`, with Cupertino colors, and attaches on one
+  tap without an intermediate sheet. Native typography/icon rendering remains
+  system-owned. Other platforms retain the Material attachment sheet.
 - Long-press **Paste Image** uses a native `UIEditMenuInteraction` action with
   `UIAction.Identifier.paste`. Tapping that item attaches immediately, with no
   intermediate sheet. UIKit's suggested text actions remain in the menu.

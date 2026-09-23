@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -24,6 +25,33 @@ class ImageAttachmentSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    if (onNativeImage != null) {
+      return CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(
+            key: const ValueKey('attach_from_gallery'),
+            onPressed: onGallery,
+            child: Text(l.selectFromGallery),
+          ),
+          IOSImagePasteButton(
+            key: const ValueKey('attach_from_clipboard'),
+            cupertinoStyle: true,
+            onImage: onNativeImage!,
+            onLegacyPaste: onClipboard,
+          ),
+          CupertinoActionSheetAction(
+            key: const ValueKey('attach_sketch'),
+            onPressed: onSketch,
+            child: Text(l.drawSketch),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          key: const ValueKey('attach_cancel_button'),
+          onPressed: () => Navigator.pop(context),
+          child: Text(l.cancel),
+        ),
+      );
+    }
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -34,24 +62,16 @@ class ImageAttachmentSheet extends StatelessWidget {
             title: Text(l.selectFromGallery),
             onTap: onGallery,
           ),
-          if (onNativeImage != null)
-            IOSImagePasteButton(
+          FutureBuilder<bool>(
+            future: clipboardHasImage,
+            builder: (context, snapshot) => ListTile(
               key: const ValueKey('attach_from_clipboard'),
-              menuStyle: true,
-              onImage: onNativeImage!,
-              onLegacyPaste: onClipboard,
-            )
-          else
-            FutureBuilder<bool>(
-              future: clipboardHasImage,
-              builder: (context, snapshot) => ListTile(
-                key: const ValueKey('attach_from_clipboard'),
-                leading: const Icon(Icons.content_paste),
-                title: Text(l.pasteFromClipboard),
-                enabled: snapshot.data == true,
-                onTap: snapshot.data == true ? onClipboard : null,
-              ),
+              leading: const Icon(Icons.content_paste),
+              title: Text(l.pasteFromClipboard),
+              enabled: snapshot.data == true,
+              onTap: snapshot.data == true ? onClipboard : null,
             ),
+          ),
           ListTile(
             key: const ValueKey('attach_sketch'),
             leading: const Icon(Icons.draw_outlined),
