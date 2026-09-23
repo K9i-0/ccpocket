@@ -22,7 +22,7 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-describe("Finder locality proof", () => {
+describe.skipIf(process.platform === "win32")("Finder locality proof", () => {
   it("consumes a matching local proof only once", async () => {
     const path = await proof();
     expect(await consumeFinderProof(path, token)).toBe(true);

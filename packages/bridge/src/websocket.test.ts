@@ -5263,7 +5263,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
-  it("reveals an allowed local file and rejects remote proofs and escaping symlinks", async () => {
+  it.skipIf(process.platform === "win32")("reveals an allowed local file and rejects remote proofs and escaping symlinks", async () => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
     const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-outside-"));
     writeFileSync(resolve(projectPath, "movie.mp4"), "fixture");
