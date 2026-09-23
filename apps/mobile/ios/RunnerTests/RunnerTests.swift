@@ -12,6 +12,30 @@ final class RunnerTests: XCTestCase {
     )
   }
 
+  func testPasteControlReceivesTouchesAcrossMenuRow() throws {
+    let messenger = PasteTestMessenger()
+    let platformView = ImagePasteViewFactory(messenger: messenger).create(
+      withFrame: CGRect(x: 0, y: 0, width: 402, height: 52),
+      viewIdentifier: 42, arguments: ["menuStyle": true]
+    )
+    let view = platformView.view()
+    let control = try XCTUnwrap(view.subviews.first as? UIPasteControl)
+    // Isolate geometry from clipboard availability. No clipboard reads/writes.
+    control.isEnabled = true
+    for width in [320.0, 402.0, 768.0] {
+      view.frame = CGRect(x: 0, y: 0, width: width, height: 52)
+      view.setNeedsLayout()
+      view.layoutIfNeeded()
+      XCTAssertEqual(control.frame.minX, 0, accuracy: 0.5)
+      XCTAssertEqual(control.frame.maxX, width, accuracy: 0.5)
+      for x in [8.0, width / 2, width - 8] {
+        let hit = try XCTUnwrap(view.hitTest(CGPoint(x: x, y: 26), with: nil))
+        XCTAssertTrue(hit === control || hit.isDescendant(of: control),
+                      "Touch at x=\(x) must reach UIPasteControl at width=\(width)")
+      }
+    }
+  }
+
   func testImageProviderPreservesGIFBeforePNGFallback() {
     let received = expectation(description: "image delivered")
     let messenger = PasteTestMessenger()
