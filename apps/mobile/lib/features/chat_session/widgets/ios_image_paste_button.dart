@@ -133,7 +133,7 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
         }
         return Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: 16,
+            horizontal: widget.menuStyle ? 0 : 16,
             vertical: widget.menuStyle ? 2 : 8,
           ),
           child: SizedBox(

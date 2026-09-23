@@ -69,14 +69,9 @@ private final class ImagePasteView: UIView {
       control.topAnchor.constraint(equalTo: topAnchor),
       control.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
-    if args?["menuStyle"] as? Bool == true {
-      // UIPasteControl centers its contents even with .leading alignment.
-      // Keep its intrinsic width and align the actual system control instead.
-      control.setContentHuggingPriority(.required, for: .horizontal)
-      control.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor).isActive = true
-    } else {
-      control.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
-    }
+    // Keep the genuine system control across the whole row so every tap is
+    // handled by UIPasteControl itself, preserving system-authorized paste.
+    control.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
