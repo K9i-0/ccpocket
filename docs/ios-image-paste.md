@@ -7,7 +7,10 @@ programmatically. An unclassified custom menu item that subsequently calls
 There are two native paste paths:
 
 - The attachment menu embeds `UIPasteControl` directly in its clipboard row,
-  using neutral sheet colors and leading alignment. A tap attaches immediately;
+  using neutral sheet colors and an intrinsic-width control anchored on the left.
+  UIKit ignores content alignment on a full-width control, so the control itself
+  is positioned instead. Only the visible button area is tappable.
+  A tap attaches immediately;
   its standard system label/icon replace the previous custom wording.
 - Long-press **Paste Image** uses a native `UIEditMenuInteraction` action with
   `UIAction.Identifier.paste`. Tapping that item attaches immediately, with no

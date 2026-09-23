@@ -60,19 +60,23 @@ private final class ImagePasteView: UIView {
       configuration.baseForegroundColor = Self.color(foreground.uint32Value)
     }
     let control = UIPasteControl(configuration: configuration)
-    if args?["menuStyle"] as? Bool == true {
-      control.contentHorizontalAlignment = .leading
-    }
     control.target = self
     control.accessibilityIdentifier = "ios_image_paste_button"
     control.translatesAutoresizingMaskIntoConstraints = false
     addSubview(control)
     NSLayoutConstraint.activate([
       control.leadingAnchor.constraint(equalTo: leadingAnchor),
-      control.trailingAnchor.constraint(equalTo: trailingAnchor),
       control.topAnchor.constraint(equalTo: topAnchor),
       control.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
+    if args?["menuStyle"] as? Bool == true {
+      // UIPasteControl centers its contents even with .leading alignment.
+      // Keep its intrinsic width and align the actual system control instead.
+      control.setContentHuggingPriority(.required, for: .horizontal)
+      control.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor).isActive = true
+    } else {
+      control.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
+    }
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
