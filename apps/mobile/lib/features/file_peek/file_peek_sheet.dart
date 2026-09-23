@@ -23,12 +23,14 @@ import '../../theme/markdown_style.dart'
         highlightToTextSpans,
         markdownBuilders;
 import '../../utils/media_file_types.dart';
+import '../../utils/platform_helper.dart';
 import '../../widgets/file_type_icon.dart';
 import 'html_preview_document.dart';
 import 'widgets/html_file_preview.dart';
 import 'widgets/file_peek_media_preview.dart';
 import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
+import 'widgets/finder_reveal_button.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -457,6 +459,12 @@ class FilePeekContentState extends State<FilePeekContent> {
                   tooltip: _showRaw
                       ? AppLocalizations.of(context).filePreviewShowPreview
                       : AppLocalizations.of(context).filePreviewShowSource,
+                ),
+              if (isMacOSPlatform)
+                FinderRevealButton(
+                  bridge: widget.bridge,
+                  projectPath: widget.projectPath,
+                  filePath: widget.filePath,
                 ),
               PopupMenuButton<VoidCallback>(
                 key: const ValueKey('file_peek_actions_button'),

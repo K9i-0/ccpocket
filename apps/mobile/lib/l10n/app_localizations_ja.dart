@@ -3076,4 +3076,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get browserNoRecent => '開いたファイルがここに表示されます。';
+
+  @override
+  String get finderReveal => 'Finderで表示';
+
+  @override
+  String get finderRevealLocalOnly => '同じMacで動いているBridgeに接続すると、Finderで表示できます。';
+
+  @override
+  String get finderRevealUpdateBridge => 'Finderで表示するにはBridgeを更新してください。';
+
+  @override
+  String get finderRevealFailed => 'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。';
 }

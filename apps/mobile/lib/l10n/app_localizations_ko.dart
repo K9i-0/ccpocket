@@ -3100,4 +3100,18 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get browserNoRecent => '연 파일이 여기에 표시됩니다.';
+
+  @override
+  String get finderReveal => 'Finder에서 보기';
+
+  @override
+  String get finderRevealLocalOnly =>
+      '이 Mac에서 실행 중인 Bridge에 연결하면 Finder에서 파일을 볼 수 있습니다.';
+
+  @override
+  String get finderRevealUpdateBridge => 'Finder에서 파일을 보려면 Bridge를 업데이트하세요.';
+
+  @override
+  String get finderRevealFailed =>
+      'Finder에서 파일을 표시하지 못했습니다. 파일과 Bridge 연결을 확인하세요.';
 }

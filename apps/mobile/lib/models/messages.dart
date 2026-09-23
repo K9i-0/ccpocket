@@ -1091,6 +1091,10 @@ sealed class ServerMessage {
         diff: json['diff'] as String? ?? '',
         diffError: json['diffError'] as String?,
       ),
+      'reveal_file_result' => FileRevealResultMessage(
+        requestId: json['requestId'] as String,
+        errorCode: json['errorCode'] as String?,
+      ),
       'file_content' => FileContentMessage(
         projectPath: json['projectPath'] as String?,
         requestId: json['requestId'] as String?,
@@ -2920,6 +2924,13 @@ class FileContentMessage implements ServerMessage, ProjectCorrelatedMessage {
     this.sizeBytes,
     this.mediaUrl,
   });
+}
+
+class FileRevealResultMessage implements ServerMessage {
+  final String requestId;
+  final String? errorCode;
+
+  const FileRevealResultMessage({required this.requestId, this.errorCode});
 }
 
 class FileDownloadReadyMessage implements ServerMessage {
@@ -5002,6 +5013,21 @@ class ClientMessage {
     'filePath': filePath,
     'maxLines': ?maxLines,
     'requestId': ?requestId,
+  });
+
+  factory ClientMessage.revealFile({
+    required String projectPath,
+    required String filePath,
+    required String requestId,
+    required String proofPath,
+    required String proofToken,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'reveal_file',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'requestId': requestId,
+    'proofPath': proofPath,
+    'proofToken': proofToken,
   });
 
   factory ClientMessage.prepareFileDownload({

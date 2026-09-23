@@ -46,6 +46,15 @@ describe("normalizeToolResultContent", () => {
 // ---- parseClientMessage ----
 
 describe("parseClientMessage", () => {
+  it("validates Finder reveal requests and their locality proof", () => {
+    const request = { type: "reveal_file", projectPath: "/p", filePath: "video.mp4",
+      requestId: "reveal-1", proofPath: "/tmp/ccpocket-finder-abc/proof", proofToken: "a".repeat(64) };
+    expect(parseClientMessage(JSON.stringify(request))).toEqual(request);
+    for (const patch of [{ proofToken: "bad" }, { requestId: "" }, { filePath: "x\0y" },
+      { proofPath: 5 }, { command: "open" }]) {
+      expect(parseClientMessage(JSON.stringify({ ...request, ...patch }))).toBeNull();
+    }
+  });
   it("parses start request correlation", () => {
     expect(
       parseClientMessage(

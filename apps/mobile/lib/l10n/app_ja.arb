@@ -1285,5 +1285,9 @@
   "browserNotFound": "このパスは存在しません。",
   "browserUnreadable": "このフォルダを読み取れません。",
   "browserCopyPath": "パスをコピー",
-  "browserNoRecent": "開いたファイルがここに表示されます。"
+  "browserNoRecent": "開いたファイルがここに表示されます。",
+  "finderReveal": "Finderで表示",
+  "finderRevealLocalOnly": "同じMacで動いているBridgeに接続すると、Finderで表示できます。",
+  "finderRevealUpdateBridge": "Finderで表示するにはBridgeを更新してください。",
+  "finderRevealFailed": "Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。"
 }

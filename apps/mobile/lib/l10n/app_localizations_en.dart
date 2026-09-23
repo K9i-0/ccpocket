@@ -3199,4 +3199,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get browserNoRecent => 'Files you open will appear here.';
+
+  @override
+  String get finderReveal => 'Show in Finder';
+
+  @override
+  String get finderRevealLocalOnly =>
+      'Connect to a Bridge running on this Mac to show files in Finder.';
+
+  @override
+  String get finderRevealUpdateBridge =>
+      'Update the Bridge to show files in Finder.';
+
+  @override
+  String get finderRevealFailed =>
+      'Could not show the file in Finder. Check the file and Bridge connection.';
 }

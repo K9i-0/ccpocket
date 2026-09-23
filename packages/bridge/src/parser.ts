@@ -285,6 +285,14 @@ export type ClientMessage =
       requestId?: string;
     }
   | {
+      type: "reveal_file";
+      projectPath: string;
+      filePath: string;
+      requestId: string;
+      proofPath: string;
+      proofToken: string;
+    }
+  | {
       type: "read_file";
       projectPath: string;
       filePath: string;
@@ -733,6 +741,11 @@ export type ServerMessage =
   | { type: "permission_resolved"; toolUseId: string }
   | { type: "stream_delta"; text: string }
   | { type: "thinking_delta"; text: string }
+  | {
+      type: "reveal_file_result";
+      requestId: string;
+      errorCode?: "not_local_mac" | "path_not_allowed" | "reveal_failed";
+    }
   | {
       type: "file_content";
       projectPath?: string;
@@ -1692,6 +1705,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
             msg.requestId.length > GALLERY_MAX_REQUEST_ID_LENGTH)
         )
           return null;
+        break;
+      case "reveal_file":
+        if (
+          !hasOnlyKeys(["type", "projectPath", "filePath", "requestId", "proofPath", "proofToken"]) ||
+          ![msg.projectPath, msg.filePath, msg.requestId, msg.proofPath].every(
+            (value) => typeof value === "string" && value.trim().length > 0 &&
+              value.length <= 4096 && !value.includes("\0"),
+          ) ||
+          typeof msg.proofToken !== "string" ||
+          !/^[a-f0-9]{64}$/.test(msg.proofToken)
+        ) return null;
         break;
       case "read_file":
       case "read_media_file":

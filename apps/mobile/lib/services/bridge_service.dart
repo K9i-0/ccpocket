@@ -906,6 +906,8 @@ class BridgeService implements BridgeServiceBase {
                 // Global settings state consumes this acknowledgement. Do not
                 // route its token through per-session chat streams.
                 _messageController.add(msg);
+              case FileRevealResultMessage():
+                _messageController.add(msg);
               case FileDownloadReadyMessage():
                 // File transfer dialogs consume this correlated global
                 // response. It must never become a chat transcript entry.
@@ -1523,6 +1525,8 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void _queueOfflineMessage(ClientMessage message) {
+    // Finder actions are immediate local UI commands, never replay after reconnect.
+    if (message.type == 'reveal_file') return;
     final dedupeKey = _offlineMessageDedupeKey(message);
     if (dedupeKey != null) {
       _clearInFlightPendingMessage(dedupeKey);

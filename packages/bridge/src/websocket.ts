@@ -7,6 +7,7 @@ import { resolve, extname, basename, relative, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import { textPreview } from "./text-preview.js";
+import { consumeFinderProof, revealInFinder } from "./finder-reveal.js";
 import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
@@ -6156,6 +6157,42 @@ export class BridgeWebSocketServer {
 
       case "cancel_file_upload": {
         if (this.uploadStore) void this.uploadStore.cancel(msg.uploadToken);
+        break;
+      }
+
+      case "reveal_file": {
+        void (async () => {
+          const reply = (
+            errorCode?: "not_local_mac" | "path_not_allowed" | "reveal_failed",
+          ) => this.send(ws, {
+            type: "reveal_file_result",
+            requestId: msg.requestId,
+            ...(errorCode ? { errorCode } : {}),
+          });
+          if (
+            this.platform !== "darwin" ||
+            !(await consumeFinderProof(msg.proofPath, msg.proofToken))
+          ) {
+            reply("not_local_mac");
+            return;
+          }
+          try {
+            const path = resolve(msg.projectPath, msg.filePath);
+            if (!this.isPathAllowed(path)) {
+              reply("path_not_allowed");
+              return;
+            }
+            const canonicalPath = await realpath(path);
+            if (!(await this.isCanonicalPathAllowed(canonicalPath))) {
+              reply("path_not_allowed");
+              return;
+            }
+            await revealInFinder(canonicalPath);
+            reply();
+          } catch {
+            reply("reveal_failed");
+          }
+        })();
         break;
       }
 

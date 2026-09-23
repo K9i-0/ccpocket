@@ -25,6 +25,8 @@ const {
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
+  consumeFinderProofMock,
+  revealInFinderMock,
 } = vi.hoisted(() => ({
   getSessionHistoryMock: vi.fn(),
   getCodexSessionHistoryMock: vi.fn(),
@@ -35,6 +37,13 @@ const {
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
+  consumeFinderProofMock: vi.fn(),
+  revealInFinderMock: vi.fn(),
+}));
+
+vi.mock("./finder-reveal.js", () => ({
+  consumeFinderProof: consumeFinderProofMock,
+  revealInFinder: revealInFinderMock,
 }));
 
 vi.mock("./sessions-index.js", () => ({
@@ -483,6 +492,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
+    consumeFinderProofMock.mockReset().mockResolvedValue(true);
+    revealInFinderMock.mockReset().mockResolvedValue(undefined);
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
     getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
     getCodexSessionHistoryMock.mockResolvedValue([]);
@@ -5249,6 +5260,37 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally {
       bridge.close();
       rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("reveals an allowed local file and rejects remote proofs and escaping symlinks", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
+    const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-outside-"));
+    writeFileSync(resolve(projectPath, "movie.mp4"), "fixture");
+    writeFileSync(resolve(outside, "secret.mp4"), "fixture");
+    symlinkSync(resolve(outside, "secret.mp4"), resolve(projectPath, "link.mp4"));
+    const bridge = new BridgeWebSocketServer({ server: httpServer, allowedDirs: [projectPath], platform: "darwin" });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const request = { type: "reveal_file", projectPath, filePath: "movie.mp4", requestId: "finder-1", proofPath: "/proof", proofToken: "a".repeat(64) };
+    const send = async (patch = {}) => {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ ...request, ...patch }, ws);
+      await expect.poll(() => ws.send.mock.calls.length).toBe(1);
+      return JSON.parse(ws.send.mock.calls[0][0]);
+    };
+    try {
+      expect(await send()).toEqual({ type: "reveal_file_result", requestId: "finder-1" });
+      expect(revealInFinderMock).toHaveBeenCalledTimes(1);
+      expect(revealInFinderMock.mock.calls[0][0]).toMatch(/\/movie\.mp4$/);
+      expect(await send({ filePath: "link.mp4" })).toMatchObject({ errorCode: "path_not_allowed" });
+      expect(await send({ filePath: resolve(outside, "secret.mp4") })).toMatchObject({ errorCode: "path_not_allowed" });
+      consumeFinderProofMock.mockResolvedValue(false);
+      expect(await send()).toMatchObject({ errorCode: "not_local_mac" });
+      expect(revealInFinderMock).toHaveBeenCalledTimes(1);
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 

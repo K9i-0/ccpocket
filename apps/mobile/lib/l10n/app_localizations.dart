@@ -5800,6 +5800,30 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'開いたファイルがここに表示されます。'**
   String get browserNoRecent;
+
+  /// No description provided for @finderReveal.
+  ///
+  /// In ja, this message translates to:
+  /// **'Finderで表示'**
+  String get finderReveal;
+
+  /// No description provided for @finderRevealLocalOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'同じMacで動いているBridgeに接続すると、Finderで表示できます。'**
+  String get finderRevealLocalOnly;
+
+  /// No description provided for @finderRevealUpdateBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'Finderで表示するにはBridgeを更新してください。'**
+  String get finderRevealUpdateBridge;
+
+  /// No description provided for @finderRevealFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。'**
+  String get finderRevealFailed;
 }
 
 class _AppLocalizationsDelegate
