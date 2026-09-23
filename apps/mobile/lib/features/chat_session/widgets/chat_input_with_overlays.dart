@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -975,32 +974,30 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     Future<void> showAttachOptions() async {
-      Widget builder(BuildContext sheetContext) => ImageAttachmentSheet(
-        clipboardHasImage: hasContextMenuClipboardImage(),
-        onNativeImage: isIOSPlatform
-            ? (bytes, mimeType) {
-                Navigator.pop(sheetContext);
-                addNativePastedImage(bytes, mimeType);
-              }
-            : null,
-        onGallery: () {
-          Navigator.pop(sheetContext);
-          pickImageFromGallery();
-        },
-        onClipboard: () {
-          Navigator.pop(sheetContext);
-          pasteFromClipboard();
-        },
-        onSketch: () {
-          Navigator.pop(sheetContext);
-          openSketch();
-        },
+      await showModalBottomSheet<void>(
+        context: context,
+        builder: (sheetContext) => ImageAttachmentSheet(
+          clipboardHasImage: hasContextMenuClipboardImage(),
+          onNativeImage: isIOSPlatform
+              ? (bytes, mimeType) {
+                  Navigator.pop(sheetContext);
+                  addNativePastedImage(bytes, mimeType);
+                }
+              : null,
+          onGallery: () {
+            Navigator.pop(sheetContext);
+            pickImageFromGallery();
+          },
+          onClipboard: () {
+            Navigator.pop(sheetContext);
+            pasteFromClipboard();
+          },
+          onSketch: () {
+            Navigator.pop(sheetContext);
+            openSketch();
+          },
+        ),
       );
-      if (isIOSPlatform) {
-        await showCupertinoModalPopup<void>(context: context, builder: builder);
-      } else {
-        await showModalBottomSheet<void>(context: context, builder: builder);
-      }
     }
 
     void clearAttachment([int? index]) {

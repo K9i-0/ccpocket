@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -37,13 +36,11 @@ class IOSImagePasteButton extends StatefulWidget {
     required this.onImage,
     required this.onLegacyPaste,
     this.menuStyle = false,
-    this.cupertinoStyle = false,
   });
 
   final void Function(Uint8List bytes, String mimeType) onImage;
   final VoidCallback onLegacyPaste;
   final bool menuStyle;
-  final bool cupertinoStyle;
 
   @override
   State<IOSImagePasteButton> createState() => _IOSImagePasteButtonState();
@@ -121,12 +118,6 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
       future: _supported,
       builder: (context, snapshot) {
         if (snapshot.data == false) {
-          if (widget.cupertinoStyle) {
-            return CupertinoActionSheetAction(
-              onPressed: widget.onLegacyPaste,
-              child: Text(AppLocalizations.of(context).pasteFromClipboard),
-            );
-          }
           return ListTile(
             leading: const Icon(Icons.content_paste),
             title: Text(AppLocalizations.of(context).pasteFromClipboard),
@@ -143,7 +134,7 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
         return Padding(
           padding: EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: widget.menuStyle || widget.cupertinoStyle ? 2 : 8,
+            vertical: widget.menuStyle ? 2 : 8,
           ),
           child: SizedBox(
             height: 52 * MediaQuery.textScalerOf(context).scale(14) / 14,
@@ -154,19 +145,10 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
                     creationParamsCodec: const StandardMessageCodec(),
                     creationParams: {
                       'backgroundColor':
-                          (widget.cupertinoStyle
-                                  ? CupertinoDynamicColor.resolve(
-                                      CupertinoColors.secondarySystemBackground,
-                                      context,
-                                    )
-                                  : widget.menuStyle
-                                  ? sheetColor
-                                  : colors.primary)
+                          (widget.menuStyle ? sheetColor : colors.primary)
                               .toARGB32(),
                       'foregroundColor':
-                          (widget.cupertinoStyle
-                                  ? CupertinoTheme.of(context).primaryColor
-                                  : widget.menuStyle
+                          (widget.menuStyle
                                   ? colors.onSurface
                                   : colors.onPrimary)
                               .toARGB32(),

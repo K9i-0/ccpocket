@@ -104,7 +104,7 @@ void main() {
     expect(
       tester
           .widget<IOSImagePasteButton>(find.byType(IOSImagePasteButton))
-          .cupertinoStyle,
+          .menuStyle,
       isTrue,
     );
     await nativeEvent('image', {
