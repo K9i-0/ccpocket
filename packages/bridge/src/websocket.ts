@@ -52,6 +52,7 @@ import {
 } from "./protocol-version.js";
 import {
   getAllRecentSessions,
+  getBoundedCodexSessionHistory,
   getCodexSessionHistory,
   getSessionHistory,
   codexUserTurnUuid,
@@ -1898,9 +1899,11 @@ export class BridgeWebSocketServer {
     const threadId = this.codexThreadIdForSession(session);
     if (!threadId) return null;
 
+    const boundedHistory = await getBoundedCodexSessionHistory(threadId);
     const history = session.codexInitialHistoryPending
       ? ((session.pastMessages ?? []) as SessionHistoryMessage[])
-      : await this.getCodexThreadHistoryFromRpc(
+      : boundedHistory ??
+        await this.getCodexThreadHistoryFromRpc(
           threadId,
           session.projectPath,
           session.process as CodexProcess,
@@ -2583,6 +2586,8 @@ export class BridgeWebSocketServer {
     threadId: string,
     projectPath?: string,
   ): Promise<SessionHistoryMessage[]> {
+    const boundedHistory = await getBoundedCodexSessionHistory(threadId);
+    if (boundedHistory !== null) return boundedHistory;
     if (!this.getActiveCodexProcess() && process.env.NODE_ENV === "test") {
       return getCodexSessionHistory(threadId);
     }
