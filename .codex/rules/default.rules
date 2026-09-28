@@ -1,5 +1,5 @@
 # ccpocket project rules for Codex.
-# Mirror the intent of .claude/settings.json, but keep auto-allow narrow.
+# Explicit allow rules for common local workflows.
 
 # Safe local inspection.
 prefix_rule(
@@ -65,44 +65,14 @@ prefix_rule(
     justification="Tests are verification only.",
 )
 
-# Explicit prompts for commands that mutate state or control long-running processes.
-#
-# This repo is configured as a trusted project in ~/.codex/config.toml and the
-# harness runs with AskForApproval=Never. Rules that require prompt cause those
-# commands to fail outright instead of asking. Keep low-risk local workflow
-# commands auto-allowed and reserve prompts for higher-risk operations.
+# Common local workflow commands.
 prefix_rule(
     pattern=["git", ["add", "commit"]],
     justification="Local staging and commits are allowed in this trusted project workflow.",
 )
 prefix_rule(
-    pattern=["git", ["checkout", "switch", "restore", "reset", "clean", "push", "pull", "merge", "rebase", "cherry-pick", "stash"]],
-    decision="prompt",
-    justification="Potentially destructive or remote-affecting git commands should still require confirmation.",
-)
-prefix_rule(
-    pattern=["npm", ["install", "update", "publish", "run"]],
-    decision="prompt",
-    justification="npm install/run commands may modify the workspace or start processes.",
-)
-prefix_rule(
-    pattern=["node"],
-    decision="prompt",
-    justification="node can execute arbitrary scripts and should be confirmed.",
-)
-prefix_rule(
     pattern=["dart", "format"],
     justification="Formatting source files is a routine trusted-project workflow step.",
-)
-prefix_rule(
-    pattern=["dart", ["fix", "run"]],
-    decision="prompt",
-    justification="These Dart commands can apply edits or start programs.",
-)
-prefix_rule(
-    pattern=["flutter", ["run", "pub", "build", "drive"]],
-    decision="prompt",
-    justification="Flutter run/build/pub commands may write files or start long-running processes.",
 )
 prefix_rule(
     pattern=["defaults", "write", "com.apple.iphonesimulator"],
@@ -116,29 +86,4 @@ prefix_rule(
         "xcrun simctl list devices available",
         "xcrun simctl ui booted appearance light",
     ],
-)
-prefix_rule(
-    pattern=["xcrun", "simctl", ["addmedia", "clone", "create", "delete", "erase", "icloud_sync", "install", "install_app_data", "keychain", "openurl", "pair", "pair_activate", "privacy", "push", "rename", "runtime", "spawn", "uninstall", "unpair", "upgrade"]],
-    decision="prompt",
-    justification="Destructive or high-impact Simulator actions should still require confirmation.",
-    match=[
-        "xcrun simctl erase booted",
-        "xcrun simctl privacy booted grant notifications com.example.app",
-        "xcrun simctl install booted build/ios/iphonesimulator/Runner.app",
-    ],
-    not_match=[
-        "xcrun simctl list devices available",
-        "xcrun simctl ui booted appearance light",
-        "xcrun simctl io booted screenshot /tmp/example.png",
-    ],
-)
-prefix_rule(
-    pattern=["pod", "install"],
-    decision="prompt",
-    justification="pod install changes iOS dependencies and lockfiles.",
-)
-prefix_rule(
-    pattern=[["mkdir", "chmod", "tar", "open", "kill", "pkill", "python3", "xargs"]],
-    decision="prompt",
-    justification="These commands mutate local state, launch programs, or control processes.",
 )
