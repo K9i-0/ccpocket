@@ -1288,7 +1288,6 @@ export async function getAllRecentSessions(
 }
 
 interface CodexRecentOptions {
-  projectPath?: string;
   perfStats?: CodexRecentPerfStats;
 }
 
@@ -1933,9 +1932,6 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
   options.perfStats && (options.perfStats.filesTotal = files.length);
-  const normalizedProjectPath = options.projectPath
-    ? normalizeWorktreePath(options.projectPath)
-    : null;
 
   // Load thread names from session_index.jsonl
   const threadNames = await loadCodexSessionNames();
@@ -1955,9 +1951,6 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   for (const parsed of parsedResults) {
     options.perfStats && (options.perfStats.filesRead += 1);
     if (!parsed) continue;
-    if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
-      continue;
-    }
     // Attach thread name if available
     const threadName = threadNames.get(parsed.threadId);
     if (threadName) {
