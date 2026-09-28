@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { execFileSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
   writeFileSync,
+  realpathSync,
   rmSync,
   statSync,
   utimesSync,
@@ -2603,5 +2605,139 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0].sessionId).toBe(sessionId);
     expect(result.sessions[0].name).toBe("SDK title");
+  });
+});
+
+describe("recent sessions grouped by git repository", () => {
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  let tempHome: string;
+  let work: string;
+  let repo: string;
+
+  const git = (cwd: string, args: string[]): void => {
+    execFileSync("git", args, { cwd, stdio: "ignore" });
+  };
+
+  const writeCodexSession = (
+    threadId: string,
+    cwd: string,
+    repositoryUrl?: string,
+  ): void => {
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: {
+            id: threadId,
+            cwd,
+            ...(repositoryUrl ? { git: { repository_url: repositoryUrl } } : {}),
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: `prompt in ${cwd}` },
+        }),
+      ].join("\n"),
+    );
+  };
+
+  const writeClaudeSession = (sessionId: string, cwd: string): void => {
+    const dir = join(tempHome, ".claude", "projects", pathToSlug(cwd));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, `${sessionId}.jsonl`),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: `prompt in ${cwd}` },
+        cwd,
+        timestamp: "2026-02-13T12:00:00.000Z",
+      }),
+    );
+  };
+
+  beforeEach(() => {
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), "ccpocket-test-git-home-")));
+    work = join(tempHome, "work");
+    repo = join(work, "app");
+    mkdirSync(repo, { recursive: true });
+    git(repo, ["init", "-q", "-b", "main"]);
+    git(repo, ["config", "user.email", "test@example.com"]);
+    git(repo, ["config", "user.name", "Test"]);
+    writeFileSync(join(repo, "README.md"), "hello\n");
+    git(repo, ["add", "."]);
+    git(repo, ["commit", "-q", "-m", "init"]);
+    git(repo, ["remote", "add", "origin", "git@github.com:owner/app.git"]);
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    process.env.USERPROFILE = oldUserProfile;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  it("groups sessions from a sibling git worktree under the main repository", async () => {
+    const worktree = join(work, "app-feature-1");
+    git(repo, ["worktree", "add", "-q", "-b", "feature-1", worktree]);
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000a1", worktree);
+    writeClaudeSession("claude-sibling-worktree", worktree);
+
+    const { sessions } = await getAllRecentSessions({ limit: 50 });
+    for (const id of ["019c56c0-d4d8-7b22-9e3c-2006640000a1", "claude-sibling-worktree"]) {
+      const entry = sessions.find((s) => s.sessionId === id);
+      expect(entry?.projectPath).toBe(repo);
+      expect(entry?.resumeCwd).toBe(worktree);
+    }
+
+    const filtered = await getAllRecentSessions({ projectPath: repo, limit: 50 });
+    expect(filtered.sessions.map((s) => s.sessionId).sort()).toEqual([
+      "019c56c0-d4d8-7b22-9e3c-2006640000a1",
+      "claude-sibling-worktree",
+    ]);
+  });
+
+  it("groups Codex sessions from deleted worktrees by repository URL", async () => {
+    const deleted = join(work, "app-review-42");
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000b1", repo);
+    writeCodexSession(
+      "019c56c0-d4d8-7b22-9e3c-2006640000b2",
+      deleted,
+      "https://github.com/owner/app.git",
+    );
+
+    const { sessions } = await getAllRecentSessions({ limit: 50 });
+    const entry = sessions.find(
+      (s) => s.sessionId === "019c56c0-d4d8-7b22-9e3c-2006640000b2",
+    );
+    expect(entry?.projectPath).toBe(repo);
+    expect(entry?.resumeCwd).toBe(deleted);
+
+    const filtered = await getAllRecentSessions({ projectPath: repo, limit: 50 });
+    expect(filtered.sessions.map((s) => s.sessionId)).toContain(
+      "019c56c0-d4d8-7b22-9e3c-2006640000b2",
+    );
+  });
+
+  it("keeps separate repositories that only share a name prefix", async () => {
+    const other = join(work, "app-stats");
+    mkdirSync(other);
+    git(other, ["init", "-q"]);
+    git(other, ["remote", "add", "origin", "git@github.com:owner/app-stats.git"]);
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000c1", repo);
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000c2", other);
+
+    const { sessions } = await getAllRecentSessions({ limit: 50 });
+    const entry = sessions.find(
+      (s) => s.sessionId === "019c56c0-d4d8-7b22-9e3c-2006640000c2",
+    );
+    expect(entry?.projectPath).toBe(other);
+    expect(entry?.resumeCwd).toBeUndefined();
   });
 });
