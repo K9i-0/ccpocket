@@ -202,18 +202,25 @@ export function pathToSlug(p: string): string {
 /**
  * Normalize a worktree cwd back to the main project path.
  * e.g. /path/to/project-worktrees/branch → /path/to/project
+ *      /path/to/project/.claude/worktrees/name → /path/to/project (Claude Code)
  */
 export function normalizeWorktreePath(p: string): string {
-  const match = p.match(/^(.+)-worktrees[\\/][^\\/]+$/);
+  const match =
+    p.match(/^(.+)-worktrees[\\/][^\\/]+$/) ??
+    p.match(/^(.+)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$/);
   return match?.[1] ?? p;
 }
 
 /**
  * Check if a directory slug represents a worktree directory for a given project slug.
- * e.g. "-Users-x-proj-worktrees-branch" is a worktree dir for "-Users-x-proj".
+ * e.g. "-Users-x-proj-worktrees-branch" and "-Users-x-proj--claude-worktrees-name"
+ * are worktree dirs for "-Users-x-proj".
  */
 export function isWorktreeSlug(dirSlug: string, projectSlug: string): boolean {
-  return dirSlug.startsWith(projectSlug + "-worktrees-");
+  return (
+    dirSlug.startsWith(projectSlug + "-worktrees-") ||
+    dirSlug.startsWith(projectSlug + "--claude-worktrees-")
+  );
 }
 
 /** Concurrency limit for parallel file reads to avoid fd exhaustion. */

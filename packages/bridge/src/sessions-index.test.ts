@@ -229,6 +229,16 @@ describe("isWorktreeSlug", () => {
       ),
     ).toBe(false);
   });
+
+  it("matches Claude Code worktree directory slugs", () => {
+    // /Users/x/Workspace/vibetunnel/.claude/worktrees/feature
+    expect(
+      isWorktreeSlug(
+        "-Users-x-Workspace-vibetunnel--claude-worktrees-feature",
+        projectSlug,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("normalizeWorktreePath", () => {
@@ -265,6 +275,30 @@ describe("normalizeWorktreePath", () => {
     expect(
       normalizeWorktreePath("/Users/x/Workspace/foo-worktrees/bar/baz"),
     ).toBe("/Users/x/Workspace/foo-worktrees/bar/baz");
+  });
+
+  it("normalizes a Claude Code worktree path to the repository path", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket/.claude/worktrees/fix-a1b2"),
+    ).toBe("/Users/x/Workspace/ccpocket");
+  });
+
+  it("normalizes Windows-style Claude Code worktree paths", () => {
+    expect(
+      normalizeWorktreePath("C:\\work\\ccpocket\\.claude\\worktrees\\fix-a1b2"),
+    ).toBe("C:\\work\\ccpocket");
+  });
+
+  it("does not match paths inside a Claude Code worktree", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket/.claude/worktrees/fix/apps"),
+    ).toBe("/Users/x/Workspace/ccpocket/.claude/worktrees/fix/apps");
+  });
+
+  it("does not match the Claude Code worktrees root itself", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket/.claude/worktrees"),
+    ).toBe("/Users/x/Workspace/ccpocket/.claude/worktrees");
   });
 });
 
@@ -982,6 +1016,53 @@ describe("codex sessions integration", () => {
       limit: 200,
     });
     expect(worktreeFilter.sessions.some((s) => s.sessionId === threadId)).toBe(true);
+  });
+
+  it("groups Claude Code worktree sessions under the repository and keeps resumeCwd", async () => {
+    const sessionId = "claude-code-worktree-session";
+    const mainProjectPath = "/tmp/project-a";
+    const worktreePath = "/tmp/project-a/.claude/worktrees/feature-x";
+    const claudeDir = join(
+      tempHome,
+      ".claude",
+      "projects",
+      "-tmp-project-a--claude-worktrees-feature-x",
+    );
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, `${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "work in a Claude Code worktree" },
+          cwd: worktreePath,
+          gitBranch: "claude/feature-x",
+          timestamp: "2026-02-13T12:00:00.000Z",
+        }),
+        JSON.stringify({
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "done" }],
+          },
+          cwd: worktreePath,
+          timestamp: "2026-02-13T12:00:01.000Z",
+        }),
+      ].join("\n"),
+    );
+
+    const { sessions } = await getAllRecentSessions({ limit: 200 });
+    const entry = sessions.find((s) => s.sessionId === sessionId);
+    expect(entry).toBeDefined();
+    expect(entry?.provider).toBe("claude");
+    expect(entry?.projectPath).toBe(mainProjectPath);
+    expect(entry?.resumeCwd).toBe(worktreePath);
+
+    const mainFilter = await getAllRecentSessions({
+      projectPath: mainProjectPath,
+      limit: 200,
+    });
+    expect(mainFilter.sessions.some((s) => s.sessionId === sessionId)).toBe(true);
   });
 
   it("returns only codex sessions when provider=codex", async () => {
