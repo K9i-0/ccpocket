@@ -887,15 +887,43 @@ void main() {
         );
         await tester.tap(find.byKey(const ValueKey('message_input')));
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        final handled = await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
         await tester.pump();
 
-        // Native text paste should still fire — the handler leaves the
-        // event unhandled so Flutter's default Cmd+V behavior runs.
-        expect(handled, isFalse);
+        // The input bar leaves the event unhandled, so the text field's own
+        // Cmd+V paste shortcut still runs alongside the image paste.
         expect(pasteAttempts, 1);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+
+    testWidgets(
+      'Cmd+Alt+V does not trigger image paste on macOS in default (Ctrl+V) mode',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        var pasteAttempts = 0;
+        await tester.pumpWidget(
+          buildSubject(
+            onPasteImage: () async {
+              pasteAttempts++;
+              return true;
+            },
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('message_input')));
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+
+        expect(pasteAttempts, 0);
+        debugDefaultTargetPlatformOverride = null;
       },
     );
 
