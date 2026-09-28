@@ -4,6 +4,12 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.85.2] - 2026-09-28
+
+### Fixed
+- Prevent Bridge crashes when reopening large Codex sessions by loading history in small item pages and isolating oversized app-server responses to the affected connection.
+- Bound large tool outputs, diffs, and inline images in the displayed history while preserving the original Codex history and conversation text. Retain compatibility with older history APIs.
+
 ## [1.85.1] - 2026-09-23
 
 ### Fixed
