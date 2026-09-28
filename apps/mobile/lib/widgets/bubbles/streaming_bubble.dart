@@ -119,6 +119,7 @@ class _StreamingBubbleState extends State<StreamingBubble>
                 BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
               ],
               ...colorCodeInlineSyntaxes,
+              ...localhostAutolinkInlineSyntaxes,
             ],
             builders: {
               if (widget.onFileTap != null)

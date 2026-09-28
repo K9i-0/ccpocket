@@ -295,6 +295,7 @@ class _DefaultLayout extends StatelessWidget {
                     BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
                   ],
                   ...colorCodeInlineSyntaxes,
+                  ...localhostAutolinkInlineSyntaxes,
                 ],
                 builders: {
                   if (onFileTap != null)

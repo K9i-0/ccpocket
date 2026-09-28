@@ -19,6 +19,7 @@ import '../../theme/markdown_style.dart'
     show
         buildMarkdownStyle,
         colorCodeInlineSyntaxes,
+        localhostAutolinkInlineSyntaxes,
         handleMarkdownLink,
         highlightToTextSpans,
         markdownBuilders;
@@ -653,7 +654,10 @@ class FilePeekMarkdown extends StatelessWidget {
       selectable: true,
       styleSheet: buildMarkdownStyle(context),
       onTapLink: handleMarkdownLink,
-      inlineSyntaxes: colorCodeInlineSyntaxes,
+      inlineSyntaxes: [
+        ...colorCodeInlineSyntaxes,
+        ...localhostAutolinkInlineSyntaxes,
+      ],
       builders: markdownBuilders,
       padding: const EdgeInsets.all(16),
     );

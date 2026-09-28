@@ -122,6 +122,7 @@ class _PlanViewMode extends StatelessWidget {
             BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
           ],
           ...colorCodeInlineSyntaxes,
+          ...localhostAutolinkInlineSyntaxes,
         ],
         builders: {
           if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),

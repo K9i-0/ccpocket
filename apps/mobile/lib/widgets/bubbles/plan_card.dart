@@ -193,6 +193,7 @@ class _PlanBodyState extends State<_PlanBody> {
             BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
           ],
           ...colorCodeInlineSyntaxes,
+          ...localhostAutolinkInlineSyntaxes,
         ],
         builders: {
           if (widget.onFileTap != null)

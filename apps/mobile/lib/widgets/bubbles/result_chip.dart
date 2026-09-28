@@ -107,6 +107,7 @@ class ResultChip extends StatelessWidget {
                     BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
                   ],
                   ...colorCodeInlineSyntaxes,
+                  ...localhostAutolinkInlineSyntaxes,
                 ],
                 builders: {
                   if (onFileTap != null)
