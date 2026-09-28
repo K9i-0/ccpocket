@@ -22,6 +22,21 @@ describe("normalizeRepositoryUrl", () => {
     expect(normalizeRepositoryUrl("https://user:token@github.com/owner/repo.git")).toBe(expected);
   });
 
+  it("keeps path casing for non-GitHub hosts, which may be case-sensitive", () => {
+    expect(normalizeRepositoryUrl("git@Git.Example.com:Team/Repo.git")).toBe(
+      "git.example.com/Team/Repo",
+    );
+    expect(normalizeRepositoryUrl("https://git.example.com/team/repo")).not.toBe(
+      normalizeRepositoryUrl("https://git.example.com/Team/Repo"),
+    );
+  });
+
+  it("strips only a lowercase .git suffix", () => {
+    expect(normalizeRepositoryUrl("https://git.example.com/team/repo.GIT")).toBe(
+      "git.example.com/team/repo.GIT",
+    );
+  });
+
   it("returns null for empty input", () => {
     expect(normalizeRepositoryUrl("")).toBeNull();
     expect(normalizeRepositoryUrl("   ")).toBeNull();

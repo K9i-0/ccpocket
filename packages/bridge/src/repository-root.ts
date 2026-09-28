@@ -47,7 +47,9 @@ export interface RepositoryRootResolver {
 
 /**
  * Normalize a git remote URL so SSH, scp-like and HTTPS forms of the same
- * repository compare equal: `host/owner/repo`, lowercased, without `.git`.
+ * repository compare equal: `host/owner/repo` without `.git`. The host is
+ * lowercased; the path is folded only for github.com, whose paths are
+ * case-insensitive. Other hosts may treat path casing as significant.
  */
 export function normalizeRepositoryUrl(url: string): string | null {
   let value = url.trim();
@@ -58,8 +60,13 @@ export function normalizeRepositoryUrl(url: string): string | null {
   } else {
     value = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/^[^@/]+@/, "");
   }
-  value = value.replace(/\/+$/, "").replace(/\.git$/i, "").replace(/\/+$/, "");
-  return value ? value.toLowerCase() : null;
+  value = value.replace(/\/+$/, "").replace(/\.git$/, "").replace(/\/+$/, "");
+  if (!value) return null;
+  const separator = value.indexOf("/");
+  if (separator < 0) return value.toLowerCase();
+  const host = value.slice(0, separator).toLowerCase();
+  const path = value.slice(separator);
+  return `${host}${host === "github.com" ? path.toLowerCase() : path}`;
 }
 
 export function createRepositoryRootResolver(
