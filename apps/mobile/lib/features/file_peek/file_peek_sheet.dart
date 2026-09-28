@@ -32,6 +32,7 @@ import 'widgets/file_peek_media_preview.dart';
 import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
 import 'widgets/finder_reveal_button.dart';
+import '../../widgets/link_hover_underline.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -648,18 +649,20 @@ class FilePeekMarkdown extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    return Markdown(
-      controller: controller,
-      data: content,
-      selectable: true,
-      styleSheet: buildMarkdownStyle(context),
-      onTapLink: handleMarkdownLink,
-      inlineSyntaxes: [
-        ...colorCodeInlineSyntaxes,
-        ...localhostAutolinkInlineSyntaxes,
-      ],
-      builders: markdownBuilders,
-      padding: const EdgeInsets.all(16),
+    return LinkHoverUnderline(
+      child: Markdown(
+        controller: controller,
+        data: content,
+        selectable: true,
+        styleSheet: buildMarkdownStyle(context),
+        onTapLink: handleMarkdownLink,
+        inlineSyntaxes: [
+          ...colorCodeInlineSyntaxes,
+          ...localhostAutolinkInlineSyntaxes,
+        ],
+        builders: markdownBuilders,
+        padding: const EdgeInsets.all(16),
+      ),
     );
   }
 }
