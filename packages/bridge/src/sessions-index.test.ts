@@ -1036,7 +1036,7 @@ describe("codex sessions integration", () => {
       [
         JSON.stringify({
           type: "user",
-          message: { role: "user", content: "work in a Claude Code worktree" },
+          message: { role: "user", content: "first prompt" },
           cwd: worktreePath,
           gitBranch: "claude/feature-x",
           timestamp: "2026-02-13T12:00:00.000Z",
@@ -1050,6 +1050,12 @@ describe("codex sessions integration", () => {
           cwd: worktreePath,
           timestamp: "2026-02-13T12:00:01.000Z",
         }),
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "follow-up prompt" },
+          cwd: worktreePath,
+          timestamp: "2026-02-13T12:00:02.000Z",
+        }),
       ].join("\n"),
     );
 
@@ -1059,6 +1065,9 @@ describe("codex sessions integration", () => {
     expect(entry?.provider).toBe("claude");
     expect(entry?.projectPath).toBe(mainProjectPath);
     expect(entry?.resumeCwd).toBe(worktreePath);
+    // Regression: after regrouping, the last-prompt fill-in must still open
+    // the worktree's JSONL, not `pathToSlug(repositoryRoot)`.
+    expect(entry?.lastPrompt).toBe("follow-up prompt");
 
     const mainFilter = await getAllRecentSessions({
       projectPath: mainProjectPath,

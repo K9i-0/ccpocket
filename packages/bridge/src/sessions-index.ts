@@ -1269,7 +1269,9 @@ export async function getAllRecentSessions(
   if (needLastPrompt.length > 0) {
     const projectsDir = join(homedir(), ".claude", "projects");
     await parallelMap(needLastPrompt, PARALLEL_FILE_READ_LIMIT, async (entry) => {
-      const slug = pathToSlug(entry.projectPath);
+      // After repository grouping, projectPath is the repository root but the
+      // JSONL still lives under the worktree cwd (resumeCwd), so prefer it.
+      const slug = pathToSlug(entry.resumeCwd ?? entry.projectPath);
       const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
       const lp = await extractLastPromptFromTail(jsonlPath);
       if (lp && lp !== entry.firstPrompt) {
