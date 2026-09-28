@@ -175,6 +175,50 @@ describe("CodexProcess (app-server)", () => {
     expect(internal.stdoutLineChunks).toEqual([]);
   });
 
+  it("rejects oversized fragmented output without joining or killing other connections", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = expect(proc.readThread("huge")).rejects.toThrow("64 Mi-character limit");
+    const internal = proc as any;
+    const block = "x".repeat(1024 * 1024);
+    for (let i = 0; i < 64; i++) internal.handleStdoutChunk(block);
+    const join = vi.spyOn(internal.stdoutLineChunks, "join");
+    expect(() => internal.handleStdoutChunk("x\n")).not.toThrow();
+    await read;
+    expect(join).not.toHaveBeenCalled();
+    expect(internal.stdoutLineChunks).toEqual([]);
+    expect(internal.stdoutLineChars).toBe(0);
+    expect(child.killed).toBe(true);
+    const other = new CodexProcess("linux");
+    const handle = vi.spyOn(other as any, "handleRpcEnvelope").mockImplementation(() => {});
+    (other as any).handleStdoutChunk('{"id":1,"result":{}}\n');
+    expect(handle).toHaveBeenCalledOnce();
+  });
+
+  it("rejects oversized single-chunk records before parsing", () => {
+    const proc = new CodexProcess("linux");
+    const internal = proc as any;
+    const handle = vi.spyOn(internal, "handleRpcEnvelope");
+    internal.handleStdoutChunk("x".repeat(64 * 1024 * 1024 + 1) + "\n");
+    expect(handle).not.toHaveBeenCalled();
+    expect(internal.stdoutLineChunks).toEqual([]);
+    expect(internal.stopped).toBe(true);
+  });
+
+  it("contains unexpected string allocation errors and rejects pending RPCs", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+    const read = expect(proc.readThread("thr")).rejects.toThrow("Invalid string length");
+    const internal = proc as any;
+    internal.handleStdoutChunk('{"id":1,');
+    vi.spyOn(internal.stdoutLineChunks, "join").mockImplementation(() => { throw new RangeError("Invalid string length"); });
+    expect(() => internal.handleStdoutChunk('"result":{}}\n')).not.toThrow();
+    await read;
+    expect(child.killed).toBe(true);
+  });
+
   it("maps goal get, set, and clear to app-server RPCs", async () => {
     const proc = new CodexProcess("linux");
     (proc as any)._threadId = "thread-1";
@@ -1753,45 +1797,117 @@ describe("CodexProcess (app-server)", () => {
     }
   });
 
-  it("reads full history across turn pages in chronological order", async () => {
+  it("hydrates turn metadata using bounded item pages in chronological order", async () => {
     const proc = new CodexProcess("linux");
-    const child = new FakeChildProcess();
-    attachFakeTransport(proc as any, child);
-    const read = proc.readThread("thr_read");
-    const reply = (result: unknown) => {
-      const req = nextOutgoingRequest(child);
-      (proc as any).handleRpcResponse({ id: req.id, result });
-      return req;
-    };
-    expect(reply({ thread: { id: "thr_read", turns: [] } }).params)
-      .toEqual({ threadId: "thr_read", includeTurns: false });
-    await tick();
-    const first = { id: "turn1", items: [{ type: "userMessage", content: [] }] };
-    const second = { id: "turn2", items: [{ type: "agentMessage", text: "hello" }] };
-    expect(reply({ data: [first], nextCursor: "page2" })).toMatchObject({
-      method: "thread/turns/list",
-      params: { threadId: "thr_read", limit: 50, sortDirection: "asc", itemsView: "full" },
+    const first = { type: "userMessage", content: [{ type: "text", text: "hello" }] };
+    const second = { type: "agentMessage", text: "reply" };
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "thr_read" } })
+      .mockResolvedValueOnce({ data: [{ id: "turn1", items: [], status: "completed", startedAt: 1 }], nextCursor: "turn-page2" })
+      .mockResolvedValueOnce({ data: [{ id: "turn2", items: [], status: "completed" }], nextCursor: null })
+      .mockResolvedValueOnce({ data: [{ turnId: "turn1", item: first }], nextCursor: "item-page2" })
+      .mockResolvedValueOnce({ data: [{ turnId: "turn1", item: second }, { turnId: "turn2", item: first }], nextCursor: null });
+    await expect(proc.readThread("thr_read")).resolves.toEqual({
+      id: "thr_read", turns: [
+        { id: "turn1", items: [first, second], itemsView: "full", status: "completed", startedAt: 1 },
+        { id: "turn2", items: [first], itemsView: "full", status: "completed" },
+      ],
     });
-    await tick();
-    expect(reply({ data: [second], nextCursor: null }).params.cursor).toBe("page2");
-    await expect(read).resolves.toEqual({ id: "thr_read", turns: [first, second] });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/turns/list", {
+      threadId: "thr_read", limit: 50, sortDirection: "asc", itemsView: "notLoaded",
+    });
+    expect(request).toHaveBeenNthCalledWith(4, "thread/items/list", {
+      threadId: "thr_read", limit: 10, sortDirection: "asc",
+    });
+    expect(request.mock.calls[2][1].cursor).toBe("turn-page2");
+    expect(request.mock.calls[4][1].cursor).toBe("item-page2");
+  });
+
+  it("falls back to one full turn per page when item pagination is unsupported", async () => {
+    const proc = new CodexProcess("linux");
+    const turn = { id: "turn1", items: [] };
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "old" } })
+      .mockResolvedValueOnce({ data: [turn], nextCursor: null })
+      .mockRejectedValueOnce(new CodexRpcError("thread/items/list", { code: -32601, message: "Method not found" }))
+      .mockResolvedValueOnce({ data: [turn], nextCursor: null });
+    await expect(proc.readThread("old")).resolves.toEqual({ id: "old", turns: [turn] });
+    expect(request).toHaveBeenLastCalledWith("thread/turns/list", {
+      threadId: "old", limit: 1, sortDirection: "asc", itemsView: "full",
+    });
+  });
+
+  it("falls back when an older server rejects only the metadata view", async () => {
+    const proc = new CodexProcess("linux");
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "old" } })
+      .mockRejectedValueOnce(new CodexRpcError("thread/turns/list", { code: -32602, message: "unknown variant `notLoaded`, expected `full`" }))
+      .mockResolvedValueOnce({ data: [], nextCursor: null });
+    await expect(proc.readThread("old")).resolves.toEqual({ id: "old", turns: [] });
+    expect(request.mock.calls[2][1].itemsView).toBe("full");
+  });
+
+  it("rejects items from unknown turns instead of silently losing history", async () => {
+    const proc = new CodexProcess("linux");
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "thr" } })
+      .mockResolvedValueOnce({ data: [], nextCursor: null })
+      .mockResolvedValueOnce({ data: [{ turnId: "new", item: { type: "agentMessage", text: "hi" } }], nextCursor: null });
+    await expect(proc.readThread("thr")).rejects.toThrow("history changed while reading");
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
+  it("bounds cumulative history across individually valid pages", async () => {
+    const proc = new CodexProcess("linux");
+    const request = vi.spyOn(proc as any, "request");
+    let page = 0;
+    const item = { type: "agentMessage", text: "x".repeat(1024 * 1024) };
+    request.mockImplementation(async (method: string) => {
+      if (method === "thread/read") return { thread: { id: "thr" } };
+      if (method === "thread/turns/list") return { data: [{ id: "t", items: [] }], nextCursor: null };
+      page += 1;
+      return { data: [{ turnId: "t", item }], nextCursor: String(page) };
+    });
+    await expect(proc.readThread("thr")).rejects.toThrow("display history exceeds");
+    expect(page).toBe(64);
+    expect(request.mock.calls.filter(([method]) => method === "thread/read")).toHaveLength(1);
   });
 
   it("falls back to legacy history only when turn pagination is unsupported", async () => {
     const proc = new CodexProcess("linux");
-    const child = new FakeChildProcess();
-    attachFakeTransport(proc as any, child);
-    const read = proc.readThread("thr_old");
-    let req = nextOutgoingRequest(child);
-    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_old" } } });
-    await tick();
-    req = nextOutgoingRequest(child);
-    (proc as any).handleRpcResponse({ id: req.id, error: { code: -32601, message: "Method not found" } });
-    await tick();
-    req = nextOutgoingRequest(child);
-    expect(req).toMatchObject({ method: "thread/read", params: { includeTurns: true } });
-    (proc as any).handleRpcResponse({ id: req.id, result: { thread: { id: "thr_old", turns: [] } } });
-    await expect(read).resolves.toEqual({ id: "thr_old", turns: [] });
+    const unsupported = new CodexRpcError("thread/turns/list", { code: -32601, message: "Method not found" });
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "old" } })
+      .mockRejectedValueOnce(unsupported)
+      .mockRejectedValueOnce(unsupported)
+      .mockResolvedValueOnce({ thread: { id: "old", turns: [] } });
+    await expect(proc.readThread("old")).resolves.toEqual({ id: "old", turns: [] });
+    expect(request).toHaveBeenLastCalledWith("thread/read", { threadId: "old", includeTurns: true });
+  });
+
+  it("rejects repeated item cursors without retrying full history", async () => {
+    const proc = new CodexProcess("linux");
+    const request = vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "thr" } })
+      .mockResolvedValueOnce({ data: [], nextCursor: null })
+      .mockResolvedValue({ data: [], nextCursor: "same" });
+    await expect(proc.readThread("thr")).rejects.toThrow("repeated cursor");
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
+  it("compacts oversized tools before retaining item pages", async () => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ thread: { id: "thr" } })
+      .mockResolvedValueOnce({ data: [{ id: "t", items: [] }], nextCursor: null })
+      .mockResolvedValueOnce({ data: [{ turnId: "t", item: {
+        type: "commandExecution", id: "cmd", command: "echo", aggregatedOutput: "x".repeat(300_000),
+      } }], nextCursor: null });
+    const thread = await proc.readThread("thr");
+    const item = (thread.turns as any[])[0].items[0];
+    expect(item.command).toBe("echo");
+    expect(item.aggregatedOutput).toContain("Truncated in Bridge history");
+    expect(item.aggregatedOutput.length).toBeLessThan(17_000);
   });
 
   it("returns empty history for a new unmaterialized thread", async () => {
@@ -4573,7 +4689,7 @@ function attachFakeTransport(
     write(envelope: Record<string, unknown>) {
       child.stdin.write(`${JSON.stringify(envelope)}\n`);
     },
-    stop() {},
+    stop() { child.kill(); },
     on() {
       return this;
     },

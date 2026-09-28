@@ -15,6 +15,7 @@ import {
   buildCodexSpawnSpec,
   type CodexTransport,
 } from "./codex-transport.js";
+import { compactCodexHistoryItem } from "./codex-history.js";
 import { codexThreadToSessionHistory } from "./sessions-index.js";
 import { codexCliJoinTarget } from "./codex-app-server-config.js";
 import {
@@ -29,6 +30,8 @@ export { buildCodexSpawnSpec };
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
 const ARCHIVE_RPC_TIMEOUT_MS = 15_000;
+const MAX_STDOUT_LINE_CHARS = 64 * 1024 * 1024;
+const MAX_RETAINED_HISTORY_CHARS = 64 * 1024 * 1024;
 const UNKNOWN_AGENT_ITEM_ID = "__unknown_agent_message__";
 const CODEX_CLI_NOT_FOUND_MESSAGE =
   "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `curl -fsSL https://chatgpt.com/codex/install.sh | sh`, then restart Bridge.";
@@ -377,6 +380,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * copied at most once instead of repeatedly rebuilding one growing string.
    */
   private stdoutLineChunks: string[] = [];
+  private stdoutLineChars = 0;
 
   // Collaboration mode & plan completion state
   private _approvalPolicy: CodexRpcApprovalPolicy | undefined = undefined;
@@ -624,56 +628,134 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
     if (!includeTurns) return thread;
 
-    const turns: unknown[] = [];
+    try {
+      // A single autonomous turn can contain thousands of screenshots/tool
+      // results. Page turn metadata separately, then hydrate by item count.
+      const turns = await this.readTurnPages(threadId, "notLoaded");
+      const byId = new Map<string, Record<string, unknown>>();
+      for (const turn of turns) {
+        if (typeof turn.id !== "string") throw new Error("Codex turn has no id");
+        turn.items = [];
+        byId.set(turn.id, turn);
+      }
+      let retainedChars = JSON.stringify(turns).length;
+      await this.readHistoryPages("thread/items/list", {
+        threadId, limit: 10, sortDirection: "asc",
+      }, (entries) => {
+        for (const rawEntry of entries) {
+          const entry = asRecord(rawEntry);
+          const item = asRecord(entry?.item);
+          const turn = typeof entry?.turnId === "string"
+            ? byId.get(entry.turnId) : undefined;
+          if (!item || !turn) {
+            throw new Error("Codex history changed while reading; retry opening the session");
+          }
+          const compacted = compactCodexHistoryItem(item);
+          retainedChars += compacted.chars;
+          this.checkHistorySize(retainedChars);
+          (turn.items as unknown[]).push(compacted.item);
+        }
+      });
+      for (const turn of turns) turn.itemsView = "full";
+      return { ...thread, turns };
+    } catch (err) {
+      if (
+        err instanceof CodexRpcError && err.code === -32600 &&
+        err.message.includes("is not materialized yet")
+      ) {
+        return { ...thread, turns: [] };
+      }
+      // Unsupported methods/views permit the compatibility path. Never retry
+      // a size/transport failure with a larger full-history response.
+      const unsupportedMetadataView = err instanceof CodexRpcError &&
+        err.code === -32602 && /unknown variant.*notLoaded/i.test(err.message);
+      if (!unsupportedMetadataView &&
+          (!(err instanceof CodexRpcError) || err.code !== -32601)) throw err;
+    }
+
+    try {
+      return { ...thread, turns: await this.readTurnPages(threadId, "full") };
+    } catch (err) {
+      if (!(err instanceof CodexRpcError) || err.code !== -32601) throw err;
+    }
+    const legacy = (await this.request("thread/read", {
+      threadId, includeTurns: true,
+    })) as Record<string, unknown>;
+    const legacyThread = asRecord(legacy.thread);
+    if (!legacyThread) throw new Error("thread/read returned no thread");
+    if (Array.isArray(legacyThread.turns)) {
+      let chars = 0;
+      for (const rawTurn of legacyThread.turns) {
+        const turn = asRecord(rawTurn);
+        if (!turn || !Array.isArray(turn.items)) continue;
+        turn.items = turn.items.map((rawItem) => {
+          const item = asRecord(rawItem);
+          if (!item) return rawItem;
+          const compacted = compactCodexHistoryItem(item);
+          chars += compacted.chars;
+          this.checkHistorySize(chars);
+          return compacted.item;
+        });
+      }
+    }
+    return legacyThread;
+  }
+
+  private checkHistorySize(chars: number): void {
+    if (chars > MAX_RETAINED_HISTORY_CHARS) {
+      throw new Error("Codex display history exceeds the Bridge 64 Mi-character limit");
+    }
+  }
+
+  private async readTurnPages(
+    threadId: string,
+    itemsView: "notLoaded" | "full",
+  ): Promise<Record<string, unknown>[]> {
+    const turns: Record<string, unknown>[] = [];
+    let retainedChars = 0;
+    await this.readHistoryPages("thread/turns/list", {
+      threadId, limit: itemsView === "full" ? 1 : 50,
+      sortDirection: "asc", itemsView,
+    }, (data) => {
+      for (const rawTurn of data) {
+        const turn = asRecord(rawTurn);
+        if (!turn) throw new Error("thread/turns/list returned an invalid turn");
+        if (itemsView === "full" && Array.isArray(turn.items)) {
+          turn.items = turn.items.map((rawItem) => {
+            const item = asRecord(rawItem);
+            return item ? compactCodexHistoryItem(item).item : rawItem;
+          });
+        }
+        retainedChars += JSON.stringify(turn).length;
+        this.checkHistorySize(retainedChars);
+        turns.push(turn);
+      }
+    });
+    return turns;
+  }
+
+  private async readHistoryPages(
+    method: string,
+    params: Record<string, unknown>,
+    consume: (data: unknown[]) => void,
+  ): Promise<void> {
     const seenCursors = new Set<string>();
     let cursor: string | undefined;
     do {
-      let page: Record<string, unknown>;
-      try {
-        page = (await this.request("thread/turns/list", {
-          threadId,
-          ...(cursor !== undefined ? { cursor } : {}),
-          limit: 50,
-          sortDirection: "asc",
-          itemsView: "full",
-        })) as Record<string, unknown>;
-      } catch (err) {
-        // New threads have metadata but no persisted turn history yet.
-        if (
-          cursor === undefined &&
-          err instanceof CodexRpcError &&
-          err.code === -32600 &&
-          err.message.includes(
-            "is not materialized yet; thread/turns/list is unavailable before first user message",
-          )
-        ) {
-          return { ...thread, turns: [] };
-        }
-        // Older app-servers do not expose turn pagination.
-        if (!(err instanceof CodexRpcError) || err.code !== -32601) throw err;
-        const legacy = (await this.request("thread/read", {
-          threadId,
-          includeTurns: true,
-        })) as Record<string, unknown>;
-        if (!legacy.thread) throw new Error("thread/read returned no thread");
-        return legacy.thread as Record<string, unknown>;
-      }
-      if (!Array.isArray(page.data)) {
-        throw new Error("thread/turns/list returned invalid data");
-      }
-      turns.push(...page.data);
+      const page = (await this.request(method, {
+        ...params, ...(cursor !== undefined ? { cursor } : {}),
+      })) as Record<string, unknown>;
+      if (!Array.isArray(page.data)) throw new Error(`${method} returned invalid data`);
+      consume(page.data);
       if (page.nextCursor != null && typeof page.nextCursor !== "string") {
-        throw new Error("thread/turns/list returned an invalid cursor");
+        throw new Error(`${method} returned an invalid cursor`);
       }
       cursor = (page.nextCursor as string | null | undefined) ?? undefined;
       if (cursor !== undefined) {
-        if (seenCursors.has(cursor)) {
-          throw new Error("thread/turns/list returned a repeated cursor");
-        }
+        if (seenCursors.has(cursor)) throw new Error(`${method} returned a repeated cursor`);
         seenCursors.add(cursor);
       }
     } while (cursor !== undefined);
-    return { ...thread, turns };
   }
 
   /** Fork at a complete turn boundary without mutating the source history. */
@@ -890,6 +972,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     this.pendingApprovals.clear();
     this.pendingUserInputs.clear();
+    this.stdoutLineChunks = [];
+    this.stdoutLineChars = 0;
     this.cleanupSteerTempPaths();
     this.rejectAllPending(new Error("stopped"));
 
@@ -949,6 +1033,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._pendingPlanInput = null;
     this._projectPath = projectPath;
     this.stdoutLineChunks = [];
+    this.stdoutLineChars = 0;
   }
 
   private launchAppServer(
@@ -2292,30 +2377,44 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   private handleStdoutChunk(chunk: string): void {
+    if (this.stopped) return;
     let lineStart = 0;
-
     while (lineStart < chunk.length) {
       const newlineIndex = chunk.indexOf("\n", lineStart);
-      if (newlineIndex < 0) {
-        this.stdoutLineChunks.push(chunk.slice(lineStart));
+      const end = newlineIndex < 0 ? chunk.length : newlineIndex;
+      const fragment = chunk.slice(lineStart, end);
+      this.stdoutLineChars += fragment.length;
+      if (this.stdoutLineChars > MAX_STDOUT_LINE_CHARS) {
+        this.failStdout(new Error(
+          "Codex app-server response exceeds the Bridge 64 Mi-character limit " +
+          `(pending: ${[...this.pendingRpc.values()].map((rpc) => rpc.method).join(", ") || "notification"}). ` +
+          "Only this Codex connection was closed; Bridge is still running.",
+        ));
         return;
       }
-
-      const lineFragment = chunk.slice(lineStart, newlineIndex);
-      const line =
-        this.stdoutLineChunks.length === 0
-          ? lineFragment.trim()
-          : this.completeStdoutLine(lineFragment);
+      if (newlineIndex < 0) {
+        this.stdoutLineChunks.push(fragment);
+        return;
+      }
+      let line: string;
+      try {
+        // Guard both fragmented and single-chunk records before joining, and
+        // keep allocation errors inside the connection's failure boundary.
+        this.stdoutLineChunks.push(fragment);
+        line = this.stdoutLineChunks.join("").trim();
+      } catch (err) {
+        this.failStdout(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+      this.stdoutLineChunks = [];
+      this.stdoutLineChars = 0;
       lineStart = newlineIndex + 1;
       if (!line) continue;
-
       try {
         const envelope = JSON.parse(line) as JsonRpcEnvelope;
         this.handleRpcEnvelope(envelope);
       } catch (err) {
-        console.warn(
-          `[codex-process] failed to parse app-server JSON line: ${line.slice(0, 200)}`,
-        );
+        console.warn("[codex-process] failed to parse app-server JSON line");
         if (!this.stopped) {
           this.emitMessage({
             type: "error",
@@ -2326,11 +2425,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
   }
 
-  private completeStdoutLine(finalChunk: string): string {
-    this.stdoutLineChunks.push(finalChunk);
-    const line = this.stdoutLineChunks.join("").trim();
-    this.stdoutLineChunks = [];
-    return line;
+  private failStdout(error: Error): void {
+    console.error(`[codex-process] ${error.message}`);
+    this.rejectReadiness(error);
+    this.rejectAllPending(error);
+    this.emitMessage({ type: "error", message: error.message });
+    this.stop();
   }
 
   private handleRpcEnvelope(envelope: JsonRpcEnvelope): void {
