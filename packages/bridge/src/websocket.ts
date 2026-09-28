@@ -9446,6 +9446,28 @@ export class BridgeWebSocketServer {
       return;
     }
 
+    if ((msg.type === "result" || msg.type === "goal_state") && msg.notification) {
+      if (msg.notification === "none") return;
+      const kind = msg.notification;
+      const icon = kind === "goal_complete" ? "✅"
+        : kind === "goal_progress" ? "💬"
+        : kind === "goal_blocked" ? "⚠️" : "⏸";
+      for (const locale of this.getRegisteredLocales()) {
+        const copy = t(locale, kind);
+        void this.pushRelay.notify({
+          eventType: kind,
+          title: `${icon} ${copy}${label ? ` - ${label}` : ""}`,
+          body: copy,
+          locale,
+          tokenHashes: this.getActivePushTokenHashes(locale),
+          data: { sessionId, provider: "codex" },
+        }).catch((err) => {
+          console.warn(`[ws] Failed to send ${kind}: ${String(err)}`);
+        });
+      }
+      return;
+    }
+
     if (msg.type !== "result") return;
     if (msg.subtype === "stopped") return;
     if (msg.subtype !== "success" && msg.subtype !== "error") return;

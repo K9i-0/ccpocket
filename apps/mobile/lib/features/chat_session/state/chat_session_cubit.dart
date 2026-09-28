@@ -298,6 +298,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
     if (msg is GoalStateMessage) {
       emit(state.copyWith(goal: msg.goal));
+      final effect = goalNotificationEffect(msg.notification);
+      if (effect != null) _sideEffectsController.add({effect});
       return;
     }
     if (msg is PermissionResolvedMessage) {

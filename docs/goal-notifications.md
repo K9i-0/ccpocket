@@ -1,0 +1,24 @@
+# Goal中の通知
+
+セッション（Codexのthread）は会話全体、ターンは1回の実行、Goalは複数ターンにまたがる目標。ターン正常終了をGoal達成として扱わない。
+
+## 通知方針
+
+- Goal activeのターン正常終了は既定で通知しない。
+- Bridge起動環境で `BRIDGE_NOTIFY_GOAL_TURN_COMPLETED=true` を設定すると「中間応答・ゴール進行中」を通知する。値はセッション作成時に読む。全セッションへ反映するにはBridgeを再起動する。
+- completeへの遷移はゴール達成、blockedは対応待ち、budgetLimited/usageLimitedは理由付き停止として通知する。pausedとclearは通知しない。
+- 同じGoal・同じ状態の利用量更新は再通知しない。再開後に再度停止した場合は通知する。
+- 承認・質問・エラーと、Goalなしの通常応答は従来どおり。
+- 達成状態はCodexの記録を表す。成果の正しさをBridgeが独立検証するものではない。
+
+## 実装と互換性
+
+SessionManagerでセッションごとに通知方針を判定し、既存のresult / goal_stateに任意のnotificationフィールドを添付する。PushとFlutterのローカル通知は同じ判定を使う。新規クライアントメッセージは追加しない。
+
+notificationはnone、goal_progress、goal_complete、goal_blocked、goal_budget_limited、goal_usage_limited。省略時は既存の挙動。未知の値は成功扱いしない。
+
+Goal照会の初期snapshotと履歴再送には通知指示を付けない。ライブの状態遷移だけ通知する。初期照会と結果処理は受信順に直列化し、照会は3秒でtimeoutする。取得失敗はGoalなしと区別して成功通知を抑制し、次の成功結果で再照会する。明示的なRPC method-not-foundはGoal非対応として通常通知を維持する。
+
+Goal達成イベントはその受信時に通知するため、最終応答の執筆中に届く場合がある。ターン終了との順序にかかわらず、同じGoalの達成通知は重複させない。達成後の次の通常ターンでは通常通知に戻る。
+
+旧アプリは追加フィールドを無視するため、Pushは改善されるがローカルfallbackは旧挙動のまま。両経路を揃えるにはBridgeとアプリの両方の更新が必要。新アプリと旧Bridgeの組み合わせは従来の通知を維持する。

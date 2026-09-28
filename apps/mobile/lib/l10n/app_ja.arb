@@ -1,4 +1,9 @@
 {
+  "notifyGoalProgress": "中間応答・ゴール進行中",
+  "notifyGoalComplete": "ゴール達成",
+  "notifyGoalBlocked": "続行に対応が必要です",
+  "notifyGoalBudgetLimited": "トークン予算に達したため停止しました",
+  "notifyGoalUsageLimited": "利用上限に達したため停止しました",
   "@@locale": "ja",
 
   "appTitle": "CC Pocket",

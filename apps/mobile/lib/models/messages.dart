@@ -848,6 +848,7 @@ sealed class ServerMessage {
         userMessageUuid: json['userMessageUuid'] as String?,
       ),
       'result' => ResultMessage(
+        notification: json['notification'] as String?,
         subtype: json['subtype'] as String? ?? '',
         result: json['result'] as String?,
         error: json['error'] as String?,
@@ -951,6 +952,7 @@ sealed class ServerMessage {
             const [],
       ),
       'goal_state' => GoalStateMessage(
+        notification: json['notification'] as String?,
         sessionId: json['sessionId'] as String?,
         goal: json['goal'] is Map<String, dynamic>
             ? CodexGoal.fromJson(json['goal'] as Map<String, dynamic>)
@@ -1727,6 +1729,7 @@ class ToolResultMessage implements ServerMessage {
 }
 
 class ResultMessage implements ServerMessage {
+  final String? notification;
   final String subtype;
   final String? result;
   final String? error;
@@ -1740,6 +1743,7 @@ class ResultMessage implements ServerMessage {
   final int? toolCalls;
   final int? fileEdits;
   const ResultMessage({
+    this.notification,
     required this.subtype,
     this.result,
     this.error,
@@ -3311,9 +3315,14 @@ class ConversationQueueMessage implements ServerMessage {
 }
 
 class GoalStateMessage implements ServerMessage {
+  final String? notification;
   final String? sessionId;
   final CodexGoal? goal;
-  const GoalStateMessage({this.sessionId, required this.goal});
+  const GoalStateMessage({
+    this.sessionId,
+    required this.goal,
+    this.notification,
+  });
 }
 
 class InputRejectedMessage implements ServerMessage {

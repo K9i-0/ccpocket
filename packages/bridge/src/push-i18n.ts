@@ -2,6 +2,11 @@ export type PushLocale = "en" | "ja" | "zh" | "ko";
 
 const translations: Record<PushLocale, Record<string, string>> = {
   en: {
+    goal_progress: "Intermediate response · Goal in progress",
+    goal_complete: "Goal achieved",
+    goal_blocked: "Action needed to continue",
+    goal_budget_limited: "Stopped: token budget reached",
+    goal_usage_limited: "Stopped: usage limit reached",
     approval_title: "Approval needed",
     ask_title: "Response needed",
     plan_ready_title: "Plan ready",
@@ -19,6 +24,11 @@ const translations: Record<PushLocale, Record<string, string>> = {
     result_error_body_private: "Session failed",
   },
   ja: {
+    goal_progress: "中間応答・ゴール進行中",
+    goal_complete: "ゴール達成",
+    goal_blocked: "続行に対応が必要です",
+    goal_budget_limited: "トークン予算に達したため停止しました",
+    goal_usage_limited: "利用上限に達したため停止しました",
     approval_title: "承認待ち",
     ask_title: "回答待ち",
     plan_ready_title: "プラン完成",
@@ -36,6 +46,11 @@ const translations: Record<PushLocale, Record<string, string>> = {
     result_error_body_private: "セッションが失敗しました",
   },
   zh: {
+    goal_progress: "中间回复 · 目标进行中",
+    goal_complete: "目标已达成",
+    goal_blocked: "需要处理才能继续",
+    goal_budget_limited: "已停止：达到令牌预算",
+    goal_usage_limited: "已停止：达到使用上限",
     approval_title: "需要批准",
     ask_title: "需要回复",
     plan_ready_title: "计划已准备好",
@@ -53,6 +68,11 @@ const translations: Record<PushLocale, Record<string, string>> = {
     result_error_body_private: "会话失败",
   },
   ko: {
+    goal_progress: "중간 응답 · 목표 진행 중",
+    goal_complete: "목표 달성",
+    goal_blocked: "계속하려면 조치가 필요합니다",
+    goal_budget_limited: "토큰 예산에 도달하여 중지됨",
+    goal_usage_limited: "사용 한도에 도달하여 중지됨",
     approval_title: "승인 필요",
     ask_title: "응답 필요",
     plan_ready_title: "계획 준비 완료",

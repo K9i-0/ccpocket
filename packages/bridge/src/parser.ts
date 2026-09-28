@@ -1,3 +1,4 @@
+import type { GoalNotification } from "./goal-notifications.js";
 import type { GalleryImageInfo } from "./gallery-store.js";
 import type { ImageRef } from "./image-store.js";
 import type {
@@ -655,6 +656,7 @@ export type ServerMessage =
     }
   | {
       type: "result";
+      notification?: GoalNotification;
       subtype: string;
       result?: string;
       error?: string;
@@ -737,6 +739,7 @@ export type ServerMessage =
     }
   | {
       type: "goal_state";
+      notification?: GoalNotification;
       sessionId?: string;
       goal: CodexGoal | null;
     }

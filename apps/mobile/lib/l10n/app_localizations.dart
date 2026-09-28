@@ -102,6 +102,36 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @notifyGoalProgress.
+  ///
+  /// In ja, this message translates to:
+  /// **'中間応答・ゴール進行中'**
+  String get notifyGoalProgress;
+
+  /// No description provided for @notifyGoalComplete.
+  ///
+  /// In ja, this message translates to:
+  /// **'ゴール達成'**
+  String get notifyGoalComplete;
+
+  /// No description provided for @notifyGoalBlocked.
+  ///
+  /// In ja, this message translates to:
+  /// **'続行に対応が必要です'**
+  String get notifyGoalBlocked;
+
+  /// No description provided for @notifyGoalBudgetLimited.
+  ///
+  /// In ja, this message translates to:
+  /// **'トークン予算に達したため停止しました'**
+  String get notifyGoalBudgetLimited;
+
+  /// No description provided for @notifyGoalUsageLimited.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用上限に達したため停止しました'**
+  String get notifyGoalUsageLimited;
+
   /// No description provided for @appTitle.
   ///
   /// In ja, this message translates to:

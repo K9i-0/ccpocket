@@ -33,6 +33,7 @@ import type {
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 import { withDerivedCodexPermissionsMode } from "./codex-permissions.js";
+import { GoalNotifications } from "./goal-notifications.js";
 import { createWorktree, worktreeExists } from "./worktree.js";
 import type { WorktreeStore } from "./worktree-store.js";
 import {
@@ -417,6 +418,7 @@ export class SessionManager {
     // Cache tool_use id → name for enriching tool_result messages
     const toolUseNames = new Map<string, string>();
 
+    const goalNotifications = new GoalNotifications();
     const pendingProcessMessages: ServerMessage[] = [];
     let processingAsyncProcessMessage = false;
 
@@ -427,8 +429,42 @@ export class SessionManager {
 
         if (msg.type === "goal_state") {
           session.codexGoal = msg.goal;
-          deliverProcessMessage(msg);
+          deliverProcessMessage({
+            ...msg,
+            notification: goalNotifications.update(msg.goal),
+          });
           return;
+        }
+
+        if (effectiveProvider === "codex") {
+          if (msg.type === "status" && msg.status === "running") {
+            goalNotifications.beginTurn();
+          }
+          if (
+            (msg.type === "system" && msg.subtype === "init") ||
+            (msg.type === "result" && msg.subtype === "success" &&
+              goalNotifications.goal === undefined)
+          ) {
+            try {
+              const goal = await (proc as CodexProcess).getGoal();
+              goalNotifications.baseline(goal);
+              session.codexGoal = goal;
+              deliverProcessMessage({ type: "goal_state", goal });
+            } catch (error) {
+              if (
+                error instanceof Error && "code" in error &&
+                error.code === -32601
+              ) {
+                // Old app-servers cannot run Goals; preserve ordinary notifications.
+                goalNotifications.baseline(null);
+                session.codexGoal = null;
+              }
+              // Transient failures remain unknown, not equivalent to no goal.
+            }
+          }
+          if (msg.type === "result" && msg.subtype === "success") {
+            msg = { ...msg, notification: goalNotifications.result() };
+          }
         }
 
         if (
@@ -674,6 +710,14 @@ export class SessionManager {
     };
 
     const processMessageMayAwait = (msg: ServerMessage): boolean => {
+      if (
+        effectiveProvider === "codex" &&
+        ((msg.type === "system" && msg.subtype === "init") ||
+          (msg.type === "result" && msg.subtype === "success" &&
+            goalNotifications.goal === undefined))
+      ) {
+        return true;
+      }
       if (msg.type !== "tool_result" || !this.imageStore) return false;
       if (this.imageStore.extractImagePaths(msg.content).length > 0) {
         return true;

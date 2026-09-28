@@ -39,6 +39,7 @@ ccpocket-bridge --version
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `BRIDGE_PORT` | `8765` | WebSocket port |
+| `BRIDGE_NOTIFY_GOAL_TURN_COMPLETED` | `false` | Set exactly to `true` to notify intermediate Codex turns while a Goal is active. Goal completion, blockers, limits, approvals and errors remain enabled. Read at session creation; restart Bridge to apply to all sessions. |
 | `BRIDGE_HOST` | `0.0.0.0` | Bind address |
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access; set exactly to `*` to allow any directory |

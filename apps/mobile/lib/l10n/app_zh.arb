@@ -1,4 +1,9 @@
 {
+  "notifyGoalProgress": "中间回复 · 目标进行中",
+  "notifyGoalComplete": "目标已达成",
+  "notifyGoalBlocked": "需要处理才能继续",
+  "notifyGoalBudgetLimited": "已停止：达到令牌预算",
+  "notifyGoalUsageLimited": "已停止：达到使用上限",
   "@@locale": "zh",
 
   "appTitle": "CC Pocket",

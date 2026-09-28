@@ -246,7 +246,7 @@ describe("CodexProcess (app-server)", () => {
 
     expect(request).toHaveBeenNthCalledWith(1, "thread/goal/get", {
       threadId: "thread-1",
-    });
+    }, 3_000);
     expect(request).toHaveBeenNthCalledWith(2, "thread/goal/set", {
       threadId: "thread-1",
       objective: "Ship Goal support",

@@ -10,6 +10,21 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
+  String get notifyGoalProgress => '중간 응답 · 목표 진행 중';
+
+  @override
+  String get notifyGoalComplete => '목표 달성';
+
+  @override
+  String get notifyGoalBlocked => '계속하려면 조치가 필요합니다';
+
+  @override
+  String get notifyGoalBudgetLimited => '토큰 예산에 도달하여 중지됨';
+
+  @override
+  String get notifyGoalUsageLimited => '사용 한도에 도달하여 중지됨';
+
+  @override
   String get appTitle => 'CC Pocket';
 
   @override

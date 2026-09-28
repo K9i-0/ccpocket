@@ -21,9 +21,24 @@ enum ChatSideEffect {
   notifyApprovalRequired,
   notifyAskQuestion,
   notifySessionComplete,
+  notifyGoalProgress,
+  notifyGoalComplete,
+  notifyGoalBlocked,
+  notifyGoalBudgetLimited,
+  notifyGoalUsageLimited,
   collapseToolResults,
   clearPlanFeedback,
 }
+
+/// Unknown future notification kinds must not imply success.
+ChatSideEffect? goalNotificationEffect(String? kind) => switch (kind) {
+  'goal_progress' => ChatSideEffect.notifyGoalProgress,
+  'goal_complete' => ChatSideEffect.notifyGoalComplete,
+  'goal_blocked' => ChatSideEffect.notifyGoalBlocked,
+  'goal_budget_limited' => ChatSideEffect.notifyGoalBudgetLimited,
+  'goal_usage_limited' => ChatSideEffect.notifyGoalUsageLimited,
+  _ => null,
+};
 
 /// Result of processing a single [ServerMessage].
 class ChatStateUpdate {
@@ -964,7 +979,13 @@ class ChatMessageHandler {
     final effects = <ChatSideEffect>{ChatSideEffect.lightHaptic};
     final isStopped = subtype == 'stopped';
     if (isBackground && !isStopped) {
-      effects.add(ChatSideEffect.notifySessionComplete);
+      final notification = msg is ResultMessage ? msg.notification : null;
+      if (notification == null) {
+        effects.add(ChatSideEffect.notifySessionComplete);
+      } else {
+        final effect = goalNotificationEffect(notification);
+        if (effect != null) effects.add(effect);
+      }
     }
     if (isStopped) {
       currentStreaming = null;

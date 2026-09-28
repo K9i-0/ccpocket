@@ -8390,6 +8390,25 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("shares Goal policy with Push and uses distinct progress and completion copy", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: {
+      uid: "bridge-test", getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    } as any });
+    (bridge as any).tokenLocales.set("token-1", "ja");
+    for (const notification of ["none", "goal_progress"]) {
+      (bridge as any).broadcastSessionMessage("s-1", { type: "result", subtype: "success", notification });
+    }
+    (bridge as any).broadcastSessionMessage("s-1", { type: "goal_state", goal: null, notification: "goal_complete" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payloads = fetchMock.mock.calls.map(call => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect(payloads[0]).toMatchObject({ eventType: "goal_progress", title: "💬 中間応答・ゴール進行中" });
+    expect(payloads[1]).toMatchObject({ eventType: "goal_complete", title: "✅ ゴール達成" });
+    bridge.close();
+  });
+
   it("does not notify the relay without an active token registration", async () => {
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;

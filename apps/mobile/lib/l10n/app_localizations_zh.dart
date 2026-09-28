@@ -10,6 +10,21 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get notifyGoalProgress => '中间回复 · 目标进行中';
+
+  @override
+  String get notifyGoalComplete => '目标已达成';
+
+  @override
+  String get notifyGoalBlocked => '需要处理才能继续';
+
+  @override
+  String get notifyGoalBudgetLimited => '已停止：达到令牌预算';
+
+  @override
+  String get notifyGoalUsageLimited => '已停止：达到使用上限';
+
+  @override
   String get appTitle => 'CC Pocket';
 
   @override

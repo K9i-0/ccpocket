@@ -563,13 +563,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   /** Read the persisted goal attached to this Codex thread. */
-  async getGoal(): Promise<CodexGoal | null> {
+  async getGoal(timeoutMs = 3_000): Promise<CodexGoal | null> {
     if (!this._threadId) {
       throw new Error("No thread ID available for goal lookup");
     }
-    const response = (await this.request("thread/goal/get", {
-      threadId: this._threadId,
-    })) as Record<string, unknown>;
+    const response = (await this.request(
+      "thread/goal/get",
+      { threadId: this._threadId },
+      timeoutMs,
+    )) as Record<string, unknown>;
     return response.goal == null ? null : parseCodexGoal(response.goal);
   }
 

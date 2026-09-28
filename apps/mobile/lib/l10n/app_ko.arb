@@ -1,4 +1,9 @@
 {
+  "notifyGoalProgress": "중간 응답 · 목표 진행 중",
+  "notifyGoalComplete": "목표 달성",
+  "notifyGoalBlocked": "계속하려면 조치가 필요합니다",
+  "notifyGoalBudgetLimited": "토큰 예산에 도달하여 중지됨",
+  "notifyGoalUsageLimited": "사용 한도에 도달하여 중지됨",
   "@@locale": "ko",
   "appTitle": "CC Pocket",
 

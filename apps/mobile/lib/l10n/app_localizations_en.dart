@@ -10,6 +10,21 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get notifyGoalProgress => 'Intermediate response · Goal in progress';
+
+  @override
+  String get notifyGoalComplete => 'Goal achieved';
+
+  @override
+  String get notifyGoalBlocked => 'Action needed to continue';
+
+  @override
+  String get notifyGoalBudgetLimited => 'Stopped: token budget reached';
+
+  @override
+  String get notifyGoalUsageLimited => 'Stopped: usage limit reached';
+
+  @override
   String get appTitle => 'CC Pocket';
 
   @override

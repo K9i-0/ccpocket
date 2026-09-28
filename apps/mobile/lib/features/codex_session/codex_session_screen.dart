@@ -1741,6 +1741,27 @@ void _executeSideEffects(
             );
           }
         }
+      case ChatSideEffect.notifyGoalProgress:
+      case ChatSideEffect.notifyGoalComplete:
+      case ChatSideEffect.notifyGoalBlocked:
+      case ChatSideEffect.notifyGoalBudgetLimited:
+      case ChatSideEffect.notifyGoalUsageLimited:
+        if (useLocalNotification) {
+          final title = switch (effect) {
+            ChatSideEffect.notifyGoalProgress => l.notifyGoalProgress,
+            ChatSideEffect.notifyGoalComplete => l.notifyGoalComplete,
+            ChatSideEffect.notifyGoalBlocked => l.notifyGoalBlocked,
+            ChatSideEffect.notifyGoalBudgetLimited => l.notifyGoalBudgetLimited,
+            ChatSideEffect.notifyGoalUsageLimited => l.notifyGoalUsageLimited,
+            _ => '',
+          };
+          NotificationService.instance.show(
+            title: title,
+            body: title,
+            id: 3,
+            payload: sessionId,
+          );
+        }
       case ChatSideEffect.notifySessionComplete:
         if (useLocalNotification) {
           NotificationService.instance.showSessionCompleteNotification(

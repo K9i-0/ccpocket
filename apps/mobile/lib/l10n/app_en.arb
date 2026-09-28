@@ -1,4 +1,9 @@
 {
+  "notifyGoalProgress": "Intermediate response · Goal in progress",
+  "notifyGoalComplete": "Goal achieved",
+  "notifyGoalBlocked": "Action needed to continue",
+  "notifyGoalBudgetLimited": "Stopped: token budget reached",
+  "notifyGoalUsageLimited": "Stopped: usage limit reached",
   "@@locale": "en",
 
   "appTitle": "CC Pocket",

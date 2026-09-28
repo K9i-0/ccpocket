@@ -10,6 +10,21 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get notifyGoalProgress => '中間応答・ゴール進行中';
+
+  @override
+  String get notifyGoalComplete => 'ゴール達成';
+
+  @override
+  String get notifyGoalBlocked => '続行に対応が必要です';
+
+  @override
+  String get notifyGoalBudgetLimited => 'トークン予算に達したため停止しました';
+
+  @override
+  String get notifyGoalUsageLimited => '利用上限に達したため停止しました';
+
+  @override
   String get appTitle => 'CC Pocket';
 
   @override
