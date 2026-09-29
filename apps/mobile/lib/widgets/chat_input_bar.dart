@@ -920,7 +920,7 @@ class _InputTextFieldState extends State<_InputTextField>
   /// Image paste shortcuts attach clipboard images without blocking normal
   /// Cmd+V text paste unless the legacy Cmd+V mode is selected.
   ///
-  /// In the default Ctrl+V mode on Windows/Linux, normal text paste stays
+  /// In the default mode (Cmd+V on macOS, Ctrl+V elsewhere), text paste stays
   /// native while clipboard images are still probed asynchronously.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -960,7 +960,7 @@ class _InputTextFieldState extends State<_InputTextField>
         HardwareKeyboard.instance.isControlPressed;
     if (widget.onPasteImage != null && _isImagePasteShortcut(event)) {
       if (widget.imagePasteShortcut == ImagePasteShortcut.ctrlV) {
-        // Keep native text paste on Windows/Linux, and independently attach
+        // Keep native text paste on all platforms, and independently attach
         // clipboard images such as screenshots when present.
         unawaited(_handleImagePasteOnly());
         return KeyEventResult.ignored;
@@ -1100,15 +1100,23 @@ class _InputTextFieldState extends State<_InputTextField>
       return false;
     }
     final hardware = HardwareKeyboard.instance;
+    final isMacOS = defaultTargetPlatform == TargetPlatform.macOS;
     return switch (widget.imagePasteShortcut) {
+      // On macOS the native paste modifier is Cmd, not Ctrl. Accept Cmd+V
+      // so screenshots on the clipboard get attached alongside a normal paste.
+      // Cmd+Alt+V is left alone so it stays available as a native paste.
       ImagePasteShortcut.ctrlV =>
-        !hardware.isMetaPressed &&
-            _isControlStyleTextShortcut(
-              event,
-              key: LogicalKeyboardKey.keyV,
-              controlCharacter: 0x16,
-              allowNullCharacter: false,
-            ),
+        isMacOS
+            ? (hardware.isMetaPressed &&
+                  !hardware.isControlPressed &&
+                  !hardware.isAltPressed)
+            : (!hardware.isMetaPressed &&
+                  _isControlStyleTextShortcut(
+                    event,
+                    key: LogicalKeyboardKey.keyV,
+                    controlCharacter: 0x16,
+                    allowNullCharacter: false,
+                  )),
       ImagePasteShortcut.commandV =>
         hardware.isMetaPressed && !hardware.isControlPressed,
     };

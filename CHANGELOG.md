@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 - Autolink HTTP(S) URLs with single-label hosts such as `http://localhost:3000` in chat markdown, and underline links on hover so they are easier to discover.
+- Paste clipboard images with Cmd+V on macOS in the default image paste shortcut mode, alongside the normal text paste.
 
 ## [1.136.1] - 2026-09-23
 
