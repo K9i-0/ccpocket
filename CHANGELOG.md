@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.137.1] - 2026-09-29
+
+### Fixed
+- Mark automatic Codex goal refreshes as background requests so Bridge 1.86.1 can keep lookup failures out of chat. Manual `/goal` failures remain visible.
+
+### Changed
+- Recommend Bridge 1.86.1 for background goal refresh handling.
+
 ## [1.137.0] - 2026-09-29
 
 ### Added
