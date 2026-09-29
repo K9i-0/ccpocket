@@ -2712,6 +2712,36 @@ describe("recent sessions grouped by git repository", () => {
     ]);
   });
 
+  it("includes sibling worktrees on the first filtered request and excludes unrelated projects", async () => {
+    const worktree = join(work, "feature-checkout");
+    git(repo, ["worktree", "add", "-q", "-b", "feature", worktree]);
+    writeClaudeSession("claude-cold-worktree", worktree);
+    writeClaudeSession("claude-unrelated", join(work, "unrelated"));
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000d1", worktree);
+
+    const filtered = await getAllRecentSessions({ projectPath: repo, limit: 50 });
+    expect(filtered.sessions.map((s) => s.sessionId).sort()).toEqual([
+      "019c56c0-d4d8-7b22-9e3c-2006640000d1",
+      "claude-cold-worktree",
+    ]);
+    expect(filtered.sessions.every((s) => s.resumeCwd === worktree)).toBe(true);
+  });
+
+  it("keeps existing monorepo subdirectories separate even when Codex records the repository URL", async () => {
+    const sub = join(repo, "packages", "mobile");
+    mkdirSync(sub, { recursive: true });
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000e1", repo);
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000e2", sub, "https://github.com/owner/app.git");
+    writeClaudeSession("claude-package", sub);
+
+    const filtered = await getAllRecentSessions({ projectPath: sub, limit: 50 });
+    expect(filtered.sessions.map((s) => s.sessionId).sort()).toEqual([
+      "019c56c0-d4d8-7b22-9e3c-2006640000e2",
+      "claude-package",
+    ]);
+    expect(filtered.sessions.every((s) => s.projectPath === sub && !s.resumeCwd)).toBe(true);
+  });
+
   it("groups Codex sessions from deleted worktrees by repository URL", async () => {
     const deleted = join(work, "app-review-42");
     writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000b1", repo);

@@ -237,13 +237,6 @@ const repositoryRoots = createRepositoryRootResolver();
 /** Codex `session_meta.git.repository_url`, kept off the wire-visible entry. */
 const codexRepositoryUrls = new WeakMap<SessionIndexEntry, string>();
 
-/**
- * Claude project dir slug → repository root, learned while listing sessions.
- * Lets project-filtered listings include sibling worktree dirs whose slug is
- * unrelated to the repository slug.
- */
-const claudeDirRepositoryRoots = new Map<string, string>();
-
 const REPOSITORY_RESOLVE_CONCURRENCY = 8;
 
 function assignRepositoryRoot(
@@ -251,9 +244,6 @@ function assignRepositoryRoot(
   cwd: string,
   root: string,
 ): void {
-  if (entry.provider === "claude") {
-    claudeDirRepositoryRoots.set(pathToSlug(cwd), root);
-  }
   if (root === entry.projectPath) return;
   entry.projectPath = root;
   if (cwd !== root) entry.resumeCwd = cwd;
@@ -272,7 +262,14 @@ async function groupEntriesByRepository(
       knownRoots.add(root);
       assignRepositoryRoot(entry, cwd, root);
     } else if (codexRepositoryUrls.has(entry)) {
-      unresolved.push(entry);
+      // A null root also means an existing monorepo subdirectory or a git
+      // error. Only a missing cwd may use the deleted-worktree fallback.
+      try {
+        await stat(cwd);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") unresolved.push(entry);
+      }
     }
   });
 
@@ -1005,10 +1002,6 @@ export async function getAllRecentSessions(
   }
   markDuration(durations, "loadClaudeProjectDirs", loadProjectDirsStartedAt);
 
-  // Compute worktree slug prefix for projectPath filtering
-  const projectSlug = filterProjectPath
-    ? pathToSlug(filterProjectPath)
-    : null;
   const normalizedFilterPath = filterProjectPath
     ? normalizeWorktreePath(filterProjectPath)
     : null;
@@ -1023,18 +1016,9 @@ export async function getAllRecentSessions(
   const claudeEntriesPromise = (async (): Promise<SessionIndexEntry[]> => {
     if (!shouldLoadClaude) return [];
 
-    // Filter directories first (sync), then process in parallel
-    const relevantDirs: string[] = [];
-    for (const dirName of projectDirs) {
-      if (dirName.startsWith(".")) continue;
-      const isProjectDir = projectSlug ? dirName === projectSlug : false;
-      const isWorktreeDir = projectSlug
-        ? isWorktreeSlug(dirName, projectSlug) ||
-          claudeDirRepositoryRoots.get(dirName) === filterRepositoryRoot
-        : false;
-      if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
-      relevantDirs.push(dirName);
-    }
+    // A sibling worktree can have any slug. Load before filtering so the
+    // first project-filtered request works without an earlier global listing.
+    const relevantDirs = projectDirs.filter((dirName) => !dirName.startsWith("."));
     perfStats.claudeProjectDirs = relevantDirs.length;
 
     // Process directories in parallel
@@ -1198,12 +1182,10 @@ export async function getAllRecentSessions(
   perfStats.counts.beforeArchive = entries.length;
   perfStats.counts.afterArchive = filtered.length;
 
-  // Claude entries were already narrowed by project dir; Codex entries are
-  // matched against the filter's repository here.
+  // Apply the same repository filter to both providers after grouping.
   if (normalizedFilterPath) {
     filtered = filtered.filter(
       (e) =>
-        e.provider !== "codex" ||
         e.projectPath === normalizedFilterPath ||
         e.projectPath === filterRepositoryRoot,
     );

@@ -15,15 +15,11 @@ const defaultRunGit: RunGit = (cwd, args) =>
     );
   });
 
-/**
- * Negative results (missing directory, not a git top-level) are retried after
- * this long, since a directory can be created or initialized later. Positive
- * results never change for a given path, so they are cached for the process.
- */
-const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000;
+// Repositories, worktrees and origins can change while the Bridge is running.
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CachedValue {
-  value: string | null;
+  value: Promise<string | null>;
   expiresAt: number;
 }
 
@@ -84,12 +80,17 @@ export function createRepositoryRootResolver(
   ): Promise<string | null> => {
     const hit = cache.get(key);
     if (hit && hit.expiresAt > now()) return hit.value;
-    const value = await load();
-    cache.set(key, {
-      value,
-      expiresAt: value === null ? now() + NEGATIVE_CACHE_TTL_MS : Infinity,
-    });
-    return value;
+    // Cache the in-flight promise as well, since many sessions share a cwd.
+    const pending: CachedValue = { value: load(), expiresAt: Infinity };
+    cache.set(key, pending);
+    try {
+      const value = await pending.value;
+      pending.expiresAt = now() + CACHE_TTL_MS;
+      return value;
+    } catch (error) {
+      if (cache.get(key) === pending) cache.delete(key);
+      throw error;
+    }
   };
 
   const isDirectory = async (path: string): Promise<boolean> => {
@@ -142,7 +143,10 @@ export function createRepositoryRootResolver(
     const wanted = normalizeRepositoryUrl(url);
     if (!wanted) return null;
     const candidates = [...new Set(candidatePaths)];
-    const origins = await Promise.all(candidates.map(originOf));
+    // The caller already limits concurrent resolutions. Avoid spawning one
+    // process per repository here; shared origins reuse the in-flight cache.
+    const origins: (string | null)[] = [];
+    for (const candidate of candidates) origins.push(await originOf(candidate));
     const matches = candidates.filter((_, i) => origins[i] === wanted);
     return matches.length === 1 ? matches[0] : null;
   };

@@ -93,11 +93,53 @@ describe("createRepositoryRootResolver", () => {
   });
 
   it("caches git lookups per path", async () => {
-    const runGit = vi.fn(async () => `${repo}/.git\n`);
+    const runGit = vi.fn(async () => `${repo}\n${repo}/.git\n`);
     const resolver = createRepositoryRootResolver({ runGit });
     await resolver.resolvePath(repo);
     await resolver.resolvePath(repo);
     expect(runGit).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares concurrent lookups for the same cwd", async () => {
+    const runGit = vi.fn(async () => `${repo}\n${repo}/.git\n`);
+    const resolver = createRepositoryRootResolver({ runGit });
+    expect(await Promise.all(Array.from({ length: 8 }, () => resolver.resolvePath(repo))))
+      .toEqual(Array(8).fill(repo));
+    expect(runGit).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes positive lookups after a worktree path is reused", async () => {
+    let now = 0;
+    const worktree = join(root, "feature");
+    git(repo, ["worktree", "add", "-q", "-b", "feature", worktree]);
+    const resolver = createRepositoryRootResolver({ now: () => now });
+    expect(await resolver.resolvePath(worktree)).toBe(repo);
+    git(repo, ["worktree", "remove", worktree]);
+    mkdirSync(worktree);
+    git(worktree, ["init", "-q"]);
+    now += 5 * 60 * 1000;
+    expect(await resolver.resolvePath(worktree)).toBe(worktree);
+  });
+
+  it("retries negative lookups after a directory becomes a repository", async () => {
+    let now = 0;
+    const missing = join(root, "created-later");
+    const resolver = createRepositoryRootResolver({ now: () => now });
+    expect(await resolver.resolvePath(missing)).toBeNull();
+    mkdirSync(missing);
+    git(missing, ["init", "-q"]);
+    now += 5 * 60 * 1000;
+    expect(await resolver.resolvePath(missing)).toBe(missing);
+  });
+
+  it("refreshes cached origins after a remote changes", async () => {
+    let now = 0;
+    const resolver = createRepositoryRootResolver({ now: () => now });
+    expect(await resolver.resolveRepositoryUrl("https://github.com/owner/app", [repo])).toBe(repo);
+    git(repo, ["remote", "set-url", "origin", "https://github.com/owner/other"]);
+    now += 5 * 60 * 1000;
+    expect(await resolver.resolveRepositoryUrl("https://github.com/owner/app", [repo])).toBeNull();
+    expect(await resolver.resolveRepositoryUrl("https://github.com/owner/other", [repo])).toBe(repo);
   });
 
   it("maps a repository URL to the single local checkout with that origin", async () => {

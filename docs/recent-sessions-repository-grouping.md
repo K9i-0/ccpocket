@@ -30,18 +30,25 @@ unrelated repositories often share a prefix (`roomphoto` and `roomphoto-lp-stats
 
 ## Cost and caching
 
-- One git process per distinct session cwd, run with concurrency 8. Positive
-  results are cached for the Bridge process lifetime (a path's main repository
-  does not change); negative results expire after 5 minutes.
-- Measured on a machine with ~300 recent sessions: first listing +0.7 s,
-  later listings unchanged. Groups went from 132 to 25.
+- Git resolutions run with concurrency 8. Concurrent requests for the same path
+  share one pending lookup. Origin lookups also reuse pending results and do not
+  fan out a process per candidate repository.
+- Both successful and unsuccessful results expire after 5 minutes, so reused
+  worktree paths and changed origins can be discovered without restarting Bridge.
+- The original PR measured ~300 sessions: first listing +0.7 s, later listings
+  unchanged; groups went from 132 to 25. These are the author's measurements,
+  not a benchmark of the subsequent filtering/cache fixes.
 
 ## Project-filtered listings
 
-- Codex files are always parsed in full, so the project filter is applied to
-  Codex entries after grouping.
-- Claude project dirs are pre-filtered by slug for speed. Sibling worktree dirs
-  have unrelated slugs, so they are included via a slug → repository map learned
-  during earlier listings. The app loads the unfiltered list first, so the map is
-  populated before any per-project "Show more". A filtered listing on a freshly
-  started Bridge can miss those dirs until the first unfiltered listing.
+Both providers are loaded and grouped before filtering by repository. Claude
+project directories cannot be pre-filtered by slug: a sibling worktree's name
+need not resemble its repository. The first filtered request therefore includes
+those sessions even without an earlier unfiltered listing, at the cost of reading
+all Claude project directories for a project-filtered request. Existing named-only
+loading optimizations still apply.
+
+URL fallback is restricted to missing cwd paths (ENOENT/ENOTDIR). Existing
+monorepo subdirectories and paths that cannot be inspected are left unchanged.
+The candidate set consists of repository roots found in the loaded sessions;
+no match or multiple matches leave the deleted session in its original group.
