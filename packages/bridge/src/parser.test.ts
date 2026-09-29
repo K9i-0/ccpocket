@@ -486,6 +486,9 @@ describe("parseClientMessage", () => {
   });
 
   it("parses Codex goal messages", () => {
+    expect(parseClientMessage('{"type":"get_goal","sessionId":"s1","background":true}'))
+      .toEqual({ type: "get_goal", sessionId: "s1", background: true });
+    expect(parseClientMessage('{"type":"get_goal","sessionId":"s1","background":"true"}')).toBeNull();
     expect(
       parseClientMessage('{"type":"get_goal","sessionId":"s1"}'),
     ).toEqual({ type: "get_goal", sessionId: "s1" });

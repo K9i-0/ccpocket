@@ -257,6 +257,22 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
+  it("coalesces concurrent goal lookups and retries after failure", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "thread-1";
+    let rejectLookup!: (error: Error) => void;
+    const request = vi.spyOn(proc as any, "request")
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectLookup = reject; }))
+      .mockResolvedValueOnce({ goal: null });
+    const first = expect(proc.getGoal()).rejects.toThrow("timeout");
+    const second = expect(proc.getGoal()).rejects.toThrow("timeout");
+    expect(request).toHaveBeenCalledTimes(1);
+    rejectLookup(new Error("timeout"));
+    await Promise.all([first, second]);
+    await expect(proc.getGoal()).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
   it("validates goal payloads received from app-server", () => {
     expect(() => parseCodexGoal({ status: "active" })).toThrow(
       "invalid shape",

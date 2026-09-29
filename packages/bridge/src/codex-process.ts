@@ -562,17 +562,26 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     });
   }
 
+  private goalLookup: Promise<CodexGoal | null> | undefined;
+
   /** Read the persisted goal attached to this Codex thread. */
   async getGoal(timeoutMs = 3_000): Promise<CodexGoal | null> {
     if (!this._threadId) {
       throw new Error("No thread ID available for goal lookup");
     }
-    const response = (await this.request(
-      "thread/goal/get",
-      { threadId: this._threadId },
-      timeoutMs,
-    )) as Record<string, unknown>;
-    return response.goal == null ? null : parseCodexGoal(response.goal);
+    if (!this.goalLookup) {
+      this.goalLookup = this.request(
+        "thread/goal/get",
+        { threadId: this._threadId },
+        timeoutMs,
+      ).then((value) => {
+        const response = value as Record<string, unknown>;
+        return response.goal == null ? null : parseCodexGoal(response.goal);
+      }).finally(() => {
+        this.goalLookup = undefined;
+      });
+    }
+    return this.goalLookup;
   }
 
   /** Create or update the persisted goal attached to this Codex thread. */

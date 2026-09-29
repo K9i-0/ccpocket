@@ -4759,8 +4759,12 @@ class ClientMessage {
     });
   }
 
-  factory ClientMessage.getGoal(String sessionId) =>
-      ClientMessage._({'type': 'get_goal', 'sessionId': sessionId});
+  factory ClientMessage.getGoal(String sessionId, {bool background = false}) =>
+      ClientMessage._({
+        'type': 'get_goal',
+        'sessionId': sessionId,
+        if (background) 'background': true,
+      });
 
   factory ClientMessage.setGoal({
     required String sessionId,

@@ -4198,6 +4198,12 @@ export class BridgeWebSocketServer {
           session.codexGoal = goal;
           this.send(ws, { type: "goal_state", sessionId: session.id, goal });
         } catch (err) {
+          // An optional background refresh must not pollute the conversation or
+          // replace a known goal with null when its current state is unknown.
+          if (msg.background) {
+            console.warn(`[ws] Background goal lookup failed: ${errorMessageOf(err)}`);
+            break;
+          }
           this.send(ws, {
             type: "error",
             sessionId: msg.sessionId,

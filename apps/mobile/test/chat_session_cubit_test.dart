@@ -710,6 +710,7 @@ void main() {
       expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
         'type': 'get_goal',
         'sessionId': 's1',
+        'background': true,
       });
     });
 

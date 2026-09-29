@@ -7088,6 +7088,25 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("keeps background goal failures out of chat but reports manual failures", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const goal = { objective: "Keep existing goal" };
+    const session = { id: "goal-session", provider: "codex", codexGoal: goal,
+      process: { getGoal: vi.fn().mockRejectedValue(new Error("timed out")) } };
+    vi.spyOn(bridge as any, "resolveSession").mockReturnValue(session);
+    await (bridge as any).handleClientMessage(
+      { type: "get_goal", sessionId: session.id, background: true }, ws);
+    expect(ws.send).not.toHaveBeenCalled();
+    expect(session.codexGoal).toBe(goal);
+    await (bridge as any).handleClientMessage(
+      { type: "get_goal", sessionId: session.id }, ws);
+    expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+      type: "error", errorCode: "goal_get_failed",
+    });
+    bridge.close();
+  });
+
   it("gets, updates, and clears a Codex goal", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

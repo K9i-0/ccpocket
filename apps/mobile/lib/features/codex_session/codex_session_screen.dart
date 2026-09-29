@@ -902,7 +902,7 @@ class _CodexChatBody extends HookWidget {
       if (bridge.isConnected) {
         final cubit = context.read<ChatSessionCubit>();
         cubit.refreshHistory();
-        cubit.requestGoal();
+        cubit.requestGoal(background: true);
         if (effectiveProjectPath != null) {
           bridge.requestFileList(effectiveProjectPath);
         }

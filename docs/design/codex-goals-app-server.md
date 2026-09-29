@@ -184,3 +184,13 @@ goal は sqlite の thread-level state として永続化されるため、保�
 4. goal が active のまま Bridge / app が切断された場合、再接続後にどの通知順で復元されるか
 5. token budget 到達時に `thread/goal/updated` 以外の status / result / error がどう流れるか
 6. 通常のユーザー入力で goal を上書き・修正したい場合の UX
+
+## 2026-09-29: 自動取得の失敗
+
+Codex CLI 0.157.0 の生成スキーマと実RPCで `thread/goal/get` および
+ゴールなしの `{goal: null}` 応答を確認した。APIの置換は不要。
+同時の取得はBridge内で共有し、失敗後は再取得できる。
+アプリの起動・復帰時の `get_goal` は任意の `background: true` を付ける。
+この取得が失敗した場合はBridgeログに記録し、既存のゴール状態を保持する。
+手動 `/goal` は従来通りエラーを返す。フィールド省略時の挙動は変更しない。
+旧Bridgeでは追加フィールドを無視するため、自動取得失敗の抑制にはBridge更新が必要。
