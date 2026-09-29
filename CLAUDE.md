@@ -41,6 +41,7 @@ Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。�
 - OTAパッチ: [.claude/skills/shorebird-patch/SKILL.md](.claude/skills/shorebird-patch/SKILL.md)。既定はstaging。stable昇格はユーザーが行う。
 - ストア素材・説明文: [.claude/skills/update-store/SKILL.md](.claude/skills/update-store/SKILL.md)
 - ブランチのマージ: [.claude/skills/merge/SKILL.md](.claude/skills/merge/SKILL.md)
+- PRをマージしたら、作者へのお礼コメントを必ず投稿する。マージ完了と、こちらで追加した修正・検証結果を簡潔に伝える。この投稿は継続的に承認済みで、都度確認は不要。投稿言語・形式は [.claude/skills/triage/references/comments.md](.claude/skills/triage/references/comments.md) に従い、投稿後に内容を確認する。
 
 ## ローカル補助
 
