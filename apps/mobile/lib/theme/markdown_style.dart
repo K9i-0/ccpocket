@@ -698,6 +698,68 @@ Color? _parseHexColor(String hex) {
 /// Custom inline syntaxes for color code preview.
 List<md.InlineSyntax> get colorCodeInlineSyntaxes => [ColorCodeSyntax()];
 
+/// Autolinks bare `http(s)://` URLs whose host has no dot, such as
+/// `http://localhost:3013/dashboard`.
+///
+/// The GFM autolink extension requires a dotted domain, so local dev server
+/// URLs stay plain text without this. Dotted hosts are left to that extension.
+class SingleLabelHostAutolinkSyntax extends md.InlineSyntax {
+  SingleLabelHostAutolinkSyntax()
+    : super(
+        r'https?://[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?![-\w]|\.[-\w])'
+        // Do not link just the prefix of user-info or an invalid port.
+        r'(?::\d{1,5})?(?![:@\w-])(?:[/?#][^\s<]*)?',
+        startCharacter: 0x68, // 'h'
+        caseSensitive: false,
+      );
+
+  static const _validPrecedingChars = {'\n', ' ', '*', '_', '~', '(', '>'};
+  static final _trailingPunctuation = RegExp(r'[?!.,:*_~]+$');
+
+  @override
+  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
+    startMatchPos ??= parser.pos;
+    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
+    if (match == null) return false;
+    if (parser.pos > 0) {
+      final precededBy = String.fromCharCode(parser.charAt(parser.pos - 1));
+      if (!_validPrecedingChars.contains(precededBy)) return false;
+    }
+    parser.writeText();
+    return onMatch(parser, match);
+  }
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final url = _trimTrailing(match[0]!);
+    parser
+      ..addNode(md.Element.text('a', url)..attributes['href'] = url)
+      ..consume(url.length);
+    return true;
+  }
+
+  /// Drops trailing punctuation and unbalanced closing parentheses, matching
+  /// the GFM autolink rules.
+  static String _trimTrailing(String url) {
+    var text = url;
+    while (true) {
+      final trimmed = text.replaceFirst(_trailingPunctuation, '');
+      if (trimmed.endsWith(')') &&
+          ')'.allMatches(trimmed).length > '('.allMatches(trimmed).length) {
+        text = trimmed.substring(0, trimmed.length - 1);
+        continue;
+      }
+      if (trimmed == text) return text;
+      text = trimmed;
+    }
+  }
+}
+
+/// Inline syntaxes that autolink URLs the GFM extension misses.
+List<md.InlineSyntax> get localhostAutolinkInlineSyntaxes => [
+  SingleLabelHostAutolinkSyntax(),
+];
+
 /// Custom element builders for color code preview.
 Map<String, MarkdownElementBuilder> get markdownBuilders => {
   'colorCode': ColorCodeBuilder(),

@@ -2,12 +2,109 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:markdown/markdown.dart' as md;
 
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('SingleLabelHostAutolinkSyntax', () {
+    String render(String source) => md.markdownToHtml(
+      source,
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+      inlineSyntaxes: localhostAutolinkInlineSyntaxes,
+    );
+
+    test('links localhost URLs with a port and path', () {
+      expect(
+        render('open http://localhost:3013/dashboard now'),
+        '<p>open <a href="http://localhost:3013/dashboard">'
+        'http://localhost:3013/dashboard</a> now</p>\n',
+      );
+    });
+
+    test('links bare localhost and other single-label hosts', () {
+      expect(
+        render('http://localhost and https://devbox:8443/?q=1#top'),
+        '<p><a href="http://localhost">http://localhost</a> and '
+        '<a href="https://devbox:8443/?q=1#top">'
+        'https://devbox:8443/?q=1#top</a></p>\n',
+      );
+    });
+
+    test('excludes trailing punctuation and unbalanced parentheses', () {
+      expect(
+        render('(see http://localhost:3013/dashboard).'),
+        '<p>(see <a href="http://localhost:3013/dashboard">'
+        'http://localhost:3013/dashboard</a>).</p>\n',
+      );
+      expect(
+        render('Go to http://localhost.'),
+        '<p>Go to <a href="http://localhost">http://localhost</a>.</p>\n',
+      );
+    });
+
+    test('leaves dotted domains to the GFM autolink extension', () {
+      expect(
+        render('https://example.com:8080/x'),
+        '<p><a href="https://example.com:8080/x">'
+        'https://example.com:8080/x</a></p>\n',
+      );
+    });
+
+    test('does not link inside inline code or explicit links', () {
+      expect(
+        render('`http://localhost:3000`'),
+        '<p><code>http://localhost:3000</code></p>\n',
+      );
+      expect(
+        render('[app](http://localhost:3000)'),
+        '<p><a href="http://localhost:3000">app</a></p>\n',
+      );
+    });
+
+    test('does not turn an invalid authority into a partial link', () {
+      for (final source in [
+        'http://localhost:123456/path',
+        'http://localhost:abc/path',
+        'http://user@localhost/path',
+      ]) {
+        expect(render(source), '<p>$source</p>\n', reason: source);
+      }
+    });
+
+    test(
+      'preserves uppercase schemes, query strings and balanced parentheses',
+      () {
+        final document = md.Document(
+          extensionSet: md.ExtensionSet.gitHubFlavored,
+          inlineSyntaxes: localhostAutolinkInlineSyntaxes,
+          encodeHtml: false,
+        );
+        const url = 'HTTP://localhost:3000/path(a)?x=1&y=2#result';
+        final link = document.parseInline(url).single as md.Element;
+        expect(link.tag, 'a');
+        expect(link.attributes['href'], url);
+        expect(link.textContent, url);
+      },
+    );
+
+    test('does not create nested links in an explicit link label', () {
+      expect(
+        render('[http://localhost:3000](https://example.com)'),
+        '<p><a href="https://example.com">http://localhost:3000</a></p>\n',
+      );
+    });
+
+    test('does not link when glued to a preceding word', () {
+      expect(
+        render('xhttp://localhost:3000'),
+        '<p>xhttp://localhost:3000</p>\n',
+      );
+    });
+  });
 
   group('buildMarkdownStyle', () {
     testWidgets(

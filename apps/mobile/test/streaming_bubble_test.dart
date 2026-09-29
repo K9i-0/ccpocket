@@ -1,10 +1,28 @@
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/bubbles/streaming_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('autolinks localhost URLs in streamed markdown', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: const StreamingBubble(
+          text: 'open http://localhost:3013/dashboard',
+        ),
+      ),
+    );
+
+    final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    expect(
+      markdown.inlineSyntaxes!.whereType<SingleLabelHostAutolinkSyntax>(),
+      isNotEmpty,
+    );
+  });
+
   testWidgets('coalesces rapid markdown updates and renders the latest text', (
     tester,
   ) async {

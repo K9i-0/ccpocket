@@ -9,6 +9,7 @@ import '../../features/file_peek/markdown_link_handler.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
+import '../link_hover_underline.dart';
 
 class StreamingBubble extends StatefulWidget {
   final String text;
@@ -105,26 +106,29 @@ class _StreamingBubbleState extends State<StreamingBubble>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          MarkdownBody(
-            data: _renderedText,
-            styleSheet: _markdownStyle,
-            onTapLink: buildChatMarkdownLinkHandler(
-              context,
-              onFileTap: widget.onFileTap,
-              knownPathSuffixes: fileSuffixes,
-            ),
-            inlineSyntaxes: [
-              if (widget.onFileTap != null) ...[
-                FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+          LinkHoverUnderline(
+            child: MarkdownBody(
+              data: _renderedText,
+              styleSheet: _markdownStyle,
+              onTapLink: buildChatMarkdownLinkHandler(
+                context,
+                onFileTap: widget.onFileTap,
+                knownPathSuffixes: fileSuffixes,
+              ),
+              inlineSyntaxes: [
+                if (widget.onFileTap != null) ...[
+                  FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                  BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+                ],
+                ...colorCodeInlineSyntaxes,
+                ...localhostAutolinkInlineSyntaxes,
               ],
-              ...colorCodeInlineSyntaxes,
-            ],
-            builders: {
-              if (widget.onFileTap != null)
-                'filePath': FilePathBuilder(onTap: widget.onFileTap),
-              ...markdownBuilders,
-            },
+              builders: {
+                if (widget.onFileTap != null)
+                  'filePath': FilePathBuilder(onTap: widget.onFileTap),
+                ...markdownBuilders,
+              },
+            ),
           ),
           AnimatedBuilder(
             animation: _cursorController,

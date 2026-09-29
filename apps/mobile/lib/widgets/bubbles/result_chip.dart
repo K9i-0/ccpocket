@@ -9,6 +9,7 @@ import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import '../link_hover_underline.dart';
 
 class ResultChip extends StatelessWidget {
   final ResultMessage message;
@@ -92,27 +93,30 @@ class ResultChip extends StatelessWidget {
                 color: appColors.assistantBubble,
                 borderRadius: AppSpacing.assistantBubbleBorderRadius,
               ),
-              child: MarkdownBody(
-                data: resultText,
-                selectable: true,
-                styleSheet: buildMarkdownStyle(context),
-                onTapLink: buildChatMarkdownLinkHandler(
-                  context,
-                  onFileTap: onFileTap,
-                  knownPathSuffixes: fileSuffixes,
-                ),
-                inlineSyntaxes: [
-                  if (onFileTap != null) ...[
-                    FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                    BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+              child: LinkHoverUnderline(
+                child: MarkdownBody(
+                  data: resultText,
+                  selectable: true,
+                  styleSheet: buildMarkdownStyle(context),
+                  onTapLink: buildChatMarkdownLinkHandler(
+                    context,
+                    onFileTap: onFileTap,
+                    knownPathSuffixes: fileSuffixes,
+                  ),
+                  inlineSyntaxes: [
+                    if (onFileTap != null) ...[
+                      FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                      BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+                    ],
+                    ...colorCodeInlineSyntaxes,
+                    ...localhostAutolinkInlineSyntaxes,
                   ],
-                  ...colorCodeInlineSyntaxes,
-                ],
-                builders: {
-                  if (onFileTap != null)
-                    'filePath': FilePathBuilder(onTap: onFileTap),
-                  ...markdownBuilders,
-                },
+                  builders: {
+                    if (onFileTap != null)
+                      'filePath': FilePathBuilder(onTap: onFileTap),
+                    ...markdownBuilders,
+                  },
+                ),
               ),
             ),
           ),

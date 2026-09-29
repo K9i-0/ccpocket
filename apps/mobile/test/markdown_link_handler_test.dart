@@ -107,6 +107,32 @@ void main() {
     expect(find.text('Copy'), findsOneWidget);
   });
 
+  testWidgets(
+    'bare localhost URL remains tappable with file path detection enabled',
+    (tester) async {
+      final originalLauncher = UrlLauncherPlatform.instance;
+      final launcher = _FakeUrlLauncher();
+      UrlLauncherPlatform.instance = launcher;
+      addTearDown(() => UrlLauncherPlatform.instance = originalLauncher);
+      String? openedPath;
+      const url = 'http://localhost:3013/dashboard?tab=one&view=two#top';
+
+      await tester.pumpWidget(
+        _wrap(
+          AssistantBubble(
+            message: _messageWithText(url),
+            onFileTap: (path) => openedPath = path,
+          ),
+          files: const ['dashboard'],
+        ),
+      );
+      await tester.tap(find.text(url));
+      await tester.pumpAndSettle();
+      expect(launcher.lastUrl, url);
+      expect(openedPath, isNull);
+    },
+  );
+
   testWidgets('failed external launch shows a copyable error', (tester) async {
     final originalLauncher = UrlLauncherPlatform.instance;
     final launcher = _FakeUrlLauncher();
