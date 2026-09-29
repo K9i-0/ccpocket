@@ -1100,15 +1100,23 @@ class _InputTextFieldState extends State<_InputTextField>
       return false;
     }
     final hardware = HardwareKeyboard.instance;
+    final isMacOS = defaultTargetPlatform == TargetPlatform.macOS;
     return switch (widget.imagePasteShortcut) {
+      // On macOS the native paste modifier is Cmd, not Ctrl. Accept Cmd+V
+      // so screenshots on the clipboard get attached alongside a normal paste.
+      // Cmd+Alt+V is left alone so it stays available as a native paste.
       ImagePasteShortcut.ctrlV =>
-        !hardware.isMetaPressed &&
-            _isControlStyleTextShortcut(
-              event,
-              key: LogicalKeyboardKey.keyV,
-              controlCharacter: 0x16,
-              allowNullCharacter: false,
-            ),
+        isMacOS
+            ? (hardware.isMetaPressed &&
+                  !hardware.isControlPressed &&
+                  !hardware.isAltPressed)
+            : (!hardware.isMetaPressed &&
+                  _isControlStyleTextShortcut(
+                    event,
+                    key: LogicalKeyboardKey.keyV,
+                    controlCharacter: 0x16,
+                    allowNullCharacter: false,
+                  )),
       ImagePasteShortcut.commandV =>
         hardware.isMetaPressed && !hardware.isControlPressed,
     };
