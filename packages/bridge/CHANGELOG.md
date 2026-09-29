@@ -4,6 +4,12 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.86.1] - 2026-09-29
+
+### Fixed
+- Keep failed background Codex goal lookups out of chat while preserving the last known goal and reporting manual lookup errors.
+- Share concurrent Codex goal lookups and allow retry after failures.
+
 ## [1.86.0] - 2026-09-29
 
 ### Changed
