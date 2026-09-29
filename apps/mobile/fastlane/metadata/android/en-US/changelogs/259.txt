@@ -1,3 +1,2 @@
-- Improved the iOS attachment menu: paste images directly with a wider, easier-to-tap Paste button.
 - URLs such as http://localhost:3000 in chat are now tappable.
 - Goal notifications now distinguish progress from completion. Update to Bridge 1.86.0 for improved goal notifications.
