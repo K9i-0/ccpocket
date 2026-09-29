@@ -22,9 +22,33 @@ class LinkHoverUnderline extends StatefulWidget {
 class LinkHoverUnderlineState extends State<LinkHoverUnderline> {
   List<Rect> _rects = const [];
   Color? _color;
+  ScrollPosition? _scrollPosition;
+  BoxConstraints? _constraints;
 
   @visibleForTesting
   List<Rect> get underlineRects => _rects;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (position != _scrollPosition) {
+      _scrollPosition?.removeListener(_clearHover);
+      _scrollPosition = position;
+      position?.addListener(_clearHover);
+    }
+    _rects = const [];
+  }
+
+  void _clearHover() {
+    if (_rects.isNotEmpty) _update(const [], _color);
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_clearHover);
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(LinkHoverUnderline oldWidget) {
@@ -77,25 +101,33 @@ class LinkHoverUnderlineState extends State<LinkHoverUnderline> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      opaque: false,
-      onHover: _onHover,
-      onExit: (_) => _update(const [], _color),
-      child: NotificationListener<ScrollNotification>(
-        // Rects are in this widget's coordinates; scrolling content inside
-        // the child (e.g. a scrollable Markdown) would leave them behind.
-        onNotification: (_) {
-          if (_rects.isNotEmpty) _update(const [], _color);
-          return false;
-        },
-        child: CustomPaint(
-          foregroundPainter: _UnderlinePainter(
-            rects: _rects,
-            color: _color ?? Theme.of(context).colorScheme.primary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (_constraints != constraints) {
+          _constraints = constraints;
+          _rects = const [];
+        }
+        return MouseRegion(
+          opaque: false,
+          onHover: _onHover,
+          onExit: (_) => _update(const [], _color),
+          child: NotificationListener<ScrollNotification>(
+            // Rects are in this widget's coordinates; scrolling content inside
+            // the child (e.g. a scrollable Markdown) would leave them behind.
+            onNotification: (_) {
+              if (_rects.isNotEmpty) _update(const [], _color);
+              return false;
+            },
+            child: CustomPaint(
+              foregroundPainter: _UnderlinePainter(
+                rects: _rects,
+                color: _color ?? Theme.of(context).colorScheme.primary,
+              ),
+              child: widget.child,
+            ),
           ),
-          child: widget.child,
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -120,7 +152,11 @@ _HoveredLink? _hoveredLink({
   if (span is! TextSpan || span.recognizer is! TapGestureRecognizer) {
     return null;
   }
-  final range = _linkRangeAt(text, position.offset);
+  // An upstream caret at a span boundary belongs to the preceding character.
+  final offset = position.affinity == TextAffinity.upstream
+      ? position.offset - 1
+      : position.offset;
+  final range = _linkRangeAt(text, offset);
   if (range == null) return null;
   final boxes = boxesFor(
     TextSelection(baseOffset: range.start, extentOffset: range.end),
@@ -194,6 +230,8 @@ class _UnderlinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (rects.isEmpty) return;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
     final paint = Paint()
       ..color = color
       ..strokeWidth = 1;
@@ -201,6 +239,7 @@ class _UnderlinePainter extends CustomPainter {
       final y = rect.bottom - 1.5;
       canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), paint);
     }
+    canvas.restore();
   }
 
   @override

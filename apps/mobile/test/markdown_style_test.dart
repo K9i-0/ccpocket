@@ -65,6 +65,39 @@ void main() {
       );
     });
 
+    test('does not turn an invalid authority into a partial link', () {
+      for (final source in [
+        'http://localhost:123456/path',
+        'http://localhost:abc/path',
+        'http://user@localhost/path',
+      ]) {
+        expect(render(source), '<p>$source</p>\n', reason: source);
+      }
+    });
+
+    test(
+      'preserves uppercase schemes, query strings and balanced parentheses',
+      () {
+        final document = md.Document(
+          extensionSet: md.ExtensionSet.gitHubFlavored,
+          inlineSyntaxes: localhostAutolinkInlineSyntaxes,
+          encodeHtml: false,
+        );
+        const url = 'HTTP://localhost:3000/path(a)?x=1&y=2#result';
+        final link = document.parseInline(url).single as md.Element;
+        expect(link.tag, 'a');
+        expect(link.attributes['href'], url);
+        expect(link.textContent, url);
+      },
+    );
+
+    test('does not create nested links in an explicit link label', () {
+      expect(
+        render('[http://localhost:3000](https://example.com)'),
+        '<p><a href="https://example.com">http://localhost:3000</a></p>\n',
+      );
+    });
+
     test('does not link when glued to a preceding word', () {
       expect(
         render('xhttp://localhost:3000'),

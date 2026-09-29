@@ -95,4 +95,120 @@ void main() {
     );
     expect(underlines(tester), isNotEmpty);
   });
+  testWidgets('underlines the trailing half of the last link character', (
+    tester,
+  ) async {
+    await pumpMarkdown(tester, '[link](http://localhost)');
+    final gesture = await hoverAt(tester, const Offset(8, 8));
+    final rect = underlines(tester).single;
+    await gesture.moveTo(Offset(rect.right - 1, rect.center.dy));
+    await tester.pump();
+    expect(underlines(tester), isNotEmpty);
+  });
+
+  testWidgets('clears hover when an ancestor scrolls', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            controller: controller,
+            child: LinkHoverUnderline(
+              child: MarkdownBody(
+                data: List.generate(
+                  50,
+                  (i) => '[link $i](http://localhost)',
+                ).join('\n\n'),
+                onTapLink: (_, _, _) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await hoverAt(tester, const Offset(8, 8));
+    expect(underlines(tester), isNotEmpty);
+    controller.jumpTo(20);
+    await tester.pump();
+    expect(underlines(tester), isEmpty);
+  });
+
+  testWidgets('selectable link trailing character stays underlined', (
+    tester,
+  ) async {
+    await pumpMarkdown(tester, '[link](http://localhost)', selectable: true);
+    final gesture = await hoverAt(tester, const Offset(8, 8));
+    final rect = underlines(tester).single;
+    await gesture.moveTo(Offset(rect.right - 1, rect.center.dy));
+    await tester.pump();
+    expect(underlines(tester), isNotEmpty);
+  });
+
+  testWidgets('clears hover when child markdown scrolls', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LinkHoverUnderline(
+            child: Markdown(
+              controller: controller,
+              padding: EdgeInsets.zero,
+              data: List.generate(
+                50,
+                (i) => '[link $i](http://localhost)',
+              ).join('\n\n'),
+              onTapLink: (_, _, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await hoverAt(tester, const Offset(8, 8));
+    expect(underlines(tester), isNotEmpty);
+    controller.jumpTo(20);
+    await tester.pump();
+    expect(underlines(tester), isEmpty);
+  });
+
+  testWidgets('clears hover when markdown content changes', (tester) async {
+    await pumpMarkdown(tester, '[link](http://localhost)');
+    await hoverAt(tester, const Offset(8, 8));
+    expect(underlines(tester), isNotEmpty);
+    await pumpMarkdown(tester, 'updated plain text');
+    expect(underlines(tester), isEmpty);
+  });
+
+  testWidgets('clears stale hover geometry after constraints change', (
+    tester,
+  ) async {
+    final width = ValueNotifier<double>(400);
+    addTearDown(width.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: ValueListenableBuilder<double>(
+              valueListenable: width,
+              child: LinkHoverUnderline(
+                child: MarkdownBody(
+                  data: '[a link that wraps when the width changes](http://localhost)',
+                  onTapLink: (_, _, _) {},
+                ),
+              ),
+              builder: (_, value, child) =>
+                  SizedBox(width: value, child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+    await hoverAt(tester, const Offset(8, 8));
+    expect(underlines(tester), isNotEmpty);
+    width.value = 150;
+    await tester.pump();
+    expect(underlines(tester), isEmpty);
+  });
 }

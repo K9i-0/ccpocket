@@ -707,7 +707,8 @@ class SingleLabelHostAutolinkSyntax extends md.InlineSyntax {
   SingleLabelHostAutolinkSyntax()
     : super(
         r'https?://[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?![-\w]|\.[-\w])'
-        r'(?::\d{1,5})?(?:[/?#][^\s<]*)?',
+        // Do not link just the prefix of user-info or an invalid port.
+        r'(?::\d{1,5})?(?![:@\w-])(?:[/?#][^\s<]*)?',
         startCharacter: 0x68, // 'h'
         caseSensitive: false,
       );
