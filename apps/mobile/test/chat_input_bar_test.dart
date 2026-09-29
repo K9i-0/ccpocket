@@ -927,6 +927,84 @@ void main() {
       },
     );
 
+    for (final hasImage in [false, true]) {
+      testWidgets(
+        'macOS Cmd+V preserves text paste when image probe returns $hasImage',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          addTearDown(() => debugDefaultTargetPlatformOverride = null);
+          var pasteAttempts = 0;
+          final messenger =
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(SystemChannels.platform, (
+            call,
+          ) async {
+            return switch (call.method) {
+              'Clipboard.getData' => {'text': 'clipboard text'},
+              'Clipboard.hasStrings' => {'value': true},
+              _ => null,
+            };
+          });
+          addTearDown(
+            () => messenger.setMockMethodCallHandler(
+              SystemChannels.platform,
+              null,
+            ),
+          );
+          await tester.pumpWidget(
+            buildSubject(
+              onPasteImage: () async {
+                pasteAttempts++;
+                return hasImage;
+              },
+            ),
+          );
+          await tester.tap(find.byKey(const ValueKey('message_input')));
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+          await tester.pumpAndSettle();
+          expect(pasteAttempts, 1);
+          expect(inputController.text, 'clipboard text');
+          await tester.pumpWidget(const SizedBox.shrink());
+          debugDefaultTargetPlatformOverride = null;
+        },
+      );
+    }
+
+    for (final modifier in [
+      LogicalKeyboardKey.shiftLeft,
+      LogicalKeyboardKey.controlLeft,
+    ]) {
+      testWidgets('macOS Cmd+V with $modifier does not attach images', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        var pasteAttempts = 0;
+        await tester.pumpWidget(
+          buildSubject(
+            onPasteImage: () async {
+              pasteAttempts++;
+              return true;
+            },
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('message_input')));
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyDownEvent(modifier);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+        await tester.sendKeyUpEvent(modifier);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(pasteAttempts, 0);
+        await tester.pumpWidget(const SizedBox.shrink());
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
     testWidgets('Cmd+V triggers image paste in Cmd+V mode', (tester) async {
       var pasteAttempts = 0;
       await tester.pumpWidget(
@@ -952,7 +1030,15 @@ void main() {
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      await tester.pumpWidget(buildSubject());
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImage: () async {
+            pasteAttempts++;
+            return false;
+          },
+        ),
+      );
       await tester.tap(find.byKey(const ValueKey('message_input')));
       await tester.pump();
 
@@ -960,6 +1046,7 @@ void main() {
       await tester.pump();
 
       expect(inputController.text, 'wispr text');
+      expect(pasteAttempts, 0);
       expect(inputController.selection.baseOffset, 'wispr text'.length);
       debugDefaultTargetPlatformOverride = null;
     });
