@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-agent-sdk";
 import { isAutoRenamePromptText } from "./auto-rename.js";
 import { normalizeCodexServiceTierForClient } from "./codex-service-tier.js";
+import { createRepositoryRootResolver } from "./repository-root.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -202,18 +203,85 @@ export function pathToSlug(p: string): string {
 /**
  * Normalize a worktree cwd back to the main project path.
  * e.g. /path/to/project-worktrees/branch → /path/to/project
+ *      /path/to/project/.claude/worktrees/name → /path/to/project (Claude Code)
  */
 export function normalizeWorktreePath(p: string): string {
-  const match = p.match(/^(.+)-worktrees[\\/][^\\/]+$/);
+  const match =
+    p.match(/^(.+)-worktrees[\\/][^\\/]+$/) ??
+    p.match(/^(.+)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$/);
   return match?.[1] ?? p;
 }
 
 /**
  * Check if a directory slug represents a worktree directory for a given project slug.
- * e.g. "-Users-x-proj-worktrees-branch" is a worktree dir for "-Users-x-proj".
+ * e.g. "-Users-x-proj-worktrees-branch" and "-Users-x-proj--claude-worktrees-name"
+ * are worktree dirs for "-Users-x-proj".
  */
 export function isWorktreeSlug(dirSlug: string, projectSlug: string): boolean {
-  return dirSlug.startsWith(projectSlug + "-worktrees-");
+  return (
+    dirSlug.startsWith(projectSlug + "-worktrees-") ||
+    dirSlug.startsWith(projectSlug + "--claude-worktrees-")
+  );
+}
+
+// ---- Repository grouping ----
+//
+// Path patterns cannot tell a sibling worktree (`~/work/app-feature`) from an
+// unrelated repository with a similar name (`~/work/app-stats`), so sessions
+// whose cwd still exists are grouped by asking git for the main worktree.
+// Codex sessions whose worktree was already deleted fall back to the
+// `git.repository_url` Codex records, matched against local checkouts.
+
+const repositoryRoots = createRepositoryRootResolver();
+
+/** Codex `session_meta.git.repository_url`, kept off the wire-visible entry. */
+const codexRepositoryUrls = new WeakMap<SessionIndexEntry, string>();
+
+const REPOSITORY_RESOLVE_CONCURRENCY = 8;
+
+function assignRepositoryRoot(
+  entry: SessionIndexEntry,
+  cwd: string,
+  root: string,
+): void {
+  if (root === entry.projectPath) return;
+  entry.projectPath = root;
+  if (cwd !== root) entry.resumeCwd = cwd;
+}
+
+async function groupEntriesByRepository(
+  entries: SessionIndexEntry[],
+): Promise<void> {
+  const unresolved: SessionIndexEntry[] = [];
+  const knownRoots = new Set<string>();
+  await parallelMap(entries, REPOSITORY_RESOLVE_CONCURRENCY, async (entry) => {
+    const cwd = entry.resumeCwd ?? entry.projectPath;
+    if (!cwd) return;
+    const root = await repositoryRoots.resolvePath(cwd);
+    if (root) {
+      knownRoots.add(root);
+      assignRepositoryRoot(entry, cwd, root);
+    } else if (codexRepositoryUrls.has(entry)) {
+      // A null root also means an existing monorepo subdirectory or a git
+      // error. Only a missing cwd may use the deleted-worktree fallback.
+      try {
+        await stat(cwd);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") unresolved.push(entry);
+      }
+    }
+  });
+
+  if (unresolved.length === 0 || knownRoots.size === 0) return;
+  await parallelMap(unresolved, REPOSITORY_RESOLVE_CONCURRENCY, async (entry) => {
+    const cwd = entry.resumeCwd ?? entry.projectPath;
+    const root = await repositoryRoots.resolveRepositoryUrl(
+      codexRepositoryUrls.get(entry)!,
+      knownRoots,
+    );
+    if (root) assignRepositoryRoot(entry, cwd, root);
+  });
 }
 
 /** Concurrency limit for parallel file reads to avoid fd exhaustion. */
@@ -934,9 +1002,12 @@ export async function getAllRecentSessions(
   }
   markDuration(durations, "loadClaudeProjectDirs", loadProjectDirsStartedAt);
 
-  // Compute worktree slug prefix for projectPath filtering
-  const projectSlug = filterProjectPath
-    ? pathToSlug(filterProjectPath)
+  const normalizedFilterPath = filterProjectPath
+    ? normalizeWorktreePath(filterProjectPath)
+    : null;
+  const filterRepositoryRoot = normalizedFilterPath
+    ? (await repositoryRoots.resolvePath(normalizedFilterPath)) ??
+      normalizedFilterPath
     : null;
 
   // --- Load Claude and Codex sessions in parallel ---
@@ -945,17 +1016,9 @@ export async function getAllRecentSessions(
   const claudeEntriesPromise = (async (): Promise<SessionIndexEntry[]> => {
     if (!shouldLoadClaude) return [];
 
-    // Filter directories first (sync), then process in parallel
-    const relevantDirs: string[] = [];
-    for (const dirName of projectDirs) {
-      if (dirName.startsWith(".")) continue;
-      const isProjectDir = projectSlug ? dirName === projectSlug : false;
-      const isWorktreeDir = projectSlug
-        ? isWorktreeSlug(dirName, projectSlug)
-        : false;
-      if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
-      relevantDirs.push(dirName);
-    }
+    // A sibling worktree can have any slug. Load before filtering so the
+    // first project-filtered request works without an earlier global listing.
+    const relevantDirs = projectDirs.filter((dirName) => !dirName.startsWith("."));
     perfStats.claudeProjectDirs = relevantDirs.length;
 
     // Process directories in parallel
@@ -1061,8 +1124,9 @@ export async function getAllRecentSessions(
       filesRead: 0,
       entriesReturned: 0,
     };
+    // Codex files are all parsed anyway; the project filter is applied after
+    // repository grouping so sibling worktree sessions match their repository.
     const codexEntries = await getAllRecentCodexSessions({
-      projectPath: filterProjectPath,
       perfStats: codexPerf,
     });
     perfStats.codexFilesTotal = codexPerf.filesTotal;
@@ -1106,6 +1170,10 @@ export async function getAllRecentSessions(
   }
   entries.push(...seen.values());
 
+  const groupStartedAt = process.hrtime.bigint();
+  await groupEntriesByRepository(entries);
+  markDuration(durations, "groupByRepository", groupStartedAt);
+
   // Filter out archived sessions
   const archivedIds = options.archivedSessionIds;
   let filtered = archivedIds
@@ -1113,6 +1181,15 @@ export async function getAllRecentSessions(
     : [...entries];
   perfStats.counts.beforeArchive = entries.length;
   perfStats.counts.afterArchive = filtered.length;
+
+  // Apply the same repository filter to both providers after grouping.
+  if (normalizedFilterPath) {
+    filtered = filtered.filter(
+      (e) =>
+        e.projectPath === normalizedFilterPath ||
+        e.projectPath === filterRepositoryRoot,
+    );
+  }
 
   // Filter by provider
   if (options.provider) {
@@ -1174,7 +1251,9 @@ export async function getAllRecentSessions(
   if (needLastPrompt.length > 0) {
     const projectsDir = join(homedir(), ".claude", "projects");
     await parallelMap(needLastPrompt, PARALLEL_FILE_READ_LIMIT, async (entry) => {
-      const slug = pathToSlug(entry.projectPath);
+      // After repository grouping, projectPath is the repository root but the
+      // JSONL still lives under the worktree cwd (resumeCwd), so prefer it.
+      const slug = pathToSlug(entry.resumeCwd ?? entry.projectPath);
       const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
       const lp = await extractLastPromptFromTail(jsonlPath);
       if (lp && lp !== entry.firstPrompt) {
@@ -1191,7 +1270,6 @@ export async function getAllRecentSessions(
 }
 
 interface CodexRecentOptions {
-  projectPath?: string;
   perfStats?: CodexRecentPerfStats;
 }
 
@@ -1251,6 +1329,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let projectPath = "";
   let resumeCwd = "";
   let gitBranch = "";
+  let repositoryUrl = "";
   let created = "";
   let modified = "";
   let firstPrompt = "";
@@ -1316,6 +1395,9 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         const git = payload.git as Record<string, unknown> | undefined;
         if (git && typeof git.branch === "string") {
           gitBranch = git.branch;
+        }
+        if (git && typeof git.repository_url === "string") {
+          repositoryUrl = git.repository_url;
         }
         if (typeof payload.agent_nickname === "string" && payload.agent_nickname.length > 0) {
           agentNickname = payload.agent_nickname;
@@ -1449,25 +1531,24 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       }
     : undefined;
 
-  return {
-    threadId,
-    entry: {
-      sessionId: threadId,
-      provider: "codex",
-      ...(agentNickname ? { agentNickname } : {}),
-      ...(agentRole ? { agentRole } : {}),
-      summary: summary || undefined,
-      firstPrompt,
-      ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
-      created,
-      modified,
-      gitBranch,
-      projectPath,
-      ...(resumeCwd && resumeCwd !== projectPath ? { resumeCwd } : {}),
-      isSidechain: false,
-      codexSettings,
-    },
+  const entry: SessionIndexEntry = {
+    sessionId: threadId,
+    provider: "codex",
+    ...(agentNickname ? { agentNickname } : {}),
+    ...(agentRole ? { agentRole } : {}),
+    summary: summary || undefined,
+    firstPrompt,
+    ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+    created,
+    modified,
+    gitBranch,
+    projectPath,
+    ...(resumeCwd && resumeCwd !== projectPath ? { resumeCwd } : {}),
+    isSidechain: false,
+    codexSettings,
   };
+  if (repositoryUrl) codexRepositoryUrls.set(entry, repositoryUrl);
+  return { threadId, entry };
 }
 
 /**
@@ -1833,9 +1914,6 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
   options.perfStats && (options.perfStats.filesTotal = files.length);
-  const normalizedProjectPath = options.projectPath
-    ? normalizeWorktreePath(options.projectPath)
-    : null;
 
   // Load thread names from session_index.jsonl
   const threadNames = await loadCodexSessionNames();
@@ -1855,9 +1933,6 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   for (const parsed of parsedResults) {
     options.perfStats && (options.perfStats.filesRead += 1);
     if (!parsed) continue;
-    if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
-      continue;
-    }
     // Attach thread name if available
     const threadName = threadNames.get(parsed.threadId);
     if (threadName) {

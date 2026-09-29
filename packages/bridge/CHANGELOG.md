@@ -4,6 +4,9 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Group Recent Sessions started in worktrees under their repository instead of showing each worktree as a separate project. Covers Claude Code worktrees (`<repo>/.claude/worktrees/<name>`), sibling git worktrees (resolved with git), and Codex sessions whose worktree was deleted (matched by the recorded repository URL). Resume still targets the worktree directory.
+
 ## [1.85.2] - 2026-09-28
 
 ### Fixed
