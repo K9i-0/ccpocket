@@ -27,6 +27,7 @@ import 'message_action_bar.dart';
 import 'plan_card.dart';
 import 'thinking_bubble.dart';
 import 'todo_write_widget.dart';
+import '../link_hover_underline.dart';
 
 const _imageGenerationToolName = 'ImageGeneration';
 
@@ -280,27 +281,30 @@ class _DefaultLayout extends StatelessWidget {
               contextMenuBuilder: googleSearchSelectableTextContextMenuBuilder,
             )
           : GoogleSearchSelectionArea(
-              child: MarkdownBody(
-                data: text,
-                selectable: !googleSearchSelectionMenuEnabled,
-                styleSheet: buildMarkdownStyle(context),
-                onTapLink: buildChatMarkdownLinkHandler(
-                  context,
-                  onFileTap: onFileTap,
-                  knownPathSuffixes: fileSuffixes,
-                ),
-                inlineSyntaxes: [
-                  if (onFileTap != null) ...[
-                    FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                    BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+              child: LinkHoverUnderline(
+                child: MarkdownBody(
+                  data: text,
+                  selectable: !googleSearchSelectionMenuEnabled,
+                  styleSheet: buildMarkdownStyle(context),
+                  onTapLink: buildChatMarkdownLinkHandler(
+                    context,
+                    onFileTap: onFileTap,
+                    knownPathSuffixes: fileSuffixes,
+                  ),
+                  inlineSyntaxes: [
+                    if (onFileTap != null) ...[
+                      FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                      BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+                    ],
+                    ...colorCodeInlineSyntaxes,
+                    ...localhostAutolinkInlineSyntaxes,
                   ],
-                  ...colorCodeInlineSyntaxes,
-                ],
-                builders: {
-                  if (onFileTap != null)
-                    'filePath': FilePathBuilder(onTap: onFileTap),
-                  ...markdownBuilders,
-                },
+                  builders: {
+                    if (onFileTap != null)
+                      'filePath': FilePathBuilder(onTap: onFileTap),
+                    ...markdownBuilders,
+                  },
+                ),
               ),
             ),
     );

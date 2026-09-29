@@ -7,6 +7,7 @@ import '../../features/file_peek/markdown_link_handler.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
+import '../link_hover_underline.dart';
 
 /// A visually distinct card for rendering implementation plans inline in chat.
 ///
@@ -178,27 +179,30 @@ class _PlanBodyState extends State<_PlanBody> {
         : const <String>{};
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: MarkdownBody(
-        data: widget.planText,
-        selectable: true,
-        styleSheet: buildMarkdownStyle(context),
-        onTapLink: buildChatMarkdownLinkHandler(
-          context,
-          onFileTap: widget.onFileTap,
-          knownPathSuffixes: fileSuffixes,
-        ),
-        inlineSyntaxes: [
-          if (widget.onFileTap != null) ...[
-            FilePathSyntax(knownPathSuffixes: fileSuffixes),
-            BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+      child: LinkHoverUnderline(
+        child: MarkdownBody(
+          data: widget.planText,
+          selectable: true,
+          styleSheet: buildMarkdownStyle(context),
+          onTapLink: buildChatMarkdownLinkHandler(
+            context,
+            onFileTap: widget.onFileTap,
+            knownPathSuffixes: fileSuffixes,
+          ),
+          inlineSyntaxes: [
+            if (widget.onFileTap != null) ...[
+              FilePathSyntax(knownPathSuffixes: fileSuffixes),
+              BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+            ],
+            ...colorCodeInlineSyntaxes,
+            ...localhostAutolinkInlineSyntaxes,
           ],
-          ...colorCodeInlineSyntaxes,
-        ],
-        builders: {
-          if (widget.onFileTap != null)
-            'filePath': FilePathBuilder(onTap: widget.onFileTap),
-          ...markdownBuilders,
-        },
+          builders: {
+            if (widget.onFileTap != null)
+              'filePath': FilePathBuilder(onTap: widget.onFileTap),
+            ...markdownBuilders,
+          },
+        ),
       ),
     );
 
