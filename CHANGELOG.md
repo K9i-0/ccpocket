@@ -6,9 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.137.0] - 2026-09-29
+
+### Added
+- Underline chat markdown links on hover so they are easier to discover on desktop.
+
+### Changed
+- Recommend Bridge 1.86.0 for repository-based worktree session grouping and improved goal notifications.
+
 ### Fixed
-- Autolink HTTP(S) URLs with single-label hosts such as `http://localhost:3000` in chat markdown, and underline links on hover so they are easier to discover.
-- Paste clipboard images with Cmd+V on macOS in the default image paste shortcut mode, alongside the normal text paste.
+- Autolink HTTP(S) URLs with single-label hosts such as `http://localhost:3000` in chat markdown.
+- Keep link hover underlines correct at text boundaries, after scrolling, and after resizing.
+- Paste clipboard images with Cmd+V on macOS in the default image paste shortcut mode while preserving normal text paste.
+- Distinguish goal progress from goal completion in chat notifications.
 
 ## [1.136.1] - 2026-09-23
 
