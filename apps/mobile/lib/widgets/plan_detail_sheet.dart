@@ -8,6 +8,7 @@ import '../providers/bridge_cubits.dart';
 import '../theme/app_theme.dart';
 import '../theme/markdown_style.dart';
 import 'workspace_pane_chrome.dart';
+import 'link_hover_underline.dart';
 
 /// Shows a full-screen bottom sheet with the complete plan text.
 Future<void> showPlanDetailSheet(
@@ -107,26 +108,30 @@ class _PlanViewMode extends StatelessWidget {
         : const <String>{};
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: MarkdownBody(
-        data: planText,
-        selectable: true,
-        styleSheet: buildMarkdownStyle(context),
-        onTapLink: buildChatMarkdownLinkHandler(
-          context,
-          onFileTap: onFileTap,
-          knownPathSuffixes: fileSuffixes,
-        ),
-        inlineSyntaxes: [
-          if (onFileTap != null) ...[
-            FilePathSyntax(knownPathSuffixes: fileSuffixes),
-            BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+      child: LinkHoverUnderline(
+        child: MarkdownBody(
+          data: planText,
+          selectable: true,
+          styleSheet: buildMarkdownStyle(context),
+          onTapLink: buildChatMarkdownLinkHandler(
+            context,
+            onFileTap: onFileTap,
+            knownPathSuffixes: fileSuffixes,
+          ),
+          inlineSyntaxes: [
+            if (onFileTap != null) ...[
+              FilePathSyntax(knownPathSuffixes: fileSuffixes),
+              BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+            ],
+            ...colorCodeInlineSyntaxes,
+            ...localhostAutolinkInlineSyntaxes,
           ],
-          ...colorCodeInlineSyntaxes,
-        ],
-        builders: {
-          if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),
-          ...markdownBuilders,
-        },
+          builders: {
+            if (onFileTap != null)
+              'filePath': FilePathBuilder(onTap: onFileTap),
+            ...markdownBuilders,
+          },
+        ),
       ),
     );
   }
