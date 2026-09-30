@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.138.0] - 2026-09-30
+
+### Added
+- Add Automatic recovery to the Codex session menu. It is off by default, applies to the current Bridge session, and permits at most five automatic submissions after usage-limit failures. Waiting state and cancellation remain available after reconnecting.
+- Explain potential additional usage and repeated work before enabling recovery; manual input, stopping, pending human decisions, and goal budgets prevent automatic submission.
+
+### Changed
+- Recommend Bridge 1.87.0 for automatic recovery, responsive recent-session discovery, and improved large-session metadata and transfer.
+
 ## [1.137.1] - 2026-09-29
 
 ### Fixed
