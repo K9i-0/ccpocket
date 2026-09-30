@@ -118,7 +118,7 @@ apps/mobile/fastlane/metadata/android/zh-CN/changelogs/<N>.txt
 ```bash
 scripts/store-review/preflight.sh \
   <ios|android|both> <X.Y.Z> <N> 'SUBMIT <X.Y.Z>+<N>' \
-  KEEP completed 0.1 APP_VERSION_ONLY
+  AFTER_APPROVAL completed 0.1 APP_VERSION_ONLY
 git diff --check
 ```
 
@@ -130,7 +130,7 @@ iOSとAndroidの候補バージョンまたはビルド番号が異なる場合�
 
 - 各ストアの `公開版 → 候補` と候補release workflow URL
 - 4言語のリリースノート全文と文字数
-- iOS: `KEEP`、審査対象 `APP_VERSION_ONLY`
+- iOS: `AFTER_APPROVAL`（承認後に自動公開）、審査対象 `APP_VERSION_ONLY`
 - Android: `completed`（全ユーザーへ100%公開）
 - 対象ref、完全なcommit SHA、メタデータ反映・審査提出を続けて行うこと
 - Managed publishing、既知の警告、APIで確認できない必須項目
@@ -168,7 +168,7 @@ gh workflow run submit-store-review.yml \
   -f build_number=<N> \
   -f confirmation='SUBMIT <X.Y.Z>+<N>' \
   -f expected_ref_sha=<review-sha> \
-  -f ios_release_type=KEEP \
+  -f ios_release_type=AFTER_APPROVAL \
   -f ios_review_scope=APP_VERSION_ONLY \
   -f android_release_status=completed \
   -f android_user_fraction=0.1
@@ -194,6 +194,6 @@ gh run watch <run-id> --exit-status
 - Androidは対象versionCodeだけをproductionへ昇格し、editのcommit成功を確認する。
 - Google Playに別変更が審査中なら `ERROR_IF_IN_REVIEW` で停止し、既存審査を取り消さない。
 - Android対象versionCodeが既にproductionにある再実行は、APIだけで審査送信済みか断定できないため無変更で停止する。前回runを確認する。
-- Managed publishingは変更しない。有効なら承認後の手動公開が必要と報告する。
+- Managed publishingは通常変更しない。既定運用はオフ（承認後に自動公開）。有効なら手動公開が必要と報告し、ユーザーが自動公開への変更を依頼した場合はPlay Consoleでオフへ変更して確認する。承認済みの待機分も即時公開されることを事前に伝える。
 
 最後に、公開版、候補、各workflow URL、公開方式、審査状態、残る手動項目をまとめる。

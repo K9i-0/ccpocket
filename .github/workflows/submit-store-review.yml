@@ -29,10 +29,10 @@ on:
         required: true
         type: string
       ios_release_type:
-        description: 'KEEP preserves an existing setting; a newly created version uses MANUAL'
+        description: 'Automatically release after approval by default; KEEP preserves the existing setting'
         required: true
         type: choice
-        default: KEEP
+        default: AFTER_APPROVAL
         options:
           - KEEP
           - MANUAL

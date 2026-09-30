@@ -2,7 +2,7 @@
 
 ## 自動化の範囲
 
-`submit-store-review.yml` の iOS job は、App Store Connect API を使う `asc` 3.5.1 を固定して実行する。ブラウザや Computer Use は使わない。
+`submit-store-review.yml` の iOS job は、App Store Connect API を使う `asc` 4.9.2 を固定して実行する。ブラウザや Computer Use は使わない。
 
 `inspect-store-state.yml` は `asc versions list --paginate` の結果から、新APIの `appVersionState=READY_FOR_DISTRIBUTION` または旧APIの `appStoreState=READY_FOR_SALE` で作成日時が最新のiOS版を選ぶ。新APIの状態があればそちらを優先し、`asc versions view --include-build` で正確なバージョンとbuild numberを取得する。新旧stateは同じ `--state` filterに混在できないため、CLI側ではfilterせずローカルで絞り込む。成果物 `ios-store-state` は公開状態だけを含み、認証情報やAPIの生レスポンスは含めない。
 
@@ -19,7 +19,7 @@ APIキーには対象アプリを管理し審査へ提出できる権限が必�
 1. `ios/vX.Y.Z+N` が存在し、タグ内の `pubspec.yaml` が `X.Y.Z+N` と一致することを確認する。
 2. bundle ID `com.k9i.ccpocket` からアプリを一意に解決する。
 3. TestFlight の `X.Y.Z (N)` を完全一致で選び、処理完了まで待つ。
-4. App Storeバージョンがなければ作成する。`KEEP` の場合、新規バージョンだけ安全側の `MANUAL` にする。
+4. 公開方式の既定は `AFTER_APPROVAL`（承認後に自動公開）。App Storeバージョンがなければ作成する。`KEEP` の場合、新規バージョンだけ安全側の `MANUAL` にする。
 5. 既に別ビルドが添付されていれば停止し、勝手に差し替えない。
 6. 対象ビルドを添付し、`asc validate` と `asc review doctor` を実行する。
 7. `asc review submit --confirm` で審査へ提出する。

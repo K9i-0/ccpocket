@@ -36,7 +36,7 @@ android_release_status=inProgress
 android_user_fraction=0.1
 ```
 
-Google Play の Managed publishing 設定は API workflow から変更しない。有効なら審査承認後に手動公開が必要で、無効なら承認後に指定した段階配信または全体配信が始まる。
+Google Play の Managed publishing はオフ（承認後に自動公開）を既定運用とする。設定は API workflow から変更しない。ユーザーから設定変更の依頼があればPlay Consoleで変更し、承認済みの待機分も即時公開されることを事前に伝える。有効なら審査承認後に手動公開が必要で、無効なら承認後に指定した段階配信または全体配信が始まる。
 
 ## 本番リリースノート
 
