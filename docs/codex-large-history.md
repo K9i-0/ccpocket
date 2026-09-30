@@ -56,6 +56,33 @@ can be displayed.
 API definitions were checked against local `codex-cli 0.157.0` generated bindings
 and the [official App Server documentation](https://learn.chatgpt.com/docs/app-server).
 
+## Discovery and delivery follow-up (2026-09-30)
+
+Recent-session discovery uses a dedicated temporary app-server, including
+workspace-filtered queries. A running turn or large history read on an active
+session must not block the list. The temporary process is stopped on success
+and failure. This costs an additional process initialization per query; it does
+not interrupt the active session. Local session names override list metadata.
+
+Continuation rollouts are matched by thread ID and the newest file modification
+time. Metadata parsing also recognizes response-item user messages and expands
+the tail window up to 4 MiB when the latest prompt is outside the initial 16 KiB.
+The bounded window can still miss a prompt preceding more than 4 MiB of output.
+History/image lookup preserves legacy filename matching without requiring cwd
+or text metadata, but rejects an explicitly different thread ID in the header.
+
+WebSocket clients can negotiate permessage-deflate, without context takeover,
+with a 1 KiB threshold and compression level 3. This reduces transfer bytes at
+the cost of compression CPU; clients that do not negotiate it remain supported.
+It does not reduce the client's JSON parsing or rendering work.
+
+PRs #247, #248, and #250 supplied these discovery, compression, and metadata
+improvements. Their proposed 100-message/8 MiB-tail history shortcut is not used:
+the existing mobile protocol treats the response as complete and has no older-page
+cursor. Tail parsing also restarts ordinal user-message IDs, making rollback and
+history merging unsafe. Full canonical history and the paginated RPC retrieval
+above remain intact; the 100-entry in-memory window is only for live delta sync.
+
 ## Verification (2026-09-28)
 
 - Unit coverage: item and turn pagination, compatibility fallbacks, cursor loops,
