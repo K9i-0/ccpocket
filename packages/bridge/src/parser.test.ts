@@ -1479,3 +1479,12 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 });
+
+
+describe("recovery commands", () => {
+  it("requires an explicit boolean and nonempty session id", () => {
+    expect(parseClientMessage(JSON.stringify({ type: "set_codex_recovery", sessionId: "s1", enabled: false }))).toMatchObject({ enabled: false });
+    for (const enabled of ["true", null, undefined, 1]) expect(parseClientMessage(JSON.stringify({ type: "set_codex_recovery", sessionId: "s1", enabled }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: "cancel_codex_recovery", sessionId: "" }))).toBeNull();
+  });
+});

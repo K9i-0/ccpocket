@@ -1,7 +1,7 @@
-# Codex usage-limit recovery proposal
+# Codex usage-limit recovery
 
-Status: proposed; default behavior awaits product decision. No automatic recovery
-is enabled by this document.
+Status: implemented after the 2026-09-30 product decision. Default OFF; enable
+from the Codex chat menu → Automatic recovery for the current Bridge session.
 
 ## Problem and prior work
 
@@ -17,9 +17,9 @@ a retry limit:
 That implementation defaults to enabled, waits a fixed 10 seconds, allows five
 consecutive failures, and resets the counter when meaningful progress appears.
 The inspected branch head was `09dcce53cb42a633956d4632ece23b236d9af0ea`.
-Its self-use workflow and unrelated fork changes are outside this proposal.
+Its self-use workflow and unrelated fork changes are outside this implementation.
 
-## Recommended first release
+## First-release behavior
 
 - Default OFF. Enable explicitly per Bridge session; do not inherit the choice
   into a fork, resumed session after Bridge restart, or unrelated new session.
@@ -32,12 +32,12 @@ Its self-use workflow and unrelated fork changes are outside this proposal.
   count. Provide cancellation while waiting; manual input cancels pending work.
 - Prefer structured retry/reset times from the error or account rate-limit
   information. If a usable reset time is unavailable, use bounded exponential
-  backoff rather than a tight fixed-10-second loop. Final delay values can be
-  tuned without changing the product behavior.
+  backoff (10, 20, 40, 80, 160 seconds for the five attempts) rather than a
+  tight fixed-10-second loop. A later reset time is never shortened.
 - Allow at most five automatic submissions per manual-input cycle. Meaningful
-  progress can reset the backoff delay, but does not replenish this total budget.
-  After exhaustion, keep the session usable and require manual input or explicit
-  re-arming. This avoids an unbounded loop of partial progress and failures.
+  progress does not replenish this total budget or reset the backoff.
+  After exhaustion, keep the session usable and require manual input for a new
+  recovery cycle. Toggling OFF then ON also resets the allowance. This avoids an unbounded loop of partial progress and failures.
 
 ## Execution and cancellation semantics
 
@@ -62,34 +62,54 @@ takeover or recovery of orphaned processes.
 
 ## Protocol and UI boundaries
 
-Add an explicit session action and a structured recovery-state event using the
-existing capability negotiation. Store authoritative pending state in Bridge,
-send it on reconnect, and render it through the existing Flutter chat state
-management. The state needs enabled, phase, attempt budget, retry timestamp,
-and last failure reason. Runtime input objects stay server-side.
+`set_codex_recovery` carries `sessionId` and an explicit boolean `enabled`;
+`cancel_codex_recovery` cancels a pending wait without resetting the attempt
+allowance. Both apply only to active Codex sessions. `codex_recovery_state` is an
+opt-in server event carrying `enabled`, `phase` (off/armed/waiting/exhausted/blocked),
+`attempts`, `maxAttempts`, `retryAt` (Unix milliseconds or null), and `reason`.
+Bridge owns the state and sends it after history replay on reconnect. Flutter
+stores it in ChatSessionCubit and updates the switch only after acknowledgement.
+Runtime input objects stay server-side.
 
 Older Bridges must produce the normal `unsupported_message` update guidance
 through `_unsupportedActions`; do not show a successful enable state until the
 Bridge acknowledges it. Older clients connected to a newer Bridge must still
 receive understandable ordinary error messages, without unknown opt-in events.
 
-## Validation before adoption
+## Validation
 
-Bridge tests must cover disabled behavior, confirmed 429/usage-limit failures,
+Bridge tests cover disabled behavior, confirmed 429/usage-limit failures,
 non-retryable errors, reset time and fallback delays, attempt exhaustion,
 duplicate terminal events, upstream retry ownership, cancellation races,
 manual-input precedence, stop/restart, preserved attachments, and goal/approval
 guards. Use fake clocks rather than spending live model usage.
 
-Flutter tests must cover enable/disable, waiting and exhausted presentation,
-cancellation, reconnect state, and old-Bridge update guidance. A separate test
-Bridge must exercise state delivery and cancellation across mobile disconnect;
+Flutter tests cover enable/disable, waiting and exhausted presentation,
+cancellation, reconnect state, and old-Bridge update guidance. A loopback Bridge WebSocket test exercises state delivery and cancellation across
+client disconnect;
 production port 8765 remains untouched.
 
-## Product decision
+## Compatibility, limits, and evidence
 
-Choose whether to ship the recommended default-OFF per-session behavior, make
-recovery default-ON, or keep this change at design stage. Default-ON reduces setup
-but allows delayed execution and additional usage without a per-session choice.
-The implementation should begin after this decision; the list/history fixes in
-PR #261 are independent.
+The user accepted default-OFF per-session recovery. The design follows @augumn's
+failure-driven continuation and manual-input precedence while replacing default-ON,
+fixed delay, and progress-reset retry counts. No multi-message FIFO is introduced.
+
+A fresh goal lookup is required before each automatic send. Unknown/unsupported
+Goal RPCs fail closed and show attention-required state. Explicit paused, blocked,
+complete, budgetLimited goals and numeric token-budget exhaustion cannot be
+bypassed. This may prevent recovery with older Codex versions even when ordinary
+chat works; manual input remains available.
+
+Timers and original input are kept only in memory. Waiting sessions are excluded
+from idle-session retention eviction. Reset metadata is a best-effort signal:
+when unavailable, retries may still hit the limit and exhaust the allowance.
+Continuation prompts cannot guarantee exactly-once tool execution.
+
+Validation includes deterministic input-loop and timer tests, real loopback
+WebSocket negotiation/reconnect/cancel, Flutter state/protocol/widget tests,
+narrow-screen large-text layout, and a rendered settings-panel inspection.
+The full Bridge suite passed 1,289 tests; the full Flutter suite passed 1,944
+tests (four skipped). TypeScript checking passed; Dart analysis reported only
+47 existing informational lints. Tests inject failures and do not consume live model usage. A real-provider 429
+and an iOS simulator runtime were not used for this validation.

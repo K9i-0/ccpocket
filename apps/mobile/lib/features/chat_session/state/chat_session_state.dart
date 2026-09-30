@@ -71,6 +71,7 @@ abstract class ChatSessionState with _$ChatSessionState {
 
     // Persisted Codex thread goal (Bridge/app-server is the source of truth).
     CodexGoal? goal,
+    CodexRecoveryInfo? recovery,
   }) = _ChatSessionState;
 }
 

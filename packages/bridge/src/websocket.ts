@@ -252,6 +252,7 @@ const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "conversation_queue",
   "goal_state",
+  "codex_recovery_state",
   "guardian_approval",
   "prompt_history_status",
   "projects",
@@ -4187,6 +4188,20 @@ export class BridgeWebSocketServer {
         console.log(
           `[ws] set_codex_speed(codex): serviceTier=${serviceTier}`,
         );
+        break;
+      }
+
+      case "set_codex_recovery":
+      case "cancel_codex_recovery": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, { type: "error", sessionId: msg.sessionId, errorCode: "codex_recovery_unsupported", message: "Automatic recovery requires an active Codex session." });
+          break;
+        }
+        const process = session.process as CodexProcess;
+        if (msg.type === "set_codex_recovery") process.setRecoveryEnabled(msg.enabled);
+        else process.cancelRecovery();
+        this.send(ws, { type: "codex_recovery_state", sessionId: session.id, recovery: process.getRecoveryState() });
         break;
       }
 
@@ -9670,6 +9685,8 @@ export class BridgeWebSocketServer {
     sessionId: string,
     session: SessionInfo,
   ): void {
+    const recovery = (session.process as CodexProcess).getRecoveryState?.();
+    if (recovery) this.send(ws, { type: "codex_recovery_state", sessionId, recovery });
     if (session.codexGoal === undefined) return;
     this.send(ws, {
       type: "goal_state",

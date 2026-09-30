@@ -14,6 +14,8 @@ const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
       getGoal: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
       sendInputStructured: ReturnType<typeof vi.fn>;
+      noteManualInput: ReturnType<typeof vi.fn>;
+      getRecoveryState: ReturnType<typeof vi.fn>;
       steerInputStructured: ReturnType<typeof vi.fn>;
       emit: (event: string, ...args: unknown[]) => boolean;
     }>,
@@ -88,6 +90,8 @@ vi.mock("./codex-process.js", () => ({
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
     public sendInputStructured = vi.fn();
+    public noteManualInput = vi.fn();
+    public getRecoveryState = vi.fn(() => ({ phase: "off" }));
     public steerInputStructured = vi.fn(async () => {});
 
     constructor() {
@@ -794,6 +798,17 @@ describe("SessionManager codex path", () => {
     manager.destroyAll();
   });
 
+  it("retains sessions waiting for automatic recovery when trimming idle sessions", () => {
+    const manager = new SessionManager(() => {});
+    const ids = Array.from({ length: 31 }, (_, i) => manager.create(`/tmp/pending-${i}`, undefined, undefined, undefined, "codex"));
+    codexInstances[0].getRecoveryState.mockReturnValue({ phase: "waiting" });
+    ids.forEach((id, i) => { manager.get(id)!.lastActivityAt = new Date(i * 1000); });
+    codexInstances.forEach((proc) => proc.emit("status", "idle"));
+    expect(manager.get(ids[0])).toBeDefined();
+    expect(manager.get(ids[1])).toBeUndefined();
+    manager.destroyAll();
+  });
+
   it("includes codex agent metadata in session summaries", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(
@@ -955,6 +970,7 @@ describe("SessionManager codex path", () => {
     expect(
       manager.list().find((s) => s.id === sessionId)?.queuedInput,
     ).toBeUndefined();
+    expect(proc.noteManualInput).toHaveBeenCalled();
     expect(proc.sendInputStructured).toHaveBeenCalledWith("Follow up", {
       images: [{ base64: "aGVsbG8=", mimeType: "image/png" }],
       skills: [{ name: "skill", path: "/skills/skill" }],

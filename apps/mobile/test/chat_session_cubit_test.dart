@@ -697,6 +697,48 @@ void main() {
       );
     });
 
+    test(
+      'recovery follows Bridge acknowledgement and reconnect snapshots',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        cubit.setCodexRecovery(true);
+        expect(cubit.state.recovery, isNull);
+        expect(jsonDecode(mockBridge.sentMessages.last.toJson()), {
+          'type': 'set_codex_recovery',
+          'sessionId': 's1',
+          'enabled': true,
+        });
+        mockBridge.emitMessage(
+          const CodexRecoveryStateMessage(
+            sessionId: 's1',
+            recovery: CodexRecoveryInfo(
+              enabled: true,
+              phase: 'waiting',
+              attempts: 2,
+            ),
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.recovery?.phase, 'waiting');
+        cubit.cancelCodexRecovery();
+        expect(
+          jsonDecode(mockBridge.sentMessages.last.toJson())['type'],
+          'cancel_codex_recovery',
+        );
+        mockBridge.emitMessage(
+          const CodexRecoveryStateMessage(
+            sessionId: 's1',
+            recovery: CodexRecoveryInfo(),
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.recovery?.enabled, false);
+      },
+    );
+
     test('Codex requests persisted goal after app-server init', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);

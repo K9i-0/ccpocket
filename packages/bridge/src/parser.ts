@@ -1,3 +1,4 @@
+import type { CodexRecoveryState } from "./codex-recovery.js";
 import type { GoalNotification } from "./goal-notifications.js";
 import type { GalleryImageInfo } from "./gallery-store.js";
 import type { ImageRef } from "./image-store.js";
@@ -196,6 +197,8 @@ export type ClientMessage =
       serviceTier: string;
       sessionId?: string;
     }
+  | { type: "set_codex_recovery"; sessionId: string; enabled: boolean }
+  | { type: "cancel_codex_recovery"; sessionId: string }
   | { type: "get_goal"; sessionId: string; background?: boolean }
   | {
       type: "set_goal";
@@ -737,6 +740,7 @@ export type ServerMessage =
       limit: number;
       items: QueuedInputItem[];
     }
+  | { type: "codex_recovery_state"; sessionId?: string; recovery: CodexRecoveryState }
   | {
       type: "goal_state";
       notification?: GoalNotification;
@@ -1505,6 +1509,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
           return null;
+        break;
+      case "set_codex_recovery":
+        if (typeof msg.enabled !== "boolean") return null;
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
+        break;
+      case "cancel_codex_recovery":
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
         break;
       case "get_goal":
         if (msg.background !== undefined && typeof msg.background !== "boolean") return null;

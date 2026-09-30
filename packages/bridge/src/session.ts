@@ -1440,6 +1440,7 @@ export class SessionManager {
     const session = this.sessions.get(id);
     if (!session || session.provider !== "codex") return false;
     if (session.codexQueuedInput) return false;
+    (session.process as CodexProcess).noteManualInput();
     session.codexQueuedInput = input;
     session.lastActivityAt = new Date();
     this.broadcastCodexQueue(session);
@@ -1873,7 +1874,8 @@ export class SessionManager {
 
   private evictStaleIdleSessions(): void {
     const staleIdleSessions = Array.from(this.sessions.values())
-      .filter((session) => session.status === "idle")
+      .filter((session) => session.status === "idle" &&
+        !(session.provider === "codex" && (session.process as CodexProcess).getRecoveryState().phase === "waiting"))
       .sort(
         (left, right) =>
           left.lastActivityAt.getTime() - right.lastActivityAt.getTime(),

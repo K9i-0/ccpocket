@@ -951,6 +951,12 @@ sealed class ServerMessage {
                 .toList() ??
             const [],
       ),
+      'codex_recovery_state' => CodexRecoveryStateMessage(
+        sessionId: json['sessionId'] as String?,
+        recovery: CodexRecoveryInfo.fromJson(
+          json['recovery'] as Map<String, dynamic>,
+        ),
+      ),
       'goal_state' => GoalStateMessage(
         notification: json['notification'] as String?,
         sessionId: json['sessionId'] as String?,
@@ -3314,6 +3320,42 @@ class ConversationQueueMessage implements ServerMessage {
   });
 }
 
+class CodexRecoveryInfo {
+  final bool enabled;
+  final String phase;
+  final int attempts;
+  final int maxAttempts;
+  final DateTime? retryAt;
+  final String? reason;
+  const CodexRecoveryInfo({
+    this.enabled = false,
+    this.phase = 'off',
+    this.attempts = 0,
+    this.maxAttempts = 5,
+    this.retryAt,
+    this.reason,
+  });
+  factory CodexRecoveryInfo.fromJson(Map<String, dynamic> json) =>
+      CodexRecoveryInfo(
+        enabled: json['enabled'] == true,
+        phase: json['phase'] as String? ?? 'off',
+        attempts: (json['attempts'] as num?)?.toInt() ?? 0,
+        maxAttempts: (json['maxAttempts'] as num?)?.toInt() ?? 5,
+        retryAt: json['retryAt'] is num
+            ? DateTime.fromMillisecondsSinceEpoch(
+                (json['retryAt'] as num).toInt(),
+              )
+            : null,
+        reason: json['reason'] as String?,
+      );
+}
+
+class CodexRecoveryStateMessage implements ServerMessage {
+  final String? sessionId;
+  final CodexRecoveryInfo recovery;
+  const CodexRecoveryStateMessage({this.sessionId, required this.recovery});
+}
+
 class GoalStateMessage implements ServerMessage {
   final String? notification;
   final String? sessionId;
@@ -4535,6 +4577,7 @@ class ClientMessage {
     List<String> supportedServerMessages = const [
       'conversation_queue',
       'goal_state',
+      'codex_recovery_state',
       'guardian_approval',
       'history_delta',
       'history_snapshot',
@@ -4758,6 +4801,18 @@ class ClientMessage {
       'sessionId': ?sessionId,
     });
   }
+
+  factory ClientMessage.setCodexRecovery(String sessionId, bool enabled) =>
+      ClientMessage._({
+        'type': 'set_codex_recovery',
+        'sessionId': sessionId,
+        'enabled': enabled,
+      });
+  factory ClientMessage.cancelCodexRecovery(String sessionId) =>
+      ClientMessage._({
+        'type': 'cancel_codex_recovery',
+        'sessionId': sessionId,
+      });
 
   factory ClientMessage.getGoal(String sessionId, {bool background = false}) =>
       ClientMessage._({
