@@ -865,6 +865,70 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it.each([
+    ["0.157.0", false, "fullAccess", true, undefined],
+    ["0.157.0", true, "fullAccess", true, undefined],
+    ["0.158.0", false, "fullAccess", true, undefined],
+    ["0.156.0", false, "fullAccess", false, undefined],
+    [undefined, true, "fullAccess", false, undefined],
+    ["0.157.0-alpha.1", false, "fullAccess", false, undefined],
+    ["0.157.0", false, "custom", false, undefined],
+    ["0.157.0", false, "fullAccess", false, "ccpocket"],
+  ] as const)(
+    "preserves Full Access profile with server %s (resume=%s, mode=%s)",
+    async (version, resume, mode, usesProfile, profile) => {
+      const proc = new CodexProcess("linux");
+      proc.start("/tmp/project-full-access", {
+        ...(resume ? { threadId: "thr_existing" } : {}),
+        codexPermissionsMode: mode,
+        profile,
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        sandboxMode: "danger-full-access",
+        networkAccessEnabled: true,
+      });
+      const child = fakeChildren[0];
+      await tick();
+      const initReq = nextOutgoingRequest(child);
+      child.stdout.emit("data", `${JSON.stringify({
+        id: initReq.id,
+        result: version ? { userAgent: `ccpocket_bridge/${version} (Linux)` } : {},
+      })}\n`);
+      await tick();
+      nextOutgoingNotification(child);
+      const request = nextOutgoingRequest(child);
+      expect(request.method).toBe(resume ? "thread/resume" : "thread/start");
+      expect(request.params).toMatchObject({
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        ...(resume ? { threadId: "thr_existing" } : {}),
+      });
+      if (usesProfile) {
+        expect(request.params.permissions).toBe(":danger-full-access");
+        expect(request.params).not.toHaveProperty("sandbox");
+        expect(request.params).not.toHaveProperty("sandboxPolicy");
+      } else {
+        expect(request.params.sandbox).toBe("danger-full-access");
+        expect(request.params).not.toHaveProperty("permissions");
+      }
+      child.stdout.emit("data", `${JSON.stringify({
+        id: request.id,
+        result: {
+          thread: { id: "thr_existing" },
+          approvalPolicy: "never",
+          approvalsReviewer: "user",
+          sandbox: { type: "dangerFullAccess" },
+          activePermissionProfile: usesProfile
+            ? { id: ":danger-full-access", extends: null }
+            : null,
+        },
+      })}\n`);
+      await tick();
+      await expect(proc.waitUntilReady()).resolves.toBeUndefined();
+      proc.stop();
+    },
+  );
+
   it("leaves approval, reviewer, and sandbox unset for custom permissions", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];

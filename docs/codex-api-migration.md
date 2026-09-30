@@ -1,5 +1,36 @@
 # Codex app-server API migration (0.153.4)
 
+## Full Access handoff to Desktop (0.157.0)
+
+For explicit `fullAccess` sessions, Bridge sends
+`permissions: ":danger-full-access"` on both `thread/start` and `thread/resume`
+when the initialize response identifies stable Codex 0.157.0 or newer.
+`approvalPolicy: "never"` and `approvalsReviewer: "user"` remain explicit.
+The new field cannot be combined with `sandbox` or `sandboxPolicy`.
+
+Legacy `sandbox: "danger-full-access"` produces no active permission profile.
+An isolated 0.157.0 resume of a saved turn with that legacy setting restored
+`sandbox_mode` from config while preserving `approval_policy: "never"`.
+With a workspace-write config, Desktop consequently recognized Custom and
+the effective sandbox changed. A saved
+`active_permission_profile: {"id": ":danger-full-access"}` preserved Full
+Access on resume. Auto Review already used workspace-write in this scenario.
+
+Older, prerelease, and unidentified servers keep the legacy sandbox request:
+older servers may silently ignore unknown request fields, so sending only
+`permissions` without verified support could select an unintended sandbox.
+0.157.0 is the verified compatibility floor, not a claim about the first
+release introducing the API. Named config profiles, Custom, and other modes
+keep their existing behavior. Existing rollouts are not rewritten; explicitly
+resuming Full Access through an updated Bridge applies the profile to the
+session, which subsequent turns can persist for Desktop handoff.
+
+Validation includes start/resume request regression tests and isolated real
+app-server checks with temporary session metadata, without model generation
+or changes to production sessions.
+
+## Previous API migration
+
 Verified against the locally generated app-server TypeScript schema and
 https://learn.chatgpt.com/docs/app-server.
 

@@ -1692,7 +1692,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     options?: CodexStartOptions,
   ): Promise<void> {
     try {
-      await this.initializeRpcConnection();
+      const supportsPermissionProfiles = await this.initializeRpcConnection();
 
       const autoReviewDisabled =
         options?.autoReviewDisabledByPolicy === null
@@ -1760,7 +1760,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         threadParams.approvalsReviewer = requestedApprovalsReviewer;
       }
       if (requestedSandboxMode) {
-        threadParams.sandbox = requestedSandboxMode;
+        // A legacy sandbox override does not persist the selected built-in
+        // profile. Desktop can restore its configured sandbox on resume.
+        // Keep legacy requests for older/unknown servers, which may silently
+        // ignore the new field. Never send permissions together with sandbox.
+        if (
+          supportsPermissionProfiles &&
+          effectiveCodexPermissionsMode === "fullAccess" &&
+          !options?.profile &&
+          requestedSandboxMode === "danger-full-access"
+        ) {
+          threadParams.permissions = ":danger-full-access";
+        } else {
+          threadParams.sandbox = requestedSandboxMode;
+        }
       }
       const threadConfig: Record<string, unknown> = {};
       const requestedModel = sanitizeCodexModel(options?.model);
@@ -1779,7 +1792,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         // not the top-level thread/start payload.
         threadConfig.model_reasoning_effort = requestedReasoningEffort;
       }
-      if (options?.networkAccessEnabled !== undefined) {
+      if (
+        options?.networkAccessEnabled !== undefined &&
+        threadParams.permissions === undefined
+      ) {
         threadParams.sandboxPolicy = {
           type: normalizeSandboxMode(options?.sandboxMode ?? "workspace-write"),
           networkAccess: options.networkAccessEnabled,
@@ -1971,8 +1987,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     );
   }
 
-  private async initializeRpcConnection(timeoutMs?: number): Promise<void> {
-    await this.request(
+  private async initializeRpcConnection(timeoutMs?: number): Promise<boolean> {
+    const response = (await this.request(
       "initialize",
       {
         clientInfo: {
@@ -1985,8 +2001,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         },
       },
       timeoutMs,
-    );
+    )) as { userAgent?: string };
     this.notify("initialized", {});
+    // 0.157.0 is the oldest version verified for built-in permission profiles.
+    const version = response.userAgent?.match(
+      /^\S+\/(\d+)\.(\d+)\.(\d+)(?=\s|$)/,
+    );
+    return (
+      version != null &&
+      (Number(version[1]) > 0 || Number(version[2]) >= 157)
+    );
   }
 
   async readProfileConfig(
