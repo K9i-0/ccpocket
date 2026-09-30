@@ -177,7 +177,10 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('en'),
-            home: const Scaffold(body: LiteModeActivityBar(sessionId: 's')),
+            home: const MediaQuery(
+              data: MediaQueryData(padding: EdgeInsets.only(bottom: 34)),
+              child: Scaffold(body: LiteModeActivityBar(sessionId: 's')),
+            ),
           ),
         ),
       );
@@ -217,6 +220,23 @@ void main() {
       await tester.pump();
       expect(chat.activityObservedSince, isNotNull);
       expect(find.textContaining('Observed for'), findsOneWidget);
+      bridge.emitMessage(
+        const PermissionRequestMessage(
+          toolUseId: 'approval',
+          toolName: 'Bash',
+          input: {'command': 'pwd'},
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      final padding =
+          tester
+                  .widget<Padding>(
+                    find.byKey(const ValueKey('lite_mode_activity_indicator')),
+                  )
+                  .padding
+              as EdgeInsets;
+      expect(padding.bottom, 40);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

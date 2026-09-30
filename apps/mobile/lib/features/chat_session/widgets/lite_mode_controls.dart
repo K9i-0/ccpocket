@@ -8,6 +8,7 @@ import '../../../models/messages.dart';
 import '../../settings/state/settings_cubit.dart';
 import '../../settings/state/settings_state.dart';
 import '../state/chat_session_cubit.dart';
+import '../state/chat_session_state.dart';
 
 Future<void> showChatDisplayModeSheet(BuildContext context, String sessionId) {
   final settings = context.read<SettingsCubit>();
@@ -130,7 +131,15 @@ class _ActivityStatusState extends State<_ActivityStatus> {
     };
     return Padding(
       key: const ValueKey('lite_mode_activity_indicator'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        6,
+        16,
+        6 +
+            (cubit.state.approval is ApprovalNone
+                ? 0
+                : MediaQuery.paddingOf(context).bottom),
+      ),
       child: Row(
         children: [
           const Icon(Icons.bolt_outlined, size: 16),
