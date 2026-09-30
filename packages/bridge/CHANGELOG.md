@@ -4,6 +4,18 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.87.0] - 2026-09-30
+
+### Added
+- Add opt-in, per-session Codex usage-limit recovery with reset-aware waiting, at most five automatic submissions per manual-input cycle, and cancellation and goal-budget guards.
+
+### Changed
+- Compress WebSocket traffic for supporting clients and use bounded tail reads for recent Codex session metadata while preserving paginated full history.
+
+### Fixed
+- Isolate recent Codex session discovery from active sessions so listing does not block behind an ongoing turn.
+- Restore local session names and the latest continuation metadata, including legacy image lookup compatibility.
+
 ## [1.86.2] - 2026-09-30
 
 ### Fixed
