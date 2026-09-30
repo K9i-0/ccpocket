@@ -4,6 +4,11 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.86.2] - 2026-09-30
+
+### Fixed
+- Preserve the Full Access permission profile when Codex sessions created or resumed in ccpocket are reopened in Desktop on Codex 0.157.0 or newer, while retaining legacy requests for older servers.
+
 ## [1.86.1] - 2026-09-29
 
 ### Fixed
