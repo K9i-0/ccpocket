@@ -1,38 +1,37 @@
 ---
 name: triage
-description: GitHub Issue・PRの対応判断、優先度付け、依頼されたPRの取り込みを行う。
+description: GitHub Issueの対応判断と、PRの調査・手直し・検証・マージを行う。PR指定時は取り込みまで進めるのが既定。
 ---
 
 # Issue / PR Triage
 
-番号からIssueまたはPRを判定し、対応判断に必要な最小限の調査を行う。
+番号またはURLからIssue / PRを判定する。
 
 ```text
 /triage 42
-/triage #8
-/triage #8 --force  # CodeRabbit障害や緊急時のメンテナ例外
+/triage https://github.com/K9i-0/ccpocket/pull/42
+/triage 42 内容だけ教えて
 ```
 
-## 原則
+## 既定動作
 
-- PRでは必ずReadiness判定を最初に行う。
-- ReadyでないPRのdiff、全コメント、コードベースを読まない。
-- CodeRabbitの指摘を再レビューせず、製品判断・設計・高リスク箇所に集中する。
-- 品質基準は `CONTRIBUTING.md` と `.coderabbit.yaml`。AI利用や文章の雰囲気ではなく、スコープ、実装の必要性、検証証拠で判断する。
-- Codexフェーズでは投稿者へRequest Changesや修正ラリーを返さない。取り込めるならこちらで直し、費用対効果が悪ければ見送る。
-- サブエージェントはMedium/High以上で独立した調査面がある場合だけ使う。
-- `--force`時は、バイパスした条件と理由をレポートする。
-- `/triage <number>`単独は判断を返す。取り込み・マージまで依頼済みなら修正、検証、マージまで進め、同じ許可を再確認しない。コメント投稿は明示依頼がある場合だけ行う。
+- **PRを指定されたら、必要な修正・検証をこちらで引き受け、マージとお礼コメントまで進める。** 判断や推奨だけで止めず、同じ取り込み許可を再確認しない。
+- 「内容だけ」「レビューだけ」「まだマージしない」など明示された範囲を優先する。スキル自体の相談・改善は、例示されたPRの取り込み依頼ではない。
+- Issue単独は対応判断を返す。実装は依頼範囲に含まれる場合に進める。
+- Readiness、ラベル、テンプレートの充足、CodeRabbitのApproveを調査開始・採用の条件にしない。旧`--force`は不要で、付いていても同じ手順を使う。
+- CodeRabbitは調査負荷を減らす参考情報。具体的な指摘を必要に応じて検証し、未完了・未承認だけでは待たない。
+- 実装・コードレビュー・テスト操作をAIに任せることは問題にしない。投稿者が示した目的、修正方針の判断、実際の検証結果と限界を確認する。人柄や「本気度」を点数化しない。
+- 不足テスト、小さな設計調整、競合は原則こちらで処理する。重大な目的不一致や取り込みに見合わない再実装は、具体的な理由を示して見送る。
 
-## Phase 0: 種別判定
+## 種別判定と参照
 
-共通のIssue APIで種別を判定する。APIエラーをPR扱いしない。PR判定前にコメントを取得しない。
+URL指定ならそのリポジトリを使う。番号のみなら現在のリポジトリを使う。APIエラーをPR扱いしない。
 
 ```bash
 gh api "repos/{owner}/{repo}/issues/<number>" \
   --jq '{number,title,body,labels:[.labels[].name],state,author:.user.login,isPR:(.pull_request != null)}'
-# PRの場合だけ追加取得。bodyは再取得しない。
-gh pr view <number> --json number,isDraft,changedFiles,additions,deletions,headRefOid,reviewDecision,statusCheckRollup
 ```
 
-Issueなら [references/issue.md](references/issue.md)、PRなら [references/pr.md](references/pr.md) を読む。コメント投稿を依頼された場合だけ [references/comments.md](references/comments.md) を読む。
+- Issue: [references/issue.md](references/issue.md)
+- PR: [references/pr.md](references/pr.md)
+- マージ後のお礼、または依頼されたコメント: [references/comments.md](references/comments.md)
