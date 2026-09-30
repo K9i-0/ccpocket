@@ -3104,4 +3104,45 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get finderRevealFailed => 'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。';
+
+  @override
+  String get liteMode => '軽量モード';
+
+  @override
+  String get liteModeDescription =>
+      'ツール履歴と作業途中の画像を省略します。生成画像・添付画像・Explorerの画像は表示します。';
+
+  @override
+  String get chatDisplayMode => '表示モード';
+
+  @override
+  String get standardMode => '標準';
+
+  @override
+  String get followDefaultMode => '設定に従う';
+
+  @override
+  String get liteModeRunning => '実行中';
+
+  @override
+  String get liteModeWaiting => '承認・回答待ち';
+
+  @override
+  String get liteModeIdle => '待機中';
+
+  @override
+  String get liteModeCompacting => '会話を整理中';
+
+  @override
+  String get liteModeStarting => '開始中';
+
+  @override
+  String liteModeLastActivity(String elapsed) {
+    return '最終受信 $elapsed 前';
+  }
+
+  @override
+  String liteModeObserved(String elapsed) {
+    return '監視時間 $elapsed';
+  }
 }

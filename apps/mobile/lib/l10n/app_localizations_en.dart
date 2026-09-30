@@ -3229,4 +3229,45 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get finderRevealFailed =>
       'Could not show the file in Finder. Check the file and Bridge connection.';
+
+  @override
+  String get liteMode => 'Lite mode';
+
+  @override
+  String get liteModeDescription =>
+      'Hide tool history and work-in-progress images. Keep generated images, attachments, and Explorer images.';
+
+  @override
+  String get chatDisplayMode => 'Display mode';
+
+  @override
+  String get standardMode => 'Standard';
+
+  @override
+  String get followDefaultMode => 'Use default setting';
+
+  @override
+  String get liteModeRunning => 'Running';
+
+  @override
+  String get liteModeWaiting => 'Waiting for approval or input';
+
+  @override
+  String get liteModeIdle => 'Idle';
+
+  @override
+  String get liteModeCompacting => 'Compacting conversation';
+
+  @override
+  String get liteModeStarting => 'Starting';
+
+  @override
+  String liteModeLastActivity(String elapsed) {
+    return 'Last activity $elapsed ago';
+  }
+
+  @override
+  String liteModeObserved(String elapsed) {
+    return 'Observed for $elapsed';
+  }
 }

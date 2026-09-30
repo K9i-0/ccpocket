@@ -3067,4 +3067,44 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get finderRevealFailed => '无法在 Finder 中显示文件。请检查文件和 Bridge 连接。';
+
+  @override
+  String get liteMode => '轻量模式';
+
+  @override
+  String get liteModeDescription => '隐藏工具历史和工作过程中的图片。保留生成图片、附件和资源管理器图片。';
+
+  @override
+  String get chatDisplayMode => '显示模式';
+
+  @override
+  String get standardMode => '标准';
+
+  @override
+  String get followDefaultMode => '跟随设置';
+
+  @override
+  String get liteModeRunning => '运行中';
+
+  @override
+  String get liteModeWaiting => '等待批准或回答';
+
+  @override
+  String get liteModeIdle => '空闲';
+
+  @override
+  String get liteModeCompacting => '正在整理对话';
+
+  @override
+  String get liteModeStarting => '正在启动';
+
+  @override
+  String liteModeLastActivity(String elapsed) {
+    return '上次活动：$elapsed 前';
+  }
+
+  @override
+  String liteModeObserved(String elapsed) {
+    return '已监测 $elapsed';
+  }
 }

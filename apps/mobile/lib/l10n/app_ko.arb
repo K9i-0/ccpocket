@@ -1228,5 +1228,31 @@
   "finderReveal": "Finder에서 보기",
   "finderRevealLocalOnly": "Bridge가 이 Mac에서 실행 중인지 확인하지 못했습니다. 연결을 확인한 후 다시 시도하세요.",
   "finderRevealUpdateBridge": "Finder에서 파일을 보려면 Bridge를 업데이트하세요.",
-  "finderRevealFailed": "Finder에서 파일을 표시하지 못했습니다. 파일과 Bridge 연결을 확인하세요."
+  "finderRevealFailed": "Finder에서 파일을 표시하지 못했습니다. 파일과 Bridge 연결을 확인하세요.",
+  "liteMode": "경량 모드",
+  "liteModeDescription": "도구 기록과 작업 중 이미지를 숨깁니다. 생성 이미지, 첨부 파일, 탐색기 이미지는 표시합니다.",
+  "chatDisplayMode": "표시 모드",
+  "standardMode": "표준",
+  "followDefaultMode": "기본 설정 사용",
+  "liteModeRunning": "실행 중",
+  "liteModeWaiting": "승인 또는 응답 대기 중",
+  "liteModeIdle": "대기 중",
+  "liteModeCompacting": "대화 정리 중",
+  "liteModeStarting": "시작 중",
+  "liteModeLastActivity": "마지막 활동: {elapsed} 전",
+  "liteModeObserved": "모니터링 시간 {elapsed}",
+  "@liteModeLastActivity": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "@liteModeObserved": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  }
 }

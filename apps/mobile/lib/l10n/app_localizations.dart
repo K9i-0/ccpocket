@@ -5854,6 +5854,78 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。'**
   String get finderRevealFailed;
+
+  /// No description provided for @liteMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'軽量モード'**
+  String get liteMode;
+
+  /// No description provided for @liteModeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツール履歴と作業途中の画像を省略します。生成画像・添付画像・Explorerの画像は表示します。'**
+  String get liteModeDescription;
+
+  /// No description provided for @chatDisplayMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示モード'**
+  String get chatDisplayMode;
+
+  /// No description provided for @standardMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'標準'**
+  String get standardMode;
+
+  /// No description provided for @followDefaultMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定に従う'**
+  String get followDefaultMode;
+
+  /// No description provided for @liteModeRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中'**
+  String get liteModeRunning;
+
+  /// No description provided for @liteModeWaiting.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認・回答待ち'**
+  String get liteModeWaiting;
+
+  /// No description provided for @liteModeIdle.
+  ///
+  /// In ja, this message translates to:
+  /// **'待機中'**
+  String get liteModeIdle;
+
+  /// No description provided for @liteModeCompacting.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話を整理中'**
+  String get liteModeCompacting;
+
+  /// No description provided for @liteModeStarting.
+  ///
+  /// In ja, this message translates to:
+  /// **'開始中'**
+  String get liteModeStarting;
+
+  /// No description provided for @liteModeLastActivity.
+  ///
+  /// In ja, this message translates to:
+  /// **'最終受信 {elapsed} 前'**
+  String liteModeLastActivity(String elapsed);
+
+  /// No description provided for @liteModeObserved.
+  ///
+  /// In ja, this message translates to:
+  /// **'監視時間 {elapsed}'**
+  String liteModeObserved(String elapsed);
 }
 
 class _AppLocalizationsDelegate

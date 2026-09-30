@@ -1,3 +1,4 @@
+import '../chat_session/widgets/lite_mode_controls.dart';
 import '../explore/explore_screen.dart';
 import '../file_browser/file_browser_reference.dart';
 
@@ -1238,6 +1239,8 @@ class _CodexChatBody extends HookWidget {
                           switch (value) {
                             case 'recovery':
                               showCodexRecoverySheet(context);
+                            case 'display_mode':
+                              showChatDisplayModeSheet(context, sessionId);
                             case 'history':
                               _showUserMessageHistory(
                                 context,
@@ -1269,6 +1272,19 @@ class _CodexChatBody extends HookWidget {
                               .terminalApp;
                           final l = AppLocalizations.of(context);
                           return [
+                            PopupMenuItem(
+                              key: const ValueKey('menu_display_mode'),
+                              value: 'display_mode',
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.bolt_outlined,
+                                  size: 20,
+                                ),
+                                title: Text(l.chatDisplayMode),
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
                             const PopupMenuItem(
                               key: ValueKey('menu_codex_recovery'),
                               value: 'recovery',
@@ -1478,6 +1494,9 @@ class _CodexChatBody extends HookWidget {
                       );
                     },
                     content: ChatMessageList(
+                      liteMode: context.select<SettingsCubit, bool>(
+                        (cubit) => cubit.state.liteModeForSession(sessionId),
+                      ),
                       sessionId: sessionId,
                       scrollController: scroll.controller,
                       httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
@@ -1520,6 +1539,7 @@ class _CodexChatBody extends HookWidget {
                         context.read<ChatSessionCubit>().cancelCodexRecovery(),
                     onSettings: () => showCodexRecoverySheet(context),
                   ),
+                LiteModeActivityBar(sessionId: sessionId),
                 if (approval is ApprovalNone)
                   if (currentGoal != null)
                     CodexGoalCard(

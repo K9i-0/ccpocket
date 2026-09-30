@@ -256,6 +256,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     return SettingsState(
+      liteMode: prefs.getBool('settings_lite_mode') ?? false,
+      sessionLiteModes: {
+        for (final key in prefs.getKeys().where(
+          (key) => key.startsWith('settings_session_lite_mode:'),
+        ))
+          key.substring('settings_session_lite_mode:'.length):
+              prefs.getBool(key) ?? false,
+      },
       localUrlSettings: {
         for (final key in prefs.getKeys().where(
           (key) => key.startsWith(_localUrlKeyPrefix),
@@ -293,6 +301,24 @@ class SettingsCubit extends Cubit<SettingsState> {
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
     );
+  }
+
+  void setLiteMode(bool enabled) {
+    _prefs.setBool('settings_lite_mode', enabled);
+    emit(state.copyWith(liteMode: enabled));
+  }
+
+  void setSessionLiteMode(String sessionId, bool? enabled) {
+    final overrides = Map<String, bool>.from(state.sessionLiteModes);
+    final key = 'settings_session_lite_mode:$sessionId';
+    if (enabled == null) {
+      overrides.remove(sessionId);
+      _prefs.remove(key);
+    } else {
+      overrides[sessionId] = enabled;
+      _prefs.setBool(key, enabled);
+    }
+    emit(state.copyWith(sessionLiteModes: overrides));
   }
 
   static UsageDisplayMode _usageDisplayModeFromRaw(String? raw) {

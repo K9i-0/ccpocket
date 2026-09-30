@@ -1264,5 +1264,31 @@
   "finderReveal": "Show in Finder",
   "finderRevealLocalOnly": "Could not verify that the Bridge is on this Mac. Check the connection and try again.",
   "finderRevealUpdateBridge": "Update the Bridge to show files in Finder.",
-  "finderRevealFailed": "Could not show the file in Finder. Check the file and Bridge connection."
+  "finderRevealFailed": "Could not show the file in Finder. Check the file and Bridge connection.",
+  "liteMode": "Lite mode",
+  "liteModeDescription": "Hide tool history and work-in-progress images. Keep generated images, attachments, and Explorer images.",
+  "chatDisplayMode": "Display mode",
+  "standardMode": "Standard",
+  "followDefaultMode": "Use default setting",
+  "liteModeRunning": "Running",
+  "liteModeWaiting": "Waiting for approval or input",
+  "liteModeIdle": "Idle",
+  "liteModeCompacting": "Compacting conversation",
+  "liteModeStarting": "Starting",
+  "liteModeLastActivity": "Last activity {elapsed} ago",
+  "liteModeObserved": "Observed for {elapsed}",
+  "@liteModeLastActivity": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "@liteModeObserved": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  }
 }

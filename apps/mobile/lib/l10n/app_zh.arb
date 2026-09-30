@@ -1369,5 +1369,31 @@
   "finderReveal": "在 Finder 中显示",
   "finderRevealLocalOnly": "无法确认 Bridge 是否运行在此 Mac 上。请检查连接后重试。",
   "finderRevealUpdateBridge": "请更新 Bridge，以在 Finder 中显示文件。",
-  "finderRevealFailed": "无法在 Finder 中显示文件。请检查文件和 Bridge 连接。"
+  "finderRevealFailed": "无法在 Finder 中显示文件。请检查文件和 Bridge 连接。",
+  "liteMode": "轻量模式",
+  "liteModeDescription": "隐藏工具历史和工作过程中的图片。保留生成图片、附件和资源管理器图片。",
+  "chatDisplayMode": "显示模式",
+  "standardMode": "标准",
+  "followDefaultMode": "跟随设置",
+  "liteModeRunning": "运行中",
+  "liteModeWaiting": "等待批准或回答",
+  "liteModeIdle": "空闲",
+  "liteModeCompacting": "正在整理对话",
+  "liteModeStarting": "正在启动",
+  "liteModeLastActivity": "上次活动：{elapsed} 前",
+  "liteModeObserved": "已监测 {elapsed}",
+  "@liteModeLastActivity": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "@liteModeObserved": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  }
 }

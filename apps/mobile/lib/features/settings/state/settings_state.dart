@@ -32,6 +32,9 @@ abstract class SettingsState with _$SettingsState {
   const factory SettingsState({
     @Default({}) Map<String, String> localUrlSettings,
 
+    @Default(false) bool liteMode,
+    @Default({}) Map<String, bool> sessionLiteModes,
+
     /// Theme mode: system, light, or dark.
     @Default(ThemeMode.system) ThemeMode themeMode,
 
@@ -125,6 +128,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether new Claude sessions should be automatically named after the first turn.
     @Default(false) bool autoRenameClaudeSessions,
   }) = _SettingsState;
+
+  bool liteModeForSession(String sessionId) =>
+      sessionLiteModes[sessionId] ?? liteMode;
 
   /// Whether push notifications are enabled for the currently connected machine.
   bool get fcmEnabled =>

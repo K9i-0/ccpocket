@@ -3129,4 +3129,45 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get finderRevealFailed =>
       'Finder에서 파일을 표시하지 못했습니다. 파일과 Bridge 연결을 확인하세요.';
+
+  @override
+  String get liteMode => '경량 모드';
+
+  @override
+  String get liteModeDescription =>
+      '도구 기록과 작업 중 이미지를 숨깁니다. 생성 이미지, 첨부 파일, 탐색기 이미지는 표시합니다.';
+
+  @override
+  String get chatDisplayMode => '표시 모드';
+
+  @override
+  String get standardMode => '표준';
+
+  @override
+  String get followDefaultMode => '기본 설정 사용';
+
+  @override
+  String get liteModeRunning => '실행 중';
+
+  @override
+  String get liteModeWaiting => '승인 또는 응답 대기 중';
+
+  @override
+  String get liteModeIdle => '대기 중';
+
+  @override
+  String get liteModeCompacting => '대화 정리 중';
+
+  @override
+  String get liteModeStarting => '시작 중';
+
+  @override
+  String liteModeLastActivity(String elapsed) {
+    return '마지막 활동: $elapsed 전';
+  }
+
+  @override
+  String liteModeObserved(String elapsed) {
+    return '모니터링 시간 $elapsed';
+  }
 }

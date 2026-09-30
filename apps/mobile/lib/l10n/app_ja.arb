@@ -1294,5 +1294,31 @@
   "finderReveal": "Finderで表示",
   "finderRevealLocalOnly": "このMacのBridgeであることを確認できませんでした。接続先を確認して、もう一度お試しください。",
   "finderRevealUpdateBridge": "Finderで表示するにはBridgeを更新してください。",
-  "finderRevealFailed": "Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。"
+  "finderRevealFailed": "Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。",
+  "liteMode": "軽量モード",
+  "liteModeDescription": "ツール履歴と作業途中の画像を省略します。生成画像・添付画像・Explorerの画像は表示します。",
+  "chatDisplayMode": "表示モード",
+  "standardMode": "標準",
+  "followDefaultMode": "設定に従う",
+  "liteModeRunning": "実行中",
+  "liteModeWaiting": "承認・回答待ち",
+  "liteModeIdle": "待機中",
+  "liteModeCompacting": "会話を整理中",
+  "liteModeStarting": "開始中",
+  "liteModeLastActivity": "最終受信 {elapsed} 前",
+  "liteModeObserved": "監視時間 {elapsed}",
+  "@liteModeLastActivity": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "@liteModeObserved": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  }
 }

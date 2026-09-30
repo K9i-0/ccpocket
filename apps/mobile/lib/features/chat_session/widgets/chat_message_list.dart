@@ -25,6 +25,7 @@ import '../../generated_image_preview/widgets/generated_image_chat_group.dart';
 import '../../file_peek/file_peek_sheet.dart';
 import '../../message_images/message_images_screen.dart';
 import '../permission_transcript.dart';
+import '../lite_mode_projection.dart';
 import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 import '../state/streaming_state.dart';
@@ -158,6 +159,7 @@ class ChatMessageList extends StatefulWidget {
   final ValueNotifier<int>? collapseToolResults;
   final double bottomPadding;
   final bool isCodex;
+  final bool liteMode;
   final bool isReadingHistory;
   final ValueChanged<String>? onFilePeekOpened;
 
@@ -185,6 +187,7 @@ class ChatMessageList extends StatefulWidget {
     this.bottomPadding = 8,
     this.projectPath,
     this.isCodex = false,
+    this.liteMode = false,
     this.isReadingHistory = false,
     this.onFilePeekOpened,
   });
@@ -199,8 +202,21 @@ class _ChatMessageListState extends State<ChatMessageList> {
   final _viewportKey = GlobalKey();
   final _generatedImageItemCache =
       <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
+  List<ChatEntry>? _projectionSource;
+  List<ChatEntry>? _liteEntries;
+
+  List<ChatEntry> _displayEntries(List<ChatEntry> entries) {
+    if (!widget.liteMode) return entries;
+    if (!listEquals(_projectionSource, entries)) {
+      _projectionSource = entries;
+      _liteEntries = liteModeEntries(entries);
+    }
+    return _liteEntries!;
+  }
+
   ChatSessionState? _derivedForState;
   List<ChatEntry>? _derivedEntries;
+  List<ChatEntry>? _derivedSourceEntries;
   String? _derivedForHttpBaseUrl;
   ProcessStatus? _derivedForProcessStatus;
   String? _derivedForActivePermissionId;
@@ -235,6 +251,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
   @override
   void didUpdateWidget(covariant ChatMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.liteMode != widget.liteMode) {
+      _derivedData = null;
+      _pendingAnchor = null;
+    }
     if (oldWidget.scrollController != widget.scrollController) {
       _detachLayoutAnchorCorrection(oldWidget.scrollController);
       _attachLayoutAnchorCorrection();
@@ -284,7 +304,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
   /// Uses [AutoScrollController.scrollToIndex] which handles both on-screen
   /// and off-screen items correctly with variable-height widgets.
   void _scrollToUserEntry(UserChatEntry entry) {
-    final entries = context.read<ChatSessionCubit>().state.entries;
+    final entries = _displayEntries(
+      context.read<ChatSessionCubit>().state.entries,
+    );
     final idx = entries.indexOf(entry);
     if (idx < 0) return;
     widget.scrollController.scrollToIndex(
@@ -520,7 +542,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _notifyScrollMetricsAfterLayout();
     final chatState = context.watch<ChatSessionCubit>().state;
     final hiddenToolUseIds = chatState.hiddenToolUseIds;
-    final allEntries = chatState.entries;
+    final allEntries = _displayEntries(chatState.entries);
     final activePermissionId = switch (chatState.approval) {
       ApprovalPermission(:final toolUseId) => toolUseId,
       _ => null,
@@ -747,6 +769,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       final previousEntries = _derivedEntries;
       if (previousEntries != null &&
           listEquals(previousEntries, entries) &&
+          listEquals(_derivedSourceEntries, chatState.entries) &&
           _derivedForProcessStatus == chatState.status &&
           _derivedForActivePermissionId == activePermissionId) {
         _derivedForState = chatState;
@@ -778,14 +801,15 @@ class _ChatMessageListState extends State<ChatMessageList> {
         entries,
       ),
       permissionTranscriptStatuses: derivePermissionTranscriptStatuses(
-        entries,
+        chatState.entries,
         processStatus: chatState.status,
         activeToolUseId: activePermissionId,
       ),
-      latestPlanText: _findPlanFromWriteTool(entries),
+      latestPlanText: _findPlanFromWriteTool(chatState.entries),
     );
     _derivedForState = chatState;
     _derivedEntries = entries;
+    _derivedSourceEntries = chatState.entries;
     _derivedForHttpBaseUrl = widget.httpBaseUrl;
     _derivedForProcessStatus = chatState.status;
     _derivedForActivePermissionId = activePermissionId;

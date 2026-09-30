@@ -469,6 +469,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    SwitchListTile(
+                      key: const ValueKey('lite_mode_toggle'),
+                      secondary: Icon(Icons.bolt_outlined, color: cs.primary),
+                      title: Text(l.liteMode),
+                      subtitle: Text(l.liteModeDescription),
+                      value: state.liteMode,
+                      onChanged: context.read<SettingsCubit>().setLiteMode,
+                    ),
                     // Voice Input
                     if (!state.hideVoiceInput) ...[
                       ListTile(

@@ -265,6 +265,47 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     emit(state.copyWith(queuedInput: item));
   }
 
+  // Observation time, not a fabricated server-side execution start time.
+  DateTime? _activityObservedSince = DateTime.now();
+  DateTime? _lastAgentActivityAt;
+  String? _latestActivityTool;
+  DateTime? get activityObservedSince => _activityObservedSince;
+  DateTime? get lastAgentActivityAt => _lastAgentActivityAt;
+  String? get latestActivityTool => _latestActivityTool;
+
+  @override
+  void emit(ChatSessionState state) {
+    if (state.status == ProcessStatus.idle) {
+      _activityObservedSince = null;
+      _latestActivityTool = null;
+    } else if (this.state.status == ProcessStatus.idle ||
+        _activityObservedSince == null) {
+      _activityObservedSince = DateTime.now();
+      _lastAgentActivityAt = null;
+      _latestActivityTool = null;
+    }
+    super.emit(state);
+  }
+
+  void _recordAgentActivity(ServerMessage msg) {
+    if (msg is AssistantServerMessage ||
+        msg is ToolResultMessage ||
+        msg is StreamDeltaMessage ||
+        msg is ThinkingDeltaMessage) {
+      final now = DateTime.now();
+      _lastAgentActivityAt = now;
+      _activityObservedSince ??= now;
+      if (msg case AssistantServerMessage(:final message)) {
+        final tools = message.content.whereType<ToolUseContent>();
+        _latestActivityTool = tools.lastOrNull?.name;
+      } else if (msg is ToolResultMessage ||
+          msg is StreamDeltaMessage ||
+          msg is ThinkingDeltaMessage) {
+        _latestActivityTool = null;
+      }
+    }
+  }
+
   void _onMessage(ServerMessage msg) {
     if (msg is SessionContextMessage) {
       _applySessionContext(msg.context);
@@ -319,6 +360,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         ignoredToolUseIds: _respondedToolUseIds,
       );
       _applyUpdate(update, msg);
+      _recordAgentActivity(msg);
       if (msg is HistoryMessage && _latestSessionContext != null) {
         _applySessionContext(_latestSessionContext!);
       }
