@@ -2878,18 +2878,33 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
       fallbackSessionId.endsWith(`-${threadId}`) ||
       fallbackSessionId.includes(`-${threadId}_`);
   });
-  const matches = await Promise.all(candidates.map(async (filePath) => {
-    const parsed = await parseCodexSessionJsonlFast(
-      filePath,
-      basename(filePath, ".jsonl"),
-    );
-    if (parsed?.threadId !== threadId) return null;
+  const matches = await parallelMap(candidates, PARALLEL_FILE_READ_LIMIT, async (filePath) => {
+    let file;
     try {
-      return { filePath, modified: (await stat(filePath)).mtimeMs };
+      file = await open(filePath, "r");
+      const metadata = await file.stat();
+      const buffer = Buffer.alloc(Math.min(metadata.size, CODEX_HEAD_BYTES));
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+      // History/image lookup must not depend on list metadata (cwd or text).
+      // Older rollouts have no session_meta, so retain the filename fallback.
+      for (const line of buffer.subarray(0, bytesRead).toString("utf-8").split("\n")) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry?.type === "session_meta" && typeof entry.payload?.id === "string") {
+            if (entry.payload.id !== threadId) return null;
+            break;
+          }
+        } catch {
+          // Ignore partial or malformed header records.
+        }
+      }
+      return { filePath, modified: metadata.mtimeMs };
     } catch {
       return null;
+    } finally {
+      await file?.close();
     }
-  }));
+  });
   const newest = matches
     .filter((match): match is { filePath: string; modified: number } => match !== null)
     .sort((a, b) => b.modified - a.modified)[0];
@@ -3506,30 +3521,15 @@ function codexUserMessagePayloadHasDisplayContent(
   return message.trim().length > 0 || images + localImages > 0;
 }
 
-const MAX_CODEX_HISTORY_FILE_BYTES = 32 * 1024 * 1024;
-const CODEX_HISTORY_TAIL_BYTES = 8 * 1024 * 1024;
-
-async function readCodexSessionHistory(
-  jsonlPath: string,
-  options?: { tailBytes?: number; maxMessages?: number },
+export async function getCodexSessionHistory(
+  threadId: string,
 ): Promise<SessionHistoryMessage[]> {
+  const jsonlPath = await findCodexSessionJsonlPath(threadId);
+  if (!jsonlPath) return [];
+
   let raw: string;
   try {
-    if (options?.tailBytes === undefined) {
-      raw = await readFile(jsonlPath, "utf-8");
-    } else {
-      const file = await open(jsonlPath, "r");
-      try {
-        const fileStat = await file.stat();
-        const start = Math.max(0, fileStat.size - options.tailBytes);
-        const buffer = Buffer.alloc(fileStat.size - start);
-        await file.read(buffer, 0, buffer.length, start);
-        raw = buffer.toString("utf-8");
-        if (start > 0) raw = raw.slice(raw.indexOf("\n") + 1);
-      } finally {
-        await file.close();
-      }
-    }
+    raw = await readFile(jsonlPath, "utf-8");
   } catch {
     return [];
   }
@@ -3782,34 +3782,7 @@ async function readCodexSessionHistory(
     }
   }
 
-  return options?.maxMessages === undefined
-    ? messages
-    : messages.slice(-options.maxMessages);
-}
-
-export async function getCodexSessionHistory(
-  threadId: string,
-): Promise<SessionHistoryMessage[]> {
-  const jsonlPath = await findCodexSessionJsonlPath(threadId);
-  return jsonlPath ? readCodexSessionHistory(jsonlPath) : [];
-}
-
-export async function getBoundedCodexSessionHistory(
-  threadId: string,
-): Promise<SessionHistoryMessage[] | null> {
-  const jsonlPath = await findCodexSessionJsonlPath(threadId);
-  if (!jsonlPath) return null;
-  try {
-    if ((await stat(jsonlPath)).size <= MAX_CODEX_HISTORY_FILE_BYTES) {
-      return null;
-    }
-  } catch {
-    return null;
-  }
-  return readCodexSessionHistory(jsonlPath, {
-    tailBytes: CODEX_HISTORY_TAIL_BYTES,
-    maxMessages: 100,
-  });
+  return messages;
 }
 
 /**

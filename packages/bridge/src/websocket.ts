@@ -52,7 +52,6 @@ import {
 } from "./protocol-version.js";
 import {
   getAllRecentSessions,
-  getBoundedCodexSessionHistory,
   getCodexSessionHistory,
   getSessionHistory,
   codexUserTurnUuid,
@@ -1907,11 +1906,9 @@ export class BridgeWebSocketServer {
     const threadId = this.codexThreadIdForSession(session);
     if (!threadId) return null;
 
-    const boundedHistory = await getBoundedCodexSessionHistory(threadId);
     const history = session.codexInitialHistoryPending
       ? ((session.pastMessages ?? []) as SessionHistoryMessage[])
-      : boundedHistory ??
-        await this.getCodexThreadHistoryFromRpc(
+      : await this.getCodexThreadHistoryFromRpc(
           threadId,
           session.projectPath,
           session.process as CodexProcess,
@@ -1929,7 +1926,7 @@ export class BridgeWebSocketServer {
       entries,
     );
     session.codexInitialHistoryPending = false;
-    return session.codexOrderedHistoryEntries;
+    return entries;
   }
 
   private applyCodexCanonicalHistoryBaseline(
@@ -2594,8 +2591,6 @@ export class BridgeWebSocketServer {
     threadId: string,
     projectPath?: string,
   ): Promise<SessionHistoryMessage[]> {
-    const boundedHistory = await getBoundedCodexSessionHistory(threadId);
-    if (boundedHistory !== null) return boundedHistory;
     if (!this.getActiveCodexProcess() && process.env.NODE_ENV === "test") {
       return getCodexSessionHistory(threadId);
     }
@@ -8674,7 +8669,6 @@ export class BridgeWebSocketServer {
     // A busy app-server can be blocked on a large thread/read or a running turn.
     // Discovery must remain independent so one session cannot hide the list.
     const process = await this.createStandaloneCodexProcess(undefined);
-    const isStandalone = true;
 
     try {
       const archivedIds = this.archiveStore.archivedIds();
@@ -8720,7 +8714,7 @@ export class BridgeWebSocketServer {
         }),
       );
     } finally {
-      if (isStandalone) process.stop();
+      process.stop();
     }
   }
 
@@ -9244,7 +9238,6 @@ export class BridgeWebSocketServer {
     const limit = msg.limit ?? 20;
     const offset = msg.offset ?? 0;
     const process = await this.createStandaloneCodexProcess(msg.projectPath);
-    const isStandalone = true;
 
     try {
       const archivedIds = this.archiveStore.archivedIds();
@@ -9288,9 +9281,7 @@ export class BridgeWebSocketServer {
         hasMore: hasServerMore || visibleThreads.length > offset + limit,
       };
     } finally {
-      if (isStandalone) {
-        process.stop();
-      }
+      process.stop();
     }
   }
 

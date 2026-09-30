@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { once } from "node:events";
+import { WebSocket } from "ws";
 import { createHash } from "node:crypto";
 import {
   mkdirSync,
@@ -22,6 +24,7 @@ const {
   extractMessageImagesMock,
   getAllRecentSessionsMock,
   getCodexSessionIndexMetadataMock,
+  loadCodexSessionNamesMock,
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
@@ -35,6 +38,7 @@ const {
   extractMessageImagesMock: vi.fn(),
   getAllRecentSessionsMock: vi.fn(),
   getCodexSessionIndexMetadataMock: vi.fn(),
+  loadCodexSessionNamesMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
@@ -57,6 +61,7 @@ vi.mock("./sessions-index.js", () => ({
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
   getCodexSessionIndexMetadata: getCodexSessionIndexMetadataMock,
+  loadCodexSessionNames: loadCodexSessionNamesMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
   renameClaudeSession: vi.fn().mockResolvedValue(true),
   renameCodexSession: vi.fn().mockResolvedValue(true),
@@ -492,6 +497,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     extractMessageImagesMock.mockReset();
     getAllRecentSessionsMock.mockReset();
     getCodexSessionIndexMetadataMock.mockReset();
+    loadCodexSessionNamesMock.mockReset().mockResolvedValue(new Map());
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
@@ -511,6 +517,63 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     vi.unstubAllEnvs();
     vi.useRealTimers();
     httpServer.close();
+  });
+
+  it.each([true, false])("delivers complete history with compression negotiated=%s", async (compressed) => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    // Exercise real transport without starting background agent processes.
+    vi.spyOn(bridge as any, "handleConnection").mockImplementation(() => {});
+    const payload = { type: "history", messages: Array.from({ length: 150 }, (_, i) => ({ text: `message-${i}: ${"history ".repeat(200)}` })) };
+    const wss = (bridge as any).wss;
+    wss.on("connection", (socket: WebSocket) => socket.send(JSON.stringify(payload)));
+    httpServer.listen(0, "127.0.0.1");
+    await once(httpServer, "listening");
+    const address = httpServer.address() as { port: number };
+    const client = new WebSocket(`ws://127.0.0.1:${address.port}`, { perMessageDeflate: compressed });
+    try {
+      const [data] = await once(client, "message");
+      expect(JSON.parse(data.toString())).toEqual(payload);
+      expect(client.extensions.includes("permessage-deflate")).toBe(compressed);
+    } finally {
+      client.terminate();
+      for (const socket of wss.clients) socket.terminate();
+      bridge.close();
+    }
+  });
+
+  it("preserves more than 100 canonical messages and stable user identities", async () => {
+    const history = Array.from({ length: 150 }, (_, i) => ({
+      role: "user", uuid: `codex:user-turn:${i + 1}`,
+      content: [{ type: "text", text: `prompt ${i + 1}` }],
+    }));
+    codexThreadToSessionHistoryMock.mockReturnValue(history);
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const manager = (bridge as any).sessionManager;
+    const id = manager.create("/tmp/project-codex", undefined, undefined, undefined, "codex");
+    const session = manager.get(id);
+    session.claudeSessionId = "thread-large";
+    try {
+      const entries = await (bridge as any).codexCanonicalHistoryEntries(session);
+      expect(entries).toHaveLength(150);
+      expect(entries[0].message.userMessageUuid).toBe("codex:user-turn:1");
+      expect(entries[149].message.userMessageUuid).toBe("codex:user-turn:150");
+      expect(session.codexOrderedHistoryEntries).toHaveLength(100);
+    } finally {
+      bridge.close();
+    }
+  });
+
+  it("stops dedicated discovery after a list failure", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const stop = vi.fn();
+    const listThreads = vi.fn().mockRejectedValue(new Error("discovery failed"));
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue({ listThreads, stop });
+    try {
+      await expect((bridge as any).listRecentCodexThreads({ type: "list_recent_sessions", provider: "codex" })).rejects.toThrow("discovery failed");
+      expect(stop).toHaveBeenCalledTimes(1);
+    } finally {
+      bridge.close();
+    }
   });
 
   it("acknowledges push registration only after relay success", async () => {
@@ -9675,7 +9738,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("uses active codex thread/list for codex recent sessions", async () => {
+  it("isolates recent-session discovery from a blocked active Codex process", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -9698,7 +9761,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const session = (bridge as any).sessionManager.get(created.sessionId);
-    session.process.listThreads.mockResolvedValue({
+    const listThreads = vi.fn().mockResolvedValue({
       data: [
         {
           id: "thr_codex_1",
@@ -9714,6 +9777,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ],
       nextCursor: null,
     });
+    const stop = vi.fn();
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue({ listThreads, stop });
+    session.process.listThreads.mockImplementation(() => new Promise(() => {}));
     getCodexSessionIndexMetadataMock.mockResolvedValue(
       new Map([
         [
@@ -9733,6 +9799,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ]),
     );
 
+    loadCodexSessionNamesMock.mockResolvedValue(new Map([["thr_codex_1", "Local title"]]));
     const payload = await (bridge as any).listRecentCodexThreads(
       {
         type: "list_recent_sessions",
@@ -9741,7 +9808,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
     );
 
-    expect(session.process.listThreads).toHaveBeenCalledWith({
+    expect(listThreads).toHaveBeenCalledWith({
       limit: 20,
       cwd: "/tmp/project-codex",
       searchTerm: undefined,
@@ -9755,7 +9822,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(payload.sessions[0]).toMatchObject({
       provider: "codex",
       sessionId: "thr_codex_1",
-      name: "Crash triage",
+      name: "Local title",
       agentNickname: "Atlas",
       agentRole: "explorer",
       gitBranch: "feat/protocol",
@@ -9772,6 +9839,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
     });
 
+    expect(session.process.listThreads).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledTimes(1);
     bridge.close();
   });
 
@@ -9858,7 +9927,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const session = (bridge as any).sessionManager.get(created.sessionId);
-    session.process.listThreads.mockResolvedValue({
+    const listThreads = vi.fn().mockResolvedValue({
       data: [
         {
           id: "thr_codex_all",
@@ -9874,6 +9943,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ],
       nextCursor: null,
     });
+    const stop = vi.fn();
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue({ listThreads, stop });
+    session.process.listThreads.mockImplementation(() => new Promise(() => {}));
     getAllRecentSessionsMock.mockClear();
     getAllRecentSessionsMock.mockResolvedValue({
       sessions: [
@@ -9924,7 +9996,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       offset: 0,
     });
     expect(scanOptions).not.toHaveProperty("provider");
-    expect(session.process.listThreads).toHaveBeenCalledWith({
+    expect(listThreads).toHaveBeenCalledWith({
       limit: 20,
       cwd: undefined,
       searchTerm: undefined,
@@ -9943,6 +10015,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       firstPrompt: "Codex canonical result",
     });
 
+    expect(session.process.listThreads).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledTimes(1);
     bridge.close();
   });
 
