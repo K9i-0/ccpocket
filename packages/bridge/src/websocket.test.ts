@@ -519,6 +519,50 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     httpServer.close();
   });
 
+  it("restores recovery over a real reconnect and cancels it through the protocol", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    vi.spyOn(bridge as any, "refreshConnectionMetadata").mockImplementation(() => {});
+    const manager = (bridge as any).sessionManager;
+    const id = manager.create("/tmp/recovery-test", undefined, undefined, undefined, "codex");
+    const session = manager.get(id);
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "recovery-thread";
+    session.process = proc; session.claudeSessionId = "recovery-thread";
+    vi.spyOn(proc, "readRateLimits").mockResolvedValue({ rateLimits: {} });
+    vi.spyOn(proc, "readThread").mockResolvedValue({ id: "recovery-thread", turns: [] });
+    proc.on("message", (message) => (bridge as any).broadcastSessionMessage(id, message));
+    httpServer.listen(0, "127.0.0.1"); await once(httpServer, "listening");
+    const port = (httpServer.address() as { port: number }).port;
+    const sockets: WebSocket[] = [];
+    async function connect() {
+      const socket = new WebSocket(`ws://127.0.0.1:${port}`); sockets.push(socket);
+      const messages: any[] = [];
+      socket.on("message", (data) => messages.push(JSON.parse(data.toString())));
+      await once(socket, "open");
+      socket.send(JSON.stringify({ type: "client_capabilities", protocolVersion: 1, minimumProtocolVersion: 1, supportedServerMessages: ["codex_recovery_state"] }));
+      return { socket, messages };
+    }
+    try {
+      const first = await connect();
+      first.socket.send(JSON.stringify({ type: "set_codex_recovery", sessionId: id, enabled: true }));
+      await vi.waitFor(() => expect(proc.getRecoveryState().enabled).toBe(true));
+      (proc as any).recovery.schedule({ code: 429, retryAfterSeconds: 3600 }, { text: "task" });
+      await vi.waitFor(() => expect(first.messages.some((m) => m.type === "codex_recovery_state" && m.recovery.phase === "waiting")).toBe(true));
+      first.socket.close(); await once(first.socket, "close");
+      expect(proc.getRecoveryState().phase).toBe("waiting");
+      const second = await connect();
+      second.socket.send(JSON.stringify({ type: "get_history", sessionId: id }));
+      await vi.waitFor(() => expect(second.messages.some((m) => m.type === "codex_recovery_state" && m.recovery.phase === "waiting")).toBe(true));
+      second.socket.send(JSON.stringify({ type: "cancel_codex_recovery", sessionId: id }));
+      await vi.waitFor(() => expect(proc.getRecoveryState().phase).toBe("armed"));
+      expect(proc.getRecoveryState().retryAt).toBeNull();
+    } finally {
+      sockets.forEach((socket) => socket.terminate());
+      for (const socket of (bridge as any).wss.clients) socket.terminate();
+      proc.stop(); bridge.close();
+    }
+  });
+
   it.each([true, false])("delivers complete history with compression negotiated=%s", async (compressed) => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     // Exercise real transport without starting background agent processes.

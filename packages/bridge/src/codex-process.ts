@@ -1,3 +1,4 @@
+import { CodexRecovery } from "./codex-recovery.js";
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { realpathSync, statSync } from "node:fs";
@@ -65,6 +66,9 @@ export interface CodexProcessEvents {
 }
 
 interface PendingInput {
+  recoveryContinuation?: boolean;
+  recoveryEchoed?: boolean;
+  recoveryGeneration?: number;
   text: string;
   images?: Array<{
     base64: string;
@@ -562,6 +566,59 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     });
   }
 
+  private manualInputVersion = 0;
+  private recoveryFailure: unknown = null;
+  private upstreamWillRetry = false;
+  private inputTurnStarted = false;
+  private recoveryNotice = "";
+  private readonly recovery = new CodexRecovery<PendingInput>({
+    changed: (recovery) => {
+      this.emitMessage({ type: "codex_recovery_state", recovery });
+      const notice = `${recovery.phase}:${recovery.reason}`;
+      if (notice !== this.recoveryNotice && ["waiting", "blocked", "exhausted"].includes(recovery.phase)) {
+        this.emitMessage({ type: "error", errorCode: "codex_recovery_notice", message:
+          recovery.phase === "waiting"
+            ? `Automatic recovery is waiting for the usage limit (${recovery.attempts}/${recovery.maxAttempts} attempts used). You can cancel or send a message. ${recovery.reason ?? ""}`
+            : `Automatic recovery ${recovery.phase}. ${recovery.reason ?? ""}` });
+      }
+      this.recoveryNotice = notice;
+    },
+    canResume: async () => {
+      if (!this.canDispatchRecovery()) return false;
+      const goal = await this.getGoal();
+      return this.canDispatchRecovery() && (goal === null ||
+        ((goal.status === "active" || goal.status === "usageLimited") &&
+          !(typeof goal.tokenBudget === "number" && goal.tokensUsed >= goal.tokenBudget)));
+    },
+    dispatch: (input) => {
+      if (!this.canDispatchRecovery()) return false;
+      const resolve = this.inputResolve!;
+      this.inputResolve = null;
+      resolve({ ...input, recoveryGeneration: this.recovery.version });
+      return true;
+    },
+    resetAt: async () => {
+      const response = await this.readRateLimits(3_000);
+      const limits = response.rateLimitsByLimitId?.codex ?? response.rateLimits;
+      const resets = [limits?.primary, limits?.secondary]
+        .filter((window) => window && window.usedPercent >= 100 && typeof window.resetsAt === "number" && Number.isFinite(window.resetsAt))
+        .map((window) => window!.resetsAt! * 1000);
+      return resets.length ? Math.max(...resets) : undefined;
+    },
+  });
+
+  getRecoveryState() { return this.recovery.state; }
+  setRecoveryEnabled(enabled: boolean): void { this.recovery.setEnabled(enabled); }
+  cancelRecovery(): void { this.manualInputVersion++; this.recovery.cancel(); }
+  noteManualInput(): void { this.manualInputVersion++; this.recovery.manualInput(); }
+
+  private canDispatchRecovery(): boolean {
+    return !this.stopped && this._threadId !== null && this.inputResolve !== null &&
+      this.pendingTurnId === null && this.pendingTurnCompletion === null &&
+      this.pendingApprovals.size === 0 && !this.hasBlockingUserInput() &&
+      this.pendingPlanCompletion === null && this._pendingPlanInput === null;
+  }
+
   private goalLookup: Promise<CodexGoal | null> | undefined;
 
   /** Read the persisted goal attached to this Codex thread. */
@@ -589,6 +646,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     objective?: string;
     status?: CodexGoalStatus;
   }): Promise<CodexGoal> {
+    this.cancelRecovery();
     if (!this._threadId) {
       throw new Error("No thread ID available for goal update");
     }
@@ -604,6 +662,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   /** Remove the persisted goal attached to this Codex thread. */
   async clearGoal(): Promise<boolean> {
+    this.cancelRecovery();
     if (!this._threadId) {
       throw new Error("No thread ID available for goal clear");
     }
@@ -974,6 +1033,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   stop(): void {
     this.stopped = true;
+    this.recovery.setEnabled(false);
     this.rejectReadiness(new Error("codex app-server stopped"));
 
     if (this.inputResolve) {
@@ -1002,6 +1062,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     options?: CodexStartOptions,
   ): void {
     this.stopped = false;
+    this.recovery.setEnabled(false);
     this._threadId = null;
     this._agentNickname = null;
     this._agentRole = null;
@@ -1098,6 +1159,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   interrupt(): void {
+    this.cancelRecovery();
     if (!this._threadId || !this.pendingTurnId) return;
 
     void this.request("turn/interrupt", {
@@ -1113,6 +1175,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   sendInput(text: string): void {
+    this.noteManualInput();
     if (!this.inputResolve) {
       console.error("[codex-process] No pending input resolver for sendInput");
       return;
@@ -1126,6 +1189,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     text: string,
     images: Array<{ base64: string; mimeType: string }>,
   ): void {
+    this.noteManualInput();
     if (!this.inputResolve) {
       console.error(
         "[codex-process] No pending input resolver for sendInputWithImages",
@@ -1152,6 +1216,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       mentions?: Array<{ name: string; path: string }>;
     },
   ): void {
+    this.noteManualInput();
     if (!this.inputResolve) {
       console.error(
         "[codex-process] No pending input resolver for sendInputStructured",
@@ -1176,6 +1241,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       mentions?: Array<{ name: string; path: string }>;
     },
   ): Promise<void> {
+    this.noteManualInput();
     if (!this._threadId || !this.pendingTurnId) {
       throw new Error("No active Codex turn to steer");
     }
@@ -2316,9 +2382,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         continue;
       }
 
+      const manualVersion = this.manualInputVersion;
+      this.recoveryFailure = null;
+      this.upstreamWillRetry = false;
+      this.inputTurnStarted = false;
+      let startFailure: unknown = null;
       const { input, tempPaths } = await this.toRpcInput(pendingInput);
-      if (!input) {
+      if (!input || (pendingInput.recoveryGeneration !== undefined &&
+          (pendingInput.recoveryGeneration !== this.recovery.version || !this.recovery.state.enabled))) {
+        await Promise.all(tempPaths.map((path) => rm(path, { force: true }).catch(() => {})));
         continue;
+      }
+      if (pendingInput.recoveryContinuation && !pendingInput.recoveryEchoed) {
+        pendingInput.recoveryEchoed = true;
+        this.emitMessage({ type: "user_input", text: pendingInput.text, timestamp: new Date().toISOString() });
       }
 
       this.setStatus("running");
@@ -2391,6 +2468,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             reject(err instanceof Error ? err : new Error(String(err)));
           });
       }).catch((err) => {
+        // Only a confirmed turn/start rejection can replay original attachments.
+        if (err instanceof CodexRpcError && !this.inputTurnStarted && !this.pendingTurnId) startFailure = err;
         if (!this.stopped) {
           const message = err instanceof Error ? err.message : String(err);
           this.emitMessage({ type: "error", message });
@@ -2408,6 +2487,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         tempPaths.map((path) => rm(path, { force: true }).catch(() => {})),
       );
       void completion;
+      if (!this.stopped && manualVersion === this.manualInputVersion && !this.upstreamWillRetry) {
+        const failure = startFailure ?? this.recoveryFailure;
+        if (failure) this.recovery.schedule(failure, startFailure ? pendingInput : {
+          text: "Automatic recovery: Continue exactly where you left off. Do not repeat completed work. If the task is already complete, stop.",
+          recoveryContinuation: true,
+        });
+      }
     }
   }
 
@@ -2730,6 +2816,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       case "turn/started": {
+        this.inputTurnStarted = true;
+        this.recovery.cancel();
         const turn = params.turn as Record<string, unknown> | undefined;
         if (typeof turn?.id === "string") {
           this.pendingTurnId = turn.id;
@@ -2756,6 +2844,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "thread/goal/updated": {
         try {
+          const goal = parseCodexGoal(params.goal);
+          if (!["active", "usageLimited"].includes(goal.status) ||
+              (typeof goal.tokenBudget === "number" && goal.tokensUsed >= goal.tokenBudget)) this.cancelRecovery();
           this.emitMessage({
             type: "goal_state",
             goal: parseCodexGoal(params.goal),
@@ -2769,6 +2860,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       case "thread/goal/cleared": {
+        this.cancelRecovery();
         this.emitMessage({ type: "goal_state", goal: null });
         break;
       }
@@ -2948,6 +3040,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         const error = asRecord(params.error);
         const message = stringValue(error?.message) ?? "Codex runtime error";
         if (params.willRetry === true) {
+          this.upstreamWillRetry = true;
           console.warn(`[codex-process] Codex will retry: ${message}`);
           break;
         }
@@ -2993,6 +3086,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     if (status === "failed") {
       const errorObj = turn?.error as Record<string, unknown> | undefined;
+      // A terminal failure ends upstream retry ownership. Warnings alone never
+      // schedule work, and an explicitly retrying terminal payload is excluded.
+      if (this.pendingTurnCompletion && errorObj?.willRetry !== true &&
+          (!this.pendingTurnId || !turn?.id || turn.id === this.pendingTurnId)) {
+        this.upstreamWillRetry = false;
+        this.recoveryFailure = errorObj;
+      }
       const message =
         typeof errorObj?.message === "string"
           ? errorObj.message

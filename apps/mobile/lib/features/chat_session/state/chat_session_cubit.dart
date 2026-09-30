@@ -296,6 +296,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       emit(state.copyWith(rewindPreview: msg));
       return;
     }
+    if (msg is CodexRecoveryStateMessage) {
+      emit(state.copyWith(recovery: msg.recovery));
+      return;
+    }
     if (msg is GoalStateMessage) {
       emit(state.copyWith(goal: msg.goal));
       final effect = goalNotificationEffect(msg.notification);
@@ -1460,6 +1464,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         clientMessageId: clientMessageId,
         item: deliveryPendingItem!,
       );
+    }
+  }
+
+  void setCodexRecovery(bool enabled) {
+    if (isCodex) {
+      _bridge.send(ClientMessage.setCodexRecovery(sessionId, enabled));
+    }
+  }
+
+  void cancelCodexRecovery() {
+    if (isCodex) {
+      _bridge.send(ClientMessage.cancelCodexRecovery(sessionId));
     }
   }
 

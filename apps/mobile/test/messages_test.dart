@@ -683,6 +683,7 @@ void main() {
       expect(json['supportedServerMessages'], [
         'conversation_queue',
         'goal_state',
+        'codex_recovery_state',
         'guardian_approval',
         'history_delta',
         'history_snapshot',

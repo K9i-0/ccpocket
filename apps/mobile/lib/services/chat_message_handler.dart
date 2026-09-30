@@ -162,6 +162,8 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'set_codex_model': UnsupportedAction.showUpdateHint,
   'set_codex_speed': UnsupportedAction.showUpdateHint,
   'set_goal': UnsupportedAction.showUpdateHint,
+  'set_codex_recovery': UnsupportedAction.showUpdateHint,
+  'cancel_codex_recovery': UnsupportedAction.showUpdateHint,
   'clear_goal': UnsupportedAction.showUpdateHint,
   'mutate_prompt_history': UnsupportedAction.showUpdateHint,
   'import_prompt_history_v1': UnsupportedAction.showUpdateHint,
