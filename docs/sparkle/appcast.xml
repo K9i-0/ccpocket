@@ -8,16 +8,16 @@
     <description>Updates for CC Pocket macOS</description>
     <language>en</language>
     <item>
-      <title>Version 1.137.1</title>
-      <pubDate>Tue, 29 Sep 2026 13:02:46 +0000</pubDate>
-      <sparkle:version>260</sparkle:version>
-      <sparkle:shortVersionString>1.137.1</sparkle:shortVersionString>
-      <sparkle:releaseNotesLink>https://github.com/K9i-0/ccpocket/releases/tag/macos/v1.137.1%2B260</sparkle:releaseNotesLink>
+      <title>Version 1.140.0</title>
+      <pubDate>Thu, 01 Oct 2026 14:51:19 +0000</pubDate>
+      <sparkle:version>263</sparkle:version>
+      <sparkle:shortVersionString>1.140.0</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://github.com/K9i-0/ccpocket/releases/tag/macos/v1.140.0%2B263</sparkle:releaseNotesLink>
       <enclosure
-        url="https://github.com/K9i-0/ccpocket/releases/download/macos/v1.137.1%2B260/CC-Pocket-macos-v1.137.1.dmg"
-        sparkle:version="260"
-        sparkle:shortVersionString="1.137.1"
-        sparkle:edSignature="kUSgv03ygOlw3LDTCgvfReEdJC9cycoRp2luTHoP7gKLyWEsfnVWWacrWb1VQstZL/i0+FkZFRV63Pz3ItBEAg==" length="66164487"
+        url="https://github.com/K9i-0/ccpocket/releases/download/macos/v1.140.0%2B263/CC-Pocket-macos-v1.140.0.dmg"
+        sparkle:version="263"
+        sparkle:shortVersionString="1.140.0"
+        sparkle:edSignature="sHD9OI+rY8S8K5LlcTPuHJPAvDAqgJZzk63YSXHX7odnu2FPOFL8HpDBAPgpJ0jTI5fNFik+WC1Z68fK5i8/DQ==" length="66254494"
         type="application/octet-stream" />
     </item>
   </channel>
