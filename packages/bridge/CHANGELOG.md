@@ -4,6 +4,15 @@ All notable changes to `@ccpocket/bridge` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.88.0] - 2026-10-01
+
+### Added
+- Add opt-in Performance mode with per-client defaults and per-session overrides. Remove tool payloads, incidental screenshots, and thinking before WebSocket serialization while retaining generated images, attachments, approvals, plans, and lightweight activity updates.
+
+### Changed
+- Apply delivery filtering to live events, batched deltas, and restored histories without changing canonical agent history or other clients' delivery.
+- Acknowledge delivery preference changes and mark intentional history sequence gaps so clients can safely switch modes, reconnect, and restore full history in standard mode.
+
 ## [1.87.0] - 2026-09-30
 
 ### Added
