@@ -3106,11 +3106,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get finderRevealFailed => 'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。';
 
   @override
-  String get liteMode => '軽量モード';
+  String get performanceModeBridgeUpdate =>
+      '通信量を減らすにはBridgeの更新が必要です。現在は画面上の非表示のみ対応しています。';
+
+  @override
+  String get liteMode => 'パフォーマンスモード';
 
   @override
   String get liteModeDescription =>
-      'ツール履歴と作業途中の画像を省略します。生成画像・添付画像・Explorerの画像は表示します。';
+      'Bridgeから送るツール履歴や途中の画像を削減します。生成画像・添付画像・Explorerの画像は表示します。';
 
   @override
   String get chatDisplayMode => '表示モード';

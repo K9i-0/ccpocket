@@ -45,7 +45,7 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      expect(find.text('軽量モード'), findsOneWidget);
+      expect(find.text('パフォーマンスモード'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('display_mode_lite')));
       await tester.pumpAndSettle();
       expect(settings.state.liteModeForSession('session'), true);
@@ -201,7 +201,7 @@ void main() {
       await tester.pump();
       expect(chat.activityObservedSince, isNull);
       await tester.pump();
-      expect(find.textContaining('Lite mode · Idle'), findsOneWidget);
+      expect(find.textContaining('Performance mode · Idle'), findsOneWidget);
       expect(find.textContaining('Last activity'), findsNothing);
       bridge.emitMessage(
         const SessionContextMessage(

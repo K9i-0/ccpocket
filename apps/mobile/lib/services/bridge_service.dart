@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -155,6 +156,83 @@ class BridgeService implements BridgeServiceBase {
   Set<String> _protocolCapabilities = const {};
   String? _promptHistoryBridgeId;
   UsageResultMessage? _lastUsageResult;
+  final Set<String> _pendingDeliveryRefreshIds = {};
+  int _deliveryRevision = 0;
+  int _deliveryHandshakeEpoch = -1;
+  bool _appliedPerformanceMode = false;
+  Map<String, bool> _appliedSessionPerformanceModes = const {};
+  bool _performanceMode = false;
+  Map<String, bool> _sessionPerformanceModes = const {};
+  final Map<String, int> _historyObservers = {};
+  bool get supportsPerformanceMode =>
+      _protocolCapabilities.contains('performance_mode_v1');
+
+  void retainSessionHistory(String sessionId) {
+    _historyObservers.update(
+      sessionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void releaseSessionHistory(String sessionId) {
+    final count = _historyObservers[sessionId] ?? 0;
+    if (count <= 1) {
+      _historyObservers.remove(sessionId);
+    } else {
+      _historyObservers[sessionId] = count - 1;
+    }
+  }
+
+  ClientMessage _deliveryCapabilities() => ClientMessage.clientCapabilities(
+    deliveryRevision: ++_deliveryRevision,
+    performanceMode: _performanceMode,
+    sessionPerformanceModes: _sessionPerformanceModes,
+  );
+
+  void configurePerformanceMode(bool enabled, Map<String, bool> sessions) {
+    if (_performanceMode == enabled &&
+        mapEquals(_sessionPerformanceModes, sessions)) {
+      return;
+    }
+    _pendingDeliveryRefreshIds.addAll(
+      {..._runtimeStore.sessionIds, ..._historyObservers.keys}.where(
+        (id) =>
+            (_sessionPerformanceModes[id] ?? _performanceMode) !=
+            (sessions[id] ?? enabled),
+      ),
+    );
+    _performanceMode = enabled;
+    _sessionPerformanceModes = Map.of(sessions);
+    if (_connectionState == BridgeConnectionState.connected) {
+      send(_deliveryCapabilities());
+    }
+  }
+
+  void _applyDeliveryMode({required bool supported}) {
+    final enabled = supported && _performanceMode;
+    final sessions = supported ? _sessionPerformanceModes : <String, bool>{};
+    final affected = {..._runtimeStore.sessionIds, ..._historyObservers.keys}
+        .where(
+          (id) =>
+              (supported && _pendingDeliveryRefreshIds.contains(id)) ||
+              (_appliedSessionPerformanceModes[id] ??
+                      _appliedPerformanceMode) !=
+                  (sessions[id] ?? enabled),
+        )
+        .toList();
+    _pendingDeliveryRefreshIds.clear();
+    _appliedPerformanceMode = enabled;
+    _appliedSessionPerformanceModes = Map.of(sessions);
+    for (final id in affected) {
+      _runtimeStore.clearHistory(id);
+      _pendingHistoryDeltaSinceSeq.remove(id);
+      // Reset and history use the same ordered stream, including buffered frames.
+      _taggedMessageController.add((const SessionHistoryResetMessage(), id));
+      if (_historyObservers.containsKey(id)) send(ClientMessage.getHistory(id));
+    }
+  }
+
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
   final Map<String, int> _pendingHistoryDeltaSinceSeq = {};
   final Map<String, ClientMessage> _inFlightPendingMessages = {};
@@ -563,6 +641,10 @@ class BridgeService implements BridgeServiceBase {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             ProtocolCompatibility? announcedCompatibility;
             if (json['type'] == 'session_list') {
+              if (_deliveryHandshakeEpoch != epoch) {
+                channel.sink.add(_deliveryCapabilities().toJson());
+                _deliveryHandshakeEpoch = epoch;
+              }
               announcedCompatibility = ProtocolCompatibility.fromBridgeJson(
                 json,
               );
@@ -582,6 +664,12 @@ class BridgeService implements BridgeServiceBase {
               return;
             }
             final sessionId = json['sessionId'] as String?;
+            if (json['type'] == 'performance_mode_state') {
+              if (json['deliveryRevision'] == _deliveryRevision) {
+                _applyDeliveryMode(supported: true);
+              }
+              return;
+            }
             final msg = ServerMessage.fromJson(json);
             _clearDeliveredNonReplayableToolAction(msg, sessionId: sessionId);
             if (sessionId != null && msg is HistoryDeltaMessage) {
@@ -641,6 +729,9 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
                 _protocolCapabilities = protocolCapabilities;
+                if (!supportsPerformanceMode) {
+                  _applyDeliveryMode(supported: false);
+                }
                 _flushMessageQueue();
                 _dispatchNextLegacyFileListRequest();
                 _dispatchNextLegacyWorktreeListRequest();
@@ -964,7 +1055,10 @@ class BridgeService implements BridgeServiceBase {
               }
               _setBridgeConnectionState(BridgeConnectionState.connected);
               _reconnectAttempt = 0;
-              send(ClientMessage.clientCapabilities());
+              if (_deliveryHandshakeEpoch != epoch) {
+                send(_deliveryCapabilities());
+                _deliveryHandshakeEpoch = epoch;
+              }
               if (_protocolCompatibility?.isCompatible ?? false) {
                 _flushMessageQueue();
               }

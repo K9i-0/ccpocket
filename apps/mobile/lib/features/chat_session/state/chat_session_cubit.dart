@@ -191,6 +191,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         }
       }
     });
+    _bridge.retainSessionHistory(sessionId);
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -287,6 +288,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     super.emit(state);
   }
 
+  bool get supportsPerformanceMode => _bridge.supportsPerformanceMode;
+
   void _recordAgentActivity(ServerMessage msg) {
     if (msg is AssistantServerMessage ||
         msg is ToolResultMessage ||
@@ -307,6 +310,24 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void _onMessage(ServerMessage msg) {
+    if (msg is SessionHistoryResetMessage) {
+      final localUsers = state.entries
+          .skip(_pastEntryCount)
+          .whereType<UserChatEntry>()
+          .toList();
+      _pastEntryCount = 0;
+      _pastHistoryLoaded = false;
+      // Full histories from different delivery modes must not enrich each other.
+      emit(state.copyWith(entries: localUsers, pastHistoryLoaded: false));
+      _restoreDeliveryPendingInput();
+      return;
+    }
+    if (msg is SessionActivityMessage) {
+      _lastAgentActivityAt = DateTime.now();
+      _activityObservedSince ??= _lastAgentActivityAt;
+      _latestActivityTool = null;
+      return;
+    }
     if (msg is SessionContextMessage) {
       _applySessionContext(msg.context);
       return;
@@ -2369,6 +2390,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
     _deliveryPendingTimers.clear();
     _deliveryPendingInputs.clear();
+    _bridge.releaseSessionHistory(sessionId);
     _subscription?.cancel();
     _sessionContextSubscription?.cancel();
     _sideEffectsController.close();

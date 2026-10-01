@@ -159,6 +159,8 @@ class _ActivityStatusState extends State<_ActivityStatus> {
                         ),
                     ].join(' · '),
                   ),
+                  if (!cubit.supportsPerformanceMode)
+                    Text(l.performanceModeBridgeUpdate),
                   if (active && cubit.lastAgentActivityAt != null)
                     Text(
                       l.liteModeLastActivity(

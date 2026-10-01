@@ -692,6 +692,7 @@ void main() {
         'projects',
         'push_registration_result',
         'session_context',
+        'session_activity',
       ]);
     });
 

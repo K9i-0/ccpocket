@@ -908,6 +908,7 @@ sealed class ServerMessage {
         sessionId: json['sessionId'] as String,
         context: SessionInfo.fromJson(json['context'] as Map<String, dynamic>),
       ),
+      'session_activity' => SessionActivityMessage(),
       'status' => StatusMessage(
         status: ProcessStatus.fromString(json['status'] as String),
       ),
@@ -917,6 +918,7 @@ sealed class ServerMessage {
             .toList(),
       ),
       'history_delta' => HistoryDeltaMessage(
+        filtered: json['filtered'] == true,
         sessionId: json['sessionId'] as String?,
         fromSeq: json['fromSeq'] as int? ?? 0,
         toSeq: json['toSeq'] as int? ?? 0,
@@ -1892,7 +1894,17 @@ class HistoryEntry {
   }
 }
 
+/// Local event ordered with history frames; never received from the wire.
+class SessionHistoryResetMessage implements ServerMessage {
+  const SessionHistoryResetMessage();
+}
+
+class SessionActivityMessage implements ServerMessage {
+  const SessionActivityMessage();
+}
+
 class HistoryDeltaMessage implements ServerMessage {
+  final bool filtered;
   final String? sessionId;
   final int fromSeq;
   final int toSeq;
@@ -1900,6 +1912,7 @@ class HistoryDeltaMessage implements ServerMessage {
   final ProcessStatus? status;
 
   const HistoryDeltaMessage({
+    this.filtered = false,
     this.sessionId,
     required this.fromSeq,
     required this.toSeq,
@@ -4571,6 +4584,9 @@ class ClientMessage {
   String get type => _json['type'] as String;
 
   factory ClientMessage.clientCapabilities({
+    int? deliveryRevision,
+    bool performanceMode = false,
+    Map<String, bool> sessionPerformanceModes = const {},
     String? appVersion,
     int protocolVersion = appProtocolMaxVersion,
     int minimumProtocolVersion = appProtocolMinVersion,
@@ -4586,10 +4602,14 @@ class ClientMessage {
       'projects',
       'push_registration_result',
       'session_context',
+      'session_activity',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'client_capabilities',
+      'deliveryRevision': ?deliveryRevision,
+      'performanceMode': performanceMode,
+      'sessionPerformanceModes': sessionPerformanceModes,
       'protocolVersion': protocolVersion,
       'minimumProtocolVersion': minimumProtocolVersion,
       'appVersion': ?appVersion,

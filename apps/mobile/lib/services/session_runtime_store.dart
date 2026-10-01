@@ -59,6 +59,16 @@ class SessionRuntimeStore {
   final int maxMessagesPerSession;
   final Map<String, SessionRuntimeState> _sessions = {};
 
+  Iterable<String> get sessionIds => _sessions.keys;
+
+  void clearHistory(String sessionId) {
+    final state = _sessions[sessionId];
+    if (state == null) return;
+    _clearMessages(state);
+    state.historySeq = 0;
+    state.cachedHistorySeq = 0;
+  }
+
   SessionRuntimeSnapshot snapshot(String sessionId) {
     final state = _sessions[sessionId];
     if (state == null) {
@@ -226,7 +236,8 @@ class SessionRuntimeStore {
   }
 
   bool _shouldIgnore(ServerMessage message) {
-    return message is PastHistoryMessage ||
+    return message is SessionActivityMessage ||
+        message is PastHistoryMessage ||
         message is SessionContextMessage ||
         message is StreamDeltaMessage ||
         message is ThinkingDeltaMessage ||
@@ -341,6 +352,8 @@ class SessionRuntimeStore {
   ) {
     if (message.fromSeq > cachedHistorySeq + 1) return false;
     if (message.toSeq <= cachedHistorySeq) return true;
+
+    if (message.filtered) return true;
 
     final entrySeqs = message.entries
         .where((entry) => !_shouldIgnore(entry.message))

@@ -98,6 +98,7 @@ class SettingsCubit extends Cubit<SettingsState> {
                (appIconService ?? AppIconService()).isSupportedPlatform,
          ),
        ) {
+    _syncPerformanceMode();
     final bridge = _bridge;
     if (bridge != null) {
       _bridgeMessagesSub = bridge.messages.listen((message) {
@@ -303,9 +304,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
+  void _syncPerformanceMode() {
+    _bridge?.configurePerformanceMode(state.liteMode, state.sessionLiteModes);
+  }
+
   void setLiteMode(bool enabled) {
     _prefs.setBool('settings_lite_mode', enabled);
     emit(state.copyWith(liteMode: enabled));
+    _syncPerformanceMode();
   }
 
   void setSessionLiteMode(String sessionId, bool? enabled) {
@@ -319,6 +325,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       _prefs.setBool(key, enabled);
     }
     emit(state.copyWith(sessionLiteModes: overrides));
+    _syncPerformanceMode();
   }
 
   static UsageDisplayMode _usageDisplayModeFromRaw(String? raw) {

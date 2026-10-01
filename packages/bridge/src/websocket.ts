@@ -1,3 +1,4 @@
+import { performanceMessage } from "./performance-mode.js";
 import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
@@ -867,6 +868,20 @@ export class BridgeWebSocketServer {
   private readonly deltaBatchMaxChars: number;
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
+  private deliveryPreferences = new WeakMap<
+    WebSocket,
+    { enabled: boolean; sessions: Record<string, boolean> }
+  >();
+  private activityTimes = new WeakMap<WebSocket, Map<string, number>>();
+
+  private performanceEnabled(ws: WebSocket, msg: Record<string, unknown>): boolean {
+    const prefs = this.deliveryPreferences.get(ws);
+    if (!prefs || typeof msg.sessionId !== "string") return false;
+    return Object.hasOwn(prefs.sessions, msg.sessionId)
+      ? prefs.sessions[msg.sessionId]
+      : prefs.enabled;
+  }
+
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
   private clientProtocolVersions = new WeakMap<WebSocket, number>();
   private rejectedProtocolClients = new WeakSet<WebSocket>();
@@ -2796,6 +2811,13 @@ export class BridgeWebSocketServer {
         ws,
         new Set(msg.supportedServerMessages ?? []),
       );
+      this.deliveryPreferences.set(ws, {
+        enabled: msg.performanceMode ?? false,
+        sessions: msg.sessionPerformanceModes ?? {},
+      });
+      if (msg.deliveryRevision !== undefined) {
+        this.send(ws, { type: "performance_mode_state", deliveryRevision: msg.deliveryRevision });
+      }
       this.sendPromptHistoryStatus(ws);
       return;
     }
@@ -8273,6 +8295,7 @@ export class BridgeWebSocketServer {
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
       protocolCapabilities: [
+        "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
       ],
@@ -8316,6 +8339,7 @@ export class BridgeWebSocketServer {
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
       protocolCapabilities: [
+        "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
       ],
@@ -8364,10 +8388,15 @@ export class BridgeWebSocketServer {
   ): void {
     if (this.shouldBatchDelta(msg, exclude)) {
       this.trackSessionMessage(sessionId, msg);
-      const chunks = this.splitDeltaText(msg.text);
+      let chunks: DeltaTextChunk[] | undefined;
       for (const client of this.wss.clients) {
         if (client.readyState !== WebSocket.OPEN) continue;
         if (!this.shouldSendToClient(client, msg)) continue;
+        if (msg.type === "thinking_delta" && this.performanceEnabled(client, { sessionId })) {
+          this.send(client, { ...msg, sessionId } as Record<string, unknown>);
+          continue;
+        }
+        chunks ??= this.splitDeltaText(msg.text);
         this.queueDeltaForClient(client, sessionId, msg.type, chunks);
       }
       return;
@@ -8476,7 +8505,7 @@ export class BridgeWebSocketServer {
     if (client.readyState !== WebSocket.OPEN) return;
 
     for (const msg of batch.messages) {
-      client.send(JSON.stringify({ ...msg, sessionId }));
+      this.send(client, { ...msg, sessionId } as Record<string, unknown>);
     }
   }
 
@@ -9588,6 +9617,26 @@ export class BridgeWebSocketServer {
     msg: ServerMessage | Record<string, unknown>,
   ): ServerMessage | Record<string, unknown> | null {
     if (!this.shouldSendToClient(ws, msg)) return null;
+    if (this.performanceEnabled(ws, msg as Record<string, unknown>)) {
+      const projected = performanceMessage(msg as Record<string, unknown>);
+      if (projected) {
+        msg = projected;
+      } else {
+        const sessionId = (msg as Record<string, unknown>).sessionId as string;
+        const times = this.activityTimes.get(ws) ?? new Map<string, number>();
+        this.activityTimes.set(ws, times);
+        const now = Date.now();
+        if (now - (times.get(sessionId) ?? 0) < 1000) return null;
+        times.set(sessionId, now);
+        const historySeq = (msg as Record<string, unknown>).historySeq;
+        return {
+          type: "session_activity",
+          sessionId,
+          historySeq: typeof historySeq === "number" ? historySeq : undefined,
+          at: new Date(now).toISOString(),
+        };
+      }
+    }
     if (!("messages" in msg) || !Array.isArray(msg.messages)) return msg;
     const messages = msg.messages as unknown[];
 

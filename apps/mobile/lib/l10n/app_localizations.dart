@@ -5855,16 +5855,22 @@ abstract class AppLocalizations {
   /// **'Finderで表示できませんでした。ファイルとBridgeの接続を確認してください。'**
   String get finderRevealFailed;
 
+  /// No description provided for @performanceModeBridgeUpdate.
+  ///
+  /// In ja, this message translates to:
+  /// **'通信量を減らすにはBridgeの更新が必要です。現在は画面上の非表示のみ対応しています。'**
+  String get performanceModeBridgeUpdate;
+
   /// No description provided for @liteMode.
   ///
   /// In ja, this message translates to:
-  /// **'軽量モード'**
+  /// **'パフォーマンスモード'**
   String get liteMode;
 
   /// No description provided for @liteModeDescription.
   ///
   /// In ja, this message translates to:
-  /// **'ツール履歴と作業途中の画像を省略します。生成画像・添付画像・Explorerの画像は表示します。'**
+  /// **'Bridgeから送るツール履歴や途中の画像を削減します。生成画像・添付画像・Explorerの画像は表示します。'**
   String get liteModeDescription;
 
   /// No description provided for @chatDisplayMode.

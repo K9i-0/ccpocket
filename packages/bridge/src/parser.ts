@@ -107,6 +107,9 @@ export type ClientMessage =
       protocolVersion?: number;
       minimumProtocolVersion?: number;
       supportedServerMessages?: string[];
+      deliveryRevision?: number;
+      performanceMode?: boolean;
+      sessionPerformanceModes?: Record<string, boolean>;
     }
   | {
       type: "start";
@@ -715,10 +718,13 @@ export type ServerMessage =
       sessionId: string;
       context: Record<string, unknown>;
     }
+  | { type: "session_activity"; sessionId?: string; at: string; historySeq?: number }
+  | { type: "performance_mode_state"; deliveryRevision: number }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
   | {
       type: "history_delta";
+      filtered?: boolean;
       sessionId?: string;
       fromSeq: number;
       toSeq: number;
@@ -727,6 +733,7 @@ export type ServerMessage =
     }
   | {
       type: "history_snapshot";
+      filtered?: boolean;
       sessionId?: string;
       fromSeq: number;
       toSeq: number;
@@ -1337,6 +1344,21 @@ export function parseClientMessage(data: string): ClientMessage | null {
 
     switch (msg.type) {
       case "client_capabilities":
+        if (
+          msg.deliveryRevision !== undefined &&
+          (!Number.isSafeInteger(msg.deliveryRevision) || Number(msg.deliveryRevision) < 0)
+        ) return null;
+        if (
+          msg.performanceMode !== undefined && typeof msg.performanceMode !== "boolean"
+        ) return null;
+        if (
+          msg.sessionPerformanceModes !== undefined && (
+            msg.sessionPerformanceModes === null ||
+            typeof msg.sessionPerformanceModes !== "object" ||
+            Array.isArray(msg.sessionPerformanceModes) ||
+            Object.values(msg.sessionPerformanceModes).some((value) => typeof value !== "boolean")
+          )
+        ) return null;
         if (msg.appVersion !== undefined && typeof msg.appVersion !== "string")
           return null;
         if (

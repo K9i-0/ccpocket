@@ -3131,11 +3131,15 @@ class AppLocalizationsKo extends AppLocalizations {
       'Finder에서 파일을 표시하지 못했습니다. 파일과 Bridge 연결을 확인하세요.';
 
   @override
-  String get liteMode => '경량 모드';
+  String get performanceModeBridgeUpdate =>
+      '통신량을 줄이려면 Bridge를 업데이트하세요. 현재는 화면에서만 세부 정보를 숨깁니다.';
+
+  @override
+  String get liteMode => '성능 모드';
 
   @override
   String get liteModeDescription =>
-      '도구 기록과 작업 중 이미지를 숨깁니다. 생성 이미지, 첨부 파일, 탐색기 이미지는 표시합니다.';
+      'Bridge가 전송하는 도구 기록과 작업 중 이미지를 줄입니다. 생성 이미지, 첨부 파일, 탐색기 이미지는 표시합니다.';
 
   @override
   String get chatDisplayMode => '표시 모드';

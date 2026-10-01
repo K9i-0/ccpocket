@@ -3231,11 +3231,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not show the file in Finder. Check the file and Bridge connection.';
 
   @override
-  String get liteMode => 'Lite mode';
+  String get performanceModeBridgeUpdate =>
+      'Update Bridge to reduce network traffic. This Bridge only supports hiding details on screen.';
+
+  @override
+  String get liteMode => 'Performance mode';
 
   @override
   String get liteModeDescription =>
-      'Hide tool history and work-in-progress images. Keep generated images, attachments, and Explorer images.';
+      'Reduce tool history and work-in-progress images sent by Bridge. Keep generated images, attachments, and Explorer images.';
 
   @override
   String get chatDisplayMode => 'Display mode';

@@ -4,6 +4,45 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SessionRuntimeStore', () {
+    test('advances over intentional filtered gaps but rejects actual gaps', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        's1',
+        const HistoryDeltaMessage(
+          filtered: true,
+          fromSeq: 1,
+          toSeq: 100,
+          entries: [],
+        ),
+      );
+      expect(store.cachedHistorySeq('s1'), 100);
+      store.applyServerMessage(
+        's1',
+        const HistoryDeltaMessage(
+          filtered: true,
+          fromSeq: 102,
+          toSeq: 110,
+          entries: [],
+        ),
+      );
+      expect(store.cachedHistorySeq('s1'), 100);
+      store.applyServerMessage(
+        's1',
+        const SessionActivityMessage(),
+        historySeq: 120,
+      );
+      expect(store.latestHistorySeq('s1'), 120);
+      expect(store.messages('s1'), isEmpty);
+      store.setExplorerHistory(
+        's1',
+        currentPath: '/repo/images',
+        recentPeekedFiles: [],
+      );
+      store.clearHistory('s1');
+      expect(store.cachedHistorySeq('s1'), 0);
+      expect(store.snapshot('s1').explorerHistory.currentPath, '/repo/images');
+    });
+
     test('stores canonical context outside the chat timeline', () {
       final store = SessionRuntimeStore();
       final context = SessionInfo(
