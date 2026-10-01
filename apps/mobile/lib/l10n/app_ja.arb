@@ -1321,5 +1321,25 @@
         "type": "String"
       }
     }
-  }
+  },
+  "demoTry": "接続せずに試す",
+  "demoTitle": "CC Pocketを体験",
+  "demoExit": "体験を終了",
+  "demoRestart": "もう一度試す",
+  "demoDisclaimer": "オフライン体験 · 応答はサンプルです。AIの利用やファイルの変更は行いません。",
+  "demoWelcome": "依頼を送り、変更を承認・拒否し、差分を確認する流れを試せます。PCやアカウントは不要です。",
+  "demoSuggestion": "挨拶のメッセージを親しみやすくして",
+  "demoInputHint": "メッセージを試す",
+  "demoInputHelp": "どんなメッセージでも同じサンプルが始まります。AIには送信されません。",
+  "demoSend": "サンプルの依頼を送る",
+  "demoProposal": "このサンプルでは、lib/welcome.dart の挨拶を「Hello」から「Hello, Pocket!」へ変更します。編集を許可するか選んでください。",
+  "demoApprovalTitle": "サンプルの編集を許可しますか？",
+  "demoApprovalDetail": "編集 · lib/welcome.dart\n変更するのはサンプルデータだけです。",
+  "demoReject": "拒否",
+  "demoApprove": "今回だけ許可",
+  "demoCompleted": "サンプルの編集が完了しました。下の差分で追加・削除された行を確認できます。実際のファイルは変更していません。",
+  "demoRejected": "編集を拒否しました。変更はありません。ツールの操作は自分で判断できます。",
+  "demoDiffSummary": "サンプル差分 · 1行追加、1行削除",
+  "demoFinish": "自分のBridgeに接続すると、実際のプロジェクトとAIエージェントで作業できます。",
+  "demoConnect": "自分のBridgeを設定する"
 }

@@ -5932,6 +5932,126 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'監視時間 {elapsed}'**
   String liteModeObserved(String elapsed);
+
+  /// No description provided for @demoTry.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続せずに試す'**
+  String get demoTry;
+
+  /// No description provided for @demoTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocketを体験'**
+  String get demoTitle;
+
+  /// No description provided for @demoExit.
+  ///
+  /// In ja, this message translates to:
+  /// **'体験を終了'**
+  String get demoExit;
+
+  /// No description provided for @demoRestart.
+  ///
+  /// In ja, this message translates to:
+  /// **'もう一度試す'**
+  String get demoRestart;
+
+  /// No description provided for @demoDisclaimer.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフライン体験 · 応答はサンプルです。AIの利用やファイルの変更は行いません。'**
+  String get demoDisclaimer;
+
+  /// No description provided for @demoWelcome.
+  ///
+  /// In ja, this message translates to:
+  /// **'依頼を送り、変更を承認・拒否し、差分を確認する流れを試せます。PCやアカウントは不要です。'**
+  String get demoWelcome;
+
+  /// No description provided for @demoSuggestion.
+  ///
+  /// In ja, this message translates to:
+  /// **'挨拶のメッセージを親しみやすくして'**
+  String get demoSuggestion;
+
+  /// No description provided for @demoInputHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージを試す'**
+  String get demoInputHint;
+
+  /// No description provided for @demoInputHelp.
+  ///
+  /// In ja, this message translates to:
+  /// **'どんなメッセージでも同じサンプルが始まります。AIには送信されません。'**
+  String get demoInputHelp;
+
+  /// No description provided for @demoSend.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンプルの依頼を送る'**
+  String get demoSend;
+
+  /// No description provided for @demoProposal.
+  ///
+  /// In ja, this message translates to:
+  /// **'このサンプルでは、lib/welcome.dart の挨拶を「Hello」から「Hello, Pocket!」へ変更します。編集を許可するか選んでください。'**
+  String get demoProposal;
+
+  /// No description provided for @demoApprovalTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンプルの編集を許可しますか？'**
+  String get demoApprovalTitle;
+
+  /// No description provided for @demoApprovalDetail.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集 · lib/welcome.dart\n変更するのはサンプルデータだけです。'**
+  String get demoApprovalDetail;
+
+  /// No description provided for @demoReject.
+  ///
+  /// In ja, this message translates to:
+  /// **'拒否'**
+  String get demoReject;
+
+  /// No description provided for @demoApprove.
+  ///
+  /// In ja, this message translates to:
+  /// **'今回だけ許可'**
+  String get demoApprove;
+
+  /// No description provided for @demoCompleted.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンプルの編集が完了しました。下の差分で追加・削除された行を確認できます。実際のファイルは変更していません。'**
+  String get demoCompleted;
+
+  /// No description provided for @demoRejected.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集を拒否しました。変更はありません。ツールの操作は自分で判断できます。'**
+  String get demoRejected;
+
+  /// No description provided for @demoDiffSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンプル差分 · 1行追加、1行削除'**
+  String get demoDiffSummary;
+
+  /// No description provided for @demoFinish.
+  ///
+  /// In ja, this message translates to:
+  /// **'自分のBridgeに接続すると、実際のプロジェクトとAIエージェントで作業できます。'**
+  String get demoFinish;
+
+  /// No description provided for @demoConnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'自分のBridgeを設定する'**
+  String get demoConnect;
 }
 
 class _AppLocalizationsDelegate

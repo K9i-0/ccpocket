@@ -3110,4 +3110,65 @@ class AppLocalizationsZh extends AppLocalizations {
   String liteModeObserved(String elapsed) {
     return '已监测 $elapsed';
   }
+
+  @override
+  String get demoTry => '无需连接即可体验';
+
+  @override
+  String get demoTitle => '体验 CC Pocket';
+
+  @override
+  String get demoExit => '退出体验';
+
+  @override
+  String get demoRestart => '重新体验';
+
+  @override
+  String get demoDisclaimer => '离线体验 · 使用示例回复，不消耗 AI 用量，也不修改文件。';
+
+  @override
+  String get demoWelcome => '试试发送请求、批准或拒绝修改，再查看差异的流程。无需电脑或账号。';
+
+  @override
+  String get demoSuggestion => '让欢迎语更亲切一些';
+
+  @override
+  String get demoInputHint => '试着输入消息';
+
+  @override
+  String get demoInputHelp => '任何消息都会启动相同的示例流程，不会发送给 AI。';
+
+  @override
+  String get demoSend => '发送示例请求';
+
+  @override
+  String get demoProposal =>
+      '此示例将把 lib/welcome.dart 中的欢迎语从“Hello”改为“Hello, Pocket!”。请选择是否允许编辑。';
+
+  @override
+  String get demoApprovalTitle => '允许此次示例编辑吗？';
+
+  @override
+  String get demoApprovalDetail => '编辑 · lib/welcome.dart\n仅修改示例数据。';
+
+  @override
+  String get demoReject => '拒绝';
+
+  @override
+  String get demoApprove => '允许一次';
+
+  @override
+  String get demoCompleted => '示例编辑已完成。请在下方查看新增和删除的行。没有修改任何实际文件。';
+
+  @override
+  String get demoRejected => '已拒绝编辑，没有任何修改。工具操作由你决定。';
+
+  @override
+  String get demoDiffSummary => '示例差异 · 新增 1 行，删除 1 行';
+
+  @override
+  String get demoFinish => '连接自己的 Bridge 后，即可使用真实项目和 AI 智能体开展工作。';
+
+  @override
+  String get demoConnect => '设置我的 Bridge';
 }
