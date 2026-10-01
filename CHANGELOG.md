@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.139.0] - 2026-10-01
+
+### Added
+- Add Performance mode with a default setting and per-session overrides for Claude and Codex chats. Hide tool history and work-in-progress screenshots while retaining generated images, attachments, Explorer images, approvals, and questions.
+- Show session status, observed elapsed time, and recent agent activity without rebuilding the transcript every second.
+
+### Changed
+- Recommend Bridge 1.88.0 to reduce tool and image payloads before transmission. Older Bridges retain local display filtering and show an update notice.
+- Restore complete history when returning to standard mode, including safe handling of reconnects and rapid mode changes.
+
+### Fixed
+- Keep the Performance mode activity indicator within the safe area while approval controls are visible.
+
 ## [1.138.0] - 2026-09-30
 
 ### Added
