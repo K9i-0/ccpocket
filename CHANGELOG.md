@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.140.0] - 2026-10-01
+
+### Added
+- Add an offline demo from the connection screen so anyone can try a sample prompt, tool approval, and code diff without setting up a Bridge or an AI account.
+- Localize the demo walkthrough in English, Japanese, Korean, and Simplified Chinese, with clear sample-only labeling and restart controls.
+
 ## [1.139.0] - 2026-10-01
 
 ### Added
