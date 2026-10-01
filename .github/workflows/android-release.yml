@@ -82,6 +82,7 @@ jobs:
           releaseFiles: apps/mobile/build/app/outputs/bundle/release/*.aab
           track: internal
           status: draft
+          changesNotSentForReview: true
 
       # GitHub Release (only when triggered by tag push)
       - name: Extract version from tag

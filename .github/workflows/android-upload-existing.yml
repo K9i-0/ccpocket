@@ -1,0 +1,55 @@
+name: Android Upload Existing Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing released version (X.Y.Z+N)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Verify existing release tag and version
+        run: |
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$ ]]
+          git show "android/v${RELEASE_VERSION}:apps/mobile/pubspec.yaml" | grep -Fx "version: ${RELEASE_VERSION}"
+      - name: Download original signed AAB from Shorebird
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+        run: python3 scripts/release/download-android-release.py
+      - name: Upload to Google Play as internal draft
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
+          packageName: com.k9i.ccpocket
+          releaseFiles: app-release.aab
+          track: internal
+          status: draft
+          changesNotSentForReview: true
+      - name: Create missing GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="android/v${RELEASE_VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          SEMVER="${RELEASE_VERSION%%+*}"
+          git show "${TAG}:CHANGELOG.md" | awk -v version="$SEMVER" '
+            index($0, "## [" version "]") == 1 {found=1; next}
+            /^## \[/ {if(found) exit}
+            found {print}
+          ' > /tmp/release_notes.md
+          gh release create "$TAG" --verify-tag --title "Android ${RELEASE_VERSION}" --notes-file /tmp/release_notes.md
