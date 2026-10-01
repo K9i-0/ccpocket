@@ -6,6 +6,7 @@ import '../../../models/machine.dart';
 import '../../../models/protocol_version.dart';
 import '../../../services/server_discovery_service.dart';
 import '../../../utils/platform_helper.dart';
+import '../../demo/demo_screen.dart';
 import 'discovered_servers_list.dart';
 import 'machine_list.dart';
 import 'protocol_incompatibility_card.dart';
@@ -101,6 +102,15 @@ class ConnectForm extends StatelessWidget {
           Text(
             l.connectToBridgeServer,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            key: const ValueKey('demo_try_button'),
+            onPressed: () => Navigator.of(
+              context,
+            ).push<void>(MaterialPageRoute(builder: (_) => const DemoScreen())),
+            icon: const Icon(Icons.play_circle_outline),
+            label: Text(l.demoTry),
           ),
           const SizedBox(height: 24),
 

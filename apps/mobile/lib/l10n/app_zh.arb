@@ -1396,5 +1396,25 @@
         "type": "String"
       }
     }
-  }
+  },
+  "demoTry": "无需连接即可体验",
+  "demoTitle": "体验 CC Pocket",
+  "demoExit": "退出体验",
+  "demoRestart": "重新体验",
+  "demoDisclaimer": "离线体验 · 使用示例回复，不消耗 AI 用量，也不修改文件。",
+  "demoWelcome": "试试发送请求、批准或拒绝修改，再查看差异的流程。无需电脑或账号。",
+  "demoSuggestion": "让欢迎语更亲切一些",
+  "demoInputHint": "试着输入消息",
+  "demoInputHelp": "任何消息都会启动相同的示例流程，不会发送给 AI。",
+  "demoSend": "发送示例请求",
+  "demoProposal": "此示例将把 lib/welcome.dart 中的欢迎语从“Hello”改为“Hello, Pocket!”。请选择是否允许编辑。",
+  "demoApprovalTitle": "允许此次示例编辑吗？",
+  "demoApprovalDetail": "编辑 · lib/welcome.dart\n仅修改示例数据。",
+  "demoReject": "拒绝",
+  "demoApprove": "允许一次",
+  "demoCompleted": "示例编辑已完成。请在下方查看新增和删除的行。没有修改任何实际文件。",
+  "demoRejected": "已拒绝编辑，没有任何修改。工具操作由你决定。",
+  "demoDiffSummary": "示例差异 · 新增 1 行，删除 1 行",
+  "demoFinish": "连接自己的 Bridge 后，即可使用真实项目和 AI 智能体开展工作。",
+  "demoConnect": "设置我的 Bridge"
 }

@@ -3274,4 +3274,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String liteModeObserved(String elapsed) {
     return 'Observed for $elapsed';
   }
+
+  @override
+  String get demoTry => 'Try without connecting';
+
+  @override
+  String get demoTitle => 'Try CC Pocket';
+
+  @override
+  String get demoExit => 'Exit demo';
+
+  @override
+  String get demoRestart => 'Start again';
+
+  @override
+  String get demoDisclaimer =>
+      'Offline demo · Sample responses. No AI usage or file changes.';
+
+  @override
+  String get demoWelcome =>
+      'Send a request, approve or reject a change, then review the diff. No computer or account needed.';
+
+  @override
+  String get demoSuggestion => 'Make the welcome message friendlier';
+
+  @override
+  String get demoInputHint => 'Try a message';
+
+  @override
+  String get demoInputHelp =>
+      'Any message starts the same sample workflow. It is not sent to AI.';
+
+  @override
+  String get demoSend => 'Send sample request';
+
+  @override
+  String get demoProposal =>
+      'In this sample, I will change the greeting in lib/welcome.dart from “Hello” to “Hello, Pocket!”. Choose whether to allow the edit.';
+
+  @override
+  String get demoApprovalTitle => 'Allow this sample edit?';
+
+  @override
+  String get demoApprovalDetail =>
+      'Edit · lib/welcome.dart\nOnly sample data will change.';
+
+  @override
+  String get demoReject => 'Reject';
+
+  @override
+  String get demoApprove => 'Allow once';
+
+  @override
+  String get demoCompleted =>
+      'The sample edit is complete. Review the added and removed lines below. No real file was changed.';
+
+  @override
+  String get demoRejected =>
+      'The edit was rejected. Nothing changed. You control tool actions.';
+
+  @override
+  String get demoDiffSummary => 'Sample diff · 1 addition, 1 deletion';
+
+  @override
+  String get demoFinish =>
+      'Connect your own Bridge to work with real projects and AI agents.';
+
+  @override
+  String get demoConnect => 'Set up my Bridge';
 }

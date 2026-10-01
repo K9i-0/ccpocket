@@ -3149,4 +3149,66 @@ class AppLocalizationsJa extends AppLocalizations {
   String liteModeObserved(String elapsed) {
     return '監視時間 $elapsed';
   }
+
+  @override
+  String get demoTry => '接続せずに試す';
+
+  @override
+  String get demoTitle => 'CC Pocketを体験';
+
+  @override
+  String get demoExit => '体験を終了';
+
+  @override
+  String get demoRestart => 'もう一度試す';
+
+  @override
+  String get demoDisclaimer => 'オフライン体験 · 応答はサンプルです。AIの利用やファイルの変更は行いません。';
+
+  @override
+  String get demoWelcome => '依頼を送り、変更を承認・拒否し、差分を確認する流れを試せます。PCやアカウントは不要です。';
+
+  @override
+  String get demoSuggestion => '挨拶のメッセージを親しみやすくして';
+
+  @override
+  String get demoInputHint => 'メッセージを試す';
+
+  @override
+  String get demoInputHelp => 'どんなメッセージでも同じサンプルが始まります。AIには送信されません。';
+
+  @override
+  String get demoSend => 'サンプルの依頼を送る';
+
+  @override
+  String get demoProposal =>
+      'このサンプルでは、lib/welcome.dart の挨拶を「Hello」から「Hello, Pocket!」へ変更します。編集を許可するか選んでください。';
+
+  @override
+  String get demoApprovalTitle => 'サンプルの編集を許可しますか？';
+
+  @override
+  String get demoApprovalDetail => '編集 · lib/welcome.dart\n変更するのはサンプルデータだけです。';
+
+  @override
+  String get demoReject => '拒否';
+
+  @override
+  String get demoApprove => '今回だけ許可';
+
+  @override
+  String get demoCompleted =>
+      'サンプルの編集が完了しました。下の差分で追加・削除された行を確認できます。実際のファイルは変更していません。';
+
+  @override
+  String get demoRejected => '編集を拒否しました。変更はありません。ツールの操作は自分で判断できます。';
+
+  @override
+  String get demoDiffSummary => 'サンプル差分 · 1行追加、1行削除';
+
+  @override
+  String get demoFinish => '自分のBridgeに接続すると、実際のプロジェクトとAIエージェントで作業できます。';
+
+  @override
+  String get demoConnect => '自分のBridgeを設定する';
 }
