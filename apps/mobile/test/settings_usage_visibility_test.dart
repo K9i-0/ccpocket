@@ -1700,6 +1700,8 @@ void main() {
       expect(toggle, findsOneWidget);
       expect(settingsCubit.state.openGalleryDirectly, isFalse);
 
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
       await tester.tap(toggle);
       await tester.pumpAndSettle();
 
