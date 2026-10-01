@@ -1,0 +1,25 @@
+What this app does:
+CC Pocket is a remote client for AI coding agents (Claude Code, Codex) running on a desktop machine. The mobile app connects to a self-hosted Bridge Server via WebSocket over a local network or VPN.
+
+New in 1.140.0: offline demo
+From the connection screen, tap "Try without connecting". Tap "Make the welcome message friendlier" or enter a sample request, then choose "Allow once" or "Reject". Approval displays a sample code diff. "Start again" resets the walkthrough. No account, server, network, or AI subscription is needed for this demo. It uses scripted sample responses and makes no real file changes. It demonstrates the interaction model; live sessions and other Bridge-dependent features still require a user's own desktop Bridge.
+
+Live workflow video:
+https://youtu.be/4PsUJVJ5by4
+This video demonstrates the self-hosted workflow on a physical device. A developer-hosted public test server is not provided.
+
+Connection methods:
+1. QR code scan: the user's Bridge Server generates a QR code containing its WebSocket URL.
+2. Manual URL entry: enter the user's Bridge Server WebSocket URL.
+
+Demo account:
+No app-specific account or login is required. The offline demo is available directly from the connection screen. Real connections use the user's own Bridge Server within their private network.
+
+Branding disclaimer:
+"CC" stands for "Claude Code" and is used descriptively. This app is not affiliated with or endorsed by Anthropic or OpenAI.
+
+In-App Purchases:
+Optional supporter purchases are available in Settings > Support.
+The monthly supporter icon perk can be reviewed in Settings > App Icon.
+Privacy Policy and Terms of Use are included in the purchase flow.
+No app-specific account is required for purchases.
