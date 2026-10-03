@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.140.1] - 2026-10-03
+
+### Changed
+- Compact the Performance mode activity indicator into a single line, with the full text available on long press.
+- Display observed and last-received durations with at most two units, including days for long-running goal sessions.
+
 ## [1.140.0] - 2026-10-01
 
 ### Added
