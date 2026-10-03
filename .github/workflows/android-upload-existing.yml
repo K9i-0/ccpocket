@@ -37,7 +37,8 @@ jobs:
           releaseFiles: app-release.aab
           track: internal
           status: draft
-          changesNotSentForReview: true
+          # Play rejects changesNotSentForReview=true for this internal draft.
+          changesNotSentForReview: false
       - name: Create missing GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
