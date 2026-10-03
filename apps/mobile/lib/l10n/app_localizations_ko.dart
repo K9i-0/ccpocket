@@ -3167,12 +3167,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String liteModeLastActivity(String elapsed) {
-    return '마지막 활동: $elapsed 전';
+    return '수신 $elapsed 전';
   }
 
   @override
   String liteModeObserved(String elapsed) {
-    return '모니터링 시간 $elapsed';
+    return '관찰 $elapsed';
   }
 
   @override
@@ -3237,4 +3237,24 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get demoConnect => '내 Bridge 설정';
+
+  @override
+  String liteModeDurationSeconds(int seconds) {
+    return '$seconds초';
+  }
+
+  @override
+  String liteModeDurationMinutes(int minutes, int seconds) {
+    return '$minutes분 $seconds초';
+  }
+
+  @override
+  String liteModeDurationHours(int hours, int minutes) {
+    return '$hours시간 $minutes분';
+  }
+
+  @override
+  String liteModeDurationDays(int days, int hours) {
+    return '$days일 $hours시간';
+  }
 }

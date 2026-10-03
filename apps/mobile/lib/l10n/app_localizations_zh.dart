@@ -3103,12 +3103,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String liteModeLastActivity(String elapsed) {
-    return '上次活动：$elapsed 前';
+    return '$elapsed前收到';
   }
 
   @override
   String liteModeObserved(String elapsed) {
-    return '已监测 $elapsed';
+    return '监测$elapsed';
   }
 
   @override
@@ -3171,4 +3171,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get demoConnect => '设置我的 Bridge';
+
+  @override
+  String liteModeDurationSeconds(int seconds) {
+    return '$seconds秒';
+  }
+
+  @override
+  String liteModeDurationMinutes(int minutes, int seconds) {
+    return '$minutes分$seconds秒';
+  }
+
+  @override
+  String liteModeDurationHours(int hours, int minutes) {
+    return '$hours小时$minutes分';
+  }
+
+  @override
+  String liteModeDurationDays(int days, int hours) {
+    return '$days天$hours小时';
+  }
 }

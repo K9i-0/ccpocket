@@ -3142,12 +3142,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String liteModeLastActivity(String elapsed) {
-    return '最終受信 $elapsed 前';
+    return '受信$elapsed前';
   }
 
   @override
   String liteModeObserved(String elapsed) {
-    return '監視時間 $elapsed';
+    return '監視$elapsed';
   }
 
   @override
@@ -3211,4 +3211,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get demoConnect => '自分のBridgeを設定する';
+
+  @override
+  String liteModeDurationSeconds(int seconds) {
+    return '$seconds秒';
+  }
+
+  @override
+  String liteModeDurationMinutes(int minutes, int seconds) {
+    return '$minutes分$seconds秒';
+  }
+
+  @override
+  String liteModeDurationHours(int hours, int minutes) {
+    return '$hours時間$minutes分';
+  }
+
+  @override
+  String liteModeDurationDays(int days, int hours) {
+    return '$days日$hours時間';
+  }
 }

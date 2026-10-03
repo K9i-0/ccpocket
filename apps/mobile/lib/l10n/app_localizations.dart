@@ -5924,13 +5924,13 @@ abstract class AppLocalizations {
   /// No description provided for @liteModeLastActivity.
   ///
   /// In ja, this message translates to:
-  /// **'最終受信 {elapsed} 前'**
+  /// **'受信{elapsed}前'**
   String liteModeLastActivity(String elapsed);
 
   /// No description provided for @liteModeObserved.
   ///
   /// In ja, this message translates to:
-  /// **'監視時間 {elapsed}'**
+  /// **'監視{elapsed}'**
   String liteModeObserved(String elapsed);
 
   /// No description provided for @demoTry.
@@ -6052,6 +6052,30 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'自分のBridgeを設定する'**
   String get demoConnect;
+
+  /// No description provided for @liteModeDurationSeconds.
+  ///
+  /// In ja, this message translates to:
+  /// **'{seconds}秒'**
+  String liteModeDurationSeconds(int seconds);
+
+  /// No description provided for @liteModeDurationMinutes.
+  ///
+  /// In ja, this message translates to:
+  /// **'{minutes}分{seconds}秒'**
+  String liteModeDurationMinutes(int minutes, int seconds);
+
+  /// No description provided for @liteModeDurationHours.
+  ///
+  /// In ja, this message translates to:
+  /// **'{hours}時間{minutes}分'**
+  String liteModeDurationHours(int hours, int minutes);
+
+  /// No description provided for @liteModeDurationDays.
+  ///
+  /// In ja, this message translates to:
+  /// **'{days}日{hours}時間'**
+  String liteModeDurationDays(int days, int hours);
 }
 
 class _AppLocalizationsDelegate

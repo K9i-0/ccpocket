@@ -1381,8 +1381,8 @@
   "liteModeIdle": "空闲",
   "liteModeCompacting": "正在整理对话",
   "liteModeStarting": "正在启动",
-  "liteModeLastActivity": "上次活动：{elapsed} 前",
-  "liteModeObserved": "已监测 {elapsed}",
+  "liteModeLastActivity": "{elapsed}前收到",
+  "liteModeObserved": "监测{elapsed}",
   "@liteModeLastActivity": {
     "placeholders": {
       "elapsed": {
@@ -1416,5 +1416,9 @@
   "demoRejected": "已拒绝编辑，没有任何修改。工具操作由你决定。",
   "demoDiffSummary": "示例差异 · 新增 1 行，删除 1 行",
   "demoFinish": "连接自己的 Bridge 后，即可使用真实项目和 AI 智能体开展工作。",
-  "demoConnect": "设置我的 Bridge"
+  "demoConnect": "设置我的 Bridge",
+  "liteModeDurationSeconds": "{seconds}秒",
+  "liteModeDurationMinutes": "{minutes}分{seconds}秒",
+  "liteModeDurationHours": "{hours}小时{minutes}分",
+  "liteModeDurationDays": "{days}天{hours}小时"
 }

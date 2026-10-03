@@ -1276,8 +1276,8 @@
   "liteModeIdle": "Idle",
   "liteModeCompacting": "Compacting conversation",
   "liteModeStarting": "Starting",
-  "liteModeLastActivity": "Last activity {elapsed} ago",
-  "liteModeObserved": "Observed for {elapsed}",
+  "liteModeLastActivity": "Received {elapsed} ago",
+  "liteModeObserved": "Observed {elapsed}",
   "@liteModeLastActivity": {
     "placeholders": {
       "elapsed": {
@@ -1311,5 +1311,46 @@
   "demoRejected": "The edit was rejected. Nothing changed. You control tool actions.",
   "demoDiffSummary": "Sample diff · 1 addition, 1 deletion",
   "demoFinish": "Connect your own Bridge to work with real projects and AI agents.",
-  "demoConnect": "Set up my Bridge"
+  "demoConnect": "Set up my Bridge",
+  "liteModeDurationSeconds": "{seconds}s",
+  "@liteModeDurationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "liteModeDurationMinutes": "{minutes}m {seconds}s",
+  "@liteModeDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "liteModeDurationHours": "{hours}h {minutes}m",
+  "@liteModeDurationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "liteModeDurationDays": "{days}d {hours}h",
+  "@liteModeDurationDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
+  }
 }

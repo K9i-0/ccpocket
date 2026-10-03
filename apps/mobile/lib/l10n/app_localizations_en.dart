@@ -3267,12 +3267,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String liteModeLastActivity(String elapsed) {
-    return 'Last activity $elapsed ago';
+    return 'Received $elapsed ago';
   }
 
   @override
   String liteModeObserved(String elapsed) {
-    return 'Observed for $elapsed';
+    return 'Observed $elapsed';
   }
 
   @override
@@ -3342,4 +3342,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get demoConnect => 'Set up my Bridge';
+
+  @override
+  String liteModeDurationSeconds(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String liteModeDurationMinutes(int minutes, int seconds) {
+    return '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String liteModeDurationHours(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
+  String liteModeDurationDays(int days, int hours) {
+    return '${days}d ${hours}h';
+  }
 }

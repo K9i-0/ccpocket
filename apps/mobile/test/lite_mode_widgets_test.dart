@@ -18,6 +18,28 @@ import 'package:ccpocket/widgets/message_bubble.dart';
 import 'chat_session_cubit_test.dart' show MockBridgeService;
 
 void main() {
+  test('compact durations cover unit boundaries and multi-day goals', () {
+    final ja = lookupAppLocalizations(const Locale('ja'));
+    final en = lookupAppLocalizations(const Locale('en'));
+    for (final (seconds, expected) in [
+      (-1, '0秒'),
+      (0, '0秒'),
+      (59, '59秒'),
+      (60, '1分0秒'),
+      (728, '12分8秒'),
+      (3599, '59分59秒'),
+      (3600, '1時間0分'),
+      (11520, '3時間12分'),
+      (86399, '23時間59分'),
+      (86400, '1日0時間'),
+      (97200, '1日3時間'),
+      (86400000, '1000日0時間'),
+    ]) {
+      expect(formatLiteModeDuration(Duration(seconds: seconds), ja), expected);
+    }
+    expect(formatLiteModeDuration(const Duration(hours: 27), en), '1d 3h');
+  });
+
   testWidgets(
     'session picker applies override and restores default inheritance',
     (tester) async {
@@ -196,13 +218,13 @@ void main() {
       bridge.emitMessage(const StreamDeltaMessage(text: 'hello'));
       await tester.pump(const Duration(seconds: 1));
       expect(chat.lastAgentActivityAt, isNotNull);
-      expect(find.textContaining('Last activity'), findsOneWidget);
+      expect(find.textContaining('Received'), findsOneWidget);
       bridge.emitMessage(const StatusMessage(status: ProcessStatus.idle));
       await tester.pump();
       expect(chat.activityObservedSince, isNull);
       await tester.pump();
-      expect(find.textContaining('Performance mode · Idle'), findsOneWidget);
-      expect(find.textContaining('Last activity'), findsNothing);
+      expect(find.textContaining('Idle'), findsOneWidget);
+      expect(find.textContaining('Received'), findsNothing);
       bridge.emitMessage(
         const SessionContextMessage(
           sessionId: 's',
@@ -219,7 +241,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(chat.activityObservedSince, isNotNull);
-      expect(find.textContaining('Observed for'), findsOneWidget);
+      expect(find.textContaining('Observed'), findsOneWidget);
       bridge.emitMessage(
         const PermissionRequestMessage(
           toolUseId: 'approval',

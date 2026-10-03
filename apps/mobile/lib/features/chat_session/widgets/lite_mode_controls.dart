@@ -111,11 +111,6 @@ class _ActivityStatusState extends State<_ActivityStatus> {
     super.dispose();
   }
 
-  String _elapsed(DateTime time) {
-    final seconds = DateTime.now().difference(time).inSeconds.clamp(0, 9999999);
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<ChatSessionCubit>();
@@ -129,6 +124,22 @@ class _ActivityStatusState extends State<_ActivityStatus> {
       ProcessStatus.waitingApproval => l.liteModeWaiting,
       ProcessStatus.idle => l.liteModeIdle,
     };
+    final now = DateTime.now();
+    final summary = [
+      label,
+      if (active && cubit.activityObservedSince != null)
+        l.liteModeObserved(
+          formatLiteModeDuration(
+            now.difference(cubit.activityObservedSince!),
+            l,
+          ),
+        ),
+      if (active && cubit.lastAgentActivityAt != null)
+        l.liteModeLastActivity(
+          formatLiteModeDuration(now.difference(cubit.lastAgentActivityAt!), l),
+        ),
+      if (active && cubit.latestActivityTool != null) cubit.latestActivityTool!,
+    ].join(' · ');
     return Padding(
       key: const ValueKey('lite_mode_activity_indicator'),
       padding: EdgeInsets.fromLTRB(
@@ -150,29 +161,16 @@ class _ActivityStatusState extends State<_ActivityStatus> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    [
-                      '${l.liteMode} · $label',
-                      if (active && cubit.activityObservedSince != null)
-                        l.liteModeObserved(
-                          _elapsed(cubit.activityObservedSince!),
-                        ),
-                    ].join(' · '),
-                  ),
-                  if (!cubit.supportsPerformanceMode)
-                    Text(l.performanceModeBridgeUpdate),
-                  if (active && cubit.lastAgentActivityAt != null)
-                    Text(
-                      l.liteModeLastActivity(
-                        _elapsed(cubit.lastAgentActivityAt!),
-                      ),
-                    ),
-                  if (active && cubit.latestActivityTool != null)
-                    Text(
-                      cubit.latestActivityTool!,
+                  Tooltip(
+                    message: summary,
+                    child: Text(
+                      summary,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  if (!cubit.supportsPerformanceMode)
+                    Text(l.performanceModeBridgeUpdate),
                 ],
               ),
             ),
@@ -181,4 +179,17 @@ class _ActivityStatusState extends State<_ActivityStatus> {
       ),
     );
   }
+}
+
+/// Uses at most two adjacent units, including for multi-day goal sessions.
+String formatLiteModeDuration(Duration duration, AppLocalizations l) {
+  final seconds = duration.inSeconds < 0 ? 0 : duration.inSeconds;
+  if (seconds < 60) return l.liteModeDurationSeconds(seconds);
+  if (seconds < 3600) {
+    return l.liteModeDurationMinutes(seconds ~/ 60, seconds % 60);
+  }
+  if (seconds < 86400) {
+    return l.liteModeDurationHours(seconds ~/ 3600, seconds ~/ 60 % 60);
+  }
+  return l.liteModeDurationDays(seconds ~/ 86400, seconds ~/ 3600 % 24);
 }

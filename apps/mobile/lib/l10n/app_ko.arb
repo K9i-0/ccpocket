@@ -1240,8 +1240,8 @@
   "liteModeIdle": "대기 중",
   "liteModeCompacting": "대화 정리 중",
   "liteModeStarting": "시작 중",
-  "liteModeLastActivity": "마지막 활동: {elapsed} 전",
-  "liteModeObserved": "모니터링 시간 {elapsed}",
+  "liteModeLastActivity": "수신 {elapsed} 전",
+  "liteModeObserved": "관찰 {elapsed}",
   "@liteModeLastActivity": {
     "placeholders": {
       "elapsed": {
@@ -1275,5 +1275,9 @@
   "demoRejected": "편집을 거부했습니다. 변경된 내용이 없습니다. 도구 작업은 직접 결정할 수 있습니다.",
   "demoDiffSummary": "샘플 차이 · 1줄 추가, 1줄 삭제",
   "demoFinish": "자신의 Bridge에 연결하면 실제 프로젝트와 AI 에이전트로 작업할 수 있습니다.",
-  "demoConnect": "내 Bridge 설정"
+  "demoConnect": "내 Bridge 설정",
+  "liteModeDurationSeconds": "{seconds}초",
+  "liteModeDurationMinutes": "{minutes}분 {seconds}초",
+  "liteModeDurationHours": "{hours}시간 {minutes}분",
+  "liteModeDurationDays": "{days}일 {hours}시간"
 }
