@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Include bounded workspace-output link metadata in Performance-mode projections so clients can display file cards alongside the assistant response.
+
 ## [1.88.2] - 2026-10-10
 
 ### Fixed

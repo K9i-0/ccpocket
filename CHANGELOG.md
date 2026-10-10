@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Show clickable image previews and workspace-file cards beneath the assistant output that produced them in Standard and Performance modes.
+
 ## [1.140.3] - 2026-10-10
 
 ### Fixed
