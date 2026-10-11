@@ -721,6 +721,39 @@ describe("sdkMessageToServerMessage", () => {
         userMessageUuid: "usr-mix-000",
       });
     });
+
+    it("preserves MCP resource links from Claude tool results", () => {
+      const resourceLink = {
+        type: "resource_link",
+        uri: "file:///tmp/project/report.pdf",
+        name: "report.pdf",
+        mimeType: "application/pdf",
+        annotations: { audience: ["user"] },
+      };
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tu-resource",
+              content: [resourceLink],
+            },
+          ],
+        },
+        uuid: "usr-resource-000" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "tool_result",
+        toolUseId: "tu-resource",
+        rawContentBlocks: [resourceLink],
+      });
+    });
   });
 });
 

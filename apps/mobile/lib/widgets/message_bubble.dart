@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../features/chat_session/permission_transcript.dart';
+import '../features/response_artifacts/response_artifact_cards.dart';
+import '../features/response_artifacts/workspace_output_links.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../features/file_peek/file_path_syntax.dart';
@@ -43,6 +45,9 @@ class ChatEntryWidget extends StatelessWidget {
   final FilePathTapCallback? onFileTap;
   final VoidCallback? onBeforeStreamingTextUpdate;
   final bool isCodex;
+  final bool liteMode;
+  final Set<String> knownPathSuffixes;
+  final String? projectPath;
 
   const ChatEntryWidget({
     super.key,
@@ -61,6 +66,9 @@ class ChatEntryWidget extends StatelessWidget {
     this.onFileTap,
     this.onBeforeStreamingTextUpdate,
     this.isCodex = false,
+    this.liteMode = false,
+    this.knownPathSuffixes = const {},
+    this.projectPath,
   });
 
   @override
@@ -81,6 +89,7 @@ class ChatEntryWidget extends StatelessWidget {
             onFileTap: onFileTap,
             onForkMessage: onForkMessage,
             isCodex: isCodex,
+            liteMode: liteMode,
           ),
           final UserChatEntry user => UserBubble(
             text: user.text,
@@ -102,6 +111,19 @@ class ChatEntryWidget extends StatelessWidget {
             onBeforeTextUpdate: onBeforeStreamingTextUpdate,
           ),
         },
+        if (entry case ServerChatEntry(:final message))
+          ResponseArtifactCards(
+            images: message is ToolResultMessage
+                ? message.galleryImages
+                : const [],
+            files: workspaceOutputLinksForMessage(
+              message,
+              knownPathSuffixes: knownPathSuffixes,
+              projectPath: projectPath,
+            ),
+            httpBaseUrl: httpBaseUrl,
+            onFileTap: onFileTap,
+          ),
         // Image attachment tap button — placed below the bubble to avoid
         // gesture conflicts with the bubble's GestureDetector.
         if (entry case final UserChatEntry user
@@ -171,6 +193,7 @@ class ServerMessageWidget extends StatelessWidget {
   final FilePathTapCallback? onFileTap;
   final void Function(AssistantServerMessage)? onForkMessage;
   final bool isCodex;
+  final bool liteMode;
 
   const ServerMessageWidget({
     super.key,
@@ -184,6 +207,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.onFileTap,
     this.onForkMessage,
     this.isCodex = false,
+    this.liteMode = false,
   });
 
   @override
@@ -200,7 +224,7 @@ class ServerMessageWidget extends StatelessWidget {
       ),
       // Hide tool results that are summarized by a tool_use_summary
       final ToolResultMessage msg =>
-        hiddenToolUseIds.contains(msg.toolUseId)
+        _hideToolResultContent(msg)
             ? const SizedBox.shrink()
             : ToolResultBubble(
                 message: msg,
@@ -298,6 +322,12 @@ class ServerMessageWidget extends StatelessWidget {
       GitStatusResultMessage() => const SizedBox.shrink(),
       GitRemoteStatusResultMessage() => const SizedBox.shrink(),
     };
+  }
+
+  bool _hideToolResultContent(ToolResultMessage message) {
+    if (message.toolName == 'ImageGeneration') return false;
+    return hiddenToolUseIds.contains(message.toolUseId) ||
+        (liteMode && message.permissionOutcome == null);
   }
 }
 

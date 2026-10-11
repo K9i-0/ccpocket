@@ -1,5 +1,4 @@
 import 'package:ccpocket/features/chat_session/lite_mode_projection.dart';
-import 'package:ccpocket/features/generated_image_preview/generated_image_response_grouping.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,7 +20,7 @@ ServerChatEntry assistant(List<AssistantContent> content) => ServerChatEntry(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('keeps prose and generated/attached images, removes MCP screenshots and thinking', () {
+  test('keeps prose and output images, removes thinking', () {
     final user = UserChatEntry('make an image', imageUrls: ['/images/input']);
     final prose = assistant([
       const TextContent(text: 'Checking the screen'),
@@ -54,7 +53,7 @@ void main() {
     );
     final original = [user, prose, screenshot, generated];
     final visible = liteModeEntries(original);
-    expect(visible.length, 3);
+    expect(visible.length, 4);
     expect(visible.first, same(user));
     expect(visible.last, same(generated));
     final projected =
@@ -64,10 +63,6 @@ void main() {
     expect(visible[1].timestamp, prose.timestamp);
     expect((prose.message as AssistantServerMessage).message.content.length, 3);
     expect(original[2], same(screenshot));
-    expect(
-      groupGeneratedImageResponses(visible).single.messages.single,
-      generated.message,
-    );
   });
 
   test(

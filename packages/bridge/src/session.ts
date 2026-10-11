@@ -31,7 +31,11 @@ import type {
   CodexGoal,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
-import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
+import type {
+  GalleryImageInfo,
+  GalleryStore,
+  GalleryImageMeta,
+} from "./gallery-store.js";
 import { withDerivedCodexPermissionsMode } from "./codex-permissions.js";
 import { GoalNotifications } from "./goal-notifications.js";
 import { createWorktree, worktreeExists } from "./worktree.js";
@@ -40,6 +44,7 @@ import {
   buildAutoRenameTranscript,
   generateAutoRenameName,
 } from "./auto-rename.js";
+import { mcpUserResourceLinks } from "./mcp-artifacts.js";
 
 export interface WorktreeOptions {
   useWorktree?: boolean;
@@ -592,6 +597,13 @@ export class SessionManager {
           this.onSessionUpdated?.(session.id);
         }
 
+        if (msg.type === "tool_result" && msg.rawContentBlocks) {
+          const mcpResourceLinks = mcpUserResourceLinks(msg.rawContentBlocks);
+          if (mcpResourceLinks.length > 0) {
+            msg = { ...msg, mcpResourceLinks };
+          }
+        }
+
         // Extract images from tool_result content for both Claude and Codex.
         if (msg.type === "tool_result" && this.imageStore) {
           const paths = this.imageStore.extractImagePaths(msg.content);
@@ -621,27 +633,42 @@ export class SessionManager {
 
           // Extract base64 images from content blocks (e.g., MCP screenshots)
           if (msg.rawContentBlocks) {
-            const imageBlocks = (
+            const imagePayloads = (
               msg.rawContentBlocks as Array<Record<string, unknown>>
-            ).filter(
-              (c) =>
-                c.type === "image" &&
-                (c.source as Record<string, unknown>)?.type === "base64",
-            );
+            ).flatMap((block) => {
+              if (block.type !== "image") return [];
+              const source =
+                block.source &&
+                typeof block.source === "object" &&
+                !Array.isArray(block.source)
+                  ? (block.source as Record<string, unknown>)
+                  : undefined;
+              if (source && source.type !== "base64") return [];
+              const data =
+                typeof source?.data === "string"
+                  ? source.data
+                  : typeof block.data === "string"
+                    ? block.data
+                    : undefined;
+              const mimeType =
+                typeof source?.media_type === "string"
+                  ? source.media_type
+                  : typeof source?.mimeType === "string"
+                    ? source.mimeType
+                    : typeof block.mimeType === "string"
+                      ? block.mimeType
+                      : typeof block.mediaType === "string"
+                        ? block.mediaType
+                        : undefined;
+              return data && mimeType ? [{ data, mimeType }] : [];
+            });
 
-            if (imageBlocks.length > 0) {
+            if (imagePayloads.length > 0) {
               const existingImages = msg.images ?? [];
               const newImages: ImageRef[] = [];
+              const galleryImages: GalleryImageInfo[] = [];
 
-              for (const block of imageBlocks) {
-                const source = block.source as Record<string, unknown>;
-                if (
-                  typeof source?.data !== "string" ||
-                  typeof source?.media_type !== "string"
-                )
-                  continue;
-                const b64Data = source.data as string;
-                const mimeType = source.media_type as string;
+              for (const { data: b64Data, mimeType } of imagePayloads) {
                 const ref = this.imageStore.registerFromBase64(
                   b64Data,
                   mimeType,
@@ -657,8 +684,13 @@ export class SessionManager {
                       session.projectPath,
                       session.id,
                     );
-                    if (meta && this.onGalleryImage) {
-                      this.onGalleryImage(meta);
+                    if (meta) {
+                      if (msg.toolName !== "ImageGeneration") {
+                        galleryImages.push(
+                          this.galleryStore.metaToInfo(meta),
+                        );
+                      }
+                      this.onGalleryImage?.(meta);
                     }
                   }
                 }
@@ -667,12 +699,20 @@ export class SessionManager {
               if (newImages.length > 0) {
                 msg = { ...msg, images: [...existingImages, ...newImages] };
               }
+              if (galleryImages.length > 0) {
+                msg = { ...msg, galleryImages };
+              }
             }
 
             // Strip transient rawContentBlocks before sending to client
             const { rawContentBlocks: _, ...cleanMsg } = msg;
             msg = cleanMsg as typeof msg;
           }
+        }
+
+        if (msg.type === "tool_result" && msg.rawContentBlocks) {
+          const { rawContentBlocks: _, ...cleanMsg } = msg;
+          msg = cleanMsg as typeof msg;
         }
 
         // Don't add streaming deltas to history

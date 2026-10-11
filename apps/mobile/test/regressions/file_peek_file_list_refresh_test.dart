@@ -14,6 +14,7 @@ import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -408,7 +409,12 @@ void main() {
         );
         expect(input.controller?.text, 'draft survives context hydration');
 
-        await tester.tap(find.text('main.dart'));
+        await tester.tap(
+          find.descendant(
+            of: find.byType(MarkdownBody),
+            matching: find.text('main.dart'),
+          ),
+        );
         await tester.pump();
 
         // Unknown paths are resolved by filesystem type before previewing.

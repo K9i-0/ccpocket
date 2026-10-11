@@ -11,6 +11,15 @@ export function performanceMessage(msg: Message): Message | null {
       return result;
     }
     // Completion IDs resolve questions/approvals, including answers from other clients.
+    const images = Array.isArray(msg.images) ? msg.images.flatMap((image) => {
+      if (!record(image) || typeof image.id !== "string" ||
+          image.id.length > 256 || typeof image.url !== "string" || image.url.length > 2048 || !image.url.startsWith("/images/") ||
+          typeof image.mimeType !== "string" || image.mimeType.length > 128) return [];
+      return [{ id: image.id, url: image.url, mimeType: image.mimeType,
+        ...(typeof image.thumbnailUrl === "string" && image.thumbnailUrl.length <= 2048 && image.thumbnailUrl.startsWith("/images/")
+          ? { thumbnailUrl: image.thumbnailUrl } : {}),
+      }];
+    }) : [];
     return {
       ...(msg.role === "tool_result" ? { role: msg.role } : { type: msg.type }),
       toolUseId: msg.toolUseId, content: "",
@@ -18,6 +27,13 @@ export function performanceMessage(msg: Message): Message | null {
       ...(msg.permissionOutcome != null ? { permissionOutcome: msg.permissionOutcome } : {}),
       ...(msg.sessionId != null ? { sessionId: msg.sessionId } : {}),
       ...(msg.historySeq != null ? { historySeq: msg.historySeq } : {}),
+      ...(images.length ? { images } : {}),
+      ...(Array.isArray(msg.mcpResourceLinks) && msg.mcpResourceLinks.length
+        ? { mcpResourceLinks: msg.mcpResourceLinks }
+        : {}),
+      ...(Array.isArray(msg.galleryImages) && msg.galleryImages.length
+        ? { galleryImages: msg.galleryImages }
+        : {}),
     };
   }
   if (msg.type === "assistant" && record(msg.message)) {

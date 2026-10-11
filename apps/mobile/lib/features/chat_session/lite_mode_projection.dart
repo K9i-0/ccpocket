@@ -1,15 +1,27 @@
 import '../../models/messages.dart';
+import '../response_artifacts/workspace_output_links.dart';
 
 /// A presentation-only projection. The original transcript stays available for
 /// switching modes, permissions, plan extraction, and resuming the agent.
-List<ChatEntry> liteModeEntries(List<ChatEntry> entries) {
+List<ChatEntry> liteModeEntries(
+  List<ChatEntry> entries, {
+  Set<String> knownPathSuffixes = const {},
+  String? projectPath,
+}) {
   final visible = <ChatEntry>[];
   for (final entry in entries) {
     if (entry case ServerChatEntry(:final message)) {
       switch (message) {
         case ToolResultMessage():
           if (message.toolName == 'ImageGeneration' ||
-              message.permissionOutcome != null) {
+              message.permissionOutcome != null ||
+              message.galleryImages.isNotEmpty ||
+              message.images.isNotEmpty ||
+              workspaceOutputLinksForMessage(
+                message,
+                knownPathSuffixes: knownPathSuffixes,
+                projectPath: projectPath,
+              ).isNotEmpty) {
             visible.add(entry);
           }
           continue;

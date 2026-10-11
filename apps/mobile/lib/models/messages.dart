@@ -846,6 +846,22 @@ sealed class ServerMessage {
                 .toList() ??
             const [],
         userMessageUuid: json['userMessageUuid'] as String?,
+        mcpResourceLinks:
+            (json['mcpResourceLinks'] as List?)
+                ?.map(
+                  (link) =>
+                      McpResourceLink.fromJson(link as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
+        galleryImages:
+            (json['galleryImages'] as List?)
+                ?.map(
+                  (image) =>
+                      GalleryImage.fromJson(image as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
       ),
       'result' => ResultMessage(
         notification: json['notification'] as String?,
@@ -1726,6 +1742,8 @@ class ToolResultMessage implements ServerMessage {
   final String? toolName;
   final PermissionOutcome? permissionOutcome;
   final List<ImageRef> images;
+  final List<McpResourceLink> mcpResourceLinks;
+  final List<GalleryImage> galleryImages;
   final String? userMessageUuid;
   const ToolResultMessage({
     required this.toolUseId,
@@ -1733,8 +1751,36 @@ class ToolResultMessage implements ServerMessage {
     this.toolName,
     this.permissionOutcome,
     this.images = const [],
+    this.mcpResourceLinks = const [],
+    this.galleryImages = const [],
     this.userMessageUuid,
   });
+}
+
+class McpResourceLink {
+  final String uri;
+  final String name;
+  final String? description;
+  final String? mimeType;
+
+  const McpResourceLink({
+    required this.uri,
+    required this.name,
+    this.description,
+    this.mimeType,
+  });
+
+  factory McpResourceLink.fromJson(Map<String, dynamic> json) =>
+      McpResourceLink(
+        uri: json['uri'] as String,
+        name: json['name'] as String,
+        description: json['description'] is String
+            ? json['description'] as String
+            : null,
+        mimeType: json['mimeType'] is String
+            ? json['mimeType'] as String
+            : null,
+      );
 }
 
 class ResultMessage implements ServerMessage {
@@ -4005,6 +4051,8 @@ class PastMessage {
   final String? toolUseId;
   final String? toolName;
   final List<ImageRef> images;
+  final List<McpResourceLink> mcpResourceLinks;
+  final List<GalleryImage> galleryImages;
   final String? toolResultContent;
   final List<AssistantContent> content;
   const PastMessage({
@@ -4016,6 +4064,8 @@ class PastMessage {
     this.toolUseId,
     this.toolName,
     this.images = const [],
+    this.mcpResourceLinks = const [],
+    this.galleryImages = const [],
     this.toolResultContent,
     required this.content,
   });
@@ -4044,6 +4094,21 @@ class PastMessage {
       images:
           (json['images'] as List?)
               ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      mcpResourceLinks:
+          (json['mcpResourceLinks'] as List?)
+              ?.map(
+                (link) =>
+                    McpResourceLink.fromJson(link as Map<String, dynamic>),
+              )
+              .toList() ??
+          const [],
+      galleryImages:
+          (json['galleryImages'] as List?)
+              ?.map(
+                (image) => GalleryImage.fromJson(image as Map<String, dynamic>),
+              )
               .toList() ??
           const [],
       toolResultContent: rawContent is String ? rawContent : null,

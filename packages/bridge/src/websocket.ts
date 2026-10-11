@@ -1901,6 +1901,9 @@ export class BridgeWebSocketServer {
         content,
         ...(typeof msg.toolName === "string" ? { toolName: msg.toolName } : {}),
         ...(images.length > 0 ? { images } : {}),
+        ...(Array.isArray(msg.mcpResourceLinks) && msg.mcpResourceLinks.length > 0
+          ? { mcpResourceLinks: msg.mcpResourceLinks }
+          : {}),
       });
     }
 
@@ -2381,7 +2384,13 @@ export class BridgeWebSocketServer {
       item as unknown as Record<string, unknown>,
     );
     const content = this.sessionHistoryText(item.content);
-    if (!content && images.length === 0) return null;
+    if (
+      !content &&
+      images.length === 0 &&
+      !item.mcpResourceLinks?.length
+    ) {
+      return null;
+    }
     return {
       type: "tool_result",
       toolUseId:
@@ -2389,6 +2398,9 @@ export class BridgeWebSocketServer {
       content,
       ...(item.toolName ? { toolName: item.toolName } : {}),
       ...(images.length > 0 ? { images } : {}),
+      ...(item.mcpResourceLinks?.length
+        ? { mcpResourceLinks: item.mcpResourceLinks }
+        : {}),
     };
   }
 

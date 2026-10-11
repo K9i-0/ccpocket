@@ -130,6 +130,17 @@ class FilePathSyntax extends md.InlineSyntax {
     if (match == null) return false;
 
     final raw = match[1]!;
+    if (!isFilePath(raw)) return false;
+
+    final el = md.Element('filePath', [md.Text(raw)]);
+    el.attributes['path'] = raw;
+    parser.writeText();
+    parser.addNode(el);
+    parser.consume(match[0]!.length);
+    return true;
+  }
+
+  bool isFilePath(String raw) {
     final stripped = _stripLineCol(raw);
     final matchesRaw = _knownPathSuffixes.contains(raw);
     final matchesStripped =
@@ -141,16 +152,7 @@ class FilePathSyntax extends md.InlineSyntax {
         raw.startsWith('../') ||
         raw.endsWith('/') ||
         RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw);
-    if (!matchesRaw && !matchesStripped && !explicitPath) return false;
-
-    final path = raw;
-    final el = md.Element('filePath', [md.Text(raw)]);
-    el.attributes['path'] = path;
-
-    parser.writeText();
-    parser.addNode(el);
-    parser.consume(match[0]!.length);
-    return true;
+    return matchesRaw || matchesStripped || explicitPath;
   }
 
   @override

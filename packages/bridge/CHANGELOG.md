@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Preserve user-addressed MCP resource links and gallery references for tool-returned images in Performance-mode projections.
+
 ## [1.88.2] - 2026-10-10
 
 ### Fixed

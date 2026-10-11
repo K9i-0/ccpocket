@@ -4409,6 +4409,75 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("preserves user-addressed MCP resource links for downstream rendering", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-mcp-resource-links");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_mcp_resource" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          item: {
+            type: "mcpToolCall",
+            id: "mcp_resource_1",
+            server: "reports",
+            tool: "export",
+            arguments: {},
+            result: {
+              content: [
+                {
+                  type: "resource_link",
+                  uri: "file:///tmp/project/report.pdf",
+                  name: "report.pdf",
+                  mimeType: "application/pdf",
+                  annotations: { audience: ["user"] },
+                },
+              ],
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "tool_result",
+        toolUseId: "mcp_resource_1",
+        toolName: "mcp:reports/export",
+        rawContentBlocks: [
+          {
+            type: "resource_link",
+            uri: "file:///tmp/project/report.pdf",
+            name: "report.pdf",
+            mimeType: "application/pdf",
+            annotations: { audience: ["user"] },
+          },
+        ],
+      }),
+    );
+
+    proc.stop();
+  });
+
   it("emits plan notifications as structured checklist messages", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];

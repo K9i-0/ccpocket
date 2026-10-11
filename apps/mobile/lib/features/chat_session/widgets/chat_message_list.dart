@@ -18,11 +18,9 @@ import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/performance_probe_extension.dart';
 import '../../../widgets/message_bubble.dart';
-import '../../generated_image_preview/generated_image_preview_mapper.dart';
-import '../../generated_image_preview/generated_image_preview_item.dart';
-import '../../generated_image_preview/generated_image_response_grouping.dart';
-import '../../generated_image_preview/widgets/generated_image_chat_group.dart';
+import '../../generated_image_preview/generated_image_tool_results.dart';
 import '../../file_peek/file_peek_sheet.dart';
+import '../../file_peek/file_path_syntax.dart';
 import '../../message_images/message_images_screen.dart';
 import '../permission_transcript.dart';
 import '../lite_mode_projection.dart';
@@ -200,16 +198,25 @@ class _ChatMessageListState extends State<ChatMessageList> {
   static const _streamingEntryKey = ValueKey<String>('streaming');
 
   final _viewportKey = GlobalKey();
-  final _generatedImageItemCache =
-      <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
   List<ChatEntry>? _projectionSource;
   List<ChatEntry>? _liteEntries;
+  Set<String> _knownPathSuffixes = const {};
+  Set<String>? _projectionSuffixes;
+  String? _projectionProjectPath;
 
   List<ChatEntry> _displayEntries(List<ChatEntry> entries) {
     if (!widget.liteMode) return entries;
-    if (!listEquals(_projectionSource, entries)) {
+    if (!listEquals(_projectionSource, entries) ||
+        !identical(_projectionSuffixes, _knownPathSuffixes) ||
+        _projectionProjectPath != widget.projectPath) {
       _projectionSource = entries;
-      _liteEntries = liteModeEntries(entries);
+      _projectionSuffixes = _knownPathSuffixes;
+      _projectionProjectPath = widget.projectPath;
+      _liteEntries = liteModeEntries(
+        entries,
+        knownPathSuffixes: _knownPathSuffixes,
+        projectPath: widget.projectPath,
+      );
     }
     return _liteEntries!;
   }
@@ -541,6 +548,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
     chatListPerformanceProbe.recordBuild();
     _notifyScrollMetricsAfterLayout();
     final chatState = context.watch<ChatSessionCubit>().state;
+    _knownPathSuffixes = FilePathSyntax.cachedSuffixSet(
+      context.watch<FileListCubit?>()?.state ?? const [],
+    );
     final hiddenToolUseIds = chatState.hiddenToolUseIds;
     final allEntries = _displayEntries(chatState.entries);
     final activePermissionId = switch (chatState.approval) {
@@ -641,6 +651,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
                               collapseToolResults: null,
                               hiddenToolUseIds: const {},
                               isCodex: widget.isCodex,
+                              liteMode: widget.liteMode,
+                              knownPathSuffixes: _knownPathSuffixes,
+                              projectPath: widget.projectPath,
+                              onFileTap: widget.projectPath?.isNotEmpty == true
+                                  ? _openOutputFile
+                                  : null,
                               onBeforeStreamingTextUpdate:
                                   _captureVisibleAnchor,
                             );
@@ -662,15 +678,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
                       ? widget.onForkMessage
                       : null;
 
-                  final imageItems = derivedData.imageItemsByAnchor[entryIndex];
                   final Widget child;
-                  if (imageItems != null) {
-                    child = GeneratedImageChatGroup(items: imageItems);
-                  } else if (derivedData.imageGroupMemberIndices.contains(
-                    entryIndex,
-                  )) {
-                    child = const SizedBox.shrink();
-                  } else if (entry
+                  if (entry
                       case ServerChatEntry(
                         message: final ToolResultMessage result,
                       )
@@ -703,18 +712,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
                           .contains(entryIndex),
                       permissionTranscriptStatus: permissionTranscriptStatus,
                       hiddenToolUseIds: effectiveHiddenToolUseIds,
-                      onFileTap: (filePath) {
-                        final projectPath = widget.projectPath;
-                        if (projectPath == null || projectPath.isEmpty) return;
-                        openFilePeek(
-                          context,
-                          bridge: context.read<BridgeService>(),
-                          projectPath: projectPath,
-                          filePath: filePath,
-                          projectFiles: context.read<FileListCubit>().state,
-                          onResolvedFilePath: widget.onFilePeekOpened,
-                        );
-                      },
+                      projectPath: widget.projectPath,
+                      onFileTap: widget.projectPath?.isNotEmpty == true
+                          ? _openOutputFile
+                          : null,
                       onImageTap: (user) {
                         final claudeSessionId = context
                             .read<ChatSessionCubit>()
@@ -739,6 +740,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
                         );
                       },
                       isCodex: widget.isCodex,
+                      liteMode: widget.liteMode,
+                      knownPathSuffixes: _knownPathSuffixes,
                     );
                   }
                   // Wrap with AutoScrollTag for scroll-to-index support.
@@ -778,21 +781,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     }
 
     final stopwatch = kDebugMode ? (Stopwatch()..start()) : null;
-    final imageGroupMemberIndices = <int>{};
-    final imageItemsByAnchor = <int, List<GeneratedImagePreviewItem>>{};
-    for (final group in groupGeneratedImageResponses(entries)) {
-      final items = generatedImageItemsFromToolResults(
-        group.messages,
-        httpBaseUrl: widget.httpBaseUrl,
-        itemCache: _generatedImageItemCache,
-      );
-      if (items.isEmpty) continue;
-      imageItemsByAnchor[group.anchorEntryIndex] = items;
-      imageGroupMemberIndices.addAll(group.memberEntryIndices);
-    }
     final next = _ChatListDerivedData(
-      imageGroupMemberIndices: imageGroupMemberIndices,
-      imageItemsByAnchor: imageItemsByAnchor,
       completedGeneratedImageToolUseIds: completedGeneratedImageToolUseIds(
         entries,
       ),
@@ -819,6 +808,19 @@ class _ChatMessageListState extends State<ChatMessageList> {
       chatListPerformanceProbe.recordDerivedData(stopwatch.elapsed);
     }
     return next;
+  }
+
+  void _openOutputFile(String filePath) {
+    final projectPath = widget.projectPath;
+    if (projectPath == null || projectPath.isEmpty) return;
+    openFilePeek(
+      context,
+      bridge: context.read<BridgeService>(),
+      projectPath: projectPath,
+      filePath: filePath,
+      projectFiles: context.read<FileListCubit>().state,
+      onResolvedFilePath: widget.onFilePeekOpened,
+    );
   }
 
   bool _hasExitPlanMode(ChatEntry entry) {
@@ -963,8 +965,6 @@ class _LayoutSizeReporterRenderBox extends RenderProxyBox {
 }
 
 class _ChatListDerivedData {
-  final Set<int> imageGroupMemberIndices;
-  final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
   final Set<int> successResultFallbackEntryIndices;
@@ -972,8 +972,6 @@ class _ChatListDerivedData {
   final String? latestPlanText;
 
   const _ChatListDerivedData({
-    required this.imageGroupMemberIndices,
-    required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
     required this.forkableAssistantEntryIndices,
     required this.successResultFallbackEntryIndices,

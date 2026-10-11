@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Show cards for user-addressed MCP workspace resources and tool-returned images already saved in the gallery.
+
 ## [1.140.3] - 2026-10-10
 
 ### Fixed
