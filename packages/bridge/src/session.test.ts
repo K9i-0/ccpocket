@@ -1389,8 +1389,33 @@ describe("SessionManager process paths", () => {
     expect(historyMsg).not.toHaveProperty("rawContentBlocks");
   });
 
-  it("extracts Claude MCP ImageContent into image references", async () => {
+  it("creates gallery cards for tool image data without duplicating ImageGeneration", async () => {
     const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
+    const galleryMeta = {
+      id: "gallery-claude-1",
+      filename: "gallery-claude-1.png",
+      mimeType: "image/png",
+      projectPath: "/tmp/project-claude-images",
+      sessionId: "claude-session",
+      sourcePath: "base64_upload",
+      addedAt: "2026-10-11T00:00:00.000Z",
+      sizeBytes: 5,
+    };
+    const galleryInfo = {
+      id: galleryMeta.id,
+      url: "/api/gallery/gallery-claude-1",
+      mimeType: galleryMeta.mimeType,
+      projectPath: galleryMeta.projectPath,
+      projectName: "project-claude-images",
+      sessionId: galleryMeta.sessionId,
+      addedAt: galleryMeta.addedAt,
+      sizeBytes: galleryMeta.sizeBytes,
+    };
+    const galleryStore = {
+      addImageFromBase64: vi.fn(async () => galleryMeta),
+      metaToInfo: vi.fn(() => galleryInfo),
+    };
+    const onGalleryImage = vi.fn();
     const imageStore = {
       extractImagePaths: vi.fn(() => []),
       registerImages: vi.fn(async () => []),
@@ -1402,7 +1427,7 @@ describe("SessionManager process paths", () => {
     };
     const manager = new SessionManager((sessionId, msg) => {
       forwarded.push({ sessionId, msg });
-    }, imageStore as any);
+    }, imageStore as any, galleryStore as any, onGalleryImage);
 
     const sessionId = manager.create(
       "/tmp/project-claude-images",
@@ -1432,6 +1457,12 @@ describe("SessionManager process paths", () => {
       "aGVsbG8=",
       "image/png",
     );
+    expect(galleryStore.addImageFromBase64).toHaveBeenCalledWith(
+      "aGVsbG8=",
+      "image/png",
+      "/tmp/project-claude-images",
+      sessionId,
+    );
     const forwardedMsg = forwarded.at(-1)?.msg as
       | Record<string, unknown>
       | undefined;
@@ -1445,13 +1476,105 @@ describe("SessionManager process paths", () => {
           mimeType: "image/png",
         },
       ],
+      galleryImages: [galleryInfo],
     });
+    expect(onGalleryImage).toHaveBeenCalledWith(galleryMeta);
     expect(forwardedMsg).not.toHaveProperty("rawContentBlocks");
     const historyMsg = manager.get(sessionId)?.history.at(-1) as
       | Record<string, unknown>
       | undefined;
     expect(historyMsg?.images).toEqual(forwardedMsg?.images);
     expect(historyMsg).not.toHaveProperty("rawContentBlocks");
+
+    sdkInstances[0].emit("message", {
+      type: "tool_result",
+      toolUseId: "image-generation-1",
+      toolName: "ImageGeneration",
+      content: "Generated 1 image",
+      rawContentBlocks: [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            data: "aGVsbG8=",
+            media_type: "image/png",
+          },
+        },
+      ],
+    } as ServerMessage);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const generationMessage = forwarded.at(-1)?.msg as
+      | Record<string, unknown>
+      | undefined;
+    expect(generationMessage?.images).toEqual(forwardedMsg?.images);
+    expect(generationMessage).not.toHaveProperty("galleryImages");
+    expect(galleryStore.addImageFromBase64).toHaveBeenCalledTimes(2);
+  });
+
+  it("forwards only user-addressed MCP resource links as artifact metadata", async () => {
+    const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
+    const imageStore = {
+      extractImagePaths: vi.fn(() => []),
+      registerImages: vi.fn(async () => []),
+      registerFromBase64: vi.fn(),
+    };
+    const manager = new SessionManager((sessionId, msg) => {
+      forwarded.push({ sessionId, msg });
+    }, imageStore as any);
+    const sessionId = manager.create(
+      "/tmp/project-claude-mcp-links",
+      undefined,
+      undefined,
+      undefined,
+      "claude",
+    );
+
+    sdkInstances[0].emit("message", {
+      type: "tool_result",
+      toolUseId: "mcp-link-1",
+      toolName: "mcp__reports__export",
+      content: "Created report.pdf",
+      rawContentBlocks: [
+        {
+          type: "resource_link",
+          uri: "file:///tmp/project-claude-mcp-links/report.pdf",
+          name: "report.pdf",
+          mimeType: "application/pdf",
+          annotations: { audience: ["user"] },
+        },
+        {
+          type: "resource_link",
+          uri: "file:///tmp/project-claude-mcp-links/internal.csv",
+          name: "internal.csv",
+          annotations: { audience: ["assistant"] },
+        },
+      ],
+    } as ServerMessage);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const forwardedMessage = forwarded.at(-1)?.msg as
+      | Record<string, unknown>
+      | undefined;
+    expect(forwardedMessage).toMatchObject({
+      type: "tool_result",
+      toolUseId: "mcp-link-1",
+      mcpResourceLinks: [
+        {
+          uri: "file:///tmp/project-claude-mcp-links/report.pdf",
+          name: "report.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
+    });
+    expect(forwardedMessage).not.toHaveProperty("rawContentBlocks");
+    const historyMessage = manager.get(sessionId)?.history.at(-1) as
+      | Record<string, unknown>
+      | undefined;
+    expect(historyMessage?.mcpResourceLinks).toEqual(
+      forwardedMessage?.mcpResourceLinks,
+    );
   });
 
   it("preserves process message order while tool result enrichment is pending", async () => {

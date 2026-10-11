@@ -19,6 +19,7 @@ import {
   getAllRecentSessions,
   getCodexSessionIndexMetadata,
   getCodexSessionHistory,
+  getSessionHistory,
   loadCodexSessionNames,
   extractMessageImages,
   codexThreadToSessionHistory,
@@ -1806,6 +1807,70 @@ describe("codex sessions integration", () => {
     });
   });
 
+  it("restores only user-addressed MCP resource links from Codex history", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68017";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const resourceUri = "file:///tmp/project-a/reports/review.pdf";
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "export review" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T11:28:00.000Z",
+        type: "event_msg",
+        payload: {
+          type: "mcp_tool_call_end",
+          call_id: "call-resource-1",
+          invocation: {
+            server: "reports",
+            tool: "export",
+            arguments: {},
+          },
+          result: {
+            Ok: {
+              content: [
+                {
+                  type: "resource_link",
+                  uri: resourceUri,
+                  name: "review.pdf",
+                  mimeType: "application/pdf",
+                  annotations: { audience: ["user"] },
+                },
+                {
+                  type: "resource_link",
+                  uri: "file:///tmp/project-a/internal.csv",
+                  name: "internal.csv",
+                  annotations: { audience: ["assistant"] },
+                },
+              ],
+            },
+          },
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+
+    expect(history.at(-1)?.mcpResourceLinks).toEqual([
+      {
+        uri: resourceUri,
+        name: "review.pdf",
+        mimeType: "application/pdf",
+      },
+    ]);
+  });
+
   it("skips codex skill injections and restores image generation results", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68015";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
@@ -2494,6 +2559,96 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0].sessionId).toBe("named-s1");
     expect(result.sessions[0].name).toBe("My named session");
+  });
+
+  it("restores user-addressed MCP resources from Claude tool results", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    const sessionId = "claude-mcp-resource-session";
+    const sessionPath = join(projectDir, `${sessionId}.jsonl`);
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId,
+            fullPath: sessionPath,
+            firstPrompt: "export a report",
+            created: "2026-02-13T11:00:00.000Z",
+            modified: "2026-02-13T12:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+    writeFileSync(
+      sessionPath,
+      [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "assistant-call",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: "resource-call",
+                name: "mcp__reports__export",
+                input: {},
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "tool-result-message",
+          timestamp: "2026-02-13T11:28:00.000Z",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "resource-call",
+                content: [
+                  {
+                    type: "resource_link",
+                    uri: "file:///tmp/project-a/reports/review.pdf",
+                    name: "review.pdf",
+                    mimeType: "application/pdf",
+                    annotations: { audience: ["user"] },
+                  },
+                  {
+                    type: "resource_link",
+                    uri: "file:///tmp/project-a/internal.csv",
+                    name: "internal.csv",
+                    annotations: { audience: ["assistant"] },
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ].join("\n"),
+    );
+
+    const history = await getSessionHistory(sessionId);
+    expect(history).toContainEqual({
+      role: "tool_result",
+      toolUseId: "resource-call",
+      toolName: "mcp__reports__export",
+      content: "",
+      mcpResourceLinks: [
+        {
+          uri: "file:///tmp/project-a/reports/review.pdf",
+          name: "review.pdf",
+          mimeType: "application/pdf",
+        },
+      ],
+      timestamp: "2026-02-13T11:28:00.000Z",
+    });
   });
 
   it("finds an exact Claude session outside the first recent page", async () => {

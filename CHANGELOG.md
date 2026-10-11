@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- Show clickable image previews and workspace-file cards beneath the assistant output that produced them in Standard and Performance modes.
+- Show cards for user-addressed MCP workspace resources and tool-returned images already saved in the gallery.
 
 ## [1.140.3] - 2026-10-10
 

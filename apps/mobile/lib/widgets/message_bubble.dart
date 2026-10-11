@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../features/chat_session/permission_transcript.dart';
-import '../features/response_artifacts/response_artifact_vignettes.dart';
+import '../features/response_artifacts/response_artifact_cards.dart';
 import '../features/response_artifacts/workspace_output_links.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -112,26 +112,16 @@ class ChatEntryWidget extends StatelessWidget {
           ),
         },
         if (entry case ServerChatEntry(:final message))
-          ResponseArtifactVignettes(
+          ResponseArtifactCards(
             images: message is ToolResultMessage
-                ? responseImagesForMessage(message, httpBaseUrl: httpBaseUrl)
+                ? message.galleryImages
                 : const [],
-            files: message is ResultMessage && !showSuccessResultText
-                ? const []
-                : workspaceOutputLinksForMessage(
-                    message,
-                    knownPathSuffixes: knownPathSuffixes,
-                    projectPath: projectPath,
-                  ),
-            onFileTap: onFileTap,
-          ),
-        if (entry case StreamingChatEntry(:final text))
-          ResponseArtifactVignettes(
-            files: workspaceOutputLinks(
-              text,
+            files: workspaceOutputLinksForMessage(
+              message,
               knownPathSuffixes: knownPathSuffixes,
               projectPath: projectPath,
             ),
+            httpBaseUrl: httpBaseUrl,
             onFileTap: onFileTap,
           ),
         // Image attachment tap button — placed below the bubble to avoid
@@ -240,7 +230,6 @@ class ServerMessageWidget extends StatelessWidget {
                 message: msg,
                 httpBaseUrl: httpBaseUrl,
                 collapseNotifier: collapseToolResults,
-                showImages: false,
               ),
       final ResultMessage msg => ResultChip(
         message: msg,
@@ -336,12 +325,7 @@ class ServerMessageWidget extends StatelessWidget {
   }
 
   bool _hideToolResultContent(ToolResultMessage message) {
-    if (message.toolName == 'ImageGeneration') {
-      return responseImagesForMessage(
-        message,
-        httpBaseUrl: httpBaseUrl,
-      ).isNotEmpty;
-    }
+    if (message.toolName == 'ImageGeneration') return false;
     return hiddenToolUseIds.contains(message.toolUseId) ||
         (liteMode && message.permissionOutcome == null);
   }

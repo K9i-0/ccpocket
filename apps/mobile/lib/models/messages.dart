@@ -846,12 +846,19 @@ sealed class ServerMessage {
                 .toList() ??
             const [],
         userMessageUuid: json['userMessageUuid'] as String?,
-        outputLinkCandidates:
-            (json['outputLinkCandidates'] as List?)
+        mcpResourceLinks:
+            (json['mcpResourceLinks'] as List?)
                 ?.map(
-                  (link) => OutputLinkCandidate.fromJson(
-                    link as Map<String, dynamic>,
-                  ),
+                  (link) =>
+                      McpResourceLink.fromJson(link as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
+        galleryImages:
+            (json['galleryImages'] as List?)
+                ?.map(
+                  (image) =>
+                      GalleryImage.fromJson(image as Map<String, dynamic>),
                 )
                 .toList() ??
             const [],
@@ -1735,7 +1742,8 @@ class ToolResultMessage implements ServerMessage {
   final String? toolName;
   final PermissionOutcome? permissionOutcome;
   final List<ImageRef> images;
-  final List<OutputLinkCandidate> outputLinkCandidates;
+  final List<McpResourceLink> mcpResourceLinks;
+  final List<GalleryImage> galleryImages;
   final String? userMessageUuid;
   const ToolResultMessage({
     required this.toolUseId,
@@ -1743,27 +1751,35 @@ class ToolResultMessage implements ServerMessage {
     this.toolName,
     this.permissionOutcome,
     this.images = const [],
-    this.outputLinkCandidates = const [],
+    this.mcpResourceLinks = const [],
+    this.galleryImages = const [],
     this.userMessageUuid,
   });
 }
 
-class OutputLinkCandidate {
-  final String href;
-  final String syntax;
-  final String? label;
+class McpResourceLink {
+  final String uri;
+  final String name;
+  final String? description;
+  final String? mimeType;
 
-  const OutputLinkCandidate({
-    required this.href,
-    required this.syntax,
-    this.label,
+  const McpResourceLink({
+    required this.uri,
+    required this.name,
+    this.description,
+    this.mimeType,
   });
 
-  factory OutputLinkCandidate.fromJson(Map<String, dynamic> json) =>
-      OutputLinkCandidate(
-        href: json['href'] as String,
-        syntax: json['syntax'] as String,
-        label: json['label'] is String ? json['label'] as String : null,
+  factory McpResourceLink.fromJson(Map<String, dynamic> json) =>
+      McpResourceLink(
+        uri: json['uri'] as String,
+        name: json['name'] as String,
+        description: json['description'] is String
+            ? json['description'] as String
+            : null,
+        mimeType: json['mimeType'] is String
+            ? json['mimeType'] as String
+            : null,
       );
 }
 
@@ -4035,7 +4051,8 @@ class PastMessage {
   final String? toolUseId;
   final String? toolName;
   final List<ImageRef> images;
-  final List<OutputLinkCandidate> outputLinkCandidates;
+  final List<McpResourceLink> mcpResourceLinks;
+  final List<GalleryImage> galleryImages;
   final String? toolResultContent;
   final List<AssistantContent> content;
   const PastMessage({
@@ -4047,7 +4064,8 @@ class PastMessage {
     this.toolUseId,
     this.toolName,
     this.images = const [],
-    this.outputLinkCandidates = const [],
+    this.mcpResourceLinks = const [],
+    this.galleryImages = const [],
     this.toolResultContent,
     required this.content,
   });
@@ -4078,11 +4096,18 @@ class PastMessage {
               ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
               .toList() ??
           const [],
-      outputLinkCandidates:
-          (json['outputLinkCandidates'] as List?)
+      mcpResourceLinks:
+          (json['mcpResourceLinks'] as List?)
               ?.map(
                 (link) =>
-                    OutputLinkCandidate.fromJson(link as Map<String, dynamic>),
+                    McpResourceLink.fromJson(link as Map<String, dynamic>),
+              )
+              .toList() ??
+          const [],
+      galleryImages:
+          (json['galleryImages'] as List?)
+              ?.map(
+                (image) => GalleryImage.fromJson(image as Map<String, dynamic>),
               )
               .toList() ??
           const [],

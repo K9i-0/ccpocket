@@ -1,5 +1,4 @@
 import 'package:ccpocket/features/chat_session/lite_mode_projection.dart';
-import 'package:ccpocket/features/generated_image_preview/generated_image_response_grouping.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,10 +63,6 @@ void main() {
     expect(visible[1].timestamp, prose.timestamp);
     expect((prose.message as AssistantServerMessage).message.content.length, 3);
     expect(original[2], same(screenshot));
-    expect(
-      groupGeneratedImageResponses(visible).single.messages.single,
-      generated.message,
-    );
   });
 
   test(

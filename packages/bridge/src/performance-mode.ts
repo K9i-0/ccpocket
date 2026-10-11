@@ -1,5 +1,3 @@
-import { outputLinkCandidatesForMessage } from "./output-artifacts.js";
-
 type Message = Record<string, unknown>;
 const record = (value: unknown): value is Message =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -22,7 +20,6 @@ export function performanceMessage(msg: Message): Message | null {
           ? { thumbnailUrl: image.thumbnailUrl } : {}),
       }];
     }) : [];
-    const links = outputLinkCandidatesForMessage(msg);
     return {
       ...(msg.role === "tool_result" ? { role: msg.role } : { type: msg.type }),
       toolUseId: msg.toolUseId, content: "",
@@ -31,7 +28,12 @@ export function performanceMessage(msg: Message): Message | null {
       ...(msg.sessionId != null ? { sessionId: msg.sessionId } : {}),
       ...(msg.historySeq != null ? { historySeq: msg.historySeq } : {}),
       ...(images.length ? { images } : {}),
-      ...(links.length ? { outputLinkCandidates: links } : {}),
+      ...(Array.isArray(msg.mcpResourceLinks) && msg.mcpResourceLinks.length
+        ? { mcpResourceLinks: msg.mcpResourceLinks }
+        : {}),
+      ...(Array.isArray(msg.galleryImages) && msg.galleryImages.length
+        ? { galleryImages: msg.galleryImages }
+        : {}),
     };
   }
   if (msg.type === "assistant" && record(msg.message)) {

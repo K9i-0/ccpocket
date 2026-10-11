@@ -15,6 +15,7 @@ List<ChatEntry> liteModeEntries(
         case ToolResultMessage():
           if (message.toolName == 'ImageGeneration' ||
               message.permissionOutcome != null ||
+              message.galleryImages.isNotEmpty ||
               message.images.isNotEmpty ||
               workspaceOutputLinksForMessage(
                 message,

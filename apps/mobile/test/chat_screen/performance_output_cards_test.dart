@@ -16,25 +16,24 @@ const projectedToolResult = {
   'type': 'tool_result',
   'toolUseId': 'review',
   'content': '',
-  'images': [
+  'mcpResourceLinks': [
     {
-      'id': 'review-screen',
-      'url': '/images/review-screen',
-      'mimeType': 'image/png',
+      'uri': 'file:///workspace/project/reports/review.pdf',
+      'name': 'Release review',
+      'mimeType': 'application/pdf',
     },
   ],
-  'outputLinkCandidates': [
+  'galleryImages': [
     {
-      'href': '/workspace/project/reports/review.pdf',
-      'label': 'Release review',
-      'syntax': 'markdown',
+      'id': 'review-screen',
+      'url': '/api/gallery/review-screen',
+      'mimeType': 'image/png',
+      'projectPath': '/workspace/project',
+      'projectName': 'project',
+      'sessionId': 'review-session',
+      'addedAt': '2026-10-11T00:00:00.000Z',
+      'sizeBytes': 128,
     },
-    {
-      'href': 'reports/summary.md',
-      'label': 'reports/summary.md',
-      'syntax': 'inline',
-    },
-    {'href': 'unrelated.md', 'label': 'unrelated.md', 'syntax': 'bare'},
   ],
 };
 
@@ -56,7 +55,6 @@ void main() {
       );
       final restored =
           store.messages(testSessionId).single as ToolResultMessage;
-      expect(restored.images.single.url, '/images/review-screen');
       expect(
         workspaceOutputLinksForMessage(
           restored,
@@ -69,91 +67,90 @@ void main() {
   }
   for (final provider in ['claude', 'codex']) {
     for (final envelope in ['live', 'history', 'past_history']) {
-      testWidgets(
-        '$provider renders projected output attachments from $envelope',
-        (tester) async {
-          await tester.binding.setSurfaceSize(const Size(650, 1100));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
-          final bridge = _ArtifactBridge();
-          addTearDown(bridge.dispose);
-          final screen = provider == 'claude'
-              ? await buildTestClaudeSessionScreen(
-                  bridge: bridge,
-                  projectPath: '/workspace/project',
-                )
-              : await buildTestCodexSessionScreen(
-                  bridge: bridge,
-                  projectPath: '/workspace/project',
-                );
-          await tester.pumpWidget(screen);
-          await pumpN(tester);
-          final settings = tester
-              .element(find.byKey(const ValueKey('message_input')))
-              .read<SettingsCubit>();
-          settings.setSessionLiteMode(testSessionId, true);
-          tester
-              .element(find.byKey(const ValueKey('message_input')))
-              .read<FileListCubit>();
-          bridge.emitMessage(
-            const FileListMessage(
-              projectPath: '/workspace/project',
-              files: ['reports/review.pdf'],
-            ),
-          );
-          await pumpN(tester);
-          final wireMessage = switch (envelope) {
-            'live' => projectedToolResult,
-            'history' => {
-              'type': 'history',
-              'messages': [projectedToolResult],
-            },
-            'past_history' => {
-              'type': 'past_history',
-              'claudeSessionId': 'saved-review',
-              'messages': [
-                {...projectedToolResult, 'type': null, 'role': 'tool_result'},
-              ],
-            },
-            _ => {
-              'type': envelope,
-              'fromSeq': 1,
-              'toSeq': 1,
-              'filtered': true,
-              'messages': [
-                {'seq': 1, 'message': projectedToolResult},
-              ],
-            },
-          };
-          bridge.emitMessage(ServerMessage.fromJson(wireMessage));
-          await pumpN(tester);
-          expect(
-            find.byKey(const ValueKey('generated_image_chat_thumbnail_0')),
-            findsOneWidget,
-          );
-          expect(
-            find.byKey(
-              const ValueKey('response_file_vignette_reports/review.pdf'),
-            ),
-            findsOneWidget,
-          );
-          expect(find.text('Release review'), findsOneWidget);
-          final relative = find.byKey(
-            const ValueKey('response_file_vignette_reports/summary.md'),
-          );
-          expect(relative, findsNothing);
-          expect(
-            find.byKey(const ValueKey('response_file_vignette_unrelated.md')),
-            findsNothing,
-          );
-          expect(tester.takeException(), isNull);
-        },
-      );
+      testWidgets('$provider renders projected MCP file links from $envelope', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(const Size(650, 1100));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final bridge = _ArtifactBridge();
+        addTearDown(bridge.dispose);
+        final screen = provider == 'claude'
+            ? await buildTestClaudeSessionScreen(
+                bridge: bridge,
+                projectPath: '/workspace/project',
+              )
+            : await buildTestCodexSessionScreen(
+                bridge: bridge,
+                projectPath: '/workspace/project',
+              );
+        await tester.pumpWidget(screen);
+        await pumpN(tester);
+        final settings = tester
+            .element(find.byKey(const ValueKey('message_input')))
+            .read<SettingsCubit>();
+        settings.setSessionLiteMode(testSessionId, true);
+        tester
+            .element(find.byKey(const ValueKey('message_input')))
+            .read<FileListCubit>();
+        bridge.emitMessage(
+          const FileListMessage(
+            projectPath: '/workspace/project',
+            files: ['reports/review.pdf'],
+          ),
+        );
+        await pumpN(tester);
+        final wireMessage = switch (envelope) {
+          'live' => projectedToolResult,
+          'history' => {
+            'type': 'history',
+            'messages': [projectedToolResult],
+          },
+          'past_history' => {
+            'type': 'past_history',
+            'claudeSessionId': 'saved-review',
+            'messages': [
+              {...projectedToolResult, 'type': null, 'role': 'tool_result'},
+            ],
+          },
+          _ => {
+            'type': envelope,
+            'fromSeq': 1,
+            'toSeq': 1,
+            'filtered': true,
+            'messages': [
+              {'seq': 1, 'message': projectedToolResult},
+            ],
+          },
+        };
+        bridge.emitMessage(ServerMessage.fromJson(wireMessage));
+        await pumpN(tester);
+        expect(
+          find.byKey(const ValueKey('response_file_card_reports/review.pdf')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            const ValueKey('response_gallery_image_card_review-screen'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Release review'), findsOneWidget);
+        final relative = find.byKey(
+          const ValueKey('response_file_card_reports/summary.md'),
+        );
+        expect(relative, findsNothing);
+        expect(
+          find.byKey(const ValueKey('response_file_card_unrelated.md')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      });
     }
   }
 
   for (final liteMode in [false, true]) {
     testWidgets(
-      'a labeled absolute output link keeps its full button in ${liteMode ? 'performance' : 'standard'} mode',
+      'a labeled MCP link keeps its full button in ${liteMode ? 'performance' : 'standard'} mode',
       (tester) async {
         final bridge = _ArtifactBridge();
         addTearDown(bridge.dispose);
@@ -176,22 +173,18 @@ void main() {
           ServerMessage.fromJson({
             'type': 'tool_result',
             'toolUseId': 'report',
-            'content': liteMode
-                ? ''
-                : '[Review](/workspace/project/reports/review.pdf)',
-            if (liteMode)
-              'outputLinkCandidates': [
-                {
-                  'href': '/workspace/project/reports/review.pdf',
-                  'label': 'Review',
-                  'syntax': 'markdown',
-                },
-              ],
+            'content': '',
+            'mcpResourceLinks': [
+              {
+                'uri': 'file:///workspace/project/reports/review.pdf',
+                'name': 'Review',
+              },
+            ],
           }),
         );
         await pumpN(tester);
         final card = find.byKey(
-          const ValueKey('response_file_vignette_reports/review.pdf'),
+          const ValueKey('response_file_card_reports/review.pdf'),
         );
         expect(card, findsOneWidget);
         expect(find.text('Review'), findsOneWidget);
@@ -229,9 +222,7 @@ void main() {
           'type': 'tool_result',
           'toolUseId': 'log',
           'content': '',
-          'outputLinkCandidates': [
-            {'href': 'unrelated.md', 'label': 'unrelated.md', 'syntax': 'bare'},
-          ],
+          'mcpResourceLinks': [],
         }),
       );
       await pumpN(tester);

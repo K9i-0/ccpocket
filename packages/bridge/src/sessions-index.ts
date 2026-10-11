@@ -7,6 +7,10 @@ import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-ag
 import { isAutoRenamePromptText } from "./auto-rename.js";
 import { normalizeCodexServiceTierForClient } from "./codex-service-tier.js";
 import { createRepositoryRootResolver } from "./repository-root.js";
+import {
+  mcpUserResourceLinks,
+  type McpResourceLink,
+} from "./mcp-artifacts.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -2118,6 +2122,7 @@ export interface SessionHistoryMessage {
   imageCount?: number;
   toolUseId?: string;
   toolName?: string;
+  mcpResourceLinks?: McpResourceLink[];
   imagePaths?: string[];
   imageBase64?: Array<{ data: string; mimeType: string }>;
   content: string | SessionHistoryContentItem[];
@@ -2385,6 +2390,7 @@ export function codexThreadToSessionHistory(
               normalized.content,
               {
                 imageBase64: normalized.imageBase64,
+                mcpResourceLinks: normalized.mcpResourceLinks,
                 ...(itemTimestamp ? { timestamp: itemTimestamp } : {}),
               },
             );
@@ -2621,6 +2627,7 @@ function appendToolResultMessage(
   content: string,
   options?: {
     imageBase64?: Array<{ data: string; mimeType: string }>;
+    mcpResourceLinks?: McpResourceLink[];
     timestamp?: string;
   },
 ): void {
@@ -2629,7 +2636,14 @@ function appendToolResultMessage(
   }
 
   const imageBase64 = options?.imageBase64 ?? [];
-  if (!content.trim() && imageBase64.length === 0) return;
+  const mcpResourceLinks = options?.mcpResourceLinks ?? [];
+  if (
+    !content.trim() &&
+    imageBase64.length === 0 &&
+    mcpResourceLinks.length === 0
+  ) {
+    return;
+  }
 
   messages.push({
     role: "tool_result",
@@ -2637,6 +2651,7 @@ function appendToolResultMessage(
     ...(name ? { toolName: name } : {}),
     content,
     ...(imageBase64.length > 0 ? { imageBase64 } : {}),
+    ...(mcpResourceLinks.length > 0 ? { mcpResourceLinks } : {}),
     ...(options?.timestamp ? { timestamp: options.timestamp } : {}),
   });
 }
@@ -2696,6 +2711,7 @@ function normalizeCodexToolName(name: string): string {
 function normalizeCodexMcpResult(result: unknown): {
   content: string;
   imageBase64: Array<{ data: string; mimeType: string }>;
+  mcpResourceLinks: McpResourceLink[];
 } {
   const wrapper = asObject(result);
   let value = result;
@@ -2706,7 +2722,7 @@ function normalizeCodexMcpResult(result: unknown): {
   }
 
   if (typeof value === "string") {
-    return { content: value, imageBase64: [] };
+    return { content: value, imageBase64: [], mcpResourceLinks: [] };
   }
 
   const record = asObject(value);
@@ -2715,11 +2731,13 @@ function normalizeCodexMcpResult(result: unknown): {
     return {
       content: value == null ? "MCP call completed" : JSON.stringify(value),
       imageBase64: [],
+      mcpResourceLinks: [],
     };
   }
 
   const textParts: string[] = [];
   const imageBase64: Array<{ data: string; mimeType: string }> = [];
+  const mcpResourceLinks = mcpUserResourceLinks(contentItems);
 
   for (const entry of contentItems) {
     const item = asObject(entry);
@@ -2762,7 +2780,7 @@ function normalizeCodexMcpResult(result: unknown): {
   }
 
   const content = textParts.join("\n").trim();
-  if (content) return { content, imageBase64 };
+  if (content) return { content, imageBase64, mcpResourceLinks };
 
   if (imageBase64.length > 0) {
     return {
@@ -2771,12 +2789,14 @@ function normalizeCodexMcpResult(result: unknown): {
           ? "Generated 1 image"
           : `Generated ${imageBase64.length} images`,
       imageBase64,
+      mcpResourceLinks,
     };
   }
 
   return {
     content: value == null ? "MCP call completed" : JSON.stringify(value),
     imageBase64,
+    mcpResourceLinks,
   };
 }
 
@@ -2944,6 +2964,7 @@ export async function getSessionHistory(
   }
 
   const messages: SessionHistoryMessage[] = [];
+  const toolNames = new Map<string, string>();
   const lines = raw.split("\n");
 
   for (const line of lines) {
@@ -2991,6 +3012,53 @@ export async function getSessionHistory(
     }
 
     if (!Array.isArray(message.content)) continue;
+
+    for (const rawBlock of message.content) {
+      const block = asObject(rawBlock);
+      if (!block) continue;
+
+      if (
+        role === "assistant" &&
+        block.type === "tool_use" &&
+        typeof block.id === "string" &&
+        typeof block.name === "string"
+      ) {
+        toolNames.set(block.id, block.name);
+        continue;
+      }
+
+      if (role !== "user" || block.type !== "tool_result") continue;
+      const rawResultContent = block.content;
+      const mcpResourceLinks = mcpUserResourceLinks(rawResultContent);
+      if (mcpResourceLinks.length === 0) continue;
+
+      const resultText = Array.isArray(rawResultContent)
+        ? rawResultContent
+            .map((part) => asObject(part))
+            .filter((part): part is Record<string, unknown> => part !== null)
+            .filter(
+              (part) => part.type === "text" && typeof part.text === "string",
+            )
+            .map((part) => part.text as string)
+            .join("\n")
+        : typeof rawResultContent === "string"
+          ? rawResultContent
+          : "";
+      const toolUseId = stringValue(block.tool_use_id);
+      if (!toolUseId) continue;
+      messages.push({
+        role: "tool_result",
+        toolUseId,
+        ...(toolNames.has(toolUseId)
+          ? { toolName: toolNames.get(toolUseId) }
+          : {}),
+        content: resultText,
+        mcpResourceLinks,
+        ...(typeof entry.timestamp === "string"
+          ? { timestamp: entry.timestamp }
+          : {}),
+      });
+    }
 
     // Filter content to only text and tool_use (skip tool_result for cleaner display)
     const content: SessionHistoryContentItem[] = [];

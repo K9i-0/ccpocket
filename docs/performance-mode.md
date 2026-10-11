@@ -16,14 +16,12 @@ clients; already queued batches pass through the same filter on flush.
 - Remove tool inputs, tool output bodies, raw image blocks, thinking and tool summaries.
   Preserve `tool_result` completion IDs so questions answered on another client stay resolved.
   Gallery-backed output images retain lightweight `ImageRef` destinations; image bytes stay
-  behind the existing image endpoints. Workspace links retain `outputLinkCandidates` with
-  a destination and markdown/inline/bare syntax; display names come from the destination. The mobile file list resolves
-  relative path candidates using the same rules as clickable paths in standard chat.
-  External URLs and fenced or indented code examples are excluded. Each result retains at
-  most 32 candidates, with destinations up to 256 characters and 8 KB total candidate metadata.
-  Normal tool bodies are scanned once and the result is cached across client/history delivery.
-  Text extraction has a 4 MB character ceiling for pathological output; image references do
-  not depend on text extraction.
+  behind the existing image endpoints. Gallery metadata is retained for image data returned
+  by tools so clients can open the saved gallery copy. MCP resource links are retained only when their
+  annotations include `audience: ["user"]`. The mobile client displays a file card only when
+  the resource URI resolves to a file listed in the active workspace. Other MCP resources,
+  command output, assistant prose, diffs, and incidental file paths do not create artifact cards.
+  Each result retains at most 32 links, with bounded URI, name, description, and MIME type fields.
 - Preserve plan-file `Write` inputs because the approval UI derives plan text from them.
 - Replace omitted live events with a small `session_activity` at most once per second per
   session/client. This reports observed activity, not proof that a stalled agent is healthy.
@@ -62,12 +60,11 @@ its local UI projection and shows an update notice; it does not claim network sa
 No new client message type is sent, so there is no new `unsupported_message` flow.
 Older apps omit preferences and retain standard delivery.
 
-Output vignettes appear beneath the message that produced them as soon as the result is
-delivered. Images open the existing image viewer; workspace links open the existing file
-browser and preview. Their metadata remains available in live delivery, legacy/past history,
-and sequenced history snapshots/deltas. Each result shows at most 32 file cards. Standard-mode
-link detection examines at most 256 KiB of tool text, while the complete tool output remains
-available by expanding its result. Older apps ignore the optional link metadata.
+Workspace-file cards appear beneath the tool result as soon as an eligible MCP resource link is
+delivered. Tapping a card opens the existing file browser and preview. Tool-returned image cards
+open the corresponding saved gallery image; Codex image generation continues to use its existing
+image result UI. These metadata fields are retained in live delivery and sequenced history
+snapshots/deltas. Older apps ignore the optional `mcpResourceLinks` and `galleryImages` fields.
 
 ## Verification
 

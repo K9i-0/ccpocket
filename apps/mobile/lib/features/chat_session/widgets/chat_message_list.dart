@@ -18,7 +18,7 @@ import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/performance_probe_extension.dart';
 import '../../../widgets/message_bubble.dart';
-import '../../generated_image_preview/generated_image_response_grouping.dart';
+import '../../generated_image_preview/generated_image_tool_results.dart';
 import '../../file_peek/file_peek_sheet.dart';
 import '../../file_peek/file_path_syntax.dart';
 import '../../message_images/message_images_screen.dart';
