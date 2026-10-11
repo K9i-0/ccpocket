@@ -38,12 +38,14 @@ export function mcpUserResourceLinks(
       block.mimeType,
       MAX_MIME_TYPE_LENGTH,
     );
-    links.set(uri, {
-      uri,
-      name,
-      ...(description ? { description } : {}),
-      ...(mimeType ? { mimeType } : {}),
-    });
+    if (!links.has(uri)) {
+      links.set(uri, {
+        uri,
+        name,
+        ...(description ? { description } : {}),
+        ...(mimeType ? { mimeType } : {}),
+      });
+    }
   }
 
   return [...links.values()];

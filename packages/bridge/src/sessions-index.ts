@@ -3700,6 +3700,7 @@ export async function getCodexSessionHistory(
           normalized.content,
           {
             imageBase64: normalized.imageBase64,
+            mcpResourceLinks: normalized.mcpResourceLinks,
             ...(entryTimestamp ? { timestamp: entryTimestamp } : {}),
           },
         );
