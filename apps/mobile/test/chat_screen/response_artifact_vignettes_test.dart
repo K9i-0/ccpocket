@@ -38,7 +38,9 @@ void main() {
           settings.setSessionLiteMode(testSessionId, liteMode);
           await tester.pump();
 
-          bridge.emitFileList(['reports/Release review.pdf']);
+          bridge.emitFileList([
+            'reports/Release review.pdf',
+          ], projectPath: '/workspace/project');
           await pumpN(tester);
 
           // Both providers deliver assets as enriched tool_result messages.
@@ -62,9 +64,7 @@ void main() {
           );
           await pumpN(tester);
           final fileCard = find.byKey(
-            const ValueKey(
-              'response_file_vignette_/workspace/project/reports/Release review.pdf',
-            ),
+            const ValueKey('response_file_vignette_reports/Release review.pdf'),
           );
           expect(fileCard, findsOneWidget);
           await tester.tap(fileCard);
@@ -75,10 +75,7 @@ void main() {
                     jsonDecode(message.toJson()) as Map<String, dynamic>,
               )
               .lastWhere((message) => message['type'] == 'list_directory');
-          expect(
-            directoryRequest['path'],
-            '/workspace/project/reports/Release review.pdf',
-          );
+          expect(directoryRequest['path'], '/workspace/project/reports');
           bridge.emitMessage(
             ErrorMessage(
               message: 'Path is not a directory',
@@ -201,6 +198,10 @@ void main() {
         ),
       );
       await pumpN(tester);
+      bridge.emitFileList([
+        'reports/review.md',
+      ], projectPath: '/workspace/project');
+      await pumpN(tester);
       bridge.emitMessage(
         const StreamDeltaMessage(text: 'Read the [release review]('),
       );
@@ -231,6 +232,10 @@ void main() {
         projectPath: '/workspace/project',
       ),
     );
+    await pumpN(tester);
+    bridge.emitFileList([
+      'reports/summary.docx',
+    ], projectPath: '/workspace/project');
     await pumpN(tester);
     bridge.emitMessage(
       ServerMessage.fromJson({

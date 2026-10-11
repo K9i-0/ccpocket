@@ -60,9 +60,10 @@ void main() {
       expect(
         workspaceOutputLinksForMessage(
           restored,
-          knownPathSuffixes: const {'reports/summary.md'},
+          knownPathSuffixes: const {'reports/review.pdf'},
+          projectPath: '/workspace/project',
         ).map((link) => link.path),
-        ['/workspace/project/reports/review.pdf', 'reports/summary.md'],
+        ['reports/review.pdf'],
       );
     });
   }
@@ -96,7 +97,7 @@ void main() {
           bridge.emitMessage(
             const FileListMessage(
               projectPath: '/workspace/project',
-              files: ['reports/summary.md'],
+              files: ['reports/review.pdf'],
             ),
           );
           await pumpN(tester);
@@ -131,9 +132,7 @@ void main() {
           );
           expect(
             find.byKey(
-              const ValueKey(
-                'response_file_vignette_/workspace/project/reports/review.pdf',
-              ),
+              const ValueKey('response_file_vignette_reports/review.pdf'),
             ),
             findsOneWidget,
           );
@@ -141,23 +140,10 @@ void main() {
           final relative = find.byKey(
             const ValueKey('response_file_vignette_reports/summary.md'),
           );
-          expect(relative, findsOneWidget);
+          expect(relative, findsNothing);
           expect(
             find.byKey(const ValueKey('response_file_vignette_unrelated.md')),
             findsNothing,
-          );
-          await tester.tap(relative);
-          await pumpN(tester);
-          expect(
-            bridge.sentMessages
-                .map((message) => jsonDecode(message.toJson()))
-                .any(
-                  (message) =>
-                      message['type'] == 'read_file' &&
-                      message['projectPath'] == '/workspace/project' &&
-                      message['filePath'] == 'reports/summary.md',
-                ),
-            isTrue,
           );
           expect(tester.takeException(), isNull);
         },
@@ -178,6 +164,10 @@ void main() {
           ),
         );
         await pumpN(tester);
+        bridge.emitFileList([
+          'reports/review.pdf',
+        ], projectPath: '/workspace/project');
+        await pumpN(tester);
         tester
             .element(find.byKey(const ValueKey('message_input')))
             .read<SettingsCubit>()
@@ -188,11 +178,11 @@ void main() {
             'toolUseId': 'report',
             'content': liteMode
                 ? ''
-                : '[Review](/workspace/reports/review.pdf)',
+                : '[Review](/workspace/project/reports/review.pdf)',
             if (liteMode)
               'outputLinkCandidates': [
                 {
-                  'href': '/workspace/reports/review.pdf',
+                  'href': '/workspace/project/reports/review.pdf',
                   'label': 'Review',
                   'syntax': 'markdown',
                 },
@@ -201,9 +191,7 @@ void main() {
         );
         await pumpN(tester);
         final card = find.byKey(
-          const ValueKey(
-            'response_file_vignette_/workspace/reports/review.pdf',
-          ),
+          const ValueKey('response_file_vignette_reports/review.pdf'),
         );
         expect(card, findsOneWidget);
         expect(find.text('Review'), findsOneWidget);
@@ -215,7 +203,7 @@ void main() {
               .any(
                 (message) =>
                     message['type'] == 'read_file' &&
-                    message['filePath'] == '/workspace/reports/review.pdf',
+                    message['filePath'] == 'reports/review.pdf',
               ),
           isTrue,
         );

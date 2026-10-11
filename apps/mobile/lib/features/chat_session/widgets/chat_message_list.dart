@@ -202,16 +202,20 @@ class _ChatMessageListState extends State<ChatMessageList> {
   List<ChatEntry>? _liteEntries;
   Set<String> _knownPathSuffixes = const {};
   Set<String>? _projectionSuffixes;
+  String? _projectionProjectPath;
 
   List<ChatEntry> _displayEntries(List<ChatEntry> entries) {
     if (!widget.liteMode) return entries;
     if (!listEquals(_projectionSource, entries) ||
-        !identical(_projectionSuffixes, _knownPathSuffixes)) {
+        !identical(_projectionSuffixes, _knownPathSuffixes) ||
+        _projectionProjectPath != widget.projectPath) {
       _projectionSource = entries;
       _projectionSuffixes = _knownPathSuffixes;
+      _projectionProjectPath = widget.projectPath;
       _liteEntries = liteModeEntries(
         entries,
         knownPathSuffixes: _knownPathSuffixes,
+        projectPath: widget.projectPath,
       );
     }
     return _liteEntries!;
@@ -649,6 +653,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                               isCodex: widget.isCodex,
                               liteMode: widget.liteMode,
                               knownPathSuffixes: _knownPathSuffixes,
+                              projectPath: widget.projectPath,
                               onFileTap: widget.projectPath?.isNotEmpty == true
                                   ? _openOutputFile
                                   : null,
@@ -707,6 +712,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                           .contains(entryIndex),
                       permissionTranscriptStatus: permissionTranscriptStatus,
                       hiddenToolUseIds: effectiveHiddenToolUseIds,
+                      projectPath: widget.projectPath,
                       onFileTap: widget.projectPath?.isNotEmpty == true
                           ? _openOutputFile
                           : null,

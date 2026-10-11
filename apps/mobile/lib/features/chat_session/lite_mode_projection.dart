@@ -6,6 +6,7 @@ import '../response_artifacts/workspace_output_links.dart';
 List<ChatEntry> liteModeEntries(
   List<ChatEntry> entries, {
   Set<String> knownPathSuffixes = const {},
+  String? projectPath,
 }) {
   final visible = <ChatEntry>[];
   for (final entry in entries) {
@@ -18,6 +19,7 @@ List<ChatEntry> liteModeEntries(
               workspaceOutputLinksForMessage(
                 message,
                 knownPathSuffixes: knownPathSuffixes,
+                projectPath: projectPath,
               ).isNotEmpty) {
             visible.add(entry);
           }

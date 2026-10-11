@@ -53,10 +53,9 @@ function extractOutputLinkCandidates(text: string): OutputLinkCandidate[] {
 
   let textOutsideCode = outsideMarkdownCode(text.slice(0, MAX_TEXT_LENGTH));
 
-  textOutsideCode = textOutsideCode.replace(/`([^`\n]+)`/g, (_, value: string) => {
-    if (!value.includes("](") && (value.includes("/") || value.includes(".") || value.includes("\\"))) add(value, "inline");
-    return "";
-  });
+  textOutsideCode = textOutsideCode.replace(/`+[^`\n]*`+/g, (code) =>
+    " ".repeat(code.length),
+  );
   textOutsideCode = textOutsideCode.replace(
     /!?\[([^\]\n]*)\]\(\s*(?:<([^>\n]+)>|([^\s)]+))(?:\s+["'][^\n]*?["'])?\s*\)/g,
     (
@@ -69,11 +68,6 @@ function extractOutputLinkCandidates(text: string): OutputLinkCandidate[] {
       return "";
     },
   );
-  textOutsideCode = textOutsideCode.replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, "");
-  for (const match of textOutsideCode.matchAll(/(?:[a-z]:[\\/]|\\\\|\.\.?\/|\/)?[\w][\w./\\-]*[\w/]/gi)) {
-    const value = match[0];
-    if (value.includes("/") || value.includes(".")) add(value, "bare");
-  }
   return candidates;
 }
 

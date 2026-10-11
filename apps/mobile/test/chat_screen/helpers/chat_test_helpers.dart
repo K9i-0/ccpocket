@@ -41,8 +41,11 @@ class MockBridgeService extends BridgeService {
     _messageController.add(msg);
   }
 
-  void emitFileList(List<String> files) {
+  void emitFileList(List<String> files, {String? projectPath}) {
     _fileListController.add(files);
+    if (projectPath != null) {
+      emitMessage(FileListMessage(projectPath: projectPath, files: files));
+    }
   }
 
   @override
@@ -54,6 +57,16 @@ class MockBridgeService extends BridgeService {
 
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
+
+  @override
+  Stream<FileListMessage> fileListMessagesForProject(String projectPath) =>
+      messages
+          .where(
+            (message) =>
+                message is FileListMessage &&
+                message.projectPath == projectPath,
+          )
+          .cast<FileListMessage>();
 
   @override
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;

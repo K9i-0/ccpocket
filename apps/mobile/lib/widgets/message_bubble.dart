@@ -47,6 +47,7 @@ class ChatEntryWidget extends StatelessWidget {
   final bool isCodex;
   final bool liteMode;
   final Set<String> knownPathSuffixes;
+  final String? projectPath;
 
   const ChatEntryWidget({
     super.key,
@@ -67,6 +68,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.isCodex = false,
     this.liteMode = false,
     this.knownPathSuffixes = const {},
+    this.projectPath,
   });
 
   @override
@@ -119,6 +121,7 @@ class ChatEntryWidget extends StatelessWidget {
                 : workspaceOutputLinksForMessage(
                     message,
                     knownPathSuffixes: knownPathSuffixes,
+                    projectPath: projectPath,
                   ),
             onFileTap: onFileTap,
           ),
@@ -127,6 +130,7 @@ class ChatEntryWidget extends StatelessWidget {
             files: workspaceOutputLinks(
               text,
               knownPathSuffixes: knownPathSuffixes,
+              projectPath: projectPath,
             ),
             onFileTap: onFileTap,
           ),

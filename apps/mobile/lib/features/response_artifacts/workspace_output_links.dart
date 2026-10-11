@@ -1,7 +1,7 @@
 import 'package:markdown/markdown.dart' as md;
+import 'package:path/path.dart' as p;
 
 import '../../models/messages.dart';
-import '../file_peek/file_path_syntax.dart';
 import '../file_peek/markdown_link_handler.dart';
 
 const _maxWorkspaceOutputLinks = 32;
@@ -20,41 +20,36 @@ class WorkspaceOutputLink {
 
 typedef _CachedWorkspaceLinks = ({
   Set<String> suffixes,
+  String? projectPath,
   List<WorkspaceOutputLink> links,
 });
 final _messageLinks = Expando<_CachedWorkspaceLinks>('workspace output links');
 
-/// Returns file destinations from rendered markdown, excluding code examples.
+/// Returns Markdown links to files confirmed in the active workspace.
 List<WorkspaceOutputLink> workspaceOutputLinks(
   String text, {
   Set<String> knownPathSuffixes = const {},
+  String? projectPath,
 }) {
   final boundedText = _boundedWorkspaceOutputText(text);
-  if (knownPathSuffixes.isEmpty &&
-      !boundedText.contains('[') &&
-      !boundedText.contains('`') &&
-      !boundedText.contains('/') &&
-      !boundedText.contains('\\')) {
+  if (knownPathSuffixes.isEmpty ||
+      projectPath == null ||
+      !boundedText.contains('[')) {
     return const [];
   }
   final links = <String, WorkspaceOutputLink>{};
   void visit(md.Node node) {
     if (links.length >= _maxWorkspaceOutputLinks) return;
     if (node is! md.Element) return;
-    if (node.tag == 'a' || node.tag == 'img' || node.tag == 'filePath') {
-      final href =
-          node.attributes[switch (node.tag) {
-            'img' => 'src',
-            'filePath' => 'path',
-            _ => 'href',
-          }];
+    if (node.tag == 'a' || node.tag == 'img') {
+      final href = node.attributes[node.tag == 'img' ? 'src' : 'href'];
       if (href != null && href.length <= _maxWorkspaceOutputPathLength) {
-        final target = classifyMarkdownLink(
+        final relativePath = _workspaceRelativeFilePath(
           href,
+          projectPath: projectPath,
           knownPathSuffixes: knownPathSuffixes,
         );
-        if (target.kind == MarkdownLinkTargetKind.file &&
-            !target.value.endsWith('/')) {
+        if (relativePath != null) {
           final rawLabel = node.tag == 'img'
               ? node.attributes['alt'] ?? ''
               : node.textContent;
@@ -62,8 +57,8 @@ List<WorkspaceOutputLink> workspaceOutputLinks(
               ? rawLabel
               : rawLabel.substring(0, _maxWorkspaceOutputLabelLength);
           links.putIfAbsent(
-            target.value,
-            () => WorkspaceOutputLink(path: target.value, label: label),
+            relativePath,
+            () => WorkspaceOutputLink(path: relativePath, label: label),
           );
         }
       }
@@ -74,29 +69,13 @@ List<WorkspaceOutputLink> workspaceOutputLinks(
     }
   }
 
-  void parseLinks({required bool includeBarePaths}) {
-    final document = md.Document(
-      extensionSet: md.ExtensionSet.gitHubFlavored,
-      inlineSyntaxes: [
-        FilePathSyntax(knownPathSuffixes: knownPathSuffixes),
-        if (includeBarePaths) ...[
-          _AbsoluteOutputPathSyntax(),
-          BareFilePathSyntax(knownPathSuffixes: knownPathSuffixes),
-        ],
-      ],
-      encodeHtml: false,
-    );
-    for (final node in document.parseLines(boundedText.split('\n'))) {
-      if (links.length >= _maxWorkspaceOutputLinks) break;
-      visit(node);
-    }
-  }
-
-  // Markdown links and inline code paths are deliberate destinations. Reserve
-  // their slots before incidental paths from command output are considered.
-  parseLinks(includeBarePaths: false);
-  if (links.length < _maxWorkspaceOutputLinks) {
-    parseLinks(includeBarePaths: true);
+  final document = md.Document(
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+    encodeHtml: false,
+  );
+  for (final node in document.parseLines(boundedText.split('\n'))) {
+    if (links.length >= _maxWorkspaceOutputLinks) break;
+    visit(node);
   }
   return List.unmodifiable(links.values);
 }
@@ -132,66 +111,15 @@ String _boundedWorkspaceOutputText(String text) {
   return output.toString();
 }
 
-class _AbsoluteOutputPathSyntax extends md.InlineSyntax {
-  static final _tokenBoundary = RegExp(r'[\s<>()\[\]{}]');
-
-  _AbsoluteOutputPathSyntax()
-    : super(
-        r'(?:/(?:[\w.-]+/)*[\w.-]*\w|[A-Za-z]:[\\/][\w.\\/-]*\w)(?::\d+(?::\d+)?)?',
-      );
-
-  @override
-  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
-    startMatchPos ??= parser.pos;
-    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
-    if (match == null) return false;
-
-    final source = parser.source;
-    if (startMatchPos > 0 &&
-        RegExp(r'[\w./\\-]').hasMatch(source[startMatchPos - 1])) {
-      return false;
-    }
-    if (_isInsideUrlToken(source, startMatchPos)) return false;
-
-    final path = match[0]!;
-    final pathEnd = startMatchPos + path.length;
-    if (pathEnd < source.length && source[pathEnd] == '/') return false;
-    if (!FilePathSyntax().isFilePath(path)) return false;
-    parser.writeText();
-    parser.addNode(
-      md.Element.text('filePath', path)..attributes['path'] = path,
-    );
-    parser.consume(path.length);
-    return true;
-  }
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) => false;
-
-  bool _isInsideUrlToken(String source, int matchStart) {
-    var index = matchStart;
-    var inspected = 0;
-    while (index > 0 && inspected < 2048) {
-      if (_tokenBoundary.hasMatch(source[index - 1])) return false;
-      if (index >= 3 &&
-          source[index - 3] == ':' &&
-          source[index - 2] == '/' &&
-          source[index - 1] == '/') {
-        return true;
-      }
-      index--;
-      inspected++;
-    }
-    return index > 0;
-  }
-}
-
 List<WorkspaceOutputLink> workspaceOutputLinksForMessage(
   ServerMessage message, {
   Set<String> knownPathSuffixes = const {},
+  String? projectPath,
 }) {
   final cached = _messageLinks[message];
-  if (cached != null && identical(cached.suffixes, knownPathSuffixes)) {
+  if (cached != null &&
+      identical(cached.suffixes, knownPathSuffixes) &&
+      cached.projectPath == projectPath) {
     return cached.links;
   }
   final text = switch (message) {
@@ -204,33 +132,19 @@ List<WorkspaceOutputLink> workspaceOutputLinksForMessage(
   };
   final byPath = <String, WorkspaceOutputLink>{};
   if (message is ToolResultMessage) {
-    final inlineSyntax = FilePathSyntax(knownPathSuffixes: knownPathSuffixes);
     for (final candidate in message.outputLinkCandidates) {
-      final matches = switch (candidate.syntax) {
-        'markdown' => true,
-        'inline' => inlineSyntax.isFilePath(candidate.href),
-        'bare' =>
-          knownPathSuffixes.contains(candidate.href) ||
-              ((candidate.href.startsWith('/') ||
-                      RegExp(r'^[A-Za-z]:[\\/]|^\\\\')
-                          .hasMatch(candidate.href)) &&
-                  inlineSyntax.isFilePath(candidate.href)),
-        _ => false,
-      };
-      if (!matches) continue;
-      final target = classifyMarkdownLink(
+      if (candidate.syntax != 'markdown') continue;
+      final relativePath = _workspaceRelativeFilePath(
         candidate.href,
+        projectPath: projectPath,
         knownPathSuffixes: knownPathSuffixes,
       );
-      if (target.kind != MarkdownLinkTargetKind.file ||
-          target.value.endsWith('/')) {
-        continue;
-      }
+      if (relativePath == null) continue;
       if (byPath.length >= _maxWorkspaceOutputLinks) break;
       byPath.putIfAbsent(
-        target.value,
+        relativePath,
         () => WorkspaceOutputLink(
-          path: target.value,
+          path: relativePath,
           label: candidate.label ?? '',
         ),
       );
@@ -240,6 +154,7 @@ List<WorkspaceOutputLink> workspaceOutputLinksForMessage(
     for (final link in workspaceOutputLinks(
       text,
       knownPathSuffixes: knownPathSuffixes,
+      projectPath: projectPath,
     )) {
       final existing = byPath[link.path];
       if (existing != null) {
@@ -253,8 +168,53 @@ List<WorkspaceOutputLink> workspaceOutputLinksForMessage(
     }
   }
   final result = List<WorkspaceOutputLink>.unmodifiable(byPath.values);
-  _messageLinks[message] = (suffixes: knownPathSuffixes, links: result);
+  _messageLinks[message] = (
+    suffixes: knownPathSuffixes,
+    projectPath: projectPath,
+    links: result,
+  );
   return result;
+}
+
+String? _workspaceRelativeFilePath(
+  String href, {
+  required String? projectPath,
+  required Set<String> knownPathSuffixes,
+}) {
+  if (projectPath == null ||
+      projectPath.trim().isEmpty ||
+      knownPathSuffixes.isEmpty) {
+    return null;
+  }
+  final target = classifyMarkdownLink(
+    href,
+    knownPathSuffixes: knownPathSuffixes,
+  );
+  if (target.kind != MarkdownLinkTargetKind.file) return null;
+
+  final project = projectPath.trim();
+  final windowsStyle = RegExp(r'^[A-Za-z]:[\\/]|^\\\\').hasMatch(project);
+  final context = p.Context(
+    style: windowsStyle ? p.Style.windows : p.Style.posix,
+  );
+  final rawPath = target.value
+      .replaceFirst(RegExp(r'(:\d+){1,2}$'), '')
+      .replaceAll('\\', '/');
+  final windowsTarget = RegExp(r'^[A-Za-z]:/|^//').hasMatch(rawPath);
+  final posixTarget = rawPath.startsWith('/') && !windowsTarget;
+  if ((windowsTarget || posixTarget) && windowsTarget != windowsStyle) {
+    return null;
+  }
+
+  final root = context.normalize(project);
+  final resolved = context.normalize(
+    context.isAbsolute(rawPath) ? rawPath : context.join(root, rawPath),
+  );
+  if (resolved == root || !context.isWithin(root, resolved)) return null;
+  final relative = context.relative(resolved, from: root).replaceAll('\\', '/');
+  if (relative.isEmpty || relative.startsWith('../')) return null;
+
+  return knownPathSuffixes.contains(relative) ? relative : null;
 }
 
 String _boundedAssistantText(List<AssistantContent> content) {

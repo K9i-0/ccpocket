@@ -29,7 +29,7 @@ describe("performance output artifacts", () => {
     }
   });
 
-  it("retains relative candidates while excluding external links and code examples", () => {
+  it("retains explicit Markdown links while excluding incidental paths and code", () => {
     const projected = performanceMessage({ type: "tool_result", toolUseId: "report", content: [
       "Read `reports/summary.md` and README.md.",
       "[Source](lib/main.dart#L42)",
@@ -38,16 +38,18 @@ describe("performance output artifacts", () => {
       "```markdown\n[Example](./example.pdf)\n```",
     ].join("\n") })!;
     expect(projected.outputLinkCandidates).toEqual([
-      { href: "reports/summary.md", syntax: "inline" },
       { href: "lib/main.dart#L42", syntax: "markdown", label: "Source" },
-      { href: "README.md", syntax: "bare" },
     ]);
     expect(projected.content).toBe("");
   });
 
-  it("keeps the complete absolute destination when collecting bare path candidates", () => {
-    const projected = performanceMessage({ type: "tool_result", toolUseId: "report", content: "Output: /workspace/reports/summary.md" })!;
-    expect(projected.outputLinkCandidates).toEqual([{ href: "/workspace/reports/summary.md", syntax: "bare" }]);
+  it("does not promote plain file mentions to output link candidates", () => {
+    const projected = performanceMessage({
+      type: "tool_result",
+      toolUseId: "report",
+      content: "Command: cat README.md\nOutput: /workspace/reports/summary.md",
+    })!;
+    expect(projected.outputLinkCandidates).toBeUndefined();
   });
 
   it("omits oversized thumbnail destinations while retaining the original image reference", () => {
