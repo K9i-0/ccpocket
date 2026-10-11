@@ -131,7 +131,7 @@ vi.mock("./sdk-process.js", () => ({
 
 import { SessionManager } from "./session.js";
 
-describe("SessionManager codex path", () => {
+describe("SessionManager process paths", () => {
   it("preserves goal transitions queued during the initial lookup", async () => {
     const forwarded: ServerMessage[] = [];
     const manager = new SessionManager((_, msg) => forwarded.push(msg));
@@ -1386,6 +1386,71 @@ describe("SessionManager codex path", () => {
         mimeType: "image/png",
       },
     ]);
+    expect(historyMsg).not.toHaveProperty("rawContentBlocks");
+  });
+
+  it("extracts Claude MCP ImageContent into image references", async () => {
+    const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
+    const imageStore = {
+      extractImagePaths: vi.fn(() => []),
+      registerImages: vi.fn(async () => []),
+      registerFromBase64: vi.fn(() => ({
+        id: "img-claude-1",
+        url: "/images/img-claude-1",
+        mimeType: "image/png",
+      })),
+    };
+    const manager = new SessionManager((sessionId, msg) => {
+      forwarded.push({ sessionId, msg });
+    }, imageStore as any);
+
+    const sessionId = manager.create(
+      "/tmp/project-claude-images",
+      undefined,
+      undefined,
+      undefined,
+      "claude",
+    );
+
+    sdkInstances[0].emit("message", {
+      type: "tool_result",
+      toolUseId: "mcp-img-claude-1",
+      toolName: "mcp__browser__screenshot",
+      content: "Captured the screen.",
+      rawContentBlocks: [
+        {
+          type: "image",
+          data: "aGVsbG8=",
+          mimeType: "image/png",
+        },
+      ],
+    } as ServerMessage);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(imageStore.registerFromBase64).toHaveBeenCalledWith(
+      "aGVsbG8=",
+      "image/png",
+    );
+    const forwardedMsg = forwarded.at(-1)?.msg as
+      | Record<string, unknown>
+      | undefined;
+    expect(forwardedMsg).toMatchObject({
+      type: "tool_result",
+      toolUseId: "mcp-img-claude-1",
+      images: [
+        {
+          id: "img-claude-1",
+          url: "/images/img-claude-1",
+          mimeType: "image/png",
+        },
+      ],
+    });
+    expect(forwardedMsg).not.toHaveProperty("rawContentBlocks");
+    const historyMsg = manager.get(sessionId)?.history.at(-1) as
+      | Record<string, unknown>
+      | undefined;
+    expect(historyMsg?.images).toEqual(forwardedMsg?.images);
     expect(historyMsg).not.toHaveProperty("rawContentBlocks");
   });
 
