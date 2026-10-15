@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.142.0] - 2026-10-16
+
+### Added
+
+- Write image-specific instructions directly in previews, including generated images, and add timestamped comments while reviewing videos. Keep instructions as session drafts and append them when sending a chat message.
+- Review, edit, and remove media instructions from the chat composer. Preserve drafts when sending fails or while further edits are made.
+
+### Changed
+
+- Improve video control visibility on bright and dark footage with shadowed text and icons, translucent backgrounds, and clearer seek bars.
+- Recommend Bridge 1.88.4, which makes idle session timeouts opt-in.
+
 ## [1.141.0] - 2026-10-12
 
 ### Added
