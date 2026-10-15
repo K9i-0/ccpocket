@@ -6088,6 +6088,66 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'{days}日{hours}時間'**
   String liteModeDurationDays(int days, int hours);
+
+  /// No description provided for @mediaFeedbackComments.
+  ///
+  /// In ja, this message translates to:
+  /// **'素材への指示'**
+  String get mediaFeedbackComments;
+
+  /// No description provided for @mediaFeedbackAtTime.
+  ///
+  /// In ja, this message translates to:
+  /// **'この時刻にコメント'**
+  String get mediaFeedbackAtTime;
+
+  /// No description provided for @mediaFeedbackWhole.
+  ///
+  /// In ja, this message translates to:
+  /// **'全体'**
+  String get mediaFeedbackWhole;
+
+  /// No description provided for @mediaFeedbackVideoHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'動画への指示…'**
+  String get mediaFeedbackVideoHint;
+
+  /// No description provided for @mediaFeedbackImageHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'この画像への指示…'**
+  String get mediaFeedbackImageHint;
+
+  /// No description provided for @mediaFeedbackDone.
+  ///
+  /// In ja, this message translates to:
+  /// **'完了'**
+  String get mediaFeedbackDone;
+
+  /// No description provided for @mediaFeedbackSendHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'自動保存 · チャット送信時に末尾へ追加'**
+  String get mediaFeedbackSendHint;
+
+  /// No description provided for @mediaFeedbackSendError.
+  ///
+  /// In ja, this message translates to:
+  /// **'素材を添付できませんでした。接続と画像の枚数を確認してください（最大5枚）。指示は下書きに残っています。'**
+  String get mediaFeedbackSendError;
+
+  /// No description provided for @mediaFeedbackSourceChanged.
+  ///
+  /// In ja, this message translates to:
+  /// **'この素材はコメント作成後に更新されています。内容と時刻を確認してください。'**
+  String get mediaFeedbackSourceChanged;
+
+  /// No description provided for @mediaFeedbackConfirmSource.
+  ///
+  /// In ja, this message translates to:
+  /// **'更新後の素材に適用'**
+  String get mediaFeedbackConfirmSource;
 }
 
 class _AppLocalizationsDelegate

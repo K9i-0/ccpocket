@@ -7,6 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../media_feedback/media_feedback_scope.dart';
+import '../../media_feedback/media_feedback_send.dart';
+import '../../media_feedback/state/media_feedback_state.dart';
+import '../../media_feedback/widgets/media_feedback_cards.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/composer_tokens.dart';
 import '../../../utils/command_completion_matcher.dart';
@@ -99,6 +103,10 @@ class ChatInputWithOverlays extends HookWidget {
     // Track if input has text (initialize from controller's current value)
     final hasInputText = useState(inputController.text.trim().isNotEmpty);
     final isSending = useState(false);
+    final feedbackCubit = context.read<DraftService>().mediaFeedback;
+    useStream(feedbackCubit.stream, initialData: feedbackCubit.state);
+    final feedbackEntries = feedbackCubit.items(sessionId);
+    final feedbackBinding = MediaFeedbackBinding(feedbackCubit, sessionId);
 
     // Track if input is completely empty (for slash command button swap)
     final isInputEmpty = useState(inputController.text.isEmpty);
@@ -701,7 +709,8 @@ class ChatInputWithOverlays extends HookWidget {
       final text = inputSnapshot.trim();
       if (text.isEmpty &&
           attachedImages.value.isEmpty &&
-          attachedDiffSelection.value == null) {
+          attachedDiffSelection.value == null &&
+          feedbackEntries.isEmpty) {
         return;
       }
       HapticFeedback.lightImpact();
@@ -714,6 +723,7 @@ class ChatInputWithOverlays extends HookWidget {
       final selection = attachedDiffSelection.value;
 
       // Build final message text with the requested diff prepended.
+      final feedbackSnapshot = List<MediaFeedback>.of(feedbackEntries);
       var finalText = text;
       if (selection != null) {
         if (selection.diffText.isNotEmpty) {
@@ -722,16 +732,60 @@ class ChatInputWithOverlays extends HookWidget {
         }
       }
 
-      final messageToSend = finalText.isEmpty
-          ? 'What is in this image?'
-          : finalText;
       try {
+        final ({List<FeedbackImage> images, Map<String, int> indices}) prepared;
+        final bridge = context.read<BridgeService>();
+        if (feedbackSnapshot.any((entry) {
+          final media = entry.media;
+          final latest = media.projectPath == null || media.path == null
+              ? null
+              : bridge.fileModificationTimesForProject(
+                  media.projectPath!,
+                )[media.path];
+          return media.modifiedAt != null &&
+              latest != null &&
+              media.modifiedAt != latest;
+        })) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context).mediaFeedbackSourceChanged,
+              ),
+            ),
+          );
+          return;
+        }
+        try {
+          prepared = await feedbackImages(feedbackSnapshot, images);
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context).mediaFeedbackSendError,
+                ),
+              ),
+            );
+          }
+          return;
+        }
+        // A preview may finish loading after the originating session was closed.
+        if (!context.mounted || activeSessionId.value != sessionId) return;
+        finalText = appendMediaFeedback(
+          finalText,
+          feedbackSnapshot,
+          attachmentIndices: prepared.indices,
+        );
+        final messageToSend = finalText.isEmpty
+            ? 'What is in this image?'
+            : finalText;
         final accepted = await cubit.sendMessage(
           messageToSend,
-          images: images.isEmpty ? null : images,
+          images: prepared.images.isEmpty ? null : prepared.images,
           mentionablePaths: projectFiles,
         );
         if (!accepted) return;
+        feedbackCubit.removeSent(sessionId, feedbackSnapshot);
         if (!context.mounted) {
           if (draftService.getDraft(sessionId) == inputSnapshot) {
             draftService.deleteDraft(sessionId);
@@ -1159,64 +1213,76 @@ class ChatInputWithOverlays extends HookWidget {
             child: _wrapWithDropRegion(
               enabled: isDesktopPlatform,
               onPerformDrop: handleDroppedItems,
-              child: ChatInputBar(
-                inputController: inputController,
-                status: status,
-                hasInputText:
-                    !inputBlocked &&
-                    !isSending.value &&
-                    (hasInputText.value ||
-                        attachedImages.value.isNotEmpty ||
-                        attachedDiffSelection.value != null),
-                isInputEmpty: isInputEmpty.value,
-                isVoiceAvailable: !settings.hideVoiceInput && voice.isAvailable,
-                isRecording: voice.isRecording,
-                onSend: sendMessage,
-                onStop: stopSession,
-                onInterrupt: interruptSession,
-                onToggleVoice: voice.toggle,
-                onIndent: indent,
-                onDedent: dedent,
-                canDedent: canDedent.value,
-                onSlashCommand: insertSlashPrefix,
-                onMention: insertMention,
-                onDollarMention: isCodex ? insertDollar : null,
-                showDollarButton: isCodex,
-                isInMentionContext: isInMentionContext.value,
-                onShowPromptHistory: showPromptHistory,
-                onAttachImage: settings.openGalleryDirectly
-                    ? pickImageFromGallery
-                    : showAttachOptions,
-                onShowAttachmentOptions: settings.openGalleryDirectly
-                    ? showAttachOptions
-                    : null,
-                attachedImages: attachedImages.value,
-                editableSketchIndices: attachedSketchDocuments.value.keys
-                    .toSet(),
-                onEditSketch: (index) => openSketch(imageIndex: index),
-                onAnnotateImage: (bytes) {
-                  // The preview can outlive a pending removal or session change.
-                  if (!context.mounted || activeSessionId.value != sessionId) {
-                    return;
-                  }
-                  final index = attachedImages.value.indexWhere(
-                    (image) => identical(image.bytes, bytes),
-                  );
-                  if (index >= 0) openSketch(imageIndex: index);
-                },
-                onClearImage: clearAttachment,
-                attachedDiffSelection: attachedDiffSelection.value,
-                onClearDiffSelection: clearDiffSelection,
-                onTapDiffPreview: onOpenGitScreen != null
-                    ? () => onOpenGitScreen!(attachedDiffSelection.value)
-                    : null,
-                hintText: hintText,
-                onPasteImage: isDesktopPlatform ? tryPasteImage : null,
-                onPasteImageFromContextMenu: pasteFromClipboard,
-                onNativePasteImage: addNativePastedImage,
-                hasImageInClipboard: hasContextMenuClipboardImage,
-                imagePasteShortcut: settings.imagePasteShortcut,
-                onCompletionKeyEvent: handleCompletionKeyEvent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MediaFeedbackCards(
+                    binding: feedbackBinding,
+                    entries: feedbackEntries,
+                  ),
+                  ChatInputBar(
+                    inputController: inputController,
+                    status: status,
+                    hasInputText:
+                        !inputBlocked &&
+                        !isSending.value &&
+                        (hasInputText.value ||
+                            attachedImages.value.isNotEmpty ||
+                            attachedDiffSelection.value != null ||
+                            feedbackEntries.isNotEmpty),
+                    isInputEmpty: isInputEmpty.value,
+                    isVoiceAvailable:
+                        !settings.hideVoiceInput && voice.isAvailable,
+                    isRecording: voice.isRecording,
+                    onSend: sendMessage,
+                    onStop: stopSession,
+                    onInterrupt: interruptSession,
+                    onToggleVoice: voice.toggle,
+                    onIndent: indent,
+                    onDedent: dedent,
+                    canDedent: canDedent.value,
+                    onSlashCommand: insertSlashPrefix,
+                    onMention: insertMention,
+                    onDollarMention: isCodex ? insertDollar : null,
+                    showDollarButton: isCodex,
+                    isInMentionContext: isInMentionContext.value,
+                    onShowPromptHistory: showPromptHistory,
+                    onAttachImage: settings.openGalleryDirectly
+                        ? pickImageFromGallery
+                        : showAttachOptions,
+                    onShowAttachmentOptions: settings.openGalleryDirectly
+                        ? showAttachOptions
+                        : null,
+                    attachedImages: attachedImages.value,
+                    editableSketchIndices: attachedSketchDocuments.value.keys
+                        .toSet(),
+                    onEditSketch: (index) => openSketch(imageIndex: index),
+                    onAnnotateImage: (bytes) {
+                      // The preview can outlive a pending removal or session change.
+                      if (!context.mounted ||
+                          activeSessionId.value != sessionId) {
+                        return;
+                      }
+                      final index = attachedImages.value.indexWhere(
+                        (image) => identical(image.bytes, bytes),
+                      );
+                      if (index >= 0) openSketch(imageIndex: index);
+                    },
+                    onClearImage: clearAttachment,
+                    attachedDiffSelection: attachedDiffSelection.value,
+                    onClearDiffSelection: clearDiffSelection,
+                    onTapDiffPreview: onOpenGitScreen != null
+                        ? () => onOpenGitScreen!(attachedDiffSelection.value)
+                        : null,
+                    hintText: hintText,
+                    onPasteImage: isDesktopPlatform ? tryPasteImage : null,
+                    onPasteImageFromContextMenu: pasteFromClipboard,
+                    onNativePasteImage: addNativePastedImage,
+                    hasImageInClipboard: hasContextMenuClipboardImage,
+                    imagePasteShortcut: settings.imagePasteShortcut,
+                    onCompletionKeyEvent: handleCompletionKeyEvent,
+                  ),
+                ],
               ),
             ),
           ),

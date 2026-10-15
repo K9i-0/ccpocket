@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
+import '../media_feedback/media_feedback_scope.dart';
+import '../media_feedback/state/media_feedback_state.dart';
+import '../media_feedback/widgets/media_feedback_editor.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/media_export_actions.dart';
@@ -14,6 +19,7 @@ import 'widgets/generated_image_preview_page.dart';
 class GeneratedImagePreviewScreen extends StatefulWidget {
   final List<GeneratedImagePreviewItem> items;
   final int initialIndex;
+  final MediaFeedbackBinding? feedback;
   @visibleForTesting
   final Future<void> Function(ShareParams params)? shareImage;
 
@@ -21,6 +27,7 @@ class GeneratedImagePreviewScreen extends StatefulWidget {
     super.key,
     required this.items,
     this.initialIndex = 0,
+    this.feedback,
     this.shareImage,
   }) : assert(items.length > 0);
 
@@ -135,6 +142,11 @@ class _GeneratedImagePreviewScreenState
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext?.widget is EditableText ||
+        focusedContext?.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return KeyEventResult.ignored;
+    }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
       _goToPage(_currentIndex - 1);
       return KeyEventResult.handled;
@@ -201,6 +213,27 @@ class _GeneratedImagePreviewScreenState
                 ),
               )
             : null,
+        bottomNavigationBar: widget.feedback == null
+            ? null
+            : Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: MediaFeedbackEditor(
+                  key: ValueKey(currentItem.id),
+                  binding: widget.feedback!,
+                  media: FeedbackMedia(
+                    key: 'generated:${currentItem.id}',
+                    label: currentItem.savedPath ?? currentItem.id,
+                    path: currentItem.savedPath,
+                    url: currentItem.url,
+                    base64: currentItem.bytes == null
+                        ? null
+                        : base64Encode(currentItem.bytes!),
+                    mimeType: currentItem.mimeType,
+                  ),
+                ),
+              ),
         body: Stack(
           fit: StackFit.expand,
           children: [
@@ -245,14 +278,15 @@ class _GeneratedImagePreviewScreenState
                     ? () => _goToPage(_currentIndex + 1)
                     : null,
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: GeneratedImageDetailsPanel(
-                  item: currentItem,
-                  expanded: _detailsExpanded,
-                  onToggleExpanded: _toggleDetails,
+              if (MediaQuery.viewInsetsOf(context).bottom == 0)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: GeneratedImageDetailsPanel(
+                    item: currentItem,
+                    expanded: _detailsExpanded,
+                    onToggleExpanded: _toggleDetails,
+                  ),
                 ),
-              ),
             ],
           ],
         ),

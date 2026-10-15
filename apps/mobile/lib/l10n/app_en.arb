@@ -1354,5 +1354,15 @@
         "type": "int"
       }
     }
-  }
+  },
+  "mediaFeedbackComments": "Media instructions",
+  "mediaFeedbackAtTime": "Comment here",
+  "mediaFeedbackWhole": "Overall",
+  "mediaFeedbackVideoHint": "Instructions for this video…",
+  "mediaFeedbackImageHint": "Instructions for this image…",
+  "mediaFeedbackDone": "Done",
+  "mediaFeedbackSendHint": "Saved automatically · Added when you send the chat",
+  "mediaFeedbackSendError": "Could not attach media. Check your connection and image count (maximum 5). Your instructions are still saved.",
+  "mediaFeedbackSourceChanged": "This media has changed since you commented. Check the content and timestamps.",
+  "mediaFeedbackConfirmSource": "Use updated media"
 }

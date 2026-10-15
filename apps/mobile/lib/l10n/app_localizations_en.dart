@@ -3368,4 +3368,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String liteModeDurationDays(int days, int hours) {
     return '${days}d ${hours}h';
   }
+
+  @override
+  String get mediaFeedbackComments => 'Media instructions';
+
+  @override
+  String get mediaFeedbackAtTime => 'Comment here';
+
+  @override
+  String get mediaFeedbackWhole => 'Overall';
+
+  @override
+  String get mediaFeedbackVideoHint => 'Instructions for this video…';
+
+  @override
+  String get mediaFeedbackImageHint => 'Instructions for this image…';
+
+  @override
+  String get mediaFeedbackDone => 'Done';
+
+  @override
+  String get mediaFeedbackSendHint =>
+      'Saved automatically · Added when you send the chat';
+
+  @override
+  String get mediaFeedbackSendError =>
+      'Could not attach media. Check your connection and image count (maximum 5). Your instructions are still saved.';
+
+  @override
+  String get mediaFeedbackSourceChanged =>
+      'This media has changed since you commented. Check the content and timestamps.';
+
+  @override
+  String get mediaFeedbackConfirmSource => 'Use updated media';
 }

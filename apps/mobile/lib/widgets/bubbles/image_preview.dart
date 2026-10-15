@@ -5,6 +5,9 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../features/media_feedback/media_feedback_scope.dart';
+import '../../features/media_feedback/state/media_feedback_state.dart';
+import '../../features/media_feedback/widgets/media_feedback_editor.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../workspace_pane_chrome.dart';
@@ -60,7 +63,7 @@ class _SingleImage extends StatelessWidget {
     final url = '$httpBaseUrl${image.url}';
     final dataBytes = _decodeDataImageUrl(url);
     return GestureDetector(
-      onTap: () => _openFullScreen(context, url),
+      onTap: () => _openFullScreen(context, url, image),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
@@ -122,7 +125,7 @@ class _ImageThumbnail extends StatelessWidget {
     final url = '$httpBaseUrl${image.url}';
     final dataBytes = _decodeDataImageUrl(url);
     return GestureDetector(
-      onTap: () => _openFullScreen(context, url),
+      onTap: () => _openFullScreen(context, url, image),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: dataBytes != null
@@ -167,13 +170,22 @@ class _ImageThumbnail extends StatelessWidget {
   }
 }
 
-void _openFullScreen(BuildContext context, String url) {
+void _openFullScreen(BuildContext context, String url, ImageRef image) {
+  final feedback = MediaFeedbackBinding.maybeOf(context);
   final dataBytes = _decodeDataImageUrl(url);
   Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => FullScreenImageViewer(
         url: dataBytes == null ? url : null,
         bytes: dataBytes,
+        feedback: feedback,
+        feedbackMedia: FeedbackMedia(
+          key: 'image:${image.id}',
+          label: image.id,
+          url: dataBytes == null ? url : null,
+          base64: dataBytes == null ? null : base64Encode(dataBytes),
+          mimeType: image.mimeType,
+        ),
       ),
     ),
   );
@@ -196,12 +208,16 @@ class FullScreenImageViewer extends StatelessWidget {
   final Uint8List? bytes;
   final bool isSvg;
   final bool allowDrawing;
+  final MediaFeedbackBinding? feedback;
+  final FeedbackMedia? feedbackMedia;
   const FullScreenImageViewer({
     super.key,
     this.url,
     this.bytes,
     this.isSvg = false,
     this.allowDrawing = false,
+    this.feedback,
+    this.feedbackMedia,
   }) : assert(url != null || bytes != null);
 
   @override
@@ -232,6 +248,17 @@ class FullScreenImageViewer extends StatelessWidget {
           ],
         ),
       ),
+      bottomNavigationBar: feedback == null || feedbackMedia == null
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: MediaFeedbackEditor(
+                binding: feedback!,
+                media: feedbackMedia!,
+              ),
+            ),
       body: Center(
         child: InteractiveViewer(
           minScale: 0.5,

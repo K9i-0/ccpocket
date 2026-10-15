@@ -3197,4 +3197,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String liteModeDurationDays(int days, int hours) {
     return '$days天$hours小时';
   }
+
+  @override
+  String get mediaFeedbackComments => '素材指令';
+
+  @override
+  String get mediaFeedbackAtTime => '在此时刻评论';
+
+  @override
+  String get mediaFeedbackWhole => '整体';
+
+  @override
+  String get mediaFeedbackVideoHint => '对此视频的指令…';
+
+  @override
+  String get mediaFeedbackImageHint => '对此图片的指令…';
+
+  @override
+  String get mediaFeedbackDone => '完成';
+
+  @override
+  String get mediaFeedbackSendHint => '自动保存 · 发送聊天时附加到末尾';
+
+  @override
+  String get mediaFeedbackSendError => '无法附加素材。请检查连接和图片数量（最多5张）。指令已保存在草稿中。';
+
+  @override
+  String get mediaFeedbackSourceChanged => '评论后素材已更新。请检查内容和时间。';
+
+  @override
+  String get mediaFeedbackConfirmSource => '应用于更新后的素材';
 }

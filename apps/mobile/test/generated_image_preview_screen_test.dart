@@ -1,3 +1,7 @@
+import 'package:ccpocket/features/media_feedback/media_feedback_scope.dart';
+import 'package:ccpocket/features/media_feedback/state/media_feedback_cubit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'package:ccpocket/features/generated_image_preview/generated_image_preview_item.dart';
 import 'package:ccpocket/features/generated_image_preview/generated_image_preview_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -8,6 +12,54 @@ import 'package:share_plus/share_plus.dart';
 
 void main() {
   group('GeneratedImagePreviewScreen', () {
+    testWidgets(
+      'keeps image instructions separate across pages with keyboard visible',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final cubit = MediaFeedbackCubit(await SharedPreferences.getInstance());
+        addTearDown(cubit.close);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpWidget(
+          _wrapItems(_items, feedback: MediaFeedbackBinding(cubit, 'session')),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('media_feedback_input')),
+          'Blue background',
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 3'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(
+          find.byKey(const ValueKey('generated_image_next_button')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 3'), findsOneWidget);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          isEmpty,
+        );
+        await tester.enterText(find.byType(TextField), 'Warm lighting');
+        await tester.tap(
+          find.byKey(const ValueKey('generated_image_previous_button')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'Blue background',
+        );
+        expect(cubit.items('session').length, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('shows the selected image prompt and page counter', (
       tester,
     ) async {
@@ -187,6 +239,7 @@ Widget _wrapItems(
   List<GeneratedImagePreviewItem> items, {
   int initialIndex = 0,
   Future<void> Function(ShareParams params)? shareImage,
+  MediaFeedbackBinding? feedback,
 }) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -196,6 +249,7 @@ Widget _wrapItems(
       items: items,
       initialIndex: initialIndex,
       shareImage: shareImage,
+      feedback: feedback,
     ),
   );
 }

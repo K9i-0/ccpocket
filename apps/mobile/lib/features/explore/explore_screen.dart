@@ -5,6 +5,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../services/draft_service.dart';
+import '../media_feedback/media_feedback_scope.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/bridge_service.dart';
 import '../file_upload/widgets/file_upload_dialog.dart';
@@ -184,17 +186,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final embedded = widget.embedded && shell != null;
     return BlocProvider.value(
       value: _cubit,
-      child: FileBrowserView(
-        embedded: embedded,
-        onClose: _close,
-        onOpenFile: embedded ? _expandFile : null,
-        onAddToChat: FileBrowserReferences.capture(
-          _cubit.bridge,
-          widget.sessionId,
+      child: MediaFeedbackScope(
+        binding: context.read<DraftService?>() == null
+            ? null
+            : MediaFeedbackBinding(
+                context.read<DraftService>().mediaFeedback,
+                widget.sessionId,
+              ),
+        child: FileBrowserView(
+          embedded: embedded,
+          onClose: _close,
+          onOpenFile: embedded ? _expandFile : null,
+          onAddToChat: FileBrowserReferences.capture(
+            _cubit.bridge,
+            widget.sessionId,
+          ),
+          onUpload: supportsProjectFileUpload
+              ? () => _pickAndUploadFiles(_cubit)
+              : null,
         ),
-        onUpload: supportsProjectFileUpload
-            ? () => _pickAndUploadFiles(_cubit)
-            : null,
       ),
     );
   }

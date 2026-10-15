@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../media_feedback/media_feedback_scope.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_spacing.dart';
 import '../generated_image_preview_item.dart';
@@ -20,10 +21,14 @@ class GeneratedImageChatGroup extends StatelessWidget {
     : assert(items.length > 0);
 
   void _openPreview(BuildContext context, int index) {
+    final feedback = MediaFeedbackBinding.maybeOf(context);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            GeneratedImagePreviewScreen(items: items, initialIndex: index),
+        builder: (_) => GeneratedImagePreviewScreen(
+          items: items,
+          initialIndex: index,
+          feedback: feedback,
+        ),
       ),
     );
   }

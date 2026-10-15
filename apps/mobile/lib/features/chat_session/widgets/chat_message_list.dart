@@ -13,6 +13,7 @@ import 'package:flutter/rendering.dart'
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
+import '../../media_feedback/media_feedback_scope.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
@@ -726,9 +727,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
                             httpBaseUrl == null) {
                           return;
                         }
+                        final feedback = MediaFeedbackBinding.maybeOf(context);
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => MessageImagesScreen(
+                              feedback: feedback,
                               bridge: context.read<BridgeService>(),
                               httpBaseUrl: httpBaseUrl,
                               claudeSessionId: claudeSessionId,

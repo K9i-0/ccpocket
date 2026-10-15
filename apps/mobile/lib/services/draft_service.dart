@@ -3,12 +3,15 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/media_feedback/state/media_feedback_cubit.dart';
+
 /// Persists unsent chat input text and image attachments per session.
 ///
 /// Uses an in-memory cache for fast reads and writes through to
 /// [SharedPreferences] for persistence across app restarts.
 class DraftService {
   final SharedPreferences _prefs;
+  late final mediaFeedback = MediaFeedbackCubit(_prefs);
   final Map<String, String> _cache = {};
   final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache =
       {};
@@ -73,6 +76,7 @@ class DraftService {
   ///
   /// This is called when the Bridge Server assigns a real session ID.
   void migrateDraft(String oldId, String newId) {
+    mediaFeedback.migrate(oldId, newId);
     final text = _cache[oldId];
     if (text == null) return;
     _cache[newId] = text;

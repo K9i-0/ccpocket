@@ -3263,4 +3263,36 @@ class AppLocalizationsKo extends AppLocalizations {
   String liteModeDurationDays(int days, int hours) {
     return '$days일 $hours시간';
   }
+
+  @override
+  String get mediaFeedbackComments => '미디어 지시';
+
+  @override
+  String get mediaFeedbackAtTime => '이 시점에 댓글';
+
+  @override
+  String get mediaFeedbackWhole => '전체';
+
+  @override
+  String get mediaFeedbackVideoHint => '이 동영상에 대한 지시…';
+
+  @override
+  String get mediaFeedbackImageHint => '이 이미지에 대한 지시…';
+
+  @override
+  String get mediaFeedbackDone => '완료';
+
+  @override
+  String get mediaFeedbackSendHint => '자동 저장 · 채팅 전송 시 끝에 추가';
+
+  @override
+  String get mediaFeedbackSendError =>
+      '미디어를 첨부할 수 없습니다. 연결 및 이미지 수(최대 5개)를 확인하세요. 지시는 초안에 저장되어 있습니다.';
+
+  @override
+  String get mediaFeedbackSourceChanged =>
+      '댓글 작성 후 미디어가 변경되었습니다. 내용과 시간을 확인하세요.';
+
+  @override
+  String get mediaFeedbackConfirmSource => '업데이트된 미디어에 적용';
 }

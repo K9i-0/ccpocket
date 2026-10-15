@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:async';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../features/media_feedback/media_feedback_scope.dart';
+import '../features/media_feedback/state/media_feedback_state.dart';
 import '../l10n/app_localizations.dart';
 import '../models/image_paste_shortcut.dart';
 import '../models/messages.dart';
@@ -514,11 +518,25 @@ class _ImagePreview extends StatelessWidget {
   final ValueChanged<Uint8List>? onAnnotateImage;
 
   Future<void> _previewImage(BuildContext context, Uint8List bytes) async {
+    final feedback = MediaFeedbackBinding.maybeOf(context);
+    final mimeType =
+        images
+            .where((image) => identical(image.bytes, bytes))
+            .firstOrNull
+            ?.mimeType ??
+        'image/png';
     final draw = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => FullScreenImageViewer(
           bytes: bytes,
           allowDrawing: onAnnotateImage != null,
+          feedback: feedback,
+          feedbackMedia: FeedbackMedia(
+            key: 'attachment:${sha256.convert(bytes)}',
+            label: AppLocalizations.of(context).mediaFeedbackComments,
+            base64: base64Encode(bytes),
+            mimeType: mimeType,
+          ),
         ),
       ),
     );

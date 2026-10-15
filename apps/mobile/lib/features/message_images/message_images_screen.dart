@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
+import '../media_feedback/media_feedback_scope.dart';
+import '../media_feedback/state/media_feedback_state.dart';
+import '../media_feedback/widgets/media_feedback_editor.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
@@ -19,6 +22,7 @@ class MessageImagesScreen extends StatefulWidget {
   final String claudeSessionId;
   final String messageUuid;
   final int imageCount;
+  final MediaFeedbackBinding? feedback;
 
   const MessageImagesScreen({
     super.key,
@@ -27,6 +31,7 @@ class MessageImagesScreen extends StatefulWidget {
     required this.claudeSessionId,
     required this.messageUuid,
     required this.imageCount,
+    this.feedback,
   });
 
   @override
@@ -123,7 +128,19 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: widget.feedback != null && _images?.length == 1
+          ? Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: MediaFeedbackEditor(
+                binding: widget.feedback!,
+                media: _feedbackMedia(_images!.first, widget.httpBaseUrl),
+              ),
+            )
+          : null,
       body: _MessageImagesContent(
+        feedback: widget.feedback,
         loading: _loading,
         error: _error,
         images: _images,
@@ -144,9 +161,11 @@ class _MessageImagesContent extends StatelessWidget {
   final List<ImageRef>? images;
   final String httpBaseUrl;
   final VoidCallback onRetry;
+  final MediaFeedbackBinding? feedback;
 
   const _MessageImagesContent({
     required this.loading,
+    this.feedback,
     this.error,
     this.images,
     required this.httpBaseUrl,
@@ -166,7 +185,11 @@ class _MessageImagesContent extends StatelessWidget {
     if (imageList.length == 1) {
       return _SingleImageView(url: '$httpBaseUrl${imageList.first.url}');
     }
-    return _MultiImageList(images: imageList, httpBaseUrl: httpBaseUrl);
+    return _MultiImageList(
+      images: imageList,
+      httpBaseUrl: httpBaseUrl,
+      feedback: feedback,
+    );
   }
 }
 
@@ -239,7 +262,12 @@ class _MultiImageList extends StatelessWidget {
   final List<ImageRef> images;
   final String httpBaseUrl;
 
-  const _MultiImageList({required this.images, required this.httpBaseUrl});
+  final MediaFeedbackBinding? feedback;
+  const _MultiImageList({
+    required this.images,
+    required this.httpBaseUrl,
+    this.feedback,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +280,11 @@ class _MultiImageList extends StatelessWidget {
         return GestureDetector(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => FullScreenImageViewer(url: url),
+              builder: (_) => FullScreenImageViewer(
+                url: url,
+                feedback: feedback,
+                feedbackMedia: _feedbackMedia(images[index], httpBaseUrl),
+              ),
             ),
           ),
           child: ClipRRect(
@@ -314,3 +346,10 @@ class _NetworkImage extends StatelessWidget {
     );
   }
 }
+
+FeedbackMedia _feedbackMedia(ImageRef image, String baseUrl) => FeedbackMedia(
+  key: 'image:${image.id}',
+  label: image.id,
+  url: '$baseUrl${image.url}',
+  mimeType: image.mimeType,
+);

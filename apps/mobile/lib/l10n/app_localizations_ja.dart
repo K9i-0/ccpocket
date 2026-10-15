@@ -3237,4 +3237,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String liteModeDurationDays(int days, int hours) {
     return '$days日$hours時間';
   }
+
+  @override
+  String get mediaFeedbackComments => '素材への指示';
+
+  @override
+  String get mediaFeedbackAtTime => 'この時刻にコメント';
+
+  @override
+  String get mediaFeedbackWhole => '全体';
+
+  @override
+  String get mediaFeedbackVideoHint => '動画への指示…';
+
+  @override
+  String get mediaFeedbackImageHint => 'この画像への指示…';
+
+  @override
+  String get mediaFeedbackDone => '完了';
+
+  @override
+  String get mediaFeedbackSendHint => '自動保存 · チャット送信時に末尾へ追加';
+
+  @override
+  String get mediaFeedbackSendError =>
+      '素材を添付できませんでした。接続と画像の枚数を確認してください（最大5枚）。指示は下書きに残っています。';
+
+  @override
+  String get mediaFeedbackSourceChanged =>
+      'この素材はコメント作成後に更新されています。内容と時刻を確認してください。';
+
+  @override
+  String get mediaFeedbackConfirmSource => '更新後の素材に適用';
 }

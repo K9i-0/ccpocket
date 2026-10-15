@@ -1,6 +1,3 @@
-import '../file_browser/open_file_browser.dart';
-import '../../services/photo_library_service.dart';
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -9,6 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../media_feedback/media_feedback_scope.dart';
+import '../media_feedback/state/media_feedback_state.dart';
+import '../media_feedback/widgets/media_feedback_editor.dart';
+import '../file_browser/open_file_browser.dart';
+import '../../services/photo_library_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
@@ -415,6 +417,19 @@ class FilePeekContentState extends State<FilePeekContent> {
 
   @override
   Widget build(BuildContext context) {
+    final feedback = MediaFeedbackBinding.maybeOf(context);
+    final feedbackMedia = FeedbackMedia(
+      key: 'file:${widget.projectPath}:${widget.filePath}',
+      label: widget.filePath.split('/').last,
+      path: widget.filePath,
+      projectPath: widget.projectPath,
+      isVideo: _result?.kind == 'video',
+      mimeType: _result?.mimeType ?? 'image/png',
+      modifiedAt: widget.bridge.fileModificationTimesForProject(
+        widget.projectPath,
+      )[widget.filePath],
+    );
+
     final appColors = Theme.of(context).extension<AppColors>()!;
     final fileName = widget.filePath.split('/').lastOrNull ?? widget.filePath;
     final isMarkdown = widget.filePath.endsWith('.md');
@@ -576,6 +591,8 @@ class FilePeekContentState extends State<FilePeekContent> {
                     widget.bridge.httpBaseUrl,
                     _result?.mediaUrl,
                   ),
+                  feedback: feedback,
+                  feedbackMedia: feedbackMedia,
                   isVideo: _result?.kind == 'video',
                   formatLabel: mediaFileExtensionForPath(widget.filePath)
                       ?.toUpperCase(),
@@ -594,6 +611,15 @@ class FilePeekContentState extends State<FilePeekContent> {
                   controller: widget.scrollController,
                 ),
         ),
+        if (!_loading &&
+            _result?.error == null &&
+            _result?.kind == 'image' &&
+            feedback != null)
+          MediaFeedbackEditor(
+            key: ValueKey(feedbackMedia.key),
+            binding: feedback,
+            media: feedbackMedia,
+          ),
       ],
     );
   }

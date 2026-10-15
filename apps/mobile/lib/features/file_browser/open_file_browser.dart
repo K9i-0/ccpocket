@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../media_feedback/media_feedback_scope.dart';
 import '../../services/bridge_service.dart';
 import '../chat_session/state/chat_session_cubit.dart';
 import '../session_list/workspace_shell_screen.dart';
@@ -56,11 +57,15 @@ Future<void> presentFileBrowser(
   bool ownsCubit = false,
 }) {
   final shell = WorkspaceShellScreen.maybeOf(context);
+  final feedback = MediaFeedbackBinding.maybeOf(context);
   Widget build(VoidCallback close) {
-    final view = FileBrowserView(
-      onClose: close,
-      onAddToChat: onAddToChat,
-      handlesSystemBack: shell == null,
+    final view = MediaFeedbackScope(
+      binding: feedback,
+      child: FileBrowserView(
+        onClose: close,
+        onAddToChat: onAddToChat,
+        handlesSystemBack: shell == null,
+      ),
     );
     return ownsCubit
         ? BlocProvider(create: (_) => cubit, lazy: false, child: view)

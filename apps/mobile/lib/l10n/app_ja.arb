@@ -1384,5 +1384,15 @@
         "type": "int"
       }
     }
-  }
+  },
+  "mediaFeedbackComments": "素材への指示",
+  "mediaFeedbackAtTime": "この時刻にコメント",
+  "mediaFeedbackWhole": "全体",
+  "mediaFeedbackVideoHint": "動画への指示…",
+  "mediaFeedbackImageHint": "この画像への指示…",
+  "mediaFeedbackDone": "完了",
+  "mediaFeedbackSendHint": "自動保存 · チャット送信時に末尾へ追加",
+  "mediaFeedbackSendError": "素材を添付できませんでした。接続と画像の枚数を確認してください（最大5枚）。指示は下書きに残っています。",
+  "mediaFeedbackSourceChanged": "この素材はコメント作成後に更新されています。内容と時刻を確認してください。",
+  "mediaFeedbackConfirmSource": "更新後の素材に適用"
 }
