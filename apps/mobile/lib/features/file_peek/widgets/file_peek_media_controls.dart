@@ -7,6 +7,27 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../l10n/app_localizations.dart';
 
+// Keep controls legible over both bright frames and black letterboxing.
+const _videoControlBackground = Color(0xB3000000);
+const _videoControlShadows = [
+  Shadow(color: Colors.black, blurRadius: 2),
+  Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+];
+const _videoPositionStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  fontFeatures: [FontFeature.tabularFigures()],
+  shadows: _videoControlShadows,
+);
+final _videoButtonStyle = IconButton.styleFrom(
+  backgroundColor: _videoControlBackground,
+  foregroundColor: Colors.white,
+  hoverColor: const Color(0xCC000000),
+  side: const BorderSide(color: Colors.white30),
+  shape: const CircleBorder(),
+);
+
 const filePeekPlaybackRates = <double>[0.5, 1.0, 1.5, 2.0];
 
 Duration filePeekSeekTarget({
@@ -84,12 +105,9 @@ MaterialVideoControlsThemeData _mobileTheme(
       const Spacer(flex: 2),
     ],
     bottomButtonBar: [
-      const MaterialPositionIndicator(
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
+      const _VideoControlSurface(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: MaterialPositionIndicator(style: _videoPositionStyle),
       ),
       const Spacer(),
       _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
@@ -100,7 +118,8 @@ MaterialVideoControlsThemeData _mobileTheme(
     seekBarHeight: 4,
     seekBarContainerHeight: 40,
     seekBarPositionColor: accent,
-    seekBarBufferColor: Colors.white38,
+    seekBarColor: const Color(0xFF757575),
+    seekBarBufferColor: Colors.white70,
     seekBarThumbColor: accent,
     seekBarThumbSize: 14,
   );
@@ -131,12 +150,9 @@ MaterialDesktopVideoControlsThemeData _desktopTheme(
     ],
     bottomButtonBar: [
       const _VideoVolumeControl(),
-      const MaterialDesktopPositionIndicator(
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
+      const _VideoControlSurface(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: MaterialDesktopPositionIndicator(style: _videoPositionStyle),
       ),
       const Spacer(),
       _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
@@ -147,7 +163,8 @@ MaterialDesktopVideoControlsThemeData _desktopTheme(
     seekBarHeight: 4,
     seekBarHoverHeight: 6,
     seekBarPositionColor: accent,
-    seekBarBufferColor: Colors.white38,
+    seekBarColor: const Color(0xFF757575),
+    seekBarBufferColor: Colors.white70,
     seekBarThumbColor: accent,
     seekBarThumbSize: 14,
     volumeBarActiveColor: accent,
@@ -283,9 +300,11 @@ class _VideoSeekButton extends StatelessWidget {
       tooltip: label,
       iconSize: 34,
       color: Colors.white,
+      style: _videoButtonStyle,
       onPressed: () => _seekBy(player, backwards ? -10 : 10),
       icon: Icon(
         backwards ? Icons.replay_10_rounded : Icons.forward_10_rounded,
+        shadows: _videoControlShadows,
       ),
     );
   }
@@ -310,12 +329,14 @@ class _VideoPlayButton extends StatelessWidget {
           tooltip: label,
           iconSize: 56,
           color: Colors.white,
+          style: _videoButtonStyle,
           onPressed: () => unawaited(player.playOrPause()),
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             child: Icon(
               playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
               key: ValueKey(playing),
+              shadows: _videoControlShadows,
             ),
           ),
         );
@@ -337,8 +358,12 @@ class _VideoFullscreenButton extends StatelessWidget {
           ? l10n.filePreviewExitFullscreen
           : l10n.filePreviewFullscreen,
       color: Colors.white,
+      style: _videoButtonStyle,
       onPressed: () => unawaited(toggleFullscreen(context)),
-      icon: Icon(fullscreen ? Icons.fullscreen_exit : Icons.fullscreen),
+      icon: Icon(
+        fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+        shadows: _videoControlShadows,
+      ),
     );
   }
 }
@@ -354,8 +379,16 @@ class _VideoVolumeControl extends StatelessWidget {
       label: label,
       child: Tooltip(
         message: label,
-        child: const MaterialDesktopVolumeButton(
-          key: ValueKey('file_peek_video_volume_button'),
+        child: const _VideoControlSurface(
+          child: IconTheme(
+            data: IconThemeData(
+              color: Colors.white,
+              shadows: _videoControlShadows,
+            ),
+            child: MaterialDesktopVolumeButton(
+              key: ValueKey('file_peek_video_volume_button'),
+            ),
+          ),
         ),
       ),
     );
@@ -596,7 +629,7 @@ class _PlaybackRateMenu extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: onDarkSurface
-                  ? Colors.white.withValues(alpha: 0.12)
+                  ? _videoControlBackground
                   : Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
@@ -610,6 +643,7 @@ class _PlaybackRateMenu extends StatelessWidget {
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: onDarkSurface ? Colors.white : null,
                 fontWeight: FontWeight.w700,
+                shadows: onDarkSurface ? _videoControlShadows : null,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -622,4 +656,26 @@ class _PlaybackRateMenu extends StatelessWidget {
 
 extension on double {
   String get g => this == roundToDouble() ? toInt().toString() : toString();
+}
+
+/// A local scrim follows the controls' existing visibility animation, without
+/// darkening the video itself or intercepting any additional gestures.
+class _VideoControlSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  const _VideoControlSurface({
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: _videoControlBackground,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white30),
+    ),
+    child: child,
+  );
 }
