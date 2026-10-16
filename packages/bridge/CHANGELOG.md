@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.88.5] - 2026-10-16
+
+### Fixed
+- Enable Codex user questions in Default mode for new and resumed sessions, using the existing non-blocking question UI and answer flow.
+
 ## [1.88.4] - 2026-10-13
 
 ### Fixed
