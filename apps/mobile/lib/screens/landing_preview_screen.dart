@@ -189,6 +189,10 @@ class _LandingPreviewScreenState extends State<LandingPreviewScreen> {
           context,
           bridge: _bridge,
           projectPath: _projectPath,
+          projectFiles: const [
+            'outputs/pocket-preview.mp4',
+            'outputs/pocket-chime.wav',
+          ],
           filePath: widget.scenario == 'LP Video'
               ? 'outputs/pocket-preview.mp4'
               : 'outputs/pocket-chime.wav',
