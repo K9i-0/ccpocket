@@ -11,6 +11,7 @@ import '../../media_feedback/widgets/media_feedback_editor.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import 'file_peek_media_controls.dart';
+import '../playback/local_media_snapshot.dart';
 
 String? resolveFilePeekMediaUrl(String? httpBaseUrl, String? mediaUrl) {
   if (mediaUrl == null || mediaUrl.isEmpty) return null;
@@ -91,6 +92,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
   bool _loading = false;
   bool _failed = false;
   int _openGeneration = 0;
+  LocalMediaSnapshot? _snapshot;
 
   @override
   void initState() {
@@ -124,22 +126,36 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
   Future<void> _open() async {
     final generation = ++_openGeneration;
     final url = widget.mediaUrl;
-    if (url == null) {
-      await _player.stop();
-      if (mounted && generation == _openGeneration) {
-        setState(() {
-          _loading = false;
-          _failed = false;
-        });
-      }
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _failed = false;
-    });
+    final previous = _snapshot;
+    final snapshot = widget.isVideo ? LocalMediaSnapshot() : null;
+    _snapshot = snapshot;
     try {
-      await _player.open(Media(url), play: false);
+      // Stop playback before removing the file it may still be reading.
+      await _player.stop();
+      await previous?.dispose();
+      if (!mounted || generation != _openGeneration) {
+        await snapshot?.dispose();
+        return;
+      }
+      if (url == null) {
+        if (mounted && generation == _openGeneration) {
+          setState(() {
+            _loading = false;
+            _failed = false;
+          });
+        }
+        return;
+      }
+      setState(() {
+        _loading = true;
+        _failed = false;
+      });
+      final source = await snapshot?.prepare(url) ?? url;
+      if (!mounted || generation != _openGeneration) {
+        await snapshot?.dispose();
+        return;
+      }
+      await _player.open(Media(source), play: false);
       if (mounted && generation == _openGeneration) {
         setState(() {
           _loading = false;
@@ -148,6 +164,8 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
       }
     } catch (_) {
       if (generation == _openGeneration) _markFailed();
+    } finally {
+      await previous?.dispose();
     }
   }
 
@@ -161,9 +179,11 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
 
   @override
   void dispose() {
+    ++_openGeneration;
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_errorSubscription?.cancel());
-    unawaited(_player.dispose());
+    final snapshot = _snapshot;
+    unawaited(_player.dispose().whenComplete(() => snapshot?.dispose()));
     super.dispose();
   }
 
