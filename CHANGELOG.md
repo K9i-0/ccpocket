@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.142.1] - 2026-10-16
+
+### Fixed
+
+- Reduce video seek delays on desktop localhost connections by playing a temporary local copy when the video can be downloaded within size and time limits. Fall back to HTTP streaming for larger files or slow downloads.
+- Apply playback speed selections even when video controls automatically hide while the speed menu is open.
+
 ## [1.142.0] - 2026-10-16
 
 ### Added
