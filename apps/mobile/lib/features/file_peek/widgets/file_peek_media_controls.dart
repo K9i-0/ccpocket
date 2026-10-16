@@ -110,7 +110,11 @@ MaterialVideoControlsThemeData _mobileTheme(
         child: MaterialPositionIndicator(style: _videoPositionStyle),
       ),
       const Spacer(),
-      _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
+      FilePeekPlaybackRateMenu(
+        player: player,
+        onDarkSurface: true,
+        compact: true,
+      ),
       const _VideoFullscreenButton(),
     ],
     bottomButtonBarMargin: EdgeInsets.fromLTRB(16, 0, 8, controlBottom),
@@ -155,7 +159,11 @@ MaterialDesktopVideoControlsThemeData _desktopTheme(
         child: MaterialDesktopPositionIndicator(style: _videoPositionStyle),
       ),
       const Spacer(),
-      _PlaybackRateMenu(player: player, onDarkSurface: true, compact: true),
+      FilePeekPlaybackRateMenu(
+        player: player,
+        onDarkSurface: true,
+        compact: true,
+      ),
       const _VideoFullscreenButton(),
     ],
     bottomButtonBarMargin: EdgeInsets.fromLTRB(16, 0, 16, controlBottom),
@@ -540,7 +548,7 @@ class _AudioOptions extends StatelessWidget {
       children: [
         Expanded(child: _AudioVolumeControl(player: player)),
         const SizedBox(width: 12),
-        _PlaybackRateMenu(player: player),
+        FilePeekPlaybackRateMenu(player: player),
       ],
     );
   }
@@ -591,12 +599,13 @@ class _AudioVolumeControl extends StatelessWidget {
   }
 }
 
-class _PlaybackRateMenu extends StatelessWidget {
+class FilePeekPlaybackRateMenu extends StatelessWidget {
   final Player player;
   final bool onDarkSurface;
   final bool compact;
 
-  const _PlaybackRateMenu({
+  const FilePeekPlaybackRateMenu({
+    super.key,
     required this.player,
     this.onDarkSurface = false,
     this.compact = false,
@@ -618,10 +627,16 @@ class _PlaybackRateMenu extends StatelessWidget {
           ),
           tooltip: l10n.filePreviewPlaybackSpeed,
           initialValue: rate,
-          onSelected: (next) => unawaited(player.setRate(next)),
           itemBuilder: (_) => [
             for (final value in filePeekPlaybackRates)
-              PopupMenuItem(value: value, child: Text('${value.g}×')),
+              PopupMenuItem(
+                key: ValueKey('file_peek_speed_${value.g}_item'),
+                value: value,
+                // Video controls can unmount while this route remains open.
+                // PopupMenuButton.onSelected ignores results once unmounted.
+                onTap: () => unawaited(player.setRate(value)),
+                child: Text('${value.g}×'),
+              ),
           ],
           child: Container(
             constraints: const BoxConstraints(minHeight: 40, minWidth: 48),
