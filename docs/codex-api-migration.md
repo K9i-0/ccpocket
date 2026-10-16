@@ -63,3 +63,32 @@ or modify production session history.
 An iPhone 17 Pro simulator with a local mock Bridge verified restoration during
 running, retention after result/idle, answer delivery, and dismissal on
 `permission_resolved`. The test app and mock were stopped afterward.
+
+## Default-mode questions (0.163.0)
+
+Checked the latest npm stable release (`@openai/codex` 0.163.0) and its
+`app-server generate-ts --experimental` output. The wire request remains
+`item/tool/requestUserInput`; answers remain keyed by question ID. In this
+schema `autoResolutionMs` is deprecated in favor of `isBlocking`.
+
+The upstream [tool configuration](https://github.com/openai/codex/blob/rust-v0.163.0/codex-rs/tools/src/tool_config.rs)
+gates Default-mode questions on `features.default_mode_request_user_input`.
+The [handler](https://github.com/openai/codex/blob/rust-v0.163.0/codex-rs/core/src/tools/handlers/request_user_input.rs)
+sets `isBlocking` only for Plan mode. Bridge now enables the feature via the
+thread-local `config.features` override on both `thread/start` and
+`thread/resume`, preserving existing profile and reasoning overrides in the
+request. This does not edit user config or
+change the session's collaboration mode or approval policy.
+
+The existing Flutter question UI and Bridge optional-input lifecycle already
+handle this request without requiring Plan mode. No new Bridge/client message
+is needed. Older Codex versions that do not implement the feature cannot gain
+Default-mode questions from this override; the existing Plan-mode path and
+missing-`isBlocking` blocking fallback remain intact. No timer auto-selects an
+answer, and `serverRequest/resolved` remains authoritative for dismissal.
+
+Validation: start/resume configuration regression tests (including coexistence
+with profile and reasoning overrides), existing blocking/non-blocking question
+lifecycle tests, 10 Flutter pending-input state tests, TypeScript checking,
+and an isolated 0.163.0 ephemeral
+`thread/start` smoke test. No model turn or production Bridge restart is needed.

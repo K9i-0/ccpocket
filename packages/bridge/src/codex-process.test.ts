@@ -1608,6 +1608,37 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it.each([false, true])("enables Default-mode questions on thread start/resume (resume=%s)", async (resume) => {
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/project-questions", {
+      ...(resume ? { threadId: "thr_existing" } : {}),
+      approvalPolicy: "never",
+      sandboxMode: "danger-full-access",
+      modelReasoningEffort: "high",
+      profile: "ccpocket",
+    });
+    const child = fakeChildren[0];
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+    await tick();
+    nextOutgoingNotification(child);
+    if (resume) {
+      const configReq = nextOutgoingRequest(child);
+      expect(configReq.method).toBe("config/read");
+      child.stdout.emit("data", `${JSON.stringify({ id: configReq.id, result: { config: {} } })}\n`);
+      await tick();
+    }
+    const request = nextOutgoingRequest(child);
+    expect(request.method).toBe(resume ? "thread/resume" : "thread/start");
+    expect(request.params.config).toMatchObject({
+      features: { default_mode_request_user_input: true },
+      model_reasoning_effort: "high",
+      profile: "ccpocket",
+    });
+    proc.stop();
+  });
+
   it("sends reasoning effort via config override on thread/start", async () => {
     const proc = new CodexProcess("linux");
 

@@ -1941,7 +1941,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           threadParams.sandbox = requestedSandboxMode;
         }
       }
-      const threadConfig: Record<string, unknown> = {};
+      // Default-mode questions use the same requestUserInput RPC as Plan mode,
+      // with isBlocking=false. Scope the opt-in to this thread (also on resume).
+      const threadConfig: Record<string, unknown> = {
+        features: { default_mode_request_user_input: true },
+      };
       const requestedModel = sanitizeCodexModel(options?.model);
       const requestedReasoningEffort = normalizeCodexReasoningEffortForModel(
         requestedModel,
