@@ -30,6 +30,7 @@ import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
 import 'core/logger.dart';
 import 'l10n/app_localizations.dart';
+import 'features/file_peek/playback/background_media_handler.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/git/state/git_status_cubit.dart';
 import 'features/git/state/git_view_cache_service.dart';
@@ -101,6 +102,11 @@ void main() async {
     WidgetsFlutterBinding.ensureInitialized();
   }
   MediaKit.ensureInitialized();
+  try {
+    await BackgroundMediaHandler.initialize();
+  } catch (error) {
+    logger.error('[main] Media service init failed', error);
+  }
   Bloc.observer = TalkerBlocObserver(talker: logger);
 
   FlutterError.onError = (details) {

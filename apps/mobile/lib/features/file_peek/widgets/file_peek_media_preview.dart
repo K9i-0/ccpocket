@@ -12,6 +12,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import 'file_peek_media_controls.dart';
 import '../playback/local_media_snapshot.dart';
+import '../playback/background_media_handler.dart';
 
 String? resolveFilePeekMediaUrl(String? httpBaseUrl, String? mediaUrl) {
   if (mediaUrl == null || mediaUrl.isEmpty) return null;
@@ -84,8 +85,7 @@ class FilePeekMediaPreview extends StatefulWidget {
   State<FilePeekMediaPreview> createState() => _FilePeekMediaPreviewState();
 }
 
-class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
-    with WidgetsBindingObserver {
+class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview> {
   late final Player _player;
   VideoController? _videoController;
   StreamSubscription<String>? _errorSubscription;
@@ -97,8 +97,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _player = Player();
+    _player = SessionMediaPlayer();
     if (widget.isVideo) _videoController = VideoController(_player);
     _errorSubscription = _player.stream.error.listen((error) {
       if (isFatalFilePeekMediaError(error)) _markFailed();
@@ -118,11 +117,6 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) unawaited(_player.pause());
-  }
-
   Future<void> _open() async {
     final generation = ++_openGeneration;
     final url = widget.mediaUrl;
@@ -131,6 +125,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
     _snapshot = snapshot;
     try {
       // Stop playback before removing the file it may still be reading.
+      BackgroundMediaHandler.instance?.detach(_player);
       await _player.stop();
       await previous?.dispose();
       if (!mounted || generation != _openGeneration) {
@@ -150,6 +145,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
         _loading = true;
         _failed = false;
       });
+      await BackgroundMediaHandler.initialize();
       final source = await snapshot?.prepare(url) ?? url;
       if (!mounted || generation != _openGeneration) {
         await snapshot?.dispose();
@@ -157,6 +153,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
       }
       await _player.open(Media(source), play: false);
       if (mounted && generation == _openGeneration) {
+        BackgroundMediaHandler.instance?.attach(_player, 'preview-$generation');
         setState(() {
           _loading = false;
           _failed = false;
@@ -180,7 +177,7 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview>
   @override
   void dispose() {
     ++_openGeneration;
-    WidgetsBinding.instance.removeObserver(this);
+    BackgroundMediaHandler.instance?.detach(_player);
     unawaited(_errorSubscription?.cancel());
     final snapshot = _snapshot;
     unawaited(_player.dispose().whenComplete(() => snapshot?.dispose()));
@@ -268,6 +265,7 @@ class _VideoPreview extends StatelessWidget {
                         children: [
                           Video(
                             controller: controller,
+                            pauseUponEnteringBackgroundMode: false,
                             fit: BoxFit.contain,
                             aspectRatio: aspectRatio,
                           ),

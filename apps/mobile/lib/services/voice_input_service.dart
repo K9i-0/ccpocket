@@ -3,6 +3,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../utils/platform_helper.dart';
+import '../features/file_peek/playback/background_media_handler.dart';
 
 class VoiceInputService {
   final SpeechToText _speech = SpeechToText();
@@ -30,6 +31,8 @@ class VoiceInputService {
   }) async {
     if (!_isAvailable || _isListening) return;
     _isListening = true;
+    await BackgroundMediaHandler.instance?.pause();
+    if (!_isListening) return;
     await _speech.listen(
       onResult: (SpeechRecognitionResult result) {
         onResult(result.recognizedWords, result.finalResult);
