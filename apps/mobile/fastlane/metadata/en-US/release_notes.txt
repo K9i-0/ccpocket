@@ -1,2 +1,4 @@
-• Fixed reasoning-effort options for GPT-6 Astra. Unsupported None and Minimal options are hidden, and saved selections are moved to Light.
-• Requires Bridge 1.81.2 or later.
+• Keep video audio and music playing in the background, with lock-screen playback controls. Closing the preview stops playback.
+• Add instructions to images and timestamped comments to videos, then review and send them from chat.
+• Clearer video controls and more reliable playback speed selection.
+• Playback pauses for audio interruptions, disconnected headphones, and voice input.
