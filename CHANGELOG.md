@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.143.0] - 2026-10-17
+
+### Added
+
+- Continue video audio and music playback in the background on iOS and Android, with notification and lock-screen playback controls. Closing the preview ends playback.
+- Pause media for audio interruptions, disconnected headphones, and voice input, and release audio focus when playback stops.
+
+### Changed
+
+- Recommend Bridge 1.88.5, which enables Codex user questions in default mode.
+
+### Fixed
+
+- Keep video and music playing when the desktop app loses focus or moves to the background.
+
 ## [1.142.1] - 2026-10-16
 
 ### Fixed
