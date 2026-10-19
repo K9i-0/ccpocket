@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.144.0] - 2026-10-19
+
+### Added
+
+- Preview PDF documents inside the file browser with scrolling and zooming, with retry controls when loading fails.
+
+### Changed
+
+- Recommend Bridge 1.89.0 for PDF previews and show an update hint when connected to an older Bridge.
+
 ## [1.143.0] - 2026-10-17
 
 ### Added
