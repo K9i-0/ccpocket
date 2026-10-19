@@ -1,2 +1,3 @@
-• Fixed reasoning-effort options for GPT-6 Astra. Unsupported None and Minimal options are hidden, and saved selections are moved to Light.
-• Requires Bridge 1.81.2 or later.
+- Preview PDFs directly in the file browser with scrolling and zooming.
+- Retry PDF previews when loading fails.
+- PDF previews require Bridge 1.89.0 or later. An update hint appears when connected to an older Bridge.
