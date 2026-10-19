@@ -573,6 +573,54 @@ void main() {
     },
   );
 
+  testWidgets(
+    'PDF from an older Bridge shows update hint instead of raw bytes',
+    (tester) async {
+      final bridge = BrowserTestBridge();
+      final cubit = FileBrowserCubit(
+        bridge: bridge,
+        projectPath: '/project',
+        initialFiles: ['report.PDF'],
+        initialTarget: 'report.PDF',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BlocProvider.value(
+            value: cubit,
+            child: FileBrowserView(onClose: () {}),
+          ),
+        ),
+      );
+      bridge.directory('', files: ['report.PDF']);
+      bridge.contents.add(
+        const FileContentMessage(
+          filePath: 'report.PDF',
+          kind: 'text',
+          content: '%PDF-1.7 binary data',
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('%PDF-1.7'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('file_peek_pdf_retry_button')),
+        findsOneWidget,
+      );
+      final requestsBefore = bridge.sent.length;
+      await tester.tap(
+        find.byKey(const ValueKey('file_peek_pdf_retry_button')),
+      );
+      expect(bridge.sent.length, requestsBefore + 1);
+      expect(jsonDecode(bridge.sent.last.toJson())['type'], 'read_file');
+      await tester.pumpWidget(const SizedBox());
+      unawaited(cubit.close());
+      await tester.pump();
+      bridge.dispose();
+    },
+  );
+
   for (final width in [390.0, 1100.0]) {
     testWidgets('search preview back and close at width $width', (
       tester,

@@ -98,6 +98,7 @@ dependencies:
   vector_math: ^2.2.0
   audio_service: ^0.18.19
   audio_session: ^0.2.4
+  pdfrx: ^2.6.6
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged

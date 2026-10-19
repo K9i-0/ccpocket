@@ -6372,7 +6372,10 @@ export class BridgeWebSocketServer {
               });
               return;
             }
-            const mediaType = FILE_PEEK_MEDIA_TYPES[ext];
+            const mediaType =
+              ext === ".pdf"
+                ? { kind: "pdf" as const, mimeType: "application/pdf" }
+                : FILE_PEEK_MEDIA_TYPES[ext];
             if (mediaType) {
               if (!this.mediaStore) {
                 this.send(ws, {

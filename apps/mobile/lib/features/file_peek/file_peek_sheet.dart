@@ -30,6 +30,7 @@ import '../../utils/platform_helper.dart';
 import '../../widgets/file_type_icon.dart';
 import 'html_preview_document.dart';
 import 'widgets/html_file_preview.dart';
+import 'widgets/file_peek_pdf_preview.dart';
 import 'widgets/file_peek_media_preview.dart';
 import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
@@ -436,6 +437,7 @@ class FilePeekContentState extends State<FilePeekContent> {
     final isHtml = isHtmlPreviewPath(widget.filePath);
     final isImage = _result?.kind == 'image';
     final isModel = isGlbPath(widget.filePath);
+    final isPdf = widget.filePath.toLowerCase().endsWith('.pdf');
     final isMedia = _result?.kind == 'audio' || _result?.kind == 'video';
     final canPreviewHtml = isHtml && supportsEmbeddedHtmlPreview;
 
@@ -554,7 +556,7 @@ class FilePeekContentState extends State<FilePeekContent> {
               ),
             ),
           ),
-        if (_result != null && (isImage || isMedia || isModel))
+        if (_result != null && (isImage || isMedia || isModel || isPdf))
           Padding(
             padding: const EdgeInsets.only(left: 42, top: 2, bottom: 4),
             child: Align(
@@ -576,6 +578,14 @@ class FilePeekContentState extends State<FilePeekContent> {
               ? const Center(child: CircularProgressIndicator.adaptive())
               : _result?.error != null
               ? FilePeekError(error: _result!.error!, onRetry: _loadFile)
+              : isPdf
+              ? FilePeekPdfPreview(
+                  pdfUrl: resolveFilePeekMediaUrl(
+                    widget.bridge.httpBaseUrl,
+                    _result?.mediaUrl,
+                  ),
+                  onRetry: _loadFile,
+                )
               : _result?.kind == 'image'
               ? FilePeekImage(result: _result!)
               : isModel

@@ -5546,6 +5546,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   });
 
   it.each([
+    ["report.pdf", "pdf", "application/pdf"],
+    ["report.PDF", "pdf", "application/pdf"],
     ["sample.wav", "audio", "audio/wav"],
     ["sample.mp3", "audio", "audio/mpeg"],
     ["sample.m4a", "audio", "audio/mp4"],

@@ -773,7 +773,7 @@ export type ServerMessage =
       projectPath?: string;
       requestId?: string;
       filePath: string;
-      kind?: "text" | "image" | "audio" | "video" | "model";
+      kind?: "text" | "image" | "audio" | "video" | "model" | "pdf";
       content: string;
       language?: string;
       error?: string;
