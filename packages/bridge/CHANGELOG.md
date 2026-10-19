@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.89.0] - 2026-10-19
+
+### Added
+- Serve PDF previews through existing authorized, expiring media URLs with HTTP range support.
+
 ## [1.88.5] - 2026-10-16
 
 ### Fixed
