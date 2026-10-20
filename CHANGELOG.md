@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.0] - 2026-10-20
+
+### Added
+
+- Create projects from the new session sheet with optional Git initialization and AI settings inheritance from an existing project.
+- Trust Codex projects and initialize Git directly from the app without restarting the session.
+
+### Changed
+
+- Open the session sheet directly from New, with Create and Multi actions, a selected project card, and a dedicated location picker.
+- Clarify multi-project terminology and recommend Bridge 1.90.0 for project setup.
+
+### Fixed
+
+- Keep secondary folders in multi-project groups available as individual session choices.
+
 ## [1.144.0] - 2026-10-19
 
 ### Added
