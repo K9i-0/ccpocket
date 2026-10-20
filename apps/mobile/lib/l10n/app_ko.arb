@@ -359,7 +359,7 @@
   "directoryPath": "디렉터리 경로",
   "directoryPathOutsideAllowedRoots": "디렉터리 경로가 허용된 루트 밖에 있습니다",
   "browseDirectory": "디렉터리 찾아보기",
-  "selectDirectory": "디렉터리 선택",
+  "selectDirectory": "선택",
   "noSubdirectories": "하위 디렉터리 없음",
   "directoryBrowserRoots": "허용된 디렉터리",
   "directoryBrowserBridgeUpdateRequired": "이 기능을 사용하려면 최신 Bridge Server가 필요합니다. Bridge를 업데이트한 후 다시 시도해 주세요.",

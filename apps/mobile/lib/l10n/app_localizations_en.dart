@@ -1051,7 +1051,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get browseDirectory => 'Browse directory';
 
   @override
-  String get selectDirectory => 'Select directory';
+  String get selectDirectory => 'Select';
 
   @override
   String get noSubdirectories => 'No subdirectories';

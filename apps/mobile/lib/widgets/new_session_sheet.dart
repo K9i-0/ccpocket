@@ -1201,6 +1201,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Future<void> _changeProjectLocation() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -1511,6 +1512,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final accent = providerStyleFor(context, pageProvider).foreground;
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2414,6 +2416,8 @@ class _AddWritableRootSheet extends StatelessWidget {
                 fit: FlexFit.loose,
                 child: SingleChildScrollView(
                   key: const ValueKey('additional_writable_root_scroll'),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4227,6 +4231,7 @@ class _ProjectLocationSheetState extends State<_ProjectLocationSheet> {
         bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
       ),
       child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

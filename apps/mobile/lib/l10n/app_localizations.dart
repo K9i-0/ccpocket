@@ -2006,7 +2006,7 @@ abstract class AppLocalizations {
   /// No description provided for @selectDirectory.
   ///
   /// In ja, this message translates to:
-  /// **'ディレクトリを選択'**
+  /// **'選択'**
   String get selectDirectory;
 
   /// No description provided for @noSubdirectories.

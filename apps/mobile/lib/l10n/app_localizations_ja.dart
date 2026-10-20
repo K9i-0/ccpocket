@@ -1024,7 +1024,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get browseDirectory => 'ディレクトリを参照';
 
   @override
-  String get selectDirectory => 'ディレクトリを選択';
+  String get selectDirectory => '選択';
 
   @override
   String get noSubdirectories => 'サブディレクトリはありません';

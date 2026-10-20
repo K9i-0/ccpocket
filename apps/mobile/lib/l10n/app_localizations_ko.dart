@@ -1021,7 +1021,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get browseDirectory => '디렉터리 찾아보기';
 
   @override
-  String get selectDirectory => '디렉터리 선택';
+  String get selectDirectory => '선택';
 
   @override
   String get noSubdirectories => '하위 디렉터리 없음';

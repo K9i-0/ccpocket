@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
 import '../../../widgets/directory_browser_sheet.dart';
+import '../../../widgets/project_sheet_layout.dart';
 import '../state/project_setup_cubit.dart';
 
 class NewProjectResult {
@@ -17,15 +18,19 @@ Future<NewProjectResult?> showNewProjectSheet(
   BuildContext context,
   BridgeService bridge,
   List<String> sources,
-) => showModalBottomSheet<NewProjectResult>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  builder: (_) => BlocProvider(
-    create: (_) => ProjectSetupCubit(bridge),
-    child: NewProjectSheet(sources: sources),
-  ),
-);
+) {
+  FocusManager.instance.primaryFocus?.unfocus();
+  return showModalBottomSheet<NewProjectResult>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => BlocProvider(
+      create: (_) => ProjectSetupCubit(bridge),
+      child: NewProjectSheet(sources: sources),
+    ),
+  );
+}
 
 class NewProjectSheet extends StatefulWidget {
   const NewProjectSheet({super.key, required this.sources});
@@ -49,16 +54,14 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
   @override
   void initState() {
     super.initState();
+    final bridge = context.read<ProjectSetupCubit>().bridge;
+    final initialParent = widget.sources.isNotEmpty
+        ? widget.sources.first.replaceFirst(RegExp(r'[/\\][^/\\]+$'), '')
+        : (bridge.allowedDirs.firstOrNull ?? '');
+    _parent.text = initialParent;
     SharedPreferences.getInstance().then((prefs) {
-      if (mounted && _parent.text.isEmpty) {
-        _parent.text =
-            prefs.getString(_parentPreferenceKey) ??
-            (widget.sources.isEmpty
-                ? ''
-                : widget.sources.first.replaceFirst(
-                    RegExp(r'[/\\][^/\\]+$'),
-                    '',
-                  ));
+      if (mounted && _parent.text == initialParent) {
+        _parent.text = prefs.getString(_parentPreferenceKey) ?? initialParent;
       }
     });
   }
@@ -72,10 +75,12 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
   }
 
   Future<void> _browse({bool source = false}) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final path = await showDirectoryBrowserSheet(
       context: context,
       bridge: context.read<ProjectSetupCubit>().bridge,
-      initialPath: source ? _source : _parent.text,
+      initialPath: source ? (_source ?? _parent.text) : _parent.text,
+      allowedRoots: context.read<ProjectSetupCubit>().bridge.allowedDirs,
     );
     if (path != null && mounted) {
       setState(() {
@@ -89,6 +94,7 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
   }
 
   Future<void> _create() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!(_form.currentState?.validate() ?? false)) return;
     final cubit = context.read<ProjectSetupCubit>();
     final parentPreferenceKey = _parentPreferenceKey;
@@ -137,144 +143,143 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
         final editable = !state.busy && _createdPath == null;
         return PopScope(
           canPop: !state.busy,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Form(
-              key: _form,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l.newProject,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      validator: (value) =>
-                          value == null ||
-                              value.trim().isEmpty ||
-                              RegExp(r'[<>:"/\\|?*]').hasMatch(value) ||
-                              value.trim() == '..' ||
-                              value.trim() == '.'
-                          ? l.newProjectName
-                          : null,
-                      key: const ValueKey('new_project_name_field'),
-                      controller: _name,
-                      enabled: editable,
-                      decoration: InputDecoration(labelText: l.newProjectName),
-                    ),
-                    TextFormField(
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? l.newProjectParent
-                          : null,
-                      key: const ValueKey('new_project_parent_field'),
-                      controller: _parent,
-                      enabled: editable,
-                      decoration: InputDecoration(
-                        labelText: l.newProjectParent,
-                        suffixIcon: IconButton(
-                          onPressed: editable ? () => _browse() : null,
-                          icon: const Icon(Icons.folder_open),
-                        ),
-                      ),
-                    ),
-                    TextField(
-                      key: const ValueKey('new_project_description_field'),
-                      controller: _description,
-                      enabled: !state.busy,
-                      minLines: 2,
-                      maxLines: 4,
-                      maxLength: 12000,
-                      decoration: InputDecoration(
-                        labelText: l.newProjectDescription,
-                      ),
-                    ),
-                    CheckboxListTile(
-                      key: const ValueKey('new_project_git_toggle'),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(l.newProjectGit),
-                      value: _git,
-                      onChanged: editable
-                          ? (value) => setState(() => _git = value!)
-                          : null,
-                    ),
-                    DropdownButtonFormField<String>(
-                      key: const ValueKey('new_project_source_field'),
-                      initialValue: _source,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: l.newProjectSettingsSource,
-                      ),
-                      items: [
-                        DropdownMenuItem(
-                          value: null,
-                          child: Text(l.newProjectNoSource),
-                        ),
-                        for (final path in {...widget.sources, ?_source})
-                          DropdownMenuItem(
-                            value: path,
-                            child: Tooltip(
-                              message: path,
-                              child: Text(
-                                path.split(RegExp(r'[/\\]')).last,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                      ],
-                      onChanged: editable
-                          ? (value) => setState(() => _source = value)
-                          : null,
-                    ),
-                    TextButton.icon(
-                      key: const ValueKey('new_project_source_browse_button'),
-                      onPressed: editable ? () => _browse(source: true) : null,
-                      icon: const Icon(Icons.folder_open),
-                      label: Text(l.browseDirectory),
-                    ),
-                    if (_source != null)
-                      Text(
-                        l.newProjectSettingsHint,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    CheckboxListTile(
-                      key: const ValueKey('new_project_trust_toggle'),
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(l.trustProject),
-                      subtitle: Text(l.trustProjectHint),
-                      value: _trust,
-                      onChanged: !state.busy
-                          ? (value) => setState(() => _trust = value!)
-                          : null,
-                    ),
-                    if (_createdPath != null)
-                      Text('${l.projectSetupCreated}: $_createdPath'),
-                    if (state.error != null)
-                      Text(
-                        state.error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: const ValueKey('new_project_create_button'),
-                      onPressed: state.busy ? null : _create,
-                      child: Text(
-                        state.busy ? l.projectSetupWorking : l.newProjectCreate,
-                      ),
-                    ),
-                  ],
+          child: Form(
+            key: _form,
+            child: ProjectSheetLayout(
+              title: l.newProject,
+              canClose: !state.busy,
+              footer: FilledButton(
+                key: const ValueKey('new_project_create_button'),
+                onPressed: state.busy ? null : _create,
+                child: Text(
+                  state.busy ? l.projectSetupWorking : l.newProjectCreate,
                 ),
               ),
+              children: [
+                TextFormField(
+                  validator: (value) =>
+                      value == null ||
+                          value.trim().isEmpty ||
+                          RegExp(r'[<>:"/\\|?*]').hasMatch(value) ||
+                          value.trim() == '..' ||
+                          value.trim() == '.'
+                      ? l.newProjectName
+                      : null,
+                  key: const ValueKey('new_project_name_field'),
+                  controller: _name,
+                  textInputAction: TextInputAction.next,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  enabled: editable,
+                  decoration: InputDecoration(labelText: l.newProjectName),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? l.newProjectParent
+                      : null,
+                  key: const ValueKey('new_project_parent_field'),
+                  controller: _parent,
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  enabled: editable,
+                  decoration: InputDecoration(
+                    labelText: l.newProjectParent,
+                    suffixIcon: IconButton(
+                      onPressed: editable ? () => _browse() : null,
+                      icon: const Icon(Icons.folder_open),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  key: const ValueKey('new_project_description_field'),
+                  controller: _description,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  enabled: !state.busy,
+                  minLines: 2,
+                  maxLines: 4,
+                  maxLength: 12000,
+                  decoration: InputDecoration(
+                    labelText: l.newProjectDescription,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  key: const ValueKey('new_project_git_toggle'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l.newProjectGit),
+                  value: _git,
+                  onChanged: editable
+                      ? (value) => setState(() => _git = value!)
+                      : null,
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('new_project_source_field'),
+                  initialValue: _source,
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: l.newProjectSettingsSource,
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text(l.newProjectNoSource),
+                    ),
+                    for (final path in {...widget.sources, ?_source})
+                      DropdownMenuItem(
+                        value: path,
+                        child: Tooltip(
+                          message: path,
+                          child: Text(
+                            path.split(RegExp(r'[/\\]')).last,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: editable
+                      ? (value) => setState(() => _source = value)
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  key: const ValueKey('new_project_source_browse_button'),
+                  onPressed: editable ? () => _browse(source: true) : null,
+                  icon: const Icon(Icons.folder_open),
+                  label: Text(l.browseDirectory),
+                ),
+                if (_source != null)
+                  Text(
+                    l.newProjectSettingsHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  key: const ValueKey('new_project_trust_toggle'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l.trustProject),
+                  subtitle: Text(l.trustProjectHint),
+                  value: _trust,
+                  onChanged: !state.busy
+                      ? (value) => setState(() => _trust = value!)
+                      : null,
+                ),
+                if (_createdPath != null)
+                  Text('${l.projectSetupCreated}: $_createdPath'),
+                if (state.error != null)
+                  Text(
+                    state.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+              ],
             ),
           ),
         );

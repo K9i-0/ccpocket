@@ -384,7 +384,7 @@
   "directoryPath": "ディレクトリパス",
   "directoryPathOutsideAllowedRoots": "ディレクトリパスが許可されたルートの外側です",
   "browseDirectory": "ディレクトリを参照",
-  "selectDirectory": "ディレクトリを選択",
+  "selectDirectory": "選択",
   "noSubdirectories": "サブディレクトリはありません",
   "directoryBrowserRoots": "許可されたディレクトリ",
   "directoryBrowserBridgeUpdateRequired": "この機能には新しい Bridge Server が必要です。Bridge を更新して、もう一度お試しください。",

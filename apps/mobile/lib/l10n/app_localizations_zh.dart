@@ -1013,7 +1013,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get browseDirectory => '浏览目录';
 
   @override
-  String get selectDirectory => '选择目录';
+  String get selectDirectory => '选择';
 
   @override
   String get noSubdirectories => '没有子目录';

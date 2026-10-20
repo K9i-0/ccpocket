@@ -78,6 +78,7 @@ Future<String?> showDirectoryBrowserSheet({
   List<String> allowedRoots = const [],
   bool includeHidden = false,
 }) {
+  FocusManager.instance.primaryFocus?.unfocus();
   final fallbackPath = initialPath?.trim().isNotEmpty == true
       ? initialPath!.trim()
       : (allowedRoots.isNotEmpty ? allowedRoots.first : '/');
@@ -277,7 +278,12 @@ class _DirectoryBrowserSheetState extends State<_DirectoryBrowserSheet> {
     return SizedBox(
       height: height,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          12 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -544,7 +550,7 @@ class _DirectoryBrowserList extends StatelessWidget {
   Widget build(BuildContext context) => ListView.separated(
     key: const ValueKey('directory_browser_list'),
     itemCount: directories.length,
-    separatorBuilder: (_, __) => const Divider(height: 1),
+    separatorBuilder: (_, _) => const Divider(height: 1),
     itemBuilder: (context, index) {
       final directory = directories[index];
       return ListTile(

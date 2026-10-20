@@ -382,7 +382,7 @@
   "directoryPath": "Directory path",
   "directoryPathOutsideAllowedRoots": "Directory path is outside the allowed roots",
   "browseDirectory": "Browse directory",
-  "selectDirectory": "Select directory",
+  "selectDirectory": "Select",
   "noSubdirectories": "No subdirectories",
   "directoryBrowserRoots": "Allowed directories",
   "directoryBrowserBridgeUpdateRequired": "This feature requires a newer Bridge server. Update Bridge and try again.",
