@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.1] - 2026-10-20
+
+### Fixed
+
+- Sort new-session project choices by each individual project's or multi-project group's own session activity, without promoting related groups or sibling folders.
+
 ## [1.145.0] - 2026-10-20
 
 ### Added
