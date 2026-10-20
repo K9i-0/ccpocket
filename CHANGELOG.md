@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.2] - 2026-10-20
+
+### Fixed
+
+- Give project creation fields clear spacing and present multi-project management and editing consistently as sheets with fixed action buttons.
+- Dismiss the keyboard by scrolling or tapping outside project fields, including short forms and transitions to folder selection.
+- Initialize new-project folder browsing from the selected source, destination, or allowed directory, and shorten the selection button label with safe bottom spacing.
+
 ## [1.145.1] - 2026-10-20
 
 ### Fixed
