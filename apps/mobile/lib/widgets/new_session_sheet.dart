@@ -15,6 +15,7 @@ import '../models/new_session_tab.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
+import '../utils/project_usage.dart';
 import 'directory_browser_sheet.dart';
 import 'workspace_pane_chrome.dart';
 import 'codex_effort_slider.dart';
@@ -614,6 +615,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   /// Live-updated project history (initially from widget, updated via stream).
   late List<String> _liveProjectHistory;
+  Map<String, DateTime> _projectUsage = {};
 
   // Claude-specific options
   String? _selectedClaudeModel;
@@ -754,12 +756,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       }
     }
 
-    if (widget.multiProjectOnly) return result;
-
     final managedRoots = _workspaceProjectsState.projects
         .expand((project) => project.rootPaths)
         .toList();
-    for (final project in _allMergedProjects) {
+    for (final project
+        in widget.multiProjectOnly
+            ? <({String path, String name})>[]
+            : _allMergedProjects) {
       if (!representedFolderPaths.add(project.path)) continue;
       final isManagedProject = managedRoots.any(
         (root) => _isSameOrDescendantPath(project.path, root),
@@ -774,6 +777,39 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         ),
       );
     }
+    // Compare exact selections: a group's use must not promote its folders,
+    // and using a folder must not promote groups containing that folder.
+    final fallbackOrder = {for (final (i, choice) in result.indexed) choice: i};
+    final folderOrder = {
+      if (_projectUsage.isEmpty)
+        for (final (i, project) in _allMergedProjects.indexed) project.path: i,
+    };
+    String usageKey(_ProjectChoice choice) =>
+        choice.kind == _ProjectChoiceKind.workspaceProject
+        ? 'project:${choice.id}'
+        : 'folder:${choice.path}';
+    result.sort((a, b) {
+      final aUsed = _projectUsage[usageKey(a)];
+      final bUsed = _projectUsage[usageKey(b)];
+      if (aUsed != null && bUsed != null) {
+        final byTime = bUsed.compareTo(aUsed);
+        if (byTime != 0) return byTime;
+      } else if (aUsed != null || bUsed != null) {
+        return aUsed != null ? -1 : 1;
+      }
+      // Use path-only history only when no session usage is available.
+      // It includes group primary paths and cannot identify actual choices.
+      final aFallback = a.workspaceProject == null ? folderOrder[a.path] : null;
+      final bFallback = b.workspaceProject == null ? folderOrder[b.path] : null;
+      if (aFallback != null && bFallback != null) {
+        return aFallback.compareTo(bFallback);
+      }
+      if (aFallback != null || bFallback != null) {
+        return aFallback != null ? -1 : 1;
+      }
+      return fallbackOrder[a]!.compareTo(fallbackOrder[b]!);
+    });
+    if (widget.multiProjectOnly) return result;
     return result.length > _maxRecentProjects
         ? result.sublist(0, _maxRecentProjects)
         : result;
@@ -806,6 +842,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     // because the broadcast stream may have already fired before this listener
     // was registered.
     final cachedSessions = widget.bridge?.recentSessions;
+    _projectUsage = projectUsage(cachedSessions ?? const []);
     _liveRecentProjects = (cachedSessions != null && cachedSessions.isNotEmpty)
         ? recentProjects(cachedSessions)
         : widget.recentProjects;
@@ -848,7 +885,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     // after the sheet is already open (e.g. right after connection).
     _recentSub = widget.bridge?.recentSessionsStream.listen((sessions) {
       if (mounted) {
-        setState(() => _liveRecentProjects = recentProjects(sessions));
+        setState(() {
+          _liveRecentProjects = recentProjects(sessions);
+          _projectUsage = projectUsage(sessions);
+        });
       }
     });
     _projectHistorySub = widget.bridge?.projectHistoryStream.listen((projects) {

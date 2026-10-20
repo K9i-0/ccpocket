@@ -5,13 +5,33 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+RecentSession _recentSession(String path, String modified, {String? group}) =>
+    RecentSession.fromJson({
+      'sessionId': '$path-$modified',
+      'projectPath': path,
+      'modified': modified,
+      if (group != null) 'workspace': {'kind': 'project', 'projectId': group},
+    });
+
 class _DirectoryBrowserBridge extends BridgeService {
   final _messages = StreamController<ServerMessage>.broadcast();
   final _projects = StreamController<ProjectsMessage>.broadcast();
+  final _recent = StreamController<List<RecentSession>>.broadcast();
+  List<RecentSession> _sessions = [];
+  @override
+  List<RecentSession> get recentSessions => _sessions;
+  @override
+  Stream<List<RecentSession>> get recentSessionsStream => _recent.stream;
+  void emitRecent(List<RecentSession> sessions) {
+    _sessions = sessions;
+    _recent.add(sessions);
+  }
+
   final includeHiddenRequests = <bool>[];
   ProjectsMessage _projectsState = const ProjectsMessage(projects: []);
 
@@ -63,6 +83,7 @@ class _DirectoryBrowserBridge extends BridgeService {
 
   @override
   void dispose() {
+    _recent.close();
     _messages.close();
     _projects.close();
     super.dispose();
@@ -332,6 +353,16 @@ void main() {
           ],
         ),
       );
+      bridge.emitRecent([
+        _recentSession('/workspace/primary', '2026-10-20T10:00:00Z'),
+        _recentSession('/workspace/plain', '2026-10-19T10:00:00Z'),
+        _recentSession('/workspace/secondary', '2026-10-18T10:00:00Z'),
+        _recentSession(
+          '/workspace/primary',
+          '2026-10-17T10:00:00Z',
+          group: 'project-1',
+        ),
+      ]);
       final recentProjects = [
         for (var index = 0; index < 21; index++)
           (
@@ -420,6 +451,36 @@ void main() {
           ),
         ),
         findsNothing,
+      );
+
+      expect(
+        tester.getTopLeft(primaryFolderTile).dy,
+        lessThan(tester.getTopLeft(recentFolderTile).dy),
+      );
+      expect(
+        tester.getTopLeft(recentFolderTile).dy,
+        lessThan(tester.getTopLeft(secondaryFolderTile).dy),
+      );
+      expect(
+        tester.getTopLeft(secondaryFolderTile).dy,
+        lessThan(tester.getTopLeft(workspaceProjectTile).dy),
+      );
+      bridge.emitRecent([
+        ...bridge.recentSessions,
+        _recentSession(
+          '/workspace/primary',
+          '2026-10-21T10:00:00Z',
+          group: 'project-1',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(workspaceProjectTile).dy,
+        lessThan(tester.getTopLeft(primaryFolderTile).dy),
+      );
+      expect(
+        tester.getTopLeft(recentFolderTile).dy,
+        lessThan(tester.getTopLeft(secondaryFolderTile).dy),
       );
 
       await tester.tap(workspaceProjectTile);
