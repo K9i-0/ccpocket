@@ -290,129 +290,147 @@ void main() {
     expect(result?.additionalWritableRoots, ['/workspace/secondary']);
   });
 
-  testWidgets('merges ccpocket Projects into recent projects', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(1080, 1920);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-    final bridge = _DirectoryBrowserBridge();
-    addTearDown(bridge.dispose);
-    NewSessionParams? result;
-    bridge.emitProjects(
-      const ProjectsMessage(
-        projects: [
-          WorkspaceProject(
-            id: 'project-1',
-            name: 'Multi root',
-            rootPaths: ['/workspace/primary', '/workspace/secondary'],
-            createdAt: '2026-09-01T00:00:00.000Z',
-            updatedAt: '2026-09-01T00:00:00.000Z',
-          ),
-        ],
-      ),
-    );
-    final recentProjects = [
-      for (var index = 0; index < 21; index++)
-        (
-          path: '/workspace/secondary/generated-$index',
-          name: 'generated-$index',
+  for (final folder in ['primary', 'secondary']) {
+    testWidgets('keeps $folder selectable independently of a multi-project', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final bridge = _DirectoryBrowserBridge();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      bridge.emitProjects(
+        const ProjectsMessage(
+          projects: [
+            WorkspaceProject(
+              id: 'project-1',
+              name: 'Multi root',
+              rootPaths: ['/workspace/primary', '/workspace/secondary'],
+              createdAt: '2026-09-01T00:00:00.000Z',
+              updatedAt: '2026-09-01T00:00:00.000Z',
+            ),
+          ],
         ),
-      (path: '/workspace/primary', name: 'primary'),
-      (path: '/workspace/plain', name: 'plain'),
-    ];
+      );
+      final recentProjects = [
+        for (var index = 0; index < 21; index++)
+          (
+            path: '/workspace/secondary/generated-$index',
+            name: 'generated-$index',
+          ),
+        (path: '/workspace/primary', name: 'primary'),
+        if (folder == 'secondary')
+          (path: '/workspace/secondary', name: 'secondary'),
+        (path: '/workspace/plain', name: 'plain'),
+      ];
 
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en'),
-        theme: AppTheme.darkTheme,
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () async {
-                result = await showNewSessionSheet(
-                  context: context,
-                  bridge: bridge,
-                  recentProjects: recentProjects,
-                );
-              },
-              child: const Text('Open'),
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await showNewSessionSheet(
+                    context: context,
+                    bridge: bridge,
+                    recentProjects: recentProjects,
+                  );
+                },
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Recent Projects'), findsOneWidget);
-    expect(find.text('Workspace'), findsNothing);
-    final workspaceProjectTile = find.byKey(
-      const ValueKey('workspace_project_project-1_tile'),
-    );
-    final recentFolderTile = find.byKey(
-      const ValueKey('recent_project_/workspace/plain_tile'),
-    );
-    final primaryFolderTile = find.byKey(
-      const ValueKey('workspace_primary_project-1_tile'),
-    );
-    expect(workspaceProjectTile, findsOneWidget);
-    expect(primaryFolderTile, findsOneWidget);
-    expect(recentFolderTile, findsOneWidget);
-    expect(
-      find.descendant(
-        of: workspaceProjectTile,
-        matching: find.byIcon(Icons.folder_copy_outlined),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: recentFolderTile,
-        matching: find.byIcon(Icons.folder_outlined),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: primaryFolderTile,
-        matching: find.byIcon(Icons.folder_outlined),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(
-        const ValueKey('recent_project_/workspace/secondary/generated-0_tile'),
-      ),
-      findsNothing,
-    );
+      expect(find.text('Recent Projects'), findsOneWidget);
+      expect(find.text('Workspace'), findsNothing);
+      final workspaceProjectTile = find.byKey(
+        const ValueKey('workspace_project_project-1_tile'),
+      );
+      final recentFolderTile = find.byKey(
+        const ValueKey('recent_project_/workspace/plain_tile'),
+      );
+      final primaryFolderTile = find.byKey(
+        const ValueKey('workspace_folder_/workspace/primary_tile'),
+      );
+      expect(workspaceProjectTile, findsOneWidget);
+      expect(primaryFolderTile, findsOneWidget);
+      final secondaryFolderTile = find.byKey(
+        const ValueKey('workspace_folder_/workspace/secondary_tile'),
+      );
+      expect(secondaryFolderTile, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('recent_project_/workspace/secondary_tile')),
+        findsNothing,
+      );
+      expect(recentFolderTile, findsOneWidget);
+      expect(
+        find.descendant(
+          of: workspaceProjectTile,
+          matching: find.byIcon(Icons.folder_copy_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: recentFolderTile,
+          matching: find.byIcon(Icons.folder_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: primaryFolderTile,
+          matching: find.byIcon(Icons.folder_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'recent_project_/workspace/secondary/generated-0_tile',
+          ),
+        ),
+        findsNothing,
+      );
 
-    await tester.tap(workspaceProjectTile);
-    await tester.pumpAndSettle();
-    final pathField = tester.widget<TextField>(
-      find.byKey(const ValueKey('dialog_project_path')),
-    );
-    expect(pathField.controller?.text, '/workspace/primary');
+      await tester.tap(workspaceProjectTile);
+      await tester.pumpAndSettle();
+      final pathField = tester.widget<TextField>(
+        find.byKey(const ValueKey('dialog_project_path')),
+      );
+      expect(pathField.controller?.text, '/workspace/primary');
 
-    await tester.tap(primaryFolderTile);
-    await tester.pumpAndSettle();
-    final selectedPathField = tester.widget<TextField>(
-      find.byKey(const ValueKey('dialog_project_path')),
-    );
-    expect(selectedPathField.controller?.text, '/workspace/primary');
+      await tester.tap(
+        folder == 'primary' ? primaryFolderTile : secondaryFolderTile,
+      );
+      await tester.pumpAndSettle();
+      final selectedPathField = tester.widget<TextField>(
+        find.byKey(const ValueKey('dialog_project_path')),
+      );
+      expect(selectedPathField.controller?.text, '/workspace/$folder');
 
-    final startButton = find.byKey(const ValueKey('dialog_start_button'));
-    await tester.ensureVisible(startButton);
-    await tester.tap(startButton);
-    await tester.pumpAndSettle();
-    expect(result?.projectPath, '/workspace/primary');
-    expect(result?.projectId, isNull);
-    expect(result?.workspaceKind, isNull);
-    expect(result?.additionalWritableRoots, isEmpty);
-  });
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+      expect(result?.projectPath, '/workspace/$folder');
+      expect(result?.projectId, isNull);
+      expect(result?.workspaceKind, isNull);
+      expect(result?.additionalWritableRoots, isEmpty);
+    });
+  }
 }
