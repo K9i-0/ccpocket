@@ -28,19 +28,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
-  String get projects => 'プロジェクト';
+  String get projects => 'マルチプロジェクト';
 
   @override
   String get manageProjects => '管理';
 
   @override
-  String get createProject => 'プロジェクトを作成';
+  String get createProject => 'マルチプロジェクトを作成';
 
   @override
-  String get editProject => 'プロジェクトを編集';
+  String get editProject => 'マルチプロジェクトを編集';
 
   @override
-  String get projectName => 'プロジェクト名';
+  String get projectName => 'マルチプロジェクト名';
 
   @override
   String get sourceFolders => 'ソースフォルダ';
@@ -58,10 +58,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get addFolder => 'フォルダを追加';
 
   @override
-  String get removeWorkspaceProject => 'プロジェクトを削除';
+  String get removeWorkspaceProject => 'マルチプロジェクトを削除';
 
   @override
-  String get noProjectsYet => 'プロジェクトはまだありません';
+  String get noProjectsYet => 'マルチプロジェクトはまだありません';
 
   @override
   String get unavailable => '利用できません';
@@ -3269,4 +3269,72 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mediaFeedbackConfirmSource => '更新後の素材に適用';
+
+  @override
+  String get newProject => '新しいプロジェクトを作る';
+
+  @override
+  String get existingProject => '既存のプロジェクトで始める';
+
+  @override
+  String get multiProjectStart => 'マルチプロジェクトで始める';
+
+  @override
+  String get multiProjectHint =>
+      'アプリとAPIなど、複数のプロジェクトをまとめてAIに扱わせます。フォルダやGitリポジトリは別々のまま、同じセッションで作業できます。';
+
+  @override
+  String get newProjectName => 'フォルダ名';
+
+  @override
+  String get newProjectParent => '保存先フォルダ';
+
+  @override
+  String get newProjectDescription => '作りたいもの（任意）';
+
+  @override
+  String get newProjectGit => 'Gitで変更を管理する';
+
+  @override
+  String get newProjectSettingsSource => 'AI設定の引き継ぎ元';
+
+  @override
+  String get newProjectNoSource => '引き継がない';
+
+  @override
+  String get newProjectSettingsHint =>
+      'CLAUDE.md・AGENTS.md・共有AI設定・スキルなどを下書きとしてコピーします。認証情報・ローカル専用設定・履歴は対象外です。最初のメッセージで新プロジェクト向けの調整を依頼します。';
+
+  @override
+  String get newProjectCreate => '作成して始める';
+
+  @override
+  String get projectSetupWorking => '準備しています…';
+
+  @override
+  String get projectSetupCreated => '作成済み';
+
+  @override
+  String get projectSetupUpdateHint =>
+      '応答を確認できませんでした。Bridgeの接続とバージョンを確認してください。古いBridgeの場合は更新が必要です。作成済みのフォルダは既存プロジェクトから開けます。';
+
+  @override
+  String get projectSetupAdaptPrompt =>
+      'まず .ccpocket-bootstrap 内のAI設定の下書きを確認し、この新プロジェクト向けに調整してください。元プロジェクト固有のパス・構成・リリース手順を取り除き、使える開発規約とスキルを適切な場所へ配置してください。参照元は変更しないでください。hooks・外部コマンド・MCPなどの実行設定は、内容と参照先を説明し確認を得てから有効にしてください。調整内容を説明した後、依頼したプロジェクトの作成を進めてください。';
+
+  @override
+  String get trustProject => 'このプロジェクトをCodexで信頼する';
+
+  @override
+  String get trustProjectHint =>
+      'このフォルダのCodex設定・hooks・rulesの読み込みを許可します。コマンドの実行権限とは別の設定です。';
+
+  @override
+  String get initializeGit => 'Gitを初期化する';
+
+  @override
+  String get projectSetupDone => '設定を保存しました';
+
+  @override
+  String get gitNoCommits => 'まだコミットがありません';
 }

@@ -1,5 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../features/chat_session/state/chat_session_cubit.dart';
+import '../../features/project_setup/widgets/project_setup_action.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -207,6 +212,21 @@ class ErrorBubble extends StatelessWidget {
             fontSize: 12,
           ),
         ),
+        if (message.errorCode == 'codex_warning' &&
+            message.message.contains('until the project is trusted'))
+          Builder(
+            builder: (context) {
+              final chat = context.read<ChatSessionCubit>().state;
+              final path = chat.worktreePath ?? chat.projectPath;
+              return path == null
+                  ? const SizedBox.shrink()
+                  : ProjectSetupAction(
+                      projectPath: path,
+                      trust: true,
+                      sessionId: context.read<ChatSessionCubit>().sessionId,
+                    );
+            },
+          ),
         // Remedy hint
         if (hint != null) ...[
           const SizedBox(height: 8),

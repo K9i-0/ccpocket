@@ -6,8 +6,9 @@ import '../state/git_view_state.dart';
 
 class DiffEmptyState extends StatelessWidget {
   final GitViewMode? viewMode;
+  final bool? hasCommits;
 
-  const DiffEmptyState({super.key, this.viewMode});
+  const DiffEmptyState({super.key, this.viewMode, this.hasCommits});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,9 @@ class DiffEmptyState extends StatelessWidget {
           Icon(icon, size: 48, color: appColors.toolIcon),
           const SizedBox(height: 12),
           Text(
-            message,
+            hasCommits == false
+                ? AppLocalizations.of(context).gitNoCommits
+                : message,
             style: TextStyle(fontSize: 16, color: appColors.subtleText),
           ),
         ],

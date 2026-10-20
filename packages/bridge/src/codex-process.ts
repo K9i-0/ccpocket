@@ -1,3 +1,4 @@
+import { readCodexAppServerMode } from "./codex-app-server-config.js";
 import { CodexRecovery } from "./codex-recovery.js";
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
@@ -322,6 +323,8 @@ function codexAppServerStartError(
 
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private transport: CodexTransport | null = null;
+  private reloadingProject = false;
+  private launchOptions: CodexStartOptions | undefined;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private _agentNickname: string | null = null;
@@ -428,7 +431,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   get isWaitingForInput(): boolean {
-    return this.inputResolve !== null;
+    return !this.reloadingProject && this.inputResolve !== null;
   }
 
   private getMessageModel(): string {
@@ -616,7 +619,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   noteManualInput(): void { this.manualInputVersion++; this.recovery.manualInput(); }
 
   private canDispatchRecovery(): boolean {
-    return !this.stopped && this._threadId !== null && this.inputResolve !== null &&
+    return !this.stopped && !this.reloadingProject && this._threadId !== null && this.inputResolve !== null &&
       this.pendingTurnId === null && this.pendingTurnCompletion === null &&
       this.pendingApprovals.size === 0 && !this.hasBlockingUserInput() &&
       this.pendingPlanCompletion === null && this._pendingPlanInput === null;
@@ -992,6 +995,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.stop();
     }
 
+    this.launchOptions = options ? { ...options } : undefined;
     this.resetReadiness();
     this.prepareLaunch(projectPath, options);
     this.launchAppServer(projectPath, options);
@@ -1012,6 +1016,53 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.resolveReadiness();
     } catch (error) {
       this.rejectReadiness(error);
+      throw error;
+    }
+  }
+
+  async trustProject(projectPath: string): Promise<void> {
+    const response = await this.request("config/value/write", {
+      keyPath: `projects.${JSON.stringify(projectPath)}.trust_level`,
+      value: "trusted",
+      mergeStrategy: "replace",
+    }) as Record<string, unknown>;
+    if (response.overriddenMetadata != null) throw new Error("Project trust is overridden by a higher-priority configuration");
+  }
+
+  async trustProjectAndReload(projectPath: string): Promise<void> {
+    if (readCodexAppServerMode() !== "private") throw new Error("Live trust reload requires a private Codex app-server. Shared app-server sessions must be reopened after configuring project trust.");
+    if (!this._threadId || this.status !== "idle" || this.pendingTurnId || this.pendingApprovals.size || this.pendingUserInputs.size || this._pendingPlanInput) {
+      throw new Error("Wait until the Codex session is idle before trusting this project");
+    }
+    const options: CodexStartOptions = {
+      ...this.launchOptions,
+      threadId: this._threadId,
+      model: this.model,
+      modelReasoningEffort: this._runtimeModelReasoningEffort,
+      serviceTier: this._runtimeServiceTier ?? undefined,
+      approvalPolicy: this._approvalPolicy as CodexStartOptions["approvalPolicy"],
+      approvalsReviewer: this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
+      codexPermissionsMode: this._codexPermissionsMode,
+      collaborationMode: this._collaborationMode,
+    };
+    const recoveryEnabled = this.recovery.state.enabled;
+    this.reloadingProject = true;
+    this.setStatus("starting");
+    try {
+      await this.trustProject(projectPath);
+      await this._completionFetchInFlight;
+      // Only this session's transport is replaced. Late events from the old
+      // process must not clear the new transport or mark the session stopped.
+      this.transport?.removeAllListeners();
+      this.stop();
+      this.reloadingProject = false;
+      this.start(projectPath, options);
+      await this.waitUntilReady();
+      this.setRecoveryEnabled(recoveryEnabled);
+    } catch (error) {
+      this.reloadingProject = false;
+      this.setStatus("idle");
+      if (this.inputResolve) this.emit("input_ready");
       throw error;
     }
   }

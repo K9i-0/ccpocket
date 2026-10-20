@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../project_setup/widgets/project_setup_action.dart';
+
 import '../../../theme/app_theme.dart';
 
 class DiffErrorState extends StatelessWidget {
   final String error;
   final String? errorCode;
+  final String? projectPath;
+  final VoidCallback? onInitialized;
 
-  const DiffErrorState({super.key, required this.error, this.errorCode});
+  const DiffErrorState({
+    super.key,
+    required this.error,
+    this.errorCode,
+    this.projectPath,
+    this.onInitialized,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +35,12 @@ class DiffErrorState extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: color),
             const SizedBox(height: 12),
+            if (isGitUnavailable && projectPath != null)
+              ProjectSetupAction(
+                projectPath: projectPath!,
+                trust: false,
+                onDone: onInitialized,
+              ),
             Text(
               error,
               style: TextStyle(color: color),

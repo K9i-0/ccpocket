@@ -23,6 +23,8 @@ import '../../router/app_router.dart';
 import '../../services/app_update_service.dart';
 import '../../services/bridge_endpoint_probe.dart';
 import '../../services/bridge_service.dart';
+import '../project_setup/widgets/new_project_sheet.dart';
+import '../project_setup/widgets/project_start_choices.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
@@ -819,18 +821,52 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _showNewSessionDialog() async {
     final defaults = await _loadInitialNewSessionDefaults();
     if (!mounted) return;
-    final result = await _openNewSessionSheet(initialParams: defaults);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (_) => const ProjectStartChoices(),
+    );
+    if (choice == null || !mounted) return;
+    NewProjectResult? created;
+    if (choice == 'new') {
+      created = await showNewProjectSheet(
+        context,
+        context.read<BridgeService>(),
+        context.read<ProjectHistoryCubit>().state,
+      );
+      if (created == null || !mounted) return;
+    }
+    final result = created == null
+        ? await _openNewSessionSheet(
+            initialParams: defaults,
+            multiProjectOnly: choice == 'multi',
+          )
+        : NewSessionParams(
+            projectPath: created.path,
+            provider:
+                defaults?.provider ??
+                context
+                    .read<SettingsCubit>()
+                    .state
+                    .newSessionTabs
+                    .first
+                    .toProvider(),
+            model: defaults?.model,
+            claudeModel: defaults?.claudeModel,
+          );
+
     if (result == null || !mounted) return;
-    await _sessionStartDefaultsStore.save(result);
+    if (created == null) await _sessionStartDefaultsStore.save(result);
     _trackPendingClaudeDefaultsCorrection(result);
     await _saveProjectCodexProfileFromParams(result);
     if (!mounted) return;
-    _startNewSession(result);
+    _startNewSession(result, initialPrompt: created?.prompt);
   }
 
   Future<NewSessionParams?> _openNewSessionSheet({
     NewSessionParams? initialParams,
     bool lockProvider = false,
+    bool multiProjectOnly = false,
   }) async {
     final sessions =
         widget.debugRecentSessions ??
@@ -845,13 +881,14 @@ class _SessionListScreenState extends State<SessionListScreen>
       bridge: bridge,
       initialParams: initialParams,
       lockProvider: lockProvider,
+      multiProjectOnly: multiProjectOnly,
       visibleTabs: settings.newSessionTabs,
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
       showHiddenDirectories: settings.showHiddenDirectories,
     );
   }
 
-  void _startNewSession(NewSessionParams result) {
+  void _startNewSession(NewSessionParams result, {String? initialPrompt}) {
     final bridge = context.read<BridgeService>();
     final settings = context.read<SettingsCubit>().state;
     final workspace = _workspaceForNewSession(result);
@@ -873,6 +910,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     bridge.send(
       ClientMessage.start(
         result.projectPath,
+        initialPrompt: initialPrompt?.isNotEmpty == true ? initialPrompt : null,
         projectId: result.projectId,
         projectName: workspace?.projectName,
         workspaceKind: result.workspaceKind,

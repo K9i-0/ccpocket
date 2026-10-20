@@ -90,6 +90,52 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
+  it("trusts and reloads an idle private thread without accepting input on the old process", async () => {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "private";
+    const requests: Array<Record<string, any>> = [];
+    let releaseTrust: (() => void) | undefined;
+    spawnMock.mockImplementation(() => {
+      const child = new FakeChildProcess();
+      fakeChildren.push(child);
+      child.stdin.on("write", (line: string) => {
+        const request = JSON.parse(line);
+        if (request.id === undefined) return;
+        requests.push(request);
+        const reply = (result: unknown) => child.stdout.emit("data", `${JSON.stringify({ id: request.id, result })}\n`);
+        if (request.method === "config/value/write") { releaseTrust = () => reply({ status: "ok" }); return; }
+        queueMicrotask(() => reply(
+          request.method === "thread/start" || request.method === "thread/resume"
+            ? { thread: { id: "thr_trust" }, model: "test-model" }
+            : request.method === "config/read" ? { config: {} }
+            : request.method === "turn/start" ? { turn: { id: "turn-new" } }
+            : { data: [], marketplaces: [] },
+        ));
+      });
+      return child;
+    });
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/trust-project", { model: "test-model", approvalPolicy: "on-request", sandboxMode: "workspace-write", additionalWritableRoots: ["/tmp/extra"] });
+    await proc.waitUntilReady();
+    await tick();
+    expect(proc.isWaitingForInput).toBe(true);
+    const reload = proc.trustProjectAndReload("/tmp/trust-project");
+    expect(proc.isWaitingForInput).toBe(false);
+    await tick();
+    expect(releaseTrust).toBeDefined();
+    releaseTrust!();
+    await reload;
+    await tick();
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[0].killed).toBe(true);
+    expect(proc.sessionId).toBe("thr_trust");
+    expect(proc.isWaitingForInput).toBe(true);
+    expect(requests.find((r) => r.method === "thread/resume")?.params).toMatchObject({ threadId: "thr_trust", model: "test-model", approvalPolicy: "on-request" });
+    proc.sendInput("continue");
+    await tick();
+    expect(requests.filter((r) => r.method === "turn/start")).toHaveLength(1);
+    proc.stop();
+  });
+
   it("normalizes unsupported GPT-6 Astra reasoning efforts to low", () => {
     expect(
       normalizeCodexReasoningEffortForModel("gpt-6-astra", "none"),
@@ -3026,7 +3072,7 @@ describe("CodexProcess (app-server)", () => {
     });
 
     const answer = JSON.stringify({
-      answers: { token: "top-secret-value", color: "Green" },
+      answers: { token: "top-secret-value", color: "Green" }, // Dummy token for redaction testing.
     });
     expect(proc.answer("mixed-item", answer)).toBe(true);
 

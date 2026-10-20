@@ -217,6 +217,7 @@ class ServerMessageWidget extends StatelessWidget {
       ),
       final GuardianApprovalMessage msg => GuardianApprovalNotice(message: msg),
       final ErrorMessage msg => ErrorBubble(message: msg),
+      ProjectSetupResultMessage() => const SizedBox.shrink(),
       PushRegistrationResultMessage() => const SizedBox.shrink(),
       SessionLinkResolutionMessage() => const SizedBox.shrink(),
       SessionContextMessage() => const SizedBox.shrink(),

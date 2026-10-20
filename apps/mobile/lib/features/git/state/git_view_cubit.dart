@@ -139,13 +139,29 @@ class GitViewCubit extends Cubit<GitViewState> {
           ),
         );
       } else if (result.diff.trim().isEmpty) {
-        emit(state.copyWith(loading: false, files: []));
+        emit(
+          state.copyWith(
+            loading: false,
+            files: [],
+            error: null,
+            errorCode: null,
+            hasCommits: result.hasCommits,
+          ),
+        );
       } else {
         final files = _mergeImageChanges(
           parseDiff(result.diff),
           result.imageChanges,
         );
-        emit(state.copyWith(loading: false, files: files));
+        emit(
+          state.copyWith(
+            loading: false,
+            files: files,
+            error: null,
+            errorCode: null,
+            hasCommits: result.hasCommits,
+          ),
+        );
       }
     });
     _sendDiffRequest(projectPath);
@@ -228,7 +244,24 @@ class GitViewCubit extends Cubit<GitViewState> {
 
   /// Refresh after an external agent turn changed files.
   void refreshAfterExternalChange() {
+    if (_sessionId != null) {
+      _bridge.send(ClientMessage.refreshBranch(_sessionId));
+    }
+    final projectPath = _projectPath;
+    if (projectPath != null) {
+      _bridge.send(
+        ClientMessage.gitBranches(
+          projectPath,
+          requestId: _newWireRequestId('git-branches'),
+        ),
+      );
+    }
     refreshDiffOnly(requestStatus: true);
+  }
+
+  void refreshAfterRepositorySetup() {
+    refreshAfterExternalChange();
+    _fetchAndUpdateStatus();
   }
 
   bool get _stagedParamForMode => state.viewMode == GitViewMode.staged;

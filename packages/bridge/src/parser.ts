@@ -114,6 +114,7 @@ export type ClientMessage =
   | {
       type: "start";
       projectPath: string;
+      initialPrompt?: string;
       provider?: Provider;
       sessionId?: string;
       continue?: boolean;
@@ -372,6 +373,9 @@ export type ClientMessage =
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
+  | { type: "bootstrap_project"; parentPath: string; name: string; initializeGit: boolean; sourcePath?: string; requestId: string }
+  | { type: "trust_project"; projectPath: string; requestId: string; sessionId?: string }
+  | { type: "initialize_git"; projectPath: string; requestId: string }
   | { type: "list_projects"; requestId?: string }
   | {
       type: "create_project";
@@ -850,6 +854,7 @@ export type ServerMessage =
     }
   | {
       type: "diff_result";
+      hasCommits?: boolean;
       projectPath?: string;
       requestId?: string;
       staged?: boolean;
@@ -1390,6 +1395,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
         }
         break;
       case "start":
+        if (msg.initialPrompt !== undefined && (typeof msg.initialPrompt !== "string" || msg.initialPrompt.length > 16000)) return null;
         if (
           typeof msg.projectPath !== "string" ||
           !hasValidStartOptions(msg)
@@ -1893,6 +1899,16 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "list_projects":
         if (msg.requestId !== undefined && typeof msg.requestId !== "string")
           return null;
+        break;
+      case "bootstrap_project":
+        if (typeof msg.parentPath !== "string" || !isNonEmptyString(msg.name) ||
+            typeof msg.initializeGit !== "boolean" || !isNonEmptyString(msg.requestId) ||
+            (msg.sourcePath !== undefined && !isNonEmptyString(msg.sourcePath))) return null;
+        break;
+      case "trust_project":
+        if (msg.sessionId !== undefined && !isNonEmptyString(msg.sessionId)) return null;
+      case "initialize_git":
+        if (!isNonEmptyString(msg.projectPath) || !isNonEmptyString(msg.requestId)) return null;
         break;
       case "create_project":
         if (!isOptionalNonEmptyString(msg.name) || msg.name === undefined)

@@ -70,6 +70,78 @@ class _DirectoryBrowserBridge extends BridgeService {
 }
 
 void main() {
+  testWidgets(
+    'multi-project entry requires a group and hides individual folders',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final bridge = _DirectoryBrowserBridge();
+      addTearDown(bridge.dispose);
+      bridge.emitProjects(
+        const ProjectsMessage(
+          projects: [
+            WorkspaceProject(
+              id: 'group',
+              name: 'App and API',
+              createdAt: '2026-10-20T00:00:00Z',
+              updatedAt: '2026-10-20T00:00:00Z',
+              rootPaths: ['/workspace/app', '/workspace/api'],
+            ),
+          ],
+        ),
+      );
+      NewSessionParams? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  selected = await showNewSessionSheet(
+                    context: context,
+                    bridge: bridge,
+                    recentProjects: const [
+                      (path: '/workspace/other', name: 'other'),
+                    ],
+                    initialParams: NewSessionParams(
+                      projectPath: '/workspace/other',
+                    ),
+                    multiProjectOnly: true,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('dialog_project_path')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('recent_project_/workspace/other_tile')),
+        findsNothing,
+      );
+      final start = find.byKey(const ValueKey('dialog_start_button'));
+      expect(tester.widget<FilledButton>(start).onPressed, isNull);
+      await tester.tap(
+        find.byKey(const ValueKey('workspace_project_group_tile')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(start);
+      await tester.pumpAndSettle();
+      expect(selected?.projectId, 'group');
+      expect(selected?.additionalWritableRoots, ['/workspace/api']);
+    },
+  );
+
   testWidgets('selects a project path from the new session browser', (
     tester,
   ) async {

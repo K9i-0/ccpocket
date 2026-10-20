@@ -1499,3 +1499,13 @@ describe("recovery commands", () => {
     expect(parseClientMessage(JSON.stringify({ type: "cancel_codex_recovery", sessionId: "" }))).toBeNull();
   });
 });
+
+
+describe("new project protocol", () => {
+  it("validates bootstrap and trust requests", () => {
+    expect(parseClientMessage(JSON.stringify({ type: "bootstrap_project", parentPath: "/work", name: "app", initializeGit: true, requestId: "r" }))).not.toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: "bootstrap_project", parentPath: "/work", name: "app", initializeGit: "yes", requestId: "r" }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: "trust_project", projectPath: "/work/app", requestId: "r", sessionId: 42 }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ type: "start", projectPath: "/work/app", initialPrompt: 42 }))).toBeNull();
+  });
+});

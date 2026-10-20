@@ -751,9 +751,28 @@ String _normalizeToolResultContent(dynamic content) {
 
 // ---- Server messages ----
 
+class ProjectSetupResultMessage implements ServerMessage {
+  final String requestId;
+  final String? projectPath;
+  final String? error;
+  final List<String> copiedFiles;
+  ProjectSetupResultMessage({
+    required this.requestId,
+    this.projectPath,
+    this.error,
+    this.copiedFiles = const [],
+  });
+}
+
 sealed class ServerMessage {
   factory ServerMessage.fromJson(Map<String, dynamic> json) {
     return switch (json['type'] as String) {
+      'project_setup_result' => ProjectSetupResultMessage(
+        requestId: json['requestId'] as String,
+        projectPath: json['projectPath'] as String?,
+        error: json['error'] as String?,
+        copiedFiles: (json['copiedFiles'] as List?)?.cast<String>() ?? const [],
+      ),
       'system' => SystemMessage(
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
@@ -1167,6 +1186,7 @@ sealed class ServerMessage {
         requestId: json['requestId'] as String?,
       ),
       'diff_result' => DiffResultMessage(
+        hasCommits: json['hasCommits'] as bool?,
         projectPath: json['projectPath'] as String?,
         requestId: json['requestId'] as String?,
         staged: json['staged'] as bool?,
@@ -3155,6 +3175,7 @@ class DiffResultMessage implements ServerMessage, ProjectCorrelatedMessage {
   @override
   final String? requestId;
   final bool? staged;
+  final bool? hasCommits;
   final String diff;
   final String? error;
   final String? errorCode;
@@ -3163,6 +3184,7 @@ class DiffResultMessage implements ServerMessage, ProjectCorrelatedMessage {
     this.projectPath,
     this.requestId,
     this.staged,
+    this.hasCommits,
     required this.diff,
     this.error,
     this.errorCode,
@@ -4638,6 +4660,7 @@ class ClientMessage {
 
   factory ClientMessage.start(
     String projectPath, {
+    String? initialPrompt,
     String? sessionId,
     bool? continueMode,
     String? permissionMode,
@@ -4672,6 +4695,7 @@ class ClientMessage {
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
+      'initialPrompt': ?initialPrompt,
       'projectPath': projectPath,
       'sessionId': ?sessionId,
       if (continueMode == true) 'continue': true,

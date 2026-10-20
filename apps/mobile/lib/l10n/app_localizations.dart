@@ -141,7 +141,7 @@ abstract class AppLocalizations {
   /// No description provided for @projects.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクト'**
+  /// **'マルチプロジェクト'**
   String get projects;
 
   /// No description provided for @manageProjects.
@@ -153,19 +153,19 @@ abstract class AppLocalizations {
   /// No description provided for @createProject.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクトを作成'**
+  /// **'マルチプロジェクトを作成'**
   String get createProject;
 
   /// No description provided for @editProject.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクトを編集'**
+  /// **'マルチプロジェクトを編集'**
   String get editProject;
 
   /// No description provided for @projectName.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクト名'**
+  /// **'マルチプロジェクト名'**
   String get projectName;
 
   /// No description provided for @sourceFolders.
@@ -201,13 +201,13 @@ abstract class AppLocalizations {
   /// No description provided for @removeWorkspaceProject.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクトを削除'**
+  /// **'マルチプロジェクトを削除'**
   String get removeWorkspaceProject;
 
   /// No description provided for @noProjectsYet.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクトはまだありません'**
+  /// **'マルチプロジェクトはまだありません'**
   String get noProjectsYet;
 
   /// No description provided for @unavailable.
@@ -6148,6 +6148,132 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'更新後の素材に適用'**
   String get mediaFeedbackConfirmSource;
+
+  /// No description provided for @newProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'新しいプロジェクトを作る'**
+  String get newProject;
+
+  /// No description provided for @existingProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'既存のプロジェクトで始める'**
+  String get existingProject;
+
+  /// No description provided for @multiProjectStart.
+  ///
+  /// In ja, this message translates to:
+  /// **'マルチプロジェクトで始める'**
+  String get multiProjectStart;
+
+  /// No description provided for @multiProjectHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリとAPIなど、複数のプロジェクトをまとめてAIに扱わせます。フォルダやGitリポジトリは別々のまま、同じセッションで作業できます。'**
+  String get multiProjectHint;
+
+  /// No description provided for @newProjectName.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダ名'**
+  String get newProjectName;
+
+  /// No description provided for @newProjectParent.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存先フォルダ'**
+  String get newProjectParent;
+
+  /// No description provided for @newProjectDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'作りたいもの（任意）'**
+  String get newProjectDescription;
+
+  /// No description provided for @newProjectGit.
+  ///
+  /// In ja, this message translates to:
+  /// **'Gitで変更を管理する'**
+  String get newProjectGit;
+
+  /// No description provided for @newProjectSettingsSource.
+  ///
+  /// In ja, this message translates to:
+  /// **'AI設定の引き継ぎ元'**
+  String get newProjectSettingsSource;
+
+  /// No description provided for @newProjectNoSource.
+  ///
+  /// In ja, this message translates to:
+  /// **'引き継がない'**
+  String get newProjectNoSource;
+
+  /// No description provided for @newProjectSettingsHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'CLAUDE.md・AGENTS.md・共有AI設定・スキルなどを下書きとしてコピーします。認証情報・ローカル専用設定・履歴は対象外です。最初のメッセージで新プロジェクト向けの調整を依頼します。'**
+  String get newProjectSettingsHint;
+
+  /// No description provided for @newProjectCreate.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成して始める'**
+  String get newProjectCreate;
+
+  /// No description provided for @projectSetupWorking.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備しています…'**
+  String get projectSetupWorking;
+
+  /// No description provided for @projectSetupCreated.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成済み'**
+  String get projectSetupCreated;
+
+  /// No description provided for @projectSetupUpdateHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'応答を確認できませんでした。Bridgeの接続とバージョンを確認してください。古いBridgeの場合は更新が必要です。作成済みのフォルダは既存プロジェクトから開けます。'**
+  String get projectSetupUpdateHint;
+
+  /// No description provided for @projectSetupAdaptPrompt.
+  ///
+  /// In ja, this message translates to:
+  /// **'まず .ccpocket-bootstrap 内のAI設定の下書きを確認し、この新プロジェクト向けに調整してください。元プロジェクト固有のパス・構成・リリース手順を取り除き、使える開発規約とスキルを適切な場所へ配置してください。参照元は変更しないでください。hooks・外部コマンド・MCPなどの実行設定は、内容と参照先を説明し確認を得てから有効にしてください。調整内容を説明した後、依頼したプロジェクトの作成を進めてください。'**
+  String get projectSetupAdaptPrompt;
+
+  /// No description provided for @trustProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'このプロジェクトをCodexで信頼する'**
+  String get trustProject;
+
+  /// No description provided for @trustProjectHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'このフォルダのCodex設定・hooks・rulesの読み込みを許可します。コマンドの実行権限とは別の設定です。'**
+  String get trustProjectHint;
+
+  /// No description provided for @initializeGit.
+  ///
+  /// In ja, this message translates to:
+  /// **'Gitを初期化する'**
+  String get initializeGit;
+
+  /// No description provided for @projectSetupDone.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定を保存しました'**
+  String get projectSetupDone;
+
+  /// No description provided for @gitNoCommits.
+  ///
+  /// In ja, this message translates to:
+  /// **'まだコミットがありません'**
+  String get gitNoCommits;
 }
 
 class _AppLocalizationsDelegate

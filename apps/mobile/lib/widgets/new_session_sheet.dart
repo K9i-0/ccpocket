@@ -448,6 +448,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   BridgeService? bridge,
   NewSessionParams? initialParams,
   bool lockProvider = false,
+  bool multiProjectOnly = false,
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
   bool showExtendedCodexEfforts = false,
   bool showHiddenDirectories = false,
@@ -466,6 +467,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       bridge: bridge,
       initialParams: initialParams,
       lockProvider: lockProvider,
+      multiProjectOnly: multiProjectOnly,
       visibleTabs: visibleTabs,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       showHiddenDirectories: showHiddenDirectories,
@@ -522,6 +524,7 @@ class _NewSessionSheetContent extends StatefulWidget {
   final BridgeService? bridge;
   final NewSessionParams? initialParams;
   final bool lockProvider;
+  final bool multiProjectOnly;
   final List<NewSessionTab> visibleTabs;
   final bool showExtendedCodexEfforts;
   final bool showHiddenDirectories;
@@ -532,6 +535,7 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.bridge,
     this.initialParams,
     this.lockProvider = false,
+    this.multiProjectOnly = false,
     this.visibleTabs = defaultNewSessionTabs,
     this.showExtendedCodexEfforts = false,
     this.showHiddenDirectories = false,
@@ -723,7 +727,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           workspaceProject: project,
         ),
       );
-      if (project.primaryPath.isNotEmpty &&
+      if (!widget.multiProjectOnly &&
+          project.primaryPath.isNotEmpty &&
           representedFolderPaths.add(project.primaryPath)) {
         result.add(
           _ProjectChoice(
@@ -735,6 +740,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         );
       }
     }
+
+    if (widget.multiProjectOnly) return result;
 
     final managedRoots = _workspaceProjectsState.projects
         .expand((project) => project.rootPaths)
@@ -1375,6 +1382,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   void _start() {
+    if (widget.multiProjectOnly && _selectedProjectId == null) return;
     // Run inline validation
     final turnsOk = _validateMaxTurns();
     final budgetOk = _validateMaxBudget();
@@ -1425,6 +1433,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.multiProjectOnly)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppLocalizations.of(context).multiProjectHint),
+                  TextButton.icon(
+                    onPressed: widget.bridge == null
+                        ? null
+                        : _openProjectManager,
+                    icon: const Icon(Icons.folder_copy_outlined),
+                    label: Text(AppLocalizations.of(context).createProject),
+                  ),
+                ],
+              ),
+            ),
           if (_effectiveProjectChoices.isNotEmpty) ...[
             _RecentProjectsSection(
               appColors: appColors,
@@ -1446,7 +1471,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             ),
             _SheetDivider(appColors: appColors),
           ],
-          if ((widget.bridge?.allowedDirs.length ?? 0) > 1)
+          if (!widget.multiProjectOnly &&
+              (widget.bridge?.allowedDirs.length ?? 0) > 1)
             _AllowedDirChips(
               dirs: widget.bridge!.allowedDirs,
               onSelected: (dir) {
@@ -1463,20 +1489,21 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 });
               },
             ),
-          _PathInput(
-            controller: _pathController,
-            decoration: _buildInputDecoration(
-              AppLocalizations.of(context).projectPath,
-              hintText: AppLocalizations.of(context).projectPathHint,
+          if (!widget.multiProjectOnly)
+            _PathInput(
+              controller: _pathController,
+              decoration: _buildInputDecoration(
+                AppLocalizations.of(context).projectPath,
+                hintText: AppLocalizations.of(context).projectPathHint,
+              ),
+              onBrowse: widget.bridge == null ? null : _openDirectoryBrowser,
+              onChanged: () => setState(() {
+                _pendingInitialWorkspaceSelection = false;
+                _selectedProjectId = null;
+                _workspaceKind = null;
+                _additionalWritableRoots = const [];
+              }),
             ),
-            onBrowse: widget.bridge == null ? null : _openDirectoryBrowser,
-            onChanged: () => setState(() {
-              _pendingInitialWorkspaceSelection = false;
-              _selectedProjectId = null;
-              _workspaceKind = null;
-              _additionalWritableRoots = const [];
-            }),
-          ),
           if (_selectedProjectId == null) ...[
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
@@ -1722,6 +1749,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 provider: _provider,
                 canStart:
                     _hasPath &&
+                    (!widget.multiProjectOnly || _selectedProjectId != null) &&
                     !_pendingInitialWorkspaceSelection &&
                     (!_useWorktree ||
                         _worktreeMode == _WorktreeMode.createNew ||

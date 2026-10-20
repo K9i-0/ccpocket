@@ -28,19 +28,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'CC Pocket';
 
   @override
-  String get projects => '项目';
+  String get projects => '多项目';
 
   @override
   String get manageProjects => '管理';
 
   @override
-  String get createProject => '创建项目';
+  String get createProject => '创建多项目';
 
   @override
-  String get editProject => '编辑项目';
+  String get editProject => '编辑多项目';
 
   @override
-  String get projectName => '项目名称';
+  String get projectName => '多项目名称';
 
   @override
   String get sourceFolders => '源文件夹';
@@ -58,10 +58,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addFolder => '添加文件夹';
 
   @override
-  String get removeWorkspaceProject => '移除项目';
+  String get removeWorkspaceProject => '移除多项目';
 
   @override
-  String get noProjectsYet => '还没有项目';
+  String get noProjectsYet => '还没有多项目';
 
   @override
   String get unavailable => '不可用';
@@ -3227,4 +3227,73 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mediaFeedbackConfirmSource => '应用于更新后的素材';
+
+  @override
+  String get newProject => 'Create a new project';
+
+  @override
+  String get existingProject => 'Start in an existing project';
+
+  @override
+  String get multiProjectStart => 'Start in a multi-project';
+
+  @override
+  String get multiProjectHint =>
+      'Work with multiple projects, such as an app and its API, in one AI session. Folders and Git repositories remain separate.';
+
+  @override
+  String get newProjectName => 'Folder name';
+
+  @override
+  String get newProjectParent => 'Parent folder';
+
+  @override
+  String get newProjectDescription =>
+      'What would you like to build? (optional)';
+
+  @override
+  String get newProjectGit => 'Track changes with Git';
+
+  @override
+  String get newProjectSettingsSource => 'Copy AI settings from';
+
+  @override
+  String get newProjectNoSource => 'None';
+
+  @override
+  String get newProjectSettingsHint =>
+      'Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.';
+
+  @override
+  String get newProjectCreate => 'Create and start';
+
+  @override
+  String get projectSetupWorking => 'Preparing…';
+
+  @override
+  String get projectSetupCreated => 'Created';
+
+  @override
+  String get projectSetupUpdateHint =>
+      'No response. Check the Bridge connection and version; older Bridges need an update. If the folder was created, open it as an existing project.';
+
+  @override
+  String get projectSetupAdaptPrompt =>
+      'First inspect the AI configuration drafts in .ccpocket-bootstrap and adapt them to this new project. Remove source-specific paths, architecture and release instructions; place useful development rules and skills in their appropriate locations. Do not modify the source project. Explain executable settings such as hooks, external commands and MCP servers and obtain confirmation before enabling them. Explain the adaptations, then proceed with the requested project.';
+
+  @override
+  String get trustProject => 'Trust this project in Codex';
+
+  @override
+  String get trustProjectHint =>
+      'Allows Codex to load this folder’s configuration, hooks and rules. This is separate from command execution permissions.';
+
+  @override
+  String get initializeGit => 'Initialize Git';
+
+  @override
+  String get projectSetupDone => 'Settings saved';
+
+  @override
+  String get gitNoCommits => '尚无提交';
 }

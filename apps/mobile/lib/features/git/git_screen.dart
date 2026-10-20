@@ -815,11 +815,19 @@ class _GitScreenContent extends StatelessWidget {
     }
 
     if (state.error != null) {
-      return DiffErrorState(error: state.error!, errorCode: state.errorCode);
+      return DiffErrorState(
+        error: state.error!,
+        errorCode: state.errorCode,
+        projectPath: cubit.projectPath,
+        onInitialized: cubit.refreshAfterRepositorySetup,
+      );
     }
 
     if (state.files.isEmpty) {
-      return DiffEmptyState(viewMode: isProjectMode ? state.viewMode : null);
+      return DiffEmptyState(
+        viewMode: isProjectMode ? state.viewMode : null,
+        hasCommits: state.hasCommits,
+      );
     }
 
     return DiffContentList(

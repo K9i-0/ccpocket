@@ -47,6 +47,17 @@ class _ProjectManagerSheet extends StatelessWidget {
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: l.multiProjectHint,
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: Text(l.projects),
+                  content: Text(l.multiProjectHint),
+                ),
+              ),
+            ),
+            IconButton(
               key: const ValueKey('project_create_button'),
               tooltip: l.createProject,
               icon: const Icon(Icons.create_new_folder_outlined),

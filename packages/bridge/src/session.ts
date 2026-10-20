@@ -1,3 +1,4 @@
+import { currentGitBranch } from "./git-project-state.js";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -388,15 +389,7 @@ export class SessionManager {
     // Use worktree path as cwd if available
     const effectiveCwd = wtPath ?? projectPath;
 
-    let gitBranch = "";
-    try {
-      gitBranch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-        cwd: effectiveCwd,
-        encoding: "utf-8",
-      }).trim();
-    } catch {
-      /* not a git repo */
-    }
+    const gitBranch = currentGitBranch(effectiveCwd);
 
     const session: SessionInfo = {
       id,

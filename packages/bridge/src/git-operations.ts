@@ -1,3 +1,4 @@
+import { currentGitBranch, hasGitHead } from "./git-project-state.js";
 import { execFileSync, spawn } from "node:child_process";
 import { realpathSync, type Dir, type Dirent } from "node:fs";
 import { opendir, stat } from "node:fs/promises";
@@ -216,7 +217,7 @@ export function stageHunks(projectPath: string, hunks: HunkRef[]): void {
 /** Unstage files (remove from index, keep working tree changes). */
 export function unstageFiles(projectPath: string, files: string[]): void {
   const cwd = resolveProject(projectPath);
-  execFileSync("git", ["reset", "HEAD", "--", ...files], {
+  execFileSync("git", hasGitHead(cwd) ? ["reset", "HEAD", "--", ...files] : ["rm", "--cached", "-f", "--", ...files], {
     cwd,
     encoding: "utf-8",
   });
@@ -748,7 +749,8 @@ export function gitPush(projectPath: string): void {
 /** List branches and branches checked out by worktrees. */
 export function listBranches(projectPath: string): BranchListResult {
   const cwd = resolveProject(projectPath);
-  const current = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  const current = currentGitBranch(cwd);
+  if (!current) throw new Error("Not a git repository");
 
   const output = git([
     "branch",
@@ -789,6 +791,7 @@ export function listBranches(projectPath: string): BranchListResult {
     branchRows.map((row) => [row.branch, row.remoteStatus]),
   );
 
+  if (!hasGitHead(cwd) && !branches.includes(current)) branches.unshift(current);
   return { current, branches, checkedOutBranches, remoteStatusByBranch };
 }
 
@@ -987,7 +990,8 @@ function withOptionalRemoteStatus(
 /** Get ahead/behind counts relative to upstream. */
 export function gitRemoteStatus(projectPath: string): RemoteStatusResult {
   const cwd = resolveProject(projectPath);
-  const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  const branch = currentGitBranch(cwd);
+  if (!branch) throw new Error("Not a git repository");
 
   // Check if upstream is configured
   let hasUpstream = false;

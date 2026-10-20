@@ -25,6 +25,7 @@ abstract class GitViewState with _$GitViewState {
 
     /// Error code for categorized error handling (e.g. 'git_not_available').
     String? errorCode,
+    bool? hasCommits,
 
     /// Indices of image files currently loading on demand.
     @Default({}) Set<int> loadingImageIndices,
