@@ -186,6 +186,10 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     await tester.tap(
+      find.byKey(const ValueKey('change_project_location_button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
       find.byKey(const ValueKey('dialog_project_path_browse_button')),
     );
     await tester.pumpAndSettle();
@@ -201,6 +205,17 @@ void main() {
       find.byKey(const ValueKey('dialog_project_path')),
     );
     expect(pathField.controller?.text, '/workspace/ccpocket');
+    await tester.tap(
+      find.byKey(const ValueKey('confirm_project_location_button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('dialog_project_path')), findsNothing);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('selected_project_path')))
+          .data,
+      '/workspace/ccpocket',
+    );
   });
 
   testWidgets('restores a delayed Project selection by identity', (
@@ -263,10 +278,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final pathField = tester.widget<TextField>(
-      find.byKey(const ValueKey('dialog_project_path')),
+    final pathField = tester.widget<Text>(
+      find.byKey(const ValueKey('selected_project_path')),
     );
-    expect(pathField.controller?.text, '/workspace/primary');
+    expect(pathField.data, '/workspace/primary');
     final projectTile = find.byKey(
       const ValueKey('workspace_project_project-1_tile'),
     );
@@ -409,19 +424,19 @@ void main() {
 
       await tester.tap(workspaceProjectTile);
       await tester.pumpAndSettle();
-      final pathField = tester.widget<TextField>(
-        find.byKey(const ValueKey('dialog_project_path')),
+      final pathField = tester.widget<Text>(
+        find.byKey(const ValueKey('selected_project_path')),
       );
-      expect(pathField.controller?.text, '/workspace/primary');
+      expect(pathField.data, '/workspace/primary');
 
       await tester.tap(
         folder == 'primary' ? primaryFolderTile : secondaryFolderTile,
       );
       await tester.pumpAndSettle();
-      final selectedPathField = tester.widget<TextField>(
-        find.byKey(const ValueKey('dialog_project_path')),
+      final selectedPathField = tester.widget<Text>(
+        find.byKey(const ValueKey('selected_project_path')),
       );
-      expect(selectedPathField.controller?.text, '/workspace/$folder');
+      expect(selectedPathField.data, '/workspace/$folder');
 
       final startButton = find.byKey(const ValueKey('dialog_start_button'));
       await tester.ensureVisible(startButton);

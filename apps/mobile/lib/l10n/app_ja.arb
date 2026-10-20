@@ -1406,7 +1406,7 @@
   "newProjectSettingsSource": "AI設定の引き継ぎ元",
   "newProjectNoSource": "引き継がない",
   "newProjectSettingsHint": "CLAUDE.md・AGENTS.md・共有AI設定・スキルなどを下書きとしてコピーします。認証情報・ローカル専用設定・履歴は対象外です。最初のメッセージで新プロジェクト向けの調整を依頼します。",
-  "newProjectCreate": "作成して始める",
+  "newProjectCreate": "プロジェクトを作成",
   "projectSetupWorking": "準備しています…",
   "projectSetupCreated": "作成済み",
   "projectSetupUpdateHint": "応答を確認できませんでした。Bridgeの接続とバージョンを確認してください。古いBridgeの場合は更新が必要です。作成済みのフォルダは既存プロジェクトから開けます。",
@@ -1415,5 +1415,10 @@
   "trustProjectHint": "このフォルダのCodex設定・hooks・rulesの読み込みを許可します。コマンドの実行権限とは別の設定です。",
   "initializeGit": "Gitを初期化する",
   "projectSetupDone": "設定を保存しました",
-  "gitNoCommits": "まだコミットがありません"
+  "gitNoCommits": "まだコミットがありません",
+  "sessionProject": "プロジェクト",
+  "createProjectShort": "作成",
+  "multiProjectShort": "マルチ",
+  "changeProjectLocation": "変更",
+  "chooseExistingFolder": "既存フォルダを選択"
 }

@@ -2,17 +2,22 @@
 
 ## User flow
 
-The session-list + button offers a new project, an existing project, or a
-multi-project session. “Multi-project” is the display name of the existing
+The session-list + button opens the session sheet directly. Its Project header
+provides Create and Multi actions. The selected project card opens a separate
+folder picker with browsing and direct path input; recent projects remain
+selectable below it. “Multi-project” is the display name of the existing
 WorkspaceProject grouping; persisted IDs, `create_project`, and `workspaceKind:
 "project"` remain unchanged.
 
 New project setup asks for a folder name, parent folder, optional first request,
 Git initialization (on by default), and an optional AI-settings source. The
 parent folder is remembered per Bridge URL. Creation never merges into an
-existing destination. After creation the app starts a session and submits the
-first request through the ordinary input handler, including the settings
-adaptation request when applicable. No initial commit is manufactured.
+existing destination. After creation the app returns to the session sheet with the new folder selected.
+The user can review model and permission settings before starting. The initial
+request (including AI-settings adaptation) is held only for that created folder
+while the sheet is open and submitted through the ordinary input handler on
+Start. Choosing another folder or a multi-project never sends that request.
+The initial request is not persisted in session defaults. No initial commit is manufactured.
 
 ## AI settings inheritance
 

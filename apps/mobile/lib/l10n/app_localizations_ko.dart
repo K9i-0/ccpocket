@@ -3333,7 +3333,7 @@ class AppLocalizationsKo extends AppLocalizations {
       'Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.';
 
   @override
-  String get newProjectCreate => 'Create and start';
+  String get newProjectCreate => '프로젝트 만들기';
 
   @override
   String get projectSetupWorking => 'Preparing…';
@@ -3364,4 +3364,19 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get gitNoCommits => '아직 커밋이 없습니다';
+
+  @override
+  String get sessionProject => '프로젝트';
+
+  @override
+  String get createProjectShort => '만들기';
+
+  @override
+  String get multiProjectShort => '멀티';
+
+  @override
+  String get changeProjectLocation => '변경';
+
+  @override
+  String get chooseExistingFolder => '기존 폴더 선택';
 }

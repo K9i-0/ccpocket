@@ -291,13 +291,15 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byKey(const ValueKey('selected_project_card')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('dialog_project_path')));
       await tester.pumpAndSettle();
 
       expect(tester.testTextInput.isVisible, isTrue);
 
       await tester.tap(
-        find.byKey(const ValueKey('new_session_dismiss_keyboard_button')),
+        find.byKey(const ValueKey('project_location_dismiss_keyboard_button')),
       );
       await tester.pumpAndSettle();
 

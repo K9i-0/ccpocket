@@ -3439,7 +3439,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.';
 
   @override
-  String get newProjectCreate => 'Create and start';
+  String get newProjectCreate => 'Create project';
 
   @override
   String get projectSetupWorking => 'Preparing…';
@@ -3470,4 +3470,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get gitNoCommits => 'No commits yet';
+
+  @override
+  String get sessionProject => 'Project';
+
+  @override
+  String get createProjectShort => 'Create';
+
+  @override
+  String get multiProjectShort => 'Multi';
+
+  @override
+  String get changeProjectLocation => 'Change';
+
+  @override
+  String get chooseExistingFolder => 'Choose an existing folder';
 }

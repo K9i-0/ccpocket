@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/session_list/session_list_screen.dart'
     show recentProjects, shortenPath;
 import '../features/projects/widgets/project_manager_sheet.dart';
+import '../features/project_setup/widgets/new_project_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../models/new_session_tab.dart';
@@ -21,6 +22,8 @@ import 'codex_effort_slider.dart';
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
   final String projectPath;
+  final String? initialPrompt;
+  final bool isNewProject;
   final String? projectId;
   final String? workspaceKind;
   final Provider provider;
@@ -58,6 +61,8 @@ class NewSessionParams {
 
   NewSessionParams({
     required this.projectPath,
+    this.initialPrompt,
+    this.isNewProject = false,
     this.projectId,
     this.workspaceKind,
     this.provider = Provider.codex,
@@ -176,6 +181,12 @@ class NewSessionParams {
   }) {
     return NewSessionParams(
       projectPath: projectPath ?? this.projectPath,
+      initialPrompt: projectPath == null || projectPath == this.projectPath
+          ? initialPrompt
+          : null,
+      isNewProject:
+          (projectPath == null || projectPath == this.projectPath) &&
+          isNewProject,
       projectId: projectId ?? this.projectId,
       workspaceKind: workspaceKind ?? this.workspaceKind,
       provider: provider ?? this.provider,
@@ -688,6 +699,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexSandboxMode = SandboxMode.on;
   }
 
+  final _createdProjects = <String, NewProjectResult>{};
+
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
   /// All merged projects before managed workspace paths are filtered out.
@@ -1122,17 +1135,41 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     }
   }
 
-  Future<void> _openDirectoryBrowser() async {
+  Future<void> _createProject() async {
     final bridge = widget.bridge;
     if (bridge == null) return;
-    final selected = await showDirectoryBrowserSheet(
+    final created = await showNewProjectSheet(
+      context,
+      bridge,
+      {
+        ..._allMergedProjects.map((p) => p.path),
+        ..._workspaceProjectsState.projects.expand((p) => p.rootPaths),
+      }.toList(),
+    );
+    if (!mounted || created == null) return;
+    _createdProjects[created.path] = created;
+    setState(() {
+      _useWorktree = false;
+      _selectedWorktree = null;
+      _selectedCodexProfile = null;
+      _liveRecentProjects = [
+        (path: created.path, name: pathBasename(created.path)),
+        ..._liveRecentProjects.where((p) => p.path != created.path),
+      ];
+    });
+    _onProjectSelected(created.path);
+  }
+
+  Future<void> _changeProjectLocation() async {
+    final selected = await showModalBottomSheet<String>(
       context: context,
-      bridge: bridge,
-      initialPath: _pathController.text.trim().isNotEmpty
-          ? _pathController.text.trim()
-          : null,
-      allowedRoots: bridge.allowedDirs,
-      includeHidden: widget.showHiddenDirectories,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ProjectLocationSheet(
+        initialPath: _pathController.text.trim(),
+        bridge: widget.bridge,
+        includeHidden: widget.showHiddenDirectories,
+      ),
     );
     if (!mounted || selected == null || selected.trim().isEmpty) return;
     _onProjectSelected(selected);
@@ -1337,6 +1374,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
     return NewSessionParams(
       projectPath: path,
+      initialPrompt: _selectedProjectId == null
+          ? _createdProjects[path]?.prompt
+          : null,
+      isNewProject:
+          _selectedProjectId == null && _createdProjects.containsKey(path),
       projectId: _selectedProjectId,
       workspaceKind: _workspaceKind,
       provider: _provider,
@@ -1450,7 +1492,25 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 ],
               ),
             ),
-          if (_effectiveProjectChoices.isNotEmpty) ...[
+          _ProjectSectionHeader(
+            onCreate:
+                widget.bridge == null ||
+                    widget.multiProjectOnly ||
+                    widget.lockProvider
+                ? null
+                : _createProject,
+            onMulti: widget.bridge == null ? null : _openProjectManager,
+          ),
+          _SelectedProjectCard(
+            path: _pathController.text.trim(),
+            name: _workspaceProjectsState.projects
+                .where((p) => p.id == _selectedProjectId)
+                .firstOrNull
+                ?.name,
+            isMulti: _selectedProjectId != null,
+            onChange: widget.multiProjectOnly ? null : _changeProjectLocation,
+          ),
+          if (_effectiveProjectChoices.isNotEmpty)
             _RecentProjectsSection(
               appColors: appColors,
               accentColor: accent,
@@ -1460,50 +1520,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               workspaceKind: _workspaceKind,
               onProjectSelected: _onProjectChoiceSelected,
               onProjectRemoved: _onProjectRemoved,
-              onManage: widget.bridge == null ? null : _openProjectManager,
               canExpand: _canExpandProjects,
               isExpanded: _isProjectListExpanded,
               onToggleExpand: () {
-                setState(() {
-                  _isProjectListExpanded = !_isProjectListExpanded;
-                });
+                setState(
+                  () => _isProjectListExpanded = !_isProjectListExpanded,
+                );
               },
             ),
-            _SheetDivider(appColors: appColors),
-          ],
-          if (!widget.multiProjectOnly &&
-              (widget.bridge?.allowedDirs.length ?? 0) > 1)
-            _AllowedDirChips(
-              dirs: widget.bridge!.allowedDirs,
-              onSelected: (dir) {
-                final prefix = dir.endsWith('/') ? dir : '$dir/';
-                setState(() {
-                  _pendingInitialWorkspaceSelection = false;
-                  _selectedProjectId = null;
-                  _workspaceKind = null;
-                  _additionalWritableRoots = const [];
-                  _pathController.text = prefix;
-                  _pathController.selection = TextSelection.collapsed(
-                    offset: prefix.length,
-                  );
-                });
-              },
-            ),
-          if (!widget.multiProjectOnly)
-            _PathInput(
-              controller: _pathController,
-              decoration: _buildInputDecoration(
-                AppLocalizations.of(context).projectPath,
-                hintText: AppLocalizations.of(context).projectPathHint,
-              ),
-              onBrowse: widget.bridge == null ? null : _openDirectoryBrowser,
-              onChanged: () => setState(() {
-                _pendingInitialWorkspaceSelection = false;
-                _selectedProjectId = null;
-                _workspaceKind = null;
-                _additionalWritableRoots = const [];
-              }),
-            ),
+          const Divider(indent: 16, endIndent: 16, height: 24),
           if (_selectedProjectId == null) ...[
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
@@ -1879,7 +1904,6 @@ class _RecentProjectsSection extends StatelessWidget {
   final String? workspaceKind;
   final ValueChanged<_ProjectChoice> onProjectSelected;
   final Future<void> Function(String path)? onProjectRemoved;
-  final VoidCallback? onManage;
   final bool canExpand;
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
@@ -1893,7 +1917,6 @@ class _RecentProjectsSection extends StatelessWidget {
     required this.workspaceKind,
     required this.onProjectSelected,
     this.onProjectRemoved,
-    this.onManage,
     this.canExpand = false,
     this.isExpanded = false,
     this.onToggleExpand,
@@ -1920,17 +1943,6 @@ class _RecentProjectsSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (onManage != null)
-                TextButton.icon(
-                  key: const ValueKey('manage_projects_button'),
-                  onPressed: onManage,
-                  icon: const Icon(Icons.settings_outlined, size: 16),
-                  label: Text(l.manageProjects),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: const TextStyle(fontSize: 12),
-                  ),
-                ),
             ],
           ),
         ),
@@ -2117,7 +2129,9 @@ class _ProjectTile extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                subtitle,
+                project.kind == _ProjectChoiceKind.workspaceProject
+                    ? '${AppLocalizations.of(context).multiProjectShort} · $subtitle'
+                    : subtitle,
                 style: TextStyle(fontSize: 11, color: appColors.subtleText),
               ),
               trailing: isSelected
@@ -2126,37 +2140,6 @@ class _ProjectTile extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SheetDivider extends StatelessWidget {
-  final AppColors appColors;
-
-  const _SheetDivider({required this.appColors});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Divider(color: appColors.subtleText.withValues(alpha: 0.2)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              l.orEnterPath,
-              style: TextStyle(fontSize: 11, color: appColors.subtleText),
-            ),
-          ),
-          Expanded(
-            child: Divider(color: appColors.subtleText.withValues(alpha: 0.2)),
-          ),
-        ],
       ),
     );
   }
@@ -4056,6 +4039,215 @@ class _ProviderToggleButton extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? style.foreground : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectSectionHeader extends StatelessWidget {
+  const _ProjectSectionHeader({this.onCreate, this.onMulti});
+  final VoidCallback? onCreate;
+  final VoidCallback? onMulti;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              l.sessionProject,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton.icon(
+            key: const ValueKey('create_new_project_button'),
+            onPressed: onCreate,
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(l.createProjectShort),
+          ),
+          TextButton.icon(
+            key: const ValueKey('manage_projects_button'),
+            onPressed: onMulti,
+            icon: const Icon(Icons.folder_copy_outlined, size: 16),
+            label: Text(l.multiProjectShort),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedProjectCard extends StatelessWidget {
+  const _SelectedProjectCard({
+    required this.path,
+    this.name,
+    required this.isMulti,
+    this.onChange,
+  });
+  final String path;
+  final String? name;
+  final bool isMulti;
+  final VoidCallback? onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          key: const ValueKey('selected_project_card'),
+          leading: Icon(
+            isMulti ? Icons.folder_copy_outlined : Icons.folder_outlined,
+          ),
+          title: Text(
+            path.isEmpty ? l.chooseExistingFolder : name ?? pathBasename(path),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: path.isEmpty
+              ? null
+              : Text(
+                  path,
+                  key: const ValueKey('selected_project_path'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11),
+                ),
+          trailing: onChange == null || path.isEmpty
+              ? null
+              : TextButton(
+                  key: const ValueKey('change_project_location_button'),
+                  onPressed: onChange,
+                  child: Text(
+                    path.isEmpty
+                        ? l.chooseExistingFolder
+                        : l.changeProjectLocation,
+                  ),
+                ),
+          onTap: onChange,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectLocationSheet extends StatefulWidget {
+  const _ProjectLocationSheet({
+    required this.initialPath,
+    required this.bridge,
+    required this.includeHidden,
+  });
+  final String initialPath;
+  final BridgeService? bridge;
+  final bool includeHidden;
+
+  @override
+  State<_ProjectLocationSheet> createState() => _ProjectLocationSheetState();
+}
+
+class _ProjectLocationSheetState extends State<_ProjectLocationSheet> {
+  late final _controller = TextEditingController(text: widget.initialPath);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _browse() async {
+    final bridge = widget.bridge;
+    if (bridge == null) return;
+    final path = await showDirectoryBrowserSheet(
+      context: context,
+      bridge: bridge,
+      initialPath: _controller.text.trim().isEmpty
+          ? null
+          : _controller.text.trim(),
+      allowedRoots: bridge.allowedDirs,
+      includeHidden: widget.includeHidden,
+    );
+    if (mounted && path != null) setState(() => _controller.text = path);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.chooseExistingFolder,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    key: const ValueKey(
+                      'project_location_dismiss_keyboard_button',
+                    ),
+                    tooltip: l.dismissKeyboard,
+                    onPressed: () =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    icon: const Icon(Icons.keyboard_hide),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if ((widget.bridge?.allowedDirs.length ?? 0) > 1)
+              _AllowedDirChips(
+                dirs: widget.bridge!.allowedDirs,
+                onSelected: (path) => setState(() => _controller.text = path),
+              ),
+            _PathInput(
+              controller: _controller,
+              decoration: InputDecoration(
+                labelText: l.projectPath,
+                hintText: l.projectPathHint,
+                border: const OutlineInputBorder(),
+              ),
+              onBrowse: widget.bridge == null ? null : _browse,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(l.cancel),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const ValueKey('confirm_project_location_button'),
+                    onPressed: _controller.text.trim().isEmpty
+                        ? null
+                        : () => Navigator.pop(context, _controller.text.trim()),
+                    child: Text(l.save),
+                  ),
+                ],
               ),
             ),
           ],

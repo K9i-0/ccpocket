@@ -6218,7 +6218,7 @@ abstract class AppLocalizations {
   /// No description provided for @newProjectCreate.
   ///
   /// In ja, this message translates to:
-  /// **'作成して始める'**
+  /// **'プロジェクトを作成'**
   String get newProjectCreate;
 
   /// No description provided for @projectSetupWorking.
@@ -6274,6 +6274,36 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'まだコミットがありません'**
   String get gitNoCommits;
+
+  /// No description provided for @sessionProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクト'**
+  String get sessionProject;
+
+  /// No description provided for @createProjectShort.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成'**
+  String get createProjectShort;
+
+  /// No description provided for @multiProjectShort.
+  ///
+  /// In ja, this message translates to:
+  /// **'マルチ'**
+  String get multiProjectShort;
+
+  /// No description provided for @changeProjectLocation.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更'**
+  String get changeProjectLocation;
+
+  /// No description provided for @chooseExistingFolder.
+  ///
+  /// In ja, this message translates to:
+  /// **'既存フォルダを選択'**
+  String get chooseExistingFolder;
 }
 
 class _AppLocalizationsDelegate

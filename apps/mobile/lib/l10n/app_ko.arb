@@ -1303,7 +1303,7 @@
   "newProjectSettingsSource": "Copy AI settings from",
   "newProjectNoSource": "None",
   "newProjectSettingsHint": "Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.",
-  "newProjectCreate": "Create and start",
+  "newProjectCreate": "프로젝트 만들기",
   "projectSetupWorking": "Preparing…",
   "projectSetupCreated": "Created",
   "projectSetupUpdateHint": "No response. Check the Bridge connection and version; older Bridges need an update. If the folder was created, open it as an existing project.",
@@ -1312,5 +1312,10 @@
   "trustProjectHint": "Allows Codex to load this folder’s configuration, hooks and rules. This is separate from command execution permissions.",
   "initializeGit": "Initialize Git",
   "projectSetupDone": "Settings saved",
-  "gitNoCommits": "아직 커밋이 없습니다"
+  "gitNoCommits": "아직 커밋이 없습니다",
+  "sessionProject": "프로젝트",
+  "createProjectShort": "만들기",
+  "multiProjectShort": "멀티",
+  "changeProjectLocation": "변경",
+  "chooseExistingFolder": "기존 폴더 선택"
 }

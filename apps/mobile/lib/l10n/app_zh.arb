@@ -1444,7 +1444,7 @@
   "newProjectSettingsSource": "Copy AI settings from",
   "newProjectNoSource": "None",
   "newProjectSettingsHint": "Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.",
-  "newProjectCreate": "Create and start",
+  "newProjectCreate": "创建项目",
   "projectSetupWorking": "Preparing…",
   "projectSetupCreated": "Created",
   "projectSetupUpdateHint": "No response. Check the Bridge connection and version; older Bridges need an update. If the folder was created, open it as an existing project.",
@@ -1453,5 +1453,10 @@
   "trustProjectHint": "Allows Codex to load this folder’s configuration, hooks and rules. This is separate from command execution permissions.",
   "initializeGit": "Initialize Git",
   "projectSetupDone": "Settings saved",
-  "gitNoCommits": "尚无提交"
+  "gitNoCommits": "尚无提交",
+  "sessionProject": "项目",
+  "createProjectShort": "创建",
+  "multiProjectShort": "多项目",
+  "changeProjectLocation": "更改",
+  "chooseExistingFolder": "选择现有文件夹"
 }

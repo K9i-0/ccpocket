@@ -3265,7 +3265,7 @@ class AppLocalizationsZh extends AppLocalizations {
       'Copies instructions, shared AI settings and skills as drafts. Excludes credentials, local-only settings and history. The first message asks the AI to adapt them to this project.';
 
   @override
-  String get newProjectCreate => 'Create and start';
+  String get newProjectCreate => '创建项目';
 
   @override
   String get projectSetupWorking => 'Preparing…';
@@ -3296,4 +3296,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get gitNoCommits => '尚无提交';
+
+  @override
+  String get sessionProject => '项目';
+
+  @override
+  String get createProjectShort => '创建';
+
+  @override
+  String get multiProjectShort => '多项目';
+
+  @override
+  String get changeProjectLocation => '更改';
+
+  @override
+  String get chooseExistingFolder => '选择现有文件夹';
 }

@@ -123,6 +123,9 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
       _description.text.trim(),
       if (_copiedFiles.isNotEmpty) l.projectSetupAdaptPrompt,
     ].where((s) => s.isNotEmpty).join('\n\n');
+    // Apply the completed request state before PopScope handles navigation.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     Navigator.pop(context, NewProjectResult(_createdPath!, prompt));
   }
 

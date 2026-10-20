@@ -3306,7 +3306,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'CLAUDE.md・AGENTS.md・共有AI設定・スキルなどを下書きとしてコピーします。認証情報・ローカル専用設定・履歴は対象外です。最初のメッセージで新プロジェクト向けの調整を依頼します。';
 
   @override
-  String get newProjectCreate => '作成して始める';
+  String get newProjectCreate => 'プロジェクトを作成';
 
   @override
   String get projectSetupWorking => '準備しています…';
@@ -3337,4 +3337,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get gitNoCommits => 'まだコミットがありません';
+
+  @override
+  String get sessionProject => 'プロジェクト';
+
+  @override
+  String get createProjectShort => '作成';
+
+  @override
+  String get multiProjectShort => 'マルチ';
+
+  @override
+  String get changeProjectLocation => '変更';
+
+  @override
+  String get chooseExistingFolder => '既存フォルダを選択';
 }

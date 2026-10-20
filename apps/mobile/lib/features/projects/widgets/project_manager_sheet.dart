@@ -68,6 +68,10 @@ class _ProjectManagerSheet extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(l.multiProjectHint),
+            ),
             for (final project in state.projects)
               Card(
                 child: ListTile(
