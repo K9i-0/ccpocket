@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.90.0] - 2026-10-20
+
+### Added
+
+- Bootstrap new project directories with optional Git initialization and staged AI settings inheritance.
+- Trust Codex projects and reload eligible idle sessions, and initialize Git in existing project directories.
+- Accept an initial setup prompt when starting a session.
+
+### Fixed
+
+- Support Git operations in newly initialized repositories before the first commit.
+
 ## [1.89.0] - 2026-10-19
 
 ### Added
