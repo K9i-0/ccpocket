@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.4] - 2026-10-21
+
+### Changed
+
+- Upgrade Flutter to 3.47.7 and Shorebird tooling to 1.6.130.
+
+### Fixed
+
+- Keep video layout stable as feedback comments grow.
+
 ## [1.145.3] - 2026-10-21
 
 ### Changed
