@@ -1,6 +1,13 @@
 name: Deploy GitHub Pages
+run-name: Pages ${{ inputs.request_id || github.sha }}
 
 on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Correlation ID for the requesting release run
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
@@ -126,4 +133,4 @@ jobs:
         id: deployment
         uses: ./.github/actions/deploy-pages
         with:
-          artifact-id: ${{ steps.pages-artifact.outputs.artifact_id }}
+          artifact-name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}

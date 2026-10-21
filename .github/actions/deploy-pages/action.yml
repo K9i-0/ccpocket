@@ -1,8 +1,8 @@
-name: Deploy Pages with a unique build version
-description: Deploy the exact uploaded artifact without reusing a commit-based deployment ID.
+name: Deploy and verify Pages
+description: Publish one exact artifact and verify the public update feed.
 inputs:
-  artifact-id:
-    description: ID returned by upload-pages-artifact
+  artifact-name:
+    description: Unique artifact name for this run attempt
     required: true
 outputs:
   page_url:
@@ -13,13 +13,9 @@ runs:
   steps:
     - name: Deploy exact Pages artifact
       id: deploy
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-      env:
-        PAGES_ARTIFACT_ID: ${{ inputs.artifact-id }}
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
       with:
-        script: |
-          const deploy = require(`${process.env.GITHUB_WORKSPACE}/scripts/release/deploy-pages.cjs`);
-          await deploy({ github, context, core, artifactId: process.env.PAGES_ARTIFACT_ID });
+        artifact_name: ${{ inputs.artifact-name }}
     - name: Verify public Sparkle content
       uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
       env:
