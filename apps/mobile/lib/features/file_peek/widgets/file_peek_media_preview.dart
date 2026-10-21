@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../media_feedback/media_feedback_scope.dart';
 import '../../media_feedback/state/media_feedback_state.dart';
 import '../../media_feedback/widgets/media_feedback_editor.dart';
+import '../../media_feedback/widgets/video_feedback_layout.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import 'file_peek_media_controls.dart';
@@ -193,26 +194,23 @@ class _FilePeekMediaPreviewState extends State<FilePeekMediaPreview> {
       return _MediaLoadError(onRetry: _open);
     }
     if (widget.isVideo) {
-      return Column(
-        children: [
-          Expanded(
-            child: _VideoPreview(
-              controller: _videoController!,
-              loading: _loading,
-            ),
-          ),
-          if (!_loading &&
-              widget.feedback != null &&
-              widget.feedbackMedia != null)
-            MediaFeedbackEditor(
-              key: ValueKey(widget.feedbackMedia!.key),
-              binding: widget.feedback!,
-              media: widget.feedbackMedia!,
-              position: () => _player.state.position,
-              onPause: () => unawaited(_player.pause()),
-              onSeek: (position) => unawaited(_player.seek(position)),
-            ),
-        ],
+      final video = _VideoPreview(
+        controller: _videoController!,
+        loading: _loading,
+      );
+      if (_loading || widget.feedback == null || widget.feedbackMedia == null) {
+        return video;
+      }
+      return VideoFeedbackLayout(
+        video: video,
+        feedback: MediaFeedbackEditor(
+          key: ValueKey(widget.feedbackMedia!.key),
+          binding: widget.feedback!,
+          media: widget.feedbackMedia!,
+          position: () => _player.state.position,
+          onPause: () => unawaited(_player.pause()),
+          onSeek: (position) => unawaited(_player.seek(position)),
+        ),
       );
     }
     return _AudioPreview(

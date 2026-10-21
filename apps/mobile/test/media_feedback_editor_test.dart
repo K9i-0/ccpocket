@@ -4,6 +4,7 @@ import 'package:ccpocket/features/media_feedback/state/media_feedback_state.dart
 import 'package:ccpocket/features/media_feedback/widgets/media_feedback_editor.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:ccpocket/features/media_feedback/widgets/video_feedback_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,6 +40,65 @@ void main() {
       ),
     ),
   );
+
+  for (final size in [
+    const Size(390, 600),
+    const Size(900, 360),
+    const Size(390, 280),
+  ]) {
+    testWidgets('video stays stable with many comments at $size', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const video = FeedbackMedia(key: 'clip', label: 'Clip', isVideo: true);
+      const videoKey = ValueKey('test_video');
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: VideoFeedbackLayout(
+              video: const ColoredBox(key: videoKey, color: Colors.black),
+              feedback: MediaFeedbackEditor(
+                binding: MediaFeedbackBinding(cubit, 'session'),
+                media: video,
+              ),
+            ),
+          ),
+        ),
+      );
+      final initialRect = tester.getRect(find.byKey(videoKey));
+      for (var i = 0; i < 30; i++) {
+        cubit.put(
+          'session',
+          MediaFeedback(
+            id: 'comment$i',
+            media: video,
+            text: 'Comment $i with a longer instruction for this video',
+            positionMs: i * 1000,
+          ),
+        );
+      }
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byKey(videoKey)), initialRect);
+      await tester.drag(
+        find.byKey(const ValueKey('media_feedback_comments_list')),
+        const Offset(0, -2500),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('media_feedback_input')),
+      );
+      await tester.enterText(find.byType(TextField), 'Another instruction');
+      await tester.pump();
+      expect(cubit.items('session').last.text, 'Another instruction');
+      expect(tester.getRect(find.byKey(videoKey)), initialRect);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'reusing the same preview for another session restores only its draft',

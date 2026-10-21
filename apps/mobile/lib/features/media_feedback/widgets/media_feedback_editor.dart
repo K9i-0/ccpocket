@@ -245,9 +245,12 @@ class _VideoFeedbackComments extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
           children: [
-            Expanded(child: Text(l.mediaFeedbackComments)),
+            Text('${l.mediaFeedbackComments} (${entries.length})'),
             TextButton.icon(
               key: const ValueKey('media_feedback_timestamp_button'),
               onPressed: onBegin,
@@ -262,6 +265,8 @@ class _VideoFeedbackComments extends StatelessWidget {
               maxHeight: MediaQuery.sizeOf(context).height * .16,
             ),
             child: ListView.builder(
+              key: const ValueKey('media_feedback_comments_list'),
+              primary: false,
               shrinkWrap: true,
               itemCount: entries.length,
               itemBuilder: (context, index) => _FeedbackCommentTile(
