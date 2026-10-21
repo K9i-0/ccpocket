@@ -1,0 +1,4 @@
+• Create projects from the new session screen, initialize Git, and copy AI settings from an existing project. Project setup requires Bridge 1.90.0 or later.
+• Trust projects in Codex directly from the app.
+• Improved project selection, usage-based ordering, multi-project forms, and keyboard handling. Secondary folders remain selectable individually.
+• Fixed video layout shifting as feedback comments grow.
