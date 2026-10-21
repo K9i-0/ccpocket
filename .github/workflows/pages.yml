@@ -26,17 +26,34 @@ jobs:
 
       - name: Preserve Sparkle appcast
         env:
-          SPARKLE_APPCAST_URL: https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           APPCAST_PATH="docs/sparkle/appcast.xml"
-          TMP_APPCAST="$(mktemp)"
+          APPCAST_DIR="$(mktemp -d)"
+          TMP_APPCAST="$APPCAST_DIR/appcast.xml"
 
-          curl --fail --location --show-error --silent \
-            --retry 3 --retry-delay 2 \
-            "$SPARKLE_APPCAST_URL" \
-            --output "$TMP_APPCAST"
+          # The release asset is authoritative. Never preserve from the CDN:
+          # a stale cached feed could roll back an already published update.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' \
+            > "$APPCAST_DIR/tags"
+          RELEASE_TAG=$(python3 - "$APPCAST_DIR/tags" <<'PY'
+          import re
+          import sys
+          tags = []
+          for line in open(sys.argv[1]):
+              tag = line.strip()
+              match = re.fullmatch(r"macos/v\d+\.\d+\.\d+\+(\d+)", tag)
+              if match:
+                  tags.append((int(match.group(1)), tag))
+          if not tags:
+              raise SystemExit("No published macOS release found")
+          print(max(tags)[1])
+          PY
+          )
+          gh release download "$RELEASE_TAG" --pattern appcast.xml --dir "$APPCAST_DIR"
 
           python3 - "$TMP_APPCAST" "$APPCAST_PATH" <<'PY'
           import shutil
@@ -82,10 +99,10 @@ jobs:
           published_build, published_semver = read_version(published_path)
           repository_build, repository_semver = read_version(repository_path)
 
-          if published_build > repository_build:
+          if published_build >= repository_build:
               shutil.copyfile(published_path, repository_path)
               print(
-                  "Preserving newer published Sparkle appcast "
+                  "Preserving authoritative release Sparkle appcast "
                   f"{published_semver}+{published_build}"
               )
           else:
@@ -99,10 +116,14 @@ jobs:
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload artifact
+        id: pages-artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        uses: ./.github/actions/deploy-pages
+        with:
+          artifact-id: ${{ steps.pages-artifact.outputs.artifact_id }}

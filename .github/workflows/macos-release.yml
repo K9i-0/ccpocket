@@ -463,17 +463,24 @@ jobs:
           print(f"Generated Sparkle appcast is {actual_semver}+{actual_build}")
           PY
 
+      - name: Publish signed appcast with the release
+        run: gh release upload "$GITHUB_REF_NAME" docs/sparkle/appcast.xml --clobber
+
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload Pages artifact
+        id: pages-artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        uses: ./.github/actions/deploy-pages
+        with:
+          artifact-id: ${{ steps.pages-artifact.outputs.artifact_id }}
 
   verify-sparkle-appcast:
     if: startsWith(github.ref, 'refs/tags/macos/v')

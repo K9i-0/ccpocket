@@ -1,0 +1,35 @@
+name: Deploy Pages with a unique build version
+description: Deploy the exact uploaded artifact without reusing a commit-based deployment ID.
+inputs:
+  artifact-id:
+    description: ID returned by upload-pages-artifact
+    required: true
+outputs:
+  page_url:
+    description: Published Pages URL
+    value: ${{ steps.deploy.outputs.page_url }}
+runs:
+  using: composite
+  steps:
+    - name: Deploy exact Pages artifact
+      id: deploy
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        PAGES_ARTIFACT_ID: ${{ inputs.artifact-id }}
+      with:
+        script: |
+          const deploy = require(`${process.env.GITHUB_WORKSPACE}/scripts/release/deploy-pages.cjs`);
+          await deploy({ github, context, core, artifactId: process.env.PAGES_ARTIFACT_ID });
+    - name: Verify public Sparkle content
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        PAGES_PUBLISHED_URL: ${{ steps.deploy.outputs.page_url }}
+      with:
+        script: |
+          const fs = require('node:fs');
+          const verify = require(`${process.env.GITHUB_WORKSPACE}/scripts/release/verify-pages.cjs`);
+          await verify({
+            pageUrl: process.env.PAGES_PUBLISHED_URL,
+            expected: fs.readFileSync('docs/sparkle/appcast.xml'),
+            core,
+          });
