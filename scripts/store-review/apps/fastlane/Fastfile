@@ -1,0 +1,239 @@
+require "fileutils"
+require "json"
+
+default_platform(:ios)
+
+# Google Play's edits.commit defaults to canceling an existing review before
+# submitting the new edit. Fastlane does not expose changesInReviewBehavior, so
+# this module makes review submission fail safely when another change is under
+# review instead of canceling it.
+module SafeGooglePlayReviewCommit
+  def commit_current_edit!
+    send(:ensure_active_edit!)
+
+    supports_review_behavior = client.method(:commit_edit).parameters.any? do |_kind, name|
+      name == :changes_in_review_behavior
+    end
+    UI.user_error!(
+      "The pinned Google Play API client does not support changesInReviewBehavior; refusing an unsafe commit",
+    ) unless supports_review_behavior
+
+    send(:call_google_api) do
+      client.commit_edit(
+        current_package_name,
+        current_edit.id,
+        changes_in_review_behavior: "ERROR_IF_IN_REVIEW",
+        changes_not_sent_for_review: false,
+      )
+    end
+
+    self.current_edit = nil
+    self.current_package_name = nil
+  end
+end
+
+def enable_safe_google_play_review_commit!
+  require "supply"
+  return if Supply::Client.ancestors.include?(SafeGooglePlayReviewCommit)
+
+  Supply::Client.prepend(SafeGooglePlayReviewCommit)
+end
+
+def google_play_release_state(credentials:, version_code:)
+  require "supply"
+
+  client = Supply::Client.make_from_config(
+    params: {
+      json_key_data: credentials,
+      timeout: 300,
+    },
+  )
+  client.begin_edit(package_name: ENV.fetch("STORE_BUNDLE_ID"))
+
+  begin
+    production_release = client.track_releases("production").find do |release|
+      Array(release.version_codes).map(&:to_s).include?(version_code.to_s)
+    end
+    internal_release = client.track_releases("internal").find do |release|
+      Array(release.version_codes).map(&:to_s).include?(version_code.to_s)
+    end
+
+    {
+      production: production_release,
+      internal: internal_release,
+    }
+  ensure
+    client.abort_current_edit if client.current_edit
+  end
+end
+
+def google_play_track_release_to_h(release)
+  {
+    status: release.status,
+    userFraction: release.user_fraction,
+    versionCodes: Array(release.version_codes).map(&:to_i).sort,
+  }
+end
+
+def google_play_store_state(credentials:)
+  require "supply"
+
+  client = Supply::Client.make_from_config(
+    params: {
+      json_key_data: credentials,
+      timeout: 300,
+    },
+  )
+  client.begin_edit(package_name: ENV.fetch("STORE_BUNDLE_ID"))
+
+  begin
+    releases = client.track_releases("production")
+    active_releases = releases.select do |release|
+      ["completed", "inProgress"].include?(release.status)
+    end
+    public_release = active_releases.max_by do |release|
+      Array(release.version_codes).map(&:to_i).max || -1
+    end
+    UI.user_error!("Google Play production track has no active public release") unless public_release
+
+    {
+      platform: "android",
+      reviewState: "UNKNOWN",
+      publicationState: "UNKNOWN",
+      productionRelease: google_play_track_release_to_h(public_release),
+    }
+  ensure
+    client.abort_current_edit if client.current_edit
+  end
+end
+
+def google_play_expected_release_notes(version_code:)
+  locales = ["en-US", "ja-JP"]
+  locales.to_h do |locale|
+    path = File.join(
+      google_play_metadata_path,
+      locale,
+      "changelogs",
+      "#{version_code}.txt",
+    )
+    UI.user_error!("Missing Google Play release notes: #{path}") unless File.file?(path)
+
+    text = File.read(path, encoding: "UTF-8").strip
+    UI.user_error!("Google Play release notes are empty: #{path}") if text.empty?
+    UI.user_error!("Google Play release notes exceed 500 characters: #{path}") if text.length > 500
+    [locale, text]
+  end
+end
+
+def google_play_metadata_path
+  ENV.fetch("STORE_ANDROID_METADATA")
+end
+
+def google_play_release_notes_match?(release:, expected_notes:)
+  remote_notes = Array(release.release_notes).to_h do |note|
+    [note.language, note.text.to_s.strip]
+  end
+
+  expected_notes.all? { |locale, text| remote_notes[locale] == text }
+end
+
+platform :android do
+  desc "Write the current public Google Play production state as JSON"
+  lane :store_state do
+    credentials = ENV["GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"].to_s
+    output_path = ENV["STORE_STATE_OUTPUT"].to_s.strip
+
+    UI.user_error!("GCLOUD_SERVICE_ACCOUNT_CREDENTIALS is required") if credentials.empty?
+    UI.user_error!("STORE_STATE_OUTPUT is required") if output_path.empty?
+
+    state = google_play_store_state(credentials: credentials)
+    public_version_code = state.fetch(:productionRelease).fetch(:versionCodes).max
+    UI.user_error!("Public Google Play release has no versionCode") unless public_version_code&.positive?
+
+    FileUtils.mkdir_p(File.dirname(output_path))
+    File.write(output_path, JSON.pretty_generate(state) + "\n", mode: "w", encoding: "UTF-8")
+    UI.success("Production track versionCode (review/publication unknown): #{public_version_code}")
+  end
+
+  desc "Promote an existing internal build to production and submit it for review"
+  lane :submit_review do |options|
+    version_code = (options[:version_code] || ENV["ANDROID_VERSION_CODE"]).to_s.strip
+    release_status = (options[:release_status] || ENV["ANDROID_RELEASE_STATUS"] || "completed").to_s.strip
+    user_fraction_raw = (options[:user_fraction] || ENV["ANDROID_USER_FRACTION"] || "0.1").to_s.strip
+    credentials = ENV["GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"].to_s
+
+    UI.user_error!("ANDROID_VERSION_CODE must be a positive integer") unless version_code.match?(/\A[1-9][0-9]*\z/)
+    UI.user_error!("ANDROID_RELEASE_STATUS must be inProgress or completed") unless ["inProgress", "completed"].include?(release_status)
+    UI.user_error!("GCLOUD_SERVICE_ACCOUNT_CREDENTIALS is required") if credentials.empty?
+
+    user_fraction = nil
+    if release_status == "inProgress"
+      begin
+        user_fraction = Float(user_fraction_raw)
+      rescue ArgumentError, TypeError
+        UI.user_error!("ANDROID_USER_FRACTION must be a number greater than 0 and less than 1")
+      end
+      unless user_fraction.positive? && user_fraction < 1
+        UI.user_error!("ANDROID_USER_FRACTION must be greater than 0 and less than 1")
+      end
+    end
+
+    expected_release_notes = google_play_expected_release_notes(version_code: version_code)
+    enable_safe_google_play_review_commit!
+
+    release_state = google_play_release_state(
+      credentials: credentials,
+      version_code: version_code,
+    )
+    production_release = release_state[:production]
+    if production_release
+      same_status = production_release.status == release_status
+      same_fraction =
+        if release_status == "inProgress"
+          (production_release.user_fraction.to_f - user_fraction).abs < 0.000001
+        else
+          production_release.user_fraction.nil?
+        end
+      same_release_notes = google_play_release_notes_match?(
+        release: production_release,
+        expected_notes: expected_release_notes,
+      )
+      UI.user_error!(
+        "Google Play production already contains versionCode #{version_code} with status " \
+        "#{production_release.status.inspect} and fraction #{production_release.user_fraction.inspect}; " \
+        "requested rollout matches=#{same_status && same_fraction}, release notes match=#{same_release_notes}. " \
+        "The API cannot prove whether existing changes were sent for review, so this lane will not report a no-op success; " \
+        "verify the previous submission workflow instead",
+      )
+    end
+    internal_release = release_state[:internal]
+    UI.user_error!("Internal track does not contain versionCode #{version_code}") unless internal_release
+
+    internal_version_codes = Array(internal_release.version_codes).map(&:to_s).uniq
+    unless internal_version_codes == [version_code]
+      UI.user_error!(
+        "Internal release contains versionCodes #{internal_version_codes.inspect}; " \
+        "refusing to promote anything except the single requested versionCode #{version_code}",
+      )
+    end
+
+    upload_to_play_store(
+      json_key_data: credentials,
+      package_name: ENV.fetch("STORE_BUNDLE_ID"),
+      track: "internal",
+      track_promote_to: "production",
+      track_promote_release_status: release_status,
+      version_code: version_code.to_i,
+      rollout: release_status == "inProgress" ? user_fraction_raw : nil,
+      metadata_path: google_play_metadata_path,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      changes_not_sent_for_review: false,
+      rescue_changes_not_sent_for_review: false,
+    )
+  end
+end

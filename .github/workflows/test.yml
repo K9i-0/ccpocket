@@ -15,6 +15,10 @@ jobs:
         run: node --test scripts/pr-readiness.test.mjs
       - name: Test release tools
         run: npm run test:release-tools
+      - name: Test companion store submission guards
+        run: |
+          python3 -m unittest discover -s scripts/store-review/apps -p 'test_*.py'
+          ruby scripts/store-review/apps/test_commit.rb
 
   mobile-analyze:
     runs-on: ubuntu-latest

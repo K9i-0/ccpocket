@@ -123,6 +123,10 @@ if [[ ("$review_state" == "WAITING_FOR_REVIEW" || "$review_state" == "IN_REVIEW"
   fail "App Review is already active but asc reports ${review_blocker_count} blocker(s); refusing a duplicate submission"
 fi
 
+if [[ -n "${STORE_IOS_NOTES:-}" ]]; then
+  python3 "$(dirname "$0")/apps/update-ios-notes.py" "$version_id" "$version_state"
+fi
+
 if [[ "$release_type" != "KEEP" ]]; then
   log "Applying iOS release type ${release_type} (current version state: ${version_state})"
   asc versions update \
