@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.5] - 2026-10-24
+
+### Fixed
+
+- Upgrade Flutter to 3.47.8 (Dart 3.13.7) to address the eMudhra TLS certificate security vulnerability (GHSA-frr6-h895-5pxp).
+- Publish and verify macOS Sparkle appcasts through the main Pages workflow.
+
 ## [1.145.4] - 2026-10-21
 
 ### Changed
