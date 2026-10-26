@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.145.6] - 2026-10-26
+
+### Fixed
+
+- Release the Flutter 3.47.8 (Dart 3.13.7) TLS certificate security fix for iOS and Android with updated Shorebird tooling.
+
 ## [1.145.5] - 2026-10-24
 
 ### Fixed
