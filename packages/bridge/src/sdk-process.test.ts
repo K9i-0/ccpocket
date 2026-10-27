@@ -246,6 +246,19 @@ describe("buildThinkingOptions", () => {
     });
   });
 
+  it("forces adaptive thinking for Claude 5.x models", () => {
+    for (const model of [
+      "claude-fable-5-1",
+      "claude-opus-5-5",
+      "claude-sonnet-5-5",
+      "claude-haiku-5-5",
+    ]) {
+      expect(buildThinkingOptions(model)).toEqual({
+        thinking: { type: "adaptive" },
+      });
+    }
+  });
+
   it("returns empty options for other models", () => {
     expect(buildThinkingOptions("claude-sonnet-4-6")).toEqual({});
   });
