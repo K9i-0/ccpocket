@@ -184,6 +184,10 @@ type ClaudePermissionMode =
 // ---- Available model lists (delivered to clients via session_list) ----
 
 const FALLBACK_CLAUDE_MODELS: string[] = [
+  "claude-fable-5-1",
+  "claude-opus-5-5",
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5",
   "claude-opus-4-7",
   "claude-opus-4-7[1m]",
   "claude-opus-4-6",
@@ -194,6 +198,10 @@ const FALLBACK_CLAUDE_MODELS: string[] = [
 ];
 
 const FALLBACK_CLAUDE_MODEL_EFFORTS: Record<string, ClaudeEffortLevel[]> = {
+  "claude-fable-5-1": ["low", "medium", "high", "xhigh", "max"],
+  "claude-opus-5-5": ["low", "medium", "high", "xhigh", "max"],
+  "claude-sonnet-5-5": ["low", "medium", "high", "xhigh", "max"],
+  "claude-haiku-5-5": ["low", "medium", "high", "xhigh", "max"],
   "claude-opus-4-7": ["low", "medium", "high", "xhigh", "max"],
   "claude-opus-4-7[1m]": ["low", "medium", "high", "xhigh", "max"],
   "claude-opus-4-6": ["low", "medium", "high", "max"],
