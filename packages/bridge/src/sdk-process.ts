@@ -76,12 +76,16 @@ export function extractTokenUsage(
 export function buildThinkingOptions(
   model: string | undefined,
 ): { thinking?: { type: "adaptive" } } {
+  if (typeof model !== "string") return {};
+  const normalized = model.trim();
+  // Opus 4.7 and Claude 5.x reject legacy "thinking.type.enabled" that older
+  // Claude Agent SDK releases can fall back to. Force adaptive thinking.
   if (
-    typeof model === "string"
-    && /^claude-opus-4-7(?:\[1m\])?$/.test(model.trim())
+    /^claude-opus-4-7(?:\[1m\])?$/.test(normalized)
+    || /^claude-(?:fable|opus|sonnet|haiku)-5(?:-\d+)?(?:\[1m\])?$/.test(
+      normalized,
+    )
   ) {
-    // Opus 4.7 rejects the legacy "thinking.type.enabled" behavior that older
-    // Claude Agent SDK releases can fall back to. Force adaptive thinking.
     return { thinking: { type: "adaptive" } };
   }
   return {};
