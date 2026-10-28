@@ -675,6 +675,42 @@ void main() {
       expect(update.codexModel, 'gpt-5.6-terra');
       expect(update.codexModelReasoningEffort, ReasoningEffort.xhigh);
       expect(update.codexSpeed, CodexSpeed.standard);
+      expect(update.entriesToAdd, hasLength(1));
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      expect((entry.message as SystemMessage).subtype, 'init');
+    });
+
+    test('repeated Codex effort changes stay hidden live and in history', () {
+      final messages = [
+        for (final effort in ['low', 'medium', 'high', 'xhigh', 'high'])
+          SystemMessage(
+            subtype: 'set_codex_model',
+            provider: 'codex',
+            model: 'gpt-5.6-terra',
+            modelReasoningEffort: effort,
+          ),
+      ];
+      for (final message in messages) {
+        final update = handler.handle(
+          message,
+          isBackground: false,
+          isCodex: true,
+        );
+        expect(update.entriesToAdd, isEmpty);
+        expect(
+          update.codexModelReasoningEffort?.value,
+          message.modelReasoningEffort,
+        );
+      }
+
+      final update = handler.handle(
+        HistoryMessage(messages: messages),
+        isBackground: false,
+        isCodex: true,
+      );
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.codexModel, 'gpt-5.6-terra');
+      expect(update.codexModelReasoningEffort, ReasoningEffort.high);
     });
 
     test('restores codex settings metadata without adding a chat entry', () {

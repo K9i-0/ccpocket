@@ -677,6 +677,8 @@ class ChatMessageHandler {
             (m.subtype != 'init' &&
                 m.subtype != 'supported_commands' &&
                 m.subtype != 'session_created' &&
+                m.subtype != 'set_codex_model' &&
+                m.subtype != 'set_codex_speed' &&
                 m.subtype != 'codex_settings')) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
