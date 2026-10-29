@@ -76,7 +76,8 @@ image or recording is required. Before may be "N/A — <reason>" only for a new 
 ## Author Checklist
 
 <!--
-Address CI and CodeRabbit findings before requesting maintainer review.
+Address CI failures and assess concrete CodeRabbit findings. CodeRabbit completion
+and approval are advisory, not prerequisites for maintainer review or merging.
 After handoff, maintainers may finish bounded fixes themselves and merge with
 attribution, or decline if the integration cost outweighs the value.
 -->

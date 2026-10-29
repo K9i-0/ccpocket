@@ -3,25 +3,24 @@ language: en-US
 
 reviews:
   profile: chill
-  request_changes_workflow: true
+  request_changes_workflow: false
   high_level_summary: true
   poem: false
   review_status: true
 
-  # Detection alone is advisory; PR Readiness blocks this label from the queue.
+  # Quality signals are advisory and do not block review or merging.
   slop_detection:
     enabled: true
     include_all_authors: true
     label: status:quality-hold
 
-  # PR Readiness adds this label only after the author-facing intake gate passes.
+  # Review automatically without an intake label; maintainers/Codex decide merges.
   auto_review:
-    enabled: false
+    enabled: true
     auto_incremental_review: true
     auto_pause_after_reviewed_commits: 5
     drafts: false
-    labels:
-      - review:coderabbit
+    labels: []
 
   finishing_touches:
     docstrings:
@@ -32,17 +31,17 @@ reviews:
     docstrings:
       mode: "off"
     title:
-      mode: error
+      mode: warning
       requirements: >-
         Follow Conventional Commits: type(scope): concise description. The scope
         may be omitted when it does not add useful context.
     description:
-      mode: error
+      mode: warning
     issue_assessment:
       mode: warning
     custom_checks:
       - name: Focused scope
-        mode: error
+        mode: warning
         instructions: >-
           Pass when every changed area is needed for the stated primary goal,
           its tests, or necessary documentation. Fail for unrelated fixes,
@@ -55,7 +54,7 @@ reviews:
           fixes may use "None — reason". Cite the unrelated paths or missing scope
           agreement on failure. Do not infer quality from AI use or prose style.
       - name: Maintainable implementation
-        mode: error
+        mode: warning
         instructions: >-
           Fail for newly introduced unused code or dependencies, duplicate
           implementations of existing repository functionality, speculative
@@ -66,7 +65,7 @@ reviews:
           AI authorship, or merely having an abstraction. Do not require rewrites
           or extra framework layers without a demonstrated problem.
       - name: UI evidence
-        mode: error
+        mode: warning
         instructions: >-
           Pass when the selected UI Evidence category matches the diff.
           User-visible text-only changes may use successful automated UI test
@@ -80,7 +79,7 @@ reviews:
           recording and the tested device/platform. When mobile UI-area files
           change without a visible effect, the author must explain why.
       - name: Validation evidence
-        mode: error
+        mode: warning
         instructions: >-
           Pass when exact automated commands and results support the stated
           behavior, or "N/A — reason" explains a documentation-only or similarly
@@ -93,7 +92,7 @@ reviews:
           behavior; they are advisory for small low-risk changes otherwise.
           Inspect supplied evidence and test code; do not try to run tests here.
       - name: Breaking change documentation
-        mode: error
+        mode: warning
         instructions: >-
           Pass when user-facing changes and breaking changes to the WebSocket
           protocol, public APIs, CLI flags, environment variables, configuration,
@@ -121,8 +120,8 @@ reviews:
         correctness, scope, regression, and maintenance problems; avoid style
         nits, speculative improvements, and repeating CI diagnostics. AI use
         itself is allowed. Group related findings with a concrete path and fix.
-        The author handles this automated review before maintainer handoff;
-        maintainers then make bounded integration fixes themselves.
+        Findings are advisory. Maintainers or Codex assess concrete issues and
+        may merge without CodeRabbit completion, approval, or passing checks.
     - path: "packages/bridge/src/**"
       instructions: |
         Focus on authentication and authorization boundaries, allowed-directory

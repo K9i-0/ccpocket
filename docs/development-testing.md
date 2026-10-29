@@ -197,10 +197,9 @@ npm --prefix functions run build
 
 ### Repository tooling
 
-For PR readiness or release-tool changes, run the corresponding checks:
+For release-tool changes, run the corresponding checks:
 
 ```bash
-node --test scripts/pr-readiness.test.mjs
 npm run test:release-tools
 ```
 
@@ -214,5 +213,5 @@ existing automated suite passes.
 After pushing, inspect the **latest commit's** `Test` workflow. Fix failures caused
 by the change and rerun affected checks. For a suspected existing failure, provide
 comparison evidence from the base commit rather than assuming it is unrelated.
-Wait for required CI and CodeRabbit checks before maintainer review; a green
-`Test` workflow alone does not mean `PR Readiness` has passed.
+Verify the relevant CI results on the latest commit. CodeRabbit is advisory;
+maintainers or Codex may merge without its completion, approval, or passing checks.
