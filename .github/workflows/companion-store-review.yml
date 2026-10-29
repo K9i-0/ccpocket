@@ -96,7 +96,7 @@ jobs:
           version: 4.9.2
       - name: Set up Ruby
         if: matrix.platform == 'android'
-        uses: ruby/setup-ruby@e81a8fa391b11a595c1b7ed84177cc0fe02faf83
+        uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec
         with:
           ruby-version: '3.2'
           bundler-cache: true
