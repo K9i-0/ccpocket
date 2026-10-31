@@ -1,0 +1,8 @@
+• See Claude background tasks after a turn ends
+• Steer or queue messages sent while Claude works
+• Change Claude model, effort and fast mode mid-session
+• Fork Claude conversations from assistant messages
+• Claude and Codex usage cards in settings
+• Codex service tiers, including extended speeds
+• Fixes for subagent activity, multi-select questions, menu scrolling and rejected session starts
+• Some features require Bridge 1.93.0+

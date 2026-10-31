@@ -1,2 +1,9 @@
-• Fixed reasoning-effort options for GPT-6 Astra. Unsupported None and Minimal options are hidden, and saved selections are moved to Light.
-• Requires Bridge 1.81.2 or later.
+• Claude background tasks: see tasks that keep running after a turn ends, with a "Running in background" bar in the session and a badge on session cards.
+• Mid-turn messages: choose whether a message sent while Claude is working steers the current turn or waits in the queue. Queued messages can be steered, edited or cancelled.
+• Change the Claude model, effort and fast mode during a session, and see effort and fast mode on session cards.
+• Fork a Claude conversation from an assistant message.
+• Claude and Codex plan usage cards in settings, and Claude usage in the session list summary.
+• Claude model names and descriptions now match the Claude Code CLI.
+• Choose Codex service tiers, including extended speeds.
+• Fixes: subagent activity no longer appears in the main chat or leaves sessions stuck, multi-select questions have a Next button, permission and sandbox menus scroll on short screens, and a rejected session start no longer gets stuck on "Creating session...".
+• Some features require Bridge 1.93.0 or later.
