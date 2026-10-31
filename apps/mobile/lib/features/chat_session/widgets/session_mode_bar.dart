@@ -603,65 +603,69 @@ void showSandboxModeMenu(
     builder: (sheetContext) {
       final sheetCs = Theme.of(sheetContext).colorScheme;
       return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Sandbox',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurface,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sandbox',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: sheetCs.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
-            for (final mode
-                in isClaude ? SandboxMode.values.reversed : SandboxMode.values)
-              ListTile(
-                leading: Icon(
-                  _sandboxMenuIcon(mode, isClaude),
-                  color: mode == currentMode
-                      ? sheetCs.primary
-                      : _sandboxMenuIconColor(mode, isClaude, sheetCs),
-                ),
-                title: Text(
-                  _sandboxMenuTitle(mode, isClaude),
-                  style: TextStyle(
-                    color:
-                        !isClaude &&
-                            mode == SandboxMode.off &&
-                            currentMode != mode
-                        ? sheetCs.error
-                        : null,
+              for (final mode
+                  in isClaude
+                      ? SandboxMode.values.reversed
+                      : SandboxMode.values)
+                ListTile(
+                  leading: Icon(
+                    _sandboxMenuIcon(mode, isClaude),
+                    color: mode == currentMode
+                        ? sheetCs.primary
+                        : _sandboxMenuIconColor(mode, isClaude, sheetCs),
                   ),
+                  title: Text(
+                    _sandboxMenuTitle(mode, isClaude),
+                    style: TextStyle(
+                      color:
+                          !isClaude &&
+                              mode == SandboxMode.off &&
+                              currentMode != mode
+                          ? sheetCs.error
+                          : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _sandboxMenuSubtitle(mode, isClaude, l),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: mode == currentMode
+                      ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    if (mode == currentMode) return;
+                    HapticFeedback.lightImpact();
+                    _confirmSandboxModeChange(
+                      context,
+                      chatCubit,
+                      mode,
+                      isClaude: isClaude,
+                      onBeforeRestart: onBeforeRestart,
+                    );
+                  },
                 ),
-                subtitle: Text(
-                  _sandboxMenuSubtitle(mode, isClaude, l),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: mode == currentMode
-                    ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  if (mode == currentMode) return;
-                  HapticFeedback.lightImpact();
-                  _confirmSandboxModeChange(
-                    context,
-                    chatCubit,
-                    mode,
-                    isClaude: isClaude,
-                    onBeforeRestart: onBeforeRestart,
-                  );
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       );
     },
@@ -792,57 +796,59 @@ void showPermissionModeMenu(
     builder: (sheetContext) {
       final sheetCs = Theme.of(sheetContext).colorScheme;
       return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Permission',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurface,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Permission',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: sheetCs.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
-            for (final mode in PermissionMode.values)
-              ListTile(
-                leading: Icon(
-                  modeDetails[mode]!.icon,
-                  color: mode == currentMode
-                      ? modeDetails[mode]!.color
-                      : sheetCs.onSurfaceVariant,
+              for (final mode in PermissionMode.values)
+                ListTile(
+                  leading: Icon(
+                    modeDetails[mode]!.icon,
+                    color: mode == currentMode
+                        ? modeDetails[mode]!.color
+                        : sheetCs.onSurfaceVariant,
+                  ),
+                  title: Text(mode.label),
+                  subtitle: Text(
+                    modeDetails[mode]!.description,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: mode == currentMode
+                      ? Icon(
+                          Icons.check,
+                          color: modeDetails[mode]!.color,
+                          size: 20,
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    if (mode == currentMode) return;
+                    HapticFeedback.lightImpact();
+                    _confirmPermissionModeChange(
+                      context,
+                      chatCubit,
+                      mode,
+                      onBeforeRestart: onBeforeRestart,
+                    );
+                  },
                 ),
-                title: Text(mode.label),
-                subtitle: Text(
-                  modeDetails[mode]!.description,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: mode == currentMode
-                    ? Icon(
-                        Icons.check,
-                        color: modeDetails[mode]!.color,
-                        size: 20,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  if (mode == currentMode) return;
-                  HapticFeedback.lightImpact();
-                  _confirmPermissionModeChange(
-                    context,
-                    chatCubit,
-                    mode,
-                    onBeforeRestart: onBeforeRestart,
-                  );
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       );
     },
