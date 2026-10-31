@@ -39,30 +39,30 @@ dependencies:
   cupertino_icons: ^1.0.8
   web_socket_channel: ^3.0.3
   webview_flutter: ^4.14.1
-  marionette_flutter: ^0.6.0
-  shared_preferences: ^2.5.0
-  sqflite: ^2.4.2
-  sqflite_common_ffi: ^2.4.0+3
+  marionette_flutter: ^0.7.0
+  shared_preferences: ^2.5.6
+  sqflite: ^2.4.5
+  sqflite_common_ffi: ^2.4.5
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
   markdown: ^7.3.0
   google_fonts: ^8.0.0
   bonsoir: ^6.0.1
   mobile_scanner: ^7.1.4
-  app_links: ^7.0.0
-  speech_to_text: ^7.3.0
+  app_links: ^7.2.2
+  speech_to_text: ^7.5.0
   http: ^1.6.0
-  crypto: ^3.0.6
+  crypto: ^3.0.8
   flutter_bloc: ^9.1.0
   provider: ^6.1.5
   flutter_hooks: ^0.21.3+1
   freezed_annotation: ^3.1.0
   json_annotation: ^4.12.0
   share_plus: ^12.0.1
-  image_picker: ^1.1.2
+  image_picker: ^1.2.4
   path: ^1.9.1
   path_provider: ^2.1.5
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.3
   dartssh2: ^2.10.0
   flutter_secure_storage: ^10.0.0
   uuid: ^4.5.1
@@ -73,14 +73,14 @@ dependencies:
   # 10.2.3 includes RevenueCat iOS 5.78.0, which fixes Xcode 27 compilation.
   purchases_flutter: ^10.2.3
   package_info_plus: ^9.0.0
-  auto_route: ^11.1.0
+  auto_route: ^11.2.0
   collection: ^1.19.1
   extended_image: ^10.0.1
   flutter_svg: ^2.0.17
   smooth_page_indicator: ^2.0.1
-  talker: ^5.1.13
+  talker: ^5.2.0
   talker_flutter: ^5.1.13
-  talker_bloc_logger: ^5.1.13
+  talker_bloc_logger: ^5.2.0
   scroll_to_index: ^3.0.1
   skeletonizer: ^2.1.3
   expandable_page_view: ^1.2.1
@@ -94,8 +94,8 @@ dependencies:
   media_kit_libs_video: ^1.0.7
   file_selector: ^1.1.0
   flutter_painter: ^2.1.0
-  flutter_scene: 0.23.0
-  vector_math: ^2.2.0
+  flutter_scene: 0.24.3
+  vector_math: ^2.4.4
   audio_service: ^0.18.19
   audio_session: ^0.2.4
   pdfrx: ^2.6.6
@@ -119,17 +119,17 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  altive_lints: ^4.0.0
+  altive_lints: ^4.2.0
   # Dart 3.13 forbids `final` on regular parameters; Freezed 4 generates
   # compatible constructors (rrousselGit/freezed#1352).
-  freezed: ^4.0.0-dev.3
-  flutter_launcher_icons: ^0.13.1
-  build_runner: ^2.5.4
+  freezed: ^4.0.1
+  flutter_launcher_icons: ^0.14.4
+  build_runner: ^2.16.1
   bloc_test: ^10.0.0
   patrol_finders: ^3.1.0
   url_launcher_platform_interface: ^2.3.2
   shared_preferences_platform_interface: ^2.4.2
-  json_serializable: ^6.9.5
+  json_serializable: ^6.15.2
   auto_route_generator: ^10.4.0
 
 # For information on the generic Dart part of this file, see the
