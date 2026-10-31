@@ -1563,7 +1563,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         if (typeof initModel === "string" && initModel) {
           this._model = initModel;
         }
-        this.setStatus("idle");
+        // The CLI emits init at the start of every turn in streaming-input
+        // mode. Only the first one ends startup; later ones arrive after a
+        // user message was sent, so the turn is already running.
+        if (this._status === "starting") this.setStatus("idle");
       }
 
       // Detect permission mode changes from SDK status messages (SSOT).

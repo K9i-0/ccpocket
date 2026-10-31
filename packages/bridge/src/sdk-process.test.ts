@@ -2707,3 +2707,27 @@ describe("Claude result cost", () => {
     ).toEqual([1.8774, 0.2409, 0.05]);
   });
 });
+
+describe("Claude per-turn init", () => {
+  it("does not drop a running turn to idle when init arrives", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "subscription";
+    internal._status = "starting";
+    const init = { type: "system", subtype: "init", session_id: "main", model: "m" };
+    const observed: string[] = [];
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield init;
+        observed.push(proc.status);
+        internal.setStatus("running");
+        yield init;
+        observed.push(proc.status);
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    expect(observed).toEqual(["idle", "running"]);
+  });
+});
