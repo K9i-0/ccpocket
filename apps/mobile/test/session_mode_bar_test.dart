@@ -157,23 +157,6 @@ void main() {
     bridge.dispose();
   });
 
-  test('Codex Fast mode supports current and legacy metadata', () {
-    expect(
-      codexSupportsFast('gpt-5.6-sol', const {
-        'gpt-5.6-sol': ['fast'],
-      }),
-      isTrue,
-    );
-    expect(
-      codexSupportsFast('gpt-5.6-sol', const {
-        'gpt-5.6-sol': ['priority'],
-      }),
-      isTrue,
-    );
-    expect(codexSupportsFast('gpt-5.5', const {}), isFalse);
-    expect(codexSupportsFast('gpt-5.4-mini', const {}), isFalse);
-  });
-
   test('Codex Effort slider caps at Extra High unless extended', () {
     const available = [
       ReasoningEffort.low,

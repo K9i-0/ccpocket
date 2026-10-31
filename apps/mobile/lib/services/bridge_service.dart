@@ -1849,7 +1849,16 @@ class BridgeService implements BridgeServiceBase {
     }
     final sessionId = payload['sessionId'] as String?;
     final session = _sessions.where((item) => item.id == sessionId).firstOrNull;
-    final model = payload['model'] as String? ?? session?.codexModel;
+    final model =
+        payload['model'] as String? ??
+        (message.type == 'set_codex_speed' ? session?.codexModel : null);
+    // A start/resume profile can select a model different from the old session.
+    // The Bridge resolves and validates it; active speed changes need a model.
+    if (supportsCodexServiceTiers &&
+        model == null &&
+        message.type != 'set_codex_speed') {
+      return true;
+    }
     final available = _codexModelServiceTierMetadata[model] ?? const [];
     if (supportsCodexServiceTiers && available.contains(speed)) return true;
     if (message.type == 'resume_session') {

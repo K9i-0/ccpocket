@@ -56,26 +56,6 @@ ReasoningEffort preferredCodexEffort(
   );
 }
 
-/// Whether the model can use Codex Fast mode.
-///
-/// `priority` is accepted for compatibility with Bridge versions that exposed
-/// the app-server's low-level service-tier id instead of its user-facing Fast
-/// speed tier. Missing metadata keeps the control disabled because Bridges old
-/// enough not to advertise Speed may also not support changing it.
-bool codexSupportsFast(
-  String? model,
-  Map<String, List<String>> modelServiceTiers, {
-  CodexSpeed speed = CodexSpeed.standard,
-}) {
-  if (speed == CodexSpeed.fast) return true;
-  final effectiveModel = model;
-  final tiers = modelServiceTiers[effectiveModel];
-  if (tiers != null) {
-    return tiers.contains('fast') || tiers.contains('priority');
-  }
-  return false;
-}
-
 /// Uses model metadata as a catalog, never as proof of account entitlement.
 /// Older Bridges may describe Fast, but cannot safely accept other tier ids.
 List<CodexSpeed> codexAvailableSpeeds(

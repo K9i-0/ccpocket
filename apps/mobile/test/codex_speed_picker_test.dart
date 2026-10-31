@@ -100,6 +100,15 @@ void main() {
     expect(codexSpeedForDisplay(stored, []).value, 'ultrafast');
   });
 
+  test('available speeds preserve the legacy priority alias for Fast', () {
+    expect(
+      codexAvailableSpeeds('gpt-6.1-sol', const {
+        'gpt-6.1-sol': ['priority'],
+      }),
+      [CodexSpeed.standard, CodexSpeed.fast],
+    );
+  });
+
   test('legacy saved Fast works without metadata but not with an explicit empty catalog', () {
     expect(
       codexAvailableSpeeds('model', const {}, currentSpeed: CodexSpeed.fast),
