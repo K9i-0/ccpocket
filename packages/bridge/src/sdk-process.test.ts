@@ -2712,9 +2712,15 @@ describe("Claude per-turn init", () => {
   it("does not drop a running turn to idle when init arrives", async () => {
     const proc = new SdkProcess();
     const internal = proc as any;
-    internal.authClassification = "subscription";
+    internal.authClassification = "api_key";
     internal._status = "starting";
-    const init = { type: "system", subtype: "init", session_id: "main", model: "m" };
+    const init = {
+      type: "system",
+      subtype: "init",
+      session_id: "main",
+      model: "m",
+      apiKeySource: "ANTHROPIC_API_KEY",
+    };
     const observed: string[] = [];
     internal.queryInstance = {
       async *[Symbol.asyncIterator]() {
