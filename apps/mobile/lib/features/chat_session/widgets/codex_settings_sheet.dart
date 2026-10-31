@@ -82,8 +82,8 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: CodexSettingsPanel(
-          model: _model,
-          effort: _effort,
+          modelLabel: codexModelDisplayName(_model),
+          effortLabel: _effort.label,
           speed: _speed,
           supportsFast: _supportsFast,
           onSpeedChanged: _selectSpeed,

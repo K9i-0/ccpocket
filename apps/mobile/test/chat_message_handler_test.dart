@@ -736,6 +736,31 @@ void main() {
       expect(update.codexSpeed, CodexSpeed.fast);
     });
 
+    test('applies claude_settings live and from history without entries', () {
+      const message = SystemMessage(
+        subtype: 'claude_settings',
+        provider: 'claude',
+        model: 'opus',
+        effort: 'xhigh',
+        fastMode: true,
+      );
+      final live = handler.handle(message, isBackground: false);
+      expect(live.entriesToAdd, isEmpty);
+      expect(live.claudeModel, 'opus');
+      expect(live.claudeEffort, ClaudeEffort.xhigh);
+      expect(live.claudeFastMode, isTrue);
+      expect(live.codexModel, isNull);
+
+      final restored = handler.handle(
+        const HistoryMessage(messages: [message]),
+        isBackground: false,
+      );
+      expect(restored.entriesToAdd, isEmpty);
+      expect(restored.claudeModel, 'opus');
+      expect(restored.claudeEffort, ClaudeEffort.xhigh);
+      expect(restored.claudeFastMode, isTrue);
+    });
+
     test('restores pending permission when status is waitingApproval', () {
       final update = handler.handle(
         const HistoryMessage(
@@ -2044,6 +2069,21 @@ void main() {
       final message = entry.message as ErrorMessage;
       expect(message.errorCode, 'bridge_update_required');
       expect(message.message, contains('newer Bridge server'));
+    });
+
+    test('set_claude_settings shows bridge update hint', () {
+      final update = handler.handle(
+        const ErrorMessage(
+          message: 'set_claude_settings',
+          errorCode: 'unsupported_message',
+        ),
+        isBackground: false,
+      );
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      expect(
+        (entry.message as ErrorMessage).errorCode,
+        'bridge_update_required',
+      );
     });
 
     test('set_codex_speed shows bridge update hint', () {

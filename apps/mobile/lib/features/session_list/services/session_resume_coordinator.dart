@@ -195,6 +195,9 @@ class SessionResumeCoordinator {
     final claudeEffort =
         sessionSettings?['claudeEffort'] as String? ??
         claudeDefaults?.claudeEffort?.value;
+    final claudeFastMode =
+        sessionSettings?['claudeFastMode'] as bool? ??
+        claudeDefaults?.claudeFastMode;
     final claudeFallbackModel =
         sessionSettings?['claudeFallbackModel'] as String? ??
         claudeDefaults?.claudeFallbackModel;
@@ -225,6 +228,7 @@ class SessionResumeCoordinator {
           ? (useCodexProfile ? null : session.planMode)
           : planMode,
       effort: !isCodex ? claudeEffort : null,
+      claudeFastMode: !isCodex ? claudeFastMode : null,
       maxTurns: !isCodex ? claudeDefaults?.claudeMaxTurns : null,
       maxBudgetUsd: !isCodex ? claudeDefaults?.claudeMaxBudgetUsd : null,
       fallbackModel: !isCodex ? claudeFallbackModel : null,
@@ -271,6 +275,7 @@ class SessionResumeCoordinator {
           'planMode': planMode,
           'sandboxMode': ?claudeSandboxMode,
           'claudeEffort': ?claudeEffort,
+          'claudeFastMode': ?claudeFastMode,
           'claudeModel': ?claudeModel,
           'claudeFallbackModel': ?claudeFallbackModel,
           'claudeForkSession': ?claudeForkSession,

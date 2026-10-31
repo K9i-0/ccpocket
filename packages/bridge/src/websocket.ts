@@ -8460,6 +8460,7 @@ export class BridgeWebSocketServer {
         "project_request_correlation_v1",
         "session_context_v1",
         "input_delivery_v1",
+        "claude_session_settings_v1",
       ],
     });
   }
@@ -8507,6 +8508,7 @@ export class BridgeWebSocketServer {
         "project_request_correlation_v1",
         "session_context_v1",
         "input_delivery_v1",
+        "claude_session_settings_v1",
       ],
     });
   }

@@ -52,6 +52,9 @@ class ChatStateUpdate {
   final String? codexModel;
   final ReasoningEffort? codexModelReasoningEffort;
   final CodexSpeed? codexSpeed;
+  final String? claudeModel;
+  final ClaudeEffort? claudeEffort;
+  final bool? claudeFastMode;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -111,6 +114,9 @@ class ChatStateUpdate {
     this.codexModel,
     this.codexModelReasoningEffort,
     this.codexSpeed,
+    this.claudeModel,
+    this.claudeEffort,
+    this.claudeFastMode,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -162,6 +168,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'steer_queued_input': UnsupportedAction.showUpdateHint,
   'set_codex_model': UnsupportedAction.showUpdateHint,
   'set_codex_speed': UnsupportedAction.showUpdateHint,
+  'set_claude_settings': UnsupportedAction.showUpdateHint,
   'set_goal': UnsupportedAction.showUpdateHint,
   'set_codex_recovery': UnsupportedAction.showUpdateHint,
   'cancel_codex_recovery': UnsupportedAction.showUpdateHint,
@@ -630,6 +637,9 @@ class ChatMessageHandler {
     String? codexModel;
     ReasoningEffort? codexModelReasoningEffort;
     CodexSpeed? codexSpeed;
+    String? claudeModel;
+    ClaudeEffort? claudeEffort;
+    bool? claudeFastMode;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
 
@@ -679,7 +689,8 @@ class ChatMessageHandler {
                 m.subtype != 'session_created' &&
                 m.subtype != 'set_codex_model' &&
                 m.subtype != 'set_codex_speed' &&
-                m.subtype != 'codex_settings')) {
+                m.subtype != 'codex_settings' &&
+                m.subtype != 'claude_settings')) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
         // Restore slash commands from history (init, supported_commands, or
@@ -720,7 +731,11 @@ class ChatMessageHandler {
         if (m is SystemMessage && m.projectPath?.trim().isNotEmpty == true) {
           projectPath = m.projectPath;
         }
-        if (m is SystemMessage) {
+        if (m is SystemMessage && m.subtype == 'claude_settings') {
+          claudeModel = m.model?.trim().isNotEmpty == true ? m.model : null;
+          claudeEffort = claudeEffortByValue(m.effort);
+          claudeFastMode = m.fastMode;
+        } else if (m is SystemMessage) {
           if (m.model?.trim().isNotEmpty == true) {
             codexModel = m.model;
           }
@@ -751,6 +766,9 @@ class ChatMessageHandler {
       codexModel: codexModel,
       codexModelReasoningEffort: codexModelReasoningEffort,
       codexSpeed: codexSpeed,
+      claudeModel: claudeModel,
+      claudeEffort: claudeEffort,
+      claudeFastMode: claudeFastMode,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
     );
@@ -872,6 +890,14 @@ class ChatMessageHandler {
         inPlanMode = planMode;
       }
     }
+    String? claudeModel;
+    ClaudeEffort? claudeEffort;
+    bool? claudeFastMode;
+    if (msg is SystemMessage && subtype == 'claude_settings') {
+      claudeModel = msg.model?.trim().isNotEmpty == true ? msg.model : null;
+      claudeEffort = claudeEffortByValue(msg.effort);
+      claudeFastMode = msg.fastMode;
+    }
     if (msg is SystemMessage && msg.provider == Provider.codex.value) {
       codexModel = sanitizeCodexModelName(msg.model);
       codexModelReasoningEffort = reasoningEffortByValue(
@@ -909,6 +935,9 @@ class ChatMessageHandler {
       codexModel: codexModel,
       codexModelReasoningEffort: codexModelReasoningEffort,
       codexSpeed: codexSpeed,
+      claudeModel: claudeModel,
+      claudeEffort: claudeEffort,
+      claudeFastMode: claudeFastMode,
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

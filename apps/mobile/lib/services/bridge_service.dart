@@ -275,6 +275,10 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsInputDelivery =>
       _protocolCapabilities.contains('input_delivery_v1');
 
+  /// Bridge accepts `set_claude_settings` and publishes `claude_settings`.
+  bool get supportsClaudeSessionSettings =>
+      _protocolCapabilities.contains('claude_session_settings_v1');
+
   String? projectRequestIdForWire(String requestId) =>
       supportsProjectRequestCorrelation ? requestId : null;
 
@@ -3389,6 +3393,7 @@ class BridgeService implements BridgeServiceBase {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -3419,6 +3424,7 @@ class BridgeService implements BridgeServiceBase {
         codexPermissionsMode: codexPermissionsMode,
         planMode: planMode,
         effort: effort,
+        claudeFastMode: claudeFastMode,
         maxTurns: maxTurns,
         maxBudgetUsd: maxBudgetUsd,
         fallbackModel: fallbackModel,

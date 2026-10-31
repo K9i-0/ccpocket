@@ -491,6 +491,15 @@ enum ClaudeEffort {
   const ClaudeEffort(this.value, this.label);
 }
 
+ClaudeEffort? claudeEffortByValue(String? raw) {
+  final value = raw?.trim();
+  if (value == null || value.isEmpty) return null;
+  for (final effort in ClaudeEffort.values) {
+    if (effort.value == value) return effort;
+  }
+  return null;
+}
+
 // ---- Sandbox mode (Claude & Codex) ----
 
 enum SandboxMode {
@@ -798,6 +807,8 @@ sealed class ServerMessage {
         sandboxMode: json['sandboxMode'] as String?,
         modelReasoningEffort: json['modelReasoningEffort'] as String?,
         serviceTier: json['serviceTier'] as String?,
+        effort: json['effort'] as String?,
+        fastMode: json['fastMode'] as bool?,
         networkAccessEnabled: json['networkAccessEnabled'] as bool?,
         webSearchMode: json['webSearchMode'] as String?,
         slashCommands:
@@ -1668,6 +1679,12 @@ class SystemMessage implements ServerMessage {
   final String? sandboxMode;
   final String? modelReasoningEffort;
   final String? serviceTier;
+
+  /// Claude effort level (claude_settings).
+  final String? effort;
+
+  /// Claude fast mode (claude_settings).
+  final bool? fastMode;
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String> slashCommands;
@@ -1702,6 +1719,8 @@ class SystemMessage implements ServerMessage {
     this.sandboxMode,
     this.modelReasoningEffort,
     this.serviceTier,
+    this.effort,
+    this.fastMode,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.slashCommands = const [],
@@ -2618,10 +2637,14 @@ class ClaudeModelOption {
   final String? displayName;
   final String? description;
 
+  /// Claude Code fast mode is available for this model.
+  final bool supportsFastMode;
+
   const ClaudeModelOption({
     required this.value,
     this.displayName,
     this.description,
+    this.supportsFastMode = false,
   });
 
   String get label {
@@ -2643,6 +2666,7 @@ class ClaudeModelOption {
       description: description is String && description.isNotEmpty
           ? description
           : null,
+      supportsFastMode: json['supportsFastMode'] == true,
     );
   }
 
@@ -4729,6 +4753,7 @@ class ClientMessage {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -4765,6 +4790,7 @@ class ClientMessage {
       'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
+      'claudeFastMode': ?claudeFastMode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,
@@ -4914,6 +4940,21 @@ class ClientMessage {
       'model': model,
       'modelReasoningEffort': ?modelReasoningEffort,
       'sessionId': ?sessionId,
+    });
+  }
+
+  factory ClientMessage.setClaudeSettings({
+    required String sessionId,
+    String? model,
+    ClaudeEffort? effort,
+    bool? fastMode,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_claude_settings',
+      'sessionId': sessionId,
+      'model': ?model,
+      'effort': ?effort?.value,
+      'fastMode': ?fastMode,
     });
   }
 
@@ -5128,6 +5169,7 @@ class ClientMessage {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -5158,6 +5200,7 @@ class ClientMessage {
       'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
+      'claudeFastMode': ?claudeFastMode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,

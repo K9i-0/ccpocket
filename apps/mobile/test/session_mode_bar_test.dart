@@ -21,6 +21,24 @@ class _MockBridgeService extends BridgeService {
   List<String> availableCodexModels = const [];
   Map<String, List<String>> availableCodexReasoningEfforts = const {};
   Map<String, List<String>> availableCodexServiceTiers = const {};
+  bool claudeSessionSettings = false;
+  List<ClaudeModelOption> availableClaudeModelOptions = const [];
+  Map<String, List<String>> availableClaudeModelEfforts = const {};
+
+  @override
+  bool get supportsClaudeSessionSettings => claudeSessionSettings;
+
+  @override
+  List<ClaudeModelOption> get claudeModelOptions => availableClaudeModelOptions;
+
+  @override
+  List<String> get claudeModels => [
+    for (final option in availableClaudeModelOptions) option.value,
+  ];
+
+  @override
+  Map<String, List<String>> get claudeModelEfforts =>
+      availableClaudeModelEfforts;
 
   @override
   List<String> get codexModels => availableCodexModels;
@@ -191,10 +209,12 @@ void main() {
             body: SizedBox(
               width: 280,
               child: CodexSettingsPanel(
-                model: 'gpt-a-very-long-future-model-name',
-                effort: ReasoningEffort.fromValue(
-                  'a-very-long-future-effort-name',
+                modelLabel: codexModelDisplayName(
+                  'gpt-a-very-long-future-model-name',
                 ),
+                effortLabel: ReasoningEffort.fromValue(
+                  'a-very-long-future-effort-name',
+                ).label,
                 speed: CodexSpeed.standard,
                 supportsFast: false,
                 onSpeedChanged: (_) {},
@@ -253,6 +273,140 @@ void main() {
     expect(find.text('Plan'), findsOneWidget);
     expect(find.byType(PermissionModeChip), findsOneWidget);
     expect(find.byKey(const ValueKey('plan_mode_chip_glow')), findsNothing);
+  });
+
+  group('claude model settings', () {
+    late ChatSessionCubit claudeCubit;
+
+    setUp(() {
+      bridge.claudeSessionSettings = true;
+      bridge.availableClaudeModelOptions = const [
+        ClaudeModelOption(value: 'default', displayName: 'Default'),
+        ClaudeModelOption(
+          value: 'opus',
+          displayName: 'Opus',
+          supportsFastMode: true,
+        ),
+        ClaudeModelOption(value: 'haiku', displayName: 'Haiku'),
+      ];
+      bridge.availableClaudeModelEfforts = const {
+        'default': ['low', 'medium', 'high', 'xhigh', 'max'],
+        'opus': ['low', 'medium', 'high', 'xhigh', 'max'],
+        'haiku': [],
+      };
+      claudeCubit = ChatSessionCubit(
+        sessionId: 'claude-settings',
+        provider: Provider.claude,
+        bridge: bridge,
+        streamingCubit: streamingCubit,
+      );
+    });
+
+    tearDown(() => claudeCubit.close());
+
+    Future<void> pumpWithSettings(WidgetTester tester) async {
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'claude_settings',
+          provider: 'claude',
+          model: 'opus',
+          effort: 'high',
+          fastMode: false,
+        ),
+        sessionId: 'claude-settings',
+      );
+      await tester.pumpWidget(_wrap(claudeCubit));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    testWidgets('shows the current model and effort', (tester) async {
+      await pumpWithSettings(tester);
+      expect(find.text('Opus High'), findsOneWidget);
+    });
+
+    testWidgets('is hidden when the Bridge cannot change settings', (
+      tester,
+    ) async {
+      bridge.claudeSessionSettings = false;
+      await pumpWithSettings(tester);
+      expect(find.byKey(const ValueKey('claude_model_chip')), findsNothing);
+    });
+
+    testWidgets('effort slider sends set_claude_settings', (tester) async {
+      await pumpWithSettings(tester);
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+
+      final slider = find.byKey(
+        const ValueKey('claude_settings_effort_slider'),
+      );
+      expect(slider, findsOneWidget);
+      final rect = tester.getRect(slider);
+      // Five levels: drag to the right end selects Max.
+      await tester.tapAt(Offset(rect.right - 14, rect.center.dy));
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeEffort, ClaudeEffort.max);
+      expect(_decode(bridge.sentMessages.last), {
+        'type': 'set_claude_settings',
+        'sessionId': 'claude-settings',
+        'effort': 'max',
+      });
+    });
+
+    testWidgets('fast mode toggles for supported models', (tester) async {
+      await pumpWithSettings(tester);
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_speed_button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeFastMode, isTrue);
+      expect(_decode(bridge.sentMessages.last), {
+        'type': 'set_claude_settings',
+        'sessionId': 'claude-settings',
+        'fastMode': true,
+      });
+    });
+
+    testWidgets('switching to a model without fast mode turns it off', (
+      tester,
+    ) async {
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'claude_settings',
+          provider: 'claude',
+          model: 'opus',
+          effort: 'high',
+          fastMode: true,
+        ),
+        sessionId: 'claude-settings',
+      );
+      await tester.pumpWidget(_wrap(claudeCubit));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('claude_settings_advanced')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('claude_settings_model_row')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_model_haiku_option')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeModel, 'haiku');
+      expect(claudeCubit.state.claudeFastMode, isFalse);
+      expect(_decode(bridge.sentMessages.last), {
+        'type': 'set_claude_settings',
+        'sessionId': 'claude-settings',
+        'model': 'haiku',
+        'effort': 'high',
+        'fastMode': false,
+      });
+    });
   });
 
   testWidgets('claude auto permission mode is shown as Auto', (tester) async {

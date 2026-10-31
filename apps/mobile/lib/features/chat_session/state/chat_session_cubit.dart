@@ -91,6 +91,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   List<String> get codexModels => _bridge.codexModels;
 
+  bool get supportsClaudeSessionSettings =>
+      !isCodex && _bridge.supportsClaudeSessionSettings;
+
+  List<String> get claudeModels => _bridge.claudeModels;
+
+  List<ClaudeModelOption> get claudeModelOptions => _bridge.claudeModelOptions;
+
+  Map<String, List<String>> get claudeModelEfforts =>
+      _bridge.claudeModelEfforts;
+
   Map<String, List<String>> get codexModelReasoningEfforts =>
       _bridge.codexModelReasoningEfforts;
 
@@ -1058,6 +1068,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexModelReasoningEffort ??
             current.codexModelReasoningEffort,
         codexSpeed: update.codexSpeed ?? current.codexSpeed,
+        claudeModel: update.claudeModel ?? current.claudeModel,
+        claudeEffort: update.claudeEffort ?? current.claudeEffort,
+        claudeFastMode: update.claudeFastMode ?? current.claudeFastMode,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -2423,6 +2436,55 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         normalizedModel,
         modelReasoningEffort: nextReasoningEffort?.value,
         sessionId: sessionId,
+      ),
+    );
+  }
+
+  /// Change Claude model, effort or fast mode for subsequent turns.
+  void setClaudeSettings({
+    String? model,
+    ClaudeEffort? effort,
+    bool? fastMode,
+  }) {
+    if (!supportsClaudeSessionSettings) return;
+    final nextModel = model != null && model != state.claudeModel
+        ? model
+        : null;
+    final nextEffort = effort != null && effort != state.claudeEffort
+        ? effort
+        : null;
+    final nextFast = fastMode != null && fastMode != state.claudeFastMode
+        ? fastMode
+        : null;
+    if (nextModel == null && nextEffort == null && nextFast == null) return;
+    logger.info(
+      '[session:$sessionId] setClaudeSettings model=$nextModel '
+      'effort=${nextEffort?.value} fast=$nextFast',
+    );
+    emit(
+      state.copyWith(
+        claudeModel: nextModel ?? state.claudeModel,
+        claudeEffort: nextEffort ?? state.claudeEffort,
+        claudeFastMode: nextFast ?? state.claudeFastMode,
+      ),
+    );
+    final claudeSessionId = state.claudeSessionId;
+    if (claudeSessionId != null) {
+      unawaited(
+        _SessionSettingsHelper.save(claudeSessionId, {
+          'claudeModel': ?state.claudeModel,
+          'claudeEffort': ?state.claudeEffort?.value,
+          'claudeFastMode': state.claudeFastMode,
+        }),
+      );
+    }
+    _bridge.send(
+      ClientMessage.setClaudeSettings(
+        sessionId: sessionId,
+        model: nextModel,
+        // Re-send the effort with a model switch so the new model keeps it.
+        effort: nextEffort ?? (nextModel != null ? state.claudeEffort : null),
+        fastMode: nextFast,
       ),
     );
   }

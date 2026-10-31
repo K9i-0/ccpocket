@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/claude_settings_panel.dart';
 import '../../../widgets/codex_effort_slider.dart';
 import '../state/chat_session_state.dart';
 import '../state/chat_session_cubit.dart';
@@ -117,6 +118,26 @@ class SessionModeBar extends StatelessWidget {
                     ),
                   ),
                 ] else ...[
+                  if (chatCubit.supportsClaudeSessionSettings) ...[
+                    ClaudeModelChip(
+                      key: const ValueKey('claude_model_chip'),
+                      label: claudeModelLabel(
+                        _claudeModelOptions(chatCubit),
+                        chatCubit.state.claudeModel,
+                      ),
+                      effort: chatCubit.state.claudeEffort,
+                      fastMode: chatCubit.state.claudeFastMode,
+                      onTap: () => showClaudeSettingsMenu(context, chatCubit),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
                   PermissionModeChip(
                     currentMode: permissionMode,
                     onTap: () => showPermissionModeMenu(
@@ -413,6 +434,34 @@ void showCodexModelMenu(
       onEffortChanged: (model, effort) =>
           chatCubit.setCodexModel(model, reasoningEffort: effort),
       onSpeedChanged: chatCubit.setCodexSpeed,
+    ),
+  );
+}
+
+List<ClaudeModelOption> _claudeModelOptions(ChatSessionCubit chatCubit) {
+  final options = chatCubit.claudeModelOptions;
+  if (options.isNotEmpty) return options;
+  final models = chatCubit.claudeModels;
+  if (models.isEmpty) return defaultClaudeModelOptions;
+  return [for (final model in models) ClaudeModelOption(value: model)];
+}
+
+void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
+  final options = _claudeModelOptions(chatCubit);
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => ClaudeSettingsSheet(
+      models: options,
+      modelEfforts: normalizeClaudeModelEfforts(chatCubit.claudeModelEfforts),
+      initialModel: chatCubit.state.claudeModel,
+      initialEffort: chatCubit.state.claudeEffort,
+      initialFastMode: chatCubit.state.claudeFastMode,
+      onChanged: ({model, effort, fastMode}) => chatCubit.setClaudeSettings(
+        model: model,
+        effort: effort,
+        fastMode: fastMode,
+      ),
     ),
   );
 }
@@ -1134,6 +1183,66 @@ String _codexPermissionsSubtitle(
     cs.primary,
   ),
 };
+
+class ClaudeModelChip extends StatelessWidget {
+  final String label;
+  final ClaudeEffort? effort;
+  final bool fastMode;
+  final VoidCallback onTap;
+
+  const ClaudeModelChip({
+    super.key,
+    required this.label,
+    required this.effort,
+    required this.fastMode,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = cs.onSurfaceVariant;
+    final suffix = effort == null ? '' : ' ${effort!.label}';
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (fastMode) ...[
+                Icon(Icons.bolt, size: 13, color: cs.primary),
+                const SizedBox(width: 2),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  '$label$suffix',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: fg.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class PlanModeChip extends StatelessWidget {
   final bool enabled;
