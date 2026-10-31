@@ -2,6 +2,21 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.91.0] - 2026-10-31
+
+### Added
+
+- Fetch Claude plan usage through the Agent SDK usage API.
+- Send Claude model display options (name and description) matching the Claude Code CLI, with alias-based fallbacks.
+
+### Changed
+
+- Update `@anthropic-ai/claude-agent-sdk` to 0.3.316.
+
+### Fixed
+
+- Keep Claude subagent frames out of the main conversation. Background agents no longer mark an idle session as running, so new messages are delivered instead of interrupting the agents and getting stuck, and subagent prompts, narration and interrupt markers no longer appear as main messages.
+
 ## [1.90.0] - 2026-10-20
 
 ### Added
