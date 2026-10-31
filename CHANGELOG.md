@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.148.0] - 2026-10-31
+
+### Added
+
+- Show Claude background tasks that keep running after a turn ends: a "Running in background" bar in the session, a background badge on running session cards, and a background label in performance mode (requires Bridge 1.93.0).
+- Choose catalog-driven Codex service tiers, including extended speeds.
+
+### Fixed
+
+- Keep Codex service tiers in profile-based requests and let the Bridge validate profile speeds.
+- Sync Firebase pods so iOS and macOS builds resolve after the firebase_core update.
+
+### Changed
+
+- Update firebase_core, smooth_page_indicator and other minor and patch dependencies.
+
 ## [1.147.0] - 2026-10-31
 
 ### Added
