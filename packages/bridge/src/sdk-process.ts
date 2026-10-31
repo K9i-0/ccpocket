@@ -497,10 +497,71 @@ function isClaudeSystemInjectedUserText(text: string): boolean {
   );
 }
 /**
+ * Returns the Agent/Task tool_use id that produced a subagent frame, or null
+ * for main-thread frames. The SDK sets `parent_tool_use_id` on assistant,
+ * user and stream_event frames emitted inside a subagent.
+ */
+export function sdkParentToolUseId(msg: SDKMessage): string | null {
+  if (
+    msg.type !== "assistant" &&
+    msg.type !== "user" &&
+    msg.type !== "stream_event"
+  ) {
+    return null;
+  }
+  const parent = (msg as { parent_tool_use_id?: unknown }).parent_tool_use_id;
+  return typeof parent === "string" && parent.length > 0 ? parent : null;
+}
+
+/**
+ * Subagent frames share the main transcript only as tool activity, which the
+ * app folds into tool_use_summary. Subagent prompts, narration, thinking,
+ * interrupt markers and streaming deltas are not main-thread conversation.
+ */
+function subagentMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+  if (msg.type === "user") {
+    const content = (msg as { message?: { content?: unknown } }).message?.content;
+    const hasToolResult =
+      Array.isArray(content) &&
+      content.some(
+        (block) =>
+          !!block &&
+          typeof block === "object" &&
+          (block as Record<string, unknown>).type === "tool_result",
+      );
+    return hasToolResult ? convertSdkMessage(msg) : null;
+  }
+  if (msg.type === "assistant") {
+    const ast = msg as unknown as { message: Record<string, unknown> };
+    const content = ast.message?.content;
+    if (!Array.isArray(content)) return null;
+    const toolUses = content.filter(
+      (block) =>
+        !!block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "tool_use",
+    );
+    if (toolUses.length === 0) return null;
+    return convertSdkMessage({
+      ...msg,
+      message: { ...ast.message, content: toolUses },
+    } as SDKMessage);
+  }
+  return null;
+}
+
+/**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
  */
 export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+  if (sdkParentToolUseId(msg) !== null) {
+    return subagentMessageToServerMessage(msg);
+  }
+  return convertSdkMessage(msg);
+}
+
+function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
   switch (msg.type) {
     case "system": {
       const sys = msg as Record<string, unknown>;
@@ -751,6 +812,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
   private pendingAssistantError: ServerMessage | null = null;
+  /**
+   * Tool use ids that already received a tool_result. Frames from a subagent
+   * whose Agent/Task call has returned belong to a background agent.
+   */
+  private completedToolUseIds = new Set<string>();
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -802,6 +868,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
     this.pendingAssistantError = null;
+    this.completedToolUseIds.clear();
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
@@ -1407,6 +1474,20 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         return;
       }
 
+      this.recordCompletedToolUses(message);
+      const parentToolUseId = sdkParentToolUseId(message);
+      if (parentToolUseId !== null) {
+        // Subagent frames never drive the main turn state. Background agents
+        // keep streaming after the main turn's result; treating those frames
+        // as main activity marks an idle session as running, so new input is
+        // queued behind an interrupt that has no turn to end.
+        if (this.isForegroundSubagent(parentToolUseId)) {
+          const subagentMsg = sdkMessageToServerMessage(message);
+          if (subagentMsg) this.emitMessage(subagentMsg);
+        }
+        continue;
+      }
+
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
       if (message.type === "assistant" && this.pendingAssistantError === null) {
@@ -1630,6 +1711,36 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     } else {
       for (const event of events) this.emitMessage(event);
     }
+  }
+
+  private recordCompletedToolUses(msg: SDKMessage): void {
+    if (msg.type !== "user") return;
+    const content = (msg as { message?: { content?: unknown } }).message?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content) {
+      if (!block || typeof block !== "object") continue;
+      const candidate = block as Record<string, unknown>;
+      if (
+        candidate.type === "tool_result" &&
+        typeof candidate.tool_use_id === "string"
+      ) {
+        this.completedToolUseIds.add(candidate.tool_use_id);
+      }
+    }
+  }
+
+  /**
+   * A subagent is foreground while the main turn is active and its Agent/Task
+   * call has not returned yet. Backgrounded agents return a placeholder
+   * tool_result immediately and report completion via task_notification.
+   */
+  private isForegroundSubagent(parentToolUseId: string): boolean {
+    if (this.completedToolUseIds.has(parentToolUseId)) return false;
+    return (
+      this._status === "running" ||
+      this._status === "waiting_approval" ||
+      this._status === "compacting"
+    );
   }
 
   private updateStatusFromMessage(msg: SDKMessage): void {
