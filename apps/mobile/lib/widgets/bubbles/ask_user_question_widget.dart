@@ -667,6 +667,25 @@ class _AskQuestionLayout extends StatelessWidget {
                 ),
               ),
         ],
+        // The custom answer row brings its own Next button.
+        if (isMulti &&
+            isMultiQuestion &&
+            !customInputs.contains(questionIndex)) ...[
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: ValueKey('ask_multi_next_button_$questionIndex'),
+              onPressed: (multiAnswers[questionIndex] ?? {}).isNotEmpty
+                  ? () => onConfirmMultiSelect(questionIndex)
+                  : null,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: Text(l.next, style: const TextStyle(fontSize: 13)),
+            ),
+          ),
+        ],
         if (alwaysShowTextInput) ...[
           const SizedBox(height: 6),
           _AskTextInputRow(
