@@ -60,7 +60,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^4.0.18",
