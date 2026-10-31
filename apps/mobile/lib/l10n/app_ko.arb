@@ -553,7 +553,7 @@
   "fork": "분기",
   "forkConversation": "대화 분기",
   "forkConversationTitle": "대화를 분기할까요?",
-  "forkConversationBody": "이 응답 시점에서 새 Codex 세션을 만듭니다. 현재 세션은 변경되지 않습니다.",
+  "forkConversationBody": "이 응답 시점에서 새 세션을 만듭니다. 현재 세션은 변경되지 않습니다.",
   "forkTargetNotFound": "분기할 사용자 메시지를 찾을 수 없습니다",
   "tapToRetry": "탭하여 재시도",
   "diffSummaryAddedRemoved": "+{added}/-{removed}줄",

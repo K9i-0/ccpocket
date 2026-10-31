@@ -1498,8 +1498,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get forkConversationTitle => '대화를 분기할까요?';
 
   @override
-  String get forkConversationBody =>
-      '이 응답 시점에서 새 Codex 세션을 만듭니다. 현재 세션은 변경되지 않습니다.';
+  String get forkConversationBody => '이 응답 시점에서 새 세션을 만듭니다. 현재 세션은 변경되지 않습니다.';
 
   @override
   String get forkTargetNotFound => '분기할 사용자 메시지를 찾을 수 없습니다';

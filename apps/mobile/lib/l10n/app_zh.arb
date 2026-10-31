@@ -587,7 +587,7 @@
   "fork": "分叉",
   "forkConversation": "分叉对话",
   "forkConversationTitle": "分叉对话？",
-  "forkConversationBody": "从此回复创建一个新的 Codex 会话。当前会话不会改变。",
+  "forkConversationBody": "从此回复创建一个新会话。当前会话不会改变。",
   "forkTargetNotFound": "找不到可用于分叉的用户消息",
   "tapToRetry": "点按重试",
 

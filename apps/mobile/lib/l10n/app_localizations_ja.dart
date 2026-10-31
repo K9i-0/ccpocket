@@ -1483,8 +1483,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get forkConversationTitle => '会話を分岐しますか？';
 
   @override
-  String get forkConversationBody =>
-      'この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。';
+  String get forkConversationBody => 'この応答時点から新しいセッションを作成します。現在のセッションは変更されません。';
 
   @override
   String get forkTargetNotFound => '分岐元のユーザー発言が見つかりません';

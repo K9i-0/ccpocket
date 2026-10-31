@@ -1463,7 +1463,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get forkConversationTitle => '分叉对话？';
 
   @override
-  String get forkConversationBody => '从此回复创建一个新的 Codex 会话。当前会话不会改变。';
+  String get forkConversationBody => '从此回复创建一个新会话。当前会话不会改变。';
 
   @override
   String get forkTargetNotFound => '找不到可用于分叉的用户消息';

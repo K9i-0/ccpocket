@@ -324,6 +324,24 @@ void main() {
       expect(find.text('Opus High'), findsOneWidget);
     });
 
+    testWidgets('a default snapshot clears the previous model and effort', (
+      tester,
+    ) async {
+      await pumpWithSettings(tester);
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'claude_settings',
+          provider: 'claude',
+          fastMode: false,
+        ),
+        sessionId: 'claude-settings',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(claudeCubit.state.claudeModel, isNull);
+      expect(claudeCubit.state.claudeEffort, isNull);
+      expect(find.text('Default'), findsWidgets);
+    });
+
     testWidgets('is hidden when the Bridge cannot change settings', (
       tester,
     ) async {

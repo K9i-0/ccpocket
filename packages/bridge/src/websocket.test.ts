@@ -9584,6 +9584,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       expect(newCreated).toMatchObject({
         provider: "claude",
         sourceSessionId: sessionId,
+        forked: true,
       });
       expect((bridge as any).sessionManager.get(sessionId)).toBeDefined();
       const forked = (bridge as any).sessionManager.get(newCreated.sessionId);

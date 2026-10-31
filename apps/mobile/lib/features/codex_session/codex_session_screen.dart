@@ -343,7 +343,11 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     final newId = msg.sessionId!;
     final draftService = context.read<DraftService>();
     final bridge = context.read<BridgeService>();
-    bridge.migrateExplorerHistory(oldId, newId);
+    if (msg.forked) {
+      bridge.copyExplorerHistory(oldId, newId);
+    } else {
+      bridge.migrateExplorerHistory(oldId, newId);
+    }
     final explorerHistory = bridge.getExplorerHistory(newId);
     draftService.migrateDraft(oldId, newId);
     draftService.migrateImageDraft(oldId, newId);

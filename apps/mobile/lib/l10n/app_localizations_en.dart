@@ -1554,7 +1554,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get forkConversationBody =>
-      'Create a new Codex session from this response. The current session will remain unchanged.';
+      'Create a new session from this response. The current session will remain unchanged.';
 
   @override
   String get forkTargetNotFound => 'Cannot find a user turn to fork from';

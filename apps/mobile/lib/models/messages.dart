@@ -851,6 +851,7 @@ sealed class ServerMessage {
         worktreeBranch: json['worktreeBranch'] as String?,
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
+        forked: json['forked'] == true,
         resumeRequestId: json['resumeRequestId'] as String?,
         requestId: json['requestId'] as String?,
         tipCode: json['tipCode'] as String?,
@@ -1698,6 +1699,9 @@ class SystemMessage implements ServerMessage {
   final String? worktreeBranch;
   final bool clearContext;
   final String? sourceSessionId;
+
+  /// session_created for a fork: the source session keeps running.
+  final bool forked;
   final String? resumeRequestId;
   final String? requestId;
   final String? tipCode;
@@ -1734,6 +1738,7 @@ class SystemMessage implements ServerMessage {
     this.worktreeBranch,
     this.clearContext = false,
     this.sourceSessionId,
+    this.forked = false,
     this.resumeRequestId,
     this.requestId,
     this.tipCode,

@@ -1421,6 +1421,8 @@ export class BridgeWebSocketServer {
     plugins?: string[];
     pluginMetadata?: Array<Record<string, unknown>>;
     sourceSessionId?: string;
+    /** The source session keeps running (fork), unlike restarts/rewinds. */
+    forked?: boolean;
     resumeRequestId?: string;
     requestId?: string;
   }): SystemServerMessage {
@@ -1559,6 +1561,7 @@ export class BridgeWebSocketServer {
           }
         : {}),
       ...(sourceSessionId ? { sourceSessionId } : {}),
+      ...(params.forked ? { forked: true } : {}),
       ...(resumeRequestId ? { resumeRequestId } : {}),
       ...(requestId ? { requestId } : {}),
     };
@@ -1839,6 +1842,7 @@ export class BridgeWebSocketServer {
         session: newSession,
         permissionMode,
         sourceSessionId: sessionId,
+        forked: true,
       }),
     );
     this.sendSessionList(ws);
@@ -1941,6 +1945,7 @@ export class BridgeWebSocketServer {
         approvalsReviewer: newSession?.codexSettings?.approvalsReviewer,
         sandboxMode: newSession?.codexSettings?.sandboxMode,
         sourceSessionId: sessionId,
+        forked: true,
       }),
     );
     this.sendSessionList(ws);

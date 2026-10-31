@@ -750,6 +750,8 @@ void main() {
       expect(live.claudeEffort, ClaudeEffort.xhigh);
       expect(live.claudeFastMode, isTrue);
       expect(live.codexModel, isNull);
+      expect(live.replaceClaudeSettings, isTrue);
+      expect(live.claudeSessionId, isNull);
 
       final restored = handler.handle(
         const HistoryMessage(messages: [message]),

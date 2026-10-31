@@ -1068,9 +1068,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexModelReasoningEffort ??
             current.codexModelReasoningEffort,
         codexSpeed: update.codexSpeed ?? current.codexSpeed,
-        claudeModel: update.claudeModel ?? current.claudeModel,
-        claudeEffort: update.claudeEffort ?? current.claudeEffort,
-        claudeFastMode: update.claudeFastMode ?? current.claudeFastMode,
+        claudeModel: update.replaceClaudeSettings
+            ? update.claudeModel
+            : (update.claudeModel ?? current.claudeModel),
+        claudeEffort: update.replaceClaudeSettings
+            ? update.claudeEffort
+            : (update.claudeEffort ?? current.claudeEffort),
+        claudeFastMode: update.replaceClaudeSettings
+            ? (update.claudeFastMode ?? false)
+            : (update.claudeFastMode ?? current.claudeFastMode),
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -1079,6 +1085,22 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         hiddenToolUseIds: hiddenToolUseIds,
       ),
     );
+
+    // Keep resume settings in sync with the Bridge's current Claude settings
+    // (including changes from other devices and forks).
+    final persistedClaudeSessionId =
+        newClaudeSessionId ?? current.claudeSessionId;
+    if (update.replaceClaudeSettings &&
+        provider != Provider.codex &&
+        persistedClaudeSessionId != null) {
+      unawaited(
+        _SessionSettingsHelper.save(persistedClaudeSessionId, {
+          'claudeModel': update.claudeModel,
+          'claudeEffort': update.claudeEffort?.value,
+          'claudeFastMode': update.claudeFastMode ?? false,
+        }),
+      );
+    }
 
     // Persist initial Claude settings when claudeSessionId is first known.
     if (update.claudeSessionId != null &&

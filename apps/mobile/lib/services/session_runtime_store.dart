@@ -220,6 +220,16 @@ class SessionRuntimeStore {
     _trim(target);
   }
 
+  /// Copy only explorer state; the source session keeps its own cache.
+  void copyExplorerHistory(String fromSessionId, String toSessionId) {
+    if (fromSessionId == toSessionId) return;
+    final source = _sessions[fromSessionId];
+    if (source == null) return;
+    final target = _stateFor(toSessionId);
+    target.projectPath ??= source.projectPath;
+    target.explorerHistory = source.explorerHistory;
+  }
+
   void clearSession(String sessionId) {
     _sessions.remove(sessionId);
   }

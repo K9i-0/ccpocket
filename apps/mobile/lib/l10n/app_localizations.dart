@@ -2846,7 +2846,7 @@ abstract class AppLocalizations {
   /// No description provided for @forkConversationBody.
   ///
   /// In ja, this message translates to:
-  /// **'この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。'**
+  /// **'この応答時点から新しいセッションを作成します。現在のセッションは変更されません。'**
   String get forkConversationBody;
 
   /// No description provided for @forkTargetNotFound.

@@ -55,6 +55,10 @@ class ChatStateUpdate {
   final String? claudeModel;
   final ClaudeEffort? claudeEffort;
   final bool? claudeFastMode;
+
+  /// The Claude settings fields are a full snapshot (null = default), not a
+  /// partial update.
+  final bool replaceClaudeSettings;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -117,6 +121,7 @@ class ChatStateUpdate {
     this.claudeModel,
     this.claudeEffort,
     this.claudeFastMode,
+    this.replaceClaudeSettings = false,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -640,6 +645,7 @@ class ChatMessageHandler {
     String? claudeModel;
     ClaudeEffort? claudeEffort;
     bool? claudeFastMode;
+    var sawClaudeSettings = false;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
 
@@ -732,6 +738,7 @@ class ChatMessageHandler {
           projectPath = m.projectPath;
         }
         if (m is SystemMessage && m.subtype == 'claude_settings') {
+          sawClaudeSettings = true;
           claudeModel = m.model?.trim().isNotEmpty == true ? m.model : null;
           claudeEffort = claudeEffortByValue(m.effort);
           claudeFastMode = m.fastMode;
@@ -769,6 +776,7 @@ class ChatMessageHandler {
       claudeModel: claudeModel,
       claudeEffort: claudeEffort,
       claudeFastMode: claudeFastMode,
+      replaceClaudeSettings: sawClaudeSettings,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
     );
@@ -910,7 +918,8 @@ class ChatMessageHandler {
     // Extract claudeSessionId from session_created or init messages.
     // Prefer the full Claude CLI UUID (claudeSessionId) over the Bridge's
     // internal 8-char ID (sessionId) for JSONL file lookups.
-    final sessionId = msg is SystemMessage
+    // claude_settings carries the Bridge session id, not the provider id.
+    final sessionId = msg is SystemMessage && subtype != 'claude_settings'
         ? (msg.claudeSessionId ?? msg.sessionId)
         : null;
     // Track git tip to suppress duplicate git errors later
@@ -938,6 +947,7 @@ class ChatMessageHandler {
       claudeModel: claudeModel,
       claudeEffort: claudeEffort,
       claudeFastMode: claudeFastMode,
+      replaceClaudeSettings: subtype == 'claude_settings',
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

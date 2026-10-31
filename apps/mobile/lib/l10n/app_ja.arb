@@ -594,7 +594,7 @@
   "fork": "分岐",
   "forkConversation": "会話を分岐",
   "forkConversationTitle": "会話を分岐しますか？",
-  "forkConversationBody": "この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。",
+  "forkConversationBody": "この応答時点から新しいセッションを作成します。現在のセッションは変更されません。",
   "forkTargetNotFound": "分岐元のユーザー発言が見つかりません",
   "tapToRetry": "タップしてリトライ",
 

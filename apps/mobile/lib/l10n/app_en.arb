@@ -595,7 +595,7 @@
   "fork": "Fork",
   "forkConversation": "Fork conversation",
   "forkConversationTitle": "Fork conversation?",
-  "forkConversationBody": "Create a new Codex session from this response. The current session will remain unchanged.",
+  "forkConversationBody": "Create a new session from this response. The current session will remain unchanged.",
   "forkTargetNotFound": "Cannot find a user turn to fork from",
   "tapToRetry": "Tap to retry",
 

@@ -3584,6 +3584,12 @@ class BridgeService implements BridgeServiceBase {
     _runtimeStore.migrateSession(fromSessionId, toSessionId);
   }
 
+  /// For forks: keep the source session's cache and only carry over the
+  /// explorer state.
+  void copyExplorerHistory(String fromSessionId, String toSessionId) {
+    _runtimeStore.copyExplorerHistory(fromSessionId, toSessionId);
+  }
+
   void clearExplorerHistory(String sessionId) {
     _runtimeStore.clearSession(sessionId);
     _respondedToolUseIds.remove(sessionId);
