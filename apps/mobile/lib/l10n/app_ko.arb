@@ -1322,5 +1322,9 @@
   "inputDeliverySteerDescription": "현재 턴을 멈추지 않고 지시를 추가합니다",
   "inputDeliveryQueueDescription": "현재 턴이 끝난 후 보냅니다",
   "sendAsSteer": "현재 턴에 끼워 넣기",
-  "sendAsQueue": "다음 턴 대기열에 추가"
+  "sendAsQueue": "다음 턴 대기열에 추가",
+  "backgroundTasksRunning": "백그라운드에서 실행 중",
+  "backgroundTasksMore": "외 {count}개",
+  "sessionCardBackgroundTasks": "백그라운드 {count}",
+  "liteModeBackground": "백그라운드 실행 중"
 }

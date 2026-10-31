@@ -3326,4 +3326,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sendAsQueue => '排队到下一回合';
+
+  @override
+  String get backgroundTasksRunning => '正在后台运行';
+
+  @override
+  String backgroundTasksMore(int count) {
+    return '另有$count项';
+  }
+
+  @override
+  String sessionCardBackgroundTasks(int count) {
+    return '后台 $count';
+  }
+
+  @override
+  String get liteModeBackground => '后台运行中';
 }

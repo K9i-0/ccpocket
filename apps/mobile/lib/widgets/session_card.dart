@@ -222,6 +222,10 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     pinTooltip: AppLocalizations.of(context).pin,
                     unpinTooltip: AppLocalizations.of(context).unpin,
                   ),
+                  if (session.backgroundTaskCount > 0) ...[
+                    const SizedBox(width: 4),
+                    _BackgroundTasksBadge(count: session.backgroundTaskCount),
+                  ],
                   if (queuedInput != null) ...[
                     const SizedBox(width: 4),
                     _QueuedInputBadge(item: queuedInput),
@@ -539,6 +543,54 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _BackgroundTasksBadge extends StatelessWidget {
+  final int count;
+
+  const _BackgroundTasksBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final label = l.sessionCardBackgroundTasks(count);
+    return Semantics(
+      label: label,
+      child: Tooltip(
+        message: l.backgroundTasksRunning,
+        child: Container(
+          key: const ValueKey('session_card_background_badge'),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: colorScheme.tertiaryContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: colorScheme.tertiary.withValues(alpha: 0.32),
+              width: 0.6,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sync, size: 12, color: colorScheme.tertiary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onTertiaryContainer,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -45,6 +45,7 @@ import '../../widgets/workspace_pane_chrome.dart';
 import '../chat_session/state/chat_session_cubit.dart';
 import '../chat_session/state/chat_session_state.dart';
 import '../chat_session/state/streaming_state_cubit.dart';
+import '../chat_session/widgets/background_tasks_bar.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
@@ -1405,6 +1406,7 @@ class _ChatScreenBody extends HookWidget {
                   ),
                 ),
                 LiteModeActivityBar(sessionId: sessionId),
+                const SessionBackgroundTasksBar(),
                 if (approval is ApprovalNone && queuedInput != null)
                   SessionQueuedInputPanel(
                     item: queuedInput,

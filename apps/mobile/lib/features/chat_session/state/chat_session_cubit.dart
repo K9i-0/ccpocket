@@ -1099,6 +1099,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
+        backgroundTasks: update.backgroundTasks ?? current.backgroundTasks,
         claudeSessionId: newClaudeSessionId,
         projectPath: newProjectPath,
         hiddenToolUseIds: hiddenToolUseIds,
@@ -1602,7 +1603,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return entry.message is! StatusMessage &&
           entry.message is! InputAckMessage &&
           entry.message is! InputRejectedMessage &&
-          entry.message is! ConversationQueueMessage;
+          entry.message is! ConversationQueueMessage &&
+          entry.message is! BackgroundTasksMessage;
     }
     return false;
   }

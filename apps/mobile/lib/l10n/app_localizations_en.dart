@@ -3502,4 +3502,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendAsQueue => 'Queue for next turn';
+
+  @override
+  String get backgroundTasksRunning => 'Running in background';
+
+  @override
+  String backgroundTasksMore(int count) {
+    return '+$count more';
+  }
+
+  @override
+  String sessionCardBackgroundTasks(int count) {
+    return 'Background $count';
+  }
+
+  @override
+  String get liteModeBackground => 'Background running';
 }

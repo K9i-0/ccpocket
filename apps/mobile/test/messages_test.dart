@@ -681,6 +681,7 @@ void main() {
       expect(json['protocolVersion'], 1);
       expect(json['minimumProtocolVersion'], 1);
       expect(json['supportedServerMessages'], [
+        'background_tasks',
         'conversation_queue',
         'goal_state',
         'codex_recovery_state',

@@ -74,6 +74,10 @@ abstract class ChatSessionState with _$ChatSessionState {
     // Codex conversation queue (Bridge is the source of truth).
     QueuedInputItem? queuedInput,
 
+    // Live Claude background tasks (shells, monitors, subagents). The turn can
+    // be idle while these keep running.
+    @Default([]) List<BackgroundTaskInfo> backgroundTasks,
+
     // Persisted Codex thread goal (Bridge/app-server is the source of truth).
     CodexGoal? goal,
     CodexRecoveryInfo? recovery,
