@@ -3475,4 +3475,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => 'Choose an existing folder';
+
+  @override
+  String get defaultInputDelivery => 'Messages during a turn';
+
+  @override
+  String get defaultInputDeliverySubtitle =>
+      'Default for the send button. Long-press send to use the other option.';
+
+  @override
+  String get inputDeliverySteer => 'Steer';
+
+  @override
+  String get inputDeliveryQueue => 'Queue';
+
+  @override
+  String get inputDeliverySteerDescription =>
+      'Add to the current turn without stopping it';
+
+  @override
+  String get inputDeliveryQueueDescription =>
+      'Send after the current turn finishes';
+
+  @override
+  String get sendAsSteer => 'Steer into current turn';
+
+  @override
+  String get sendAsQueue => 'Queue for next turn';
 }

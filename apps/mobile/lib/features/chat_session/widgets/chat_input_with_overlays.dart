@@ -42,6 +42,7 @@ import '../../../widgets/slash_command_sheet.dart'
         fallbackCodexSlashCommands,
         fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
+import 'queued_input_panel.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
 
@@ -178,6 +179,12 @@ class ChatInputWithOverlays extends HookWidget {
     // Slash commands from cubit
     final chatCubit = context.read<ChatSessionCubit>();
     final isCodex = chatCubit.isCodex;
+    // Steer/queue choice is only meaningful while a turn is running and the
+    // Bridge understands per-message delivery.
+    final busyDelivery =
+        chatCubit.supportsInputDelivery && status != ProcessStatus.idle
+        ? settings.defaultInputDelivery
+        : null;
     final completionItems = context
         .watch<ChatSessionCubit>()
         .state
@@ -703,7 +710,7 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
-    Future<void> sendMessage() async {
+    Future<void> sendMessage({InputDelivery? delivery}) async {
       if (inputBlocked || isSending.value) return;
       final inputSnapshot = inputController.text;
       final text = inputSnapshot.trim();
@@ -783,6 +790,7 @@ class ChatInputWithOverlays extends HookWidget {
           messageToSend,
           images: prepared.images.isEmpty ? null : prepared.images,
           mentionablePaths: projectFiles,
+          delivery: delivery ?? busyDelivery,
         );
         if (!accepted) return;
         feedbackCubit.removeSent(sessionId, feedbackSnapshot);
@@ -1235,6 +1243,19 @@ class ChatInputWithOverlays extends HookWidget {
                         !settings.hideVoiceInput && voice.isAvailable,
                     isRecording: voice.isRecording,
                     onSend: sendMessage,
+                    busySendDelivery: busyDelivery,
+                    onSendLongPress: busyDelivery == null
+                        ? null
+                        : () async {
+                            HapticFeedback.mediumImpact();
+                            final chosen = await showInputDeliverySheet(
+                              context,
+                              defaultDelivery: busyDelivery,
+                            );
+                            if (chosen != null && context.mounted) {
+                              await sendMessage(delivery: chosen);
+                            }
+                          },
                     onStop: stopSession,
                     onInterrupt: interruptSession,
                     onToggleVoice: voice.toggle,

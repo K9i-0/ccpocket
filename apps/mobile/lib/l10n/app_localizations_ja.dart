@@ -3343,4 +3343,28 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => '既存フォルダを選択';
+
+  @override
+  String get defaultInputDelivery => '実行中に送るメッセージ';
+
+  @override
+  String get defaultInputDeliverySubtitle => '送信ボタンの既定動作です。長押しでもう一方を選べます。';
+
+  @override
+  String get inputDeliverySteer => '差し込む';
+
+  @override
+  String get inputDeliveryQueue => 'キュー';
+
+  @override
+  String get inputDeliverySteerDescription => '実行中のターンを止めずに指示を追加します';
+
+  @override
+  String get inputDeliveryQueueDescription => '現在のターンが終わってから送信します';
+
+  @override
+  String get sendAsSteer => '今のターンに差し込む';
+
+  @override
+  String get sendAsQueue => '次のターンにキュー';
 }

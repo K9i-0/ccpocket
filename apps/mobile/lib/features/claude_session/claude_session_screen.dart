@@ -48,6 +48,7 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/queued_input_panel.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
 import '../chat_session/widgets/session_file_list_scope.dart';
@@ -847,6 +848,7 @@ class _ChatScreenBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final queuedInput = sessionState.queuedInput;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
 
@@ -1381,6 +1383,11 @@ class _ChatScreenBody extends HookWidget {
                   ),
                 ),
                 LiteModeActivityBar(sessionId: sessionId),
+                if (approval is ApprovalNone && queuedInput != null)
+                  SessionQueuedInputPanel(
+                    item: queuedInput,
+                    inputController: chatInputController,
+                  ),
                 if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
@@ -1388,6 +1395,7 @@ class _ChatScreenBody extends HookWidget {
                     status: status,
                     onGoToLatest: scroll.goToLatest,
                     inputController: chatInputController,
+                    inputBlocked: queuedInput != null,
                     initialDiffSelection: diffSelectionFromNav.value,
                     onDiffSelectionConsumed: () {
                       // Don't null — keep for AppBar navigation.

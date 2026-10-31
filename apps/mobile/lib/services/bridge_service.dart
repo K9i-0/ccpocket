@@ -270,6 +270,11 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsSessionContext =>
       _protocolCapabilities.contains('session_context_v1');
 
+  /// Bridge accepts `input.delivery` and keeps a steer/queue slot for every
+  /// provider (not only Codex).
+  bool get supportsInputDelivery =>
+      _protocolCapabilities.contains('input_delivery_v1');
+
   String? projectRequestIdForWire(String requestId) =>
       supportsProjectRequestCorrelation ? requestId : null;
 

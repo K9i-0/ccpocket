@@ -3370,4 +3370,29 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => '기존 폴더 선택';
+
+  @override
+  String get defaultInputDelivery => '실행 중 보내는 메시지';
+
+  @override
+  String get defaultInputDeliverySubtitle =>
+      '보내기 버튼의 기본 동작입니다. 길게 누르면 다른 옵션을 선택할 수 있습니다.';
+
+  @override
+  String get inputDeliverySteer => '끼워 넣기';
+
+  @override
+  String get inputDeliveryQueue => '대기열';
+
+  @override
+  String get inputDeliverySteerDescription => '현재 턴을 멈추지 않고 지시를 추가합니다';
+
+  @override
+  String get inputDeliveryQueueDescription => '현재 턴이 끝난 후 보냅니다';
+
+  @override
+  String get sendAsSteer => '현재 턴에 끼워 넣기';
+
+  @override
+  String get sendAsQueue => '다음 턴 대기열에 추가';
 }

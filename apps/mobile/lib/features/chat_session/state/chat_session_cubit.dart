@@ -81,6 +81,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Whether this session is a Codex session.
   bool get isCodex => provider == Provider.codex;
 
+  /// Whether the Bridge accepts per-message steer/queue delivery.
+  bool get supportsInputDelivery => _bridge.supportsInputDelivery;
+
+  /// Whether input sent during a turn is held in the Bridge's single queue
+  /// slot (shown in the queue panel) instead of being added to the
+  /// transcript immediately. Claude uses it once the Bridge supports it.
+  bool get usesInputQueue => isCodex || supportsInputDelivery;
+
   List<String> get codexModels => _bridge.codexModels;
 
   Map<String, List<String>> get codexModelReasoningEfforts =>
@@ -269,7 +277,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void _restoreDeliveryPendingInput() {
-    if (!isCodex || state.queuedInput != null) return;
+    if (!usesInputQueue || state.queuedInput != null) return;
     final pending = _bridge.deliveryPendingInputForSession(
       sessionId,
       includeHidden: true,
@@ -319,7 +327,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             sessionId: sessionId,
             clientMessageId: clientMessageId,
           );
-      if (isCodex &&
+      if (usesInputQueue &&
           !wasAttempted &&
           queuedInput == null &&
           queuedItemId != null) {
@@ -1662,6 +1670,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     String text, {
     List<({Uint8List bytes, String mimeType})>? images,
     Iterable<String>? mentionablePaths,
+    InputDelivery? delivery,
   }) async {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) {
       return false;
@@ -1688,7 +1697,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           }
       }
     }
-    if (isCodex) {
+    final usesQueue = usesInputQueue;
+    if (usesQueue) {
       await _pendingInputRestoreFuture;
       if (isClosed || state.queuedInput != null) return false;
     }
@@ -1708,9 +1718,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             mentions: const <Map<String, String>>[],
           );
 
-    final shouldUseOfflineQueuePanel = isCodex && isOffline;
+    final shouldUseOfflineQueuePanel = usesQueue && isOffline;
     final shouldAddLocalEntry =
-        !isCodex ||
+        !usesQueue ||
         (!shouldUseOfflineQueuePanel && state.status == ProcessStatus.idle);
     if (shouldAddLocalEntry) {
       final entry = UserChatEntry(
@@ -1745,7 +1755,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           .toList();
     }
 
-    final deliveryPendingItem = isCodex && !isOffline
+    final deliveryPendingItem = usesQueue && !isOffline
         ? QueuedInputItem(
             itemId: '$deliveryPendingQueuedInputPrefix$clientMessageId',
             text: text,
@@ -1777,6 +1787,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
               : null,
           skills: structuredMentions.skills,
           mentions: structuredMentions.mentions,
+          delivery: delivery,
         ),
       );
     } catch (error, stackTrace) {
@@ -1809,7 +1820,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
       return false;
     }
-    if (isCodex && !isOffline) {
+    if (usesQueue && !isOffline) {
       _scheduleDeliveryPendingQueue(
         clientMessageId: clientMessageId,
         item: deliveryPendingItem!,
@@ -1887,9 +1898,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void updateQueuedInput(QueuedInputItem item, String text) {
-    if (!isCodex || text.trim().isEmpty) return;
+    if (!usesInputQueue || text.trim().isEmpty) return;
     if (isDeliveryPendingQueuedInput(item)) return;
-    final structuredMentions = _extractCodexStructuredInputs(text);
+    final structuredMentions = isCodex
+        ? _extractCodexStructuredInputs(text)
+        : (
+            skills: const <Map<String, String>>[],
+            mentions: const <Map<String, String>>[],
+          );
     final offlineClientMessageId = offlineQueuedClientMessageId(item);
     if (offlineClientMessageId != null) {
       final updated = QueuedInputItem(
@@ -1925,7 +1941,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void steerQueuedInput(QueuedInputItem item) {
-    if (!isCodex ||
+    if (!usesInputQueue ||
         isOfflineQueuedInput(item) ||
         isDeliveryPendingQueuedInput(item)) {
       return;
@@ -1936,7 +1952,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void cancelQueuedInput(QueuedInputItem item) {
-    if (!isCodex) return;
+    if (!usesInputQueue) return;
     if (isDeliveryPendingQueuedInput(item)) {
       final clientMessageId = deliveryPendingClientMessageId(item);
       if (clientMessageId != null) {

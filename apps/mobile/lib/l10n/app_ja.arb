@@ -1417,5 +1417,13 @@
   "createProjectShort": "作成",
   "multiProjectShort": "マルチ",
   "changeProjectLocation": "変更",
-  "chooseExistingFolder": "既存フォルダを選択"
+  "chooseExistingFolder": "既存フォルダを選択",
+  "defaultInputDelivery": "実行中に送るメッセージ",
+  "defaultInputDeliverySubtitle": "送信ボタンの既定動作です。長押しでもう一方を選べます。",
+  "inputDeliverySteer": "差し込む",
+  "inputDeliveryQueue": "キュー",
+  "inputDeliverySteerDescription": "実行中のターンを止めずに指示を追加します",
+  "inputDeliveryQueueDescription": "現在のターンが終わってから送信します",
+  "sendAsSteer": "今のターンに差し込む",
+  "sendAsQueue": "次のターンにキュー"
 }

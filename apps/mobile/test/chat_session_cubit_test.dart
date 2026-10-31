@@ -26,7 +26,11 @@ class MockBridgeService extends BridgeService {
   Completer<void>? pendingInputRestoreGate;
   int requestSessionContextCallCount = 0;
   bool connected = true;
+  bool inputDelivery = false;
   Object? inputQueueError;
+
+  @override
+  bool get supportsInputDelivery => inputDelivery;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
     _taggedController.add((msg, sessionId));
@@ -1411,6 +1415,124 @@ void main() {
         expect(cubit.state.queuedInput, isNull);
       },
     );
+
+    group('Claude input delivery', () {
+      Future<ChatSessionCubit> runningClaude() async {
+        mockBridge.inputDelivery = true;
+        final cubit = createCubit('s1', provider: Provider.claude);
+        addTearDown(cubit.close);
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.running),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        return cubit;
+      }
+
+      test('sends the chosen delivery and holds the panel slot', () async {
+        final cubit = await runningClaude();
+
+        await cubit.sendMessage(
+          'after this turn',
+          delivery: InputDelivery.queue,
+        );
+
+        final payload = jsonDecode(
+          mockBridge.sentMessages.single.toJson(),
+        ) as Map<String, dynamic>;
+        expect(payload['delivery'], 'queue');
+        expect(cubit.state.entries.whereType<UserChatEntry>(), isEmpty);
+
+        mockBridge.emitMessage(
+          InputAckMessage(
+            sessionId: 's1',
+            clientMessageId: payload['clientMessageId'] as String,
+            queued: true,
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
+          const ConversationQueueMessage(
+            sessionId: 's1',
+            limit: 1,
+            items: [
+              QueuedInputItem(
+                itemId: 'q1',
+                text: 'after this turn',
+                createdAt: '2026-10-31T00:00:00.000Z',
+              ),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.queuedInput?.itemId, 'q1');
+        cubit.steerQueuedInput(cubit.state.queuedInput!);
+        expect(jsonDecode(mockBridge.sentMessages.last.toJson()), {
+          'type': 'steer_queued_input',
+          'sessionId': 's1',
+          'itemId': 'q1',
+        });
+      });
+
+      test('steered input becomes a sent entry on ack', () async {
+        final cubit = await runningClaude();
+
+        await cubit.sendMessage(
+          'also check tests',
+          delivery: InputDelivery.steer,
+        );
+        final payload = jsonDecode(
+          mockBridge.sentMessages.single.toJson(),
+        ) as Map<String, dynamic>;
+        expect(payload['delivery'], 'steer');
+
+        mockBridge.emitMessage(
+          InputAckMessage(
+            sessionId: 's1',
+            clientMessageId: payload['clientMessageId'] as String,
+            queued: false,
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        final users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users, hasLength(1));
+        expect(users.single.text, 'also check tests');
+        expect(users.single.status, MessageStatus.sent);
+        expect(cubit.state.queuedInput, isNull);
+      });
+
+      test(
+        'older Bridges keep the immediate Claude transcript entry',
+        () async {
+          mockBridge.inputDelivery = false;
+          final cubit = createCubit('s1', provider: Provider.claude);
+          addTearDown(cubit.close);
+          mockBridge.emitMessage(
+            const StatusMessage(status: ProcessStatus.running),
+            sessionId: 's1',
+          );
+          await Future.microtask(() {});
+
+          await cubit.sendMessage('legacy follow-up');
+
+          expect(
+            cubit.state.entries.whereType<UserChatEntry>().single.text,
+            'legacy follow-up',
+          );
+          expect(
+            (jsonDecode(
+              mockBridge.sentMessages.single.toJson(),
+            ) as Map<String, dynamic>).containsKey('delivery'),
+            isFalse,
+          );
+        },
+      );
+    });
 
     test('codex first input sent while starting is shown when ack arrives before delay', () async {
       final cubit = createCubit('s1', provider: Provider.codex);

@@ -1314,5 +1314,13 @@
   "createProjectShort": "만들기",
   "multiProjectShort": "멀티",
   "changeProjectLocation": "변경",
-  "chooseExistingFolder": "기존 폴더 선택"
+  "chooseExistingFolder": "기존 폴더 선택",
+  "defaultInputDelivery": "실행 중 보내는 메시지",
+  "defaultInputDeliverySubtitle": "보내기 버튼의 기본 동작입니다. 길게 누르면 다른 옵션을 선택할 수 있습니다.",
+  "inputDeliverySteer": "끼워 넣기",
+  "inputDeliveryQueue": "대기열",
+  "inputDeliverySteerDescription": "현재 턴을 멈추지 않고 지시를 추가합니다",
+  "inputDeliveryQueueDescription": "현재 턴이 끝난 후 보냅니다",
+  "sendAsSteer": "현재 턴에 끼워 넣기",
+  "sendAsQueue": "다음 턴 대기열에 추가"
 }

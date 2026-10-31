@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
+import 'input_delivery.dart';
 import 'protocol_version.dart';
+
+export 'input_delivery.dart';
 
 bool isCodexAutoReviewApprovalsReviewer(String? value) {
   return value == 'auto_review' || value == 'guardian_subagent';
@@ -4798,6 +4801,7 @@ class ClientMessage {
     Map<String, String>? skill,
     List<Map<String, String>>? skills,
     List<Map<String, String>>? mentions,
+    InputDelivery? delivery,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'input',
@@ -4809,6 +4813,7 @@ class ClientMessage {
       'skill': ?skill,
       if (skills != null && skills.isNotEmpty) 'skills': skills,
       if (mentions != null && mentions.isNotEmpty) 'mentions': mentions,
+      'delivery': ?delivery?.value,
     });
   }
 
