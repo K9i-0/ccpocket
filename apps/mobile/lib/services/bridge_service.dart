@@ -275,6 +275,10 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsInputDelivery =>
       _protocolCapabilities.contains('input_delivery_v1');
 
+  /// Bridge forks Claude sessions from an assistant message UUID.
+  bool get supportsClaudeFork =>
+      _protocolCapabilities.contains('claude_fork_v1');
+
   /// Bridge accepts `set_claude_settings` and publishes `claude_settings`.
   bool get supportsClaudeSessionSettings =>
       _protocolCapabilities.contains('claude_session_settings_v1');

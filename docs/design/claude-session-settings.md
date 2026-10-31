@@ -32,3 +32,15 @@ resolved model id from `system/init`) are reported back.
 
 The app stores the selected values in the per-session Claude settings so resuming
 the session starts with them.
+
+## Fork from an assistant message
+
+`fork { sessionId, targetUuid }` now also accepts Claude sessions. For Claude the
+target is the UUID of the assistant message that ends the kept turn (Codex keeps
+using the user-turn UUID). The Bridge validates the UUID against the Claude
+transcript and starts a new session with `resume`, `forkSession: true` and
+`resumeSessionAt`, copying the selected model/effort/fast mode and permission
+mode. The source session keeps running. The new session's provider id arrives
+with the first `system/init`, so it is not pre-populated. The app shows the fork
+action on Claude assistant messages only when the Bridge advertises
+`claude_fork_v1` (older Bridges reply `fork_failed`).

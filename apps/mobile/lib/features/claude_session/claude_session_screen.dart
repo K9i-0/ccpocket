@@ -48,6 +48,7 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/fork_confirmation.dart';
 import '../chat_session/widgets/queued_input_panel.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
@@ -1370,6 +1371,12 @@ class _ChatScreenBody extends HookWidget {
                           draftService: draftService,
                         );
                       },
+                      onForkMessage:
+                          context.read<BridgeService>().supportsClaudeFork
+                          ? (message) => unawaited(
+                              _forkClaudeFromAssistant(context, message),
+                            )
+                          : null,
                       collapseToolResults: collapseToolResults,
                       scrollToUserEntry: scrollToUserEntry,
                       bottomPadding: 8,
@@ -1892,4 +1899,22 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
   }
 
   return (toolCalls: toolCalls, fileEdits: fileEdits);
+}
+
+/// Fork from the end of the assistant turn that [message] belongs to.
+Future<void> _forkClaudeFromAssistant(
+  BuildContext context,
+  AssistantServerMessage message,
+) async {
+  final cubit = context.read<ChatSessionCubit>();
+  final targetUuid = message.messageUuid;
+  if (targetUuid == null || targetUuid.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).forkTargetNotFound)),
+    );
+    return;
+  }
+  final confirmed = await confirmForkConversation(context);
+  if (!confirmed || !context.mounted) return;
+  cubit.forkSession(targetUuid);
 }

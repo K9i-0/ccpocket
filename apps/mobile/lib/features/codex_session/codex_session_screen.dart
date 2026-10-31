@@ -47,6 +47,7 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/fork_confirmation.dart';
 import '../chat_session/widgets/queued_input_panel.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
@@ -1949,26 +1950,8 @@ Future<void> _forkCodexFromAssistant(
     return;
   }
 
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(l.forkConversationTitle),
-        content: Text(l.forkConversationBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l.fork),
-          ),
-        ],
-      );
-    },
-  );
-  if (confirmed != true || !context.mounted) return;
+  final confirmed = await confirmForkConversation(context);
+  if (!confirmed || !context.mounted) return;
 
   cubit.forkSession(targetUuid);
 }
