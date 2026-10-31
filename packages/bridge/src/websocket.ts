@@ -211,6 +211,8 @@ export interface ClaudeModelOption {
   value: string;
   displayName?: string;
   description?: string;
+  /** Claude Code fast mode is available for this model. */
+  supportsFastMode?: boolean;
 }
 
 const FALLBACK_CODEX_MODELS: string[] = [
@@ -2221,6 +2223,35 @@ export class BridgeWebSocketServer {
     }
   }
 
+  private claudeSettingsMessage(
+    sessionId: string,
+    session: SessionInfo,
+  ): ServerMessage {
+    const settings =
+      session.provider === "claude"
+        ? ((session.process as Partial<Pick<SdkProcess, "settings">>)
+            .settings ?? {})
+        : {};
+    return {
+      type: "system",
+      subtype: "claude_settings",
+      sessionId,
+      provider: "claude",
+      ...(settings.model ? { model: settings.model } : {}),
+      ...(settings.effort ? { effort: settings.effort } : {}),
+      fastMode: settings.fastMode === true,
+    } as ServerMessage;
+  }
+
+  private sendClaudeCurrentSettings(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    if (session.provider !== "claude") return;
+    this.send(ws, this.claudeSettingsMessage(sessionId, session));
+  }
+
   private sendCodexCurrentSettings(
     ws: WebSocket,
     sessionId: string,
@@ -2996,6 +3027,7 @@ export class BridgeWebSocketServer {
                     permissionMode: claudePermissionMode,
                     model: msg.model,
                     effort: msg.effort,
+                    fastMode: msg.claudeFastMode,
                     maxTurns: msg.maxTurns,
                     maxBudgetUsd: msg.maxBudgetUsd,
                     fallbackModel: msg.fallbackModel,
@@ -4255,6 +4287,48 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "set_claude_settings": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "claude") {
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "No active Claude session.",
+            errorCode: "set_claude_settings_unsupported",
+          });
+          break;
+        }
+        const claudeProcess = session.process as SdkProcess;
+        try {
+          await claudeProcess.updateSettings({
+            ...(msg.model !== undefined ? { model: msg.model.trim() } : {}),
+            ...(msg.effort !== undefined ? { effort: msg.effort } : {}),
+            ...(msg.fastMode !== undefined ? { fastMode: msg.fastMode } : {}),
+          });
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: `Failed to change Claude settings: ${err instanceof Error ? err.message : String(err)}`,
+            errorCode: "set_claude_settings_rejected",
+          });
+          // Re-sync the requester with the settings still in effect.
+          this.sendClaudeCurrentSettings(ws, session.id, session);
+          break;
+        }
+        session.lastActivityAt = new Date();
+        this.broadcastSessionMessage(
+          session.id,
+          this.claudeSettingsMessage(session.id, session),
+        );
+        this.broadcastSessionList();
+        const settings = claudeProcess.settings;
+        console.log(
+          `[ws] set_claude_settings: model=${settings.model ?? "default"} effort=${settings.effort ?? ""} fast=${settings.fastMode === true}`,
+        );
+        break;
+      }
+
       case "set_codex_recovery":
       case "cancel_codex_recovery": {
         const session = this.resolveSession(msg.sessionId);
@@ -4983,6 +5057,8 @@ export class BridgeWebSocketServer {
           } as Record<string, unknown>);
           if (session.provider === "codex") {
             this.sendCodexCurrentSettings(ws, msg.sessionId, session);
+          } else {
+            this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
           }
           this.send(ws, {
             type: "status",
@@ -5160,6 +5236,7 @@ export class BridgeWebSocketServer {
             status: session.status,
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
           } as ServerMessage);
+          this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
         } else {
           this.send(ws, {
@@ -5865,6 +5942,7 @@ export class BridgeWebSocketServer {
                 permissionMode: claudePermissionMode,
                 model: msg.model,
                 effort: msg.effort,
+                fastMode: msg.claudeFastMode,
                 maxTurns: msg.maxTurns,
                 maxBudgetUsd: msg.maxBudgetUsd,
                 fallbackModel: msg.fallbackModel,
@@ -7974,6 +8052,7 @@ export class BridgeWebSocketServer {
       sandboxMode: msg.sandboxMode,
       model: msg.model,
       effort: msg.effort,
+      fastMode: msg.claudeFastMode,
       maxTurns: msg.maxTurns,
       maxBudgetUsd: msg.maxBudgetUsd,
       fallbackModel: msg.fallbackModel,
@@ -9188,6 +9267,7 @@ export class BridgeWebSocketServer {
       value: model.model,
       ...(model.displayName ? { displayName: model.displayName } : {}),
       ...(model.description ? { description: model.description } : {}),
+      ...(model.supportsFastMode ? { supportsFastMode: true } : {}),
     }));
     this.claudeModelEfforts = Object.fromEntries(
       models.map((model) => [model.model, model.effortLevels]),

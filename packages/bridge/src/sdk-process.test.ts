@@ -834,6 +834,60 @@ describe("SdkProcess.approveAlways", () => {
   });
 });
 
+describe("SdkProcess settings", () => {
+  it("applies only changed model, effort and fast mode", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    const applyFlagSettings = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+
+    await proc.updateSettings({ model: "opus", effort: "high", fastMode: true });
+    expect(setModel).toHaveBeenCalledWith("opus");
+    // Effort is re-applied after a model switch so the new model uses it.
+    expect(applyFlagSettings).toHaveBeenCalledWith({
+      effortLevel: "high",
+      fastMode: true,
+    });
+    expect(proc.settings).toEqual({ model: "opus", effort: "high", fastMode: true });
+
+    setModel.mockClear();
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ effort: "low" });
+    expect(setModel).not.toHaveBeenCalled();
+    expect(applyFlagSettings).toHaveBeenCalledWith({ effortLevel: "low" });
+
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ fastMode: true });
+    expect(applyFlagSettings).not.toHaveBeenCalled();
+  });
+
+  it("maps the default model to the SDK default", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings: vi.fn() };
+    (proc as any)._settings = { model: "opus" };
+    await proc.updateSettings({ model: "default" });
+    expect(setModel).toHaveBeenCalledWith(undefined);
+    expect(proc.settings.model).toBe("default");
+  });
+
+  it("keeps settings unchanged when the SDK rejects the change", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {
+        throw new Error("bad model");
+      }),
+      applyFlagSettings: vi.fn(),
+    };
+    (proc as any)._settings = { model: "sonnet" };
+    await expect(proc.updateSettings({ model: "nope" })).rejects.toThrow(
+      "bad model",
+    );
+    expect(proc.settings).toEqual({ model: "sonnet" });
+  });
+});
+
 describe("SdkProcess input dispatch", () => {
   it("steers into a running turn with next priority and no status change", () => {
     const proc = new SdkProcess();

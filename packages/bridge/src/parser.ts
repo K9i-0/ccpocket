@@ -130,6 +130,8 @@ export type ClientMessage =
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      /** Claude Code fast mode (supported models only). */
+      claudeFastMode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -210,6 +212,13 @@ export type ClientMessage =
       serviceTier: string;
       sessionId?: string;
     }
+  | {
+      type: "set_claude_settings";
+      sessionId: string;
+      model?: string;
+      effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      fastMode?: boolean;
+    }
   | { type: "set_codex_recovery"; sessionId: string; enabled: boolean }
   | { type: "cancel_codex_recovery"; sessionId: string }
   | { type: "get_goal"; sessionId: string; background?: boolean }
@@ -277,6 +286,8 @@ export type ClientMessage =
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      /** Claude Code fast mode (supported models only). */
+      claudeFastMode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -1256,6 +1267,7 @@ function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
     isOptionalString(msg.sandboxMode) &&
     isOptionalString(msg.model) &&
     isOptionalEnum(msg.effort, CLAUDE_EFFORTS) &&
+    isOptionalBoolean(msg.claudeFastMode) &&
     (msg.maxTurns === undefined ||
       (Number.isInteger(msg.maxTurns) && Number(msg.maxTurns) >= 1)) &&
     (msg.maxBudgetUsd === undefined ||
@@ -1551,6 +1563,18 @@ export function parseClientMessage(data: string): ClientMessage | null {
         )
           return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
+          return null;
+        break;
+      case "set_claude_settings":
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
+        if (!isOptionalNonEmptyString(msg.model)) return null;
+        if (!isOptionalEnum(msg.effort, CLAUDE_EFFORTS)) return null;
+        if (!isOptionalBoolean(msg.fastMode)) return null;
+        if (
+          msg.model === undefined &&
+          msg.effort === undefined &&
+          msg.fastMode === undefined
+        )
           return null;
         break;
       case "set_codex_recovery":

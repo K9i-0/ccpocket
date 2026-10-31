@@ -94,6 +94,15 @@ export interface ClaudeModelMetadata {
   displayName?: string;
   description?: string;
   effortLevels: ClaudeEffortLevel[];
+  supportsFastMode?: boolean;
+}
+
+/** Model settings the user selected for a running Claude session. */
+export interface ClaudeSessionSettings {
+  /** Selected model value from the model list (alias or id). */
+  model?: string;
+  effort?: ClaudeEffortLevel;
+  fastMode?: boolean;
 }
 
 const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
@@ -132,6 +141,7 @@ function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | n
     ...(model.displayName ? { displayName: model.displayName } : {}),
     ...(description ? { description } : {}),
     effortLevels: model.supportsEffort === false ? [] : effortLevels,
+    ...(model.supportsFastMode === true ? { supportsFastMode: true } : {}),
   };
 }
 
@@ -384,6 +394,8 @@ export interface StartOptions {
   permissionMode?: PermissionMode;
   model?: string;
   effort?: ClaudeEffortLevel;
+  /** Start in Claude Code fast mode (supported models only). */
+  fastMode?: boolean;
   maxTurns?: number;
   maxBudgetUsd?: number;
   fallbackModel?: string;
@@ -802,6 +814,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private _settings: ClaudeSessionSettings = {};
+  /** User-selected model/effort/fast mode (not the resolved model id). */
+  get settings(): ClaudeSessionSettings { return { ...this._settings }; }
   private authClassification: ClaudeAuthClassification = "unknown";
   private authGeneration = 0;
   private authResolution: Promise<void> = Promise.resolve();
@@ -1016,6 +1031,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         },
       },
     });
+
+    this._settings = {
+      ...(options?.model ? { model: options.model } : {}),
+      ...(options?.effort ? { effort: options.effort } : {}),
+      ...(options?.fastMode ? { fastMode: true } : {}),
+    };
+    if (options?.fastMode) {
+      this.queryInstance
+        .applyFlagSettings({ fastMode: true })
+        .catch((err) => {
+          console.warn(`[sdk-process] Failed to enable fast mode: ${err}`);
+        });
+    }
 
     const queryInstance = this.queryInstance;
     const authGeneration = this.authGeneration;
@@ -1308,6 +1336,38 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     } catch (err) {
       return { canRewind: false, error: err instanceof Error ? err.message : String(err) };
     }
+  }
+
+  /**
+   * Change model, effort or fast mode for subsequent responses. Values that
+   * are undefined are left unchanged. Takes effect from the next request; a
+   * running turn keeps its current model.
+   */
+  async updateSettings(next: ClaudeSessionSettings): Promise<ClaudeSessionSettings> {
+    const queryInstance = this.queryInstance;
+    if (!queryInstance) throw new Error("No active Claude session.");
+    const modelChanged =
+      next.model !== undefined && next.model !== this._settings.model;
+    if (modelChanged) {
+      await queryInstance.setModel(next.model === "default" ? undefined : next.model);
+    }
+    const flags: { effortLevel?: ClaudeEffortLevel; fastMode?: boolean } = {};
+    if (next.effort !== undefined && (modelChanged || next.effort !== this._settings.effort)) {
+      flags.effortLevel = next.effort;
+    }
+    if (next.fastMode !== undefined && next.fastMode !== (this._settings.fastMode ?? false)) {
+      flags.fastMode = next.fastMode;
+    }
+    if (Object.keys(flags).length > 0) {
+      await queryInstance.applyFlagSettings(flags);
+    }
+    this._settings = {
+      ...this._settings,
+      ...(next.model !== undefined ? { model: next.model } : {}),
+      ...(next.effort !== undefined ? { effort: next.effort } : {}),
+      ...(next.fastMode !== undefined ? { fastMode: next.fastMode } : {}),
+    };
+    return this.settings;
   }
 
   async listAvailableModels(): Promise<ClaudeModelMetadata[]> {

@@ -191,6 +191,11 @@ vi.mock("./session.js", () => ({
         sendInputWithImages: vi.fn(() => false),
         steerInputStructured: vi.fn(async () => {}),
         steerInput: vi.fn(() => true),
+        settings: { model: "sonnet", effort: "high" },
+        updateSettings: vi.fn(async function (this: any, next: any) {
+          this.settings = { ...this.settings, ...next };
+          return this.settings;
+        }),
         approve: vi.fn(),
         approveAlways: vi.fn(),
         reject: vi.fn(),
@@ -2853,7 +2858,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId: newSessionId,
     });
     expect(historySends[1]).toMatchObject({ type: "history", sessionId: newSessionId });
-    expect(historySends[2]).toMatchObject({ type: "status", sessionId: newSessionId });
+    expect(historySends[2]).toMatchObject({
+      type: "system",
+      subtype: "claude_settings",
+      sessionId: newSessionId,
+    });
+    expect(historySends[3]).toMatchObject({ type: "status", sessionId: newSessionId });
 
     bridge.close();
   });
@@ -9838,6 +9848,117 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.process.steerInputStructured).not.toHaveBeenCalled();
     expect(session.queuedInput).toBeUndefined();
 
+    bridge.close();
+  });
+
+  it("changes Claude model, effort and fast mode mid-session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "set_claude_settings",
+        sessionId,
+        model: "opus",
+        effort: "xhigh",
+        fastMode: true,
+      },
+      ws,
+    );
+
+    expect(session.process.updateSettings).toHaveBeenCalledWith({
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    });
+    const messages = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(
+      messages.find(
+        (m: any) => m.type === "system" && m.subtype === "claude_settings",
+      ),
+    ).toMatchObject({
+      sessionId,
+      provider: "claude",
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    });
+    bridge.close();
+  });
+
+  it("reports rejected Claude settings and re-sends current settings", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.updateSettings.mockRejectedValueOnce(new Error("nope"));
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      { type: "set_claude_settings", sessionId, model: "haiku" },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(messages.find((m: any) => m.type === "error")).toMatchObject({
+      errorCode: "set_claude_settings_rejected",
+    });
+    expect(
+      messages.find(
+        (m: any) => m.type === "system" && m.subtype === "claude_settings",
+      ),
+    ).toMatchObject({ model: "sonnet", effort: "high", fastMode: false });
+    bridge.close();
+  });
+
+  it("rejects set_claude_settings for codex sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-codex", provider: "codex" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "set_claude_settings",
+        sessionId: created.sessionId,
+        effort: "low",
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+      type: "error",
+      errorCode: "set_claude_settings_unsupported",
+    });
     bridge.close();
   });
 

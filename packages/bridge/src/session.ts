@@ -178,6 +178,12 @@ export interface SessionSummary {
     webSearchMode?: string;
     additionalWritableRoots?: string[];
   };
+  /** User-selected Claude model, effort and fast mode. */
+  claudeSettings?: {
+    model?: string;
+    effort?: string;
+    fastMode?: boolean;
+  };
   agentNickname?: string;
   agentRole?: string;
   /** Claude sandbox enabled state. */
@@ -1032,6 +1038,9 @@ export class SessionManager {
           ? session.process.model
           : undefined,
       codexSettings,
+      ...(session.process instanceof SdkProcess
+        ? { claudeSettings: session.process.settings }
+        : {}),
       agentNickname:
         session.process instanceof CodexProcess
           ? (session.process.agentNickname ?? undefined)
