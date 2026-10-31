@@ -1463,7 +1463,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get forkConversationTitle => '分叉对话？';
 
   @override
-  String get forkConversationBody => '从此回复创建一个新的 Codex 会话。当前会话不会改变。';
+  String get forkConversationBody => '从此回复创建一个新会话。当前会话不会改变。';
 
   @override
   String get forkTargetNotFound => '找不到可用于分叉的用户消息';
@@ -2202,7 +2202,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUsageSectionTitle => '用量';
 
   @override
-  String get settingsUsageNoCodexData => '未找到 Codex 的用量数据。';
+  String get settingsUsageNoData => '未找到用量数据。';
 
   @override
   String get usageDisplayModeRemaining => '剩余';
@@ -2249,15 +2249,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => '已达到上限';
-
-  @override
-  String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
-
-  @override
-  String get settingsClaudeApiBilling => 'API Key 计费';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => '订阅用量';
 
   @override
   String get settingsNewSessionTabs => '新建会话标签页';
@@ -3311,4 +3302,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => '选择现有文件夹';
+
+  @override
+  String get defaultInputDelivery => '运行中发送的消息';
+
+  @override
+  String get defaultInputDeliverySubtitle => '发送按钮的默认操作。长按发送可使用另一种方式。';
+
+  @override
+  String get inputDeliverySteer => '插入';
+
+  @override
+  String get inputDeliveryQueue => '排队';
+
+  @override
+  String get inputDeliverySteerDescription => '在不停止当前回合的情况下追加指令';
+
+  @override
+  String get inputDeliveryQueueDescription => '当前回合结束后发送';
+
+  @override
+  String get sendAsSteer => '插入当前回合';
+
+  @override
+  String get sendAsQueue => '排队到下一回合';
 }

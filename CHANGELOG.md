@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.147.0] - 2026-10-31
+
+### Added
+
+- Choose whether a message sent while Claude is working steers the current turn or waits in the queue. Tap send for the default from settings, long-press for the other; queued messages can be steered, edited or cancelled (requires Bridge 1.92.0).
+- Change the Claude model, effort and fast mode during a session from the mode bar, and pick them in the new session sheet.
+- Show Claude effort and fast mode on running session cards.
+- Fork a Claude conversation from an assistant message.
+
+### Fixed
+
+- Add a Next button to multi-select pages of multi-question prompts.
+- Let the Claude permission and sandbox menus scroll on short screens such as landscape phones.
+- Leave the pending session page when the Bridge rejects a start (for example an unallowed path) instead of staying on "Creating session...".
+
+## [1.146.0] - 2026-10-31
+
+### Added
+
+- Show Claude and Codex plan usage cards in settings, sharing the remaining/used toggle, reset times and pace indicators.
+- Show Claude usage alongside Codex usage in the session list summary.
+- Show Claude model names and descriptions like the Claude Code CLI when starting a session.
+
+### Fixed
+
+- Keep Claude subagent activity out of the main chat: subagent prompts and interrupt markers no longer appear as user messages, and sending a message while background agents run no longer leaves the session stuck (requires Bridge 1.91.0).
+- Stop showing empty timestamps above hidden chat entries.
+- Hide Codex setting changes in restored chat history.
+
 ## [1.145.6] - 2026-10-26
 
 ### Fixed

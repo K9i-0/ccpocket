@@ -445,6 +445,60 @@ void main() {
       expect(find.text('Color?'), findsNothing);
     });
 
+    testWidgets('multi-select page in multi-question advances with Next', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-multi-next',
+            input: {
+              'questions': [
+                {
+                  'question': 'Features?',
+                  'header': 'Scope',
+                  'options': [
+                    {'label': 'Fork', 'description': ''},
+                    {'label': 'Fast mode', 'description': ''},
+                  ],
+                  'multiSelect': true,
+                },
+                {
+                  'question': 'Size?',
+                  'header': 'Size',
+                  'options': [
+                    {'label': 'Small', 'description': ''},
+                    {'label': 'Large', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (_, _) {},
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      FilledButton nextButton() => tester.widget<FilledButton>(
+        find.byKey(const ValueKey('ask_multi_next_button_0')),
+      );
+      expect(nextButton().onPressed, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('ask_option_0_Fork')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ask_option_0_Fast mode')));
+      await tester.pumpAndSettle();
+      expect(nextButton().onPressed, isNotNull);
+
+      await tester.tap(find.byKey(const ValueKey('ask_multi_next_button_0')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Size?'), findsOneWidget);
+      expect(find.text('Features?'), findsNothing);
+    });
+
     testWidgets('secret answers stay masked during entry and review', (
       tester,
     ) async {

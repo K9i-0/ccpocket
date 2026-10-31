@@ -47,6 +47,11 @@ abstract class ChatSessionState with _$ChatSessionState {
     String? codexModel,
     ReasoningEffort? codexModelReasoningEffort,
     @Default(CodexSpeed.standard) CodexSpeed codexSpeed,
+
+    // Claude model settings selected for this session (claude_settings).
+    String? claudeModel,
+    ClaudeEffort? claudeEffort,
+    @Default(false) bool claudeFastMode,
     @Default(false) bool planMode,
 
     // Sandbox mode - Freezed default is .on but Cubit constructor overrides

@@ -2846,7 +2846,7 @@ abstract class AppLocalizations {
   /// No description provided for @forkConversationBody.
   ///
   /// In ja, this message translates to:
-  /// **'この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。'**
+  /// **'この応答時点から新しいセッションを作成します。現在のセッションは変更されません。'**
   String get forkConversationBody;
 
   /// No description provided for @forkTargetNotFound.
@@ -4229,11 +4229,11 @@ abstract class AppLocalizations {
   /// **'利用量'**
   String get settingsUsageSectionTitle;
 
-  /// No description provided for @settingsUsageNoCodexData.
+  /// No description provided for @settingsUsageNoData.
   ///
   /// In ja, this message translates to:
-  /// **'Codex の利用量データが見つかりませんでした。'**
-  String get settingsUsageNoCodexData;
+  /// **'利用量データが見つかりませんでした。'**
+  String get settingsUsageNoData;
 
   /// No description provided for @usageDisplayModeRemaining.
   ///
@@ -4318,24 +4318,6 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'上限に到達しています'**
   String get usagePaceAtLimit;
-
-  /// No description provided for @settingsClaudeUsageDescription.
-  ///
-  /// In ja, this message translates to:
-  /// **'Claude の公式課金ページをブラウザで開きます。'**
-  String get settingsClaudeUsageDescription;
-
-  /// No description provided for @settingsClaudeApiBilling.
-  ///
-  /// In ja, this message translates to:
-  /// **'API キーの課金'**
-  String get settingsClaudeApiBilling;
-
-  /// No description provided for @settingsClaudeSubscriptionUsage.
-  ///
-  /// In ja, this message translates to:
-  /// **'サブスクリプション利用状況'**
-  String get settingsClaudeSubscriptionUsage;
 
   /// No description provided for @settingsNewSessionTabs.
   ///
@@ -6304,6 +6286,54 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'既存フォルダを選択'**
   String get chooseExistingFolder;
+
+  /// No description provided for @defaultInputDelivery.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中に送るメッセージ'**
+  String get defaultInputDelivery;
+
+  /// No description provided for @defaultInputDeliverySubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'送信ボタンの既定動作です。長押しでもう一方を選べます。'**
+  String get defaultInputDeliverySubtitle;
+
+  /// No description provided for @inputDeliverySteer.
+  ///
+  /// In ja, this message translates to:
+  /// **'差し込む'**
+  String get inputDeliverySteer;
+
+  /// No description provided for @inputDeliveryQueue.
+  ///
+  /// In ja, this message translates to:
+  /// **'キュー'**
+  String get inputDeliveryQueue;
+
+  /// No description provided for @inputDeliverySteerDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中のターンを止めずに指示を追加します'**
+  String get inputDeliverySteerDescription;
+
+  /// No description provided for @inputDeliveryQueueDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在のターンが終わってから送信します'**
+  String get inputDeliveryQueueDescription;
+
+  /// No description provided for @sendAsSteer.
+  ///
+  /// In ja, this message translates to:
+  /// **'今のターンに差し込む'**
+  String get sendAsSteer;
+
+  /// No description provided for @sendAsQueue.
+  ///
+  /// In ja, this message translates to:
+  /// **'次のターンにキュー'**
+  String get sendAsQueue;
 }
 
 class _AppLocalizationsDelegate

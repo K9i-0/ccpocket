@@ -347,8 +347,39 @@ const RE_CODEX_PARTIAL_OUTPUT_TEXT =
 const RE_SYSTEM_INJECTED =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
 
+/** Marker the CLI records as a user message after an interrupt. */
+const RE_INTERRUPT_MARKER = /^\[Request interrupted by user(?: for tool use)?\]$/;
+
 function isSystemInjectedText(text: string): boolean {
-  return RE_SYSTEM_INJECTED.test(text) || text.startsWith("Base directory for this skill:");
+  const normalized = text.trim();
+  return (
+    RE_SYSTEM_INJECTED.test(normalized) ||
+    RE_INTERRUPT_MARKER.test(normalized) ||
+    normalized.startsWith("Base directory for this skill:")
+  );
+}
+
+/**
+ * User entries the CLI wrote itself (task notifications, interrupt markers,
+ * command captures) are shown to the model but are not user prompts.
+ */
+function isClaudeNonPromptUserEntry(
+  entry: Record<string, unknown>,
+  content: unknown[] | string,
+): boolean {
+  if (entry.isMeta === true || entry.promptSource === "system") return true;
+  const texts =
+    typeof content === "string"
+      ? [content]
+      : content.flatMap((item) => {
+          if (typeof item !== "object" || item === null) return [];
+          const block = item as Record<string, unknown>;
+          if (block.type === "text" && typeof block.text === "string") {
+            return [block.text];
+          }
+          return block.type === "image" ? [""] : [];
+        });
+  return texts.length > 0 && texts.every((text) => isSystemInjectedText(text));
 }
 
 function isCodexAutoRenameSession(firstPrompt: string): boolean {
@@ -2972,7 +3003,10 @@ export async function getSessionHistory(
     if (!message?.content) continue;
 
     const role = message.role as "user" | "assistant";
-    const isMeta = role === "user" && entry.isMeta === true ? true : undefined;
+    const isMeta =
+      role === "user" && isClaudeNonPromptUserEntry(entry, message.content)
+        ? true
+        : undefined;
 
     // Handle string content (e.g. user message after interrupt)
     if (typeof message.content === "string") {

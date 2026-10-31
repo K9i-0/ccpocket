@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
+import 'package:ccpocket/features/chat_session/widgets/queued_input_panel.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +13,7 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
-  testWidgets('CodexQueuedInputPanel exposes steer edit and cancel actions', (
+  testWidgets('QueuedInputPanel exposes steer edit and cancel actions', (
     tester,
   ) async {
     var steered = false;
@@ -22,7 +22,7 @@ void main() {
 
     await tester.pumpWidget(
       _wrap(
-        CodexQueuedInputPanel(
+        QueuedInputPanel(
           item: const QueuedInputItem(
             itemId: 'q1',
             text: 'Follow up after this turn',
@@ -52,7 +52,7 @@ void main() {
     expect(canceled, isTrue);
   });
 
-  testWidgets('CodexQueuedInputPanel shows reconnect copy for offline queue', (
+  testWidgets('QueuedInputPanel shows reconnect copy for offline queue', (
     tester,
   ) async {
     var edited = false;
@@ -60,7 +60,7 @@ void main() {
 
     await tester.pumpWidget(
       _wrap(
-        CodexQueuedInputPanel(
+        QueuedInputPanel(
           item: const QueuedInputItem(
             itemId: 'offline:cm1',
             text: 'Offline pending message',
@@ -87,7 +87,7 @@ void main() {
     expect(canceled, isTrue);
   });
 
-  testWidgets('CodexQueuedInputPanel hides steer for delivery pending', (
+  testWidgets('QueuedInputPanel hides steer for delivery pending', (
     tester,
   ) async {
     var edited = false;
@@ -95,7 +95,7 @@ void main() {
 
     await tester.pumpWidget(
       _wrap(
-        CodexQueuedInputPanel(
+        QueuedInputPanel(
           item: const QueuedInputItem(
             itemId: 'pending:cm1',
             text: 'Slow delivery message',

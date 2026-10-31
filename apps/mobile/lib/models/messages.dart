@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
+import 'input_delivery.dart';
 import 'protocol_version.dart';
+
+export 'input_delivery.dart';
 
 bool isCodexAutoReviewApprovalsReviewer(String? value) {
   return value == 'auto_review' || value == 'guardian_subagent';
@@ -488,6 +491,15 @@ enum ClaudeEffort {
   const ClaudeEffort(this.value, this.label);
 }
 
+ClaudeEffort? claudeEffortByValue(String? raw) {
+  final value = raw?.trim();
+  if (value == null || value.isEmpty) return null;
+  for (final effort in ClaudeEffort.values) {
+    if (effort.value == value) return effort;
+  }
+  return null;
+}
+
 // ---- Sandbox mode (Claude & Codex) ----
 
 enum SandboxMode {
@@ -813,6 +825,8 @@ sealed class ServerMessage {
         sandboxMode: json['sandboxMode'] as String?,
         modelReasoningEffort: json['modelReasoningEffort'] as String?,
         serviceTier: json['serviceTier'] as String?,
+        effort: json['effort'] as String?,
+        fastMode: json['fastMode'] as bool?,
         networkAccessEnabled: json['networkAccessEnabled'] as bool?,
         webSearchMode: json['webSearchMode'] as String?,
         slashCommands:
@@ -855,6 +869,7 @@ sealed class ServerMessage {
         worktreeBranch: json['worktreeBranch'] as String?,
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
+        forked: json['forked'] == true,
         resumeRequestId: json['resumeRequestId'] as String?,
         requestId: json['requestId'] as String?,
         tipCode: json['tipCode'] as String?,
@@ -1697,6 +1712,12 @@ class SystemMessage implements ServerMessage {
   final String? sandboxMode;
   final String? modelReasoningEffort;
   final String? serviceTier;
+
+  /// Claude effort level (claude_settings).
+  final String? effort;
+
+  /// Claude fast mode (claude_settings).
+  final bool? fastMode;
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String> slashCommands;
@@ -1710,6 +1731,9 @@ class SystemMessage implements ServerMessage {
   final String? worktreeBranch;
   final bool clearContext;
   final String? sourceSessionId;
+
+  /// session_created for a fork: the source session keeps running.
+  final bool forked;
   final String? resumeRequestId;
   final String? requestId;
   final String? tipCode;
@@ -1731,6 +1755,8 @@ class SystemMessage implements ServerMessage {
     this.sandboxMode,
     this.modelReasoningEffort,
     this.serviceTier,
+    this.effort,
+    this.fastMode,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.slashCommands = const [],
@@ -1744,6 +1770,7 @@ class SystemMessage implements ServerMessage {
     this.worktreeBranch,
     this.clearContext = false,
     this.sourceSessionId,
+    this.forked = false,
     this.resumeRequestId,
     this.requestId,
     this.tipCode,
@@ -2647,10 +2674,14 @@ class ClaudeModelOption {
   final String? displayName;
   final String? description;
 
+  /// Claude Code fast mode is available for this model.
+  final bool supportsFastMode;
+
   const ClaudeModelOption({
     required this.value,
     this.displayName,
     this.description,
+    this.supportsFastMode = false,
   });
 
   String get label {
@@ -2672,6 +2703,7 @@ class ClaudeModelOption {
       description: description is String && description.isNotEmpty
           ? description
           : null,
+      supportsFastMode: json['supportsFastMode'] == true,
     );
   }
 
@@ -4466,6 +4498,10 @@ class SessionInfo {
   final String? executionMode;
   final bool planMode;
   final String? model;
+
+  /// Claude effort / fast mode selected for this session (claudeSettings).
+  final String? claudeEffort;
+  final bool claudeFastMode;
   final String? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
   final String? codexPermissionsMode;
@@ -4503,6 +4539,8 @@ class SessionInfo {
     this.executionMode,
     this.planMode = false,
     this.model,
+    this.claudeEffort,
+    this.claudeFastMode = false,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
     this.codexPermissionsMode,
@@ -4561,6 +4599,8 @@ class SessionInfo {
     String? executionMode,
     bool? planMode,
     String? model,
+    String? claudeEffort,
+    bool? claudeFastMode,
     String? codexApprovalPolicy,
     String? codexApprovalsReviewer,
     String? codexPermissionsMode,
@@ -4596,6 +4636,8 @@ class SessionInfo {
       executionMode: executionMode ?? this.executionMode,
       planMode: planMode ?? this.planMode,
       model: model ?? this.model,
+      claudeEffort: claudeEffort ?? this.claudeEffort,
+      claudeFastMode: claudeFastMode ?? this.claudeFastMode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexApprovalsReviewer:
           codexApprovalsReviewer ?? this.codexApprovalsReviewer,
@@ -4622,6 +4664,7 @@ class SessionInfo {
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
+    final claudeSettings = json['claudeSettings'] as Map<String, dynamic>?;
     final permJson = json['pendingPermission'] as Map<String, dynamic>?;
     final queueJson = json['queuedInput'] as Map<String, dynamic>?;
     return SessionInfo(
@@ -4652,6 +4695,8 @@ class SessionInfo {
         permissionMode: json['permissionMode'] as String?,
       ),
       model: json['model'] as String?,
+      claudeEffort: claudeSettings?['effort'] as String?,
+      claudeFastMode: claudeSettings?['fastMode'] == true,
       codexApprovalPolicy: resolveCodexApprovalPolicy(
         approvalPolicy: codexSettings?['approvalPolicy'] as String?,
         executionMode: json['executionMode'] as String?,
@@ -4760,6 +4805,7 @@ class ClientMessage {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -4796,6 +4842,7 @@ class ClientMessage {
       'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
+      'claudeFastMode': ?claudeFastMode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,
@@ -4832,6 +4879,7 @@ class ClientMessage {
     Map<String, String>? skill,
     List<Map<String, String>>? skills,
     List<Map<String, String>>? mentions,
+    InputDelivery? delivery,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'input',
@@ -4843,6 +4891,7 @@ class ClientMessage {
       'skill': ?skill,
       if (skills != null && skills.isNotEmpty) 'skills': skills,
       if (mentions != null && mentions.isNotEmpty) 'mentions': mentions,
+      'delivery': ?delivery?.value,
     });
   }
 
@@ -4943,6 +4992,21 @@ class ClientMessage {
       'model': model,
       'modelReasoningEffort': ?modelReasoningEffort,
       'sessionId': ?sessionId,
+    });
+  }
+
+  factory ClientMessage.setClaudeSettings({
+    required String sessionId,
+    String? model,
+    ClaudeEffort? effort,
+    bool? fastMode,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_claude_settings',
+      'sessionId': sessionId,
+      'model': ?model,
+      'effort': ?effort?.value,
+      'fastMode': ?fastMode,
     });
   }
 
@@ -5157,6 +5221,7 @@ class ClientMessage {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -5187,6 +5252,7 @@ class ClientMessage {
       'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
+      'claudeFastMode': ?claudeFastMode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,

@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/app_icon.dart';
 import '../../models/git_diff_interaction_mode.dart';
 import '../../models/image_paste_shortcut.dart';
+import '../../models/input_delivery.dart';
 import '../../models/machine.dart';
 import '../../models/new_session_tab.dart';
 import '../../providers/machine_manager_cubit.dart';
@@ -696,6 +697,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (value) => context
                           .read<SettingsCubit>()
                           .setShowHiddenDirectories(value),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    ListTile(
+                      key: const ValueKey('default_input_delivery_tile'),
+                      leading: Icon(
+                        Icons.low_priority_rounded,
+                        color: cs.primary,
+                      ),
+                      title: Text(l.defaultInputDelivery),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(l.defaultInputDeliverySubtitle),
+                            const SizedBox(height: 8),
+                            SegmentedButton<InputDelivery>(
+                              key: const ValueKey(
+                                'default_input_delivery_selector',
+                              ),
+                              showSelectedIcon: false,
+                              segments: [
+                                ButtonSegment(
+                                  value: InputDelivery.queue,
+                                  icon: const Icon(Icons.schedule, size: 18),
+                                  label: Text(l.inputDeliveryQueue),
+                                ),
+                                ButtonSegment(
+                                  value: InputDelivery.steer,
+                                  icon: const Icon(
+                                    Icons.subdirectory_arrow_left,
+                                    size: 18,
+                                  ),
+                                  label: Text(l.inputDeliverySteer),
+                                ),
+                              ],
+                              selected: {state.defaultInputDelivery},
+                              onSelectionChanged: (selection) => context
+                                  .read<SettingsCubit>()
+                                  .setDefaultInputDelivery(selection.first),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     if (codexEnabled) ...[
                       Divider(

@@ -587,7 +587,7 @@
   "fork": "分叉",
   "forkConversation": "分叉对话",
   "forkConversationTitle": "分叉对话？",
-  "forkConversationBody": "从此回复创建一个新的 Codex 会话。当前会话不会改变。",
+  "forkConversationBody": "从此回复创建一个新会话。当前会话不会改变。",
   "forkTargetNotFound": "找不到可用于分叉的用户消息",
   "tapToRetry": "点按重试",
 
@@ -946,7 +946,7 @@
   "usageFiveHour": "5 小时",
   "usageSevenDay": "7 天",
   "settingsUsageSectionTitle": "用量",
-  "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
+  "settingsUsageNoData": "未找到用量数据。",
   "usageDisplayModeRemaining": "剩余",
   "usageDisplayModeUsed": "已用",
   "usageOpenSettingsHint": "打开用量详情",
@@ -971,9 +971,6 @@
     }
   },
   "usagePaceAtLimit": "已达到上限",
-  "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
-  "settingsClaudeApiBilling": "API Key 计费",
-  "settingsClaudeSubscriptionUsage": "订阅用量",
   "settingsNewSessionTabs": "新建会话标签页",
   "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
   "showHiddenDirectories": "显示隐藏目录",
@@ -1458,5 +1455,13 @@
   "createProjectShort": "创建",
   "multiProjectShort": "多项目",
   "changeProjectLocation": "更改",
-  "chooseExistingFolder": "选择现有文件夹"
+  "chooseExistingFolder": "选择现有文件夹",
+  "defaultInputDelivery": "运行中发送的消息",
+  "defaultInputDeliverySubtitle": "发送按钮的默认操作。长按发送可使用另一种方式。",
+  "inputDeliverySteer": "插入",
+  "inputDeliveryQueue": "排队",
+  "inputDeliverySteerDescription": "在不停止当前回合的情况下追加指令",
+  "inputDeliveryQueueDescription": "当前回合结束后发送",
+  "sendAsSteer": "插入当前回合",
+  "sendAsQueue": "排队到下一回合"
 }

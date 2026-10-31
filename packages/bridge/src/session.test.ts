@@ -121,6 +121,11 @@ vi.mock("./sdk-process.js", () => ({
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
     public rewindFiles = vi.fn(async () => ({ canRewind: false }));
+    public status = "idle";
+    public isTurnActive = false;
+    public dispatchInput = vi.fn();
+    public dispatchInputWithImages = vi.fn();
+    public steerInput = vi.fn(() => true);
 
     constructor() {
       super();
@@ -1021,7 +1026,7 @@ describe("SessionManager codex path", () => {
     it("retains active sessions and all pending user work beyond the TTL", () => {
       const ids = Array.from({ length: 5 }, (_, i) => manager.create(`/tmp/protected-${i}`, undefined, undefined, undefined, "codex"));
       codexInstances.slice(1).forEach((proc) => proc.emit("status", "idle"));
-      manager.get(ids[1])!.codexQueuedInput = { itemId: "queued", text: "next", createdAt: new Date().toISOString() };
+      manager.get(ids[1])!.queuedInput = { itemId: "queued", text: "next", createdAt: new Date().toISOString() };
       codexInstances[2].getRecoveryState.mockReturnValue({ phase: "waiting" });
       codexInstances[3].getPendingPermissions.mockReturnValue([{ toolUseId: "question", toolName: "AskUserQuestion", input: { isBlocking: false } }]);
       codexInstances[4].emit("status", "waiting_approval");
@@ -1204,7 +1209,7 @@ describe("SessionManager codex path", () => {
       undefined,
       "codex",
     );
-    const queued = manager.queueCodexInput(sessionId, {
+    const queued = manager.queueInput(sessionId, {
       itemId: "queued-1",
       clientMessageId: "cm-follow-up",
       text: "Follow up",
@@ -1221,7 +1226,7 @@ describe("SessionManager codex path", () => {
     proc.isWaitingForInput = true;
     proc.emit("input_ready");
 
-    expect(manager.get(sessionId)?.codexQueuedInput).toBeUndefined();
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
     expect(
       manager.list().find((s) => s.id === sessionId)?.queuedInput,
     ).toBeUndefined();
@@ -1269,7 +1274,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
     expect(
-      manager.queueCodexInput(sessionId, {
+      manager.queueInput(sessionId, {
         itemId: "queued-1",
         text: "Steer this",
         createdAt: "2026-04-25T00:00:00.000Z",
@@ -1278,10 +1283,10 @@ describe("SessionManager codex path", () => {
       }),
     ).toBe(true);
 
-    const result = await manager.steerCodexQueuedInput(sessionId, "queued-1");
+    const result = await manager.steerQueuedInput(sessionId, "queued-1");
 
     expect(result).toEqual({ ok: true });
-    expect(manager.get(sessionId)?.codexQueuedInput).toBeUndefined();
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
     expect(codexInstances[0].steerInputStructured).toHaveBeenCalledWith(
       "Steer this",
       {
@@ -1318,7 +1323,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
     expect(
-      manager.queueCodexInput(sessionId, {
+      manager.queueInput(sessionId, {
         itemId: "queued-1",
         text: "Steer this",
         createdAt: "2026-04-25T00:00:00.000Z",
@@ -1328,13 +1333,13 @@ describe("SessionManager codex path", () => {
       new Error("No active Codex turn to steer"),
     );
 
-    const result = await manager.steerCodexQueuedInput(sessionId, "queued-1");
+    const result = await manager.steerQueuedInput(sessionId, "queued-1");
 
     expect(result).toEqual({
       ok: false,
       error: "No active Codex turn to steer",
     });
-    expect(manager.get(sessionId)?.codexQueuedInput?.text).toBe("Steer this");
+    expect(manager.get(sessionId)?.queuedInput?.text).toBe("Steer this");
   });
 
   it("extracts Codex MCP base64 images into images for history and forwarding", async () => {
@@ -1462,6 +1467,126 @@ describe("SessionManager codex path", () => {
       { seq: 1, type: "tool_result" },
       { seq: 2, type: "result" },
     ]);
+  });
+});
+
+describe("SessionManager claude input queue", () => {
+  beforeEach(() => {
+    codexInstances.length = 0;
+    sdkInstances.length = 0;
+  });
+
+  function createClaude() {
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_sessionId, msg) => {
+      forwarded.push(msg);
+    });
+    const sessionId = manager.create("/tmp/project-claude");
+    const proc = sdkInstances.at(-1)!;
+    proc.status = "running";
+    proc.isTurnActive = true;
+    return { manager, sessionId, proc, forwarded };
+  }
+
+  it("holds queued claude input until the turn becomes idle", () => {
+    const { manager, sessionId, proc, forwarded } = createClaude();
+    expect(
+      manager.queueInput(sessionId, {
+        itemId: "queued-1",
+        clientMessageId: "cm-1",
+        text: "after this turn",
+        createdAt: "2026-10-31T00:00:00.000Z",
+      }),
+    ).toBe(true);
+    expect(manager.list().find((s) => s.id === sessionId)?.queuedInput)
+      .toMatchObject({ itemId: "queued-1", text: "after this turn" });
+
+    proc.emit("status", "waiting_approval");
+    expect(proc.dispatchInput).not.toHaveBeenCalled();
+
+    proc.status = "idle";
+    proc.isTurnActive = false;
+    // A bare idle (e.g. from stop) must not send the queued prompt.
+    proc.emit("status", "idle");
+    expect(proc.dispatchInput).not.toHaveBeenCalled();
+
+    proc.emit("input_ready");
+
+    expect(proc.dispatchInput).toHaveBeenCalledWith("after this turn");
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
+    expect(forwarded.find((m) => m.type === "user_input")).toMatchObject({
+      type: "user_input",
+      text: "after this turn",
+      clientMessageId: "cm-1",
+    });
+    expect(
+      forwarded.find((m) => m.type === "user_input" && "userMessageUuid" in m),
+    ).toBeUndefined();
+  });
+
+  it("steers claude queued input without waiting for the turn", async () => {
+    const { manager, sessionId, proc, forwarded } = createClaude();
+    manager.queueInput(sessionId, {
+      itemId: "queued-1",
+      text: "add this now",
+      createdAt: "2026-10-31T00:00:00.000Z",
+      imageCount: 1,
+      images: [{ base64: "aGVsbG8=", mimeType: "image/png" }],
+    });
+
+    const result = await manager.steerQueuedInput(sessionId, "queued-1");
+
+    expect(result).toEqual({ ok: true });
+    expect(proc.steerInput).toHaveBeenCalledWith("add this now", [
+      { base64: "aGVsbG8=", mimeType: "image/png" },
+    ]);
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
+    const queueEvents = forwarded.filter((m) => m.type === "conversation_queue");
+    expect(queueEvents.at(-1)).toMatchObject({ items: [] });
+  });
+
+  it("queues new steer input when the steer is rejected", async () => {
+    const { manager, sessionId, proc } = createClaude();
+    proc.steerInput.mockImplementationOnce(() => {
+      throw new Error("not ready");
+    });
+
+    const outcome = await manager.steerInput(sessionId, {
+      itemId: "queued-2",
+      text: "retry later",
+      createdAt: "2026-10-31T00:00:00.000Z",
+    });
+
+    expect(outcome).toBe("queued");
+    expect(manager.get(sessionId)?.queuedInput?.text).toBe("retry later");
+  });
+
+  it("sends a failed codex steer right away when the turn already ended", async () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const proc = codexInstances.at(-1)!;
+    proc.steerInputStructured.mockRejectedValueOnce(new Error("no turn"));
+    proc.isWaitingForInput = true;
+
+    const outcome = await manager.steerInput(sessionId, {
+      itemId: "late-steer",
+      text: "late",
+      createdAt: "2026-10-31T00:00:00.000Z",
+    });
+
+    expect(outcome).toBe("steered");
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
+    expect(proc.sendInputStructured).toHaveBeenCalledWith("late", {
+      images: undefined,
+      skills: undefined,
+      mentions: undefined,
+    });
   });
 });
 
@@ -1847,7 +1972,7 @@ describe("SessionManager claude UUID backfill", () => {
       userMessageUuid: "codex:user-turn:1",
     } as ServerMessage);
     expect(
-      manager.queueCodexInput(sessionId, {
+      manager.queueInput(sessionId, {
         itemId: "queued-1",
         text: "queued local",
         createdAt: "2026-05-12T10:00:00.000Z",

@@ -24,7 +24,7 @@ import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
 import '../workspace_shell_screen.dart';
 import '../../settings/state/settings_state.dart';
-import 'codex_usage_summary.dart';
+import 'usage_summary.dart';
 import 'section_header.dart';
 import 'session_filter_bar.dart';
 import 'session_list_empty_state.dart';
@@ -153,7 +153,7 @@ class HomeContent extends StatefulWidget {
   final bool? showInlineStopButtonOverride;
   final String? connectedBridgeLabel;
   final BridgeService? usageBridgeService;
-  final UsageInfo? codexUsageOverride;
+  final List<UsageInfo>? usageOverride;
   final UsageDisplayMode usageDisplayMode;
 
   const HomeContent({
@@ -213,7 +213,7 @@ class HomeContent extends StatefulWidget {
     this.showInlineStopButtonOverride,
     this.connectedBridgeLabel,
     this.usageBridgeService,
-    this.codexUsageOverride,
+    this.usageOverride,
     this.usageDisplayMode = UsageDisplayMode.remaining,
   });
 
@@ -512,15 +512,16 @@ class HomeContentState extends State<HomeContent> {
         widget.showInlineStopButtonOverride ?? shell != null;
     final connectedBridgeBanner = _buildConnectedBridgeBanner(context);
     final usageSummary = switch ((
-      widget.codexUsageOverride,
+      widget.usageOverride,
       widget.usageBridgeService,
     )) {
-      (final usage?, _) when usage.hasData => CodexUsageSummary(
-        usage: usage,
-        displayMode: widget.usageDisplayMode,
-        onTap: widget.onOpenUsageSettings,
-      ),
-      (_, final bridge?) => CodexUsageStreamSummary(
+      (final usage?, _) when usageSummaryProviders(usage).isNotEmpty =>
+        UsageSummary(
+          providers: usage,
+          displayMode: widget.usageDisplayMode,
+          onTap: widget.onOpenUsageSettings,
+        ),
+      (_, final bridge?) => UsageStreamSummary(
         bridgeService: bridge,
         displayMode: widget.usageDisplayMode,
         onTap: widget.onOpenUsageSettings,

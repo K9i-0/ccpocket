@@ -69,6 +69,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyShowExtendedCodexEfforts =
       'settings_show_extended_codex_efforts';
   static const _keyAutoRenameClaudeSessions = 'autoRenameClaudeSessions';
+  static const _keyDefaultInputDelivery = 'settings_default_input_delivery';
   static const _keyTextScale = 'settings_text_scale';
   static const _keyCodeFontSize = 'settings_code_font_size';
   static const _keyCodeFontFamily = 'settings_code_font_family';
@@ -234,6 +235,9 @@ class SettingsCubit extends Cubit<SettingsState> {
         prefs.getBool(_keyShowExtendedCodexEfforts) ?? false;
     final autoRenameClaudeSessions =
         prefs.getBool(_keyAutoRenameClaudeSessions) ?? false;
+    final defaultInputDelivery =
+        InputDelivery.fromValue(prefs.getString(_keyDefaultInputDelivery)) ??
+        InputDelivery.queue;
     final showHiddenDirectories =
         prefs.getBool(_keyShowHiddenDirectories) ?? false;
 
@@ -301,6 +305,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
+      defaultInputDelivery: defaultInputDelivery,
     );
   }
 
@@ -531,6 +536,12 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setAutoRenameCodexSessions(bool enabled) {
     _prefs.setBool(_keyAutoRenameCodexSessions, enabled);
     emit(state.copyWith(autoRenameCodexSessions: enabled));
+  }
+
+  void setDefaultInputDelivery(InputDelivery delivery) {
+    if (delivery == state.defaultInputDelivery) return;
+    _prefs.setString(_keyDefaultInputDelivery, delivery.value);
+    emit(state.copyWith(defaultInputDelivery: delivery));
   }
 
   void setShowExtendedCodexEfforts(bool enabled) {

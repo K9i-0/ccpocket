@@ -22,6 +22,7 @@ import {
   loadCodexSessionNames,
   extractMessageImages,
   codexThreadToSessionHistory,
+  getSessionHistory,
 } from "./sessions-index.js";
 import { buildAutoRenamePrompt } from "./auto-rename.js";
 
@@ -2897,5 +2898,52 @@ describe("recent sessions grouped by git repository", () => {
     );
     expect(entry?.projectPath).toBe(other);
     expect(entry?.resumeCwd).toBeUndefined();
+  });
+});
+
+describe("getSessionHistory non-prompt user entries", () => {
+  const oldHome = process.env.HOME;
+  let tempHome: string;
+
+  beforeEach(() => {
+    tempHome = mkdtempSync(join(tmpdir(), "ccpocket-history-"));
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  it("marks task notifications and interrupt markers as meta", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project");
+    mkdirSync(projectDir, { recursive: true });
+    const user = (content: unknown, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        type: "user",
+        uuid: `u-${Math.random()}`,
+        message: { role: "user", content },
+        ...extra,
+      });
+    writeFileSync(
+      join(projectDir, "session-1.jsonl"),
+      [
+        user([{ type: "text", text: "Investigate the bridge" }]),
+        user([{ type: "text", text: "[Request interrupted by user]" }]),
+        user("[Request interrupted by user for tool use]"),
+        user("<task-notification>\n<task-id>a1</task-id>\n</task-notification>", {
+          promptSource: "system",
+        }),
+        user([{ type: "text", text: "Follow up" }]),
+      ].join("\n"),
+    );
+
+    const history = await getSessionHistory("session-1");
+    const prompts = history
+      .filter((message) => message.role === "user" && !message.isMeta)
+      .map((message) => (message.content[0] as { text: string }).text);
+
+    expect(prompts).toEqual(["Investigate the bridge", "Follow up"]);
+    expect(history.filter((message) => message.isMeta)).toHaveLength(3);
   });
 });

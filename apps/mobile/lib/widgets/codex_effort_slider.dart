@@ -98,9 +98,10 @@ CodexSpeed codexSpeedForDisplay(CodexSpeed speed, List<CodexSpeed> available) =>
 String codexSpeedUnavailableMessage(CodexSpeed speed) =>
     '${speed.label} is unavailable for this model or Bridge. Choose another speed.';
 
+/// Model / effort / speed panel shared by Codex and Claude settings.
 class CodexSettingsPanel extends StatelessWidget {
-  final String model;
-  final ReasoningEffort effort;
+  final String modelLabel;
+  final String effortLabel;
   final CodexSpeed speed;
   final bool supportsFast;
   final List<CodexSpeed>? availableSpeeds;
@@ -119,8 +120,8 @@ class CodexSettingsPanel extends StatelessWidget {
 
   const CodexSettingsPanel({
     super.key,
-    required this.model,
-    required this.effort,
+    required this.modelLabel,
+    required this.effortLabel,
     required this.speed,
     required this.supportsFast,
     this.availableSpeeds,
@@ -156,8 +157,8 @@ class CodexSettingsPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _CodexSettingsHeader(
-            model: model,
-            effort: effort,
+            modelLabel: modelLabel,
+            effortLabel: effortLabel,
             speed: displaySpeed,
             availableSpeeds: speeds,
             onSpeedChanged: onSpeedChanged,
@@ -222,8 +223,8 @@ class CodexSettingsPanel extends StatelessWidget {
 }
 
 class _CodexSettingsHeader extends StatelessWidget {
-  final String model;
-  final ReasoningEffort effort;
+  final String modelLabel;
+  final String effortLabel;
   final CodexSpeed speed;
   final List<CodexSpeed> availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
@@ -236,8 +237,8 @@ class _CodexSettingsHeader extends StatelessWidget {
   final String effortLabelKey;
 
   const _CodexSettingsHeader({
-    required this.model,
-    required this.effort,
+    required this.modelLabel,
+    required this.effortLabel,
     required this.speed,
     required this.availableSpeeds,
     required this.onSpeedChanged,
@@ -254,7 +255,7 @@ class _CodexSettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final effortText = Text(
-      effort.label,
+      effortLabel,
       key: ValueKey(effortLabelKey),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -282,7 +283,7 @@ class _CodexSettingsHeader extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    '${codexModelDisplayName(model)}${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
+                    '$modelLabel${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
                     key: ValueKey(modelLabelKey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -295,7 +296,7 @@ class _CodexSettingsHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Semantics(
                   label: 'Effort',
-                  value: effort.label,
+                  value: effortLabel,
                   excludeSemantics: true,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 112),
@@ -343,6 +344,67 @@ class _CodexSettingsHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Discrete slider over ordered levels (used for Claude effort).
+class SettingsLevelSlider<T> extends StatelessWidget {
+  final List<T> levels;
+  final T value;
+  final String Function(T) labelOf;
+  final ValueChanged<T> onChanged;
+  final String sliderKey;
+
+  const SettingsLevelSlider({
+    super.key,
+    required this.levels,
+    required this.value,
+    required this.labelOf,
+    required this.onChanged,
+    required this.sliderKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (levels.isEmpty) return const SizedBox.shrink();
+    final selectedIndex = levels.indexOf(value);
+    final sliderIndex = selectedIndex < 0 ? levels.length - 1 : selectedIndex;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          trackHeight: 7,
+          activeTrackColor: cs.primary,
+          inactiveTrackColor: cs.surfaceContainerHighest,
+          thumbColor: cs.primary,
+          overlayColor: cs.primary.withValues(alpha: 0.12),
+          tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2),
+          activeTickMarkColor: cs.onPrimary.withValues(alpha: 0.45),
+          inactiveTickMarkColor: cs.onSurfaceVariant.withValues(alpha: 0.45),
+        ),
+        child: Semantics(
+          label: 'Effort',
+          value: labelOf(levels[sliderIndex]),
+          child: Slider(
+            key: ValueKey(sliderKey),
+            value: sliderIndex.toDouble(),
+            min: 0,
+            max: (levels.length - 1).toDouble(),
+            divisions: levels.length > 1 ? levels.length - 1 : null,
+            label: labelOf(levels[sliderIndex]),
+            onChanged: levels.length < 2
+                ? null
+                : (raw) {
+                    final next = levels[raw.round()];
+                    if (next == value) return;
+                    HapticFeedback.selectionClick();
+                    onChanged(next);
+                  },
+          ),
+        ),
       ),
     );
   }

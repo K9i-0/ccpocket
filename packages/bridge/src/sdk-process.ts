@@ -94,6 +94,15 @@ export interface ClaudeModelMetadata {
   displayName?: string;
   description?: string;
   effortLevels: ClaudeEffortLevel[];
+  supportsFastMode?: boolean;
+}
+
+/** Model settings the user selected for a running Claude session. */
+export interface ClaudeSessionSettings {
+  /** Selected model value from the model list (alias or id). */
+  model?: string;
+  effort?: ClaudeEffortLevel;
+  fastMode?: boolean;
 }
 
 const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
@@ -132,6 +141,7 @@ function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | n
     ...(model.displayName ? { displayName: model.displayName } : {}),
     ...(description ? { description } : {}),
     effortLevels: model.supportsEffort === false ? [] : effortLevels,
+    ...(model.supportsFastMode === true ? { supportsFastMode: true } : {}),
   };
 }
 
@@ -160,7 +170,7 @@ export function hasExplicitClaudeCredential(
   return Boolean(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
 }
 
-function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
+export function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return (
     hasExplicitClaudeCredential(env)
     // Amazon Bedrock authenticates with AWS credentials on the Bridge host, so
@@ -384,6 +394,8 @@ export interface StartOptions {
   permissionMode?: PermissionMode;
   model?: string;
   effort?: ClaudeEffortLevel;
+  /** Start in Claude Code fast mode (supported models only). */
+  fastMode?: boolean;
   maxTurns?: number;
   maxBudgetUsd?: number;
   fallbackModel?: string;
@@ -411,6 +423,10 @@ export interface RewindFilesResult {
 
 const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+/** Assistant content block types that clients know how to render. */
+const CLIENT_ASSISTANT_BLOCK_TYPES = new Set(["text", "tool_use", "thinking"]);
+/** Marker the CLI records as a user message after an interrupt. */
+const CLAUDE_INTERRUPT_MARKER_TEXT = /^\[Request interrupted by user(?: for tool use)?\]$/;
 
 interface ClaudeAssistantErrorDetails {
   message: string;
@@ -489,18 +505,107 @@ function isInternalClaudeResultError(error: string): boolean {
   );
 }
 
+const CLAUDE_LOCAL_COMMAND_TEXT =
+  /^<local-command-(?:caveat|std(?:err|out))>/;
+
+/**
+ * Local command echoes (e.g. "Set model to …" after setModel) are emitted as
+ * user frames outside any turn; they must not mark the session as running.
+ */
+function isClaudeLocalCommandFrame(msg: SDKMessage): boolean {
+  if (msg.type !== "user") return false;
+  const content = (msg as { message?: { content?: unknown } }).message?.content;
+  const texts: string[] = [];
+  if (typeof content === "string") {
+    texts.push(content);
+  } else if (Array.isArray(content)) {
+    for (const block of content) {
+      if (!block || typeof block !== "object") return false;
+      const typed = block as { type?: unknown; text?: unknown };
+      if (typed.type !== "text" || typeof typed.text !== "string") return false;
+      texts.push(typed.text);
+    }
+  }
+  return (
+    texts.length > 0 &&
+    texts.every((text) => CLAUDE_LOCAL_COMMAND_TEXT.test(text.trimStart()))
+  );
+}
+
 function isClaudeSystemInjectedUserText(text: string): boolean {
   const normalized = text.trimStart();
   return (
     CLAUDE_SYSTEM_INJECTED_USER_TEXT.test(normalized) ||
+    CLAUDE_INTERRUPT_MARKER_TEXT.test(normalized.trimEnd()) ||
     normalized.startsWith("Base directory for this skill:")
   );
 }
+/**
+ * Returns the Agent/Task tool_use id that produced a subagent frame, or null
+ * for main-thread frames. The SDK sets `parent_tool_use_id` on assistant,
+ * user and stream_event frames emitted inside a subagent.
+ */
+export function sdkParentToolUseId(msg: SDKMessage): string | null {
+  if (
+    msg.type !== "assistant" &&
+    msg.type !== "user" &&
+    msg.type !== "stream_event"
+  ) {
+    return null;
+  }
+  const parent = (msg as { parent_tool_use_id?: unknown }).parent_tool_use_id;
+  return typeof parent === "string" && parent.length > 0 ? parent : null;
+}
+
+/**
+ * Subagent frames share the main transcript only as tool activity, which the
+ * app folds into tool_use_summary. Subagent prompts, narration, thinking,
+ * interrupt markers and streaming deltas are not main-thread conversation.
+ */
+function subagentMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+  if (msg.type === "user") {
+    const content = (msg as { message?: { content?: unknown } }).message?.content;
+    const hasToolResult =
+      Array.isArray(content) &&
+      content.some(
+        (block) =>
+          !!block &&
+          typeof block === "object" &&
+          (block as Record<string, unknown>).type === "tool_result",
+      );
+    return hasToolResult ? convertSdkMessage(msg) : null;
+  }
+  if (msg.type === "assistant") {
+    const ast = msg as unknown as { message: Record<string, unknown> };
+    const content = ast.message?.content;
+    if (!Array.isArray(content)) return null;
+    const toolUses = content.filter(
+      (block) =>
+        !!block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "tool_use",
+    );
+    if (toolUses.length === 0) return null;
+    return convertSdkMessage({
+      ...msg,
+      message: { ...ast.message, content: toolUses },
+    } as SDKMessage);
+  }
+  return null;
+}
+
 /**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
  */
 export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+  if (sdkParentToolUseId(msg) !== null) {
+    return subagentMessageToServerMessage(msg);
+  }
+  return convertSdkMessage(msg);
+}
+
+function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
   switch (msg.type) {
     case "system": {
       const sys = msg as Record<string, unknown>;
@@ -536,8 +641,14 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       const rawContent = ast.message.content;
       const content = Array.isArray(rawContent)
         ? rawContent.filter((block) => {
-            if (!block || typeof block !== "object") return true;
+            if (!block || typeof block !== "object") return false;
             const candidate = block as Record<string, unknown>;
+            // Server-side tool blocks (advisor, web search, ...) and redacted
+            // thinking have no client rendering; clients show unknown block
+            // types as raw placeholders.
+            if (!CLIENT_ASSISTANT_BLOCK_TYPES.has(candidate.type as string)) {
+              return false;
+            }
             return !(
               candidate.type === "thinking" &&
               typeof candidate.thinking === "string" &&
@@ -683,6 +794,11 @@ export interface SdkProcessEvents {
   exit: [number | null];
   /** Fired just before "exit" to allow re-persisting session metadata. */
   session_end: [];
+  /**
+   * A turn finished and the idle status was published; the session can take
+   * the next prompt. Not fired for stop/exit.
+   */
+  input_ready: [];
 }
 
 interface PendingPermission {
@@ -720,6 +836,11 @@ interface SDKUserMsg {
     >;
   };
   parent_tool_use_id: null;
+  /**
+   * Claude Code delivery priority. `next` injects a message into the running
+   * turn at the next safe point (between tool calls) without interrupting it.
+   */
+  priority?: "now" | "next" | "later";
 }
 
 export class SdkProcess extends EventEmitter<SdkProcessEvents> {
@@ -733,6 +854,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private _settings: ClaudeSessionSettings = {};
+  /** User-selected model/effort/fast mode (not the resolved model id). */
+  get settings(): ClaudeSessionSettings { return { ...this._settings }; }
   private authClassification: ClaudeAuthClassification = "unknown";
   private authGeneration = 0;
   private authResolution: Promise<void> = Promise.resolve();
@@ -747,10 +871,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private stopped = false;
 
   private pendingInputQueue: Array<{ text: string; images?: Array<{ base64: string; mimeType: string }> }> = [];
+  /** Mid-turn messages waiting for the SDK to pull the next prompt. */
+  private pendingSteerQueue: SDKUserMsg[] = [];
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
   private pendingAssistantError: ServerMessage | null = null;
+  /**
+   * Tool use ids that already received a tool_result. Frames from a subagent
+   * whose Agent/Task call has returned belong to a background agent.
+   */
+  private completedToolUseIds = new Set<string>();
+  /** Last cumulative query cost reported by a result (SDK total_cost_usd). */
+  private lastCumulativeCostUsd: number | null = null;
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -759,6 +892,46 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   get isWaitingForInput(): boolean {
     return this.userMessageResolve !== null;
+  }
+
+  /** True while a turn is in progress and new prompts cannot start a turn. */
+  get isTurnActive(): boolean {
+    return (
+      this._status === "running" ||
+      this._status === "compacting" ||
+      this._status === "waiting_approval"
+    );
+  }
+
+  /**
+   * Inject input into the running turn without interrupting it (Claude Code
+   * `priority: "next"`). When no turn is active the input is sent normally.
+   * Returns whether the input was steered into an active turn.
+   */
+  steerInput(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): boolean {
+    if (!this.isTurnActive) {
+      if (images && images.length > 0) this.dispatchInputWithImages(text, images);
+      else this.dispatchInput(text);
+      return false;
+    }
+    const message: SDKUserMsg = {
+      ...this.buildUserMessage(text, images),
+      priority: "next",
+    };
+    const resolve = this.userMessageResolve;
+    if (resolve) {
+      this.userMessageResolve = null;
+      resolve(message);
+    } else {
+      this.pendingSteerQueue.push(message);
+    }
+    console.log(
+      `[sdk-process] Steered input into running turn${images?.length ? ` with ${images.length} image(s)` : ""}`,
+    );
+    return true;
   }
 
   get sessionId(): string | null {
@@ -802,6 +975,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
     this.pendingAssistantError = null;
+    this.completedToolUseIds.clear();
+    this.lastCumulativeCostUsd = null;
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
@@ -897,6 +1072,20 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
     });
 
+    this._settings = {
+      ...(options?.model ? { model: options.model } : {}),
+      ...(options?.effort ? { effort: options.effort } : {}),
+      ...(options?.fastMode ? { fastMode: true } : {}),
+    };
+    if (options?.fastMode) {
+      this.queryInstance
+        .applyFlagSettings({ fastMode: true })
+        .catch((err) => {
+          console.warn(`[sdk-process] Failed to enable fast mode: ${err}`);
+          this._settings = { ...this._settings, fastMode: false };
+        });
+    }
+
     const queryInstance = this.queryInstance;
     const authGeneration = this.authGeneration;
     this.authResolution = this.resolveAuthClassification(
@@ -933,6 +1122,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authResolution = Promise.resolve();
     this.authResolutionPending = false;
     this.pendingInputQueue = [];
+    this.pendingSteerQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
       this.queryInstance.close();
@@ -1189,6 +1379,40 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
+  /**
+   * Change model, effort or fast mode for subsequent responses. Values that
+   * are undefined are left unchanged. Takes effect from the next request; a
+   * running turn keeps its current model.
+   */
+  async updateSettings(next: ClaudeSessionSettings): Promise<ClaudeSessionSettings> {
+    const queryInstance = this.queryInstance;
+    if (!queryInstance) throw new Error("No active Claude session.");
+    const modelChanged =
+      next.model !== undefined && next.model !== this._settings.model;
+    if (modelChanged) {
+      await queryInstance.setModel(next.model === "default" ? undefined : next.model);
+      // The model is in effect even if a later flag update fails.
+      this._settings = { ...this._settings, model: next.model };
+    }
+    const flags: { effortLevel?: ClaudeEffortLevel; fastMode?: boolean } = {};
+    if (next.effort !== undefined && (modelChanged || next.effort !== this._settings.effort)) {
+      flags.effortLevel = next.effort;
+    }
+    if (next.fastMode !== undefined && next.fastMode !== (this._settings.fastMode ?? false)) {
+      flags.fastMode = next.fastMode;
+    }
+    if (Object.keys(flags).length > 0) {
+      await queryInstance.applyFlagSettings(flags);
+    }
+    this._settings = {
+      ...this._settings,
+      ...(next.model !== undefined ? { model: next.model } : {}),
+      ...(next.effort !== undefined ? { effort: next.effort } : {}),
+      ...(next.fastMode !== undefined ? { fastMode: next.fastMode } : {}),
+    };
+    return this.settings;
+  }
+
   async listAvailableModels(): Promise<ClaudeModelMetadata[]> {
     if (!this.queryInstance) return [];
     const models = await this.queryInstance.supportedModels();
@@ -1291,6 +1515,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this._status === "running" ||
         this._status === "compacting" ||
         this._status === "waiting_approval";
+      const steered = this.pendingSteerQueue.shift();
+      if (steered) {
+        if (turnInProgress) {
+          yield steered;
+        } else {
+          // The turn ended before the SDK pulled the steer; send it as a
+          // normal prompt so it starts the next turn.
+          const { priority: _priority, ...prompt } = steered;
+          this.setStatus("running");
+          yield prompt;
+        }
+        continue;
+      }
       if (this.pendingInputQueue.length > 0 && !turnInProgress) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
@@ -1407,6 +1644,20 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         return;
       }
 
+      this.recordCompletedToolUses(message);
+      const parentToolUseId = sdkParentToolUseId(message);
+      if (parentToolUseId !== null) {
+        // Subagent frames never drive the main turn state. Background agents
+        // keep streaming after the main turn's result; treating those frames
+        // as main activity marks an idle session as running, so new input is
+        // queued behind an interrupt that has no turn to end.
+        if (this.isForegroundSubagent(parentToolUseId)) {
+          const subagentMsg = sdkMessageToServerMessage(message);
+          if (subagentMsg) this.emitMessage(subagentMsg);
+        }
+        continue;
+      }
+
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
       if (message.type === "assistant" && this.pendingAssistantError === null) {
@@ -1419,6 +1670,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           await authResolution;
         }
         if (this.stopped || authGeneration !== this.authGeneration) return;
+        serverMsg = this.withPerTurnCost(serverMsg);
         if (
           this.authClassification !== "api_key" ||
           this.authResolutionPending
@@ -1475,7 +1727,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         if (typeof initModel === "string" && initModel) {
           this._model = initModel;
         }
-        this.setStatus("idle");
+        // The CLI emits init at the start of every turn in streaming-input
+        // mode. Only the first one ends startup; later ones arrive after a
+        // user message was sent, so the turn is already running.
+        if (this._status === "starting") this.setStatus("idle");
       }
 
       // Detect permission mode changes from SDK status messages (SSOT).
@@ -1632,6 +1887,56 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
+  /**
+   * total_cost_usd is a running total for the query() call, while clients
+   * show and sum cost per result. Report the spend since the previous result;
+   * a smaller total means the CLI reset it (e.g. /clear).
+   */
+  private withPerTurnCost<T extends Extract<ServerMessage, { type: "result" }>>(
+    msg: T,
+  ): T {
+    if (typeof msg.cost !== "number") return msg;
+    const cumulative = msg.cost;
+    if (!Number.isFinite(cumulative) || cumulative <= 0) return msg;
+    const previous = this.lastCumulativeCostUsd;
+    this.lastCumulativeCostUsd = cumulative;
+    const perTurn =
+      previous !== null && cumulative >= previous
+        ? cumulative - previous
+        : cumulative;
+    return { ...msg, cost: Math.round(perTurn * 1e6) / 1e6 };
+  }
+
+  private recordCompletedToolUses(msg: SDKMessage): void {
+    if (msg.type !== "user") return;
+    const content = (msg as { message?: { content?: unknown } }).message?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content) {
+      if (!block || typeof block !== "object") continue;
+      const candidate = block as Record<string, unknown>;
+      if (
+        candidate.type === "tool_result" &&
+        typeof candidate.tool_use_id === "string"
+      ) {
+        this.completedToolUseIds.add(candidate.tool_use_id);
+      }
+    }
+  }
+
+  /**
+   * A subagent is foreground while the main turn is active and its Agent/Task
+   * call has not returned yet. Backgrounded agents return a placeholder
+   * tool_result immediately and report completion via task_notification.
+   */
+  private isForegroundSubagent(parentToolUseId: string): boolean {
+    if (this.completedToolUseIds.has(parentToolUseId)) return false;
+    return (
+      this._status === "running" ||
+      this._status === "waiting_approval" ||
+      this._status === "compacting"
+    );
+  }
+
   private updateStatusFromMessage(msg: SDKMessage): void {
     switch (msg.type) {
       case "system": {
@@ -1653,6 +1958,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
         break;
       case "user":
+        if (isClaudeLocalCommandFrame(msg)) break;
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");
         }
@@ -1661,6 +1967,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.pendingPermissions.clear();
         this.setStatus("idle");
         this.deliverQueuedInputIfWaiting();
+        if (!this.stopped && this.queryInstance && !this.isTurnActive) {
+          this.emit("input_ready");
+        }
         break;
     }
   }

@@ -4,7 +4,7 @@ class AppConstants {
 
   /// Expected Bridge Server version (from packages/bridge/package.json)
   /// Used to check if the server needs updating
-  static const String expectedBridgeVersion = '1.90.0';
+  static const String expectedBridgeVersion = '1.92.0';
 
   /// Maximum number of machines to keep in history
   /// Favorites are always kept, non-favorites are pruned by lastConnected
@@ -27,14 +27,6 @@ class AppConstants {
   /// GitHub Releases filtered to macOS desktop builds
   static const String macOSReleasesUrl =
       'https://github.com/K9i-0/ccpocket/releases?q=macos';
-
-  /// Claude API billing settings page
-  static const String claudeApiBillingUrl =
-      'https://platform.claude.com/settings/billing';
-
-  /// Claude subscription usage settings page
-  static const String claudeSubscriptionUsageUrl =
-      'https://claude.ai/settings/usage';
 
   /// App Store URL (iOS)
   static const String appStoreUrl =

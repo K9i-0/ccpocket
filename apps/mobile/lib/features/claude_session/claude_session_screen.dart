@@ -48,6 +48,8 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/fork_confirmation.dart';
+import '../chat_session/widgets/queued_input_panel.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
 import '../chat_session/widgets/session_file_list_scope.dart';
@@ -272,19 +274,30 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
           msg.requestId == _sessionId &&
           _isPending &&
           mounted) {
-        _pendingSub?.cancel();
-        _pendingSub = null;
-        widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
-        final errorText = msg.message;
-        if (widget.onBackToSessions case final onBack?) {
-          onBack();
-        } else {
-          context.router.maybePop();
-        }
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(errorText)));
+        bridge.takeRequestError(_sessionId);
+        _failPendingStart(msg.message);
       }
     });
+    // The Bridge can reject a start before this page subscribes.
+    final missedError = bridge.takeRequestError(_sessionId);
+    if (missedError != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isPending) _failPendingStart(missedError.message);
+      });
+    }
+  }
+
+  void _failPendingStart(String errorText) {
+    _pendingSub?.cancel();
+    _pendingSub = null;
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    if (widget.onBackToSessions case final onBack?) {
+      onBack();
+    } else {
+      context.router.maybePop();
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(errorText)));
   }
 
   void _onPendingSessionCreated() {
@@ -372,7 +385,11 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     final newId = msg.sessionId!;
     final draftService = context.read<DraftService>();
     final bridge = context.read<BridgeService>();
-    bridge.migrateExplorerHistory(oldId, newId);
+    if (msg.forked) {
+      bridge.copyExplorerHistory(oldId, newId);
+    } else {
+      bridge.migrateExplorerHistory(oldId, newId);
+    }
     final explorerHistory = bridge.getExplorerHistory(newId);
     draftService.migrateDraft(oldId, newId);
     draftService.migrateImageDraft(oldId, newId);
@@ -847,6 +864,7 @@ class _ChatScreenBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final queuedInput = sessionState.queuedInput;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
 
@@ -1368,6 +1386,12 @@ class _ChatScreenBody extends HookWidget {
                           draftService: draftService,
                         );
                       },
+                      onForkMessage:
+                          context.read<BridgeService>().supportsClaudeFork
+                          ? (message) => unawaited(
+                              _forkClaudeFromAssistant(context, message),
+                            )
+                          : null,
                       collapseToolResults: collapseToolResults,
                       scrollToUserEntry: scrollToUserEntry,
                       bottomPadding: 8,
@@ -1381,6 +1405,11 @@ class _ChatScreenBody extends HookWidget {
                   ),
                 ),
                 LiteModeActivityBar(sessionId: sessionId),
+                if (approval is ApprovalNone && queuedInput != null)
+                  SessionQueuedInputPanel(
+                    item: queuedInput,
+                    inputController: chatInputController,
+                  ),
                 if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
@@ -1388,6 +1417,7 @@ class _ChatScreenBody extends HookWidget {
                     status: status,
                     onGoToLatest: scroll.goToLatest,
                     inputController: chatInputController,
+                    inputBlocked: queuedInput != null,
                     initialDiffSelection: diffSelectionFromNav.value,
                     onDiffSelectionConsumed: () {
                       // Don't null — keep for AppBar navigation.
@@ -1884,4 +1914,22 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
   }
 
   return (toolCalls: toolCalls, fileEdits: fileEdits);
+}
+
+/// Fork from the end of the assistant turn that [message] belongs to.
+Future<void> _forkClaudeFromAssistant(
+  BuildContext context,
+  AssistantServerMessage message,
+) async {
+  final cubit = context.read<ChatSessionCubit>();
+  final targetUuid = message.messageUuid;
+  if (targetUuid == null || targetUuid.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).forkTargetNotFound)),
+    );
+    return;
+  }
+  final confirmed = await confirmForkConversation(context);
+  if (!confirmed || !context.mounted) return;
+  cubit.forkSession(targetUuid);
 }

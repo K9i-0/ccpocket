@@ -94,7 +94,7 @@ export interface SessionInfo {
   /** Claude sandbox enabled state (for resume). */
   sandboxEnabled?: boolean;
   /** Codex-only pending input waiting for the next turn. */
-  codexQueuedInput?: QueuedCodexInput;
+  queuedInput?: QueuedSessionInput;
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
   /** Synthetic Codex user UUIDs waiting for their app-server echo. */
@@ -137,7 +137,7 @@ export type HistoryDeltaResult =
       reason: "compacted" | "reset";
     };
 
-export interface QueuedCodexInput extends QueuedInputItem {
+export interface QueuedSessionInput extends QueuedInputItem {
   clientMessageId?: string;
   userMessageUuid?: string;
   images?: Array<{
@@ -177,6 +177,12 @@ export interface SessionSummary {
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
     additionalWritableRoots?: string[];
+  };
+  /** User-selected Claude model, effort and fast mode. */
+  claudeSettings?: {
+    model?: string;
+    effort?: string;
+    fastMode?: boolean;
   };
   agentNickname?: string;
   agentRole?: string;
@@ -258,7 +264,7 @@ function sanitizeCodexModel(model: unknown): string | undefined {
   return normalized;
 }
 
-function publicQueuedInput(item?: QueuedCodexInput): QueuedInputItem | undefined {
+function publicQueuedInput(item?: QueuedSessionInput): QueuedInputItem | undefined {
   if (!item) return undefined;
   return {
     itemId: item.itemId,
@@ -415,7 +421,8 @@ export class SessionManager {
         !effectiveCodexOptions?.threadId,
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
-      claudeSessionId: options?.sessionId,
+      // A fork gets a new provider id from system/init instead.
+      claudeSessionId: options?.forkSession ? undefined : options?.sessionId,
     };
     if (effectiveProvider === "codex") {
       this.seedCodexPastUserTurnUuidMap(session);
@@ -759,23 +766,22 @@ export class SessionManager {
       }
     });
 
-    if (proc instanceof CodexProcess) {
-      proc.on("input_ready", () => {
-        this.drainCodexQueue(session);
-      });
-    }
+    // Drain only after a completed turn has published its idle status, so
+    // the delivered prompt's "running" cannot be overtaken by that "idle",
+    // and never on stop/exit.
+    proc.on("input_ready", () => {
+      this.drainQueuedInput(session);
+    });
 
     proc.on("exit", () => {
       session.status = "idle";
-      session.codexQueuedInput = undefined;
+      session.queuedInput = undefined;
       // Add status message to history so it stays in sync with session.status
       this.appendHistoryToSession(session, {
         type: "status",
         status: "idle",
       } as ServerMessage);
-      if (session.provider === "codex") {
-        this.broadcastCodexQueue(session);
-      }
+      this.broadcastQueue(session);
       this.evictStaleIdleSessions();
     });
 
@@ -1033,6 +1039,9 @@ export class SessionManager {
           ? session.process.model
           : undefined,
       codexSettings,
+      ...(session.process instanceof SdkProcess
+        ? { claudeSettings: session.process.settings }
+        : {}),
       agentNickname:
         session.process instanceof CodexProcess
           ? (session.process.agentNickname ?? undefined)
@@ -1043,10 +1052,7 @@ export class SessionManager {
           : undefined,
       sandboxEnabled: session.sandboxEnabled,
       pendingPermission: pendingInput,
-      queuedInput:
-        session.provider === "codex"
-          ? publicQueuedInput(session.codexQueuedInput)
-          : undefined,
+      queuedInput: publicQueuedInput(session.queuedInput),
     };
   }
 
@@ -1327,8 +1333,8 @@ export class SessionManager {
         "userMessageUuid" in message ? message.userMessageUuid : undefined,
       );
     }
-    if (session.codexQueuedInput) {
-      observe(session.codexQueuedInput.userMessageUuid);
+    if (session.queuedInput) {
+      observe(session.queuedInput.userMessageUuid);
     }
     return codexUserTurnUuid(Math.max(maxOrdinal, userTurnCount) + 1);
   }
@@ -1467,18 +1473,20 @@ export class SessionManager {
     return "";
   }
 
-  queueCodexInput(id: string, input: QueuedCodexInput): boolean {
+  queueInput(id: string, input: QueuedSessionInput): boolean {
     const session = this.sessions.get(id);
-    if (!session || session.provider !== "codex") return false;
-    if (session.codexQueuedInput) return false;
-    (session.process as CodexProcess).noteManualInput();
-    session.codexQueuedInput = input;
+    if (!session) return false;
+    if (session.queuedInput) return false;
+    if (session.process instanceof CodexProcess) {
+      session.process.noteManualInput();
+    }
+    session.queuedInput = input;
     session.lastActivityAt = new Date();
-    this.broadcastCodexQueue(session);
+    this.broadcastQueue(session);
     return true;
   }
 
-  updateCodexQueuedInput(
+  updateQueuedInput(
     id: string,
     itemId: string,
     text: string,
@@ -1488,10 +1496,10 @@ export class SessionManager {
     },
   ): boolean {
     const session = this.sessions.get(id);
-    if (!session || session.provider !== "codex") return false;
-    const current = session.codexQueuedInput;
+    if (!session) return false;
+    const current = session.queuedInput;
     if (!current || current.itemId !== itemId) return false;
-    session.codexQueuedInput = {
+    session.queuedInput = {
       ...current,
       text,
       updatedAt: new Date().toISOString(),
@@ -1499,44 +1507,86 @@ export class SessionManager {
       mentions: options?.mentions,
     };
     session.lastActivityAt = new Date();
-    this.broadcastCodexQueue(session);
+    this.broadcastQueue(session);
     return true;
   }
 
-  cancelCodexQueuedInput(id: string, itemId: string): boolean {
+  cancelQueuedInput(id: string, itemId: string): boolean {
     const session = this.sessions.get(id);
-    if (!session || session.provider !== "codex") return false;
-    if (!session.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+    if (!session) return false;
+    if (!session.queuedInput || session.queuedInput.itemId !== itemId) {
       return false;
     }
-    session.codexQueuedInput = undefined;
+    session.queuedInput = undefined;
     session.lastActivityAt = new Date();
-    this.broadcastCodexQueue(session);
+    this.broadcastQueue(session);
     return true;
   }
 
-  async steerCodexQueuedInput(
+  async steerQueuedInput(
     id: string,
     itemId: string,
   ): Promise<{ ok: true } | { ok: false; error: string }> {
     const session = this.sessions.get(id);
-    if (!session || session.provider !== "codex") {
-      return { ok: false, error: "No active Codex session." };
+    if (!session) {
+      return { ok: false, error: "No active session." };
     }
-    const queued = session.codexQueuedInput;
+    const queued = session.queuedInput;
     if (!queued || queued.itemId !== itemId) {
       return { ok: false, error: "Queued message not found." };
     }
-    if (!(session.process instanceof CodexProcess)) {
-      return { ok: false, error: "No active Codex process." };
-    }
 
+    const result = await this.steerIntoTurn(session, queued, () => {
+      if (session.queuedInput?.itemId === itemId) {
+        session.queuedInput = undefined;
+      }
+      this.broadcastQueue(session);
+    });
+    return result;
+  }
+
+  /**
+   * Deliver new input into the running turn. When steering is rejected (for
+   * example because the turn just ended on the provider side) the input is
+   * held in the queue so the user can retry or edit it.
+   */
+  async steerInput(
+    id: string,
+    input: QueuedSessionInput,
+  ): Promise<"steered" | "queued" | "rejected"> {
+    const session = this.sessions.get(id);
+    if (!session) return "rejected";
+    if (session.process instanceof CodexProcess) {
+      session.process.noteManualInput();
+    }
+    const result = await this.steerIntoTurn(session, input);
+    if (result.ok) return "steered";
+    console.warn(
+      `[session] Steer failed for ${id}; holding input in queue: ${result.error}`,
+    );
+    if (!this.queueInput(id, input)) return "rejected";
+    // The turn may have ended before the steer failed; send it now if so.
+    this.drainQueuedInput(session);
+    return session.queuedInput?.itemId === input.itemId ? "queued" : "steered";
+  }
+
+  private async steerIntoTurn(
+    session: SessionInfo,
+    input: QueuedSessionInput,
+    beforeHistory?: () => void,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
-      await session.process.steerInputStructured(queued.text, {
-        images: queued.images,
-        skills: queued.skills,
-        mentions: queued.mentions,
-      });
+      if (session.process instanceof CodexProcess) {
+        await session.process.steerInputStructured(input.text, {
+          images: input.images,
+          skills: input.skills,
+          mentions: input.mentions,
+        });
+      } else if (session.process instanceof SdkProcess) {
+        session.process.steerInput(input.text, input.images);
+      } else {
+        return { ok: false, error: "No active session process." };
+      }
     } catch (err) {
       return {
         ok: false,
@@ -1544,19 +1594,17 @@ export class SessionManager {
       };
     }
 
-    session.codexQueuedInput = undefined;
+    beforeHistory?.();
     session.lastActivityAt = new Date();
-    this.broadcastCodexQueue(session);
-
-    const userMsg = this.buildQueuedUserInputMessage(queued);
+    const userMsg = this.buildQueuedUserInputMessage(input);
     this.appendHistoryToSession(session, userMsg);
     this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
     return { ok: true };
   }
 
-  private broadcastCodexQueue(session: SessionInfo): void {
-    const item = publicQueuedInput(session.codexQueuedInput);
+  private broadcastQueue(session: SessionInfo): void {
+    const item = publicQueuedInput(session.queuedInput);
     this.onMessage(session.id, {
       type: "conversation_queue",
       sessionId: session.id,
@@ -1565,28 +1613,41 @@ export class SessionManager {
     });
   }
 
-  private drainCodexQueue(session: SessionInfo): void {
-    if (session.provider !== "codex") return;
-    const queued = session.codexQueuedInput;
-    if (!queued || !(session.process instanceof CodexProcess)) return;
-    if (!session.process.isWaitingForInput) return;
+  private drainQueuedInput(session: SessionInfo): void {
+    const queued = session.queuedInput;
+    if (!queued) return;
+    if (session.process instanceof CodexProcess) {
+      if (!session.process.isWaitingForInput) return;
+    } else if (session.process instanceof SdkProcess) {
+      if (session.process.isTurnActive || session.process.status !== "idle") {
+        return;
+      }
+    } else {
+      return;
+    }
 
-    session.codexQueuedInput = undefined;
-    this.broadcastCodexQueue(session);
+    session.queuedInput = undefined;
+    this.broadcastQueue(session);
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
     this.appendHistoryToSession(session, userMsg);
     this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
 
-    session.process.sendInputStructured(queued.text, {
-      images: queued.images,
-      skills: queued.skills,
-      mentions: queued.mentions,
-    });
+    if (session.process instanceof CodexProcess) {
+      session.process.sendInputStructured(queued.text, {
+        images: queued.images,
+        skills: queued.skills,
+        mentions: queued.mentions,
+      });
+    } else if (queued.images && queued.images.length > 0) {
+      session.process.dispatchInputWithImages(queued.text, queued.images);
+    } else {
+      session.process.dispatchInput(queued.text);
+    }
   }
 
-  private buildQueuedUserInputMessage(queued: QueuedCodexInput): ServerMessage {
+  private buildQueuedUserInputMessage(queued: QueuedSessionInput): ServerMessage {
     return {
       type: "user_input",
       text: queued.text,
@@ -1910,7 +1971,7 @@ export class SessionManager {
     const now = Date.now();
     const idleSessions = Array.from(this.sessions.values())
       .filter((session) => session.status === "idle" &&
-        !session.codexQueuedInput &&
+        !session.queuedInput &&
         session.process.getPendingPermissions().length === 0 &&
         !(session.provider === "codex" &&
           (session.process as CodexProcess).getRecoveryState().phase === "waiting"))

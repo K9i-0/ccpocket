@@ -14,7 +14,7 @@ keys, and optional `isBlocking` metadata remain compatible with older peers.
 Bridge checks idle sessions once per minute. `BRIDGE_IDLE_SESSION_TTL_MINUTES`
 sets their retention period (default 15 minutes, minimum 1). The existing limit
 of 30 idle sessions also applies. Both policies exempt sessions with queued
-Codex input, pending questions or permissions, or automatic recovery waiting.
+input (either provider; see `input-delivery.md`), pending questions or permissions, or automatic recovery waiting.
 Protected sessions can therefore exceed the limit. Once protection ends, expiry
 uses the last recorded activity time; it does not start a new grace period.
 Active sessions are never reclaimed by this mechanism. Reclamation removes the
@@ -34,7 +34,7 @@ Claude permission requests are registered before being announced. Both resolutio
 and answer-result events must follow delivery of the request to every listener,
 including listeners that answer synchronously.
 
-Queued Codex prompts retain their client message IDs through delivery. Matching
+Queued prompts (Codex and Claude) retain their client message IDs through delivery. Matching
 prefers client IDs over provider turn UUIDs. For echoes without client IDs, a unique
 pending input may match by text and image count. Claude's acknowledged local input
 may also match once while awaiting its provider UUID. Failed inputs, distinct

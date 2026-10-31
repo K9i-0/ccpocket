@@ -834,7 +834,179 @@ describe("SdkProcess.approveAlways", () => {
   });
 });
 
+describe("SdkProcess settings", () => {
+  it("keeps the model when a later flag update fails", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {}),
+      applyFlagSettings: vi.fn(async () => {
+        throw new Error("flags rejected");
+      }),
+    };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+    await expect(
+      proc.updateSettings({ model: "opus", effort: "low" }),
+    ).rejects.toThrow("flags rejected");
+    expect(proc.settings).toEqual({ model: "opus", effort: "high" });
+  });
+
+  it("announces input_ready after a result publishes idle", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.queryInstance = {};
+    const order: string[] = [];
+    proc.on("message", (m: any) => {
+      if (m.type === "status") order.push(`status:${m.status}`);
+    });
+    proc.on("input_ready", () => order.push("input_ready"));
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle", "input_ready"]);
+
+    internal._status = "running";
+    internal.stopped = true;
+    order.length = 0;
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle"]);
+  });
+
+  it("keeps idle status when the CLI echoes a local model command", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content:
+          "<local-command-stdout>Set model to `sonnet (claude-sonnet-5-5)`</local-command-stdout>",
+      },
+    });
+    expect(proc.status).toBe("idle");
+
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }],
+      },
+    });
+    expect(proc.status).toBe("running");
+  });
+
+  it("applies only changed model, effort and fast mode", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    const applyFlagSettings = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+
+    await proc.updateSettings({ model: "opus", effort: "high", fastMode: true });
+    expect(setModel).toHaveBeenCalledWith("opus");
+    // Effort is re-applied after a model switch so the new model uses it.
+    expect(applyFlagSettings).toHaveBeenCalledWith({
+      effortLevel: "high",
+      fastMode: true,
+    });
+    expect(proc.settings).toEqual({ model: "opus", effort: "high", fastMode: true });
+
+    setModel.mockClear();
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ effort: "low" });
+    expect(setModel).not.toHaveBeenCalled();
+    expect(applyFlagSettings).toHaveBeenCalledWith({ effortLevel: "low" });
+
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ fastMode: true });
+    expect(applyFlagSettings).not.toHaveBeenCalled();
+  });
+
+  it("maps the default model to the SDK default", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings: vi.fn() };
+    (proc as any)._settings = { model: "opus" };
+    await proc.updateSettings({ model: "default" });
+    expect(setModel).toHaveBeenCalledWith(undefined);
+    expect(proc.settings.model).toBe("default");
+  });
+
+  it("keeps settings unchanged when the SDK rejects the change", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {
+        throw new Error("bad model");
+      }),
+      applyFlagSettings: vi.fn(),
+    };
+    (proc as any)._settings = { model: "sonnet" };
+    await expect(proc.updateSettings({ model: "nope" })).rejects.toThrow(
+      "bad model",
+    );
+    expect(proc.settings).toEqual({ model: "sonnet" });
+  });
+});
+
 describe("SdkProcess input dispatch", () => {
+  it("steers into a running turn with next priority and no status change", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("also do this")).toBe(true);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0]).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "also do this" }] },
+    });
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("running");
+  });
+
+  it("buffers a steer until the stream pulls during the same turn", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+
+    expect(proc.steerInput("buffered")).toBe(true);
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "buffered" }] },
+    });
+  });
+
+  it("sends a buffered steer as a normal prompt when the turn already ended", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+    proc.steerInput("late steer");
+    internal._status = "idle";
+
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value.priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
+  it("sends steer input normally when no turn is active", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("start a turn")).toBe(false);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0].priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
   it("queues and requests interrupt while a turn is running", () => {
     const proc = new SdkProcess();
     const resolve = vi.fn();
@@ -1005,6 +1177,200 @@ describe("SdkProcess input dispatch", () => {
     await stream.return(undefined);
   });
 
+});
+
+describe("subagent frames", () => {
+  const agentToolUse = (id: string) => ({
+    type: "assistant",
+    parent_tool_use_id: null,
+    message: {
+      id: `msg-${id}`,
+      role: "assistant",
+      content: [{ type: "tool_use", id, name: "Agent", input: {} }],
+    },
+  });
+  const toolResult = (toolUseId: string, parent: string | null) => ({
+    type: "user",
+    parent_tool_use_id: parent,
+    message: {
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: toolUseId, content: "ok" }],
+    },
+  });
+  const userText = (text: string, parent: string | null) => ({
+    type: "user",
+    parent_tool_use_id: parent,
+    message: { role: "user", content: [{ type: "text", text }] },
+  });
+  const subagentAssistant = (parent: string, toolUseId: string) => ({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: {
+      id: `msg-sub-${toolUseId}`,
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "subagent thinking" },
+        { type: "text", text: "Now the SDK d.ts." },
+        { type: "tool_use", id: toolUseId, name: "Bash", input: {} },
+      ],
+    },
+  });
+  const result = {
+    type: "result",
+    subtype: "success",
+    result: "Done",
+    duration_ms: 1,
+    session_id: "main",
+  };
+
+  async function runFrames(
+    proc: SdkProcess,
+    frames: Array<Record<string, unknown> | (() => void)>,
+  ): Promise<ServerMessage[]> {
+    const internal = proc as any;
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+    internal.authClassification = "subscription";
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        for (const frame of frames) {
+          if (typeof frame === "function") {
+            frame();
+          } else {
+            yield frame;
+          }
+        }
+      },
+    };
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+    return messages;
+  }
+
+  it("keeps only tool activity from a subagent frame", () => {
+    expect(
+      sdkMessageToServerMessage(subagentAssistant("toolu_agent", "toolu_sub") as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "tool_use", id: "toolu_sub", name: "Bash", input: {} }],
+        }),
+      }),
+    );
+    expect(
+      sdkMessageToServerMessage(toolResult("toolu_sub", "toolu_agent") as any),
+    ).toEqual(expect.objectContaining({ type: "tool_result", toolUseId: "toolu_sub" }));
+  });
+
+  it("does not turn subagent prompts, interrupts or deltas into main messages", () => {
+    expect(
+      sdkMessageToServerMessage(
+        userText("[Request interrupted by user]", "toolu_agent") as any,
+      ),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage(userText("Repository: ...", "toolu_agent") as any),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: "toolu_agent",
+        message: { role: "assistant", content: [{ type: "text", text: "narration" }] },
+      } as any),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage({
+        type: "stream_event",
+        parent_tool_use_id: "toolu_agent",
+        event: {
+          type: "content_block_delta",
+          delta: { type: "text_delta", text: "sub" },
+        },
+      } as any),
+    ).toBeNull();
+  });
+
+  it("forwards foreground subagent tool activity while the main turn runs", async () => {
+    const proc = new SdkProcess();
+    (proc as any)._status = "running";
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_fg"),
+      userText("Investigate the bridge", "toolu_fg"),
+      subagentAssistant("toolu_fg", "toolu_s1"),
+      toolResult("toolu_s1", "toolu_fg"),
+      toolResult("toolu_fg", null),
+      result,
+    ]);
+
+    expect(messages.filter((m) => m.type === "user_input")).toEqual([]);
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_s1" }),
+    );
+    const subagentAssistantMessage = messages.find(
+      (m) =>
+        m.type === "assistant" &&
+        (m.message.content as Array<{ id?: string }>).some(
+          (block) => block.id === "toolu_s1",
+        ),
+    );
+    expect(subagentAssistantMessage).toEqual(
+      expect.objectContaining({
+        message: expect.objectContaining({
+          content: [{ type: "tool_use", id: "toolu_s1", name: "Bash", input: {} }],
+        }),
+      }),
+    );
+  });
+
+  it("keeps an idle session idle while a background agent works", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    let statusAfterBackgroundFrames: string | undefined;
+    let dispatch: { queued: boolean; shouldInterrupt: boolean } | undefined;
+    const resolve = vi.fn();
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_bg"),
+      // Background agents return a placeholder tool_result immediately.
+      toolResult("toolu_bg", null),
+      result,
+      subagentAssistant("toolu_bg", "toolu_bg_s1"),
+      toolResult("toolu_bg_s1", "toolu_bg"),
+      userText("[Request interrupted by user]", "toolu_bg"),
+      () => {
+        statusAfterBackgroundFrames = proc.status;
+        internal.userMessageResolve = resolve;
+        dispatch = proc.dispatchInput("follow up");
+      },
+    ]);
+
+    expect(statusAfterBackgroundFrames).toBe("idle");
+    expect(dispatch).toEqual({ queued: false, shouldInterrupt: false });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(messages.filter((m) => m.type === "user_input")).toEqual([]);
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_bg_s1" }),
+    );
+  });
+
+  it("drops subagent frames once their Agent call has returned mid-turn", async () => {
+    const proc = new SdkProcess();
+    (proc as any)._status = "running";
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_bg"),
+      toolResult("toolu_bg", null),
+      subagentAssistant("toolu_bg", "toolu_bg_s1"),
+      toolResult("toolu_bg_s1", "toolu_bg"),
+      result,
+    ]);
+
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_bg_s1" }),
+    );
+  });
 });
 
 describe("SdkProcess Claude authentication", () => {
@@ -2461,5 +2827,126 @@ describe("SdkProcess.setPermissionMode", () => {
 
     await expect(proc.setPermissionMode("default")).resolves.toBeUndefined();
     expect(proc.permissionMode).toBe("default");
+  });
+});
+
+describe("Claude interrupt marker", () => {
+  it.each(["[Request interrupted by user]", "[Request interrupted by user for tool use]"])(
+    "marks %s as synthetic",
+    (text) => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "user",
+          parent_tool_use_id: null,
+          message: { role: "user", content: [{ type: "text", text }] },
+        } as any),
+      ).toEqual(expect.objectContaining({ type: "user_input", isSynthetic: true }));
+    },
+  );
+});
+
+describe("Claude result cost", () => {
+  it("reports per-turn cost from the cumulative total_cost_usd", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+    internal.authClassification = "api_key";
+    internal._status = "running";
+    const result = (total: number) => ({
+      type: "result",
+      subtype: "success",
+      result: "Done",
+      total_cost_usd: total,
+      duration_ms: 1,
+      session_id: "main",
+    });
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield result(1.8774);
+        yield result(2.1183);
+        // A smaller total means the CLI reset it (e.g. /clear).
+        yield result(0.05);
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    expect(
+      messages
+        .filter((m) => m.type === "result")
+        .map((m) => (m as { cost?: number }).cost),
+    ).toEqual([1.8774, 0.2409, 0.05]);
+  });
+});
+
+describe("Claude per-turn init", () => {
+  it("does not drop a running turn to idle when init arrives", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "api_key";
+    internal._status = "starting";
+    const init = {
+      type: "system",
+      subtype: "init",
+      session_id: "main",
+      model: "m",
+      apiKeySource: "ANTHROPIC_API_KEY",
+    };
+    const observed: string[] = [];
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield init;
+        observed.push(proc.status);
+        internal.setStatus("running");
+        yield init;
+        observed.push(proc.status);
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    expect(observed).toEqual(["idle", "running"]);
+  });
+});
+
+describe("Claude server tool blocks", () => {
+  it("drops content blocks clients cannot render", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "server_tool_use", id: "srvtoolu_1", name: "advisor", input: {} },
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+            { type: "text", text: "Next step" },
+          ],
+        },
+      } as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Next step" }],
+        }),
+      }),
+    );
+  });
+
+  it("drops an assistant frame that only carries server tool blocks", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+          ],
+        },
+      } as any),
+    ).toBeNull();
   });
 });

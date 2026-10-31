@@ -1554,7 +1554,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get forkConversationBody =>
-      'Create a new Codex session from this response. The current session will remain unchanged.';
+      'Create a new session from this response. The current session will remain unchanged.';
 
   @override
   String get forkTargetNotFound => 'Cannot find a user turn to fork from';
@@ -2316,7 +2316,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUsageSectionTitle => 'Usage';
 
   @override
-  String get settingsUsageNoCodexData => 'No Codex usage data found.';
+  String get settingsUsageNoData => 'No usage data found.';
 
   @override
   String get usageDisplayModeRemaining => 'Remaining';
@@ -2363,16 +2363,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => 'Limit reached';
-
-  @override
-  String get settingsClaudeUsageDescription =>
-      'Open Claude\'s official billing pages in your browser.';
-
-  @override
-  String get settingsClaudeApiBilling => 'API Key billing';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => 'Subscription usage';
 
   @override
   String get settingsNewSessionTabs => 'New Session Tabs';
@@ -3485,4 +3475,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => 'Choose an existing folder';
+
+  @override
+  String get defaultInputDelivery => 'Messages during a turn';
+
+  @override
+  String get defaultInputDeliverySubtitle =>
+      'Default for the send button. Long-press send to use the other option.';
+
+  @override
+  String get inputDeliverySteer => 'Steer';
+
+  @override
+  String get inputDeliveryQueue => 'Queue';
+
+  @override
+  String get inputDeliverySteerDescription =>
+      'Add to the current turn without stopping it';
+
+  @override
+  String get inputDeliveryQueueDescription =>
+      'Send after the current turn finishes';
+
+  @override
+  String get sendAsSteer => 'Steer into current turn';
+
+  @override
+  String get sendAsQueue => 'Queue for next turn';
 }

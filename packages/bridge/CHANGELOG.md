@@ -2,6 +2,54 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.92.0] - 2026-10-31
+
+### Added
+
+- Queue or steer Claude input sent mid-turn like Codex. Queued messages can be steered, edited or cancelled and are delivered once the turn becomes idle.
+- Change the Claude model, effort and fast mode during a session; the change applies from the next message and survives resume.
+- Fork a Claude session from an assistant message.
+
+### Fixed
+
+- Keep a Claude session idle after local command echoes, and drain queued input only after the idle state is published.
+- Keep fork and Claude settings state consistent.
+- Drop Claude content blocks clients cannot render, such as advisor and other server-side tool blocks.
+
+## [1.91.3] - 2026-10-31
+
+### Fixed
+
+- Republish the 1.91.2 fixes; the 1.91.2 release was not published because a test depended on a local environment variable.
+
+## [1.91.2] - 2026-10-31
+
+### Fixed
+
+- Report Claude result cost per turn. The SDK's `total_cost_usd` is a running total, so each turn re-counted earlier spend and the session total was inflated.
+- Keep a running Claude turn running when the CLI's per-turn `init` arrives, instead of briefly dropping to idle (input sent in that window could skip the queue).
+
+## [1.91.1] - 2026-10-31
+
+### Fixed
+
+- Stop showing Claude task notifications and `[Request interrupted by user]` markers as user messages in live and restored chat history.
+
+## [1.91.0] - 2026-10-31
+
+### Added
+
+- Fetch Claude plan usage through the Agent SDK usage API.
+- Send Claude model display options (name and description) matching the Claude Code CLI, with alias-based fallbacks.
+
+### Changed
+
+- Update `@anthropic-ai/claude-agent-sdk` to 0.3.316.
+
+### Fixed
+
+- Keep Claude subagent frames out of the main conversation. Background agents no longer mark an idle session as running, so new messages are delivered instead of interrupting the agents and getting stuck, and subagent prompts, narration and interrupt markers no longer appear as main messages.
+
 ## [1.90.0] - 2026-10-20
 
 ### Added
