@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.147.0] - 2026-10-31
+
+### Added
+
+- Choose whether a message sent while Claude is working steers the current turn or waits in the queue. Tap send for the default from settings, long-press for the other; queued messages can be steered, edited or cancelled (requires Bridge 1.92.0).
+- Change the Claude model, effort and fast mode during a session from the mode bar, and pick them in the new session sheet.
+- Show Claude effort and fast mode on running session cards.
+- Fork a Claude conversation from an assistant message.
+
+### Fixed
+
+- Add a Next button to multi-select pages of multi-question prompts.
+- Let the Claude permission and sandbox menus scroll on short screens such as landscape phones.
+- Leave the pending session page when the Bridge rejects a start (for example an unallowed path) instead of staying on "Creating session...".
+
 ## [1.146.0] - 2026-10-31
 
 ### Added
