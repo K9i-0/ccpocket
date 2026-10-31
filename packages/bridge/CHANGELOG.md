@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.93.0] - 2026-10-31
+
+### Added
+
+- Report Claude background tasks (background shells, monitors and subagents) that keep running after a turn ends, as an opt-in `background_tasks` message and a `backgroundTaskCount` session summary field.
+- Support catalog-driven Codex service tiers with labels, descriptions and explicit extended-speed selection.
+
+### Changed
+
+- Update TypeScript to 7.0.2, Vitest to 5.0.5 and other minor and patch dependencies.
+
 ## [1.92.0] - 2026-10-31
 
 ### Added
