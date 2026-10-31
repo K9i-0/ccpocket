@@ -40,6 +40,14 @@ for both providers.
 - Claude: `SdkProcess.steerInput` resolves the waiting prompt generator with a
   `priority: "next"` message without changing the status. If the generator is not
   waiting, the message is buffered and yielded on the next pull; if the turn has
-  ended by then it is sent as a normal prompt. The queue slot drains when the
-  Claude process reports `idle`.
+  ended by then it is sent as a normal prompt. The queue slot drains on
+  `input_ready`, which `SdkProcess` emits after a completed turn's `idle` has
+  been published (never on stop/exit), so the delivered prompt's `running` is
+  not overtaken by the previous turn's `idle`.
+- A Codex steer that fails because the turn already ended is held in the slot
+  and sent immediately when the session is waiting for input.
+- The app blocks the composer while the slot is occupied, so steering with an
+  occupied slot is only reachable through the queued message panel.
+- Known limitation: Claude Code stores steered (mid-turn) messages differently
+  in its transcript, so they do not appear in resumed history yet.
 - Queued input protects the session from idle reclamation for both providers.
