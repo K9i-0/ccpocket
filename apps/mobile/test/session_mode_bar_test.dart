@@ -5,6 +5,7 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
 import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
+import 'package:ccpocket/features/chat_session/widgets/codex_settings_sheet.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -17,10 +18,16 @@ class _MockBridgeService extends BridgeService {
   final _messageController = StreamController<ServerMessage>.broadcast();
   final _taggedController =
       StreamController<(ServerMessage, String?)>.broadcast();
+  final _connectionController =
+      StreamController<BridgeConnectionState>.broadcast();
+  final _sessionListController =
+      StreamController<List<SessionInfo>>.broadcast();
   final sentMessages = <ClientMessage>[];
   List<String> availableCodexModels = const [];
   Map<String, List<String>> availableCodexReasoningEfforts = const {};
   Map<String, List<String>> availableCodexServiceTiers = const {};
+  Map<String, List<CodexSpeed>> availableCodexServiceTierMetadata = const {};
+  bool supportsExtendedTiers = false;
 
   @override
   List<String> get codexModels => availableCodexModels;
@@ -32,8 +39,25 @@ class _MockBridgeService extends BridgeService {
   @override
   Map<String, List<String>> get codexModelServiceTiers =>
       availableCodexServiceTiers;
+  @override
+  Map<String, List<CodexSpeed>> get codexModelServiceTierMetadata =>
+      availableCodexServiceTierMetadata;
+  @override
+  bool get supportsCodexServiceTiers => supportsExtendedTiers;
+  @override
+  Stream<BridgeConnectionState> get connectionStatus =>
+      _connectionController.stream;
+  @override
+  Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
+
+  void notifyConnectionChanged() =>
+      _connectionController.add(BridgeConnectionState.disconnected);
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
+    if (msg is SessionListMessage) {
+      _sessionListController.add(msg.sessions);
+      return;
+    }
     _taggedController.add((msg, sessionId));
     _messageController.add(msg);
   }
@@ -51,6 +75,18 @@ class _MockBridgeService extends BridgeService {
   @override
   void send(ClientMessage message) {
     sentMessages.add(message);
+    final payload = _decode(message);
+    if (payload['type'] == 'set_codex_model') {
+      emitMessage(
+        SystemMessage(
+          subtype: 'set_codex_model',
+          provider: 'codex',
+          model: payload['model'] as String?,
+          modelReasoningEffort: payload['modelReasoningEffort'] as String?,
+        ),
+        sessionId: payload['sessionId'] as String?,
+      );
+    }
   }
 
   @override
@@ -72,6 +108,8 @@ class _MockBridgeService extends BridgeService {
   void dispose() {
     _messageController.close();
     _taggedController.close();
+    _connectionController.close();
+    _sessionListController.close();
     super.dispose();
   }
 }
@@ -446,12 +484,22 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('codex_speed_button')));
     await tester.pumpAndSettle();
 
-    expect(cubit.state.codexSpeed, CodexSpeed.fast);
+    expect(cubit.state.codexSpeed, CodexSpeed.standard);
     expect(_decode(bridge.sentMessages.last), {
       'type': 'set_codex_speed',
       'serviceTier': 'fast',
       'sessionId': 'codex-session',
     });
+    bridge.emitMessage(
+      const SystemMessage(
+        subtype: 'set_codex_speed',
+        provider: 'codex',
+        serviceTier: 'fast',
+      ),
+      sessionId: 'codex-session',
+    );
+    await tester.pumpAndSettle();
+    expect(cubit.state.codexSpeed, CodexSpeed.fast);
   });
 
   testWidgets('codex advanced Speed picker includes Fast', (tester) async {
@@ -478,6 +526,65 @@ void main() {
     );
   });
 
+  testWidgets('open settings refresh on catalog-only and connection updates', (
+    tester,
+  ) async {
+    bridge.availableCodexModels = const ['gpt-6.1-sol'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-6.1-sol': ['high'],
+    };
+    const metadata = {
+      'gpt-6.1-sol': [CodexSpeed.fast, CodexSpeed('ultrafast', 'Ultrafast')],
+    };
+    bridge.availableCodexServiceTierMetadata = metadata;
+    bridge.supportsExtendedTiers = true;
+    const sessionSnapshot = SessionListMessage(
+      sessions: [
+        SessionInfo(
+          id: 'codex-session',
+          provider: 'codex',
+          projectPath: '/workspace/app',
+          status: 'idle',
+          createdAt: '2026-10-31T00:00:00Z',
+          lastActivityAt: '2026-10-31T00:00:00Z',
+          codexModel: 'gpt-6.1-sol',
+          codexModelReasoningEffort: 'high',
+        ),
+      ],
+    );
+    bridge.emitMessage(sessionSnapshot);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('6.1 Sol High'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuButton<CodexSpeed>), findsOneWidget);
+    final confirmedState = cubit.state;
+    var stateChanges = 0;
+    final stateSubscription = cubit.stream.listen((_) => stateChanges++);
+    addTearDown(stateSubscription.cancel);
+
+    bridge.availableCodexServiceTierMetadata = const {
+      'gpt-6.1-sol': [CodexSpeed.fast],
+    };
+    bridge.emitMessage(sessionSnapshot);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuButton<CodexSpeed>), findsNothing);
+
+    bridge.availableCodexServiceTierMetadata = metadata;
+    bridge.emitMessage(sessionSnapshot);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuButton<CodexSpeed>), findsOneWidget);
+    bridge.supportsExtendedTiers = false;
+    bridge.notifyConnectionChanged();
+    await tester.pumpAndSettle();
+    expect(find.byType(PopupMenuButton<CodexSpeed>), findsNothing);
+    expect(cubit.state, confirmedState);
+    expect(stateChanges, 0);
+  });
+
   testWidgets('codex model change prefers the first non-None Effort', (
     tester,
   ) async {
@@ -496,11 +603,21 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('codex_model_advanced')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('5.4 Mini').last);
+    // The bridge/cubit are created in setUp's real async zone. Flush the
+    // acknowledgement before advancing the modal's widget frames.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
 
     expect(
       _decode(bridge.sentMessages.last),
       containsPair('model', 'gpt-5.4-mini'),
+    );
+    expect(cubit.state.codexModel, 'gpt-5.4-mini');
+    expect(
+      tester
+          .widget<CodexSettingsSheet>(find.byType(CodexSettingsSheet))
+          .initialModel,
+      'gpt-5.4-mini',
     );
     expect(
       _decode(bridge.sentMessages.last),
@@ -545,6 +662,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('codex_model_advanced')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('6 Astra').last);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pumpAndSettle();
 
     expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.low);

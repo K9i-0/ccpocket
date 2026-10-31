@@ -705,6 +705,15 @@ void main() {
 
       cubit.setCodexSpeed(CodexSpeed.fast);
       mockBridge.emitMessage(
+        const SystemMessage(
+          subtype: 'set_codex_speed',
+          provider: 'codex',
+          serviceTier: 'fast',
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      mockBridge.emitMessage(
         SessionContextMessage(
           sessionId: 's1',
           context: const SessionInfo(
@@ -2790,25 +2799,28 @@ void main() {
       expect(cubit.state.inPlanMode, isFalse);
     });
 
-    test('setCodexModel updates state and sends bridge message', () async {
-      final cubit = createCubit('s1', provider: Provider.codex);
-      addTearDown(cubit.close);
+    test(
+      'setCodexModel waits for confirmed state and sends bridge message',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
 
-      cubit.setCodexModel(
-        ' gpt-5.4-mini ',
-        reasoningEffort: ReasoningEffort.low,
-      );
+        cubit.setCodexModel(
+          ' gpt-5.4-mini ',
+          reasoningEffort: ReasoningEffort.low,
+        );
 
-      expect(cubit.state.codexModel, 'gpt-5.4-mini');
-      expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.low);
-      expect(mockBridge.sentMessages, hasLength(1));
-      expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
-        'type': 'set_codex_model',
-        'model': 'gpt-5.4-mini',
-        'modelReasoningEffort': 'low',
-        'sessionId': 's1',
-      });
-    });
+        expect(cubit.state.codexModel, isNull);
+        expect(cubit.state.codexModelReasoningEffort, isNull);
+        expect(mockBridge.sentMessages, hasLength(1));
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'set_codex_model',
+          'model': 'gpt-5.4-mini',
+          'modelReasoningEffort': 'low',
+          'sessionId': 's1',
+        });
+      },
+    );
 
     test('setCodexModel is ignored for non-Codex sessions', () async {
       final cubit = createCubit('s1', provider: Provider.claude);
@@ -2821,18 +2833,65 @@ void main() {
       expect(mockBridge.sentMessages, isEmpty);
     });
 
-    test('setCodexSpeed updates state and sends bridge message', () async {
+    test('setCodexSpeed waits for Bridge confirmation', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);
 
+      await Future.microtask(() {});
       cubit.setCodexSpeed(CodexSpeed.fast);
 
-      expect(cubit.state.codexSpeed, CodexSpeed.fast);
+      expect(cubit.state.codexSpeed, CodexSpeed.standard);
       expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
         'type': 'set_codex_speed',
         'serviceTier': 'fast',
         'sessionId': 's1',
       });
+    });
+
+    test(
+      'a later explicit speed choice is sent while confirmation is pending',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+        cubit.setCodexSpeed(CodexSpeed.fast);
+        cubit.setCodexSpeed(CodexSpeed.standard);
+        expect(
+          mockBridge.sentMessages.map(
+            (message) => (jsonDecode(message.toJson()) as Map)['serviceTier'],
+          ),
+          ['fast', 'standard'],
+        );
+        expect(cubit.state.codexSpeed, CodexSpeed.standard);
+      },
+    );
+
+    test('a rejected speed change keeps the last confirmed setting', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+      const ultrafast = CodexSpeed('ultrafast', 'Ultrafast');
+      cubit.setCodexSpeed(ultrafast);
+      expect(cubit.state.codexSpeed, CodexSpeed.standard);
+      mockBridge.emitMessage(
+        const ErrorMessage(
+          message: 'Speed unavailable',
+          errorCode: 'set_codex_speed_rejected',
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      expect(cubit.state.codexSpeed, CodexSpeed.standard);
+      mockBridge.emitMessage(
+        const SystemMessage(
+          subtype: 'set_codex_speed',
+          serviceTier: 'ultrafast',
+          provider: 'codex',
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      expect(cubit.state.codexSpeed, ultrafast);
     });
 
     test('permission mode rolls back on mode-change error', () async {

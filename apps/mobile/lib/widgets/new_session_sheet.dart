@@ -613,6 +613,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   StreamSubscription<List<String>>? _projectHistorySub;
   StreamSubscription<ProjectsMessage>? _projectsSub;
   StreamSubscription<bool>? _codexAutoReviewPolicySub;
+  StreamSubscription<List<SessionInfo>>? _codexCatalogSub;
+  StreamSubscription<BridgeConnectionState>? _codexConnectionSub;
   bool _codexAutoReviewDisabled = false;
   ProjectsMessage _workspaceProjectsState = const ProjectsMessage(projects: []);
   String? _selectedProjectId;
@@ -639,7 +641,21 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   late final Map<String, List<ClaudeEffort>> _claudeModelEfforts;
   late final List<String> _codexModelList;
   late final Map<String, List<ReasoningEffort>> _codexModelReasoningEfforts;
-  late final Map<String, List<String>> _codexModelServiceTiers;
+  Map<String, List<String>> get _codexModelServiceTiers =>
+      widget.bridge?.codexModelServiceTiers ?? const {};
+  Map<String, List<CodexSpeed>> get _codexModelServiceTierMetadata =>
+      widget.bridge?.codexModelServiceTierMetadata ?? const {};
+  bool get _supportsExtendedServiceTiers =>
+      widget.bridge?.supportsCodexServiceTiers ?? false;
+  List<CodexSpeed> get _availableCodexSpeeds => codexAvailableSpeeds(
+    _selectedModel ?? _codexModelList.firstOrNull,
+    _codexModelServiceTiers,
+    modelServiceTierMetadata: _codexModelServiceTierMetadata,
+    supportsExtendedServiceTiers: _supportsExtendedServiceTiers,
+    currentSpeed: _codexSpeed,
+  );
+  bool get _isCodexSpeedAvailable =>
+      _availableCodexSpeeds.contains(_codexSpeed);
   late final List<String> _codexProfiles;
 
   // Codex-specific options
@@ -884,7 +900,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexModelReasoningEfforts = _normalizeCodexModelReasoningEfforts(
       widget.bridge?.codexModelReasoningEfforts ?? const {},
     );
-    _codexModelServiceTiers = widget.bridge?.codexModelServiceTiers ?? const {};
     _codexProfiles = widget.bridge?.codexProfiles ?? const [];
     _codexAutoReviewDisabled = widget.bridge?.codexAutoReviewDisabled ?? false;
     final defaultCodexProfile = widget.bridge?.defaultCodexProfile;
@@ -924,6 +939,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             _enforceCodexAutoReviewPolicy();
           });
         });
+    // Catalog and capability changes invalidate saved choices without rewriting them.
+    _codexCatalogSub = widget.bridge?.sessionList.listen((_) {
+      if (mounted) setState(() {});
+    });
+    _codexConnectionSub = widget.bridge?.connectionStatus.listen((_) {
+      if (mounted) setState(() {});
+    });
     unawaited(_loadAdditionalWritableRootHistory());
     _applyInitialParams();
     _enforceCodexAutoReviewPolicy();
@@ -952,6 +974,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _projectHistorySub?.cancel();
     _projectsSub?.cancel();
     _codexAutoReviewPolicySub?.cancel();
+    _codexCatalogSub?.cancel();
+    _codexConnectionSub?.cancel();
     _pageController.dispose();
     _pathController.dispose();
     _branchController.dispose();
@@ -1481,6 +1505,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   void _start() {
     if (widget.multiProjectOnly && _selectedProjectId == null) return;
+    if (_provider == Provider.codex && !_isCodexSpeedAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(codexSpeedUnavailableMessage(_codexSpeed))),
+      );
+      return;
+    }
     // Run inline validation
     final turnsOk = _validateMaxTurns();
     final budgetOk = _validateMaxBudget();
@@ -1690,7 +1720,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 _selectedModel = value;
                 _codexModelTouched = true;
                 _normalizeSelectedCodexReasoningEffort();
-                if (!codexSupportsFast(value, _codexModelServiceTiers)) {
+                if (_codexSpeed == CodexSpeed.fast &&
+                    !codexAvailableSpeeds(
+                      value,
+                      _codexModelServiceTiers,
+                      modelServiceTierMetadata: _codexModelServiceTierMetadata,
+                      supportsExtendedServiceTiers:
+                          _supportsExtendedServiceTiers,
+                    ).contains(CodexSpeed.fast)) {
                   _codexSpeed = CodexSpeed.standard;
                 }
               });
@@ -1712,11 +1749,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               });
             },
             codexSpeed: _codexSpeed,
-            codexSupportsFast: codexSupportsFast(
-              _selectedModel ?? _codexModelList.firstOrNull,
-              _codexModelServiceTiers,
-              speed: _codexSpeed,
-            ),
+            codexAvailableSpeeds: _availableCodexSpeeds,
             onCodexSpeedChanged: (value) {
               setState(() => _codexSpeed = value);
             },
@@ -1832,6 +1865,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 provider: _provider,
                 canStart:
                     _hasPath &&
+                    (_provider != Provider.codex || _isCodexSpeedAvailable) &&
                     (!widget.multiProjectOnly || _selectedProjectId != null) &&
                     !_pendingInitialWorkspaceSelection &&
                     (!_useWorktree ||
@@ -2608,7 +2642,7 @@ class _OptionsSection extends StatelessWidget {
   final ReasoningEffort modelReasoningEffort;
   final ValueChanged<ReasoningEffort> onModelReasoningEffortChanged;
   final CodexSpeed codexSpeed;
-  final bool codexSupportsFast;
+  final List<CodexSpeed> codexAvailableSpeeds;
   final ValueChanged<CodexSpeed> onCodexSpeedChanged;
   final WebSearchMode? webSearchMode;
   final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
@@ -2668,7 +2702,7 @@ class _OptionsSection extends StatelessWidget {
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
     required this.codexSpeed,
-    required this.codexSupportsFast,
+    required this.codexAvailableSpeeds,
     required this.onCodexSpeedChanged,
     required this.webSearchMode,
     required this.onWebSearchModeChanged,
@@ -3134,7 +3168,7 @@ class _OptionsSection extends StatelessWidget {
               onReasoningEffortChanged: onModelReasoningEffortChanged,
               showExtendedEfforts: showExtendedCodexEfforts,
               speed: codexSpeed,
-              supportsFast: codexSupportsFast,
+              availableSpeeds: codexAvailableSpeeds,
               onSpeedChanged: onCodexSpeedChanged,
             ),
           const SizedBox(height: 8),
@@ -3318,7 +3352,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
   final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
   final bool showExtendedEfforts;
   final CodexSpeed speed;
-  final bool supportsFast;
+  final List<CodexSpeed> availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
 
   const _CodexSettingsSwitcher({
@@ -3331,7 +3365,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
     required this.onReasoningEffortChanged,
     required this.showExtendedEfforts,
     required this.speed,
-    required this.supportsFast,
+    required this.availableSpeeds,
     required this.onSpeedChanged,
   });
 
@@ -3354,7 +3388,8 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
       model: widget.selectedModel ?? widget.models.firstOrNull ?? 'gpt-5.5',
       effort: effectiveEffort,
       speed: widget.speed,
-      supportsFast: widget.supportsFast,
+      availableSpeeds: widget.availableSpeeds,
+      supportsFast: widget.availableSpeeds.contains(CodexSpeed.fast),
       onSpeedChanged: widget.onSpeedChanged,
       speedButtonKey: 'dialog_codex_speed_button',
       showAdvanced: _showAdvanced,
@@ -3385,7 +3420,7 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
             reasoningEffort: effectiveEffort,
             onReasoningEffortChanged: widget.onReasoningEffortChanged,
             speed: widget.speed,
-            supportsFast: widget.supportsFast,
+            availableSpeeds: widget.availableSpeeds,
             onSpeedChanged: widget.onSpeedChanged,
           ).buildChildren(context),
         ),
@@ -3646,7 +3681,7 @@ class _CodexModelOptions extends StatelessWidget {
   final ReasoningEffort reasoningEffort;
   final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
   final CodexSpeed speed;
-  final bool supportsFast;
+  final List<CodexSpeed> availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
 
   const _CodexModelOptions({
@@ -3658,7 +3693,7 @@ class _CodexModelOptions extends StatelessWidget {
     required this.reasoningEffort,
     required this.onReasoningEffortChanged,
     required this.speed,
-    required this.supportsFast,
+    required this.availableSpeeds,
     required this.onSpeedChanged,
   });
 
@@ -3703,21 +3738,50 @@ class _CodexModelOptions extends StatelessWidget {
       ),
       const SizedBox(height: 8),
       KeyedSubtree(
-        key: ValueKey('codex_speed_field_${selectedModel ?? 'default'}'),
+        key: ValueKey(
+          'codex_speed_field_${selectedModel ?? 'default'}_${speed.value}_${availableSpeeds.map((value) => value.value).join(',')}',
+        ),
         child: DropdownButtonFormField<CodexSpeed>(
           key: const ValueKey('dialog_codex_speed_advanced'),
           initialValue: speed,
           isExpanded: true,
-          decoration: buildInputDecoration('Speed'),
+          itemHeight: null,
+          selectedItemBuilder: (_) => [
+            if (!availableSpeeds.contains(speed))
+              Text('${speed.label} (unavailable)'),
+            for (final option in availableSpeeds) Text(option.label),
+          ],
+          decoration: buildInputDecoration(
+            'Speed',
+            errorText: availableSpeeds.contains(speed)
+                ? null
+                : codexSpeedUnavailableMessage(speed),
+          ),
           items: [
-            const DropdownMenuItem(
-              value: CodexSpeed.standard,
-              child: Text('Standard'),
-            ),
-            if (supportsFast)
-              const DropdownMenuItem(
-                value: CodexSpeed.fast,
-                child: Text('Fast — 1.5× speed, more usage'),
+            if (!availableSpeeds.contains(speed))
+              DropdownMenuItem(
+                value: speed,
+                enabled: false,
+                child: Text('${speed.label} (unavailable)'),
+              ),
+            for (final option in availableSpeeds)
+              DropdownMenuItem(
+                value: option,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(option.label),
+                      if (option.description != null)
+                        Text(
+                          option.description!,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
               ),
           ],
           onChanged: (value) {

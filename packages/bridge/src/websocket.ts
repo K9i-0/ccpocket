@@ -37,6 +37,11 @@ import {
   type CodexThreadSourceKind,
   type CodexThreadSummary,
 } from "./codex-process.js";
+import {
+  normalizeCodexServiceTierForClient,
+  isCodexServiceTierSupported,
+  type CodexServiceTierMetadata,
+} from "./codex-service-tier.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
 import {
   parseClientMessage,
@@ -862,6 +867,10 @@ export class BridgeWebSocketServer {
       fallbackCodexServiceTiers(model),
     ]),
   );
+  private codexModelServiceTierMetadata: Record<
+    string,
+    CodexServiceTierMetadata[]
+  > = {};
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -2892,6 +2901,13 @@ export class BridgeWebSocketServer {
         }
         try {
           const provider = msg.provider ?? "claude";
+          const tierError = provider === "codex"
+            ? this.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
+          if (tierError) {
+            this.send(ws, { type: "error", requestId: msg.requestId,
+              errorCode: "codex_service_tier_unavailable", message: tierError });
+            break;
+          }
           const normalizedCodexPermissionsMode =
             provider === "codex"
               ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
@@ -4152,6 +4168,16 @@ export class BridgeWebSocketServer {
           break;
         }
 
+        // Older clients send model first, then normalize Fast to Standard.
+        // Keep that sequence compatible; extended tiers must never downgrade.
+        const currentTier = normalizeCodexServiceTierForClient(session.codexSettings?.serviceTier);
+        const tierError = currentTier !== "standard" && currentTier !== "fast"
+          ? this.codexServiceTierError(model, currentTier) : undefined;
+        if (tierError) {
+          this.send(ws, { type: "error", sessionId: msg.sessionId,
+            errorCode: "set_codex_model_rejected", message: tierError });
+          break;
+        }
         const currentModel = sanitizeCodexModel(session.codexSettings?.model);
         const currentEffort = session.codexSettings?.modelReasoningEffort;
         const modelReasoningEffort = normalizeCodexReasoningEffortForModel(
@@ -4208,10 +4234,17 @@ export class BridgeWebSocketServer {
           return;
         }
 
-        const serviceTier = msg.serviceTier === "fast" ? "fast" : "standard";
+        const process = session.process as CodexProcess;
+        const model = session.codexSettings?.model ?? process.model;
+        const tierError = this.codexServiceTierError(model, msg.serviceTier);
+        if (tierError) {
+          this.send(ws, { type: "error", sessionId: msg.sessionId,
+            errorCode: "set_codex_speed_rejected", message: tierError });
+          break;
+        }
+        const serviceTier = normalizeCodexServiceTierForClient(msg.serviceTier);
         if (session.codexSettings?.serviceTier === serviceTier) break;
 
-        const process = session.process as CodexProcess;
         process.setServiceTier(serviceTier);
         session.codexSettings = {
           ...(session.codexSettings ?? {}),
@@ -5368,6 +5401,16 @@ export class BridgeWebSocketServer {
       case "resume_session": {
         const resumeStartedAt = Date.now();
         const provider = msg.provider ?? "claude";
+        const tierError = provider === "codex"
+          ? this.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
+        if (tierError) {
+          this.sendResumeFailed(ws, { provider, sourceSessionId: msg.sessionId,
+            projectPath: msg.projectPath, resumeRequestId: msg.resumeRequestId });
+          this.send(ws, { type: "error", sessionId: msg.sessionId,
+            requestId: msg.resumeRequestId,
+            errorCode: "codex_service_tier_unavailable", message: tierError });
+          break;
+        }
         const storedAssignment = this.workspaceStore?.getAssignment(
           provider,
           msg.sessionId,
@@ -8345,6 +8388,7 @@ export class BridgeWebSocketServer {
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
       codexModelServiceTiers: this.codexModelServiceTiers,
+      codexModelServiceTierMetadata: this.codexModelServiceTierMetadata,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
@@ -8356,6 +8400,7 @@ export class BridgeWebSocketServer {
         "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
+        "codex_service_tiers_v1",
       ],
     });
   }
@@ -8391,6 +8436,7 @@ export class BridgeWebSocketServer {
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
       codexModelServiceTiers: this.codexModelServiceTiers,
+      codexModelServiceTierMetadata: this.codexModelServiceTierMetadata,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       codexAutoReviewDisabled: this.codexAutoReviewDisabled,
@@ -8402,6 +8448,7 @@ export class BridgeWebSocketServer {
         "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
+        "codex_service_tiers_v1",
       ],
     });
   }
@@ -9222,14 +9269,34 @@ export class BridgeWebSocketServer {
     this.codexModelServiceTiers = Object.fromEntries(
       models.map((model) => [
         model.model,
-        (model.supportedServiceTiers?.length ?? 0) > 0
-          ? model.supportedServiceTiers
-          : fallbackCodexServiceTiers(model.model),
+        model.supportedServiceTiers ?? fallbackCodexServiceTiers(model.model),
       ]),
+    );
+    this.codexModelServiceTierMetadata = Object.fromEntries(
+      models.map((model) => [model.model, model.serviceTierMetadata ?? []]),
     );
   }
 
+  /** Validate candidates only. Codex still enforces account entitlement. */
+  private codexServiceTierError(
+    model: string | undefined,
+    value: string | undefined,
+  ): string | undefined {
+    if (value === undefined) return undefined;
+    // A profile or a resumed thread may supply the model. CodexProcess validates
+    // its resolved model/tier before emitting init or accepting the first turn.
+    if (model === undefined) return undefined;
+    const tier = normalizeCodexServiceTierForClient(value);
+    // Standard/Fast are legacy settings; older clients normalize Fast after
+    // changing models. Strict catalog validation applies to extended tiers.
+    if (tier === "standard" || tier === "fast") return undefined;
+    const supported = this.codexModelServiceTiers[model ?? ""];
+    if (isCodexServiceTierSupported(tier, supported ?? [])) return undefined;
+    return `Codex speed "${value}" is not available for model "${model ?? "unknown"}". Choose a supported speed.`;
+  }
+
   private applyFallbackCodexModels(): void {
+    this.codexModelServiceTierMetadata = {};
     this.codexModels = FALLBACK_CODEX_MODELS;
     this.codexModelReasoningEfforts = Object.fromEntries(
       FALLBACK_CODEX_MODELS.map((model) => [

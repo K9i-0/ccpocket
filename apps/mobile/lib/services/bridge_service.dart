@@ -150,6 +150,7 @@ class BridgeService implements BridgeServiceBase {
   List<String> _codexModels = [];
   Map<String, List<String>> _codexModelReasoningEfforts = {};
   Map<String, List<String>> _codexModelServiceTiers = {};
+  Map<String, List<CodexSpeed>> _codexModelServiceTierMetadata = {};
   List<String> _codexProfiles = [];
   String? _defaultCodexProfile;
   bool _codexAutoReviewDisabled = false;
@@ -498,6 +499,10 @@ class BridgeService implements BridgeServiceBase {
       _codexModelReasoningEfforts;
   Map<String, List<String>> get codexModelServiceTiers =>
       _codexModelServiceTiers;
+  Map<String, List<CodexSpeed>> get codexModelServiceTierMetadata =>
+      _codexModelServiceTierMetadata;
+  bool get supportsCodexServiceTiers =>
+      _protocolCapabilities.contains('codex_service_tiers_v1');
   List<String> get codexProfiles => _codexProfiles;
   String? get defaultCodexProfile => _defaultCodexProfile;
   bool get codexAutoReviewDisabled => _codexAutoReviewDisabled;
@@ -776,6 +781,7 @@ class BridgeService implements BridgeServiceBase {
                 :final codexModels,
                 :final codexModelReasoningEfforts,
                 :final codexModelServiceTiers,
+                :final codexModelServiceTierMetadata,
                 :final codexProfiles,
                 :final defaultCodexProfile,
                 :final codexAutoReviewDisabled,
@@ -796,6 +802,7 @@ class BridgeService implements BridgeServiceBase {
                 _codexModels = codexModels;
                 _codexModelReasoningEfforts = codexModelReasoningEfforts;
                 _codexModelServiceTiers = codexModelServiceTiers;
+                _codexModelServiceTierMetadata = codexModelServiceTierMetadata;
                 _codexProfiles = codexProfiles;
                 _defaultCodexProfile = defaultCodexProfile;
                 _codexAutoReviewDisabled = codexAutoReviewDisabled;
@@ -1485,6 +1492,7 @@ class BridgeService implements BridgeServiceBase {
     _codexModels = const [];
     _codexModelReasoningEfforts = const {};
     _codexModelServiceTiers = const {};
+    _codexModelServiceTierMetadata = const {};
     _codexProfiles = const [];
     _defaultCodexProfile = null;
     _codexAutoReviewDisabled = false;
@@ -1770,6 +1778,7 @@ class BridgeService implements BridgeServiceBase {
   @override
   void send(ClientMessage message) {
     if (_disposed) return;
+    if (!_canSendCodexServiceTier(message)) return;
     message = _scopeInputToBridge(message);
     if (message.type == 'input' &&
         (_inputBridgeIdentity == null ||
@@ -1820,6 +1829,51 @@ class BridgeService implements BridgeServiceBase {
     } else {
       _queueOfflineMessage(message);
     }
+  }
+
+  /// Check again at send time, including queued resumes after reconnecting.
+  bool _canSendCodexServiceTier(ClientMessage message) {
+    if (message.type != 'start' &&
+        message.type != 'resume_session' &&
+        message.type != 'set_codex_speed') {
+      return true;
+    }
+    final payload = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    final rawTier = payload['serviceTier'] as String?;
+    if (rawTier == null) return true;
+    final speed = codexSpeedFromRaw(rawTier);
+    if (speed == CodexSpeed.standard || speed == CodexSpeed.fast) return true;
+    // Wait for negotiation before checking the catalog of a queued request.
+    if (!isConnected || !(_protocolCompatibility?.isCompatible ?? false)) {
+      return true;
+    }
+    final sessionId = payload['sessionId'] as String?;
+    final session = _sessions.where((item) => item.id == sessionId).firstOrNull;
+    final model = payload['model'] as String? ?? session?.codexModel;
+    final available = _codexModelServiceTierMetadata[model] ?? const [];
+    if (supportsCodexServiceTiers && available.contains(speed)) return true;
+    if (message.type == 'resume_session') {
+      final failed = SystemMessage(
+        subtype: 'session_resume_failed',
+        sourceSessionId: sessionId,
+        provider: payload['provider'] as String?,
+        projectPath: payload['projectPath'] as String?,
+        resumeRequestId: payload['resumeRequestId'] as String?,
+      );
+      _taggedMessageController.add((failed, sessionId));
+      _messageController.add(failed);
+    }
+    final error = ErrorMessage(
+      message: 'The selected Codex speed is unavailable on this Bridge or model. Choose a supported speed.',
+      errorCode: 'codex_service_tier_unavailable',
+      sessionId: sessionId,
+      requestId:
+          payload['requestId'] as String? ??
+          payload['resumeRequestId'] as String?,
+    );
+    _taggedMessageController.add((error, sessionId));
+    _messageController.add(error);
+    return false;
   }
 
   void _queueOfflineMessage(ClientMessage message) {

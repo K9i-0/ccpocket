@@ -88,6 +88,25 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   Map<String, List<String>> get codexModelServiceTiers =>
       _bridge.codexModelServiceTiers;
+  Map<String, List<CodexSpeed>> get codexModelServiceTierMetadata =>
+      _bridge.codexModelServiceTierMetadata;
+  bool get supportsCodexServiceTiers => _bridge.supportsCodexServiceTiers;
+
+  /// Catalog and connection changes matter even when session data is unchanged.
+  Stream<void> get codexCatalogChanges => Stream<void>.multi((controller) {
+    final catalog = _bridge.sessionList.listen(
+      (_) => controller.add(null),
+      onError: controller.addError,
+    );
+    final connection = _bridge.connectionStatus.listen(
+      (_) => controller.add(null),
+      onError: controller.addError,
+    );
+    controller.onCancel = () async {
+      await catalog.cancel();
+      await connection.cancel();
+    };
+  }, isBroadcast: true);
 
   String _nextOptimisticCodexUserTurnUuid() {
     final userTurnCount = state.entries.whereType<UserChatEntry>().length;
@@ -2391,17 +2410,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] setCodexModel=$normalizedModel '
       'reasoning=${nextReasoningEffort?.value}',
     );
-    emit(
-      state.copyWith(
-        codexModel: normalizedModel,
-        codexModelReasoningEffort: nextReasoningEffort,
-      ),
-    );
-    _bridge.patchSessionCodexModel(
-      sessionId,
-      normalizedModel,
-      modelReasoningEffort: nextReasoningEffort?.value,
-    );
+    // A model may reject the current speed. Apply only Bridge-confirmed settings.
     _bridge.send(
       ClientMessage.setCodexModel(
         normalizedModel,
@@ -2412,10 +2421,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void setCodexSpeed(CodexSpeed speed) {
-    if (!isCodex || speed == state.codexSpeed) return;
+    if (!isCodex) return;
     logger.info('[session:$sessionId] setCodexSpeed=${speed.value}');
-    emit(state.copyWith(codexSpeed: speed));
-    _bridge.patchSessionCodexSpeed(sessionId, speed.value);
+    // Keep the last confirmed setting until Bridge acknowledges the request.
     _bridge.send(
       ClientMessage.setCodexSpeed(speed.value, sessionId: sessionId),
     );

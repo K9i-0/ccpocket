@@ -136,6 +136,105 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it.each([false, true])("preserves inherited Ultrafast settings before input (resume=%s)", async (resume) => {
+    const proc = new CodexProcess("linux");
+    const requests: Array<{ method: string; params: any }> = [];
+    vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      const method = args[0] as string;
+      const params = args[1];
+      requests.push({ method, params });
+      if (method === "thread/start" || method === "thread/resume") {
+        return { thread: { id: "thread-inherited", model: "gpt-6-astra" },
+          model: "gpt-6-astra", serviceTier: "ultrafast" };
+      }
+      if (method === "model/list") return { data: [{ model: "gpt-6-astra",
+        serviceTiers: [{ id: "ultrafast", name: "Ultrafast" }] }], nextCursor: null };
+      return {};
+    });
+    try {
+      proc.start("/tmp/inherited-tier", resume ? { threadId: "thread-inherited", profile: "custom" } : {});
+      await proc.waitUntilReady();
+      expect(proc.serviceTier).toBe("ultrafast");
+      expect(requests.some((request) => request.method === "turn/start")).toBe(false);
+      proc.sendInput("continue");
+      await tick();
+      expect(requests.find((request) => request.method === "turn/start")?.params.serviceTier).toBe("ultrafast");
+    } finally { proc.stop(); }
+  });
+
+  it("rejects a requested tier that the thread response silently downgraded", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: any[] = [];
+    proc.on("message", (message) => messages.push(message));
+    const request = vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      if (args[0] === "thread/start") return { thread: { id: "thread-downgraded" },
+        model: "gpt-6-astra", serviceTier: "default" };
+      return {};
+    });
+    try {
+      proc.start("/tmp/rejected-tier", { model: "gpt-6-astra", serviceTier: "ultrafast" });
+      await expect(proc.waitUntilReady()).rejects.toThrow('after "ultrafast" was requested');
+      expect(request.mock.calls.some((call) => call[0] === "turn/start")).toBe(false);
+      expect(messages.some((message) => message.type === "system" && message.subtype === "init")).toBe(false);
+    } finally { proc.stop(); }
+  });
+
+  it.each([undefined, null])("rejects an unconfirmed requested Ultrafast tier (%s)", async (serviceTier) => {
+    const proc = new CodexProcess("linux");
+    const request = vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      if (args[0] === "thread/start") return { thread: { id: "thread-unconfirmed" },
+        model: "gpt-6-astra", serviceTier };
+      return {};
+    });
+    try {
+      proc.start("/tmp/unconfirmed-tier", { model: "gpt-6-astra", serviceTier: "ultrafast" });
+      await expect(proc.waitUntilReady()).rejects.toThrow('did not confirm requested speed "ultrafast"');
+      expect(request.mock.calls.some((call) => call[0] === "turn/start")).toBe(false);
+    } finally { proc.stop(); }
+  });
+
+  it.each([undefined, "default"])("keeps legacy Fast response compatibility (%s)", async (serviceTier) => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      if (args[0] === "thread/start") return { thread: { id: "thread-legacy-fast" },
+        model: "gpt-6-luna", serviceTier };
+      return {};
+    });
+    try {
+      proc.start("/tmp/legacy-fast", { model: "gpt-6-luna", serviceTier: "fast" });
+      await proc.waitUntilReady();
+      expect(proc.serviceTier).toBe(serviceTier === undefined ? "fast" : "standard");
+    } finally { proc.stop(); }
+  });
+
+  it("rejects an unrequested upgrade from Fast to an extended tier", async () => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      if (args[0] === "thread/start") return { thread: { id: "thread-upgraded" },
+        model: "gpt-6-astra", serviceTier: "ultrafast" };
+      return {};
+    });
+    try {
+      proc.start("/tmp/unrequested-tier", { model: "gpt-6-astra", serviceTier: "fast" });
+      await expect(proc.waitUntilReady()).rejects.toThrow('after "fast" was requested');
+    } finally { proc.stop(); }
+  });
+
+  it("rejects an inherited unsupported tier before accepting input", async () => {
+    const proc = new CodexProcess("linux");
+    vi.spyOn(proc as any, "request").mockImplementation(async (...args: unknown[]) => {
+      if (args[0] === "thread/resume") return { thread: { id: "thread-unavailable" },
+        model: "gpt-6-luna", serviceTier: "ultrafast" };
+      if (args[0] === "model/list") return { data: [{ model: "gpt-6-luna",
+        serviceTiers: [{ id: "priority", name: "Fast" }] }], nextCursor: null };
+      return {};
+    });
+    try {
+      proc.start("/tmp/unavailable-tier", { threadId: "thread-unavailable" });
+      await expect(proc.waitUntilReady()).rejects.toThrow('is not available for model "gpt-6-luna"');
+    } finally { proc.stop(); }
+  });
+
   it("normalizes unsupported GPT-6 Astra reasoning efforts to low", () => {
     expect(
       normalizeCodexReasoningEffortForModel("gpt-6-astra", "none"),
@@ -2555,6 +2654,7 @@ describe("CodexProcess (app-server)", () => {
         supportedReasoningEfforts: ["low", "medium", "max", "ultra"],
         defaultReasoningEffort: "medium",
         supportedServiceTiers: ["fast"],
+        serviceTierMetadata: [{ id: "fast", name: "Fast", description: "1.5x speed" }],
         defaultServiceTier: "fast",
       },
       {
@@ -2562,6 +2662,7 @@ describe("CodexProcess (app-server)", () => {
         supportedReasoningEfforts: ["low", "medium"],
         defaultReasoningEffort: "low",
         supportedServiceTiers: [],
+        serviceTierMetadata: [],
       },
     ]);
     proc.stop();

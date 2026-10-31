@@ -542,19 +542,37 @@ ReasoningEffort? reasoningEffortByValue(String? raw) {
   return ReasoningEffort.fromValue(value);
 }
 
-enum CodexSpeed {
-  standard('standard', 'Standard'),
-  fast('fast', 'Fast');
+/// A service tier retains its wire id even when this app does not know it.
+class CodexSpeed {
+  static const standard = CodexSpeed('standard', 'Standard');
+  static const fast = CodexSpeed('fast', 'Fast');
 
   final String value;
   final String label;
-  const CodexSpeed(this.value, this.label);
+  final String? description;
+  const CodexSpeed(this.value, this.label, {this.description});
+
+  factory CodexSpeed.fromJson(Map<String, dynamic> json) => CodexSpeed(
+    codexSpeedFromRaw(json['id'] as String).value,
+    json['name'] as String,
+    description: json['description'] as String?,
+  );
+
+  @override
+  bool operator ==(Object other) => other is CodexSpeed && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
 }
 
-CodexSpeed codexSpeedFromRaw(String? raw) => switch (raw?.trim()) {
-  'fast' || 'priority' => CodexSpeed.fast,
-  _ => CodexSpeed.standard,
-};
+CodexSpeed codexSpeedFromRaw(String? raw) {
+  final value = raw?.trim();
+  return switch (value) {
+    null || '' || 'standard' || 'default' => CodexSpeed.standard,
+    'fast' || 'priority' => CodexSpeed.fast,
+    _ => CodexSpeed(value, value),
+  };
+}
 
 enum WebSearchMode {
   disabled('disabled', 'Disabled'),
@@ -1030,6 +1048,20 @@ sealed class ServerMessage {
               (key, value) => MapEntry(
                 key as String,
                 (value as List?)?.whereType<String>().toList() ?? const [],
+              ),
+            ) ??
+            const {},
+        codexModelServiceTierMetadata:
+            (json['codexModelServiceTierMetadata'] as Map?)?.map(
+              (key, value) => MapEntry(
+                key as String,
+                (value as List)
+                    .map(
+                      (entry) => CodexSpeed.fromJson(
+                        Map<String, dynamic>.from(entry as Map),
+                      ),
+                    )
+                    .toList(),
               ),
             ) ??
             const {},
@@ -2670,6 +2702,7 @@ class SessionListMessage implements ServerMessage {
   final List<String> codexModels;
   final Map<String, List<String>> codexModelReasoningEfforts;
   final Map<String, List<String>> codexModelServiceTiers;
+  final Map<String, List<CodexSpeed>> codexModelServiceTierMetadata;
   final List<String> codexProfiles;
   final String? defaultCodexProfile;
   final bool codexAutoReviewDisabled;
@@ -2687,6 +2720,7 @@ class SessionListMessage implements ServerMessage {
     this.codexModels = const [],
     this.codexModelReasoningEfforts = const {},
     this.codexModelServiceTiers = const {},
+    this.codexModelServiceTierMetadata = const {},
     this.codexProfiles = const [],
     this.defaultCodexProfile,
     this.codexAutoReviewDisabled = false,

@@ -68,7 +68,7 @@ bool codexSupportsFast(
   CodexSpeed speed = CodexSpeed.standard,
 }) {
   if (speed == CodexSpeed.fast) return true;
-  final effectiveModel = model ?? 'gpt-5.5';
+  final effectiveModel = model;
   final tiers = modelServiceTiers[effectiveModel];
   if (tiers != null) {
     return tiers.contains('fast') || tiers.contains('priority');
@@ -76,11 +76,54 @@ bool codexSupportsFast(
   return false;
 }
 
+/// Uses model metadata as a catalog, never as proof of account entitlement.
+/// Older Bridges may describe Fast, but cannot safely accept other tier ids.
+List<CodexSpeed> codexAvailableSpeeds(
+  String? model,
+  Map<String, List<String>> modelServiceTiers, {
+  Map<String, List<CodexSpeed>> modelServiceTierMetadata = const {},
+  bool supportsExtendedServiceTiers = false,
+  CodexSpeed currentSpeed = CodexSpeed.standard,
+}) {
+  final effectiveModel = model;
+  final metadata = modelServiceTierMetadata[effectiveModel];
+  final advertised =
+      metadata ??
+      (modelServiceTiers[effectiveModel] ?? const <String>[]).map(
+        codexSpeedFromRaw,
+      );
+  final speeds = <CodexSpeed>[CodexSpeed.standard];
+  for (final speed in advertised) {
+    if (speed != CodexSpeed.standard &&
+        (supportsExtendedServiceTiers || speed == CodexSpeed.fast) &&
+        !speeds.contains(speed)) {
+      speeds.add(speed);
+    }
+  }
+  // Preserve an existing legacy Fast choice when the old Bridge has no catalog.
+  // An explicit empty catalog is different: it says the model has no extra tiers.
+  if (!supportsExtendedServiceTiers &&
+      !modelServiceTierMetadata.containsKey(effectiveModel) &&
+      !modelServiceTiers.containsKey(effectiveModel) &&
+      currentSpeed == CodexSpeed.fast) {
+    speeds.add(CodexSpeed.fast);
+  }
+  return speeds;
+}
+
+/// Keeps unknown saved/current ids visible rather than relabeling them Standard.
+CodexSpeed codexSpeedForDisplay(CodexSpeed speed, List<CodexSpeed> available) =>
+    available.where((candidate) => candidate == speed).firstOrNull ?? speed;
+
+String codexSpeedUnavailableMessage(CodexSpeed speed) =>
+    '${speed.label} is unavailable for this model or Bridge. Choose another speed.';
+
 class CodexSettingsPanel extends StatelessWidget {
   final String model;
   final ReasoningEffort effort;
   final CodexSpeed speed;
   final bool supportsFast;
+  final List<CodexSpeed>? availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
   final String speedButtonKey;
   final bool showAdvanced;
@@ -100,6 +143,7 @@ class CodexSettingsPanel extends StatelessWidget {
     required this.effort,
     required this.speed,
     required this.supportsFast,
+    this.availableSpeeds,
     required this.onSpeedChanged,
     required this.speedButtonKey,
     required this.showAdvanced,
@@ -117,6 +161,10 @@ class CodexSettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final speeds =
+        availableSpeeds ??
+        [CodexSpeed.standard, if (supportsFast) CodexSpeed.fast];
+    final displaySpeed = codexSpeedForDisplay(speed, speeds);
     return Material(
       color: cs.surfaceContainerHigh,
       shape: RoundedRectangleBorder(
@@ -130,8 +178,8 @@ class CodexSettingsPanel extends StatelessWidget {
           _CodexSettingsHeader(
             model: model,
             effort: effort,
-            speed: speed,
-            supportsFast: supportsFast,
+            speed: displaySpeed,
+            availableSpeeds: speeds,
             onSpeedChanged: onSpeedChanged,
             speedButtonKey: speedButtonKey,
             showAdvanced: showAdvanced,
@@ -141,6 +189,27 @@ class CodexSettingsPanel extends StatelessWidget {
             modelLabelKey: modelLabelKey,
             effortLabelKey: effortLabelKey,
           ),
+          if (!speeds.contains(speed))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                codexSpeedUnavailableMessage(displaySpeed),
+                key: const ValueKey('codex_speed_unavailable'),
+                style: TextStyle(color: cs.error, fontSize: 12),
+              ),
+            ),
+          if (speeds.any(
+            (candidate) =>
+                candidate != CodexSpeed.standard &&
+                candidate != CodexSpeed.fast,
+          ))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                'Higher speeds use more of your allowance. Access depends on your account.',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+              ),
+            ),
           AnimatedSize(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeInOutCubic,
@@ -176,7 +245,7 @@ class _CodexSettingsHeader extends StatelessWidget {
   final String model;
   final ReasoningEffort effort;
   final CodexSpeed speed;
-  final bool supportsFast;
+  final List<CodexSpeed> availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
   final String speedButtonKey;
   final bool showAdvanced;
@@ -190,7 +259,7 @@ class _CodexSettingsHeader extends StatelessWidget {
     required this.model,
     required this.effort,
     required this.speed,
-    required this.supportsFast,
+    required this.availableSpeeds,
     required this.onSpeedChanged,
     required this.speedButtonKey,
     required this.showAdvanced,
@@ -222,7 +291,8 @@ class _CodexSettingsHeader extends StatelessWidget {
         children: [
           CodexSpeedButton(
             speed: speed,
-            enabled: supportsFast,
+            enabled: availableSpeeds.contains(CodexSpeed.fast),
+            availableSpeeds: availableSpeeds,
             onChanged: onSpeedChanged,
             buttonKey: speedButtonKey,
           ),
@@ -232,7 +302,7 @@ class _CodexSettingsHeader extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    codexModelDisplayName(model),
+                    '${codexModelDisplayName(model)}${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
                     key: ValueKey(modelLabelKey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -369,6 +439,7 @@ class CodexSpeedButton extends StatelessWidget {
   final ValueChanged<CodexSpeed> onChanged;
   final String buttonKey;
   final bool enabled;
+  final List<CodexSpeed>? availableSpeeds;
 
   const CodexSpeedButton({
     super.key,
@@ -376,12 +447,67 @@ class CodexSpeedButton extends StatelessWidget {
     required this.onChanged,
     required this.buttonKey,
     this.enabled = true,
+    this.availableSpeeds,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isFast = speed == CodexSpeed.fast;
+    final speeds =
+        availableSpeeds ?? [CodexSpeed.standard, if (enabled) CodexSpeed.fast];
+    final useMenu =
+        speeds.any(
+          (candidate) =>
+              candidate != CodexSpeed.standard && candidate != CodexSpeed.fast,
+        ) ||
+        !speeds.contains(speed);
+    if (useMenu) {
+      return PopupMenuButton<CodexSpeed>(
+        key: ValueKey(buttonKey),
+        tooltip: '${speed.label}: choose speed',
+        initialValue: speed,
+        onSelected: (next) {
+          HapticFeedback.selectionClick();
+          onChanged(next);
+        },
+        itemBuilder: (_) => [
+          for (final candidate in speeds)
+            PopupMenuItem<CodexSpeed>(
+              key: ValueKey('codex_speed_${candidate.value}_option'),
+              value: candidate,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text(candidate.label)),
+                        if (candidate == speed) const Icon(Icons.check),
+                      ],
+                    ),
+                    if (candidate.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        candidate.description!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+        icon: Icon(
+          speed == CodexSpeed.standard ? Icons.bolt_outlined : Icons.bolt,
+          color: speed == CodexSpeed.standard
+              ? cs.onSurfaceVariant
+              : cs.primary,
+        ),
+      );
+    }
     return Tooltip(
       message: isFast ? 'Fast mode on' : 'Fast mode off',
       child: IconButton(
