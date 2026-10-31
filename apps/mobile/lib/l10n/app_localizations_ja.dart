@@ -2229,7 +2229,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsUsageSectionTitle => '利用量';
 
   @override
-  String get settingsUsageNoCodexData => 'Codex の利用量データが見つかりませんでした。';
+  String get settingsUsageNoData => '利用量データが見つかりませんでした。';
 
   @override
   String get usageDisplayModeRemaining => '残量';
@@ -2276,15 +2276,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => '上限に到達しています';
-
-  @override
-  String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
-
-  @override
-  String get settingsClaudeApiBilling => 'API キーの課金';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => 'サブスクリプション利用状況';
 
   @override
   String get settingsNewSessionTabs => '新規セッションタブ';

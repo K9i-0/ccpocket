@@ -2242,7 +2242,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsUsageSectionTitle => '사용량';
 
   @override
-  String get settingsUsageNoCodexData => 'Codex 사용량 데이터를 찾을 수 없습니다.';
+  String get settingsUsageNoData => '사용량 데이터를 찾을 수 없습니다.';
 
   @override
   String get usageDisplayModeRemaining => '남은 양';
@@ -2289,15 +2289,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => '한도에 도달했습니다';
-
-  @override
-  String get settingsClaudeUsageDescription => '브라우저에서 Claude 공식 결제 페이지를 엽니다.';
-
-  @override
-  String get settingsClaudeApiBilling => 'API 키 결제';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => '구독 사용량';
 
   @override
   String get settingsNewSessionTabs => '새 세션 탭';

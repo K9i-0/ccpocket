@@ -28,14 +28,6 @@ class AppConstants {
   static const String macOSReleasesUrl =
       'https://github.com/K9i-0/ccpocket/releases?q=macos';
 
-  /// Claude API billing settings page
-  static const String claudeApiBillingUrl =
-      'https://platform.claude.com/settings/billing';
-
-  /// Claude subscription usage settings page
-  static const String claudeSubscriptionUsageUrl =
-      'https://claude.ai/settings/usage';
-
   /// App Store URL (iOS)
   static const String appStoreUrl =
       'https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790';

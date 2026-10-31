@@ -856,7 +856,7 @@ void main() {
         final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
         expect(find.text(l.settingsUsageSectionTitle), findsNothing);
-        expect(find.byKey(const ValueKey('codex_usage_card')), findsNothing);
+        expect(find.byKey(const ValueKey('usage_card_codex')), findsNothing);
         expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
 
         await settingsCubit.close();
@@ -1116,17 +1116,167 @@ void main() {
       expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('codex_usage_card')),
+        find.byKey(const ValueKey('usage_card_codex')),
         300,
         scrollable: find.byType(Scrollable),
       );
       await tester.pumpAndSettle();
 
       expect(find.text(l.settingsUsageSectionTitle), findsOneWidget);
-      expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('usage_card_codex')), findsOneWidget);
       expect(find.text(l.usageSevenDay), findsOneWidget);
       expect(find.text(l.usageFiveHour), findsNothing);
       expect(find.textContaining('(6d13h34m)'), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('shows Claude and Codex usage cards without Claude links', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final resetsAt = DateTime.now()
+          .add(const Duration(hours: 3))
+          .toIso8601String();
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+        cachedUsage: UsageResultMessage(
+          providers: [
+            UsageInfo(
+              provider: 'codex',
+              sevenDay: UsageWindow(utilization: 53, resetsAt: resetsAt),
+            ),
+            UsageInfo(
+              provider: 'claude',
+              fiveHour: UsageWindow(utilization: 20, resetsAt: resetsAt),
+              sevenDay: UsageWindow(utilization: 64, resetsAt: resetsAt),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('usage_card_codex')),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+
+      final claudeCard = find.byKey(const ValueKey('usage_card_claude'));
+      final codexCard = find.byKey(const ValueKey('usage_card_codex'));
+      expect(claudeCard, findsOneWidget);
+      expect(codexCard, findsOneWidget);
+      // Claude is listed before Codex regardless of the Bridge order.
+      expect(
+        tester.getTopLeft(claudeCard).dy,
+        lessThan(tester.getTopLeft(codexCard).dy),
+      );
+      expect(
+        find.descendant(of: claudeCard, matching: find.text('Claude')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: claudeCard, matching: find.text(l.usageFiveHour)),
+        findsOneWidget,
+      );
+      // Remaining mode applies to both providers.
+      expect(
+        find.descendant(of: claudeCard, matching: find.text('36%')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: codexCard, matching: find.text('47%')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('claude_api_billing_tile')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('claude_subscription_usage_tile')),
+        findsNothing,
+      );
+
+      settingsCubit.toggleUsageDisplayMode();
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: claudeCard, matching: find.text('64%')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: codexCard, matching: find.text('53%')),
+        findsOneWidget,
+      );
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('shows only Claude when Codex usage is absent', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+        cachedUsage: const UsageResultMessage(
+          providers: [
+            UsageInfo(
+              provider: 'claude',
+              fiveHour: UsageWindow(
+                utilization: 20,
+                resetsAt: '2026-04-12T10:19:42Z',
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('usage_card_claude')),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(find.byKey(const ValueKey('usage_card_codex')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('usage_card_placeholder')),
+        findsNothing,
+      );
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -1170,12 +1320,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('usage_card_codex')), findsOneWidget);
       expect(find.text('On pace'), findsOneWidget);
       expect(find.text('Expected 40% used'), findsOneWidget);
       expect(find.text('On track to last until reset'), findsOneWidget);
       final usageRect = tester.getRect(
-        find.byKey(const ValueKey('codex_usage_card')),
+        find.byKey(const ValueKey('usage_card_codex')),
       );
       final listRect = tester.getRect(
         find.byKey(const PageStorageKey('settings_list')),
@@ -1225,7 +1375,7 @@ void main() {
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('codex_usage_card')),
+        find.byKey(const ValueKey('usage_card_codex')),
         300,
         scrollable: find.byType(Scrollable),
       );

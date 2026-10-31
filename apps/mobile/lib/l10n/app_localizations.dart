@@ -4229,11 +4229,11 @@ abstract class AppLocalizations {
   /// **'利用量'**
   String get settingsUsageSectionTitle;
 
-  /// No description provided for @settingsUsageNoCodexData.
+  /// No description provided for @settingsUsageNoData.
   ///
   /// In ja, this message translates to:
-  /// **'Codex の利用量データが見つかりませんでした。'**
-  String get settingsUsageNoCodexData;
+  /// **'利用量データが見つかりませんでした。'**
+  String get settingsUsageNoData;
 
   /// No description provided for @usageDisplayModeRemaining.
   ///
@@ -4318,24 +4318,6 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'上限に到達しています'**
   String get usagePaceAtLimit;
-
-  /// No description provided for @settingsClaudeUsageDescription.
-  ///
-  /// In ja, this message translates to:
-  /// **'Claude の公式課金ページをブラウザで開きます。'**
-  String get settingsClaudeUsageDescription;
-
-  /// No description provided for @settingsClaudeApiBilling.
-  ///
-  /// In ja, this message translates to:
-  /// **'API キーの課金'**
-  String get settingsClaudeApiBilling;
-
-  /// No description provided for @settingsClaudeSubscriptionUsage.
-  ///
-  /// In ja, this message translates to:
-  /// **'サブスクリプション利用状況'**
-  String get settingsClaudeSubscriptionUsage;
 
   /// No description provided for @settingsNewSessionTabs.
   ///

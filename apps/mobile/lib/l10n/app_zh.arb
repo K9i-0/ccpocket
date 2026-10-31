@@ -946,7 +946,7 @@
   "usageFiveHour": "5 小时",
   "usageSevenDay": "7 天",
   "settingsUsageSectionTitle": "用量",
-  "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
+  "settingsUsageNoData": "未找到用量数据。",
   "usageDisplayModeRemaining": "剩余",
   "usageDisplayModeUsed": "已用",
   "usageOpenSettingsHint": "打开用量详情",
@@ -971,9 +971,6 @@
     }
   },
   "usagePaceAtLimit": "已达到上限",
-  "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
-  "settingsClaudeApiBilling": "API Key 计费",
-  "settingsClaudeSubscriptionUsage": "订阅用量",
   "settingsNewSessionTabs": "新建会话标签页",
   "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
   "showHiddenDirectories": "显示隐藏目录",

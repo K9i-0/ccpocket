@@ -912,7 +912,7 @@
   "usageFiveHour": "5時間",
   "usageSevenDay": "7日間",
   "settingsUsageSectionTitle": "利用量",
-  "settingsUsageNoCodexData": "Codex の利用量データが見つかりませんでした。",
+  "settingsUsageNoData": "利用量データが見つかりませんでした。",
   "usageDisplayModeRemaining": "残量",
   "usageDisplayModeUsed": "使用量",
   "usageOpenSettingsHint": "利用量の詳細を開く",
@@ -937,9 +937,6 @@
     }
   },
   "usagePaceAtLimit": "上限に到達しています",
-  "settingsClaudeUsageDescription": "Claude の公式課金ページをブラウザで開きます。",
-  "settingsClaudeApiBilling": "API キーの課金",
-  "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",
   "settingsNewSessionTabs": "新規セッションタブ",
   "settingsNewSessionTabsDescription": "新規セッションで表示する AI ツールの選択肢と並び順を変更できます。",
   "showHiddenDirectories": "隠しディレクトリを表示",
