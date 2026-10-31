@@ -784,6 +784,11 @@ interface SDKUserMsg {
     >;
   };
   parent_tool_use_id: null;
+  /**
+   * Claude Code delivery priority. `next` injects a message into the running
+   * turn at the next safe point (between tool calls) without interrupting it.
+   */
+  priority?: "now" | "next" | "later";
 }
 
 export class SdkProcess extends EventEmitter<SdkProcessEvents> {
@@ -811,6 +816,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private stopped = false;
 
   private pendingInputQueue: Array<{ text: string; images?: Array<{ base64: string; mimeType: string }> }> = [];
+  /** Mid-turn messages waiting for the SDK to pull the next prompt. */
+  private pendingSteerQueue: SDKUserMsg[] = [];
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
@@ -830,6 +837,46 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   get isWaitingForInput(): boolean {
     return this.userMessageResolve !== null;
+  }
+
+  /** True while a turn is in progress and new prompts cannot start a turn. */
+  get isTurnActive(): boolean {
+    return (
+      this._status === "running" ||
+      this._status === "compacting" ||
+      this._status === "waiting_approval"
+    );
+  }
+
+  /**
+   * Inject input into the running turn without interrupting it (Claude Code
+   * `priority: "next"`). When no turn is active the input is sent normally.
+   * Returns whether the input was steered into an active turn.
+   */
+  steerInput(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): boolean {
+    if (!this.isTurnActive) {
+      if (images && images.length > 0) this.dispatchInputWithImages(text, images);
+      else this.dispatchInput(text);
+      return false;
+    }
+    const message: SDKUserMsg = {
+      ...this.buildUserMessage(text, images),
+      priority: "next",
+    };
+    const resolve = this.userMessageResolve;
+    if (resolve) {
+      this.userMessageResolve = null;
+      resolve(message);
+    } else {
+      this.pendingSteerQueue.push(message);
+    }
+    console.log(
+      `[sdk-process] Steered input into running turn${images?.length ? ` with ${images.length} image(s)` : ""}`,
+    );
+    return true;
   }
 
   get sessionId(): string | null {
@@ -1006,6 +1053,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authResolution = Promise.resolve();
     this.authResolutionPending = false;
     this.pendingInputQueue = [];
+    this.pendingSteerQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
       this.queryInstance.close();
@@ -1364,6 +1412,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this._status === "running" ||
         this._status === "compacting" ||
         this._status === "waiting_approval";
+      const steered = this.pendingSteerQueue.shift();
+      if (steered) {
+        if (turnInProgress) {
+          yield steered;
+        } else {
+          // The turn ended before the SDK pulled the steer; send it as a
+          // normal prompt so it starts the next turn.
+          const { priority: _priority, ...prompt } = steered;
+          this.setStatus("running");
+          yield prompt;
+        }
+        continue;
+      }
       if (this.pendingInputQueue.length > 0 && !turnInProgress) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);

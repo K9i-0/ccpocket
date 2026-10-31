@@ -100,6 +100,9 @@ export interface QueuedInputItem {
   mentions?: Array<{ name: string; path: string }>;
 }
 
+export type InputDelivery = "steer" | "queue";
+
+
 export type ClientMessage =
   | {
       type: "client_capabilities";
@@ -160,6 +163,12 @@ export type ClientMessage =
       skill?: { name: string; path: string };
       skills?: Array<{ name: string; path: string }>;
       mentions?: Array<{ name: string; path: string }>;
+      /**
+       * How input sent during an active turn is delivered. `steer` injects it
+       * into the running turn; `queue` holds it for the next turn. Omitted by
+       * older clients: Codex queues and Claude interrupts the turn.
+       */
+      delivery?: InputDelivery;
     }
   | {
       type: "update_queued_input";
@@ -1404,6 +1413,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
+        if (
+          msg.delivery !== undefined &&
+          msg.delivery !== "steer" &&
+          msg.delivery !== "queue"
+        )
+          return null;
         if (
           msg.clientMessageId !== undefined &&
           typeof msg.clientMessageId !== "string"

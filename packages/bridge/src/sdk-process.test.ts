@@ -835,6 +835,65 @@ describe("SdkProcess.approveAlways", () => {
 });
 
 describe("SdkProcess input dispatch", () => {
+  it("steers into a running turn with next priority and no status change", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("also do this")).toBe(true);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0]).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "also do this" }] },
+    });
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("running");
+  });
+
+  it("buffers a steer until the stream pulls during the same turn", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+
+    expect(proc.steerInput("buffered")).toBe(true);
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "buffered" }] },
+    });
+  });
+
+  it("sends a buffered steer as a normal prompt when the turn already ended", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+    proc.steerInput("late steer");
+    internal._status = "idle";
+
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value.priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
+  it("sends steer input normally when no turn is active", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("start a turn")).toBe(false);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0].priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
   it("queues and requests interrupt while a turn is running", () => {
     const proc = new SdkProcess();
     const resolve = vi.fn();

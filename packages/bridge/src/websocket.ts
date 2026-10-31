@@ -15,6 +15,7 @@ import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
   type HistoryEntry,
+  type QueuedSessionInput,
   type SessionInfo,
   type SessionSummary,
   type WorktreeOptions,
@@ -1647,7 +1648,7 @@ export class BridgeWebSocketServer {
       });
       return;
     }
-    if (session.codexQueuedInput) {
+    if (session.queuedInput) {
       this.send(ws, {
         type: "rewind_result",
         sessionId,
@@ -1784,7 +1785,7 @@ export class BridgeWebSocketServer {
       });
       return;
     }
-    if (session.codexQueuedInput) {
+    if (session.queuedInput) {
       this.send(ws, {
         type: "error",
         message: "Cannot fork while Codex has queued input",
@@ -2266,7 +2267,7 @@ export class BridgeWebSocketServer {
         reason: "reset",
       } satisfies Extract<ServerMessage, { type: "history_snapshot" }>);
       this.sendCodexCurrentSettings(ws, sessionId, session);
-      this.sendCodexQueueState(ws, sessionId, session);
+      this.sendQueueState(ws, sessionId, session);
       this.sendCodexGoalState(ws, sessionId, session);
       if (options.includeCachedCommands) {
         this.sendCachedCommands(ws, sessionId, session);
@@ -2302,7 +2303,7 @@ export class BridgeWebSocketServer {
         status: session.status,
         sessionId,
       } as Record<string, unknown>);
-      this.sendCodexQueueState(ws, sessionId, session);
+      this.sendQueueState(ws, sessionId, session);
       this.sendCodexGoalState(ws, sessionId, session);
       this.sendCachedCommands(ws, sessionId, session);
       return true;
@@ -3256,32 +3257,54 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        if (
-          session.provider === "codex" &&
-          !session.process.isWaitingForInput
-        ) {
-          if (session.codexQueuedInput) {
-            this.send(ws, {
-              type: "input_rejected",
-              sessionId: session.id,
-              ...(clientMessageId ? { clientMessageId } : {}),
-              reason: "Queue is full",
-            });
-            break;
-          }
+        const delivery = msg.delivery;
+        const sdkTurnActive =
+          session.provider === "claude"
+            ? (session.process as Partial<Pick<SdkProcess, "isTurnActive">>)
+                .isTurnActive
+            : undefined;
+        const turnActive =
+          session.provider === "codex"
+            ? !session.process.isWaitingForInput
+            : typeof sdkTurnActive === "boolean"
+              ? sdkTurnActive
+              : isAgentBusySnapshot;
+        // Older clients omit `delivery`: Codex queues and Claude keeps the
+        // legacy interrupt-and-send path below.
+        const holdForDelivery =
+          turnActive &&
+          (delivery !== undefined || session.provider === "codex");
 
-          const queued = this.sessionManager.queueCodexInput(session.id, {
+        if (holdForDelivery) {
+          const pendingInput: QueuedSessionInput = {
             itemId: randomUUID(),
             ...(clientMessageId ? { clientMessageId } : {}),
             text,
             createdAt: new Date().toISOString(),
-            userMessageUuid: nextCodexUserTurnUuid(session),
+            ...(session.provider === "codex"
+              ? { userMessageUuid: nextCodexUserTurnUuid(session) }
+              : {}),
             ...(images.length > 0 ? { imageCount: images.length, images } : {}),
             ...(imageRefs ? { imageRefs } : {}),
             ...(codexSkills.length > 0 ? { skills: codexSkills } : {}),
             ...(codexMentions.length > 0 ? { mentions: codexMentions } : {}),
-          });
-          if (!queued) {
+          };
+
+          let outcome: "steered" | "queued" | "rejected";
+          if (delivery === "steer") {
+            outcome = await this.sessionManager.steerInput(
+              session.id,
+              pendingInput,
+            );
+          } else if (session.queuedInput) {
+            outcome = "rejected";
+          } else {
+            outcome = this.sessionManager.queueInput(session.id, pendingInput)
+              ? "queued"
+              : "rejected";
+          }
+
+          if (outcome === "rejected") {
             this.send(ws, {
               type: "input_rejected",
               sessionId: session.id,
@@ -3311,7 +3334,7 @@ export class BridgeWebSocketServer {
             sessionId: session.id,
             ...(clientMessageId ? { clientMessageId } : {}),
             acceptedSeq: session.historyRevision,
-            queued: true,
+            queued: outcome === "queued",
           });
           this.broadcastSessionList();
           break;
@@ -3531,11 +3554,11 @@ export class BridgeWebSocketServer {
 
       case "update_queued_input": {
         const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
+        if (!session) {
           this.send(ws, {
             type: "error",
             sessionId: msg.sessionId,
-            message: "No active Codex session.",
+            message: "No active session.",
           });
           return;
         }
@@ -3547,7 +3570,7 @@ export class BridgeWebSocketServer {
           });
           return;
         }
-        const success = this.sessionManager.updateCodexQueuedInput(
+        const success = this.sessionManager.updateQueuedInput(
           session.id,
           msg.itemId,
           msg.text,
@@ -3568,15 +3591,15 @@ export class BridgeWebSocketServer {
 
       case "cancel_queued_input": {
         const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
+        if (!session) {
           this.send(ws, {
             type: "error",
             sessionId: msg.sessionId,
-            message: "No active Codex session.",
+            message: "No active session.",
           });
           return;
         }
-        const success = this.sessionManager.cancelCodexQueuedInput(
+        const success = this.sessionManager.cancelQueuedInput(
           session.id,
           msg.itemId,
         );
@@ -3595,15 +3618,15 @@ export class BridgeWebSocketServer {
 
       case "steer_queued_input": {
         const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
+        if (!session) {
           this.send(ws, {
             type: "error",
             sessionId: msg.sessionId,
-            message: "No active Codex session.",
+            message: "No active session.",
           });
           return;
         }
-        const result = await this.sessionManager.steerCodexQueuedInput(
+        const result = await this.sessionManager.steerQueuedInput(
           session.id,
           msg.itemId,
         );
@@ -4966,8 +4989,8 @@ export class BridgeWebSocketServer {
             status: session.status,
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
+          this.sendQueueState(ws, msg.sessionId, session);
           if (session.provider === "codex") {
-            this.sendCodexQueueState(ws, msg.sessionId, session);
             this.sendCodexGoalState(ws, msg.sessionId, session);
           }
 
@@ -5095,7 +5118,7 @@ export class BridgeWebSocketServer {
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
           } as ServerMessage);
           this.sendCodexCurrentSettings(ws, msg.sessionId, session);
-          this.sendCodexQueueState(ws, msg.sessionId, session);
+          this.sendQueueState(ws, msg.sessionId, session);
           this.sendCodexGoalState(ws, msg.sessionId, session);
           break;
         }
@@ -5137,6 +5160,7 @@ export class BridgeWebSocketServer {
             status: session.status,
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
           } as ServerMessage);
+          this.sendQueueState(ws, msg.sessionId, session);
         } else {
           this.send(ws, {
             type: "error",
@@ -6080,7 +6104,7 @@ export class BridgeWebSocketServer {
           if (msg.type === "trust_project") {
             if (msg.sessionId) {
               const session = this.sessionManager.get(msg.sessionId);
-              if (!session || session.provider !== "codex" || session.codexQueuedInput ||
+              if (!session || session.provider !== "codex" || session.queuedInput ||
                   await realpath(session.worktreePath ?? session.projectPath) !== projectPath) {
                 throw new Error("Session is unavailable or has queued input");
               }
@@ -8356,6 +8380,7 @@ export class BridgeWebSocketServer {
         "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
+        "input_delivery_v1",
       ],
     });
   }
@@ -8402,6 +8427,7 @@ export class BridgeWebSocketServer {
         "performance_mode_v1",
         "project_request_correlation_v1",
         "session_context_v1",
+        "input_delivery_v1",
       ],
     });
   }
@@ -9769,12 +9795,12 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private sendCodexQueueState(
+  private sendQueueState(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
   ): void {
-    const item = session.codexQueuedInput;
+    const item = session.queuedInput;
     this.sendConversationQueue(ws, {
       type: "conversation_queue",
       sessionId,
