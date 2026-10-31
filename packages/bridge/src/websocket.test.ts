@@ -9533,6 +9533,103 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  describe("claude fork from an assistant message", () => {
+    async function startClaude() {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).handleClientMessage(
+        { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+        ws,
+      );
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "session_created",
+        );
+      const sessionId = created.sessionId as string;
+      const session = (bridge as any).sessionManager.get(sessionId);
+      session.claudeSessionId = "claude-source";
+      session.process.settings = { model: "opus", effort: "xhigh" };
+      session.process.permissionMode = "acceptEdits";
+      ws.send.mockClear();
+      return { bridge, ws, sessionId, session };
+    }
+
+    async function flush() {
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    }
+
+    it("creates a forked session that keeps the source", async () => {
+      const { bridge, ws, sessionId } = await startClaude();
+      getSessionHistoryMock.mockResolvedValueOnce([
+        { role: "user", uuid: "u1", content: [{ type: "text", text: "one" }] },
+        { role: "assistant", uuid: "a1", content: [{ type: "text", text: "1" }] },
+        { role: "user", uuid: "u2", content: [{ type: "text", text: "two" }] },
+        { role: "assistant", uuid: "a2", content: [{ type: "text", text: "2" }] },
+      ]);
+
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "a1" },
+        ws,
+      );
+      await flush();
+
+      expect(getSessionHistoryMock).toHaveBeenCalledWith("claude-source");
+      const newCreated = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "session_created",
+        );
+      expect(newCreated).toMatchObject({
+        provider: "claude",
+        sourceSessionId: sessionId,
+      });
+      expect((bridge as any).sessionManager.get(sessionId)).toBeDefined();
+      const forked = (bridge as any).sessionManager.get(newCreated.sessionId);
+      expect(forked.startOptions).toMatchObject({
+        sessionId: "claude-source",
+        forkSession: true,
+        resumeSessionAt: "a1",
+        permissionMode: "acceptEdits",
+        model: "opus",
+        effort: "xhigh",
+      });
+      expect(forked.pastMessages.map((m: any) => m.uuid)).toEqual(["u1", "a1"]);
+      bridge.close();
+    });
+
+    it("rejects unknown targets and running sessions", async () => {
+      const { bridge, ws, sessionId, session } = await startClaude();
+      getSessionHistoryMock.mockResolvedValueOnce([
+        { role: "user", uuid: "u1", content: [] },
+      ]);
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "u1" },
+        ws,
+      );
+      await flush();
+      expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+        type: "error",
+        errorCode: "fork_failed",
+        message: "Fork target not found in the Claude transcript",
+      });
+
+      session.status = "running";
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "a1" },
+        ws,
+      );
+      await flush();
+      expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+        errorCode: "fork_failed",
+        message: "Cannot fork while Claude is running",
+      });
+      bridge.close();
+    });
+  });
+
   it("rejects codex code rewind modes", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

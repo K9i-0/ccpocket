@@ -421,7 +421,8 @@ export class SessionManager {
         !effectiveCodexOptions?.threadId,
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
-      claudeSessionId: options?.sessionId,
+      // A fork gets a new provider id from system/init instead.
+      claudeSessionId: options?.forkSession ? undefined : options?.sessionId,
     };
     if (effectiveProvider === "codex") {
       this.seedCodexPastUserTurnUuidMap(session);

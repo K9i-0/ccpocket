@@ -1753,6 +1753,97 @@ export class BridgeWebSocketServer {
     this.sendSessionList(ws);
   }
 
+  /**
+   * Branch a Claude conversation into a new session that ends at the given
+   * assistant message. The source session keeps running unchanged.
+   */
+  private async forkClaudeSession(
+    ws: WebSocket,
+    sessionId: string,
+    targetUuid: string,
+  ): Promise<void> {
+    const fail = (message: string): void => {
+      this.send(ws, {
+        type: "error",
+        sessionId,
+        message,
+        errorCode: "fork_failed",
+      });
+    };
+    const session = this.sessionManager.get(sessionId);
+    if (!session || session.provider !== "claude") {
+      fail(`Session ${sessionId} not found`);
+      return;
+    }
+    const claudeSessionId = session.claudeSessionId;
+    if (!claudeSessionId) {
+      fail("Session has no Claude session ID yet");
+      return;
+    }
+    const sdkProcess = session.process as SdkProcess;
+    if (session.status !== "idle" || (sdkProcess.status ?? "idle") !== "idle") {
+      fail("Cannot fork while Claude is running");
+      return;
+    }
+    if (session.queuedInput) {
+      fail("Cannot fork while Claude has queued input");
+      return;
+    }
+
+    const history = await getSessionHistory(claudeSessionId);
+    const targetIndex = history.findIndex(
+      (message) => message.role === "assistant" && message.uuid === targetUuid,
+    );
+    if (targetIndex < 0) {
+      fail("Fork target not found in the Claude transcript");
+      return;
+    }
+    const pastMessages = history.slice(0, targetIndex + 1);
+
+    const workspace = this.workspaceForRuntimeSession(session);
+    const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
+      ? {
+          existingWorktreePath: session.worktreePath,
+          worktreeBranch: session.worktreeBranch,
+        }
+      : undefined;
+    const settings = sdkProcess.settings ?? {};
+    const permissionMode = sdkProcess.permissionMode;
+    const newSessionId = this.sessionManager.create(
+      session.projectPath,
+      {
+        sessionId: claudeSessionId,
+        forkSession: true,
+        resumeSessionAt: targetUuid,
+        ...(permissionMode ? { permissionMode } : {}),
+        ...(settings.model ? { model: settings.model } : {}),
+        ...(settings.effort ? { effort: settings.effort } : {}),
+        ...(settings.fastMode ? { fastMode: true } : {}),
+        ...(session.sandboxEnabled !== undefined
+          ? { sandboxEnabled: session.sandboxEnabled }
+          : {}),
+      },
+      pastMessages,
+      worktreeOpts,
+      "claude",
+    );
+    this.attachWorkspaceToRuntimeSession(newSessionId, workspace);
+    const newSession = this.sessionManager.get(newSessionId);
+
+    this.send(
+      ws,
+      this.buildSessionCreatedMessage({
+        sessionId: newSessionId,
+        provider: "claude",
+        projectPath: session.projectPath,
+        session: newSession,
+        permissionMode,
+        sourceSessionId: sessionId,
+      }),
+    );
+    this.sendSessionList(ws);
+  }
+
   private async forkCodexSession(
     ws: WebSocket,
     sessionId: string,
@@ -7673,7 +7764,12 @@ export class BridgeWebSocketServer {
       }
 
       case "fork": {
-        this.forkCodexSession(ws, msg.sessionId, msg.targetUuid).catch((err) => {
+        const forkSource = this.sessionManager.get(msg.sessionId);
+        const fork =
+          forkSource?.provider === "claude"
+            ? this.forkClaudeSession(ws, msg.sessionId, msg.targetUuid)
+            : this.forkCodexSession(ws, msg.sessionId, msg.targetUuid);
+        fork.catch((err) => {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.send(ws, {
             type: "error",
@@ -8461,6 +8557,7 @@ export class BridgeWebSocketServer {
         "session_context_v1",
         "input_delivery_v1",
         "claude_session_settings_v1",
+        "claude_fork_v1",
       ],
     });
   }
@@ -8509,6 +8606,7 @@ export class BridgeWebSocketServer {
         "session_context_v1",
         "input_delivery_v1",
         "claude_session_settings_v1",
+        "claude_fork_v1",
       ],
     });
   }
