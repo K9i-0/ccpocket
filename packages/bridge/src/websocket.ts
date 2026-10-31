@@ -270,6 +270,7 @@ const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
 const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
+  "background_tasks",
   "conversation_queue",
   "goal_state",
   "codex_recovery_state",
@@ -2404,6 +2405,7 @@ export class BridgeWebSocketServer {
       } satisfies Extract<ServerMessage, { type: "history_snapshot" }>);
       this.sendCodexCurrentSettings(ws, sessionId, session);
       this.sendQueueState(ws, sessionId, session);
+      this.sendBackgroundTasksState(ws, sessionId, session);
       this.sendCodexGoalState(ws, sessionId, session);
       if (options.includeCachedCommands) {
         this.sendCachedCommands(ws, sessionId, session);
@@ -2440,6 +2442,7 @@ export class BridgeWebSocketServer {
         sessionId,
       } as Record<string, unknown>);
       this.sendQueueState(ws, sessionId, session);
+      this.sendBackgroundTasksState(ws, sessionId, session);
       this.sendCodexGoalState(ws, sessionId, session);
       this.sendCachedCommands(ws, sessionId, session);
       return true;
@@ -5195,6 +5198,7 @@ export class BridgeWebSocketServer {
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
           this.sendQueueState(ws, msg.sessionId, session);
+          this.sendBackgroundTasksState(ws, msg.sessionId, session);
           if (session.provider === "codex") {
             this.sendCodexGoalState(ws, msg.sessionId, session);
           }
@@ -5324,6 +5328,7 @@ export class BridgeWebSocketServer {
           } as ServerMessage);
           this.sendCodexCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
+          this.sendBackgroundTasksState(ws, msg.sessionId, session);
           this.sendCodexGoalState(ws, msg.sessionId, session);
           break;
         }
@@ -5367,6 +5372,7 @@ export class BridgeWebSocketServer {
           } as ServerMessage);
           this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
+          this.sendBackgroundTasksState(ws, msg.sessionId, session);
         } else {
           this.send(ws, {
             type: "error",
@@ -10071,6 +10077,19 @@ export class BridgeWebSocketServer {
           ]
         : [],
     } as Record<string, unknown>);
+  }
+
+  private sendBackgroundTasksState(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    if (session.provider !== "claude") return;
+    this.send(ws, {
+      type: "background_tasks",
+      sessionId,
+      tasks: session.backgroundTasks ?? [],
+    });
   }
 
   private sendCodexGoalState(

@@ -993,6 +993,20 @@ sealed class ServerMessage {
             : null,
         reason: json['reason'] as String? ?? 'compacted',
       ),
+      'background_tasks' => BackgroundTasksMessage(
+        sessionId: json['sessionId'] as String?,
+        tasks:
+            (json['tasks'] as List?)
+                ?.whereType<Map>()
+                .map(
+                  (task) => BackgroundTaskInfo.fromJson(
+                    Map<String, dynamic>.from(task),
+                  ),
+                )
+                .whereType<BackgroundTaskInfo>()
+                .toList() ??
+            const [],
+      ),
       'conversation_queue' => ConversationQueueMessage(
         sessionId: json['sessionId'] as String?,
         limit: json['limit'] as int? ?? 1,
@@ -3470,6 +3484,39 @@ class InputAckMessage implements ServerMessage {
   });
 }
 
+/// A live background task of a Claude session (shell, monitor, subagent).
+class BackgroundTaskInfo {
+  final String taskId;
+  final String taskType;
+  final String? description;
+  final String? subagentType;
+
+  const BackgroundTaskInfo({
+    required this.taskId,
+    required this.taskType,
+    this.description,
+    this.subagentType,
+  });
+
+  static BackgroundTaskInfo? fromJson(Map<String, dynamic> json) {
+    final taskId = json['taskId'];
+    if (taskId is! String || taskId.isEmpty) return null;
+    return BackgroundTaskInfo(
+      taskId: taskId,
+      taskType: json['taskType'] as String? ?? 'unknown',
+      description: json['description'] as String?,
+      subagentType: json['subagentType'] as String?,
+    );
+  }
+}
+
+/// Full set of live background tasks for a session; replaces the previous set.
+class BackgroundTasksMessage implements ServerMessage {
+  final String? sessionId;
+  final List<BackgroundTaskInfo> tasks;
+  const BackgroundTasksMessage({this.sessionId, required this.tasks});
+}
+
 class ConversationQueueMessage implements ServerMessage {
   final String? sessionId;
   final int limit;
@@ -4518,6 +4565,9 @@ class SessionInfo {
   /// Oldest unresolved user prompt, including permissions and questions.
   final PermissionRequestMessage? pendingPermission;
   final QueuedInputItem? queuedInput;
+
+  /// Live background tasks (Claude). The turn may be idle while these run.
+  final int backgroundTaskCount;
   final SessionWorkspaceInfo? workspace;
 
   const SessionInfo({
@@ -4555,6 +4605,7 @@ class SessionInfo {
     this.codexAdditionalWritableRoots = const [],
     this.pendingPermission,
     this.queuedInput,
+    this.backgroundTaskCount = 0,
     this.workspace,
   });
 
@@ -4616,6 +4667,7 @@ class SessionInfo {
     bool clearPermission = false,
     QueuedInputItem? queuedInput,
     bool clearQueuedInput = false,
+    int? backgroundTaskCount,
   }) {
     return SessionInfo(
       id: id,
@@ -4658,6 +4710,7 @@ class SessionInfo {
           ? null
           : (pendingPermission ?? this.pendingPermission),
       queuedInput: clearQueuedInput ? null : (queuedInput ?? this.queuedInput),
+      backgroundTaskCount: backgroundTaskCount ?? this.backgroundTaskCount,
       workspace: workspace,
     );
   }
@@ -4726,6 +4779,7 @@ class SessionInfo {
       queuedInput: queueJson != null
           ? QueuedInputItem.fromJson(queueJson)
           : null,
+      backgroundTaskCount: json['backgroundTaskCount'] as int? ?? 0,
       workspace: switch (json['workspace']) {
         final Map workspace => SessionWorkspaceInfo.fromJson(
           Map<String, dynamic>.from(workspace),
@@ -4766,6 +4820,7 @@ class ClientMessage {
     int protocolVersion = appProtocolMaxVersion,
     int minimumProtocolVersion = appProtocolMinVersion,
     List<String> supportedServerMessages = const [
+      'background_tasks',
       'conversation_queue',
       'goal_state',
       'codex_recovery_state',

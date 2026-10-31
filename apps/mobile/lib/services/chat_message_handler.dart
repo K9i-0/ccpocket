@@ -71,6 +71,7 @@ class ChatStateUpdate {
   final List<SlashCommand>? slashCommands;
   final QueuedInputItem? queuedInput;
   final bool clearQueuedInput;
+  final List<BackgroundTaskInfo>? backgroundTasks;
   final bool resetPending;
   final bool resetAsk;
   final bool resetStreaming;
@@ -134,6 +135,7 @@ class ChatStateUpdate {
     this.slashCommands,
     this.queuedInput,
     this.clearQueuedInput = false,
+    this.backgroundTasks,
     this.resetPending = false,
     this.resetAsk = false,
     this.resetStreaming = false,
@@ -241,6 +243,8 @@ class ChatMessageHandler {
           queuedInput: items.isNotEmpty ? items.first : null,
           clearQueuedInput: items.isEmpty,
         );
+      case BackgroundTasksMessage(:final tasks):
+        return ChatStateUpdate(backgroundTasks: tasks);
       case SystemMessage(
         :final subtype,
         :final slashCommands,

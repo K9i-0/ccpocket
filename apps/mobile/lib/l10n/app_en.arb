@@ -1395,5 +1395,23 @@
   "inputDeliverySteerDescription": "Add to the current turn without stopping it",
   "inputDeliveryQueueDescription": "Send after the current turn finishes",
   "sendAsSteer": "Steer into current turn",
-  "sendAsQueue": "Queue for next turn"
+  "sendAsQueue": "Queue for next turn",
+  "backgroundTasksRunning": "Running in background",
+  "backgroundTasksMore": "+{count} more",
+  "@backgroundTasksMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCardBackgroundTasks": "Background {count}",
+  "@sessionCardBackgroundTasks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "liteModeBackground": "Background running"
 }

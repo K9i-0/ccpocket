@@ -17,6 +17,7 @@ import {
   isClaudeOAuthOptInEnabled,
   listAvailableClaudeModels,
   stripClaudeModelPricing,
+  backgroundTasksFromSdk,
   SdkProcess,
 } from "./sdk-process.js";
 import type { ServerMessage } from "./parser.js";
@@ -2948,5 +2949,72 @@ describe("Claude server tool blocks", () => {
         },
       } as any),
     ).toBeNull();
+  });
+});
+
+describe("Claude background tasks", () => {
+  it("maps the SDK level payload and leaves out ambient tasks", () => {
+    expect(
+      backgroundTasksFromSdk([
+        {
+          task_id: "b1",
+          task_type: "local_bash",
+          description: "Wait for CI",
+        },
+        { task_id: "w1", task_type: "local_bash", ambient: true },
+        {
+          task_id: "a1",
+          task_type: "local_agent",
+          subagent_type: "Explore",
+        },
+        { task_type: "local_bash" },
+      ]),
+    ).toEqual([
+      { taskId: "b1", taskType: "local_bash", description: "Wait for CI" },
+      { taskId: "a1", taskType: "local_agent", subagentType: "Explore" },
+    ]);
+    expect(backgroundTasksFromSdk(undefined)).toEqual([]);
+  });
+
+  it("emits background_tasks on change and clears them when the query ends", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+    internal.authClassification = "subscription";
+    internal._status = "running";
+    const changed = (tasks: unknown[]) => ({
+      type: "system",
+      subtype: "background_tasks_changed",
+      tasks,
+    });
+    const bash = { task_id: "b1", task_type: "local_bash", description: "Wait" };
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield changed([bash]);
+        yield changed([bash]);
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Started",
+          duration_ms: 1,
+          session_id: "main",
+        };
+        // Status stays idle while the background task is still running.
+        expect(proc.status).toBe("idle");
+        expect(proc.backgroundTasks).toHaveLength(1);
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    expect(
+      messages
+        .filter((m) => m.type === "background_tasks")
+        .map((m) => (m as { tasks: unknown[] }).tasks),
+    ).toEqual([
+      [{ taskId: "b1", taskType: "local_bash", description: "Wait" }],
+      [],
+    ]);
   });
 });

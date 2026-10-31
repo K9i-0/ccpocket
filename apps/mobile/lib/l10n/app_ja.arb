@@ -1425,5 +1425,23 @@
   "inputDeliverySteerDescription": "実行中のターンを止めずに指示を追加します",
   "inputDeliveryQueueDescription": "現在のターンが終わってから送信します",
   "sendAsSteer": "今のターンに差し込む",
-  "sendAsQueue": "次のターンにキュー"
+  "sendAsQueue": "次のターンにキュー",
+  "backgroundTasksRunning": "バックグラウンドで実行中",
+  "backgroundTasksMore": "他{count}件",
+  "@backgroundTasksMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCardBackgroundTasks": "バックグラウンド {count}",
+  "@sessionCardBackgroundTasks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "liteModeBackground": "バックグラウンド実行中"
 }

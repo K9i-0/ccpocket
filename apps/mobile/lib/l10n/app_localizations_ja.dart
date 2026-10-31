@@ -3366,4 +3366,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendAsQueue => '次のターンにキュー';
+
+  @override
+  String get backgroundTasksRunning => 'バックグラウンドで実行中';
+
+  @override
+  String backgroundTasksMore(int count) {
+    return '他$count件';
+  }
+
+  @override
+  String sessionCardBackgroundTasks(int count) {
+    return 'バックグラウンド $count';
+  }
+
+  @override
+  String get liteModeBackground => 'バックグラウンド実行中';
 }

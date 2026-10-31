@@ -979,6 +979,12 @@ class BridgeService implements BridgeServiceBase {
               case WorktreeRemovedMessage():
                 final accepted = _acceptWorktreeRemovedResponse(msg);
                 if (accepted != null) _messageController.add(accepted);
+              case BackgroundTasksMessage(:final tasks):
+                if (sessionId != null) {
+                  _patchSessionBackgroundTaskCount(sessionId, tasks.length);
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               case ConversationQueueMessage(:final items):
                 if (sessionId != null) {
                   _patchSessionQueuedInput(
@@ -4584,6 +4590,14 @@ class BridgeService implements BridgeServiceBase {
     if (current.codexServiceTier == serviceTier) return;
     _sessions = List.of(_sessions)
       ..[idx] = current.copyWith(codexServiceTier: serviceTier);
+    _publishSessionList();
+  }
+
+  void _patchSessionBackgroundTaskCount(String sessionId, int count) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0 || _sessions[idx].backgroundTaskCount == count) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(backgroundTaskCount: count);
     _publishSessionList();
   }
 

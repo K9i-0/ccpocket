@@ -1463,5 +1463,9 @@
   "inputDeliverySteerDescription": "在不停止当前回合的情况下追加指令",
   "inputDeliveryQueueDescription": "当前回合结束后发送",
   "sendAsSteer": "插入当前回合",
-  "sendAsQueue": "排队到下一回合"
+  "sendAsQueue": "排队到下一回合",
+  "backgroundTasksRunning": "正在后台运行",
+  "backgroundTasksMore": "另有{count}项",
+  "sessionCardBackgroundTasks": "后台 {count}",
+  "liteModeBackground": "后台运行中"
 }

@@ -3394,4 +3394,20 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get sendAsQueue => '다음 턴 대기열에 추가';
+
+  @override
+  String get backgroundTasksRunning => '백그라운드에서 실행 중';
+
+  @override
+  String backgroundTasksMore(int count) {
+    return '외 $count개';
+  }
+
+  @override
+  String sessionCardBackgroundTasks(int count) {
+    return '백그라운드 $count';
+  }
+
+  @override
+  String get liteModeBackground => '백그라운드 실행 중';
 }

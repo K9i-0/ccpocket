@@ -6334,6 +6334,30 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'次のターンにキュー'**
   String get sendAsQueue;
+
+  /// No description provided for @backgroundTasksRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックグラウンドで実行中'**
+  String get backgroundTasksRunning;
+
+  /// No description provided for @backgroundTasksMore.
+  ///
+  /// In ja, this message translates to:
+  /// **'他{count}件'**
+  String backgroundTasksMore(int count);
+
+  /// No description provided for @sessionCardBackgroundTasks.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックグラウンド {count}'**
+  String sessionCardBackgroundTasks(int count);
+
+  /// No description provided for @liteModeBackground.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックグラウンド実行中'**
+  String get liteModeBackground;
 }
 
 class _AppLocalizationsDelegate

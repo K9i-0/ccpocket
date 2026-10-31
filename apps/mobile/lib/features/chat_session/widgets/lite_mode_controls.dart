@@ -122,7 +122,10 @@ class _ActivityStatusState extends State<_ActivityStatus> {
       ProcessStatus.starting => l.liteModeStarting,
       ProcessStatus.compacting => l.liteModeCompacting,
       ProcessStatus.waitingApproval => l.liteModeWaiting,
-      ProcessStatus.idle => l.liteModeIdle,
+      ProcessStatus.idle =>
+        cubit.state.backgroundTasks.isNotEmpty
+            ? l.liteModeBackground
+            : l.liteModeIdle,
     };
     final now = DateTime.now();
     final summary = [
