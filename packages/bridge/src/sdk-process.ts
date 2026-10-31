@@ -503,6 +503,33 @@ function isInternalClaudeResultError(error: string): boolean {
   );
 }
 
+const CLAUDE_LOCAL_COMMAND_TEXT =
+  /^<local-command-(?:caveat|std(?:err|out))>/;
+
+/**
+ * Local command echoes (e.g. "Set model to …" after setModel) are emitted as
+ * user frames outside any turn; they must not mark the session as running.
+ */
+function isClaudeLocalCommandFrame(msg: SDKMessage): boolean {
+  if (msg.type !== "user") return false;
+  const content = (msg as { message?: { content?: unknown } }).message?.content;
+  const texts: string[] = [];
+  if (typeof content === "string") {
+    texts.push(content);
+  } else if (Array.isArray(content)) {
+    for (const block of content) {
+      if (!block || typeof block !== "object") return false;
+      const typed = block as { type?: unknown; text?: unknown };
+      if (typed.type !== "text" || typeof typed.text !== "string") return false;
+      texts.push(typed.text);
+    }
+  }
+  return (
+    texts.length > 0 &&
+    texts.every((text) => CLAUDE_LOCAL_COMMAND_TEXT.test(text.trimStart()))
+  );
+}
+
 function isClaudeSystemInjectedUserText(text: string): boolean {
   const normalized = text.trimStart();
   return (
@@ -1915,6 +1942,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
         break;
       case "user":
+        if (isClaudeLocalCommandFrame(msg)) break;
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");
         }

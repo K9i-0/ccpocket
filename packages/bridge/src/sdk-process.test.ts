@@ -835,6 +835,30 @@ describe("SdkProcess.approveAlways", () => {
 });
 
 describe("SdkProcess settings", () => {
+  it("keeps idle status when the CLI echoes a local model command", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content:
+          "<local-command-stdout>Set model to `sonnet (claude-sonnet-5-5)`</local-command-stdout>",
+      },
+    });
+    expect(proc.status).toBe("idle");
+
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }],
+      },
+    });
+    expect(proc.status).toBe("running");
+  });
+
   it("applies only changed model, effort and fast mode", async () => {
     const proc = new SdkProcess();
     const setModel = vi.fn(async () => {});
