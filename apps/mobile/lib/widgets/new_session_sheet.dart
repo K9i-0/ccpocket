@@ -571,15 +571,24 @@ enum _WorktreeMode {
 const _defaultCodexModels = defaultCodexModels;
 
 /// Fallback Claude models when Bridge hasn't delivered a list yet.
-const _defaultClaudeModels = <String>[
-  'claude-opus-4-7',
-  'claude-opus-4-7[1m]',
-  'claude-opus-4-6',
-  'claude-opus-4-6[1m]',
-  'claude-opus-4-5-20251101',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-6',
+// Used only when the Bridge sends no Claude model list. Claude Code aliases
+// always resolve to the current model of each family.
+const _defaultClaudeModelOptions = <ClaudeModelOption>[
+  ClaudeModelOption(value: 'default', displayName: 'Default (recommended)'),
+  ClaudeModelOption(value: 'opus', displayName: 'Opus'),
+  ClaudeModelOption(value: 'sonnet', displayName: 'Sonnet'),
+  ClaudeModelOption(value: 'haiku', displayName: 'Haiku'),
 ];
+
+String _claudeModelLabel(
+  Map<String, ClaudeModelOption> options,
+  String model,
+) => options[model]?.label ?? model;
+
+String _claudeModelDescription(
+  Map<String, ClaudeModelOption> options,
+  String model,
+) => options[model]?.description ?? '';
 
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
@@ -626,6 +635,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   // Model lists from Bridge (with fallbacks)
   late final List<String> _claudeModelList;
+  late final Map<String, ClaudeModelOption> _claudeModelOptions;
   late final Map<String, List<ClaudeEffort>> _claudeModelEfforts;
   late final List<String> _codexModelList;
   late final Map<String, List<ReasoningEffort>> _codexModelReasoningEfforts;
@@ -855,10 +865,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         widget.bridge?.projectsState ?? _workspaceProjectsState;
 
     // Load available models from Bridge (with hardcoded fallbacks).
-    final bridgeClaudeModels = widget.bridge?.claudeModels ?? const [];
-    _claudeModelList = bridgeClaudeModels.isNotEmpty
-        ? bridgeClaudeModels
-        : _defaultClaudeModels;
+    final bridgeClaudeOptions =
+        widget.bridge?.claudeModelOptions ?? const <ClaudeModelOption>[];
+    final claudeOptions = bridgeClaudeOptions.isNotEmpty
+        ? bridgeClaudeOptions
+        : _defaultClaudeModelOptions;
+    _claudeModelList = [for (final option in claudeOptions) option.value];
+    _claudeModelOptions = {
+      for (final option in claudeOptions) option.value: option,
+    };
     _claudeModelEfforts = _normalizeClaudeModelEfforts(
       widget.bridge?.claudeModelEfforts ?? const {},
     );
@@ -1628,6 +1643,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             buildInputDecoration: _buildInputDecoration,
             // Claude advanced
             claudeModels: _claudeModelList,
+            claudeModelOptions: _claudeModelOptions,
             claudeModelEfforts: _claudeModelEfforts,
             selectedClaudeModel: _selectedClaudeModel,
             onClaudeModelChanged: (value) {
@@ -2563,6 +2579,7 @@ class _OptionsSection extends StatelessWidget {
 
   // Claude advanced
   final List<String> claudeModels;
+  final Map<String, ClaudeModelOption> claudeModelOptions;
   final Map<String, List<ClaudeEffort>> claudeModelEfforts;
   final String? selectedClaudeModel;
   final ValueChanged<String?> onClaudeModelChanged;
@@ -2624,6 +2641,7 @@ class _OptionsSection extends StatelessWidget {
     required this.branchController,
     required this.buildInputDecoration,
     required this.claudeModels,
+    required this.claudeModelOptions,
     required this.claudeModelEfforts,
     required this.selectedClaudeModel,
     required this.onClaudeModelChanged,
@@ -3062,8 +3080,14 @@ class _OptionsSection extends StatelessWidget {
               key: const ValueKey('dialog_claude_model'),
               label: l.model,
               icon: Icons.smart_toy_outlined,
-              title: selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
-              subtitle: '',
+              title: _claudeModelLabel(
+                claudeModelOptions,
+                selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
+              ),
+              subtitle: _claudeModelDescription(
+                claudeModelOptions,
+                selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
+              ),
               onTap: () {
                 showModeSheet<String>(
                   title: l.model,
@@ -3072,8 +3096,9 @@ class _OptionsSection extends StatelessWidget {
                   currentMode:
                       selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
                   iconFor: (_) => Icons.smart_toy_outlined,
-                  labelFor: (m) => m,
-                  descriptionFor: (_) => '',
+                  labelFor: (m) => _claudeModelLabel(claudeModelOptions, m),
+                  descriptionFor: (m) =>
+                      _claudeModelDescription(claudeModelOptions, m),
                   onSelected: onClaudeModelChanged,
                 );
               },
@@ -3135,6 +3160,7 @@ class _OptionsSection extends StatelessWidget {
             provider: provider,
             buildInputDecoration: buildInputDecoration,
             claudeModels: claudeModels,
+            claudeModelOptions: claudeModelOptions,
             claudeMaxTurnsController: claudeMaxTurnsController,
             maxTurnsError: maxTurnsError,
             onMaxTurnsChanged: onMaxTurnsChanged,
@@ -3380,6 +3406,7 @@ class _AdvancedOptions extends StatelessWidget {
 
   // Claude
   final List<String> claudeModels;
+  final Map<String, ClaudeModelOption> claudeModelOptions;
   final TextEditingController claudeMaxTurnsController;
   final String? maxTurnsError;
   final VoidCallback onMaxTurnsChanged;
@@ -3402,6 +3429,7 @@ class _AdvancedOptions extends StatelessWidget {
     required this.provider,
     required this.buildInputDecoration,
     required this.claudeModels,
+    required this.claudeModelOptions,
     required this.claudeMaxTurnsController,
     required this.maxTurnsError,
     required this.onMaxTurnsChanged,
@@ -3443,6 +3471,7 @@ class _AdvancedOptions extends StatelessWidget {
             ? _ClaudeAdvancedOptions(
                 buildInputDecoration: buildInputDecoration,
                 claudeModels: claudeModels,
+                claudeModelOptions: claudeModelOptions,
                 claudeMaxTurnsController: claudeMaxTurnsController,
                 maxTurnsError: maxTurnsError,
                 onMaxTurnsChanged: onMaxTurnsChanged,
@@ -3477,6 +3506,7 @@ class _ClaudeAdvancedOptions extends StatelessWidget {
   })
   buildInputDecoration;
   final List<String> claudeModels;
+  final Map<String, ClaudeModelOption> claudeModelOptions;
   final TextEditingController claudeMaxTurnsController;
   final String? maxTurnsError;
   final VoidCallback onMaxTurnsChanged;
@@ -3493,6 +3523,7 @@ class _ClaudeAdvancedOptions extends StatelessWidget {
   const _ClaudeAdvancedOptions({
     required this.buildInputDecoration,
     required this.claudeModels,
+    required this.claudeModelOptions,
     required this.claudeMaxTurnsController,
     required this.maxTurnsError,
     required this.onMaxTurnsChanged,
@@ -3557,7 +3588,10 @@ class _ClaudeAdvancedOptions extends StatelessWidget {
             for (final model in claudeModels)
               DropdownMenuItem<String?>(
                 value: model,
-                child: Text(model, style: const TextStyle(fontSize: 13)),
+                child: Text(
+                  _claudeModelLabel(claudeModelOptions, model),
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
           ],
           onChanged: (value) => onClaudeFallbackModelChanged(value),

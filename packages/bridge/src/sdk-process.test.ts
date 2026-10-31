@@ -16,6 +16,7 @@ import {
   hasExplicitClaudeCredential,
   isClaudeOAuthOptInEnabled,
   listAvailableClaudeModels,
+  stripClaudeModelPricing,
   SdkProcess,
 } from "./sdk-process.js";
 import type { ServerMessage } from "./parser.js";
@@ -1258,6 +1259,42 @@ describe("SdkProcess Claude authentication", () => {
       "BRIDGE_ALLOW_CLAUDE_OAUTH=1",
     );
     expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("keeps model descriptions without per-token pricing", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {},
+      close: vi.fn(),
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiKeySource: "ANTHROPIC_API_KEY" },
+        models: [
+          {
+            value: "haiku",
+            displayName: "Haiku",
+            description:
+              "Haiku 5.5 · Fastest for quick answers · $0.10/$0.50 per Mtok ($0.50/$2.50 for prompts over 100k)",
+          },
+          { value: "opus", displayName: "Opus", description: "$4/$20 per Mtok" },
+        ],
+      }),
+    });
+
+    const models = await listAvailableClaudeModels();
+    expect(models[0]).toEqual(expect.objectContaining({
+      model: "haiku",
+      displayName: "Haiku",
+      description: "Haiku 5.5 · Fastest for quick answers",
+    }));
+    expect(models[1]).not.toHaveProperty("description");
+  });
+
+  it("strips pricing segments from model descriptions", () => {
+    expect(stripClaudeModelPricing(
+      "Use the default model (currently Opus 5.5) · $4/$20 per Mtok",
+    )).toBe("Use the default model (currently Opus 5.5)");
+    expect(stripClaudeModelPricing("Sonnet 5.5 · Efficient for routine tasks"))
+      .toBe("Sonnet 5.5 · Efficient for routine tasks");
   });
 
   it("lists models from OAuth only after explicit opt-in", async () => {

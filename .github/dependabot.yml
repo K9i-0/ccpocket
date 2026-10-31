@@ -9,17 +9,80 @@ updates:
       prefix: "chore(ci)"
     labels:
       - "dependencies"
+    groups:
+      actions:
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
+
+  # npm workspaces: package-lock.json lives at the repo root, so Dependabot
+  # must run from "/" to resolve packages/bridge dependencies.
   - package-ecosystem: "npm"
-    directory: "/packages/bridge"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    allow:
-      - dependency-name: "@anthropic-ai/claude-agent-sdk"
-      - dependency-name: "@openai/codex-sdk"
     commit-message:
       prefix: "chore(bridge)"
     labels:
       - "dependencies"
+    groups:
+      # Agent SDK bundles the Claude Code binary, which also supplies the model
+      # list shown in the app. Keep it in its own PR so it is never held back.
+      claude-agent-sdk:
+        patterns:
+          - "@anthropic-ai/claude-agent-sdk"
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "@anthropic-ai/claude-agent-sdk"
     open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/functions"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(functions)"
+    labels:
+      - "dependencies"
+    groups:
+      functions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "pub"
+    directory: "/apps/mobile"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(mobile)"
+    labels:
+      - "dependencies"
+    groups:
+      pub-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "bundler"
+    directories:
+      - "/apps/mobile"
+      - "/scripts/store-review/apps"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+    groups:
+      bundler:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3

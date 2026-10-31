@@ -145,6 +145,7 @@ class BridgeService implements BridgeServiceBase {
   ProjectsMessage _projectsState = const ProjectsMessage(projects: []);
   List<String> _allowedDirs = [];
   List<String> _claudeModels = [];
+  List<ClaudeModelOption> _claudeModelOptions = [];
   Map<String, List<String>> _claudeModelEfforts = {};
   List<String> _codexModels = [];
   Map<String, List<String>> _codexModelReasoningEfforts = {};
@@ -490,6 +491,7 @@ class BridgeService implements BridgeServiceBase {
   ProjectsMessage get projectsState => _projectsState;
   List<String> get allowedDirs => _allowedDirs;
   List<String> get claudeModels => _claudeModels;
+  List<ClaudeModelOption> get claudeModelOptions => _claudeModelOptions;
   Map<String, List<String>> get claudeModelEfforts => _claudeModelEfforts;
   List<String> get codexModels => _codexModels;
   Map<String, List<String>> get codexModelReasoningEfforts =>
@@ -769,6 +771,7 @@ class BridgeService implements BridgeServiceBase {
                 :final sessions,
                 :final allowedDirs,
                 :final claudeModels,
+                :final claudeModelOptions,
                 :final claudeModelEfforts,
                 :final codexModels,
                 :final codexModelReasoningEfforts,
@@ -788,6 +791,7 @@ class BridgeService implements BridgeServiceBase {
                 _publishSessionList();
                 _allowedDirs = allowedDirs;
                 _claudeModels = claudeModels;
+                _claudeModelOptions = claudeModelOptions;
                 _claudeModelEfforts = claudeModelEfforts;
                 _codexModels = codexModels;
                 _codexModelReasoningEfforts = codexModelReasoningEfforts;
@@ -1476,6 +1480,7 @@ class BridgeService implements BridgeServiceBase {
     }
     _allowedDirs = const [];
     _claudeModels = const [];
+    _claudeModelOptions = const [];
     _claudeModelEfforts = const {};
     _codexModels = const [];
     _codexModelReasoningEfforts = const {};

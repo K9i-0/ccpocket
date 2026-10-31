@@ -92,6 +92,7 @@ export type ClaudeEffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export interface ClaudeModelMetadata {
   model: string;
   displayName?: string;
+  description?: string;
   effortLevels: ClaudeEffortLevel[];
 }
 
@@ -103,8 +104,24 @@ const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
   "max",
 ]);
 
+/**
+ * Drop per-token pricing segments (" · $4/$20 per Mtok") from the SDK model
+ * description. The interactive CLI picker hides them for subscription users,
+ * and Bridge clients never show estimated API cost.
+ */
+export function stripClaudeModelPricing(description: string): string {
+  return description
+    .split(" · ")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0 && !segment.startsWith("$"))
+    .join(" · ");
+}
+
 function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | null {
   if (!model.value) return null;
+  const description = typeof model.description === "string"
+    ? stripClaudeModelPricing(model.description)
+    : "";
   const effortLevels = Array.isArray(model.supportedEffortLevels)
     ? model.supportedEffortLevels.filter((level): level is ClaudeEffortLevel =>
         CLAUDE_EFFORT_LEVELS.has(level as ClaudeEffortLevel),
@@ -113,6 +130,7 @@ function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | n
   return {
     model: model.value,
     ...(model.displayName ? { displayName: model.displayName } : {}),
+    ...(description ? { description } : {}),
     effortLevels: model.supportsEffort === false ? [] : effortLevels,
   };
 }
@@ -437,6 +455,22 @@ const CLAUDE_ASSISTANT_ERRORS = {
   max_output_tokens: {
     message: "Claude reached the maximum response length before finishing.",
     errorCode: "claude_max_output_tokens",
+  },
+  account_on_hold: {
+    message: "Your Claude account is on hold. Check your account status.",
+    errorCode: "claude_account_on_hold",
+  },
+  verification_required: {
+    message: "Claude requires account verification before continuing.",
+    errorCode: "claude_verification_required",
+  },
+  overloaded: {
+    message: "Claude is temporarily overloaded. Please try again shortly.",
+    errorCode: "claude_overloaded",
+  },
+  cloud_credential_error: {
+    message: "Claude could not use the configured cloud provider credentials.",
+    errorCode: "claude_cloud_credential_error",
   },
 } satisfies Record<SDKAssistantMessageError, ClaudeAssistantErrorDetails>;
 
