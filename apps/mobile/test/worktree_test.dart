@@ -44,6 +44,25 @@ class _BridgeWithCodexModels extends BridgeService {
   };
 }
 
+class _BridgeWithClaudeModelOptions extends BridgeService {
+  @override
+  List<String> get claudeModels => const ['default', 'claude-fable-5-1[1m]'];
+
+  @override
+  List<ClaudeModelOption> get claudeModelOptions => const [
+    ClaudeModelOption(
+      value: 'default',
+      displayName: 'Default (recommended)',
+      description: 'Use the default model (currently Opus 5.5)',
+    ),
+    ClaudeModelOption(
+      value: 'claude-fable-5-1[1m]',
+      displayName: 'Fable',
+      description: 'Fable 5.1 · Most capable for your hardest tasks',
+    ),
+  ];
+}
+
 class _BridgeWithAstra extends BridgeService {
   @override
   List<String> get codexModels => const ['gpt-6-astra'];
@@ -1072,6 +1091,73 @@ void main() {
         find.byKey(const ValueKey('dialog_advanced_claude')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('Claude model picker shows SDK display names like the CLI', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithClaudeModelOptions();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.claude,
+                    permissionMode: PermissionMode.acceptEdits,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final modelField = find.byKey(const ValueKey('dialog_claude_model'));
+      expect(
+        find.descendant(
+          of: modelField,
+          matching: find.text('Default (recommended)'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: modelField,
+          matching: find.text('Use the default model (currently Opus 5.5)'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(modelField);
+      await tester.pumpAndSettle();
+      expect(find.text('claude-fable-5-1[1m]'), findsNothing);
+      expect(
+        find.text('Fable 5.1 · Most capable for your hardest tasks'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Fable'));
+      await tester.pumpAndSettle();
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result?.claudeModel, 'claude-fable-5-1[1m]');
     });
 
     testWidgets('Codex quick Speed button toggles Fast mode', (tester) async {

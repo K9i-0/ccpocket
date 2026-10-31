@@ -1005,6 +1005,7 @@ sealed class ServerMessage {
         claudeModels:
             (json['claudeModels'] as List?)?.map((e) => e as String).toList() ??
             const [],
+        claudeModelOptions: ClaudeModelOption.listFromSessionList(json),
         claudeModelEfforts:
             (json['claudeModelEfforts'] as Map?)?.map(
               (key, value) => MapEntry(
@@ -2607,10 +2608,64 @@ class ThinkingDeltaMessage implements ServerMessage {
   const ThinkingDeltaMessage({required this.text});
 }
 
+/// A Claude model choice as reported by the Agent SDK (same list as the CLI
+/// `/model` picker). [value] is what gets sent back to the Bridge.
+class ClaudeModelOption {
+  final String value;
+  final String? displayName;
+  final String? description;
+
+  const ClaudeModelOption({
+    required this.value,
+    this.displayName,
+    this.description,
+  });
+
+  String get label {
+    final name = displayName?.trim();
+    return name == null || name.isEmpty ? value : name;
+  }
+
+  static ClaudeModelOption? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final value = json['value'];
+    if (value is! String || value.isEmpty) return null;
+    final displayName = json['displayName'];
+    final description = json['description'];
+    return ClaudeModelOption(
+      value: value,
+      displayName: displayName is String && displayName.isNotEmpty
+          ? displayName
+          : null,
+      description: description is String && description.isNotEmpty
+          ? description
+          : null,
+    );
+  }
+
+  /// Older Bridges only send `claudeModels`; synthesize plain options then.
+  static List<ClaudeModelOption> listFromSessionList(
+    Map<String, dynamic> json,
+  ) {
+    final options = (json['claudeModelOptions'] as List?)
+        ?.map(fromJson)
+        .whereType<ClaudeModelOption>()
+        .toList();
+    if (options != null && options.isNotEmpty) return options;
+    return [
+      for (final model
+          in (json['claudeModels'] as List?)?.whereType<String>() ??
+              const <String>[])
+        ClaudeModelOption(value: model),
+    ];
+  }
+}
+
 class SessionListMessage implements ServerMessage {
   final List<SessionInfo> sessions;
   final List<String> allowedDirs;
   final List<String> claudeModels;
+  final List<ClaudeModelOption> claudeModelOptions;
   final Map<String, List<String>> claudeModelEfforts;
   final List<String> codexModels;
   final Map<String, List<String>> codexModelReasoningEfforts;
@@ -2627,6 +2682,7 @@ class SessionListMessage implements ServerMessage {
     required this.sessions,
     this.allowedDirs = const [],
     this.claudeModels = const [],
+    this.claudeModelOptions = const [],
     this.claudeModelEfforts = const {},
     this.codexModels = const [],
     this.codexModelReasoningEfforts = const {},

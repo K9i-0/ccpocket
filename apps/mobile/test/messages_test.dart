@@ -873,6 +873,46 @@ void main() {
       expect(session.codexAdditionalWritableRoots, ['/tmp/shared']);
     });
 
+    test('SessionListMessage parses Claude model display options', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'session_list',
+        'sessions': const [],
+        'claudeModels': ['default', 'claude-fable-5-1[1m]'],
+        'claudeModelOptions': [
+          {
+            'value': 'default',
+            'displayName': 'Default (recommended)',
+            'description': 'Use the default model (currently Opus 5.5)',
+          },
+          {'value': 'claude-fable-5-1[1m]', 'displayName': 'Fable'},
+          {'displayName': 'missing value'},
+        ],
+      }) as SessionListMessage;
+
+      expect(msg.claudeModelOptions.map((o) => o.value), [
+        'default',
+        'claude-fable-5-1[1m]',
+      ]);
+      expect(msg.claudeModelOptions.first.label, 'Default (recommended)');
+      expect(
+        msg.claudeModelOptions.first.description,
+        'Use the default model (currently Opus 5.5)',
+      );
+      expect(msg.claudeModelOptions.last.label, 'Fable');
+      expect(msg.claudeModelOptions.last.description, isNull);
+    });
+
+    test('SessionListMessage synthesizes Claude options for old Bridges', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'session_list',
+        'sessions': const [],
+        'claudeModels': ['sonnet', 'haiku'],
+      }) as SessionListMessage;
+
+      expect(msg.claudeModelOptions.map((o) => o.label), ['sonnet', 'haiku']);
+      expect(msg.claudeModelOptions.every((o) => o.description == null), true);
+    });
+
     test('SessionListMessage parses model metadata', () {
       final msg = ServerMessage.fromJson({
         'type': 'session_list',
