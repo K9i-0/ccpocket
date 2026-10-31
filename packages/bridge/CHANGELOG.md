@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.91.3] - 2026-10-31
+
+### Fixed
+
+- Republish the 1.91.2 fixes; the 1.91.2 release was not published because a test depended on a local environment variable.
+
 ## [1.91.2] - 2026-10-31
 
 ### Fixed
