@@ -274,19 +274,30 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
           msg.requestId == _sessionId &&
           _isPending &&
           mounted) {
-        _pendingSub?.cancel();
-        _pendingSub = null;
-        widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
-        final errorText = msg.message;
-        if (widget.onBackToSessions case final onBack?) {
-          onBack();
-        } else {
-          context.router.maybePop();
-        }
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(errorText)));
+        bridge.takeRequestError(_sessionId);
+        _failPendingStart(msg.message);
       }
     });
+    // The Bridge can reject a start before this page subscribes.
+    final missedError = bridge.takeRequestError(_sessionId);
+    if (missedError != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isPending) _failPendingStart(missedError.message);
+      });
+    }
+  }
+
+  void _failPendingStart(String errorText) {
+    _pendingSub?.cancel();
+    _pendingSub = null;
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    if (widget.onBackToSessions case final onBack?) {
+      onBack();
+    } else {
+      context.router.maybePop();
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(errorText)));
   }
 
   void _onPendingSessionCreated() {
