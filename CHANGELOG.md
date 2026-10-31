@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.146.0] - 2026-10-31
+
+### Added
+
+- Show Claude and Codex plan usage cards in settings, sharing the remaining/used toggle, reset times and pace indicators.
+- Show Claude usage alongside Codex usage in the session list summary.
+- Show Claude model names and descriptions like the Claude Code CLI when starting a session.
+
+### Fixed
+
+- Keep Claude subagent activity out of the main chat: subagent prompts and interrupt markers no longer appear as user messages, and sending a message while background agents run no longer leaves the session stuck (requires Bridge 1.91.0).
+- Stop showing empty timestamps above hidden chat entries.
+- Hide Codex setting changes in restored chat history.
+
 ## [1.145.6] - 2026-10-26
 
 ### Fixed
