@@ -116,7 +116,7 @@ Widget _buildHomeContent({
   bool hasMoreSessions = false,
   bool isInitialLoading = false,
   bool showMacOSNativeAppBanner = false,
-  UsageInfo? codexUsageOverride,
+  List<UsageInfo>? usageOverride,
   VoidCallback? onOpenUsageSettings,
   VoidCallback? onDismissMacOSNativeAppBanner,
   ValueChanged<String?>? onSelectProject,
@@ -183,7 +183,7 @@ Widget _buildHomeContent({
             onToggleProvider: () {},
             onToggleNamed: () {},
             showMacOSNativeAppBanner: showMacOSNativeAppBanner,
-            codexUsageOverride: codexUsageOverride,
+            usageOverride: usageOverride,
             onOpenUsageSettings: onOpenUsageSettings,
             onDismissMacOSNativeAppBanner: onDismissMacOSNativeAppBanner,
           ),
@@ -498,10 +498,12 @@ void main() {
       await tester.pumpWidget(
         _buildHomeContent(
           recentSessions: [_session(id: 's1')],
-          codexUsageOverride: const UsageInfo(
-            provider: 'codex',
-            sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
-          ),
+          usageOverride: const [
+            UsageInfo(
+              provider: 'codex',
+              sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
+            ),
+          ],
           onOpenUsageSettings: () => tapCount++,
           cubit: cubit,
           draftService: draftService,
@@ -517,15 +519,60 @@ void main() {
       expect(find.text('1w 86%'), findsOneWidget);
       expect(
         tester
-            .getRect(find.byKey(const ValueKey('codex_usage_summary_button')))
+            .getRect(find.byKey(const ValueKey('usage_summary_button')))
             .height,
         44,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('codex_usage_summary_button')),
-      );
+      await tester.tap(find.byKey(const ValueKey('usage_summary_button')));
       expect(tapCount, 1);
+    });
+
+    testWidgets('shows Claude and Codex usage on a narrow scaled screen', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          usageOverride: const [
+            UsageInfo(
+              provider: 'codex',
+              sevenDay: UsageWindow(utilization: 47, resetsAt: ''),
+            ),
+            UsageInfo(
+              provider: 'claude',
+              fiveHour: UsageWindow(utilization: 20, resetsAt: ''),
+              sevenDay: UsageWindow(utilization: 60, resetsAt: ''),
+            ),
+          ],
+          onOpenUsageSettings: () {},
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Claude'), findsOneWidget);
+      expect(find.text('Codex'), findsOneWidget);
+      final button = tester.getRect(
+        find.byKey(const ValueKey('usage_summary_button')),
+      );
+      expect(button.height, 44);
+      final summary = tester.getRect(
+        find.byKey(const ValueKey('usage_summary')),
+      );
+      expect(summary.right, lessThanOrEqualTo(button.right + 0.1));
+      expect(summary.bottom, lessThanOrEqualTo(button.bottom + 0.1));
     });
 
     testWidgets('keeps the 44px usage target with an active session', (
@@ -535,10 +582,12 @@ void main() {
         _buildHomeContent(
           sessions: [_runningSession(id: 'r1')],
           recentSessions: [_session(id: 's1')],
-          codexUsageOverride: const UsageInfo(
-            provider: 'codex',
-            sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
-          ),
+          usageOverride: const [
+            UsageInfo(
+              provider: 'codex',
+              sevenDay: UsageWindow(utilization: 14, resetsAt: ''),
+            ),
+          ],
           onOpenUsageSettings: () {},
           cubit: cubit,
           draftService: draftService,
@@ -550,7 +599,7 @@ void main() {
 
       expect(
         tester
-            .getRect(find.byKey(const ValueKey('codex_usage_summary_button')))
+            .getRect(find.byKey(const ValueKey('usage_summary_button')))
             .height,
         44,
       );

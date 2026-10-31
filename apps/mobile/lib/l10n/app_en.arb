@@ -882,7 +882,7 @@
   "usageFiveHour": "5 hours",
   "usageSevenDay": "7 days",
   "settingsUsageSectionTitle": "Usage",
-  "settingsUsageNoCodexData": "No Codex usage data found.",
+  "settingsUsageNoData": "No usage data found.",
   "usageDisplayModeRemaining": "Remaining",
   "usageDisplayModeUsed": "Used",
   "usageOpenSettingsHint": "Open usage details",
@@ -907,9 +907,6 @@
     }
   },
   "usagePaceAtLimit": "Limit reached",
-  "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
-  "settingsClaudeApiBilling": "API Key billing",
-  "settingsClaudeSubscriptionUsage": "Subscription usage",
   "settingsNewSessionTabs": "New Session Tabs",
   "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
   "showHiddenDirectories": "Show Hidden Directories",

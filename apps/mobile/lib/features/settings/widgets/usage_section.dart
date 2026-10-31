@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
@@ -13,7 +11,7 @@ import '../models/usage_pace.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
 
-/// Settings セクション: Codex 利用量表示 + Claude 公式ページ導線
+/// Settings セクション: Claude / Codex のプラン利用量表示
 class UsageSection extends StatefulWidget {
   final BridgeService bridgeService;
   const UsageSection({super.key, required this.bridgeService});
@@ -31,15 +29,19 @@ class _UsageSectionState extends State<UsageSection> {
   StreamSubscription<BridgeConnectionState>? _connSub;
   DateTime? _lastFetchAt;
 
-  UsageInfo? get _codexInfo {
+  /// Providers to render as cards, Claude first. Providers whose plan limits
+  /// do not apply are omitted by the Bridge, so no empty card is shown.
+  List<UsageInfo> get _visibleProviders {
     final providers = _providers;
-    if (providers == null) return null;
-    for (final info in providers) {
-      if (info.provider == Provider.codex.value) {
-        return info;
-      }
-    }
-    return null;
+    if (providers == null) return const [];
+    return [
+      for (final provider in Provider.values)
+        ...providers.where(
+          (info) =>
+              info.provider == provider.value &&
+              (info.hasData || info.hasError),
+        ),
+    ];
   }
 
   @override
@@ -93,7 +95,7 @@ class _UsageSectionState extends State<UsageSection> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final codexInfo = _codexInfo;
+    final visibleProviders = _visibleProviders;
     final usageDisplayMode = context.select(
       (SettingsCubit cubit) => cubit.state.usageDisplayMode,
     );
@@ -138,19 +140,22 @@ class _UsageSectionState extends State<UsageSection> {
             ],
           ),
         ),
-        if (codexInfo != null)
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            key: const ValueKey('codex_usage_card'),
-            child: _ProviderUsageTile(
-              info: codexInfo,
-              displayMode: usageDisplayMode,
+        if (visibleProviders.isNotEmpty)
+          for (final (index, info) in visibleProviders.indexed) ...[
+            if (index > 0) const SizedBox(height: 8),
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              key: ValueKey('usage_card_${info.provider}'),
+              child: _ProviderUsageTile(
+                info: info,
+                displayMode: usageDisplayMode,
+              ),
             ),
-          )
+          ]
         else if (_providers == null)
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            key: const ValueKey('codex_usage_card'),
+            key: const ValueKey('usage_card_placeholder'),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Center(
@@ -176,17 +181,15 @@ class _UsageSectionState extends State<UsageSection> {
         else
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            key: const ValueKey('codex_usage_card'),
+            key: const ValueKey('usage_card_placeholder'),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                l.settingsUsageNoCodexData,
+                l.settingsUsageNoData,
                 style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
               ),
             ),
           ),
-        const SizedBox(height: 8),
-        const _ClaudeUsageLinksCard(),
       ],
     );
   }
@@ -220,72 +223,6 @@ class _UsageDisplayModeButton extends StatelessWidget {
           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         child: Text(label),
-      ),
-    );
-  }
-}
-
-class _ClaudeUsageLinksCard extends StatelessWidget {
-  const _ClaudeUsageLinksCard();
-
-  Future<void> _openExternalUrl(String url) async {
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                Icon(Icons.smart_toy_outlined, size: 20, color: cs.primary),
-                const SizedBox(width: 8),
-                const Text(
-                  'Claude',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              l.settingsClaudeUsageDescription,
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            ),
-          ),
-          ListTile(
-            key: const ValueKey('claude_api_billing_tile'),
-            leading: Icon(Icons.receipt_long_outlined, color: cs.primary),
-            title: Text(l.settingsClaudeApiBilling),
-            subtitle: const Text('platform.claude.com/settings/billing'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
-            onTap: () => _openExternalUrl(AppConstants.claudeApiBillingUrl),
-          ),
-          Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-            color: cs.outlineVariant,
-          ),
-          ListTile(
-            key: const ValueKey('claude_subscription_usage_tile'),
-            leading: Icon(Icons.query_stats_outlined, color: cs.primary),
-            title: Text(l.settingsClaudeSubscriptionUsage),
-            subtitle: const Text('claude.ai/settings/usage'),
-            trailing: const Icon(Icons.open_in_new, size: 18),
-            onTap: () =>
-                _openExternalUrl(AppConstants.claudeSubscriptionUsageUrl),
-          ),
-        ],
       ),
     );
   }

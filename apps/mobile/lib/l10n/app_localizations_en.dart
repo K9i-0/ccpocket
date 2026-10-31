@@ -2316,7 +2316,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUsageSectionTitle => 'Usage';
 
   @override
-  String get settingsUsageNoCodexData => 'No Codex usage data found.';
+  String get settingsUsageNoData => 'No usage data found.';
 
   @override
   String get usageDisplayModeRemaining => 'Remaining';
@@ -2363,16 +2363,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => 'Limit reached';
-
-  @override
-  String get settingsClaudeUsageDescription =>
-      'Open Claude\'s official billing pages in your browser.';
-
-  @override
-  String get settingsClaudeApiBilling => 'API Key billing';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => 'Subscription usage';
 
   @override
   String get settingsNewSessionTabs => 'New Session Tabs';

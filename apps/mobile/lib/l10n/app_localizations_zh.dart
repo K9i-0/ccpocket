@@ -2202,7 +2202,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUsageSectionTitle => '用量';
 
   @override
-  String get settingsUsageNoCodexData => '未找到 Codex 的用量数据。';
+  String get settingsUsageNoData => '未找到用量数据。';
 
   @override
   String get usageDisplayModeRemaining => '剩余';
@@ -2249,15 +2249,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get usagePaceAtLimit => '已达到上限';
-
-  @override
-  String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
-
-  @override
-  String get settingsClaudeApiBilling => 'API Key 计费';
-
-  @override
-  String get settingsClaudeSubscriptionUsage => '订阅用量';
 
   @override
   String get settingsNewSessionTabs => '新建会话标签页';
