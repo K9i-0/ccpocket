@@ -835,6 +835,41 @@ describe("SdkProcess.approveAlways", () => {
 });
 
 describe("SdkProcess settings", () => {
+  it("keeps the model when a later flag update fails", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {}),
+      applyFlagSettings: vi.fn(async () => {
+        throw new Error("flags rejected");
+      }),
+    };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+    await expect(
+      proc.updateSettings({ model: "opus", effort: "low" }),
+    ).rejects.toThrow("flags rejected");
+    expect(proc.settings).toEqual({ model: "opus", effort: "high" });
+  });
+
+  it("announces input_ready after a result publishes idle", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.queryInstance = {};
+    const order: string[] = [];
+    proc.on("message", (m: any) => {
+      if (m.type === "status") order.push(`status:${m.status}`);
+    });
+    proc.on("input_ready", () => order.push("input_ready"));
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle", "input_ready"]);
+
+    internal._status = "running";
+    internal.stopped = true;
+    order.length = 0;
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle"]);
+  });
+
   it("keeps idle status when the CLI echoes a local model command", () => {
     const proc = new SdkProcess();
     const internal = proc as any;

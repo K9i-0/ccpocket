@@ -762,16 +762,16 @@ export class SessionManager {
     proc.on("status", (status) => {
       session.status = status;
       if (status === "idle") {
-        if (proc instanceof SdkProcess) this.drainQueuedInput(session);
         this.evictStaleIdleSessions();
       }
     });
 
-    if (proc instanceof CodexProcess) {
-      proc.on("input_ready", () => {
-        this.drainQueuedInput(session);
-      });
-    }
+    // Drain only after a completed turn has published its idle status, so
+    // the delivered prompt's "running" cannot be overtaken by that "idle",
+    // and never on stop/exit.
+    proc.on("input_ready", () => {
+      this.drainQueuedInput(session);
+    });
 
     proc.on("exit", () => {
       session.status = "idle";
@@ -1564,7 +1564,10 @@ export class SessionManager {
     console.warn(
       `[session] Steer failed for ${id}; holding input in queue: ${result.error}`,
     );
-    return this.queueInput(id, input) ? "queued" : "rejected";
+    if (!this.queueInput(id, input)) return "rejected";
+    // The turn may have ended before the steer failed; send it now if so.
+    this.drainQueuedInput(session);
+    return session.queuedInput?.itemId === input.itemId ? "queued" : "steered";
   }
 
   private async steerIntoTurn(

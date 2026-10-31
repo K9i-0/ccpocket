@@ -786,6 +786,11 @@ export interface SdkProcessEvents {
   exit: [number | null];
   /** Fired just before "exit" to allow re-persisting session metadata. */
   session_end: [];
+  /**
+   * A turn finished and the idle status was published; the session can take
+   * the next prompt. Not fired for stop/exit.
+   */
+  input_ready: [];
 }
 
 interface PendingPermission {
@@ -1069,6 +1074,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         .applyFlagSettings({ fastMode: true })
         .catch((err) => {
           console.warn(`[sdk-process] Failed to enable fast mode: ${err}`);
+          this._settings = { ...this._settings, fastMode: false };
         });
     }
 
@@ -1377,6 +1383,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       next.model !== undefined && next.model !== this._settings.model;
     if (modelChanged) {
       await queryInstance.setModel(next.model === "default" ? undefined : next.model);
+      // The model is in effect even if a later flag update fails.
+      this._settings = { ...this._settings, model: next.model };
     }
     const flags: { effortLevel?: ClaudeEffortLevel; fastMode?: boolean } = {};
     if (next.effort !== undefined && (modelChanged || next.effort !== this._settings.effort)) {
@@ -1951,6 +1959,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.pendingPermissions.clear();
         this.setStatus("idle");
         this.deliverQueuedInputIfWaiting();
+        if (!this.stopped && this.queryInstance && !this.isTurnActive) {
+          this.emit("input_ready");
+        }
         break;
     }
   }

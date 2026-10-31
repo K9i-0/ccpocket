@@ -1506,7 +1506,11 @@ describe("SessionManager claude input queue", () => {
 
     proc.status = "idle";
     proc.isTurnActive = false;
+    // A bare idle (e.g. from stop) must not send the queued prompt.
     proc.emit("status", "idle");
+    expect(proc.dispatchInput).not.toHaveBeenCalled();
+
+    proc.emit("input_ready");
 
     expect(proc.dispatchInput).toHaveBeenCalledWith("after this turn");
     expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
@@ -1555,6 +1559,34 @@ describe("SessionManager claude input queue", () => {
 
     expect(outcome).toBe("queued");
     expect(manager.get(sessionId)?.queuedInput?.text).toBe("retry later");
+  });
+
+  it("sends a failed codex steer right away when the turn already ended", async () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const proc = codexInstances.at(-1)!;
+    proc.steerInputStructured.mockRejectedValueOnce(new Error("no turn"));
+    proc.isWaitingForInput = true;
+
+    const outcome = await manager.steerInput(sessionId, {
+      itemId: "late-steer",
+      text: "late",
+      createdAt: "2026-10-31T00:00:00.000Z",
+    });
+
+    expect(outcome).toBe("steered");
+    expect(manager.get(sessionId)?.queuedInput).toBeUndefined();
+    expect(proc.sendInputStructured).toHaveBeenCalledWith("late", {
+      images: undefined,
+      skills: undefined,
+      mentions: undefined,
+    });
   });
 });
 
