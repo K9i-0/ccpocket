@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.91.2] - 2026-10-31
+
+### Fixed
+
+- Report Claude result cost per turn. The SDK's `total_cost_usd` is a running total, so each turn re-counted earlier spend and the session total was inflated.
+- Keep a running Claude turn running when the CLI's per-turn `init` arrives, instead of briefly dropping to idle (input sent in that window could skip the queue).
+
 ## [1.91.1] - 2026-10-31
 
 ### Fixed
