@@ -2672,3 +2672,38 @@ describe("Claude interrupt marker", () => {
     },
   );
 });
+
+describe("Claude result cost", () => {
+  it("reports per-turn cost from the cumulative total_cost_usd", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+    internal.authClassification = "api_key";
+    internal._status = "running";
+    const result = (total: number) => ({
+      type: "result",
+      subtype: "success",
+      result: "Done",
+      total_cost_usd: total,
+      duration_ms: 1,
+      session_id: "main",
+    });
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield result(1.8774);
+        yield result(2.1183);
+        // A smaller total means the CLI reset it (e.g. /clear).
+        yield result(0.05);
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    expect(
+      messages
+        .filter((m) => m.type === "result")
+        .map((m) => (m as { cost?: number }).cost),
+    ).toEqual([1.8774, 0.2409, 0.05]);
+  });
+});

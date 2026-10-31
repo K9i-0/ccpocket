@@ -820,6 +820,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * whose Agent/Task call has returned belong to a background agent.
    */
   private completedToolUseIds = new Set<string>();
+  /** Last cumulative query cost reported by a result (SDK total_cost_usd). */
+  private lastCumulativeCostUsd: number | null = null;
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -872,6 +874,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.fileEditsSinceLastResult = 0;
     this.pendingAssistantError = null;
     this.completedToolUseIds.clear();
+    this.lastCumulativeCostUsd = null;
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
       this.pendingInputQueue.push({ text: options.initialInput });
@@ -1503,6 +1506,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           await authResolution;
         }
         if (this.stopped || authGeneration !== this.authGeneration) return;
+        serverMsg = this.withPerTurnCost(serverMsg);
         if (
           this.authClassification !== "api_key" ||
           this.authResolutionPending
@@ -1714,6 +1718,26 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     } else {
       for (const event of events) this.emitMessage(event);
     }
+  }
+
+  /**
+   * total_cost_usd is a running total for the query() call, while clients
+   * show and sum cost per result. Report the spend since the previous result;
+   * a smaller total means the CLI reset it (e.g. /clear).
+   */
+  private withPerTurnCost<T extends Extract<ServerMessage, { type: "result" }>>(
+    msg: T,
+  ): T {
+    if (typeof msg.cost !== "number") return msg;
+    const cumulative = msg.cost;
+    if (!Number.isFinite(cumulative) || cumulative <= 0) return msg;
+    const previous = this.lastCumulativeCostUsd;
+    this.lastCumulativeCostUsd = cumulative;
+    const perTurn =
+      previous !== null && cumulative >= previous
+        ? cumulative - previous
+        : cumulative;
+    return { ...msg, cost: Math.round(perTurn * 1e6) / 1e6 };
   }
 
   private recordCompletedToolUses(msg: SDKMessage): void {
