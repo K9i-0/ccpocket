@@ -438,6 +438,22 @@ const CLAUDE_ASSISTANT_ERRORS = {
     message: "Claude reached the maximum response length before finishing.",
     errorCode: "claude_max_output_tokens",
   },
+  account_on_hold: {
+    message: "Your Claude account is on hold. Check your account status.",
+    errorCode: "claude_account_on_hold",
+  },
+  verification_required: {
+    message: "Claude requires account verification before continuing.",
+    errorCode: "claude_verification_required",
+  },
+  overloaded: {
+    message: "Claude is temporarily overloaded. Please try again shortly.",
+    errorCode: "claude_overloaded",
+  },
+  cloud_credential_error: {
+    message: "Claude could not use the configured cloud provider credentials.",
+    errorCode: "claude_cloud_credential_error",
+  },
 } satisfies Record<SDKAssistantMessageError, ClaudeAssistantErrorDetails>;
 
 function claudeAssistantErrorMessage(error: unknown): ServerMessage | null {
