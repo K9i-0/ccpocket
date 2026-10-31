@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.91.1] - 2026-10-31
+
+### Fixed
+
+- Stop showing Claude task notifications and `[Request interrupted by user]` markers as user messages in live and restored chat history.
+
 ## [1.91.0] - 2026-10-31
 
 ### Added
