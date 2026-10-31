@@ -46,5 +46,3 @@ Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。�
 ## ローカル補助
 
 `.claude/agents/` に `code-reviewer` と `e2e-verifier` がある。利用できる環境で、独立したレビュー・検証が有効な場合に使う。
-
-Claude用のhookは `.claude/settings.json` と `.claude/hooks/` を参照する。`post-edit-analyze` は対象Dartファイルを解析し、`pre-stop-check` は `lib/` の解析と条件付きテストを行う。実際に実行された検証結果を確認し、重複実行を避ける。

@@ -423,6 +423,8 @@ export interface RewindFilesResult {
 
 const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+/** Assistant content block types that clients know how to render. */
+const CLIENT_ASSISTANT_BLOCK_TYPES = new Set(["text", "tool_use", "thinking"]);
 /** Marker the CLI records as a user message after an interrupt. */
 const CLAUDE_INTERRUPT_MARKER_TEXT = /^\[Request interrupted by user(?: for tool use)?\]$/;
 
@@ -639,8 +641,14 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
       const rawContent = ast.message.content;
       const content = Array.isArray(rawContent)
         ? rawContent.filter((block) => {
-            if (!block || typeof block !== "object") return true;
+            if (!block || typeof block !== "object") return false;
             const candidate = block as Record<string, unknown>;
+            // Server-side tool blocks (advisor, web search, ...) and redacted
+            // thinking have no client rendering; clients show unknown block
+            // types as raw placeholders.
+            if (!CLIENT_ASSISTANT_BLOCK_TYPES.has(candidate.type as string)) {
+              return false;
+            }
             return !(
               candidate.type === "thinking" &&
               typeof candidate.thinking === "string" &&

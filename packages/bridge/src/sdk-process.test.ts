@@ -2909,3 +2909,44 @@ describe("Claude per-turn init", () => {
     expect(observed).toEqual(["idle", "running"]);
   });
 });
+
+describe("Claude server tool blocks", () => {
+  it("drops content blocks clients cannot render", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "server_tool_use", id: "srvtoolu_1", name: "advisor", input: {} },
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+            { type: "text", text: "Next step" },
+          ],
+        },
+      } as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Next step" }],
+        }),
+      }),
+    );
+  });
+
+  it("drops an assistant frame that only carries server tool blocks", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+          ],
+        },
+      } as any),
+    ).toBeNull();
+  });
+});

@@ -445,6 +445,36 @@ void main() {
     await claudeCubit.close();
   });
 
+  testWidgets('claude permission menu scrolls on short landscape screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(874, 402);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final claudeCubit = ChatSessionCubit(
+      sessionId: 'claude-landscape-session',
+      provider: Provider.claude,
+      bridge: bridge,
+      streamingCubit: streamingCubit,
+    );
+
+    await tester.pumpWidget(_wrap(claudeCubit));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Default'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.text('Bypass All'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Bypass All'), findsOneWidget);
+
+    await claudeCubit.close();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('codex renders chips in Plan, Permissions order', (tester) async {
     await tester.pumpWidget(_wrap(cubit));
     await tester.pump(const Duration(milliseconds: 100));
