@@ -1118,17 +1118,6 @@ describe("subagent frames", () => {
     ).toBeNull();
   });
 
-  it("still shows a main-thread interrupt marker", () => {
-    expect(
-      sdkMessageToServerMessage(userText("[Request interrupted by user]", null) as any),
-    ).toEqual(
-      expect.objectContaining({
-        type: "user_input",
-        text: "[Request interrupted by user]",
-      }),
-    );
-  });
-
   it("forwards foreground subagent tool activity while the main turn runs", async () => {
     const proc = new SdkProcess();
     (proc as any)._status = "running";
@@ -2667,4 +2656,19 @@ describe("SdkProcess.setPermissionMode", () => {
     await expect(proc.setPermissionMode("default")).resolves.toBeUndefined();
     expect(proc.permissionMode).toBe("default");
   });
+});
+
+describe("Claude interrupt marker", () => {
+  it.each(["[Request interrupted by user]", "[Request interrupted by user for tool use]"])(
+    "marks %s as synthetic",
+    (text) => {
+      expect(
+        sdkMessageToServerMessage({
+          type: "user",
+          parent_tool_use_id: null,
+          message: { role: "user", content: [{ type: "text", text }] },
+        } as any),
+      ).toEqual(expect.objectContaining({ type: "user_input", isSynthetic: true }));
+    },
+  );
 });

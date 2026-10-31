@@ -411,6 +411,8 @@ export interface RewindFilesResult {
 
 const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+/** Marker the CLI records as a user message after an interrupt. */
+const CLAUDE_INTERRUPT_MARKER_TEXT = /^\[Request interrupted by user(?: for tool use)?\]$/;
 
 interface ClaudeAssistantErrorDetails {
   message: string;
@@ -493,6 +495,7 @@ function isClaudeSystemInjectedUserText(text: string): boolean {
   const normalized = text.trimStart();
   return (
     CLAUDE_SYSTEM_INJECTED_USER_TEXT.test(normalized) ||
+    CLAUDE_INTERRUPT_MARKER_TEXT.test(normalized.trimEnd()) ||
     normalized.startsWith("Base directory for this skill:")
   );
 }
