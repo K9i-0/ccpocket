@@ -77,7 +77,7 @@ dependencies:
   collection: ^1.19.1
   extended_image: ^10.0.1
   flutter_svg: ^2.0.17
-  smooth_page_indicator: ^2.0.1
+  smooth_page_indicator: ^3.0.0
   talker: ^5.2.0
   talker_flutter: ^5.1.13
   talker_bloc_logger: ^5.2.0
