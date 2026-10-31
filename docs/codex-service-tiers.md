@@ -17,6 +17,11 @@ authorizes requests, and an advertised tier may not be usable on an account.
 - A new app connected to an older Bridge keeps Standard/Fast compatibility and
   does not send extended tiers, even if its saved defaults contain one.
 
+For a selected profile, the Bridge resolves the model. The app does not use the
+first catalog model to infer profile tier availability. A saved profile tier can
+be submitted to a capable Bridge for validation; an older Bridge still blocks
+extended tiers. New tier choices require model-specific catalog information.
+
 Extended-speed selection is explicit. Switching models or restoring saved
 extended tiers never silently substitutes another speed. Unavailable extended
 tiers remain visible so the user can choose a supported option. The existing

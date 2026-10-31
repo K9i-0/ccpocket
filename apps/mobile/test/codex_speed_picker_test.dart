@@ -37,6 +37,8 @@ class _CatalogBridge extends BridgeService {
   final _catalogController = StreamController<List<SessionInfo>>.broadcast();
 
   @override
+  List<String> get codexProfiles => const ['custom'];
+  @override
   List<String> get codexModels => const ['gpt-6.1-sol', 'gpt-6-luna'];
   @override
   Map<String, List<String>> get codexModelReasoningEfforts => const {
@@ -390,6 +392,104 @@ void main() {
       expect(requested, [CodexSpeed.fast, CodexSpeed.standard]);
     },
   );
+
+  testWidgets('profile choices do not inherit the first catalog model tiers', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final bridge = _CatalogBridge(tiers: _metadata, extended: true);
+    addTearDown(bridge.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showNewSessionSheet(
+              context: context,
+              recentProjects: const [],
+              bridge: bridge,
+              initialParams: NewSessionParams(
+                provider: Provider.codex,
+                projectPath: '/workspace/app',
+                codexProfile: 'custom',
+              ),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dialog_codex_settings_mode')));
+    await tester.pumpAndSettle();
+    final field = tester.widget<DropdownButton<CodexSpeed>>(
+      find.descendant(
+        of: find.byKey(const ValueKey('dialog_codex_speed_advanced')),
+        matching: find.byType(DropdownButton<CodexSpeed>),
+      ),
+    );
+    expect(field.items!.map((item) => item.value), [CodexSpeed.standard]);
+  });
+
+  for (final capable in [false, true]) {
+    testWidgets('saved profile tier defers to capable Bridge only: $capable', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      // Even an explicit empty first-model catalog cannot tell us the
+      // effective model or tiers of a profile resolved on the Bridge.
+      final bridge = _CatalogBridge(
+        tiers: const {'gpt-6.1-sol': []},
+        extended: capable,
+      );
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  recentProjects: const [],
+                  bridge: bridge,
+                  initialParams: NewSessionParams(
+                    provider: Provider.codex,
+                    projectPath: '/workspace/app',
+                    codexProfile: 'custom',
+                    codexSpeed: _ultrafast,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final start = find.byKey(const ValueKey('dialog_start_button'));
+      expect(
+        tester.widget<FilledButton>(start).onPressed,
+        capable ? isNotNull : isNull,
+      );
+      if (capable) {
+        await tester.tap(start);
+        await tester.pumpAndSettle();
+        expect(result?.codexProfile, 'custom');
+        expect(result?.model, isNull);
+        expect(result?.codexSpeed, _ultrafast);
+      }
+    });
+  }
 
   testWidgets('a saved unavailable tier remains visible and blocks starting', (
     tester,

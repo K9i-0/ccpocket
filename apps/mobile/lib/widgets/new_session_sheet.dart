@@ -611,13 +611,30 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       widget.bridge?.codexModelServiceTierMetadata ?? const {};
   bool get _supportsExtendedServiceTiers =>
       widget.bridge?.supportsCodexServiceTiers ?? false;
-  List<CodexSpeed> get _availableCodexSpeeds => codexAvailableSpeeds(
-    _selectedModel ?? _codexModelList.firstOrNull,
-    _codexModelServiceTiers,
-    modelServiceTierMetadata: _codexModelServiceTierMetadata,
-    supportsExtendedServiceTiers: _supportsExtendedServiceTiers,
-    currentSpeed: _codexSpeed,
-  );
+  // A profile resolves its model on the Bridge; the first catalog model is
+  // not evidence of which tiers that profile supports.
+  String? get _codexSpeedModel => _selectedCodexProfile != null
+      ? null
+      : (_selectedModel ?? _codexModelList.firstOrNull);
+
+  List<CodexSpeed> get _availableCodexSpeeds {
+    final speeds = codexAvailableSpeeds(
+      _codexSpeedModel,
+      _codexModelServiceTiers,
+      modelServiceTierMetadata: _codexModelServiceTierMetadata,
+      supportsExtendedServiceTiers: _supportsExtendedServiceTiers,
+      currentSpeed: _codexSpeed,
+    );
+    // Preserve a saved profile tier for server-side validation once its model
+    // is resolved. Do not offer new tiers based on an unrelated catalog model.
+    if (_selectedCodexProfile != null &&
+        _supportsExtendedServiceTiers &&
+        !speeds.contains(_codexSpeed)) {
+      speeds.add(_codexSpeed);
+    }
+    return speeds;
+  }
+
   bool get _isCodexSpeedAvailable =>
       _availableCodexSpeeds.contains(_codexSpeed);
   late final List<String> _codexProfiles;
@@ -1458,7 +1475,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       existingWorktreePath: useExisting
           ? _selectedWorktree?.worktreePath
           : null,
-      model: isCodex ? (_selectedModel ?? _codexModelList.firstOrNull) : null,
+      model: isCodex ? _codexSpeedModel : null,
       sandboxMode: _sandboxMode,
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
       codexSpeed: isCodex ? _codexSpeed : CodexSpeed.standard,
