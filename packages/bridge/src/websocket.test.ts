@@ -1958,6 +1958,34 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("suppresses background_tasks for clients that did not opt in", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const msg = {
+      type: "background_tasks",
+      sessionId: "s-1",
+      tasks: [{ taskId: "b1", taskType: "local_bash" }],
+    };
+
+    (bridge as any).send(ws, msg);
+    expect(ws.send).not.toHaveBeenCalled();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["background_tasks"],
+      },
+      ws,
+    );
+    (bridge as any).send(ws, msg);
+    expect(ws.send).toHaveBeenCalledWith(JSON.stringify(msg));
+
+    bridge.close();
+  });
+
   it("advertises the supported protocol range in session lists", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     (bridge as any).promptHistoryStore = { bridgeInstanceId: "bridge-test" };

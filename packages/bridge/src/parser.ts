@@ -90,6 +90,14 @@ export interface CodexGoal {
   updatedAt: number;
 }
 
+/** A live background task of a Claude session (shell, monitor, subagent). */
+export interface BackgroundTaskInfo {
+  taskId: string;
+  taskType: string;
+  description?: string;
+  subagentType?: string;
+}
+
 export interface QueuedInputItem {
   itemId: string;
   text: string;
@@ -770,6 +778,12 @@ export type ServerMessage =
       sessionId?: string;
       limit: number;
       items: QueuedInputItem[];
+    }
+  | {
+      /** Full set of live background tasks; replaces the previous set. */
+      type: "background_tasks";
+      sessionId?: string;
+      tasks: BackgroundTaskInfo[];
     }
   | { type: "codex_recovery_state"; sessionId?: string; recovery: CodexRecoveryState }
   | {

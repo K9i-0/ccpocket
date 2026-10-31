@@ -17,6 +17,7 @@ import {
   type ServerMessage,
   type ProcessStatus,
   type PermissionMode,
+  type BackgroundTaskInfo,
 } from "./parser.js";
 
 // Tools that are auto-approved in acceptEdits mode
@@ -541,6 +542,32 @@ function isClaudeSystemInjectedUserText(text: string): boolean {
   );
 }
 /**
+ * Map the SDK's background_tasks_changed payload (REPLACE semantics) to the
+ * client shape. Ambient tasks are not activity, so they are left out.
+ */
+export function backgroundTasksFromSdk(raw: unknown): BackgroundTaskInfo[] {
+  if (!Array.isArray(raw)) return [];
+  const tasks: BackgroundTaskInfo[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const task = entry as Record<string, unknown>;
+    if (task.ambient === true || task.skip_transcript === true) continue;
+    if (typeof task.task_id !== "string" || task.task_id.length === 0) continue;
+    tasks.push({
+      taskId: task.task_id,
+      taskType: typeof task.task_type === "string" ? task.task_type : "unknown",
+      ...(typeof task.description === "string" && task.description
+        ? { description: task.description }
+        : {}),
+      ...(typeof task.subagent_type === "string" && task.subagent_type
+        ? { subagentType: task.subagent_type }
+        : {}),
+    });
+  }
+  return tasks;
+}
+
+/**
  * Returns the Agent/Task tool_use id that produced a subagent frame, or null
  * for main-thread frames. The SDK sets `parent_tool_use_id` on assistant,
  * user and stream_event frames emitted inside a subagent.
@@ -884,6 +911,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private completedToolUseIds = new Set<string>();
   /** Last cumulative query cost reported by a result (SDK total_cost_usd). */
   private lastCumulativeCostUsd: number | null = null;
+  /** Live background tasks from the SDK's background_tasks_changed level. */
+  private _backgroundTasks: BackgroundTaskInfo[] = [];
+  get backgroundTasks(): BackgroundTaskInfo[] {
+    return this._backgroundTasks;
+  }
   private launchStartedAt = 0;
 
   get status(): ProcessStatus {
@@ -976,6 +1008,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.fileEditsSinceLastResult = 0;
     this.pendingAssistantError = null;
     this.completedToolUseIds.clear();
+    this.setBackgroundTasks([]);
     this.lastCumulativeCostUsd = null;
     this.launchStartedAt = Date.now();
     if (options?.initialInput) {
@@ -1139,6 +1172,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     // causes the iterator to throw and the error is suppressed.
     this.emitSessionEnd();
 
+    // The CLI's background tasks end with its process.
+    this.setBackgroundTasks([]);
     this.setStatus("idle");
   }
 
@@ -1645,6 +1680,15 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       }
 
       this.recordCompletedToolUses(message);
+      if (
+        message.type === "system" &&
+        (message as Record<string, unknown>).subtype === "background_tasks_changed"
+      ) {
+        this.setBackgroundTasks(
+          backgroundTasksFromSdk((message as Record<string, unknown>).tasks),
+        );
+        continue;
+      }
       const parentToolUseId = sdkParentToolUseId(message);
       if (parentToolUseId !== null) {
         // Subagent frames never drive the main turn state. Background agents
@@ -1776,6 +1820,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     // (e.g. customTitle) that the CLI may have overwritten during shutdown.
     this.emitSessionEnd();
 
+    // The CLI's background tasks end with its process.
+    this.setBackgroundTasks([]);
     this.setStatus("idle");
     this.emit("exit", 0);
   }
@@ -1905,6 +1951,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         ? cumulative - previous
         : cumulative;
     return { ...msg, cost: Math.round(perTurn * 1e6) / 1e6 };
+  }
+
+  private setBackgroundTasks(tasks: BackgroundTaskInfo[]): void {
+    if (JSON.stringify(tasks) === JSON.stringify(this._backgroundTasks)) return;
+    this._backgroundTasks = tasks;
+    this.emitMessage({ type: "background_tasks", tasks });
   }
 
   private recordCompletedToolUses(msg: SDKMessage): void {

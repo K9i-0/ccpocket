@@ -30,6 +30,7 @@ import type {
   Provider,
   QueuedInputItem,
   CodexGoal,
+  BackgroundTaskInfo,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -97,6 +98,8 @@ export interface SessionInfo {
   queuedInput?: QueuedSessionInput;
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
+  /** Live Claude background tasks. Kept out of chat history. */
+  backgroundTasks?: BackgroundTaskInfo[];
   /** Synthetic Codex user UUIDs waiting for their app-server echo. */
   pendingCodexUserEchoUuids?: Set<string>;
   /** Raw Codex app-server user item ids mapped to valid ccpocket turn UUIDs. */
@@ -159,6 +162,8 @@ export interface SessionSummary {
   lastActivityAt: string;
   gitBranch: string;
   lastMessage: string;
+  /** Number of live background tasks (Claude). Absent when there are none. */
+  backgroundTaskCount?: number;
   worktreePath?: string;
   worktreeBranch?: string;
   permissionMode?: string;
@@ -439,6 +444,12 @@ export class SessionManager {
       try {
         session.lastActivityAt = new Date();
         const previousProviderSessionId = session.claudeSessionId;
+
+        if (msg.type === "background_tasks") {
+          session.backgroundTasks = msg.tasks;
+          deliverProcessMessage({ ...msg, sessionId: session.id });
+          return;
+        }
 
         if (msg.type === "goal_state") {
           session.codexGoal = msg.goal;
@@ -1019,6 +1030,9 @@ export class SessionManager {
       lastActivityAt: session.lastActivityAt.toISOString(),
       gitBranch: session.gitBranch,
       lastMessage: this.extractLastMessage(session),
+      ...(session.backgroundTasks?.length
+        ? { backgroundTaskCount: session.backgroundTasks.length }
+        : {}),
       worktreePath: session.worktreePath,
       worktreeBranch: session.worktreeBranch,
       permissionMode:
