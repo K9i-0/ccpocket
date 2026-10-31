@@ -2,6 +2,20 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.92.0] - 2026-10-31
+
+### Added
+
+- Queue or steer Claude input sent mid-turn like Codex. Queued messages can be steered, edited or cancelled and are delivered once the turn becomes idle.
+- Change the Claude model, effort and fast mode during a session; the change applies from the next message and survives resume.
+- Fork a Claude session from an assistant message.
+
+### Fixed
+
+- Keep a Claude session idle after local command echoes, and drain queued input only after the idle state is published.
+- Keep fork and Claude settings state consistent.
+- Drop Claude content blocks clients cannot render, such as advisor and other server-side tool blocks.
+
 ## [1.91.3] - 2026-10-31
 
 ### Fixed
