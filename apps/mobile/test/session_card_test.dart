@@ -648,6 +648,35 @@ void main() {
       );
     });
 
+    testWidgets('shows claude effort and fast mode in the summary', (
+      tester,
+    ) async {
+      final session = SessionInfo.fromJson({
+        'id': 'claude-fast',
+        'provider': 'claude',
+        'projectPath': '/home/user/my-app',
+        'status': 'running',
+        'createdAt': DateTime.now().toIso8601String(),
+        'lastActivityAt': DateTime.now().toIso8601String(),
+        'permissionMode': 'default',
+        'model': 'claude-opus-5-5',
+        'claudeSettings': {
+          'model': 'opus',
+          'effort': 'xhigh',
+          'fastMode': true,
+        },
+      });
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(
+        find.text('claude-opus-5-5 · X High · Fast  default'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shows bypass-all for claude bypassPermissions mode', (
       tester,
     ) async {

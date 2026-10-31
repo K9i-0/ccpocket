@@ -4459,6 +4459,10 @@ class SessionInfo {
   final String? executionMode;
   final bool planMode;
   final String? model;
+
+  /// Claude effort / fast mode selected for this session (claudeSettings).
+  final String? claudeEffort;
+  final bool claudeFastMode;
   final String? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
   final String? codexPermissionsMode;
@@ -4496,6 +4500,8 @@ class SessionInfo {
     this.executionMode,
     this.planMode = false,
     this.model,
+    this.claudeEffort,
+    this.claudeFastMode = false,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
     this.codexPermissionsMode,
@@ -4554,6 +4560,8 @@ class SessionInfo {
     String? executionMode,
     bool? planMode,
     String? model,
+    String? claudeEffort,
+    bool? claudeFastMode,
     String? codexApprovalPolicy,
     String? codexApprovalsReviewer,
     String? codexPermissionsMode,
@@ -4589,6 +4597,8 @@ class SessionInfo {
       executionMode: executionMode ?? this.executionMode,
       planMode: planMode ?? this.planMode,
       model: model ?? this.model,
+      claudeEffort: claudeEffort ?? this.claudeEffort,
+      claudeFastMode: claudeFastMode ?? this.claudeFastMode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexApprovalsReviewer:
           codexApprovalsReviewer ?? this.codexApprovalsReviewer,
@@ -4615,6 +4625,7 @@ class SessionInfo {
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
+    final claudeSettings = json['claudeSettings'] as Map<String, dynamic>?;
     final permJson = json['pendingPermission'] as Map<String, dynamic>?;
     final queueJson = json['queuedInput'] as Map<String, dynamic>?;
     return SessionInfo(
@@ -4645,6 +4656,8 @@ class SessionInfo {
         permissionMode: json['permissionMode'] as String?,
       ),
       model: json['model'] as String?,
+      claudeEffort: claudeSettings?['effort'] as String?,
+      claudeFastMode: claudeSettings?['fastMode'] == true,
       codexApprovalPolicy: resolveCodexApprovalPolicy(
         approvalPolicy: codexSettings?['approvalPolicy'] as String?,
         executionMode: json['executionMode'] as String?,
