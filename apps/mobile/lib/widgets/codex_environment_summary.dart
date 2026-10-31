@@ -32,6 +32,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final speed = codexSpeedFromRaw(serviceTier);
     final appColors = theme.extension<AppColors>()!;
     final textStyle = theme.textTheme.bodySmall?.copyWith(
       fontSize: compact ? 11 : 12,
@@ -47,17 +48,23 @@ class CodexEnvironmentSummary extends StatelessWidget {
 
     final children = <Widget>[
       if (leadingLabel != null) Text(leadingLabel!, style: textStyle),
-      if (codexSpeedFromRaw(serviceTier) == CodexSpeed.fast)
+      if (speed != CodexSpeed.standard)
         Tooltip(
-          message: 'Fast mode on',
+          message: '${speed.label} mode on',
           child: Icon(
             Icons.bolt,
-            key: const ValueKey('codex_fast_mode_indicator'),
+            key: ValueKey(
+              speed == CodexSpeed.fast
+                  ? 'codex_fast_mode_indicator'
+                  : 'codex_speed_mode_indicator',
+            ),
             size: compact ? 14 : 16,
             color: theme.colorScheme.primary,
-            semanticLabel: 'Fast mode on',
+            semanticLabel: '${speed.label} mode on',
           ),
         ),
+      if (speed != CodexSpeed.standard && speed != CodexSpeed.fast)
+        Text(speed.label, style: textStyle),
       if (_displayModelSummary(
             model,
             reasoningEffort,

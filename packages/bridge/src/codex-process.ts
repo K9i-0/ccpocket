@@ -23,6 +23,9 @@ import { codexCliJoinTarget } from "./codex-app-server-config.js";
 import {
   normalizeCodexServiceTierForClient,
   normalizeCodexServiceTierForRpc,
+  extractCodexServiceTierMetadata,
+  isCodexServiceTierSupported,
+  type CodexServiceTierMetadata,
 } from "./codex-service-tier.js";
 import { resolvePlatformPath } from "./path-utils.js";
 import type { CodexRateLimitsResponse } from "./usage.js";
@@ -287,6 +290,7 @@ export interface CodexModelMetadata {
   supportedReasoningEfforts: string[];
   defaultReasoningEffort?: string;
   supportedServiceTiers: string[];
+  serviceTierMetadata?: CodexServiceTierMetadata[];
   defaultServiceTier?: string;
 }
 
@@ -954,6 +958,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
                 : undefined;
           if (!model || seenModels.has(model)) continue;
           seenModels.add(model);
+          const serviceTierMetadata = extractCodexServiceTierMetadata(raw);
           models.push({
             model,
             supportedReasoningEfforts: extractReasoningEfforts(raw),
@@ -963,7 +968,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
                 : typeof raw.default_reasoning_effort === "string"
                   ? raw.default_reasoning_effort
                   : undefined,
-            supportedServiceTiers: extractServiceTiers(raw),
+            supportedServiceTiers: serviceTierMetadata.map((tier) => tier.id),
+            serviceTierMetadata,
             defaultServiceTier:
               typeof raw.defaultServiceTier === "string"
                 ? raw.defaultServiceTier
@@ -2077,6 +2083,42 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         : resolvedSettings.approvalsReviewer;
       if (resolvedSettings.model) {
         this.startModel = resolvedSettings.model;
+      }
+      const requestedTier =
+        options?.serviceTier === undefined
+          ? undefined : normalizeCodexServiceTierForClient(options.serviceTier);
+      const resolvedTier =
+        resolvedSettings.serviceTier === undefined
+          ? undefined : normalizeCodexServiceTierForClient(resolvedSettings.serviceTier);
+      if (
+        requestedTier !== undefined && requestedTier !== "standard" &&
+        requestedTier !== "fast" && resolvedTier === undefined
+      ) {
+        throw new Error(`Codex did not confirm requested speed "${requestedTier}". Update Codex or choose a supported speed.`);
+      }
+      if (
+        requestedTier !== undefined && resolvedTier !== undefined &&
+        requestedTier !== resolvedTier &&
+        ((requestedTier !== "standard" && requestedTier !== "fast") ||
+          (resolvedTier !== "standard" && resolvedTier !== "fast"))
+      ) {
+        throw new Error(`Codex returned speed "${resolvedTier}" after "${requestedTier}" was requested. The session was not started.`);
+      }
+      const activeTier = resolvedTier ?? requestedTier;
+      if (activeTier !== undefined) {
+        if (activeTier !== "standard" && activeTier !== "fast") {
+          const models = await this.listAvailableModelMetadata();
+          const activeModel = models.find(
+            (model) => model.model === this.startModel,
+          );
+          if (
+            !activeModel ||
+            !isCodexServiceTierSupported(activeTier, activeModel.supportedServiceTiers)
+          ) {
+            throw new Error(`Codex speed "${activeTier}" is not available for model "${this.startModel ?? "unknown"}".`);
+          }
+        }
+        this._runtimeServiceTier = normalizeCodexServiceTierForRpc(activeTier);
       }
       if (activeApprovalPolicy) {
         this._approvalPolicy = activeApprovalPolicy;
@@ -4435,40 +4477,6 @@ function extractReasoningEfforts(raw: Record<string, unknown>): string[] {
     efforts.push(normalized);
   }
   return efforts;
-}
-
-function extractServiceTiers(raw: Record<string, unknown>): string[] {
-  // Older app-server versions expose the user-facing Fast option as
-  // `additionalSpeedTiers: ["fast"]`, while the lower-level service tier is
-  // advertised as `{ id: "priority", name: "Fast" }`. Prefer the current
-  // catalog and normalize its values for the client.
-  // The current catalog is authoritative, including an explicitly empty list.
-  const values = Array.isArray(raw.serviceTiers)
-    ? raw.serviceTiers
-    : Array.isArray(raw.additionalSpeedTiers)
-      ? raw.additionalSpeedTiers
-      : [];
-  const seen = new Set<string>();
-  const tiers: string[] = [];
-  for (const value of values) {
-    const metadata =
-      value && typeof value === "object"
-        ? (value as Record<string, unknown>)
-        : undefined;
-    const rawTier = typeof value === "string" ? value : metadata?.id;
-    const rawName = metadata?.name;
-    const tier =
-      rawTier === "priority" ||
-      (typeof rawName === "string" && rawName.toLowerCase() === "fast")
-        ? "fast"
-        : rawTier;
-    if (typeof tier !== "string") continue;
-    const normalized = tier.trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    tiers.push(normalized);
-  }
-  return tiers;
 }
 
 function sanitizeCodexModel(value: unknown): string | undefined {

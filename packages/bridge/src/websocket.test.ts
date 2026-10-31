@@ -7239,6 +7239,98 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("preserves catalog tiers on start and speed changes, and rejects unsupported changes", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).applyCodexModels([
+      { model: "gpt-6-astra", supportedReasoningEfforts: ["high"],
+        supportedServiceTiers: ["fast", "ultrafast"],
+        serviceTierMetadata: [{ id: "fast", name: "Fast" },
+          { id: "ultrafast", name: "Ultrafast", description: "Fastest responses" }] },
+      { model: "gpt-6-luna", supportedReasoningEfforts: ["high"],
+        supportedServiceTiers: ["fast"], serviceTierMetadata: [{ id: "fast", name: "Fast" }] },
+    ]);
+    try {
+      await (bridge as any).handleClientMessage({ type: "start", projectPath: "/tmp/tier-project",
+        provider: "codex", model: "gpt-6-astra", serviceTier: "ultrafast" }, ws);
+      const session = (bridge as any).sessionManager.list()[0];
+      const stored = (bridge as any).sessionManager.get(session.id);
+      expect(stored.codexOptions.serviceTier).toBe("ultrafast");
+      (bridge as any).sendSessionList(ws);
+      const catalog = ws.send.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "session_list");
+      expect(catalog.protocolCapabilities).toContain("codex_service_tiers_v1");
+      expect(catalog.codexModelServiceTierMetadata["gpt-6-astra"][1]).toEqual(
+        { id: "ultrafast", name: "Ultrafast", description: "Fastest responses" });
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ type: "set_codex_speed", sessionId: session.id,
+        serviceTier: "fast" }, ws);
+      await (bridge as any).handleClientMessage({ type: "set_codex_speed", sessionId: session.id,
+        serviceTier: "ultrafast" }, ws);
+      expect(stored.process.setServiceTier).toHaveBeenLastCalledWith("ultrafast");
+      expect(stored.codexSettings.serviceTier).toBe("ultrafast");
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ type: "set_codex_speed", sessionId: session.id,
+        serviceTier: "imaginary-tier" }, ws);
+      expect(JSON.parse(ws.send.mock.calls[0][0]).errorCode).toBe("set_codex_speed_rejected");
+      expect(stored.codexSettings.serviceTier).toBe("ultrafast");
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ type: "set_codex_model", sessionId: session.id,
+        model: "gpt-6-luna" }, ws);
+      expect(JSON.parse(ws.send.mock.calls[0][0]).errorCode).toBe("set_codex_model_rejected");
+      expect(stored.codexSettings.model).toBe("gpt-6-astra");
+    } finally { bridge.close(); }
+  });
+
+  it("keeps legacy model-then-Standard changes compatible from Fast", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).applyCodexModels([
+      { model: "gpt-6-astra", supportedReasoningEfforts: ["high"], supportedServiceTiers: ["fast"] },
+      { model: "gpt-6-luna", supportedReasoningEfforts: ["high"], supportedServiceTiers: [] },
+    ]);
+    try {
+      await (bridge as any).handleClientMessage({ type: "start", projectPath: "/tmp/tier-project",
+        provider: "codex", model: "gpt-6-astra", serviceTier: "fast" }, ws);
+      const { id: sessionId } = (bridge as any).sessionManager.list()[0];
+      const session = (bridge as any).sessionManager.get(sessionId);
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ type: "set_codex_model", sessionId,
+        model: "gpt-6-luna", modelReasoningEffort: "high" }, ws);
+      await (bridge as any).handleClientMessage({ type: "set_codex_speed", sessionId,
+        serviceTier: "standard" }, ws);
+      expect(session.process.setModel).toHaveBeenCalledWith("gpt-6-luna", "high");
+      expect(session.process.setServiceTier).toHaveBeenLastCalledWith("standard");
+      expect(session.codexSettings).toMatchObject({ model: "gpt-6-luna", serviceTier: "standard" });
+      expect(ws.send.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string))
+        .filter((message: any) => message.type === "error")).toEqual([]);
+    } finally { bridge.close(); }
+  });
+
+  it("rejects unsupported tiers before creating or resuming a session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).applyCodexModels([{ model: "gpt-6-luna", supportedReasoningEfforts: ["high"],
+      supportedServiceTiers: ["fast"] }]);
+    try {
+      await (bridge as any).handleClientMessage({ type: "start", projectPath: "/tmp/tier-project",
+        provider: "codex", model: "gpt-6-luna", serviceTier: "ultrafast", requestId: "start-id" }, ws);
+      expect((bridge as any).sessionManager.list()).toEqual([]);
+      expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+        type: "error", errorCode: "codex_service_tier_unavailable", requestId: "start-id" });
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage({ type: "resume_session", sessionId: "old-thread",
+        projectPath: "/tmp/tier-project", provider: "codex", model: "gpt-6-luna",
+        serviceTier: "ultrafast", resumeRequestId: "resume-id" }, ws);
+      expect((bridge as any).sessionManager.list()).toEqual([]);
+      expect(ws.send.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string))).toContainEqual(
+        expect.objectContaining({ type: "error", errorCode: "codex_service_tier_unavailable",
+          requestId: "resume-id" }));
+    } finally { bridge.close(); }
+  });
+
   it("updates codex model in-place and broadcasts session settings", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

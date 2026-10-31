@@ -9,6 +9,8 @@ class CodexSettingsSheet extends StatefulWidget {
   final List<String> models;
   final Map<String, List<ReasoningEffort>> modelEfforts;
   final Map<String, List<String>> modelServiceTiers;
+  final Map<String, List<CodexSpeed>> modelServiceTierMetadata;
+  final bool supportsExtendedServiceTiers;
   final String initialModel;
   final ReasoningEffort initialEffort;
   final CodexSpeed initialSpeed;
@@ -22,6 +24,8 @@ class CodexSettingsSheet extends StatefulWidget {
     required this.models,
     required this.modelEfforts,
     required this.modelServiceTiers,
+    this.modelServiceTierMetadata = const {},
+    this.supportsExtendedServiceTiers = false,
     required this.initialModel,
     required this.initialEffort,
     required this.initialSpeed,
@@ -44,8 +48,22 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
   List<ReasoningEffort> get _efforts =>
       widget.modelEfforts[_model] ?? const [ReasoningEffort.none];
 
-  bool get _supportsFast =>
-      codexSupportsFast(_model, widget.modelServiceTiers, speed: _speed);
+  List<CodexSpeed> get _availableSpeeds => codexAvailableSpeeds(
+    _model,
+    widget.modelServiceTiers,
+    modelServiceTierMetadata: widget.modelServiceTierMetadata,
+    supportsExtendedServiceTiers: widget.supportsExtendedServiceTiers,
+    currentSpeed: _speed,
+  );
+
+  @override
+  void didUpdateWidget(covariant CodexSettingsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The enclosing BlocBuilder supplies the Bridge-confirmed speed.
+    _speed = widget.initialSpeed;
+    _model = widget.initialModel;
+    _effort = widget.initialEffort;
+  }
 
   void _selectEffort(ReasoningEffort effort) {
     if (effort == _effort) return;
@@ -54,25 +72,41 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
   }
 
   void _selectSpeed(CodexSpeed speed) {
-    if (speed == _speed || (speed == CodexSpeed.fast && !_supportsFast)) return;
-    setState(() => _speed = speed);
+    if (!_availableSpeeds.contains(speed)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(codexSpeedUnavailableMessage(speed))),
+      );
+      return;
+    }
     widget.onSpeedChanged(speed);
   }
 
   void _selectModel(String model) {
-    if (model == _model) return;
     final efforts = widget.modelEfforts[model] ?? const [ReasoningEffort.none];
     final nextEffort = preferredCodexEffort(efforts, current: _effort);
-    final supportsFast = codexSupportsFast(model, widget.modelServiceTiers);
-    final previousSpeed = _speed;
-    final nextSpeed = supportsFast ? _speed : CodexSpeed.standard;
-    setState(() {
-      _model = model;
-      _effort = nextEffort;
-      _speed = nextSpeed;
-    });
+    final speeds = codexAvailableSpeeds(
+      model,
+      widget.modelServiceTiers,
+      modelServiceTierMetadata: widget.modelServiceTierMetadata,
+      supportsExtendedServiceTiers: widget.supportsExtendedServiceTiers,
+      currentSpeed: model == _model ? _speed : CodexSpeed.standard,
+    );
+    if (!speeds.contains(_speed)) {
+      if (_speed == CodexSpeed.fast) {
+        // Preserve the existing Fast-to-Standard model-switch behavior. Both
+        // values remain Bridge-confirmed; request the supported speed first.
+        widget.onSpeedChanged(CodexSpeed.standard);
+        widget.onModelChanged(model, nextEffort);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Choose a supported speed before changing model.'),
+        ),
+      );
+      return;
+    }
     widget.onModelChanged(model, nextEffort);
-    if (nextSpeed != previousSpeed) widget.onSpeedChanged(nextSpeed);
   }
 
   @override
@@ -85,7 +119,8 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
           modelLabel: codexModelDisplayName(_model),
           effortLabel: _effort.label,
           speed: _speed,
-          supportsFast: _supportsFast,
+          supportsFast: _availableSpeeds.contains(CodexSpeed.fast),
+          availableSpeeds: _availableSpeeds,
           onSpeedChanged: _selectSpeed,
           speedButtonKey: 'codex_speed_button',
           showAdvanced: _showAdvanced,
@@ -121,7 +156,7 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
               _SettingsRow(
                 key: const ValueKey('codex_speed_advanced'),
                 label: 'Speed',
-                value: _speed.label,
+                value: codexSpeedForDisplay(_speed, _availableSpeeds).label,
                 onTap: () => _showSpeedPicker(context),
               ),
             ],
@@ -160,11 +195,12 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
     _showPicker<CodexSpeed>(
       context: context,
       title: 'Speed',
-      values: [CodexSpeed.standard, if (_supportsFast) CodexSpeed.fast],
+      values: _availableSpeeds,
       selected: _speed,
       label: (speed) => speed.label,
       subtitle: (speed) =>
-          speed == CodexSpeed.fast ? '1.5× speed, more usage' : 'Default speed',
+          speed.description ??
+          (speed == CodexSpeed.standard ? 'Default speed' : null),
       onSelected: _selectSpeed,
     );
   }

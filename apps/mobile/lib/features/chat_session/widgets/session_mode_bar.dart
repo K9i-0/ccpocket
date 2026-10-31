@@ -72,7 +72,11 @@ class SessionModeBar extends StatelessWidget {
                   CodexModelChip(
                     model: codexModel!,
                     reasoningEffort: codexReasoningEffort,
-                    speed: chatCubit.state.codexSpeed,
+                    speed: codexSpeedForDisplay(
+                      chatCubit.state.codexSpeed,
+                      chatCubit.codexModelServiceTierMetadata[codexModel] ??
+                          const [],
+                    ),
                     onTap: () => showCodexModelMenu(
                       context,
                       chatCubit,
@@ -409,10 +413,6 @@ void showCodexModelMenu(
       : defaultCodexModels;
   final currentModel = _currentCodexModel(chatCubit);
   final currentEfforts = _codexReasoningEffortsForModel(context, currentModel);
-  final currentEffort = _effectiveCodexReasoningEffort(
-    chatCubit.state.codexModelReasoningEffort,
-    currentEfforts,
-  );
   final modelEfforts = {
     for (final model in models)
       model: _codexReasoningEffortsForModel(context, model),
@@ -421,19 +421,32 @@ void showCodexModelMenu(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => CodexSettingsSheet(
-      models: models,
-      modelEfforts: modelEfforts,
-      modelServiceTiers: chatCubit.codexModelServiceTiers,
-      initialModel: currentModel,
-      initialEffort: currentEffort,
-      initialSpeed: chatCubit.state.codexSpeed,
-      showExtendedEfforts: showExtendedEfforts,
-      onModelChanged: (model, effort) =>
-          chatCubit.setCodexModel(model, reasoningEffort: effort),
-      onEffortChanged: (model, effort) =>
-          chatCubit.setCodexModel(model, reasoningEffort: effort),
-      onSpeedChanged: chatCubit.setCodexSpeed,
+    builder: (_) => StreamBuilder<void>(
+      stream: chatCubit.codexCatalogChanges,
+      builder: (_, _) => BlocBuilder<ChatSessionCubit, ChatSessionState>(
+        bloc: chatCubit,
+        builder: (_, state) {
+          return CodexSettingsSheet(
+            models: models,
+            modelEfforts: modelEfforts,
+            modelServiceTiers: chatCubit.codexModelServiceTiers,
+            modelServiceTierMetadata: chatCubit.codexModelServiceTierMetadata,
+            supportsExtendedServiceTiers: chatCubit.supportsCodexServiceTiers,
+            initialModel: state.codexModel ?? currentModel,
+            initialEffort: _effectiveCodexReasoningEffort(
+              state.codexModelReasoningEffort,
+              modelEfforts[state.codexModel ?? currentModel] ?? currentEfforts,
+            ),
+            initialSpeed: state.codexSpeed,
+            showExtendedEfforts: showExtendedEfforts,
+            onModelChanged: (model, effort) =>
+                chatCubit.setCodexModel(model, reasoningEffort: effort),
+            onEffortChanged: (model, effort) =>
+                chatCubit.setCodexModel(model, reasoningEffort: effort),
+            onSpeedChanged: chatCubit.setCodexSpeed,
+          );
+        },
+      ),
     ),
   );
 }
@@ -1117,14 +1130,14 @@ class CodexModelChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (speed == CodexSpeed.fast) ...[
+              if (speed != CodexSpeed.standard) ...[
                 Icon(Icons.bolt, size: 13, color: cs.primary),
                 const SizedBox(width: 2),
               ],
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 130),
                 child: Text(
-                  '$label$suffix',
+                  '$label$suffix${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
