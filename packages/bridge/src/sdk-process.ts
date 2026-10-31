@@ -92,6 +92,7 @@ export type ClaudeEffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
 export interface ClaudeModelMetadata {
   model: string;
   displayName?: string;
+  description?: string;
   effortLevels: ClaudeEffortLevel[];
 }
 
@@ -103,8 +104,24 @@ const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
   "max",
 ]);
 
+/**
+ * Drop per-token pricing segments (" · $4/$20 per Mtok") from the SDK model
+ * description. The interactive CLI picker hides them for subscription users,
+ * and Bridge clients never show estimated API cost.
+ */
+export function stripClaudeModelPricing(description: string): string {
+  return description
+    .split(" · ")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0 && !segment.startsWith("$"))
+    .join(" · ");
+}
+
 function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | null {
   if (!model.value) return null;
+  const description = typeof model.description === "string"
+    ? stripClaudeModelPricing(model.description)
+    : "";
   const effortLevels = Array.isArray(model.supportedEffortLevels)
     ? model.supportedEffortLevels.filter((level): level is ClaudeEffortLevel =>
         CLAUDE_EFFORT_LEVELS.has(level as ClaudeEffortLevel),
@@ -113,6 +130,7 @@ function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | n
   return {
     model: model.value,
     ...(model.displayName ? { displayName: model.displayName } : {}),
+    ...(description ? { description } : {}),
     effortLevels: model.supportsEffort === false ? [] : effortLevels,
   };
 }

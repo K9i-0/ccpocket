@@ -1716,6 +1716,62 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("sends version-free Claude alias fallback with display metadata", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    (bridge as any).sendSessionList(ws);
+
+    const sessionList = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((msg: any) => msg.type === "session_list");
+
+    expect(sessionList.claudeModels).toEqual(["default", "opus", "sonnet", "haiku"]);
+    expect(sessionList.claudeModelOptions[0]).toEqual({
+      value: "default",
+      displayName: "Default (recommended)",
+    });
+    for (const model of sessionList.claudeModels) {
+      expect(model).not.toMatch(/\d-\d/);
+    }
+    expect(sessionList.claudeModelEfforts.haiku).toEqual([]);
+
+    bridge.close();
+  });
+
+  it("sends Claude model display metadata from the SDK", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    (bridge as any).applyClaudeModels([
+      {
+        model: "opus",
+        displayName: "Opus",
+        description: "Opus 5.5 · Best for everyday, complex tasks",
+        effortLevels: ["low", "high"],
+      },
+      { model: "claude-fable-5-1[1m]", displayName: "Fable", effortLevels: [] },
+    ]);
+    (bridge as any).sendSessionList(ws);
+
+    const sessionList = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((msg: any) => msg.type === "session_list");
+
+    expect(sessionList.claudeModels).toEqual(["opus", "claude-fable-5-1[1m]"]);
+    expect(sessionList.claudeModelOptions).toEqual([
+      {
+        value: "opus",
+        displayName: "Opus",
+        description: "Opus 5.5 · Best for everyday, complex tasks",
+      },
+      { value: "claude-fable-5-1[1m]", displayName: "Fable" },
+    ]);
+    expect(sessionList.claudeModelEfforts.opus).toEqual(["low", "high"]);
+
+    bridge.close();
+  });
+
   it("sends codex model list without deprecated models", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

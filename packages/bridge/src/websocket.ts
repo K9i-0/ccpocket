@@ -183,25 +183,34 @@ type ClaudePermissionMode =
 
 // ---- Available model lists (delivered to clients via session_list) ----
 
-const FALLBACK_CLAUDE_MODELS: string[] = [
-  "claude-opus-4-7",
-  "claude-opus-4-7[1m]",
-  "claude-opus-4-6",
-  "claude-opus-4-6[1m]",
-  "claude-opus-4-5-20251101",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-6",
+// Used only when the Agent SDK cannot report its model list. These are the
+// Claude Code aliases, which always resolve to the current model of each
+// family, so the fallback never needs version-specific updates.
+const FALLBACK_CLAUDE_MODEL_OPTIONS: ClaudeModelOption[] = [
+  { value: "default", displayName: "Default (recommended)" },
+  { value: "opus", displayName: "Opus" },
+  { value: "sonnet", displayName: "Sonnet" },
+  { value: "haiku", displayName: "Haiku" },
 ];
 
+const FALLBACK_CLAUDE_MODELS: string[] = FALLBACK_CLAUDE_MODEL_OPTIONS.map(
+  (option) => option.value,
+);
+
+const FALLBACK_CLAUDE_EFFORTS: ClaudeEffortLevel[] = ["low", "medium", "high"];
+
 const FALLBACK_CLAUDE_MODEL_EFFORTS: Record<string, ClaudeEffortLevel[]> = {
-  "claude-opus-4-7": ["low", "medium", "high", "xhigh", "max"],
-  "claude-opus-4-7[1m]": ["low", "medium", "high", "xhigh", "max"],
-  "claude-opus-4-6": ["low", "medium", "high", "max"],
-  "claude-opus-4-6[1m]": ["low", "medium", "high", "max"],
-  "claude-opus-4-5-20251101": ["low", "medium", "high"],
-  "claude-sonnet-4-6": ["low", "medium", "high", "max"],
-  "claude-haiku-4-6": [],
+  default: FALLBACK_CLAUDE_EFFORTS,
+  opus: FALLBACK_CLAUDE_EFFORTS,
+  sonnet: FALLBACK_CLAUDE_EFFORTS,
+  haiku: [],
 };
+
+export interface ClaudeModelOption {
+  value: string;
+  displayName?: string;
+  description?: string;
+}
 
 const FALLBACK_CODEX_MODELS: string[] = [
   "gpt-5.6-sol",
@@ -834,6 +843,7 @@ export class BridgeWebSocketServer {
   private codexMetadataRequest: Promise<void> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
   private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
+  private claudeModelOptions: ClaudeModelOption[] = FALLBACK_CLAUDE_MODEL_OPTIONS;
   private claudeModelEfforts: Record<string, ClaudeEffortLevel[]> = {
     ...FALLBACK_CLAUDE_MODEL_EFFORTS,
   };
@@ -8330,6 +8340,7 @@ export class BridgeWebSocketServer {
       sessions,
       allowedDirs: this.allowedDirs,
       claudeModels: this.claudeModels,
+      claudeModelOptions: this.claudeModelOptions,
       claudeModelEfforts: this.claudeModelEfforts,
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
@@ -8375,6 +8386,7 @@ export class BridgeWebSocketServer {
       sessions,
       allowedDirs: this.allowedDirs,
       claudeModels: this.claudeModels,
+      claudeModelOptions: this.claudeModelOptions,
       claudeModelEfforts: this.claudeModelEfforts,
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
@@ -9146,6 +9158,11 @@ export class BridgeWebSocketServer {
 
   private applyClaudeModels(models: ClaudeModelMetadata[]): void {
     this.claudeModels = models.map((model) => model.model);
+    this.claudeModelOptions = models.map((model) => ({
+      value: model.model,
+      ...(model.displayName ? { displayName: model.displayName } : {}),
+      ...(model.description ? { description: model.description } : {}),
+    }));
     this.claudeModelEfforts = Object.fromEntries(
       models.map((model) => [model.model, model.effortLevels]),
     );
@@ -9153,6 +9170,7 @@ export class BridgeWebSocketServer {
 
   private applyFallbackClaudeModels(): void {
     this.claudeModels = FALLBACK_CLAUDE_MODELS;
+    this.claudeModelOptions = FALLBACK_CLAUDE_MODEL_OPTIONS;
     this.claudeModelEfforts = { ...FALLBACK_CLAUDE_MODEL_EFFORTS };
   }
 

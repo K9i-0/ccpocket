@@ -128,7 +128,7 @@ Cloud Functions (relay) がFCMトークンの管理とプッシュ送信を担�
 - `history` - メッセージ履歴
 - `permission_request` - パーミッション要求
 - `stream_delta` - ストリーミングテキスト差分
-- `session_list` - セッション一覧
+- `session_list` - セッション一覧（Claude モデル一覧のフィールドは [claude-model-list.md](claude-model-list.md)）
 - `diff_result` - git diff結果 (diff, error?)
 - `directory_listing` - ディレクトリ一覧結果 (path, directories, requestId?)
 
