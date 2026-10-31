@@ -1007,6 +1007,211 @@ describe("SdkProcess input dispatch", () => {
 
 });
 
+describe("subagent frames", () => {
+  const agentToolUse = (id: string) => ({
+    type: "assistant",
+    parent_tool_use_id: null,
+    message: {
+      id: `msg-${id}`,
+      role: "assistant",
+      content: [{ type: "tool_use", id, name: "Agent", input: {} }],
+    },
+  });
+  const toolResult = (toolUseId: string, parent: string | null) => ({
+    type: "user",
+    parent_tool_use_id: parent,
+    message: {
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: toolUseId, content: "ok" }],
+    },
+  });
+  const userText = (text: string, parent: string | null) => ({
+    type: "user",
+    parent_tool_use_id: parent,
+    message: { role: "user", content: [{ type: "text", text }] },
+  });
+  const subagentAssistant = (parent: string, toolUseId: string) => ({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: {
+      id: `msg-sub-${toolUseId}`,
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "subagent thinking" },
+        { type: "text", text: "Now the SDK d.ts." },
+        { type: "tool_use", id: toolUseId, name: "Bash", input: {} },
+      ],
+    },
+  });
+  const result = {
+    type: "result",
+    subtype: "success",
+    result: "Done",
+    duration_ms: 1,
+    session_id: "main",
+  };
+
+  async function runFrames(
+    proc: SdkProcess,
+    frames: Array<Record<string, unknown> | (() => void)>,
+  ): Promise<ServerMessage[]> {
+    const internal = proc as any;
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+    internal.authClassification = "subscription";
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        for (const frame of frames) {
+          if (typeof frame === "function") {
+            frame();
+          } else {
+            yield frame;
+          }
+        }
+      },
+    };
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+    return messages;
+  }
+
+  it("keeps only tool activity from a subagent frame", () => {
+    expect(
+      sdkMessageToServerMessage(subagentAssistant("toolu_agent", "toolu_sub") as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "tool_use", id: "toolu_sub", name: "Bash", input: {} }],
+        }),
+      }),
+    );
+    expect(
+      sdkMessageToServerMessage(toolResult("toolu_sub", "toolu_agent") as any),
+    ).toEqual(expect.objectContaining({ type: "tool_result", toolUseId: "toolu_sub" }));
+  });
+
+  it("does not turn subagent prompts, interrupts or deltas into main messages", () => {
+    expect(
+      sdkMessageToServerMessage(
+        userText("[Request interrupted by user]", "toolu_agent") as any,
+      ),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage(userText("Repository: ...", "toolu_agent") as any),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: "toolu_agent",
+        message: { role: "assistant", content: [{ type: "text", text: "narration" }] },
+      } as any),
+    ).toBeNull();
+    expect(
+      sdkMessageToServerMessage({
+        type: "stream_event",
+        parent_tool_use_id: "toolu_agent",
+        event: {
+          type: "content_block_delta",
+          delta: { type: "text_delta", text: "sub" },
+        },
+      } as any),
+    ).toBeNull();
+  });
+
+  it("still shows a main-thread interrupt marker", () => {
+    expect(
+      sdkMessageToServerMessage(userText("[Request interrupted by user]", null) as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "user_input",
+        text: "[Request interrupted by user]",
+      }),
+    );
+  });
+
+  it("forwards foreground subagent tool activity while the main turn runs", async () => {
+    const proc = new SdkProcess();
+    (proc as any)._status = "running";
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_fg"),
+      userText("Investigate the bridge", "toolu_fg"),
+      subagentAssistant("toolu_fg", "toolu_s1"),
+      toolResult("toolu_s1", "toolu_fg"),
+      toolResult("toolu_fg", null),
+      result,
+    ]);
+
+    expect(messages.filter((m) => m.type === "user_input")).toEqual([]);
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_s1" }),
+    );
+    const subagentAssistantMessage = messages.find(
+      (m) =>
+        m.type === "assistant" &&
+        (m.message.content as Array<{ id?: string }>).some(
+          (block) => block.id === "toolu_s1",
+        ),
+    );
+    expect(subagentAssistantMessage).toEqual(
+      expect.objectContaining({
+        message: expect.objectContaining({
+          content: [{ type: "tool_use", id: "toolu_s1", name: "Bash", input: {} }],
+        }),
+      }),
+    );
+  });
+
+  it("keeps an idle session idle while a background agent works", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    let statusAfterBackgroundFrames: string | undefined;
+    let dispatch: { queued: boolean; shouldInterrupt: boolean } | undefined;
+    const resolve = vi.fn();
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_bg"),
+      // Background agents return a placeholder tool_result immediately.
+      toolResult("toolu_bg", null),
+      result,
+      subagentAssistant("toolu_bg", "toolu_bg_s1"),
+      toolResult("toolu_bg_s1", "toolu_bg"),
+      userText("[Request interrupted by user]", "toolu_bg"),
+      () => {
+        statusAfterBackgroundFrames = proc.status;
+        internal.userMessageResolve = resolve;
+        dispatch = proc.dispatchInput("follow up");
+      },
+    ]);
+
+    expect(statusAfterBackgroundFrames).toBe("idle");
+    expect(dispatch).toEqual({ queued: false, shouldInterrupt: false });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(messages.filter((m) => m.type === "user_input")).toEqual([]);
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_bg_s1" }),
+    );
+  });
+
+  it("drops subagent frames once their Agent call has returned mid-turn", async () => {
+    const proc = new SdkProcess();
+    (proc as any)._status = "running";
+
+    const messages = await runFrames(proc, [
+      agentToolUse("toolu_bg"),
+      toolResult("toolu_bg", null),
+      subagentAssistant("toolu_bg", "toolu_bg_s1"),
+      toolResult("toolu_bg_s1", "toolu_bg"),
+      result,
+    ]);
+
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ type: "tool_result", toolUseId: "toolu_bg_s1" }),
+    );
+  });
+});
+
 describe("SdkProcess Claude authentication", () => {
   // A fresh empty directory per test points Bedrock detection away from the
   // host's real Claude Code settings and from anything another run left behind.

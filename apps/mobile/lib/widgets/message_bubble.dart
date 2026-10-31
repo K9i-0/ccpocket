@@ -122,6 +122,15 @@ class ChatEntryWidget extends StatelessWidget {
   }
 
   bool _shouldShowTimestamp() {
+    // Status, ack and other metadata entries render nothing; a timestamp
+    // above them would show as an empty time chip.
+    if (entry case ServerChatEntry(:final message)
+        when !ServerMessageWidget.isVisible(
+          message,
+          hiddenToolUseIds: hiddenToolUseIds,
+        )) {
+      return false;
+    }
     if (previous == null) return true;
     // Show if sender type changed
     if (entry.runtimeType != previous.runtimeType) return true;
@@ -188,6 +197,31 @@ class ServerMessageWidget extends StatelessWidget {
     this.onForkMessage,
     this.isCodex = false,
   });
+
+  /// Whether [build] renders anything for [message]. Keep in sync with the
+  /// non-`SizedBox.shrink()` cases below.
+  static bool isVisible(
+    ServerMessage message, {
+    Set<String> hiddenToolUseIds = const {},
+  }) {
+    return switch (message) {
+      SystemMessage() ||
+      AssistantServerMessage() ||
+      ResultMessage() ||
+      GuardianApprovalMessage() ||
+      ErrorMessage() ||
+      ToolUseSummaryMessage() => true,
+      ToolResultMessage(:final toolUseId) => !hiddenToolUseIds.contains(
+        toolUseId,
+      ),
+      PermissionRequestMessage(:final toolName) =>
+        toolName != 'ExitPlanMode' &&
+            toolName != 'AskUserQuestion' &&
+            toolName != 'McpElicitation' &&
+            toolName != 'ToolSuggestion',
+      _ => false,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
