@@ -5,6 +5,7 @@ import '../../../models/app_icon.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
+import '../../../models/input_delivery.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
 
@@ -127,6 +128,10 @@ abstract class SettingsState with _$SettingsState {
 
     /// Whether new Claude sessions should be automatically named after the first turn.
     @Default(false) bool autoRenameClaudeSessions,
+
+    /// Default delivery for messages sent while the agent is working.
+    /// Long-pressing the send button uses the other delivery.
+    @Default(InputDelivery.queue) InputDelivery defaultInputDelivery,
   }) = _SettingsState;
 
   bool liteModeForSession(String sessionId) =>

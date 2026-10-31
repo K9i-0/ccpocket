@@ -270,6 +270,19 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsSessionContext =>
       _protocolCapabilities.contains('session_context_v1');
 
+  /// Bridge accepts `input.delivery` and keeps a steer/queue slot for every
+  /// provider (not only Codex).
+  bool get supportsInputDelivery =>
+      _protocolCapabilities.contains('input_delivery_v1');
+
+  /// Bridge forks Claude sessions from an assistant message UUID.
+  bool get supportsClaudeFork =>
+      _protocolCapabilities.contains('claude_fork_v1');
+
+  /// Bridge accepts `set_claude_settings` and publishes `claude_settings`.
+  bool get supportsClaudeSessionSettings =>
+      _protocolCapabilities.contains('claude_session_settings_v1');
+
   String? projectRequestIdForWire(String requestId) =>
       supportsProjectRequestCorrelation ? requestId : null;
 
@@ -1060,6 +1073,8 @@ class BridgeService implements BridgeServiceBase {
                 _messageController.add(msg);
               case ErrorMessage(:final message):
                 _routeProjectRequestError(msg);
+                _rememberRequestError(msg);
+                _clearPendingStartRejectedBy(msg);
                 final isDownloadResponse = _isFileDownloadResponseError(msg);
                 final isUploadResponse = _isFileUploadResponseError(msg);
                 if (isDownloadResponse || isUploadResponse) {
@@ -1191,6 +1206,25 @@ class BridgeService implements BridgeServiceBase {
         deadline != null &&
         DateTime.now().isBefore(deadline);
   }
+
+  /// Errors that answer a request by id, kept briefly so a page that starts
+  /// listening after the request was sent (a pending session route) can still
+  /// see an immediate rejection.
+  final Map<String, ErrorMessage> _recentRequestErrors = {};
+
+  void _rememberRequestError(ErrorMessage message) {
+    final requestId = message.requestId;
+    if (requestId == null || requestId.isEmpty) return;
+    _recentRequestErrors.remove(requestId);
+    _recentRequestErrors[requestId] = message;
+    while (_recentRequestErrors.length > 20) {
+      _recentRequestErrors.remove(_recentRequestErrors.keys.first);
+    }
+  }
+
+  /// Returns and forgets an error that already answered [requestId].
+  ErrorMessage? takeRequestError(String requestId) =>
+      _recentRequestErrors.remove(requestId);
 
   void _routeProjectRequestError(ErrorMessage message) {
     if (_acceptLegacyWorktreeRemoveError(message)) return;
@@ -2429,6 +2463,35 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  /// A start the Bridge rejected (for example path_not_allowed) never gets a
+  /// session_created, so drop its pending action by request id.
+  void _clearPendingStartRejectedBy(ErrorMessage message) {
+    final requestId = message.requestId;
+    if (requestId == null || requestId.isEmpty) return;
+    bool matches(ClientMessage pending) {
+      final action = _offlinePendingActionFor(pending);
+      if (action == null || action.kind != OfflinePendingActionKind.start) {
+        return false;
+      }
+      final json = jsonDecode(pending.toJson()) as Map<String, dynamic>;
+      return json['requestId'] == requestId;
+    }
+
+    var removed = false;
+    for (final entry in List.of(_inFlightPendingMessages.entries)) {
+      if (!matches(entry.value)) continue;
+      _clearInFlightPendingMessage(entry.key);
+      removed = true;
+    }
+    final before = _messageQueue.length;
+    _messageQueue.removeWhere(matches);
+    if (before != _messageQueue.length) {
+      removed = true;
+      unawaited(_persistOfflinePendingMessages());
+    }
+    if (removed) _publishOfflinePendingActions();
+  }
+
   void _markPendingSessionActionProcessing(SystemMessage message) {
     final sourceSessionId = message.sourceSessionId;
     if (sourceSessionId == null || sourceSessionId.isEmpty) return;
@@ -3384,6 +3447,7 @@ class BridgeService implements BridgeServiceBase {
     String? codexPermissionsMode,
     bool? planMode,
     String? effort,
+    bool? claudeFastMode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -3414,6 +3478,7 @@ class BridgeService implements BridgeServiceBase {
         codexPermissionsMode: codexPermissionsMode,
         planMode: planMode,
         effort: effort,
+        claudeFastMode: claudeFastMode,
         maxTurns: maxTurns,
         maxBudgetUsd: maxBudgetUsd,
         fallbackModel: fallbackModel,
@@ -3567,6 +3632,12 @@ class BridgeService implements BridgeServiceBase {
 
   void migrateExplorerHistory(String fromSessionId, String toSessionId) {
     _runtimeStore.migrateSession(fromSessionId, toSessionId);
+  }
+
+  /// For forks: keep the source session's cache and only carry over the
+  /// explorer state.
+  void copyExplorerHistory(String fromSessionId, String toSessionId) {
+    _runtimeStore.copyExplorerHistory(fromSessionId, toSessionId);
   }
 
   void clearExplorerHistory(String sessionId) {

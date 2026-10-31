@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/claude_settings_panel.dart';
 import '../../../widgets/codex_effort_slider.dart';
 import '../state/chat_session_state.dart';
 import '../state/chat_session_cubit.dart';
@@ -117,6 +118,26 @@ class SessionModeBar extends StatelessWidget {
                     ),
                   ),
                 ] else ...[
+                  if (chatCubit.supportsClaudeSessionSettings) ...[
+                    ClaudeModelChip(
+                      key: const ValueKey('claude_model_chip'),
+                      label: claudeModelLabel(
+                        _claudeModelOptions(chatCubit),
+                        chatCubit.state.claudeModel,
+                      ),
+                      effort: chatCubit.state.claudeEffort,
+                      fastMode: chatCubit.state.claudeFastMode,
+                      onTap: () => showClaudeSettingsMenu(context, chatCubit),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
                   PermissionModeChip(
                     currentMode: permissionMode,
                     onTap: () => showPermissionModeMenu(
@@ -417,6 +438,34 @@ void showCodexModelMenu(
   );
 }
 
+List<ClaudeModelOption> _claudeModelOptions(ChatSessionCubit chatCubit) {
+  final options = chatCubit.claudeModelOptions;
+  if (options.isNotEmpty) return options;
+  final models = chatCubit.claudeModels;
+  if (models.isEmpty) return defaultClaudeModelOptions;
+  return [for (final model in models) ClaudeModelOption(value: model)];
+}
+
+void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
+  final options = _claudeModelOptions(chatCubit);
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => ClaudeSettingsSheet(
+      models: options,
+      modelEfforts: normalizeClaudeModelEfforts(chatCubit.claudeModelEfforts),
+      initialModel: chatCubit.state.claudeModel,
+      initialEffort: chatCubit.state.claudeEffort,
+      initialFastMode: chatCubit.state.claudeFastMode,
+      onChanged: ({model, effort, fastMode}) => chatCubit.setClaudeSettings(
+        model: model,
+        effort: effort,
+        fastMode: fastMode,
+      ),
+    ),
+  );
+}
+
 void showCodexPermissionsMenu(
   BuildContext context,
   ChatSessionCubit chatCubit, {
@@ -603,65 +652,69 @@ void showSandboxModeMenu(
     builder: (sheetContext) {
       final sheetCs = Theme.of(sheetContext).colorScheme;
       return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Sandbox',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurface,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sandbox',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: sheetCs.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
-            for (final mode
-                in isClaude ? SandboxMode.values.reversed : SandboxMode.values)
-              ListTile(
-                leading: Icon(
-                  _sandboxMenuIcon(mode, isClaude),
-                  color: mode == currentMode
-                      ? sheetCs.primary
-                      : _sandboxMenuIconColor(mode, isClaude, sheetCs),
-                ),
-                title: Text(
-                  _sandboxMenuTitle(mode, isClaude),
-                  style: TextStyle(
-                    color:
-                        !isClaude &&
-                            mode == SandboxMode.off &&
-                            currentMode != mode
-                        ? sheetCs.error
-                        : null,
+              for (final mode
+                  in isClaude
+                      ? SandboxMode.values.reversed
+                      : SandboxMode.values)
+                ListTile(
+                  leading: Icon(
+                    _sandboxMenuIcon(mode, isClaude),
+                    color: mode == currentMode
+                        ? sheetCs.primary
+                        : _sandboxMenuIconColor(mode, isClaude, sheetCs),
                   ),
+                  title: Text(
+                    _sandboxMenuTitle(mode, isClaude),
+                    style: TextStyle(
+                      color:
+                          !isClaude &&
+                              mode == SandboxMode.off &&
+                              currentMode != mode
+                          ? sheetCs.error
+                          : null,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _sandboxMenuSubtitle(mode, isClaude, l),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: mode == currentMode
+                      ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    if (mode == currentMode) return;
+                    HapticFeedback.lightImpact();
+                    _confirmSandboxModeChange(
+                      context,
+                      chatCubit,
+                      mode,
+                      isClaude: isClaude,
+                      onBeforeRestart: onBeforeRestart,
+                    );
+                  },
                 ),
-                subtitle: Text(
-                  _sandboxMenuSubtitle(mode, isClaude, l),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: mode == currentMode
-                    ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  if (mode == currentMode) return;
-                  HapticFeedback.lightImpact();
-                  _confirmSandboxModeChange(
-                    context,
-                    chatCubit,
-                    mode,
-                    isClaude: isClaude,
-                    onBeforeRestart: onBeforeRestart,
-                  );
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       );
     },
@@ -792,57 +845,59 @@ void showPermissionModeMenu(
     builder: (sheetContext) {
       final sheetCs = Theme.of(sheetContext).colorScheme;
       return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Permission',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurface,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Permission',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: sheetCs.onSurface,
+                    ),
                   ),
                 ),
               ),
-            ),
-            for (final mode in PermissionMode.values)
-              ListTile(
-                leading: Icon(
-                  modeDetails[mode]!.icon,
-                  color: mode == currentMode
-                      ? modeDetails[mode]!.color
-                      : sheetCs.onSurfaceVariant,
+              for (final mode in PermissionMode.values)
+                ListTile(
+                  leading: Icon(
+                    modeDetails[mode]!.icon,
+                    color: mode == currentMode
+                        ? modeDetails[mode]!.color
+                        : sheetCs.onSurfaceVariant,
+                  ),
+                  title: Text(mode.label),
+                  subtitle: Text(
+                    modeDetails[mode]!.description,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: mode == currentMode
+                      ? Icon(
+                          Icons.check,
+                          color: modeDetails[mode]!.color,
+                          size: 20,
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    if (mode == currentMode) return;
+                    HapticFeedback.lightImpact();
+                    _confirmPermissionModeChange(
+                      context,
+                      chatCubit,
+                      mode,
+                      onBeforeRestart: onBeforeRestart,
+                    );
+                  },
                 ),
-                title: Text(mode.label),
-                subtitle: Text(
-                  modeDetails[mode]!.description,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: mode == currentMode
-                    ? Icon(
-                        Icons.check,
-                        color: modeDetails[mode]!.color,
-                        size: 20,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  if (mode == currentMode) return;
-                  HapticFeedback.lightImpact();
-                  _confirmPermissionModeChange(
-                    context,
-                    chatCubit,
-                    mode,
-                    onBeforeRestart: onBeforeRestart,
-                  );
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       );
     },
@@ -1134,6 +1189,66 @@ String _codexPermissionsSubtitle(
     cs.primary,
   ),
 };
+
+class ClaudeModelChip extends StatelessWidget {
+  final String label;
+  final ClaudeEffort? effort;
+  final bool fastMode;
+  final VoidCallback onTap;
+
+  const ClaudeModelChip({
+    super.key,
+    required this.label,
+    required this.effort,
+    required this.fastMode,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = cs.onSurfaceVariant;
+    final suffix = effort == null ? '' : ' ${effort!.label}';
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (fastMode) ...[
+                Icon(Icons.bolt, size: 13, color: cs.primary),
+                const SizedBox(width: 2),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  '$label$suffix',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: fg.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class PlanModeChip extends StatelessWidget {
   final bool enabled;

@@ -834,7 +834,179 @@ describe("SdkProcess.approveAlways", () => {
   });
 });
 
+describe("SdkProcess settings", () => {
+  it("keeps the model when a later flag update fails", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {}),
+      applyFlagSettings: vi.fn(async () => {
+        throw new Error("flags rejected");
+      }),
+    };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+    await expect(
+      proc.updateSettings({ model: "opus", effort: "low" }),
+    ).rejects.toThrow("flags rejected");
+    expect(proc.settings).toEqual({ model: "opus", effort: "high" });
+  });
+
+  it("announces input_ready after a result publishes idle", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.queryInstance = {};
+    const order: string[] = [];
+    proc.on("message", (m: any) => {
+      if (m.type === "status") order.push(`status:${m.status}`);
+    });
+    proc.on("input_ready", () => order.push("input_ready"));
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle", "input_ready"]);
+
+    internal._status = "running";
+    internal.stopped = true;
+    order.length = 0;
+    internal.updateStatusFromMessage({ type: "result", subtype: "success" });
+    expect(order).toEqual(["status:idle"]);
+  });
+
+  it("keeps idle status when the CLI echoes a local model command", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content:
+          "<local-command-stdout>Set model to `sonnet (claude-sonnet-5-5)`</local-command-stdout>",
+      },
+    });
+    expect(proc.status).toBe("idle");
+
+    internal.updateStatusFromMessage({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }],
+      },
+    });
+    expect(proc.status).toBe("running");
+  });
+
+  it("applies only changed model, effort and fast mode", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    const applyFlagSettings = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings };
+    (proc as any)._settings = { model: "sonnet", effort: "high" };
+
+    await proc.updateSettings({ model: "opus", effort: "high", fastMode: true });
+    expect(setModel).toHaveBeenCalledWith("opus");
+    // Effort is re-applied after a model switch so the new model uses it.
+    expect(applyFlagSettings).toHaveBeenCalledWith({
+      effortLevel: "high",
+      fastMode: true,
+    });
+    expect(proc.settings).toEqual({ model: "opus", effort: "high", fastMode: true });
+
+    setModel.mockClear();
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ effort: "low" });
+    expect(setModel).not.toHaveBeenCalled();
+    expect(applyFlagSettings).toHaveBeenCalledWith({ effortLevel: "low" });
+
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ fastMode: true });
+    expect(applyFlagSettings).not.toHaveBeenCalled();
+  });
+
+  it("maps the default model to the SDK default", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings: vi.fn() };
+    (proc as any)._settings = { model: "opus" };
+    await proc.updateSettings({ model: "default" });
+    expect(setModel).toHaveBeenCalledWith(undefined);
+    expect(proc.settings.model).toBe("default");
+  });
+
+  it("keeps settings unchanged when the SDK rejects the change", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(async () => {
+        throw new Error("bad model");
+      }),
+      applyFlagSettings: vi.fn(),
+    };
+    (proc as any)._settings = { model: "sonnet" };
+    await expect(proc.updateSettings({ model: "nope" })).rejects.toThrow(
+      "bad model",
+    );
+    expect(proc.settings).toEqual({ model: "sonnet" });
+  });
+});
+
 describe("SdkProcess input dispatch", () => {
+  it("steers into a running turn with next priority and no status change", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("also do this")).toBe(true);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0]).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "also do this" }] },
+    });
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("running");
+  });
+
+  it("buffers a steer until the stream pulls during the same turn", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+
+    expect(proc.steerInput("buffered")).toBe(true);
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value).toMatchObject({
+      priority: "next",
+      message: { content: [{ type: "text", text: "buffered" }] },
+    });
+  });
+
+  it("sends a buffered steer as a normal prompt when the turn already ended", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = null;
+    proc.steerInput("late steer");
+    internal._status = "idle";
+
+    const stream = internal.createUserMessageStream();
+    const next = await stream.next();
+    expect(next.value.priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
+  it("sends steer input normally when no turn is active", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "idle";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.steerInput("start a turn")).toBe(false);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0].priority).toBeUndefined();
+    expect(proc.status).toBe("running");
+  });
+
   it("queues and requests interrupt while a turn is running", () => {
     const proc = new SdkProcess();
     const resolve = vi.fn();
@@ -2735,5 +2907,46 @@ describe("Claude per-turn init", () => {
     await internal.processMessages(internal.authGeneration, Promise.resolve());
 
     expect(observed).toEqual(["idle", "running"]);
+  });
+});
+
+describe("Claude server tool blocks", () => {
+  it("drops content blocks clients cannot render", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "server_tool_use", id: "srvtoolu_1", name: "advisor", input: {} },
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+            { type: "text", text: "Next step" },
+          ],
+        },
+      } as any),
+    ).toEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: [{ type: "text", text: "Next step" }],
+        }),
+      }),
+    );
+  });
+
+  it("drops an assistant frame that only carries server tool blocks", () => {
+    expect(
+      sdkMessageToServerMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "advisor_tool_result", tool_use_id: "srvtoolu_1", content: {} },
+          ],
+        },
+      } as any),
+    ).toBeNull();
   });
 });

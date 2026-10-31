@@ -33,6 +33,14 @@ class ChatInputBar extends StatelessWidget {
   final bool isVoiceAvailable;
   final bool isRecording;
   final VoidCallback onSend;
+
+  /// Long-press on the send button while the agent is working. Used to pick
+  /// the non-default steer/queue delivery.
+  final VoidCallback? onSendLongPress;
+
+  /// Delivery used by a tap on the send button while the agent is working.
+  /// Null keeps the plain send icon.
+  final InputDelivery? busySendDelivery;
   final VoidCallback onStop;
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
@@ -86,6 +94,8 @@ class ChatInputBar extends StatelessWidget {
     required this.isVoiceAvailable,
     required this.isRecording,
     required this.onSend,
+    this.onSendLongPress,
+    this.busySendDelivery,
     required this.onStop,
     required this.onInterrupt,
     required this.onToggleVoice,
@@ -213,6 +223,8 @@ class ChatInputBar extends StatelessWidget {
                 status: status,
                 hasInputText: hasInputText,
                 onSend: onSend,
+                onSendLongPress: onSendLongPress,
+                busySendDelivery: busySendDelivery,
                 onStop: onStop,
                 onInterrupt: onInterrupt,
               ),
@@ -1303,12 +1315,16 @@ class _ActionButton extends StatelessWidget {
     required this.status,
     required this.hasInputText,
     required this.onSend,
+    this.onSendLongPress,
+    this.busySendDelivery,
     required this.onStop,
     required this.onInterrupt,
   });
   final ProcessStatus status;
   final bool hasInputText;
   final VoidCallback onSend;
+  final VoidCallback? onSendLongPress;
+  final InputDelivery? busySendDelivery;
   final VoidCallback onStop;
   final VoidCallback onInterrupt;
 
@@ -1320,7 +1336,13 @@ class _ActionButton extends StatelessWidget {
     if (status != ProcessStatus.idle && !hasInputText) {
       return _StopButton(onInterrupt: onInterrupt, onStop: onStop);
     }
-    return _SendButton(onSend: onSend, enabled: hasInputText);
+    final busy = status != ProcessStatus.idle;
+    return _SendButton(
+      onSend: onSend,
+      onLongPress: busy && hasInputText ? onSendLongPress : null,
+      delivery: busy ? busySendDelivery : null,
+      enabled: hasInputText,
+    );
   }
 }
 
@@ -1389,8 +1411,15 @@ class _VoiceButton extends StatelessWidget {
 }
 
 class _SendButton extends StatelessWidget {
-  const _SendButton({required this.onSend, this.enabled = true});
+  const _SendButton({
+    required this.onSend,
+    this.onLongPress,
+    this.delivery,
+    this.enabled = true,
+  });
   final VoidCallback onSend;
+  final VoidCallback? onLongPress;
+  final InputDelivery? delivery;
   final bool enabled;
 
   @override
@@ -1411,9 +1440,22 @@ class _SendButton extends StatelessWidget {
         ),
         child: IconButton(
           key: const ValueKey('send_button'),
-          tooltip: l.tooltipSendMessage,
+          tooltip: switch (delivery) {
+            InputDelivery.steer => l.sendAsSteer,
+            InputDelivery.queue => l.sendAsQueue,
+            null => l.tooltipSendMessage,
+          },
           onPressed: enabled ? onSend : null,
-          icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
+          onLongPress: enabled ? onLongPress : null,
+          icon: Icon(
+            switch (delivery) {
+              InputDelivery.steer => Icons.subdirectory_arrow_left,
+              InputDelivery.queue => Icons.schedule_send_outlined,
+              null => Icons.arrow_upward,
+            },
+            color: cs.onPrimary,
+            size: 20,
+          ),
           constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           padding: EdgeInsets.zero,
         ),

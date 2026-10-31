@@ -1082,9 +1082,12 @@ void main() {
       await tester.tap(find.text('Open Claude'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('dialog_claude_model')), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('dialog_claude_effort')),
+        find.byKey(const ValueKey('dialog_claude_settings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_claude_effort_slider')),
         findsOneWidget,
       );
       expect(
@@ -1126,24 +1129,25 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      final modelField = find.byKey(const ValueKey('dialog_claude_model'));
+      final settingsPanel = find.byKey(
+        const ValueKey('dialog_claude_settings'),
+      );
       expect(
         find.descendant(
-          of: modelField,
+          of: settingsPanel,
           matching: find.text('Default (recommended)'),
         ),
         findsOneWidget,
       );
+
+      await tester.tap(find.byKey(const ValueKey('dialog_claude_advanced')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_claude_model_row')));
+      await tester.pumpAndSettle();
       expect(
-        find.descendant(
-          of: modelField,
-          matching: find.text('Use the default model (currently Opus 5.5)'),
-        ),
+        find.text('Use the default model (currently Opus 5.5)'),
         findsOneWidget,
       );
-
-      await tester.tap(modelField);
-      await tester.pumpAndSettle();
       expect(find.text('claude-fable-5-1[1m]'), findsNothing);
       expect(
         find.text('Fable 5.1 · Most capable for your hardest tasks'),

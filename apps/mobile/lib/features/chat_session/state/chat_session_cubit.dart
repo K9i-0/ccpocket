@@ -81,7 +81,25 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Whether this session is a Codex session.
   bool get isCodex => provider == Provider.codex;
 
+  /// Whether the Bridge accepts per-message steer/queue delivery.
+  bool get supportsInputDelivery => _bridge.supportsInputDelivery;
+
+  /// Whether input sent during a turn is held in the Bridge's single queue
+  /// slot (shown in the queue panel) instead of being added to the
+  /// transcript immediately. Claude uses it once the Bridge supports it.
+  bool get usesInputQueue => isCodex || supportsInputDelivery;
+
   List<String> get codexModels => _bridge.codexModels;
+
+  bool get supportsClaudeSessionSettings =>
+      !isCodex && _bridge.supportsClaudeSessionSettings;
+
+  List<String> get claudeModels => _bridge.claudeModels;
+
+  List<ClaudeModelOption> get claudeModelOptions => _bridge.claudeModelOptions;
+
+  Map<String, List<String>> get claudeModelEfforts =>
+      _bridge.claudeModelEfforts;
 
   Map<String, List<String>> get codexModelReasoningEfforts =>
       _bridge.codexModelReasoningEfforts;
@@ -269,7 +287,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void _restoreDeliveryPendingInput() {
-    if (!isCodex || state.queuedInput != null) return;
+    if (!usesInputQueue || state.queuedInput != null) return;
     final pending = _bridge.deliveryPendingInputForSession(
       sessionId,
       includeHidden: true,
@@ -319,7 +337,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             sessionId: sessionId,
             clientMessageId: clientMessageId,
           );
-      if (isCodex &&
+      if (usesInputQueue &&
           !wasAttempted &&
           queuedInput == null &&
           queuedItemId != null) {
@@ -1050,6 +1068,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexModelReasoningEffort ??
             current.codexModelReasoningEffort,
         codexSpeed: update.codexSpeed ?? current.codexSpeed,
+        claudeModel: update.replaceClaudeSettings
+            ? update.claudeModel
+            : (update.claudeModel ?? current.claudeModel),
+        claudeEffort: update.replaceClaudeSettings
+            ? update.claudeEffort
+            : (update.claudeEffort ?? current.claudeEffort),
+        claudeFastMode: update.replaceClaudeSettings
+            ? (update.claudeFastMode ?? false)
+            : (update.claudeFastMode ?? current.claudeFastMode),
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -1058,6 +1085,22 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         hiddenToolUseIds: hiddenToolUseIds,
       ),
     );
+
+    // Keep resume settings in sync with the Bridge's current Claude settings
+    // (including changes from other devices and forks).
+    final persistedClaudeSessionId =
+        newClaudeSessionId ?? current.claudeSessionId;
+    if (update.replaceClaudeSettings &&
+        provider != Provider.codex &&
+        persistedClaudeSessionId != null) {
+      unawaited(
+        _SessionSettingsHelper.save(persistedClaudeSessionId, {
+          'claudeModel': update.claudeModel,
+          'claudeEffort': update.claudeEffort?.value,
+          'claudeFastMode': update.claudeFastMode ?? false,
+        }),
+      );
+    }
 
     // Persist initial Claude settings when claudeSessionId is first known.
     if (update.claudeSessionId != null &&
@@ -1662,6 +1705,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     String text, {
     List<({Uint8List bytes, String mimeType})>? images,
     Iterable<String>? mentionablePaths,
+    InputDelivery? delivery,
   }) async {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) {
       return false;
@@ -1688,7 +1732,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           }
       }
     }
-    if (isCodex) {
+    final usesQueue = usesInputQueue;
+    if (usesQueue) {
       await _pendingInputRestoreFuture;
       if (isClosed || state.queuedInput != null) return false;
     }
@@ -1708,9 +1753,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             mentions: const <Map<String, String>>[],
           );
 
-    final shouldUseOfflineQueuePanel = isCodex && isOffline;
+    final shouldUseOfflineQueuePanel = usesQueue && isOffline;
     final shouldAddLocalEntry =
-        !isCodex ||
+        !usesQueue ||
         (!shouldUseOfflineQueuePanel && state.status == ProcessStatus.idle);
     if (shouldAddLocalEntry) {
       final entry = UserChatEntry(
@@ -1745,7 +1790,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           .toList();
     }
 
-    final deliveryPendingItem = isCodex && !isOffline
+    final deliveryPendingItem = usesQueue && !isOffline
         ? QueuedInputItem(
             itemId: '$deliveryPendingQueuedInputPrefix$clientMessageId',
             text: text,
@@ -1777,6 +1822,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
               : null,
           skills: structuredMentions.skills,
           mentions: structuredMentions.mentions,
+          delivery: delivery,
         ),
       );
     } catch (error, stackTrace) {
@@ -1809,7 +1855,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
       return false;
     }
-    if (isCodex && !isOffline) {
+    if (usesQueue && !isOffline) {
       _scheduleDeliveryPendingQueue(
         clientMessageId: clientMessageId,
         item: deliveryPendingItem!,
@@ -1887,9 +1933,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void updateQueuedInput(QueuedInputItem item, String text) {
-    if (!isCodex || text.trim().isEmpty) return;
+    if (!usesInputQueue || text.trim().isEmpty) return;
     if (isDeliveryPendingQueuedInput(item)) return;
-    final structuredMentions = _extractCodexStructuredInputs(text);
+    final structuredMentions = isCodex
+        ? _extractCodexStructuredInputs(text)
+        : (
+            skills: const <Map<String, String>>[],
+            mentions: const <Map<String, String>>[],
+          );
     final offlineClientMessageId = offlineQueuedClientMessageId(item);
     if (offlineClientMessageId != null) {
       final updated = QueuedInputItem(
@@ -1925,7 +1976,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void steerQueuedInput(QueuedInputItem item) {
-    if (!isCodex ||
+    if (!usesInputQueue ||
         isOfflineQueuedInput(item) ||
         isDeliveryPendingQueuedInput(item)) {
       return;
@@ -1936,7 +1987,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void cancelQueuedInput(QueuedInputItem item) {
-    if (!isCodex) return;
+    if (!usesInputQueue) return;
     if (isDeliveryPendingQueuedInput(item)) {
       final clientMessageId = deliveryPendingClientMessageId(item);
       if (clientMessageId != null) {
@@ -2407,6 +2458,55 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         normalizedModel,
         modelReasoningEffort: nextReasoningEffort?.value,
         sessionId: sessionId,
+      ),
+    );
+  }
+
+  /// Change Claude model, effort or fast mode for subsequent turns.
+  void setClaudeSettings({
+    String? model,
+    ClaudeEffort? effort,
+    bool? fastMode,
+  }) {
+    if (!supportsClaudeSessionSettings) return;
+    final nextModel = model != null && model != state.claudeModel
+        ? model
+        : null;
+    final nextEffort = effort != null && effort != state.claudeEffort
+        ? effort
+        : null;
+    final nextFast = fastMode != null && fastMode != state.claudeFastMode
+        ? fastMode
+        : null;
+    if (nextModel == null && nextEffort == null && nextFast == null) return;
+    logger.info(
+      '[session:$sessionId] setClaudeSettings model=$nextModel '
+      'effort=${nextEffort?.value} fast=$nextFast',
+    );
+    emit(
+      state.copyWith(
+        claudeModel: nextModel ?? state.claudeModel,
+        claudeEffort: nextEffort ?? state.claudeEffort,
+        claudeFastMode: nextFast ?? state.claudeFastMode,
+      ),
+    );
+    final claudeSessionId = state.claudeSessionId;
+    if (claudeSessionId != null) {
+      unawaited(
+        _SessionSettingsHelper.save(claudeSessionId, {
+          'claudeModel': ?state.claudeModel,
+          'claudeEffort': ?state.claudeEffort?.value,
+          'claudeFastMode': state.claudeFastMode,
+        }),
+      );
+    }
+    _bridge.send(
+      ClientMessage.setClaudeSettings(
+        sessionId: sessionId,
+        model: nextModel,
+        // Re-send the effort with a model switch so the new model keeps it.
+        effort: nextEffort ?? (nextModel != null ? state.claudeEffort : null),
+        fastMode: nextFast,
       ),
     );
   }

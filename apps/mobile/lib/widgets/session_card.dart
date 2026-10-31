@@ -447,6 +447,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       _buildSettingsSummary(
                         isCodex: false,
                         model: session.model,
+                        effort: session.claudeEffort,
+                        fastMode: session.claudeFastMode,
                         permissionMode: session.effectivePermissionMode,
                         executionMode: session.resolvedExecutionMode.value,
                         planMode: session.resolvedPlanMode,
@@ -2932,11 +2934,20 @@ class RecentSessionCard extends StatelessWidget {
 String _buildSettingsSummary({
   required bool isCodex,
   String? model,
+  String? effort,
+  bool fastMode = false,
   String? permissionMode,
   String? executionMode,
   bool planMode = false,
 }) {
   if (isCodex) return model ?? '';
+  final effortLabel = claudeEffortByValue(effort)?.label;
+  final modelParts = <String>[
+    if (model != null && model.isNotEmpty) model,
+    ?effortLabel,
+    if (fastMode) 'Fast',
+  ];
+  if (modelParts.isNotEmpty) model = modelParts.join(' · ');
   final parts = <String>[
     if (permissionMode == PermissionMode.auto.value)
       'auto'

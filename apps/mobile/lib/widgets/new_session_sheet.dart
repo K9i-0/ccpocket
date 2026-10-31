@@ -18,6 +18,7 @@ import '../theme/provider_style.dart';
 import '../utils/project_usage.dart';
 import 'directory_browser_sheet.dart';
 import 'workspace_pane_chrome.dart';
+import 'claude_settings_panel.dart';
 import 'codex_effort_slider.dart';
 
 /// Result returned when the user submits the new session sheet.
@@ -54,6 +55,7 @@ class NewSessionParams {
   final List<String> additionalWritableRoots;
   final String? claudeModel;
   final ClaudeEffort? claudeEffort;
+  final bool? claudeFastMode;
   final int? claudeMaxTurns;
   final double? claudeMaxBudgetUsd;
   final String? claudeFallbackModel;
@@ -94,6 +96,7 @@ class NewSessionParams {
     this.additionalWritableRoots = const [],
     this.claudeModel,
     this.claudeEffort,
+    this.claudeFastMode,
     this.claudeMaxTurns,
     this.claudeMaxBudgetUsd,
     this.claudeFallbackModel,
@@ -174,6 +177,7 @@ class NewSessionParams {
     List<String>? additionalWritableRoots,
     String? claudeModel,
     ClaudeEffort? claudeEffort,
+    bool? claudeFastMode,
     int? claudeMaxTurns,
     double? claudeMaxBudgetUsd,
     String? claudeFallbackModel,
@@ -225,6 +229,7 @@ class NewSessionParams {
           additionalWritableRoots ?? this.additionalWritableRoots,
       claudeModel: claudeModel ?? this.claudeModel,
       claudeEffort: claudeEffort ?? this.claudeEffort,
+      claudeFastMode: claudeFastMode ?? this.claudeFastMode,
       claudeMaxTurns: claudeMaxTurns ?? this.claudeMaxTurns,
       claudeMaxBudgetUsd: claudeMaxBudgetUsd ?? this.claudeMaxBudgetUsd,
       claudeFallbackModel: claudeFallbackModel ?? this.claudeFallbackModel,
@@ -323,35 +328,6 @@ ExecutionMode _executionModeFromRawWithDefault(
 ClaudeEffort? claudeEffortFromRaw(String? raw) =>
     enumByValue(ClaudeEffort.values, raw, (v) => v.value);
 
-const _legacyClaudeEfforts = <ClaudeEffort>[
-  ClaudeEffort.low,
-  ClaudeEffort.medium,
-  ClaudeEffort.high,
-  ClaudeEffort.max,
-];
-
-Map<String, List<ClaudeEffort>> _normalizeClaudeModelEfforts(
-  Map<String, List<String>> raw,
-) {
-  return raw.map((model, values) {
-    final efforts = values
-        .map(claudeEffortFromRaw)
-        .whereType<ClaudeEffort>()
-        .toList(growable: false);
-    return MapEntry(model, efforts);
-  });
-}
-
-List<ClaudeEffort> _claudeEffortsForModel(
-  String? model,
-  Map<String, List<ClaudeEffort>> modelEfforts,
-) {
-  if (model != null && modelEfforts.containsKey(model)) {
-    return modelEfforts[model] ?? const [];
-  }
-  return modelEfforts.isEmpty ? _legacyClaudeEfforts : ClaudeEffort.values;
-}
-
 /// Serialize [NewSessionParams] to JSON for SharedPreferences.
 ///
 /// Session-specific values (worktree branch/path, useWorktree,
@@ -379,6 +355,7 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'webSearchMode': params.webSearchMode?.value,
     'claudeModel': params.claudeModel,
     'claudeEffort': params.claudeEffort?.value,
+    'claudeFastMode': params.claudeFastMode,
     // NOTE: claudeMaxTurns, claudeMaxBudgetUsd are session-specific
     // and intentionally NOT persisted.
     'claudeFallbackModel': params.claudeFallbackModel,
@@ -434,6 +411,7 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     webSearchMode: webSearchModeFromRaw(json['webSearchMode'] as String?),
     claudeModel: json['claudeModel'] as String?,
     claudeEffort: claudeEffortFromRaw(json['claudeEffort'] as String?),
+    claudeFastMode: json['claudeFastMode'] as bool?,
     // claudeMaxTurns, claudeMaxBudgetUsd default to null
     claudeFallbackModel: json['claudeFallbackModel'] as String?,
     claudeForkSession: json['claudeForkSession'] as bool?,
@@ -570,25 +548,10 @@ enum _WorktreeMode {
 /// Fallback Codex models when Bridge hasn't delivered a list yet.
 const _defaultCodexModels = defaultCodexModels;
 
-/// Fallback Claude models when Bridge hasn't delivered a list yet.
-// Used only when the Bridge sends no Claude model list. Claude Code aliases
-// always resolve to the current model of each family.
-const _defaultClaudeModelOptions = <ClaudeModelOption>[
-  ClaudeModelOption(value: 'default', displayName: 'Default (recommended)'),
-  ClaudeModelOption(value: 'opus', displayName: 'Opus'),
-  ClaudeModelOption(value: 'sonnet', displayName: 'Sonnet'),
-  ClaudeModelOption(value: 'haiku', displayName: 'Haiku'),
-];
-
 String _claudeModelLabel(
   Map<String, ClaudeModelOption> options,
   String model,
 ) => options[model]?.label ?? model;
-
-String _claudeModelDescription(
-  Map<String, ClaudeModelOption> options,
-  String model,
-) => options[model]?.description ?? '';
 
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
@@ -630,6 +593,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   String? _selectedClaudeModel;
   String? _selectedClaudeFallbackModel;
   ClaudeEffort _claudeEffort = ClaudeEffort.medium;
+  bool _claudeFastMode = false;
   bool _claudeForkSession = false;
   bool _claudePersistSession = true;
 
@@ -869,12 +833,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         widget.bridge?.claudeModelOptions ?? const <ClaudeModelOption>[];
     final claudeOptions = bridgeClaudeOptions.isNotEmpty
         ? bridgeClaudeOptions
-        : _defaultClaudeModelOptions;
+        : defaultClaudeModelOptions;
     _claudeModelList = [for (final option in claudeOptions) option.value];
     _claudeModelOptions = {
       for (final option in claudeOptions) option.value: option,
     };
-    _claudeModelEfforts = _normalizeClaudeModelEfforts(
+    _claudeModelEfforts = normalizeClaudeModelEfforts(
       widget.bridge?.claudeModelEfforts ?? const {},
     );
     final bridgeCodexModels = widget.bridge?.codexModels ?? const [];
@@ -975,7 +939,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   void _normalizeSelectedClaudeEffort() {
-    final efforts = _claudeEffortsForModel(
+    final efforts = claudeEffortsForModel(
       _selectedClaudeModel ?? _claudeModelList.firstOrNull,
       _claudeModelEfforts,
     );
@@ -983,6 +947,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _claudeEffort = efforts.contains(ClaudeEffort.high)
           ? ClaudeEffort.high
           : efforts.first;
+    }
+    if (_claudeFastMode &&
+        !claudeModelSupportsFast(
+          _claudeModelOptions.values.toList(),
+          _selectedClaudeModel ?? _claudeModelList.firstOrNull,
+        )) {
+      _claudeFastMode = false;
     }
   }
 
@@ -1059,6 +1030,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         ? p.claudeModel
         : null;
     _claudeEffort = p.claudeEffort ?? _claudeEffort;
+    _claudeFastMode = p.claudeFastMode ?? false;
     _normalizeSelectedClaudeEffort();
     _claudeMaxTurnsController.text = p.claudeMaxTurns?.toString() ?? "";
     _claudeMaxBudgetController.text = p.claudeMaxBudgetUsd?.toString() ?? "";
@@ -1471,6 +1443,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       additionalWritableRoots: _additionalWritableRoots,
       claudeModel: !isCodex ? _selectedClaudeModel : null,
       claudeEffort: !isCodex ? _claudeEffort : null,
+      claudeFastMode: !isCodex ? _claudeFastMode : null,
       claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
       claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
       claudeFallbackModel: !isCodex ? _selectedClaudeFallbackModel : null,
@@ -1655,6 +1628,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             claudeEffort: _claudeEffort,
             onClaudeEffortChanged: (value) {
               setState(() => _claudeEffort = value);
+            },
+            claudeFastMode: _claudeFastMode,
+            onClaudeFastModeChanged: (value) {
+              setState(() => _claudeFastMode = value);
             },
             claudeMaxTurnsController: _claudeMaxTurnsController,
             maxTurnsError: _maxTurnsError,
@@ -2585,6 +2562,8 @@ class _OptionsSection extends StatelessWidget {
   final ValueChanged<String?> onClaudeModelChanged;
   final ClaudeEffort claudeEffort;
   final ValueChanged<ClaudeEffort> onClaudeEffortChanged;
+  final bool claudeFastMode;
+  final ValueChanged<bool> onClaudeFastModeChanged;
   final TextEditingController claudeMaxTurnsController;
   final String? maxTurnsError;
   final VoidCallback onMaxTurnsChanged;
@@ -2647,6 +2626,8 @@ class _OptionsSection extends StatelessWidget {
     required this.onClaudeModelChanged,
     required this.claudeEffort,
     required this.onClaudeEffortChanged,
+    required this.claudeFastMode,
+    required this.onClaudeFastModeChanged,
     required this.claudeMaxTurnsController,
     required this.maxTurnsError,
     required this.onMaxTurnsChanged,
@@ -2690,10 +2671,6 @@ class _OptionsSection extends StatelessWidget {
     final autoModeColor = isDark
         ? appColors.warningText
         : appColors.warningBubbleBorder;
-    final selectedClaudeEfforts = _claudeEffortsForModel(
-      selectedClaudeModel ?? claudeModels.firstOrNull,
-      claudeModelEfforts,
-    );
 
     // -- Description helpers --
 
@@ -3074,54 +3051,21 @@ class _OptionsSection extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          // Model stays prominent for Claude, but is under Advanced for Codex.
           if (provider == Provider.claude)
-            modeSelectorField(
-              key: const ValueKey('dialog_claude_model'),
-              label: l.model,
-              icon: Icons.smart_toy_outlined,
-              title: _claudeModelLabel(
-                claudeModelOptions,
-                selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
-              ),
-              subtitle: _claudeModelDescription(
-                claudeModelOptions,
-                selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
-              ),
-              onTap: () {
-                showModeSheet<String>(
-                  title: l.model,
-                  subtitle: l.sheetSubtitleModel,
-                  modes: claudeModels,
-                  currentMode:
-                      selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
-                  iconFor: (_) => Icons.smart_toy_outlined,
-                  labelFor: (m) => _claudeModelLabel(claudeModelOptions, m),
-                  descriptionFor: (m) =>
-                      _claudeModelDescription(claudeModelOptions, m),
-                  onSelected: onClaudeModelChanged,
-                );
-              },
-            ),
-          const SizedBox(height: 8),
-          // -- Effort selector --
-          if (provider == Provider.claude && selectedClaudeEfforts.isNotEmpty)
-            modeSelectorField(
-              key: const ValueKey('dialog_claude_effort'),
-              label: l.effort,
-              icon: Icons.speed,
-              title: claudeEffort.label,
-              subtitle: _claudeEffortDescription(claudeEffort, l),
-              onTap: () => showModeSheet<ClaudeEffort>(
-                title: l.effort,
-                subtitle: l.sheetSubtitleEffort,
-                modes: selectedClaudeEfforts,
-                currentMode: claudeEffort,
-                iconFor: (_) => Icons.speed,
-                labelFor: (e) => e.label,
-                descriptionFor: (e) => _claudeEffortDescription(e, l),
-                onSelected: onClaudeEffortChanged,
-              ),
+            ClaudeSettingsPanel(
+              key: const ValueKey('dialog_claude_settings'),
+              keyPrefix: 'dialog_claude',
+              models: [
+                for (final model in claudeModels)
+                  claudeModelOptions[model] ?? ClaudeModelOption(value: model),
+              ],
+              modelEfforts: claudeModelEfforts,
+              model: selectedClaudeModel ?? claudeModels.firstOrNull,
+              effort: claudeEffort,
+              fastMode: claudeFastMode,
+              onModelChanged: onClaudeModelChanged,
+              onEffortChanged: onClaudeEffortChanged,
+              onFastModeChanged: onClaudeFastModeChanged,
             ),
           if (provider == Provider.codex && codexReasoningEfforts.isNotEmpty)
             _CodexSettingsSwitcher(
@@ -3263,16 +3207,6 @@ class _WorktreeToggleTile extends StatelessWidget {
   }
 }
 
-String _claudeEffortDescription(ClaudeEffort effort, AppLocalizations l) {
-  return switch (effort) {
-    ClaudeEffort.low => l.claudeEffortLowDesc,
-    ClaudeEffort.medium => l.claudeEffortMediumDesc,
-    ClaudeEffort.high => l.claudeEffortHighDesc,
-    ClaudeEffort.xhigh => l.claudeEffortXHighDesc,
-    ClaudeEffort.max => l.claudeEffortMaxDesc,
-  };
-}
-
 class _ResponsiveOptionRow extends StatelessWidget {
   final Widget leading;
   final Widget trailing;
@@ -3351,8 +3285,10 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
         : widget.reasoningEfforts.first;
 
     return CodexSettingsPanel(
-      model: widget.selectedModel ?? widget.models.firstOrNull ?? 'gpt-5.5',
-      effort: effectiveEffort,
+      modelLabel: codexModelDisplayName(
+        widget.selectedModel ?? widget.models.firstOrNull ?? 'gpt-5.5',
+      ),
+      effortLabel: effectiveEffort.label,
       speed: widget.speed,
       supportsFast: widget.supportsFast,
       onSpeedChanged: widget.onSpeedChanged,

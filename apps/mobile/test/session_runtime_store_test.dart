@@ -406,6 +406,27 @@ void main() {
       expect(store.snapshot('real').sessionContext, isNull);
     });
 
+    test('fork copies only explorer state and keeps the source cache', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        'source',
+        const StatusMessage(status: ProcessStatus.idle),
+      );
+      store.setExplorerHistory(
+        'source',
+        currentPath: '/repo',
+        recentPeekedFiles: const ['README.md'],
+      );
+
+      store.copyExplorerHistory('source', 'fork');
+
+      expect(store.messages('source'), hasLength(1));
+      expect(store.messages('fork'), isEmpty);
+      expect(store.getExplorerHistory('fork').currentPath, '/repo');
+      expect(store.getExplorerHistory('source').currentPath, '/repo');
+      expect(store.cachedHistorySeq('fork'), 0);
+    });
+
     test('trims old messages per session', () {
       final store = SessionRuntimeStore(maxMessagesPerSession: 2);
 

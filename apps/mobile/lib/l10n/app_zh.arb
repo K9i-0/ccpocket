@@ -587,7 +587,7 @@
   "fork": "分叉",
   "forkConversation": "分叉对话",
   "forkConversationTitle": "分叉对话？",
-  "forkConversationBody": "从此回复创建一个新的 Codex 会话。当前会话不会改变。",
+  "forkConversationBody": "从此回复创建一个新会话。当前会话不会改变。",
   "forkTargetNotFound": "找不到可用于分叉的用户消息",
   "tapToRetry": "点按重试",
 
@@ -1455,5 +1455,13 @@
   "createProjectShort": "创建",
   "multiProjectShort": "多项目",
   "changeProjectLocation": "更改",
-  "chooseExistingFolder": "选择现有文件夹"
+  "chooseExistingFolder": "选择现有文件夹",
+  "defaultInputDelivery": "运行中发送的消息",
+  "defaultInputDeliverySubtitle": "发送按钮的默认操作。长按发送可使用另一种方式。",
+  "inputDeliverySteer": "插入",
+  "inputDeliveryQueue": "排队",
+  "inputDeliverySteerDescription": "在不停止当前回合的情况下追加指令",
+  "inputDeliveryQueueDescription": "当前回合结束后发送",
+  "sendAsSteer": "插入当前回合",
+  "sendAsQueue": "排队到下一回合"
 }

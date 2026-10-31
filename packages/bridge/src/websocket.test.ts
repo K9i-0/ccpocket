@@ -190,6 +190,12 @@ vi.mock("./session.js", () => ({
         sendInputWithImage: vi.fn(),
         sendInputWithImages: vi.fn(() => false),
         steerInputStructured: vi.fn(async () => {}),
+        steerInput: vi.fn(() => true),
+        settings: { model: "sonnet", effort: "high" },
+        updateSettings: vi.fn(async function (this: any, next: any) {
+          this.settings = { ...this.settings, ...next };
+          return this.settings;
+        }),
         approve: vi.fn(),
         approveAlways: vi.fn(),
         reject: vi.fn(),
@@ -231,27 +237,42 @@ vi.mock("./session.js", () => ({
       return this.sessions.get(id);
     }
 
-    queueCodexInput(id: string, input: any) {
+    queueInput(id: string, input: any) {
       const session = this.sessions.get(id);
-      if (!session || session.provider !== "codex" || session.codexQueuedInput) {
+      if (!session || session.queuedInput) {
         return false;
       }
-      session.codexQueuedInput = input;
+      session.queuedInput = input;
       return true;
     }
 
-    updateCodexQueuedInput(
+    async steerInput(id: string, input: any) {
+      const session = this.sessions.get(id);
+      if (!session) return "rejected";
+      session.queuedInput ??= undefined;
+      const previous = session.queuedInput;
+      session.queuedInput = input;
+      const result = await this.steerQueuedInput(id, input.itemId);
+      if (result.ok) {
+        session.queuedInput = previous;
+        return "steered";
+      }
+      session.queuedInput = previous;
+      return this.queueInput(id, input) ? "queued" : "rejected";
+    }
+
+    updateQueuedInput(
       id: string,
       itemId: string,
       text: string,
       options?: { skills?: unknown[]; mentions?: unknown[] },
     ) {
       const session = this.sessions.get(id);
-      if (!session?.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+      if (!session?.queuedInput || session.queuedInput.itemId !== itemId) {
         return false;
       }
-      session.codexQueuedInput = {
-        ...session.codexQueuedInput,
+      session.queuedInput = {
+        ...session.queuedInput,
         text,
         skills: options?.skills,
         mentions: options?.mentions,
@@ -259,37 +280,41 @@ vi.mock("./session.js", () => ({
       return true;
     }
 
-    cancelCodexQueuedInput(id: string, itemId: string) {
+    cancelQueuedInput(id: string, itemId: string) {
       const session = this.sessions.get(id);
-      if (!session?.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+      if (!session?.queuedInput || session.queuedInput.itemId !== itemId) {
         return false;
       }
-      session.codexQueuedInput = undefined;
+      session.queuedInput = undefined;
       return true;
     }
 
-    async steerCodexQueuedInput(id: string, itemId: string) {
+    async steerQueuedInput(id: string, itemId: string) {
       const session = this.sessions.get(id);
-      if (!session || session.provider !== "codex") {
-        return { ok: false, error: "No active Codex session." };
+      if (!session) {
+        return { ok: false, error: "No active session." };
       }
-      const queued = session.codexQueuedInput;
+      const queued = session.queuedInput;
       if (!queued || queued.itemId !== itemId) {
         return { ok: false, error: "Queued message not found." };
       }
       try {
-        await session.process.steerInputStructured(queued.text, {
-          images: queued.images,
-          skills: queued.skills,
-          mentions: queued.mentions,
-        });
+        if (session.provider === "codex") {
+          await session.process.steerInputStructured(queued.text, {
+            images: queued.images,
+            skills: queued.skills,
+            mentions: queued.mentions,
+          });
+        } else {
+          session.process.steerInput(queued.text, queued.images);
+        }
       } catch (err) {
         return {
           ok: false,
           error: err instanceof Error ? err.message : String(err),
         };
       }
-      session.codexQueuedInput = undefined;
+      session.queuedInput = undefined;
       const userMsg = {
         type: "user_input",
         text: queued.text,
@@ -381,7 +406,7 @@ vi.mock("./session.js", () => ({
                 : "default",
           sandboxEnabled: s.sandboxEnabled,
           codexSettings: s.codexSettings,
-          queuedInput: s.codexQueuedInput,
+          queuedInput: s.queuedInput,
         }));
     }
 
@@ -2833,7 +2858,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId: newSessionId,
     });
     expect(historySends[1]).toMatchObject({ type: "history", sessionId: newSessionId });
-    expect(historySends[2]).toMatchObject({ type: "status", sessionId: newSessionId });
+    expect(historySends[2]).toMatchObject({
+      type: "system",
+      subtype: "claude_settings",
+      sessionId: newSessionId,
+    });
+    expect(historySends[3]).toMatchObject({ type: "status", sessionId: newSessionId });
 
     bridge.close();
   });
@@ -9192,7 +9222,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId,
       queued: true,
     });
-    expect(session.codexQueuedInput).toMatchObject({
+    expect(session.queuedInput).toMatchObject({
       text: "while busy",
       clientMessageId: "cm-busy-input",
     });
@@ -9503,6 +9533,104 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  describe("claude fork from an assistant message", () => {
+    async function startClaude() {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).handleClientMessage(
+        { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+        ws,
+      );
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "session_created",
+        );
+      const sessionId = created.sessionId as string;
+      const session = (bridge as any).sessionManager.get(sessionId);
+      session.claudeSessionId = "claude-source";
+      session.process.settings = { model: "opus", effort: "xhigh" };
+      session.process.permissionMode = "acceptEdits";
+      ws.send.mockClear();
+      return { bridge, ws, sessionId, session };
+    }
+
+    async function flush() {
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    }
+
+    it("creates a forked session that keeps the source", async () => {
+      const { bridge, ws, sessionId } = await startClaude();
+      getSessionHistoryMock.mockResolvedValueOnce([
+        { role: "user", uuid: "u1", content: [{ type: "text", text: "one" }] },
+        { role: "assistant", uuid: "a1", content: [{ type: "text", text: "1" }] },
+        { role: "user", uuid: "u2", content: [{ type: "text", text: "two" }] },
+        { role: "assistant", uuid: "a2", content: [{ type: "text", text: "2" }] },
+      ]);
+
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "a1" },
+        ws,
+      );
+      await flush();
+
+      expect(getSessionHistoryMock).toHaveBeenCalledWith("claude-source");
+      const newCreated = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "session_created",
+        );
+      expect(newCreated).toMatchObject({
+        provider: "claude",
+        sourceSessionId: sessionId,
+        forked: true,
+      });
+      expect((bridge as any).sessionManager.get(sessionId)).toBeDefined();
+      const forked = (bridge as any).sessionManager.get(newCreated.sessionId);
+      expect(forked.startOptions).toMatchObject({
+        sessionId: "claude-source",
+        forkSession: true,
+        resumeSessionAt: "a1",
+        permissionMode: "acceptEdits",
+        model: "opus",
+        effort: "xhigh",
+      });
+      expect(forked.pastMessages.map((m: any) => m.uuid)).toEqual(["u1", "a1"]);
+      bridge.close();
+    });
+
+    it("rejects unknown targets and running sessions", async () => {
+      const { bridge, ws, sessionId, session } = await startClaude();
+      getSessionHistoryMock.mockResolvedValueOnce([
+        { role: "user", uuid: "u1", content: [] },
+      ]);
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "u1" },
+        ws,
+      );
+      await flush();
+      expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+        type: "error",
+        errorCode: "fork_failed",
+        message: "Fork target not found in the Claude transcript",
+      });
+
+      session.status = "running";
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(
+        { type: "fork", sessionId, targetUuid: "a1" },
+        ws,
+      );
+      await flush();
+      expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+        errorCode: "fork_failed",
+        message: "Cannot fork while Claude is running",
+      });
+      bridge.close();
+    });
+  });
+
   it("rejects codex code rewind modes", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -9570,7 +9698,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
     session.process.isWaitingForInput = false;
-    session.codexQueuedInput = {
+    session.queuedInput = {
       itemId: "queued-1",
       text: "already queued",
       createdAt: new Date().toISOString(),
@@ -9619,7 +9747,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
-    session.codexQueuedInput = {
+    session.queuedInput = {
       itemId: "queued-1",
       text: "original",
       createdAt: new Date().toISOString(),
@@ -9634,7 +9762,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
-    expect(session.codexQueuedInput.text).toBe("edited");
+    expect(session.queuedInput.text).toBe("edited");
 
     (bridge as any).handleClientMessage(
       {
@@ -9644,7 +9772,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
-    expect(session.codexQueuedInput).toBeUndefined();
+    expect(session.queuedInput).toBeUndefined();
 
     bridge.close();
   });
@@ -9677,7 +9805,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
-    session.codexQueuedInput = {
+    session.queuedInput = {
       itemId: "queued-1",
       text: "steer now",
       createdAt: new Date().toISOString(),
@@ -9704,7 +9832,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         mentions: undefined,
       },
     );
-    expect(session.codexQueuedInput).toBeUndefined();
+    expect(session.queuedInput).toBeUndefined();
     const peerMessages = otherWs.send.mock.calls.map((c: unknown[]) =>
       JSON.parse(c[0] as string),
     );
@@ -9741,7 +9869,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
-    session.codexQueuedInput = {
+    session.queuedInput = {
       itemId: "queued-1",
       text: "steer now",
       createdAt: new Date().toISOString(),
@@ -9760,7 +9888,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ws,
     );
 
-    expect(session.codexQueuedInput?.text).toBe("steer now");
+    expect(session.queuedInput?.text).toBe("steer now");
     const error = ws.send.mock.calls
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "error");
@@ -9772,12 +9900,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("rejects steer_queued_input for claude sessions", async () => {
+  it("steers claude queued input into the running turn", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
       send: vi.fn(),
     } as any;
+    (bridge as any).wss.clients.add(ws);
 
     (bridge as any).handleClientMessage(
       {
@@ -9793,6 +9922,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((m: any) => m.type === "system" && m.subtype === "session_created");
     const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.queuedInput = {
+      itemId: "queued-1",
+      text: "steer claude",
+      createdAt: new Date().toISOString(),
+    };
 
     ws.send.mockClear();
     await (bridge as any).handleClientMessage(
@@ -9804,13 +9939,250 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ws,
     );
 
-    const error = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
-    expect(error).toMatchObject({
-      type: "error",
-      message: "No active Codex session.",
-    });
+    expect(session.process.steerInput).toHaveBeenCalledWith(
+      "steer claude",
+      undefined,
+    );
+    expect(session.process.steerInputStructured).not.toHaveBeenCalled();
+    expect(session.queuedInput).toBeUndefined();
 
     bridge.close();
+  });
+
+  it("changes Claude model, effort and fast mode mid-session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "set_claude_settings",
+        sessionId,
+        model: "opus",
+        effort: "xhigh",
+        fastMode: true,
+      },
+      ws,
+    );
+
+    expect(session.process.updateSettings).toHaveBeenCalledWith({
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    });
+    const messages = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(
+      messages.find(
+        (m: any) => m.type === "system" && m.subtype === "claude_settings",
+      ),
+    ).toMatchObject({
+      sessionId,
+      provider: "claude",
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    });
+    bridge.close();
+  });
+
+  it("reports rejected Claude settings and re-sends current settings", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.updateSettings.mockRejectedValueOnce(new Error("nope"));
+    ws.send.mockClear();
+
+    await (bridge as any).handleClientMessage(
+      { type: "set_claude_settings", sessionId, model: "haiku" },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(messages.find((m: any) => m.type === "error")).toMatchObject({
+      errorCode: "set_claude_settings_rejected",
+    });
+    expect(
+      messages.find(
+        (m: any) => m.type === "system" && m.subtype === "claude_settings",
+      ),
+    ).toMatchObject({ model: "sonnet", effort: "high", fastMode: false });
+    bridge.close();
+  });
+
+  it("rejects set_claude_settings for codex sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-codex", provider: "codex" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "set_claude_settings",
+        sessionId: created.sessionId,
+        effort: "low",
+      },
+      ws,
+    );
+    expect(JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string)).toMatchObject({
+      type: "error",
+      errorCode: "set_claude_settings_unsupported",
+    });
+    bridge.close();
+  });
+
+  describe("claude input delivery while a turn is active", () => {
+    async function startBusyClaude() {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).wss.clients.add(ws);
+      (bridge as any).handleClientMessage(
+        { type: "start", projectPath: "/tmp/project-claude", provider: "claude" },
+        ws,
+      );
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "session_created",
+        );
+      const sessionId = created.sessionId as string;
+      const session = (bridge as any).sessionManager.get(sessionId);
+      session.process.isTurnActive = true;
+      session.process.dispatchInput = vi.fn(() => ({
+        queued: true,
+        shouldInterrupt: true,
+      }));
+      ws.send.mockClear();
+      return { bridge, ws, sessionId, session };
+    }
+
+    function sent(ws: any) {
+      return ws.send.mock.calls.map((c: unknown[]) =>
+        JSON.parse(c[0] as string),
+      );
+    }
+
+    it("holds queue delivery without interrupting the turn", async () => {
+      const { bridge, ws, sessionId, session } = await startBusyClaude();
+      await (bridge as any).handleClientMessage(
+        {
+          type: "input",
+          sessionId,
+          text: "next turn please",
+          clientMessageId: "c-1",
+          delivery: "queue",
+        },
+        ws,
+      );
+      expect(session.queuedInput).toMatchObject({
+        text: "next turn please",
+        clientMessageId: "c-1",
+      });
+      expect(session.queuedInput.userMessageUuid).toBeUndefined();
+      expect(session.process.interrupt).not.toHaveBeenCalled();
+      expect(session.process.dispatchInput).not.toHaveBeenCalled();
+      expect(sent(ws).find((m: any) => m.type === "input_ack")).toMatchObject({
+        clientMessageId: "c-1",
+        queued: true,
+      });
+      bridge.close();
+    });
+
+    it("rejects queue delivery when the queue is occupied", async () => {
+      const { bridge, ws, sessionId, session } = await startBusyClaude();
+      session.queuedInput = {
+        itemId: "queued-1",
+        text: "first",
+        createdAt: new Date().toISOString(),
+      };
+      await (bridge as any).handleClientMessage(
+        {
+          type: "input",
+          sessionId,
+          text: "second",
+          clientMessageId: "c-2",
+          delivery: "queue",
+        },
+        ws,
+      );
+      expect(sent(ws).find((m: any) => m.type === "input_rejected")).toMatchObject({
+        clientMessageId: "c-2",
+        reason: "Queue is full",
+      });
+      bridge.close();
+    });
+
+    it("steers into the running turn even when a message is queued", async () => {
+      const { bridge, ws, sessionId, session } = await startBusyClaude();
+      session.queuedInput = {
+        itemId: "queued-1",
+        text: "first",
+        createdAt: new Date().toISOString(),
+      };
+      await (bridge as any).handleClientMessage(
+        {
+          type: "input",
+          sessionId,
+          text: "steer now",
+          clientMessageId: "c-3",
+          delivery: "steer",
+        },
+        ws,
+      );
+      expect(session.process.steerInput).toHaveBeenCalledWith(
+        "steer now",
+        undefined,
+      );
+      expect(session.process.interrupt).not.toHaveBeenCalled();
+      expect(session.queuedInput.text).toBe("first");
+      expect(sent(ws).find((m: any) => m.type === "input_ack")).toMatchObject({
+        clientMessageId: "c-3",
+        queued: false,
+      });
+      bridge.close();
+    });
+
+    it("keeps the legacy interrupt path when delivery is omitted", async () => {
+      const { bridge, ws, sessionId, session } = await startBusyClaude();
+      await (bridge as any).handleClientMessage(
+        { type: "input", sessionId, text: "legacy", clientMessageId: "c-4" },
+        ws,
+      );
+      expect(session.process.dispatchInput).toHaveBeenCalledWith("legacy");
+      expect(session.process.interrupt).toHaveBeenCalled();
+      expect(session.queuedInput).toBeUndefined();
+      bridge.close();
+    });
   });
 
   it("includes sourceSessionId in rewind conversation session_created", async () => {

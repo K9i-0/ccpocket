@@ -595,7 +595,7 @@
   "fork": "Fork",
   "forkConversation": "Fork conversation",
   "forkConversationTitle": "Fork conversation?",
-  "forkConversationBody": "Create a new Codex session from this response. The current session will remain unchanged.",
+  "forkConversationBody": "Create a new session from this response. The current session will remain unchanged.",
   "forkTargetNotFound": "Cannot find a user turn to fork from",
   "tapToRetry": "Tap to retry",
 
@@ -1387,5 +1387,13 @@
   "createProjectShort": "Create",
   "multiProjectShort": "Multi",
   "changeProjectLocation": "Change",
-  "chooseExistingFolder": "Choose an existing folder"
+  "chooseExistingFolder": "Choose an existing folder",
+  "defaultInputDelivery": "Messages during a turn",
+  "defaultInputDeliverySubtitle": "Default for the send button. Long-press send to use the other option.",
+  "inputDeliverySteer": "Steer",
+  "inputDeliveryQueue": "Queue",
+  "inputDeliverySteerDescription": "Add to the current turn without stopping it",
+  "inputDeliveryQueueDescription": "Send after the current turn finishes",
+  "sendAsSteer": "Steer into current turn",
+  "sendAsQueue": "Queue for next turn"
 }

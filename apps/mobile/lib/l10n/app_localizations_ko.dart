@@ -1498,8 +1498,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get forkConversationTitle => '대화를 분기할까요?';
 
   @override
-  String get forkConversationBody =>
-      '이 응답 시점에서 새 Codex 세션을 만듭니다. 현재 세션은 변경되지 않습니다.';
+  String get forkConversationBody => '이 응답 시점에서 새 세션을 만듭니다. 현재 세션은 변경되지 않습니다.';
 
   @override
   String get forkTargetNotFound => '분기할 사용자 메시지를 찾을 수 없습니다';
@@ -3370,4 +3369,29 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chooseExistingFolder => '기존 폴더 선택';
+
+  @override
+  String get defaultInputDelivery => '실행 중 보내는 메시지';
+
+  @override
+  String get defaultInputDeliverySubtitle =>
+      '보내기 버튼의 기본 동작입니다. 길게 누르면 다른 옵션을 선택할 수 있습니다.';
+
+  @override
+  String get inputDeliverySteer => '끼워 넣기';
+
+  @override
+  String get inputDeliveryQueue => '대기열';
+
+  @override
+  String get inputDeliverySteerDescription => '현재 턴을 멈추지 않고 지시를 추가합니다';
+
+  @override
+  String get inputDeliveryQueueDescription => '현재 턴이 끝난 후 보냅니다';
+
+  @override
+  String get sendAsSteer => '현재 턴에 끼워 넣기';
+
+  @override
+  String get sendAsQueue => '다음 턴 대기열에 추가';
 }

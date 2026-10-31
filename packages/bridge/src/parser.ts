@@ -100,6 +100,9 @@ export interface QueuedInputItem {
   mentions?: Array<{ name: string; path: string }>;
 }
 
+export type InputDelivery = "steer" | "queue";
+
+
 export type ClientMessage =
   | {
       type: "client_capabilities";
@@ -127,6 +130,8 @@ export type ClientMessage =
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      /** Claude Code fast mode (supported models only). */
+      claudeFastMode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -160,6 +165,12 @@ export type ClientMessage =
       skill?: { name: string; path: string };
       skills?: Array<{ name: string; path: string }>;
       mentions?: Array<{ name: string; path: string }>;
+      /**
+       * How input sent during an active turn is delivered. `steer` injects it
+       * into the running turn; `queue` holds it for the next turn. Omitted by
+       * older clients: Codex queues and Claude interrupts the turn.
+       */
+      delivery?: InputDelivery;
     }
   | {
       type: "update_queued_input";
@@ -200,6 +211,13 @@ export type ClientMessage =
       type: "set_codex_speed";
       serviceTier: string;
       sessionId?: string;
+    }
+  | {
+      type: "set_claude_settings";
+      sessionId: string;
+      model?: string;
+      effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      fastMode?: boolean;
     }
   | { type: "set_codex_recovery"; sessionId: string; enabled: boolean }
   | { type: "cancel_codex_recovery"; sessionId: string }
@@ -268,6 +286,8 @@ export type ClientMessage =
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
+      /** Claude Code fast mode (supported models only). */
+      claudeFastMode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -1247,6 +1267,7 @@ function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
     isOptionalString(msg.sandboxMode) &&
     isOptionalString(msg.model) &&
     isOptionalEnum(msg.effort, CLAUDE_EFFORTS) &&
+    isOptionalBoolean(msg.claudeFastMode) &&
     (msg.maxTurns === undefined ||
       (Number.isInteger(msg.maxTurns) && Number(msg.maxTurns) >= 1)) &&
     (msg.maxBudgetUsd === undefined ||
@@ -1405,6 +1426,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "input":
         if (typeof msg.text !== "string") return null;
         if (
+          msg.delivery !== undefined &&
+          msg.delivery !== "steer" &&
+          msg.delivery !== "queue"
+        )
+          return null;
+        if (
           msg.clientMessageId !== undefined &&
           typeof msg.clientMessageId !== "string"
         )
@@ -1536,6 +1563,18 @@ export function parseClientMessage(data: string): ClientMessage | null {
         )
           return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
+          return null;
+        break;
+      case "set_claude_settings":
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
+        if (!isOptionalNonEmptyString(msg.model)) return null;
+        if (!isOptionalEnum(msg.effort, CLAUDE_EFFORTS)) return null;
+        if (!isOptionalBoolean(msg.fastMode)) return null;
+        if (
+          msg.model === undefined &&
+          msg.effort === undefined &&
+          msg.fastMode === undefined
+        )
           return null;
         break;
       case "set_codex_recovery":

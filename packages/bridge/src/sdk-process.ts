@@ -94,6 +94,15 @@ export interface ClaudeModelMetadata {
   displayName?: string;
   description?: string;
   effortLevels: ClaudeEffortLevel[];
+  supportsFastMode?: boolean;
+}
+
+/** Model settings the user selected for a running Claude session. */
+export interface ClaudeSessionSettings {
+  /** Selected model value from the model list (alias or id). */
+  model?: string;
+  effort?: ClaudeEffortLevel;
+  fastMode?: boolean;
 }
 
 const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
@@ -132,6 +141,7 @@ function normalizeClaudeModelMetadata(model: ModelInfo): ClaudeModelMetadata | n
     ...(model.displayName ? { displayName: model.displayName } : {}),
     ...(description ? { description } : {}),
     effortLevels: model.supportsEffort === false ? [] : effortLevels,
+    ...(model.supportsFastMode === true ? { supportsFastMode: true } : {}),
   };
 }
 
@@ -384,6 +394,8 @@ export interface StartOptions {
   permissionMode?: PermissionMode;
   model?: string;
   effort?: ClaudeEffortLevel;
+  /** Start in Claude Code fast mode (supported models only). */
+  fastMode?: boolean;
   maxTurns?: number;
   maxBudgetUsd?: number;
   fallbackModel?: string;
@@ -411,6 +423,8 @@ export interface RewindFilesResult {
 
 const CLAUDE_SYSTEM_INJECTED_USER_TEXT =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+/** Assistant content block types that clients know how to render. */
+const CLIENT_ASSISTANT_BLOCK_TYPES = new Set(["text", "tool_use", "thinking"]);
 /** Marker the CLI records as a user message after an interrupt. */
 const CLAUDE_INTERRUPT_MARKER_TEXT = /^\[Request interrupted by user(?: for tool use)?\]$/;
 
@@ -488,6 +502,33 @@ function isInternalClaudeResultError(error: string): boolean {
   return (
     error.startsWith("[ede_diagnostic]") ||
     error.includes("Bun is not defined")
+  );
+}
+
+const CLAUDE_LOCAL_COMMAND_TEXT =
+  /^<local-command-(?:caveat|std(?:err|out))>/;
+
+/**
+ * Local command echoes (e.g. "Set model to …" after setModel) are emitted as
+ * user frames outside any turn; they must not mark the session as running.
+ */
+function isClaudeLocalCommandFrame(msg: SDKMessage): boolean {
+  if (msg.type !== "user") return false;
+  const content = (msg as { message?: { content?: unknown } }).message?.content;
+  const texts: string[] = [];
+  if (typeof content === "string") {
+    texts.push(content);
+  } else if (Array.isArray(content)) {
+    for (const block of content) {
+      if (!block || typeof block !== "object") return false;
+      const typed = block as { type?: unknown; text?: unknown };
+      if (typed.type !== "text" || typeof typed.text !== "string") return false;
+      texts.push(typed.text);
+    }
+  }
+  return (
+    texts.length > 0 &&
+    texts.every((text) => CLAUDE_LOCAL_COMMAND_TEXT.test(text.trimStart()))
   );
 }
 
@@ -600,8 +641,14 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
       const rawContent = ast.message.content;
       const content = Array.isArray(rawContent)
         ? rawContent.filter((block) => {
-            if (!block || typeof block !== "object") return true;
+            if (!block || typeof block !== "object") return false;
             const candidate = block as Record<string, unknown>;
+            // Server-side tool blocks (advisor, web search, ...) and redacted
+            // thinking have no client rendering; clients show unknown block
+            // types as raw placeholders.
+            if (!CLIENT_ASSISTANT_BLOCK_TYPES.has(candidate.type as string)) {
+              return false;
+            }
             return !(
               candidate.type === "thinking" &&
               typeof candidate.thinking === "string" &&
@@ -747,6 +794,11 @@ export interface SdkProcessEvents {
   exit: [number | null];
   /** Fired just before "exit" to allow re-persisting session metadata. */
   session_end: [];
+  /**
+   * A turn finished and the idle status was published; the session can take
+   * the next prompt. Not fired for stop/exit.
+   */
+  input_ready: [];
 }
 
 interface PendingPermission {
@@ -784,6 +836,11 @@ interface SDKUserMsg {
     >;
   };
   parent_tool_use_id: null;
+  /**
+   * Claude Code delivery priority. `next` injects a message into the running
+   * turn at the next safe point (between tool calls) without interrupting it.
+   */
+  priority?: "now" | "next" | "later";
 }
 
 export class SdkProcess extends EventEmitter<SdkProcessEvents> {
@@ -797,6 +854,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
+  private _settings: ClaudeSessionSettings = {};
+  /** User-selected model/effort/fast mode (not the resolved model id). */
+  get settings(): ClaudeSessionSettings { return { ...this._settings }; }
   private authClassification: ClaudeAuthClassification = "unknown";
   private authGeneration = 0;
   private authResolution: Promise<void> = Promise.resolve();
@@ -811,6 +871,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private stopped = false;
 
   private pendingInputQueue: Array<{ text: string; images?: Array<{ base64: string; mimeType: string }> }> = [];
+  /** Mid-turn messages waiting for the SDK to pull the next prompt. */
+  private pendingSteerQueue: SDKUserMsg[] = [];
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
@@ -830,6 +892,46 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   get isWaitingForInput(): boolean {
     return this.userMessageResolve !== null;
+  }
+
+  /** True while a turn is in progress and new prompts cannot start a turn. */
+  get isTurnActive(): boolean {
+    return (
+      this._status === "running" ||
+      this._status === "compacting" ||
+      this._status === "waiting_approval"
+    );
+  }
+
+  /**
+   * Inject input into the running turn without interrupting it (Claude Code
+   * `priority: "next"`). When no turn is active the input is sent normally.
+   * Returns whether the input was steered into an active turn.
+   */
+  steerInput(
+    text: string,
+    images?: Array<{ base64: string; mimeType: string }>,
+  ): boolean {
+    if (!this.isTurnActive) {
+      if (images && images.length > 0) this.dispatchInputWithImages(text, images);
+      else this.dispatchInput(text);
+      return false;
+    }
+    const message: SDKUserMsg = {
+      ...this.buildUserMessage(text, images),
+      priority: "next",
+    };
+    const resolve = this.userMessageResolve;
+    if (resolve) {
+      this.userMessageResolve = null;
+      resolve(message);
+    } else {
+      this.pendingSteerQueue.push(message);
+    }
+    console.log(
+      `[sdk-process] Steered input into running turn${images?.length ? ` with ${images.length} image(s)` : ""}`,
+    );
+    return true;
   }
 
   get sessionId(): string | null {
@@ -970,6 +1072,20 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
     });
 
+    this._settings = {
+      ...(options?.model ? { model: options.model } : {}),
+      ...(options?.effort ? { effort: options.effort } : {}),
+      ...(options?.fastMode ? { fastMode: true } : {}),
+    };
+    if (options?.fastMode) {
+      this.queryInstance
+        .applyFlagSettings({ fastMode: true })
+        .catch((err) => {
+          console.warn(`[sdk-process] Failed to enable fast mode: ${err}`);
+          this._settings = { ...this._settings, fastMode: false };
+        });
+    }
+
     const queryInstance = this.queryInstance;
     const authGeneration = this.authGeneration;
     this.authResolution = this.resolveAuthClassification(
@@ -1006,6 +1122,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authResolution = Promise.resolve();
     this.authResolutionPending = false;
     this.pendingInputQueue = [];
+    this.pendingSteerQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
       this.queryInstance.close();
@@ -1262,6 +1379,40 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
+  /**
+   * Change model, effort or fast mode for subsequent responses. Values that
+   * are undefined are left unchanged. Takes effect from the next request; a
+   * running turn keeps its current model.
+   */
+  async updateSettings(next: ClaudeSessionSettings): Promise<ClaudeSessionSettings> {
+    const queryInstance = this.queryInstance;
+    if (!queryInstance) throw new Error("No active Claude session.");
+    const modelChanged =
+      next.model !== undefined && next.model !== this._settings.model;
+    if (modelChanged) {
+      await queryInstance.setModel(next.model === "default" ? undefined : next.model);
+      // The model is in effect even if a later flag update fails.
+      this._settings = { ...this._settings, model: next.model };
+    }
+    const flags: { effortLevel?: ClaudeEffortLevel; fastMode?: boolean } = {};
+    if (next.effort !== undefined && (modelChanged || next.effort !== this._settings.effort)) {
+      flags.effortLevel = next.effort;
+    }
+    if (next.fastMode !== undefined && next.fastMode !== (this._settings.fastMode ?? false)) {
+      flags.fastMode = next.fastMode;
+    }
+    if (Object.keys(flags).length > 0) {
+      await queryInstance.applyFlagSettings(flags);
+    }
+    this._settings = {
+      ...this._settings,
+      ...(next.model !== undefined ? { model: next.model } : {}),
+      ...(next.effort !== undefined ? { effort: next.effort } : {}),
+      ...(next.fastMode !== undefined ? { fastMode: next.fastMode } : {}),
+    };
+    return this.settings;
+  }
+
   async listAvailableModels(): Promise<ClaudeModelMetadata[]> {
     if (!this.queryInstance) return [];
     const models = await this.queryInstance.supportedModels();
@@ -1364,6 +1515,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this._status === "running" ||
         this._status === "compacting" ||
         this._status === "waiting_approval";
+      const steered = this.pendingSteerQueue.shift();
+      if (steered) {
+        if (turnInProgress) {
+          yield steered;
+        } else {
+          // The turn ended before the SDK pulled the steer; send it as a
+          // normal prompt so it starts the next turn.
+          const { priority: _priority, ...prompt } = steered;
+          this.setStatus("running");
+          yield prompt;
+        }
+        continue;
+      }
       if (this.pendingInputQueue.length > 0 && !turnInProgress) {
         const { text, images } = this.pendingInputQueue.shift()!;
         console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
@@ -1794,6 +1958,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
         break;
       case "user":
+        if (isClaudeLocalCommandFrame(msg)) break;
         if (this.pendingPermissions.size === 0) {
           this.setStatus("running");
         }
@@ -1802,6 +1967,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.pendingPermissions.clear();
         this.setStatus("idle");
         this.deliverQueuedInputIfWaiting();
+        if (!this.stopped && this.queryInstance && !this.isTurnActive) {
+          this.emit("input_ready");
+        }
         break;
     }
   }

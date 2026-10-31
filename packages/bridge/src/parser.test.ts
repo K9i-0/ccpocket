@@ -496,6 +496,46 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses set_claude_settings messages", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_claude_settings","sessionId":"s1","model":"opus","effort":"xhigh","fastMode":true}',
+      ),
+    ).toEqual({
+      type: "set_claude_settings",
+      sessionId: "s1",
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    });
+    expect(
+      parseClientMessage('{"type":"set_claude_settings","sessionId":"s1"}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_claude_settings","sessionId":"s1","effort":"ultra"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_claude_settings","sessionId":"s1","fastMode":"yes"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("parses input delivery and rejects unknown values", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"input","text":"hi","sessionId":"s1","delivery":"steer"}',
+      ),
+    ).toMatchObject({ delivery: "steer" });
+    expect(
+      parseClientMessage(
+        '{"type":"input","text":"hi","sessionId":"s1","delivery":"now"}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses Codex goal messages", () => {
     expect(parseClientMessage('{"type":"get_goal","sessionId":"s1","background":true}'))
       .toEqual({ type: "get_goal", sessionId: "s1", background: true });

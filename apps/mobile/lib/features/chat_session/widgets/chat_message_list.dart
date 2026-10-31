@@ -656,7 +656,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                       ? allEntries[entryIndex - 1]
                       : null;
                   final onForkMessage =
-                      widget.isCodex &&
+                      widget.onForkMessage != null &&
                           derivedData.forkableAssistantEntryIndices.contains(
                             entryIndex,
                           )
