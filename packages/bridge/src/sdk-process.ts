@@ -160,7 +160,7 @@ export function hasExplicitClaudeCredential(
   return Boolean(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
 }
 
-function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
+export function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return (
     hasExplicitClaudeCredential(env)
     // Amazon Bedrock authenticates with AWS credentials on the Bridge host, so
