@@ -147,3 +147,7 @@ normalizeOutgoingInput(String text, SkillCatalog catalog, {Iterable<String>? men
 - Claude: `$test-f` で補完が出て、選ぶと `/test-flutter` が入る。手入力の `$test-flutter …` は `/test-flutter …` で送られ、セッション記録でスキル本文の読み込みを確認した。途中に置いた場合は変換されるが発動しない。
 - Codex: `/flutter-up` の補完から選ぶと `$flutter-upgrade` が入る。手入力の `/flutter-upgrade …` は `$flutter-upgrade …` で送られ、rollout で `<skill><name>flutter-upgrade</name>` の注入を確認した。
 - 設定「常に /」: Codex で `$` 補完から選ぶと `/flutter-upgrade` が入る。
+- 最初のメッセージ（Bridge の変換。新規プロジェクトの「作りたいもの」欄から送信）:
+  - Codex: `/cloudflare …` → `$cloudflare …`。スキル一覧が未取得の新規プロジェクトで約 2.2 秒待ってから変換し、構造化入力 `{type:"skill", name:"cloudflare"}` も渡された。
+  - Claude: `$cloudflare …` → `/cloudflare …`。スキル本文の読み込みを確認した。
+  - そのプロジェクトに無いスキル名（`/codex-guide` は ccpocket 内のスキル）は変換されず、そのまま届く。
