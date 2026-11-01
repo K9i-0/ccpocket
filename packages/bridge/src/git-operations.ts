@@ -109,7 +109,10 @@ function buildHunkPatch(
 ): string | null {
   if (!diffText) return null;
 
-  const lines = diffText.split("\n");
+  // Drop only the final line terminator. Trailing whitespace on the last diff
+  // line is patch content and must be kept.
+  const body = diffText.endsWith("\n") ? diffText.slice(0, -1) : diffText;
+  const lines = body.split("\n");
   const hunkStarts: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith("@@")) {
@@ -172,7 +175,13 @@ function applyHunks(
     }
 
     try {
-      diffText = git([...options.diffArgs, "--", file], cwd);
+      // Read the diff untrimmed: `git()` trims, which would strip trailing
+      // whitespace from the last changed line and corrupt the patch.
+      diffText = execFileSync(
+        "git",
+        withGitPathConfig([...options.diffArgs, "--", file]),
+        { cwd, encoding: "utf-8" },
+      );
     } finally {
       if (addedIntentToAdd) {
         execFileSync("git", ["reset", "--", file], {

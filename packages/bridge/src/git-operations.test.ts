@@ -349,6 +349,28 @@ describe("stageHunks", () => {
     expect(cachedDiff).toContain("new file mode 100644");
     expect(cachedDiff).toContain("+++ b/docs/あいう.md");
   });
+
+  it("preserves trailing whitespace on the last changed line", () => {
+    writeFileSync(join(repo, "ws.txt"), "first\nlast\n");
+    execFileSync("git", ["add", "ws.txt"], { cwd: repo });
+    execFileSync("git", ["commit", "-m", "add ws"], { cwd: repo });
+    writeFileSync(join(repo, "ws.txt"), "first\nlast   \n");
+
+    stageHunks(repo, [{ file: "ws.txt", hunkIndex: 0 }]);
+
+    const staged = execFileSync("git", ["show", ":ws.txt"], {
+      cwd: repo,
+      encoding: "utf-8",
+    });
+    expect(staged).toBe("first\nlast   \n");
+    expect(gitCmd(["diff", "--", "ws.txt"], repo)).toBe("");
+
+    unstageHunks(repo, [{ file: "ws.txt", hunkIndex: 0 }]);
+    expect(gitCmd(["diff", "--cached", "--", "ws.txt"], repo)).toBe("");
+
+    revertHunks(repo, [{ file: "ws.txt", hunkIndex: 0 }]);
+    expect(readFileSync(join(repo, "ws.txt"), "utf-8")).toBe("first\nlast\n");
+  });
 });
 
 describe("unstageFiles", () => {
