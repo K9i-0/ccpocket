@@ -1405,7 +1405,7 @@ export class SessionManager {
     const transcript = buildAutoRenameTranscript(session.history);
     if (!transcript) return;
 
-    const name = generateAutoRenameName({
+    const name = await generateAutoRenameName({
       provider: session.provider,
       projectPath: session.worktreePath ?? session.projectPath,
       model:
