@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.150.1] - 2026-11-01
+
+### Fixed
+
+- Keep pinned sessions visible across session list filters and pages (requires Bridge 1.95.0), and keep the expanded project groups when unpinning.
+- Keep saved new-session defaults when switching between Claude and Codex and when the model catalog refreshes.
+- Clear a stale machine connection error once the Bridge connects or reconnects (#190).
+- Keep sessions you have already seen from showing as unseen after disconnecting and reconnecting.
+- Show the full change when opening an Edit or Write tool diff in the Git view, and open diffs that mention `diff --git` in their content.
+- Delete the whole next character, including emoji, with Ctrl+D.
+- Show the background task badge next to the session status.
+
 ## [1.150.0] - 2026-11-01
 
 ### Added
