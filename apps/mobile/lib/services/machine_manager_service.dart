@@ -52,6 +52,10 @@ class MachineManagerService {
   List<Machine> _machines = [];
   final Map<String, MachineStatus> _statusCache = {};
   final Map<String, DateTime> _lastChecked = {};
+
+  /// Bumped by [markConnected] so a health check that started before a live
+  /// connection was established cannot overwrite it with a stale failure.
+  final Map<String, int> _connectionEpochs = {};
   final Map<String, String> _lastErrors = {};
   final Map<String, BridgeVersionInfo> _versionCache = {};
   BridgeWsUrlResolver? _bridgeWsUrlResolver;
@@ -474,6 +478,7 @@ class MachineManagerService {
   void markConnected(String host, int port) {
     final machine = findByHostPort(host, port);
     if (machine == null) return;
+    _connectionEpochs[machine.id] = (_connectionEpochs[machine.id] ?? 0) + 1;
     final wasOnline = _statusCache[machine.id] == MachineStatus.online;
     _statusCache[machine.id] = MachineStatus.online;
     _lastChecked[machine.id] = DateTime.now();
@@ -705,6 +710,7 @@ class MachineManagerService {
     final storedMachine = getMachine(machineId);
     if (storedMachine == null) return MachineStatus.unknown;
     var machine = storedMachine;
+    final connectionEpoch = _connectionEpochs[machineId] ?? 0;
 
     try {
       final usesSshTunnel = machine.sshJumpHost?.trim().isNotEmpty == true;
@@ -743,7 +749,7 @@ class MachineManagerService {
               ? machineErrorSecureConnectionUnavailable
               : machineErrorBridgeNotFound;
           _versionCache.remove(machineId);
-          return _finishHealthCheck(machineId);
+          return _finishHealthCheck(machineId, connectionEpoch);
         }
 
         if (machine.useSsl != result.useSsl || !machine.hasResolvedTransport) {
@@ -765,7 +771,7 @@ class MachineManagerService {
           password: password,
           promptForPassword: promptForPassword,
         );
-        return _finishHealthCheck(machineId);
+        return _finishHealthCheck(machineId, connectionEpoch);
       }
 
       if (machine.connectionMode == BridgeConnectionMode.automatic &&
@@ -834,7 +840,7 @@ class MachineManagerService {
       _versionCache.remove(machineId);
     }
 
-    return _finishHealthCheck(machineId);
+    return _finishHealthCheck(machineId, connectionEpoch);
   }
 
   bool _hasSameProbeTarget(Machine before, Machine after) =>
@@ -845,7 +851,14 @@ class MachineManagerService {
       before.hasResolvedTransport == after.hasResolvedTransport &&
       before.sshJumpHost == after.sshJumpHost;
 
-  MachineStatus _finishHealthCheck(String machineId) {
+  MachineStatus _finishHealthCheck(String machineId, int connectionEpoch) {
+    if (_statusCache[machineId] != MachineStatus.online &&
+        (_connectionEpochs[machineId] ?? 0) != connectionEpoch) {
+      // The bridge connected while this probe was in flight; the live
+      // connection is more authoritative than the stale probe failure.
+      _statusCache[machineId] = MachineStatus.online;
+      _lastErrors.remove(machineId);
+    }
     _lastChecked[machineId] = DateTime.now();
     _notifyListeners();
     return _statusCache[machineId]!;

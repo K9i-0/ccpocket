@@ -154,6 +154,40 @@ void main() {
     },
   );
 
+  test('a failing probe that started before markConnected keeps the machine online', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final probe = _ControllableProbe();
+    final manager = MachineManagerService(
+      prefs,
+      const FlutterSecureStorage(),
+      endpointProbe: probe,
+    );
+    addTearDown(manager.dispose);
+
+    await manager.addMachine(
+      const Machine(id: 'late', host: 'bridge.example.com', port: 8765),
+    );
+    probe.result = const BridgeEndpointProbeResult.unreachable();
+    probe.pauseNext();
+    final checking = manager.checkHealth('late');
+    await probe.started.future;
+
+    manager.markConnected('bridge.example.com', 8765);
+    probe.release();
+    await checking;
+
+    final status = manager.machinesWithStatus.single;
+    expect(status.status, MachineStatus.online);
+    expect(status.lastError, isNull);
+
+    // A probe that starts after the connection still reports failures.
+    await manager.checkHealth('late');
+    expect(
+      manager.machinesWithStatus.single.status,
+      isNot(MachineStatus.online),
+    );
+  });
+
   test('markConnected ignores endpoints without a saved machine', () async {
     final prefs = await SharedPreferences.getInstance();
     final probe = _StaticProbe(const BridgeEndpointProbeResult.unreachable());
@@ -216,6 +250,10 @@ class _StaticProbe extends BridgeEndpointProbe {
 }
 
 class _ControllableProbe extends BridgeEndpointProbe {
+  BridgeEndpointProbeResult result = const BridgeEndpointProbeResult.reachable(
+    BridgeTransport.standard,
+    {'status': 'ok'},
+  );
   Completer<void>? _gate;
   Completer<void> started = Completer<void>();
 
@@ -239,8 +277,6 @@ class _ControllableProbe extends BridgeEndpointProbe {
       await gate.future;
       _gate = null;
     }
-    return const BridgeEndpointProbeResult.reachable(BridgeTransport.standard, {
-      'status': 'ok',
-    });
+    return result;
   }
 }
