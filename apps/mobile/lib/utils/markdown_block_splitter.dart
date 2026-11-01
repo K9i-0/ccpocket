@@ -14,7 +14,6 @@
 /// multi-paragraph HTML blocks).
 List<String> splitMarkdownBlocks(String text) {
   if (text.isEmpty) return const [];
-  if (_hasCrossBlockConstruct(text)) return [text];
 
   final lines = _splitLinesKeepingNewlines(text);
   final blocks = <String>[];
@@ -33,6 +32,10 @@ List<String> splitMarkdownBlocks(String text) {
       if (fence.isClosedBy(content)) fence = null;
       continue;
     }
+
+    // Only inspected outside fences, so code samples such as
+    // `[key: string]: any;` keep the split.
+    if (_hasCrossBlockConstruct(content)) return [text];
 
     if (_isBlank(content)) {
       current.write(line);
@@ -58,18 +61,17 @@ List<String> splitMarkdownBlocks(String text) {
   return blocks;
 }
 
-final _referenceDefinition = RegExp(r'^ {0,3}\[[^\]]+\]:', multiLine: true);
+final _referenceDefinition = RegExp(r'^ {0,3}\[[^\]]+\]:');
 final _spanningHtmlBlock = RegExp(
   r'^ {0,3}<(!--|\?|!\[CDATA\[|![A-Za-z]|(script|pre|style|textarea)([\s>]|$))',
-  multiLine: true,
   caseSensitive: false,
 );
 final _listItem = RegExp(r'^ {0,3}([-*+]|\d{1,9}[.)])([ \t]|$)');
 final _fenceOpen = RegExp(r'^([ \t]*)(`{3,}|~{3,})(.*)$');
 
-bool _hasCrossBlockConstruct(String text) {
-  return _referenceDefinition.hasMatch(text) ||
-      _spanningHtmlBlock.hasMatch(text);
+bool _hasCrossBlockConstruct(String line) {
+  return _referenceDefinition.hasMatch(line) ||
+      _spanningHtmlBlock.hasMatch(line);
 }
 
 bool _startsNewBlock(String line, {required bool currentHasListItem}) {

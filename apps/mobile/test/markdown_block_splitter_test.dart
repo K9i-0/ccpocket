@@ -118,6 +118,19 @@ void main() {
     expect(_split(pre), [pre]);
   });
 
+  test('ignores definition-like and HTML lines inside fences', () {
+    const text =
+        '```ts\ntype M = {\n  [key: string]: string;\n\n};\n'
+        '<!-- note\n\n[x]: y\n```\n\nafter';
+    expect(_split(text), [
+      '```ts\ntype M = {\n  [key: string]: string;\n\n};\n'
+          '<!-- note\n\n[x]: y\n```\n\n',
+      'after',
+    ]);
+    const outside = 'para\n\n  [key: string]: x\n\nafter';
+    expect(_split(outside), [outside]);
+  });
+
   test('reproduces a streamed prefix at every length', () {
     const full =
         '# Plan\n\nSome **bold** text.\n\n- a\n\n- b\n\n```js\nx();\n\ny();\n```'
