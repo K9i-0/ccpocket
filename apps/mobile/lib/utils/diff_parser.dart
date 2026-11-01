@@ -178,7 +178,7 @@ List<DiffFile> parseDiff(String diffText) {
 
   // If the content has no `diff --git` header, treat it as a single-file diff
   // (common for tool_result content from Edit/FileEdit tools).
-  if (!diffText.contains('diff --git')) {
+  if (!lines.any((line) => line.startsWith('diff --git '))) {
     return [_parseSingleFileDiff(lines)];
   }
 

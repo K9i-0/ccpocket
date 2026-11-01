@@ -295,6 +295,16 @@ diff --git a/file.dart b/file.dart
       expect(files[0].hunks[0].oldStart, 1);
       expect(files[0].hunks[1].oldStart, 20);
     });
+    test('treats headerless diff mentioning "diff --git" as single file', () {
+      const diff =
+          '--- a/x.md\n+++ b/x.md\n@@ -1 +1 @@\n-old\n+run diff --git here';
+      final files = parseDiff(diff);
+      expect(files, hasLength(1));
+      expect(files[0].filePath, 'x.md');
+      expect(files[0].hunks, hasLength(1));
+      expect(files[0].stats.added, 1);
+      expect(files[0].stats.removed, 1);
+    });
   });
 
   group('DiffFile stats', () {
