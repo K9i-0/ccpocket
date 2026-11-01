@@ -2532,6 +2532,79 @@ void main() {
       },
     );
 
+    test('codex sendMessage converts slash skills to dollar skills', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.idle),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const SystemMessage(
+          subtype: 'supported_commands',
+          provider: 'codex',
+          skills: ['skill-creator'],
+          skillMetadata: [
+            CodexSkillMetadata(
+              name: 'skill-creator',
+              path: '/tmp/skill-creator/SKILL.md',
+              description: 'Create a skill',
+            ),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      await cubit.sendMessage('/skill-creator draft one under /tmp');
+
+      final json = jsonDecode(
+        mockBridge.sentMessages.single.toJson(),
+      ) as Map<String, dynamic>;
+      expect(json['text'], r'$skill-creator draft one under /tmp');
+      expect(json['skills'], [
+        {'name': 'skill-creator', 'path': '/tmp/skill-creator/SKILL.md'},
+      ]);
+      final user = cubit.state.entries.whereType<UserChatEntry>().single;
+      expect(user.text, r'$skill-creator draft one under /tmp');
+
+      // A retry re-attaches the structured skill.
+      mockBridge.sentMessages.clear();
+      await cubit.retryMessage(user);
+      final retried = jsonDecode(
+        mockBridge.sentMessages.single.toJson(),
+      ) as Map<String, dynamic>;
+      expect(retried['skills'], [
+        {'name': 'skill-creator', 'path': '/tmp/skill-creator/SKILL.md'},
+      ]);
+    });
+
+    test('claude sendMessage converts dollar skills to slash skills', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const SystemMessage(
+          subtype: 'supported_commands',
+          slashCommands: ['review-pr', 'compact'],
+          skills: ['review-pr', 'compact'],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      await cubit.sendMessage(r'$review-pr 42 costs $5 $compact');
+
+      final json = jsonDecode(
+        mockBridge.sentMessages.single.toJson(),
+      ) as Map<String, dynamic>;
+      expect(json['text'], r'/review-pr 42 costs $5 $compact');
+      expect(json.containsKey('skills'), isFalse);
+    });
+
     test(
       'codex sendMessage includes structured file and directory mentions',
       () async {

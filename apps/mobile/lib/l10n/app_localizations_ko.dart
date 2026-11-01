@@ -3378,6 +3378,22 @@ class AppLocalizationsKo extends AppLocalizations {
       '보내기 버튼의 기본 동작입니다. 길게 누르면 다른 옵션을 선택할 수 있습니다.';
 
   @override
+  String get skillTriggerStyle => '스킬 호출 기호';
+
+  @override
+  String get skillTriggerStyleSubtitle =>
+      '/ 와 \$ 어느 쪽으로도 스킬 후보를 열 수 있습니다. 보낼 때 Claude는 /, Codex는 \$로 자동 변환됩니다.';
+
+  @override
+  String get skillTriggerStyleBoth => '둘 다';
+
+  @override
+  String get skillTriggerStyleSlash => '항상 /';
+
+  @override
+  String get skillTriggerStyleDollar => '항상 \$';
+
+  @override
   String get inputDeliverySteer => '끼워 넣기';
 
   @override

@@ -3484,6 +3484,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Default for the send button. Long-press send to use the other option.';
 
   @override
+  String get skillTriggerStyle => 'Skill trigger';
+
+  @override
+  String get skillTriggerStyleSubtitle =>
+      'Both / and \$ open skill suggestions. Sent messages are converted to / for Claude and \$ for Codex.';
+
+  @override
+  String get skillTriggerStyleBoth => 'Both';
+
+  @override
+  String get skillTriggerStyleSlash => 'Always /';
+
+  @override
+  String get skillTriggerStyleDollar => 'Always \$';
+
+  @override
   String get inputDeliverySteer => 'Steer';
 
   @override

@@ -6299,6 +6299,36 @@ abstract class AppLocalizations {
   /// **'送信ボタンの既定動作です。長押しでもう一方を選べます。'**
   String get defaultInputDeliverySubtitle;
 
+  /// No description provided for @skillTriggerStyle.
+  ///
+  /// In ja, this message translates to:
+  /// **'スキル呼び出し記号'**
+  String get skillTriggerStyle;
+
+  /// No description provided for @skillTriggerStyleSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'/ と \$ のどちらでもスキル候補を出せます。送信時は Claude なら /、Codex なら \$ に自動で変換します。'**
+  String get skillTriggerStyleSubtitle;
+
+  /// No description provided for @skillTriggerStyleBoth.
+  ///
+  /// In ja, this message translates to:
+  /// **'両方'**
+  String get skillTriggerStyleBoth;
+
+  /// No description provided for @skillTriggerStyleSlash.
+  ///
+  /// In ja, this message translates to:
+  /// **'常に /'**
+  String get skillTriggerStyleSlash;
+
+  /// No description provided for @skillTriggerStyleDollar.
+  ///
+  /// In ja, this message translates to:
+  /// **'常に \$'**
+  String get skillTriggerStyleDollar;
+
   /// No description provided for @inputDeliverySteer.
   ///
   /// In ja, this message translates to:

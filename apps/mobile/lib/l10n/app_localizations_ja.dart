@@ -3350,6 +3350,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get defaultInputDeliverySubtitle => '送信ボタンの既定動作です。長押しでもう一方を選べます。';
 
   @override
+  String get skillTriggerStyle => 'スキル呼び出し記号';
+
+  @override
+  String get skillTriggerStyleSubtitle =>
+      '/ と \$ のどちらでもスキル候補を出せます。送信時は Claude なら /、Codex なら \$ に自動で変換します。';
+
+  @override
+  String get skillTriggerStyleBoth => '両方';
+
+  @override
+  String get skillTriggerStyleSlash => '常に /';
+
+  @override
+  String get skillTriggerStyleDollar => '常に \$';
+
+  @override
   String get inputDeliverySteer => '差し込む';
 
   @override

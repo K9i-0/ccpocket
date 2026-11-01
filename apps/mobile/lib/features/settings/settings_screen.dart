@@ -18,6 +18,7 @@ import '../../models/image_paste_shortcut.dart';
 import '../../models/input_delivery.dart';
 import '../../models/machine.dart';
 import '../../models/new_session_tab.dart';
+import '../../models/skill_trigger_style.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
 import '../../services/app_update_service.dart';
@@ -742,6 +743,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onSelectionChanged: (selection) => context
                                   .read<SettingsCubit>()
                                   .setDefaultInputDelivery(selection.first),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    ListTile(
+                      key: const ValueKey('skill_trigger_style_tile'),
+                      leading: Icon(Icons.extension, color: cs.primary),
+                      title: Text(l.skillTriggerStyle),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(l.skillTriggerStyleSubtitle),
+                            const SizedBox(height: 8),
+                            SegmentedButton<SkillTriggerStyle>(
+                              key: const ValueKey(
+                                'skill_trigger_style_selector',
+                              ),
+                              showSelectedIcon: false,
+                              segments: [
+                                ButtonSegment(
+                                  value: SkillTriggerStyle.both,
+                                  label: Text(l.skillTriggerStyleBoth),
+                                ),
+                                ButtonSegment(
+                                  value: SkillTriggerStyle.slash,
+                                  label: Text(l.skillTriggerStyleSlash),
+                                ),
+                                ButtonSegment(
+                                  value: SkillTriggerStyle.dollar,
+                                  label: Text(l.skillTriggerStyleDollar),
+                                ),
+                              ],
+                              selected: {state.skillTriggerStyle},
+                              onSelectionChanged: (selection) => context
+                                  .read<SettingsCubit>()
+                                  .setSkillTriggerStyle(selection.first),
                             ),
                           ],
                         ),

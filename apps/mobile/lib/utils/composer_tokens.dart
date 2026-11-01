@@ -33,8 +33,13 @@ class ComposerTokenConfig {
   final Set<String> pluginTokens;
   final Set<String> fileMentions;
 
+  /// Whether `$` tokens are recognized. Defaults to Codex only; Claude enables
+  /// it when the user lets skills be typed as `$name`.
+  final bool? dollarTrigger;
+
   const ComposerTokenConfig({
     required this.provider,
+    this.dollarTrigger,
     this.slashCommands = const {},
     this.skillTokens = const {},
     this.appTokens = const {},
@@ -42,10 +47,12 @@ class ComposerTokenConfig {
     this.fileMentions = const {},
   });
 
+  bool get allowsDollarTrigger => dollarTrigger ?? provider == Provider.codex;
+
   bool allowsTrigger(String trigger) {
     return switch (trigger) {
       '/' || '@' => true,
-      r'$' => provider == Provider.codex,
+      r'$' => allowsDollarTrigger,
       _ => false,
     };
   }
@@ -56,6 +63,7 @@ class ComposerTokenConfig {
     return identical(this, other) ||
         other is ComposerTokenConfig &&
             other.provider == provider &&
+            other.allowsDollarTrigger == allowsDollarTrigger &&
             equality.equals(other.slashCommands, slashCommands) &&
             equality.equals(other.skillTokens, skillTokens) &&
             equality.equals(other.appTokens, appTokens) &&
@@ -68,6 +76,7 @@ class ComposerTokenConfig {
     const equality = SetEquality<String>();
     return Object.hash(
       provider,
+      allowsDollarTrigger,
       equality.hash(slashCommands),
       equality.hash(skillTokens),
       equality.hash(appTokens),
@@ -259,6 +268,7 @@ class ComposerTextEditingController extends TextEditingController {
     }
     _config = ComposerTokenConfig(
       provider: config.provider,
+      dollarTrigger: config.allowsDollarTrigger,
       slashCommands: config.slashCommands,
       skillTokens: config.skillTokens,
       appTokens: config.appTokens,
@@ -391,7 +401,7 @@ ComposerTokenCategory? _resolveCategory(
           ? ComposerTokenCategory.plugin
           : ComposerTokenCategory.fileMention,
     r'$' =>
-      config.provider == Provider.codex
+      config.allowsDollarTrigger
           ? resolveDollarTokenCategory(rawText, config)
           : null,
     _ => null,

@@ -13,6 +13,8 @@ import '../../media_feedback/state/media_feedback_state.dart';
 import '../../media_feedback/widgets/media_feedback_cards.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/composer_tokens.dart';
+import '../../../utils/skill_invocation.dart';
+import '../../../models/skill_trigger_style.dart';
 import '../../../utils/command_completion_matcher.dart';
 import '../../../utils/file_mention_matcher.dart';
 import '../../../utils/ordered_list_editing.dart';
@@ -203,9 +205,20 @@ class ChatInputWithOverlays extends HookWidget {
         ),
       ),
     ];
-    final dollarEntities = completionItems
-        .where((c) => c.command.startsWith(r'$'))
-        .toList();
+    final provider = isCodex ? Provider.codex : Provider.claude;
+    final skillTriggerStyle = settings.skillTriggerStyle;
+    // Codex always needs `$` for apps; Claude only when skills may be typed
+    // with `$` (converted back to `/` on send).
+    final dollarEnabled =
+        isCodex || skillTriggerStyle != SkillTriggerStyle.slash;
+    final dollarEntities = isCodex
+        ? completionItems.where((c) => c.command.startsWith(r'$')).toList()
+        : dollarEnabled
+        ? [
+            for (final command in commands)
+              if (isClaudeSkillCommand(command)) _dollarAlias(command),
+          ]
+        : const <SlashCommand>[];
     final skillTokens = dollarEntities
         .where((c) => c.category == SlashCommandCategory.skill)
         .map((c) => c.command)
@@ -219,7 +232,8 @@ class ChatInputWithOverlays extends HookWidget {
         .toList();
     final pluginTokens = pluginEntities.map((c) => c.command).toSet();
     final composerTokenConfig = ComposerTokenConfig(
-      provider: isCodex ? Provider.codex : Provider.claude,
+      provider: provider,
+      dollarTrigger: dollarEnabled,
       slashCommands: commands.map((c) => c.command).toSet(),
       skillTokens: skillTokens,
       appTokens: appTokens,
@@ -267,138 +281,144 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     // Input change listener
-    useEffect(() {
-      var effectActive = true;
+    useEffect(
+      () {
+        var effectActive = true;
 
-      void onChange() {
-        final text = inputController.text;
-        final trimHasText = text.trim().isNotEmpty;
-        if (trimHasText != hasInputText.value) {
-          hasInputText.value = trimHasText;
-        }
-        final empty = text.isEmpty;
-        if (empty != isInputEmpty.value) {
-          isInputEmpty.value = empty;
-        }
-
-        final slashQuery = _extractTriggerQuery(
-          text,
-          inputController.selection.baseOffset,
-          trigger: '/',
-        );
-        if (slashQuery != null) {
-          if (isInMentionContext.value) {
-            isInMentionContext.value = false;
+        void onChange() {
+          final text = inputController.text;
+          final trimHasText = text.trim().isNotEmpty;
+          if (trimHasText != hasInputText.value) {
+            hasInputText.value = trimHasText;
           }
-          final query = '/${slashQuery.toLowerCase()}';
-          final filtered = rankCommandCompletions(
-            commands,
-            query,
-            (command) => command.command,
+          final empty = text.isEmpty;
+          if (empty != isInputEmpty.value) {
+            isInputEmpty.value = empty;
+          }
+
+          final slashQuery = _extractTriggerQuery(
+            text,
+            inputController.selection.baseOffset,
+            trigger: '/',
           );
-          if (filtered.isNotEmpty) {
-            filteredSlash.value = filtered;
-            showCompletion(
-              _CompletionOverlay.slash,
-              filtered.length,
-              slashPortalController,
-            );
-          } else {
-            hideCompletion(_CompletionOverlay.slash, slashPortalController);
-          }
-          hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
-          hideCompletion(_CompletionOverlay.file, filePortalController);
-        } else {
-          hideCompletion(_CompletionOverlay.slash, slashPortalController);
-          final dollarQuery = isCodex
-              ? _extractTriggerQuery(
-                  text,
-                  inputController.selection.baseOffset,
-                  trigger: r'$',
-                )
-              : null;
-          if (dollarQuery != null) {
+          if (slashQuery != null) {
             if (isInMentionContext.value) {
               isInMentionContext.value = false;
             }
-            final q = '${r'$'}${dollarQuery.toLowerCase()}';
+            final query = '/${slashQuery.toLowerCase()}';
             final filtered = rankCommandCompletions(
-              dollarEntities,
-              q,
+              commands,
+              query,
               (command) => command.command,
             );
             if (filtered.isNotEmpty) {
-              filteredDollar.value = filtered;
+              filteredSlash.value = filtered;
               showCompletion(
-                _CompletionOverlay.dollar,
+                _CompletionOverlay.slash,
                 filtered.length,
-                dollarPortalController,
+                slashPortalController,
               );
             } else {
-              hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
+              hideCompletion(_CompletionOverlay.slash, slashPortalController);
             }
+            hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
             hideCompletion(_CompletionOverlay.file, filePortalController);
-            return;
-          }
-          hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
-          // @-mention filtering
-          final mentionQuery = _extractMentionQuery(
-            text,
-            inputController.selection.baseOffset,
-          );
-          // Track whether cursor is in @-mention context (for button state)
-          final inMention = mentionQuery != null;
-          if (inMention != isInMentionContext.value) {
-            isInMentionContext.value = inMention;
-          }
-          if (mentionQuery != null &&
-              (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
-            final q = mentionQuery.toLowerCase();
-            final filteredPluginItems = rankCommandCompletions(
-              pluginEntities,
-              '@$q',
-              (command) => command.command,
-            );
-            final scored =
-                projectFiles
-                    .map((f) => (file: f, score: scoreFileMentionPath(f, q)))
-                    .where((e) => e.score >= 0)
-                    .toList()
-                  ..sort((a, b) {
-                    final cmp = a.score.compareTo(b.score);
-                    return cmp != 0
-                        ? cmp
-                        : a.file.length.compareTo(b.file.length);
-                  });
-            final filtered = scored.take(15).map((e) => e.file).toList();
-            if (filteredPluginItems.isNotEmpty || filtered.isNotEmpty) {
-              filteredPlugins.value = filteredPluginItems;
-              filteredFiles.value = filtered;
-              showCompletion(
-                _CompletionOverlay.file,
-                filteredPluginItems.length + filtered.length,
-                filePortalController,
+          } else {
+            hideCompletion(_CompletionOverlay.slash, slashPortalController);
+            final dollarQuery = dollarEnabled
+                ? _extractTriggerQuery(
+                    text,
+                    inputController.selection.baseOffset,
+                    trigger: r'$',
+                  )
+                : null;
+            if (dollarQuery != null) {
+              if (isInMentionContext.value) {
+                isInMentionContext.value = false;
+              }
+              final q = '${r'$'}${dollarQuery.toLowerCase()}';
+              final filtered = rankCommandCompletions(
+                dollarEntities,
+                q,
+                (command) => command.command,
               );
+              if (filtered.isNotEmpty) {
+                filteredDollar.value = filtered;
+                showCompletion(
+                  _CompletionOverlay.dollar,
+                  filtered.length,
+                  dollarPortalController,
+                );
+              } else {
+                hideCompletion(
+                  _CompletionOverlay.dollar,
+                  dollarPortalController,
+                );
+              }
+              hideCompletion(_CompletionOverlay.file, filePortalController);
+              return;
+            }
+            hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
+            // @-mention filtering
+            final mentionQuery = _extractMentionQuery(
+              text,
+              inputController.selection.baseOffset,
+            );
+            // Track whether cursor is in @-mention context (for button state)
+            final inMention = mentionQuery != null;
+            if (inMention != isInMentionContext.value) {
+              isInMentionContext.value = inMention;
+            }
+            if (mentionQuery != null &&
+                (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
+              final q = mentionQuery.toLowerCase();
+              final filteredPluginItems = rankCommandCompletions(
+                pluginEntities,
+                '@$q',
+                (command) => command.command,
+              );
+              final scored =
+                  projectFiles
+                      .map((f) => (file: f, score: scoreFileMentionPath(f, q)))
+                      .where((e) => e.score >= 0)
+                      .toList()
+                    ..sort((a, b) {
+                      final cmp = a.score.compareTo(b.score);
+                      return cmp != 0
+                          ? cmp
+                          : a.file.length.compareTo(b.file.length);
+                    });
+              final filtered = scored.take(15).map((e) => e.file).toList();
+              if (filteredPluginItems.isNotEmpty || filtered.isNotEmpty) {
+                filteredPlugins.value = filteredPluginItems;
+                filteredFiles.value = filtered;
+                showCompletion(
+                  _CompletionOverlay.file,
+                  filteredPluginItems.length + filtered.length,
+                  filePortalController,
+                );
+              } else {
+                filteredPlugins.value = const [];
+                hideCompletion(_CompletionOverlay.file, filePortalController);
+              }
             } else {
               filteredPlugins.value = const [];
               hideCompletion(_CompletionOverlay.file, filePortalController);
             }
-          } else {
-            filteredPlugins.value = const [];
-            hideCompletion(_CompletionOverlay.file, filePortalController);
           }
         }
-      }
 
-      inputController.addListener(onChange);
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (effectActive && context.mounted) onChange();
-      });
-      return () {
-        effectActive = false;
-        inputController.removeListener(onChange);
-      };
-    }, [completionItems, isCodex, projectFiles, inputController]);
+        inputController.addListener(onChange);
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (effectActive && context.mounted) onChange();
+        });
+        return () {
+          effectActive = false;
+          inputController.removeListener(onChange);
+        };
+      },
+      [completionItems, isCodex, dollarEnabled, projectFiles, inputController],
+    );
 
     // Update canDedent on cursor/text changes
     useEffect(() {
@@ -438,12 +458,23 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     // Callbacks
+    /// Skills are inserted with the trigger the user chose in settings; the
+    /// cubit converts them to the agent's native form when sending.
+    String? skillInsertText(SlashCommand command) {
+      final isSkill = isCodex
+          ? command.skillInfo != null
+          : command.command.startsWith(r'$') || isClaudeSkillCommand(command);
+      if (!isSkill) return null;
+      final name = command.command.substring(1);
+      return '${composerSkillTrigger(provider, skillTriggerStyle)}$name ';
+    }
+
     void onSlashCommandSelected(SlashCommand command) {
       hideCompletion(_CompletionOverlay.slash, slashPortalController);
       _replaceActiveTriggerQuery(
         inputController,
         trigger: '/',
-        replacement: command.insertText,
+        replacement: skillInsertText(command) ?? command.insertText,
       );
     }
 
@@ -452,7 +483,7 @@ class ChatInputWithOverlays extends HookWidget {
       _replaceActiveTriggerQuery(
         inputController,
         trigger: r'$',
-        replacement: '${command.command} ',
+        replacement: skillInsertText(command) ?? '${command.command} ',
       );
     }
 
@@ -1264,7 +1295,10 @@ class ChatInputWithOverlays extends HookWidget {
                     canDedent: canDedent.value,
                     onSlashCommand: insertSlashPrefix,
                     onMention: insertMention,
-                    onDollarMention: isCodex ? insertDollar : null,
+                    onDollarMention:
+                        isCodex || skillTriggerStyle == SkillTriggerStyle.dollar
+                        ? insertDollar
+                        : null,
                     showDollarButton: isCodex,
                     isInMentionContext: isInMentionContext.value,
                     onShowPromptHistory: showPromptHistory,
@@ -1449,6 +1483,14 @@ String _detectMimeType(Uint8List bytes, String fallbackPath) {
 String? _extractMentionQuery(String text, int cursorPos) {
   return _extractTriggerQuery(text, cursorPos, trigger: '@');
 }
+
+/// `$name` alias of a Claude skill so it can be completed with `$`.
+SlashCommand _dollarAlias(SlashCommand command) => SlashCommand(
+  command: '\$${command.command.substring(1)}',
+  description: command.description,
+  icon: command.icon,
+  category: SlashCommandCategory.skill,
+);
 
 String? _extractTriggerQuery(
   String text,

@@ -7,6 +7,7 @@ import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
 import '../../../models/input_delivery.dart';
 import '../../../models/new_session_tab.dart';
+import '../../../models/skill_trigger_style.dart';
 import '../../../models/terminal_app.dart';
 
 part 'settings_state.freezed.dart';
@@ -132,6 +133,9 @@ abstract class SettingsState with _$SettingsState {
     /// Default delivery for messages sent while the agent is working.
     /// Long-pressing the send button uses the other delivery.
     @Default(InputDelivery.queue) InputDelivery defaultInputDelivery,
+
+    /// Which trigger the composer uses for skills (`/`, `\$`, or both).
+    @Default(SkillTriggerStyle.both) SkillTriggerStyle skillTriggerStyle,
   }) = _SettingsState;
 
   bool liteModeForSession(String sessionId) =>

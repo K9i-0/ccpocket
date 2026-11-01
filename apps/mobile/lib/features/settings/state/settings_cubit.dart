@@ -14,6 +14,7 @@ import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
+import '../../../models/skill_trigger_style.dart';
 import '../../../models/terminal_app.dart';
 import '../../../services/app_icon_service.dart';
 import '../../../services/bridge_service.dart';
@@ -70,6 +71,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       'settings_show_extended_codex_efforts';
   static const _keyAutoRenameClaudeSessions = 'autoRenameClaudeSessions';
   static const _keyDefaultInputDelivery = 'settings_default_input_delivery';
+  static const _keySkillTriggerStyle = 'settings_skill_trigger_style';
   static const _keyTextScale = 'settings_text_scale';
   static const _keyCodeFontSize = 'settings_code_font_size';
   static const _keyCodeFontFamily = 'settings_code_font_family';
@@ -238,6 +240,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     final defaultInputDelivery =
         InputDelivery.fromValue(prefs.getString(_keyDefaultInputDelivery)) ??
         InputDelivery.queue;
+    final skillTriggerStyle =
+        SkillTriggerStyle.fromValue(prefs.getString(_keySkillTriggerStyle)) ??
+        SkillTriggerStyle.both;
     final showHiddenDirectories =
         prefs.getBool(_keyShowHiddenDirectories) ?? false;
 
@@ -306,6 +311,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
       defaultInputDelivery: defaultInputDelivery,
+      skillTriggerStyle: skillTriggerStyle,
     );
   }
 
@@ -542,6 +548,12 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (delivery == state.defaultInputDelivery) return;
     _prefs.setString(_keyDefaultInputDelivery, delivery.value);
     emit(state.copyWith(defaultInputDelivery: delivery));
+  }
+
+  void setSkillTriggerStyle(SkillTriggerStyle style) {
+    if (style == state.skillTriggerStyle) return;
+    _prefs.setString(_keySkillTriggerStyle, style.value);
+    emit(state.copyWith(skillTriggerStyle: style));
   }
 
   void setShowExtendedCodexEfforts(bool enabled) {

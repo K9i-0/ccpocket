@@ -3310,6 +3310,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultInputDeliverySubtitle => '发送按钮的默认操作。长按发送可使用另一种方式。';
 
   @override
+  String get skillTriggerStyle => '技能调用符号';
+
+  @override
+  String get skillTriggerStyleSubtitle =>
+      '/ 和 \$ 都可以打开技能候选。发送时会自动转换为 Claude 的 / 或 Codex 的 \$。';
+
+  @override
+  String get skillTriggerStyleBoth => '两者';
+
+  @override
+  String get skillTriggerStyleSlash => '始终 /';
+
+  @override
+  String get skillTriggerStyleDollar => '始终 \$';
+
+  @override
   String get inputDeliverySteer => '插入';
 
   @override
