@@ -77,6 +77,11 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
+  Future<List<ClientMessage>> pendingInputMessagesForSession(
+    String sessionId,
+  ) async => const [];
+
+  @override
   Future<void> queueInput(ClientMessage message) async {
     await inputQueueGate?.future;
     final error = inputQueueError;

@@ -10,6 +10,7 @@ import '../../../core/logger.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
+import '../../../utils/skill_invocation.dart';
 import '../permission_transcript.dart';
 import '../question_answer_transcript.dart';
 import 'background_completion_gate.dart';
@@ -1765,6 +1766,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) {
       return false;
     }
+    text = toNativeSkillTriggers(text);
     if (isCodex && (images == null || images.isEmpty)) {
       final command = text.trim();
       switch (command) {
@@ -1990,6 +1992,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   void updateQueuedInput(QueuedInputItem item, String text) {
     if (!usesInputQueue || text.trim().isEmpty) return;
     if (isDeliveryPendingQueuedInput(item)) return;
+    text = toNativeSkillTriggers(text);
     final structuredMentions = isCodex
         ? _extractCodexStructuredInputs(text)
         : (
@@ -2752,6 +2755,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         }).toList(),
       ),
     );
+    // Re-attach Codex structured skills/mentions so a retried `$skill` still
+    // reaches app-server as a skill input, not just plain text.
+    final structuredMentions = isCodex
+        ? _extractCodexStructuredInputs(entry.text)
+        : (
+            skills: const <Map<String, String>>[],
+            mentions: const <Map<String, String>>[],
+          );
     try {
       await _bridge.queueInput(
         ClientMessage.input(
@@ -2761,6 +2772,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           baseSeq: isOffline
               ? _bridge.cachedSessionHistorySeq(retrySessionId)
               : null,
+          skill: structuredMentions.skills.isNotEmpty
+              ? structuredMentions.skills.first
+              : null,
+          skills: structuredMentions.skills,
+          mentions: structuredMentions.mentions,
         ),
       );
     } catch (error, stackTrace) {
@@ -2797,6 +2813,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     return true;
   }
 
+  /// Rewrite skills typed with the other agent's trigger (`/` vs `$`) into
+  /// this session's native form. Unknown names are left untouched.
+  String toNativeSkillTriggers(String text) {
+    return convertSkillTriggers(
+      text,
+      SkillTriggerCatalog.fromCompletionItems(
+        isCodex ? Provider.codex : Provider.claude,
+        state.slashCommands,
+      ),
+    );
+  }
+
   ({List<Map<String, String>> skills, List<Map<String, String>> mentions})
   _extractCodexStructuredInputs(
     String text, {
@@ -2814,7 +2842,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     ).allMatches(text);
     for (final match in matches) {
       final token = '\$${match.group(1)!}';
-      final item = entityByToken[token];
+      // Sentence punctuation such as `$skill.` is not part of the name.
+      final item =
+          entityByToken[token] ??
+          entityByToken[token.replaceFirst(RegExp(r'[.:/-]+$'), '')];
       if (item == null) continue;
       if (item.skillInfo != null) {
         final payload = item.skillInfo!.toJson();

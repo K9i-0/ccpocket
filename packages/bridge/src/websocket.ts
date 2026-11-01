@@ -133,6 +133,11 @@ import type { PromptHistoryStore } from "./prompt-history-store.js";
 import { getPackageVersion } from "./version.js";
 import { BackgroundCompletionGate } from "./background-completion-gate.js";
 import {
+  catalogFromCachedCommands,
+  convertSkillTriggers,
+  hasForeignSkillTrigger,
+} from "./skill-triggers.js";
+import {
   isPathWithinAllowedDirectory,
   resolvePlatformPath,
   resolvePlatformPathFrom,
@@ -152,6 +157,9 @@ type ResultServerMessage = Extract<ServerMessage, { type: "result" }>;
 
 /** How long a session must stay idle without background work before Done. */
 const BACKGROUND_COMPLETION_SETTLE_MS = 2_000;
+/** How long a new session's first prompt waits for the skill list. */
+const INITIAL_PROMPT_SKILL_WAIT_MS = 5_000;
+const INITIAL_PROMPT_SKILL_POLL_MS = 100;
 type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
 type ResumeClientMessage = Extract<ClientMessage, { type: "resume_session" }>;
 type CorrelatedProjectRequest = {
@@ -3305,9 +3313,30 @@ export class BridgeWebSocketServer {
               );
             }
             if (msg.initialPrompt?.trim()) {
-              void this.handleClientMessage({ type: "input", sessionId, text: msg.initialPrompt, clientMessageId: randomUUID() }, ws, true).catch((error) => {
-                this.send(ws, { type: "error", sessionId, message: `Failed to send initial project request: ${(error as Error).message}` });
-              });
+              void this.prepareInitialPrompt(
+                provider,
+                createdSession?.worktreePath ?? projectPath,
+                sessionId,
+                msg.initialPrompt,
+              )
+                .then((prepared) =>
+                  this.handleClientMessage(
+                    {
+                      type: "input",
+                      sessionId,
+                      text: prepared.text,
+                      clientMessageId: randomUUID(),
+                      ...(prepared.skills.length > 0
+                        ? { skills: prepared.skills }
+                        : {}),
+                    },
+                    ws,
+                    true,
+                  ),
+                )
+                .catch((error) => {
+                  this.send(ws, { type: "error", sessionId, message: `Failed to send initial project request: ${(error as Error).message}` });
+                });
             }
             // Send a gentle tip when the project is not a git repository
             if (createdSession && !createdSession.gitBranch) {
@@ -8500,6 +8529,42 @@ export class BridgeWebSocketServer {
    * Load the saved session name from CLI storage and set it on the SessionInfo.
    * Called after SessionManager.create() so that session_created carries the name.
    */
+  /**
+   * Rewrite skills in a new session's first prompt to the agent's trigger
+   * (`/` for Claude, `$` for Codex). The app converts later messages itself,
+   * but it cannot know the skills before the session starts. When the prompt
+   * contains a candidate and the skills are not cached yet, wait briefly for
+   * the provider to report them; on timeout the prompt is sent unchanged.
+   */
+  private async prepareInitialPrompt(
+    provider: "claude" | "codex",
+    effectiveCwd: string,
+    sessionId: string,
+    text: string,
+  ): Promise<{ text: string; skills: Array<{ name: string; path: string }> }> {
+    if (!hasForeignSkillTrigger(text, provider)) return { text, skills: [] };
+    const deadline = Date.now() + INITIAL_PROMPT_SKILL_WAIT_MS;
+    let catalog = catalogFromCachedCommands(
+      provider,
+      this.sessionManager.getCachedCommands(provider, effectiveCwd),
+    );
+    while (
+      !catalog &&
+      Date.now() < deadline &&
+      this.sessionManager.get(sessionId)
+    ) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, INITIAL_PROMPT_SKILL_POLL_MS),
+      );
+      catalog = catalogFromCachedCommands(
+        provider,
+        this.sessionManager.getCachedCommands(provider, effectiveCwd),
+      );
+    }
+    if (!catalog) return { text, skills: [] };
+    return convertSkillTriggers(text, catalog);
+  }
+
   private async loadAndSetSessionName(
     session: SessionInfo | undefined,
     provider: string,

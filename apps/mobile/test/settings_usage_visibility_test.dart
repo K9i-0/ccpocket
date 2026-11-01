@@ -1621,8 +1621,10 @@ void main() {
           focusSupport: true,
         ),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+      // Reaching the lazily built support section can take several frames.
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 150));
+      }
 
       final supportDy = tester
           .getTopLeft(find.byKey(const ValueKey('supporter_entry_button')))
