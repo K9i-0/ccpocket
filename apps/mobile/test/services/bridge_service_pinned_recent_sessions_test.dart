@@ -187,17 +187,29 @@ void main() {
     // Loaded through a page now, so it counts toward the offset.
     expect(bridge.isPinnedRecentExtra(visible[3]), isFalse);
 
-    final unpinned = bridge.recentSessionsStream.first;
+    // Unpinning is local: no replay of the last response, and the extra
+    // is dropped with the next published update.
+    final emissions = <List<RecentSession>>[];
+    final sub = bridge.recentSessionsStream.listen(emissions.add);
     bridge.setPinnedRecentSessions(const [
       (provider: 'claude', sessionId: 'page-1'),
       (provider: 'claude', sessionId: 'old-pin'),
     ]);
-    expect(_ids(await unpinned), [
+    await Future<void>.delayed(Duration.zero);
+    expect(emissions, isEmpty);
+    expect(bridge.isPinnedRecentExtra(visible[4]), isTrue);
+    bridge.loadMoreRecentSessions();
+    final afterUnpin = await harness.nextRequest();
+    expect(afterUnpin['offset'], 4);
+    visible = await harness.respond(afterUnpin, sessions: [_session('page-5')]);
+    expect(_ids(visible), [
       'claude:page-1',
       'claude:page-2',
       'claude:page-3',
       'claude:old-pin',
+      'claude:page-5',
     ]);
+    await sub.cancel();
 
     // A new first page without pinnedSessions (older Bridge) resets extras.
     bridge.switchFilter(provider: 'claude');

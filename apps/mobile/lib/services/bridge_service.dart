@@ -505,7 +505,11 @@ class BridgeService implements BridgeServiceBase {
   }
 
   /// Pinned provider sessions to request with first list pages so they stay
-  /// visible regardless of pagination. Unpinned extras are dropped locally.
+  /// visible regardless of pagination.
+  ///
+  /// Unpinned extras are dropped on the next publish rather than immediately:
+  /// emitting here would replay the last response through subscribers (e.g.
+  /// resetting expanded project groups) for a purely local change.
   void setPinnedRecentSessions(Iterable<RecentSessionRef> pins) {
     final next = pins.toSet().toList()
       ..sort(
@@ -514,17 +518,15 @@ class BridgeService implements BridgeServiceBase {
             : a.provider.compareTo(b.provider),
       );
     _pinnedRecentSessionRefs = List.unmodifiable(next);
-    if (_pinnedRecentExtras.isEmpty) return;
-    final pinned = next.toSet();
-    final kept = _pinnedRecentExtras
-        .where((session) => pinned.contains(recentSessionRefOf(session)))
-        .toList();
-    if (kept.length == _pinnedRecentExtras.length) return;
-    _pinnedRecentExtras = kept;
-    _publishRecentSessions();
   }
 
   void _publishRecentSessions() {
+    if (_pinnedRecentExtras.isNotEmpty) {
+      final pinned = _pinnedRecentSessionRefs.toSet();
+      _pinnedRecentExtras = _pinnedRecentExtras
+          .where((session) => pinned.contains(recentSessionRefOf(session)))
+          .toList();
+    }
     if (_pinnedRecentExtras.isEmpty) {
       _visibleRecentSessions = _recentSessions;
     } else {
@@ -932,12 +934,7 @@ class BridgeService implements BridgeServiceBase {
                     );
                   } else {
                     _recentSessions = sessions;
-                    final pinned = _pinnedRecentSessionRefs.toSet();
-                    _pinnedRecentExtras = [
-                      for (final session in msg.pinnedSessions ?? const [])
-                        if (pinned.contains(recentSessionRefOf(session)))
-                          session,
-                    ];
+                    _pinnedRecentExtras = msg.pinnedSessions ?? const [];
                   }
                   _appendMode = false;
                 }

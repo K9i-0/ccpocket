@@ -50,8 +50,11 @@ pinnedSessions?: RecentSession[];
 - When `thread/list` fails, the rollout fallback listing selects pinned entries
   from the same `getAllRecentSessions` call.
 - Codex entries are returned in the `thread/list` shape (`projectPath` is the
-  raw thread cwd) whenever the page's Codex entries come from `thread/list`,
-  because the app pin key includes `projectPath`.
+  raw thread cwd), because the app pin key includes `projectPath` and page
+  Codex entries normally come from `thread/list`. Known gap: when `thread/list`
+  fails in an all-provider listing, page Codex entries fall back to the
+  repository-grouped shape, so a pinned worktree/subdirectory thread outside
+  the page may show without its pin mark until `thread/list` recovers.
 
 ## App behavior
 
@@ -62,7 +65,9 @@ pinnedSessions?: RecentSession[];
   page` (deduped by provider + sessionId). Pinned extras survive `loadMore`
   appends and project-scoped merges and are replaced by the next first-page
   response. Pagination offsets count page sessions only.
-- Unpinning drops the extra locally. Pinning a visible session needs no request.
+- Unpinning needs no request: the extra is dropped on the next list update
+  (not immediately, to avoid replaying the last response, which would reset
+  expanded project groups). Pinning a visible session needs no request either.
 
 ## Compatibility
 
