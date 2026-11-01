@@ -35,7 +35,9 @@ on:
         type: string
         required: true
 permissions:
-  contents: read
+  # GitHub requires push access even to read a draft release. The token is only
+  # passed to the hash-verifying download step; no release is published here.
+  contents: write
 concurrency:
   group: companion-store-${{ inputs.app }}
   cancel-in-progress: false
