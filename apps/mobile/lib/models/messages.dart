@@ -3498,6 +3498,16 @@ class BackgroundTaskInfo {
     this.subagentType,
   });
 
+  static const _agentTaskTypes = {
+    'local_agent',
+    'remote_agent',
+    'local_workflow',
+    'codex_agent',
+  };
+
+  /// Agents, as opposed to shells, monitors and terminals.
+  bool get isAgent => _agentTaskTypes.contains(taskType);
+
   static BackgroundTaskInfo? fromJson(Map<String, dynamic> json) {
     final taskId = json['taskId'];
     if (taskId is! String || taskId.isEmpty) return null;
@@ -4566,8 +4576,11 @@ class SessionInfo {
   final PermissionRequestMessage? pendingPermission;
   final QueuedInputItem? queuedInput;
 
-  /// Live background tasks (Claude). The turn may be idle while these run.
+  /// Live background tasks. The turn may be idle while these run.
   final int backgroundTaskCount;
+
+  /// Agents among [backgroundTaskCount].
+  final int backgroundAgentCount;
   final SessionWorkspaceInfo? workspace;
 
   const SessionInfo({
@@ -4606,6 +4619,7 @@ class SessionInfo {
     this.pendingPermission,
     this.queuedInput,
     this.backgroundTaskCount = 0,
+    this.backgroundAgentCount = 0,
     this.workspace,
   });
 
@@ -4668,6 +4682,7 @@ class SessionInfo {
     QueuedInputItem? queuedInput,
     bool clearQueuedInput = false,
     int? backgroundTaskCount,
+    int? backgroundAgentCount,
   }) {
     return SessionInfo(
       id: id,
@@ -4711,6 +4726,7 @@ class SessionInfo {
           : (pendingPermission ?? this.pendingPermission),
       queuedInput: clearQueuedInput ? null : (queuedInput ?? this.queuedInput),
       backgroundTaskCount: backgroundTaskCount ?? this.backgroundTaskCount,
+      backgroundAgentCount: backgroundAgentCount ?? this.backgroundAgentCount,
       workspace: workspace,
     );
   }
@@ -4780,6 +4796,7 @@ class SessionInfo {
           ? QueuedInputItem.fromJson(queueJson)
           : null,
       backgroundTaskCount: json['backgroundTaskCount'] as int? ?? 0,
+      backgroundAgentCount: json['backgroundAgentCount'] as int? ?? 0,
       workspace: switch (json['workspace']) {
         final Map workspace => SessionWorkspaceInfo.fromJson(
           Map<String, dynamic>.from(workspace),

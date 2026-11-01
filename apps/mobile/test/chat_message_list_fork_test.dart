@@ -3,6 +3,70 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('intermediateResultEntryIndices', () {
+    test('hides results followed by an automatic follow-up turn', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('start'),
+        ServerChatEntry(_assistant('a1')),
+        ServerChatEntry(_result()),
+        ServerChatEntry(_assistant('a2')),
+        ServerChatEntry(_result()),
+        ServerChatEntry(_assistant('a3')),
+        ServerChatEntry(_result()),
+      ];
+
+      expect(intermediateResultEntryIndices(entries, backgroundActive: false), {
+        2,
+        4,
+      });
+    });
+
+    test('keeps results that end a user turn', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('first'),
+        ServerChatEntry(_result()),
+        UserChatEntry('second'),
+        ServerChatEntry(_result()),
+      ];
+
+      expect(
+        intermediateResultEntryIndices(entries, backgroundActive: false),
+        isEmpty,
+      );
+    });
+
+    test('hides the latest result while background tasks run', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('start'),
+        ServerChatEntry(_result()),
+      ];
+
+      expect(intermediateResultEntryIndices(entries, backgroundActive: true), {
+        1,
+      });
+      expect(
+        intermediateResultEntryIndices([
+          ...entries,
+          UserChatEntry('next'),
+        ], backgroundActive: true),
+        isEmpty,
+      );
+    });
+
+    test('never hides error results', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('start'),
+        ServerChatEntry(const ResultMessage(subtype: 'error', error: 'boom')),
+        ServerChatEntry(_result()),
+      ];
+
+      expect(
+        intermediateResultEntryIndices(entries, backgroundActive: false),
+        isEmpty,
+      );
+    });
+  });
+
   group('shouldShowForkForAssistant', () {
     test('only returns true for the assistant message before result', () {
       final first = _assistant('a1');

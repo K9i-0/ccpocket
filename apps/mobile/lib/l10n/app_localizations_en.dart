@@ -3518,4 +3518,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get liteModeBackground => 'Background running';
+
+  @override
+  String sessionCardBackgroundAgents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count agents',
+      one: '1 agent',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get backgroundTasksStop => 'Stop background tasks';
 }

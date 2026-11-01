@@ -8802,6 +8802,82 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("holds Claude completion pushes until background work settles", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+      globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+      const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: {
+        uid: "bridge-test", getIdToken: vi.fn(async () => "mock-token"),
+        initialize: vi.fn(async () => {}),
+      } as any });
+      (bridge as any).tokenLocales.set("token-1", "en");
+      const session: Record<string, unknown> = {
+        id: "s-1",
+        provider: "claude",
+        status: "running",
+        backgroundTasks: [{ taskId: "a1", taskType: "local_agent" }],
+      };
+      vi.spyOn((bridge as any).sessionManager, "get").mockImplementation(
+        (id: unknown) => (id === "s-1" ? session : undefined),
+      );
+      const send = (msg: Record<string, unknown>) =>
+        (bridge as any).broadcastSessionMessage("s-1", msg);
+
+      session.status = "idle";
+      send({ type: "result", subtype: "success", result: "launched" });
+      send({ type: "status", status: "idle" });
+      session.status = "running";
+      send({ type: "status", status: "running" });
+      session.status = "idle";
+      send({ type: "result", subtype: "success", result: "still waiting" });
+      send({ type: "status", status: "idle" });
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      session.backgroundTasks = [];
+      send({ type: "background_tasks", tasks: [] });
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        eventType: "session_completed",
+        body: "still waiting",
+      });
+      bridge.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not hold Codex completion pushes for background terminals", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: {
+      uid: "bridge-test", getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    } as any });
+    (bridge as any).tokenLocales.set("token-1", "en");
+    vi.spyOn((bridge as any).sessionManager, "get").mockImplementation(
+      (id: unknown) => id === "s-1"
+        ? {
+          id: "s-1",
+          provider: "codex",
+          status: "idle",
+          backgroundTasks: [{ taskId: "cmd-1", taskType: "codex_terminal" }],
+        }
+        : undefined,
+    );
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "success",
+      result: "done",
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    bridge.close();
+  });
+
   it("shares Goal policy with Push and uses distinct progress and completion copy", async () => {
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;

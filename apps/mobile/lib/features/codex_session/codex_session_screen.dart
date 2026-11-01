@@ -44,6 +44,7 @@ import '../chat_session/state/chat_session_cubit.dart';
 import '../chat_session/state/chat_session_state.dart';
 import '../../theme/app_theme.dart';
 import '../chat_session/state/streaming_state_cubit.dart';
+import '../chat_session/widgets/background_tasks_bar.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_message_list.dart';
@@ -1558,6 +1559,7 @@ class _CodexChatBody extends HookWidget {
                     onSettings: () => showCodexRecoverySheet(context),
                   ),
                 LiteModeActivityBar(sessionId: sessionId),
+                const SessionBackgroundTasksBar(),
                 if (approval is ApprovalNone)
                   if (currentGoal != null)
                     CodexGoalCard(

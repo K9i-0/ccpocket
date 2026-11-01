@@ -32,6 +32,7 @@ import type {
   CodexGoal,
   BackgroundTaskInfo,
 } from "./parser.js";
+import { isAgentBackgroundTask } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 import { withDerivedCodexPermissionsMode } from "./codex-permissions.js";
@@ -162,8 +163,10 @@ export interface SessionSummary {
   lastActivityAt: string;
   gitBranch: string;
   lastMessage: string;
-  /** Number of live background tasks (Claude). Absent when there are none. */
+  /** Number of live background tasks. Absent when there are none. */
   backgroundTaskCount?: number;
+  /** Agents among backgroundTaskCount. Absent when there are none. */
+  backgroundAgentCount?: number;
   worktreePath?: string;
   worktreeBranch?: string;
   permissionMode?: string;
@@ -1030,9 +1033,7 @@ export class SessionManager {
       lastActivityAt: session.lastActivityAt.toISOString(),
       gitBranch: session.gitBranch,
       lastMessage: this.extractLastMessage(session),
-      ...(session.backgroundTasks?.length
-        ? { backgroundTaskCount: session.backgroundTasks.length }
-        : {}),
+      ...backgroundTaskCounts(session.backgroundTasks),
       worktreePath: session.worktreePath,
       worktreeBranch: session.worktreeBranch,
       permissionMode:
@@ -2024,4 +2025,15 @@ export class SessionManager {
       this.destroy(id);
     }
   }
+}
+
+function backgroundTaskCounts(
+  tasks: BackgroundTaskInfo[] | undefined,
+): { backgroundTaskCount?: number; backgroundAgentCount?: number } {
+  if (!tasks?.length) return {};
+  const agents = tasks.filter(isAgentBackgroundTask).length;
+  return {
+    backgroundTaskCount: tasks.length,
+    ...(agents > 0 ? { backgroundAgentCount: agents } : {}),
+  };
 }

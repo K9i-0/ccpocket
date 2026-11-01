@@ -1443,5 +1443,14 @@
       }
     }
   },
-  "liteModeBackground": "バックグラウンド実行中"
+  "liteModeBackground": "バックグラウンド実行中",
+  "sessionCardBackgroundAgents": "サブエージェント {count}",
+  "@sessionCardBackgroundAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backgroundTasksStop": "バックグラウンドタスクを停止"
 }

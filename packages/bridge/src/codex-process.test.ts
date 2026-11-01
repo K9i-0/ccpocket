@@ -479,6 +479,66 @@ describe("CodexProcess (app-server)", () => {
     ).toBe("invalid thread id");
   });
 
+  it("reports terminals and child agents that outlive the turn", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+    (proc as any)._threadId = "thread-1";
+
+    (proc as any).handleNotification("turn/started", {
+      threadId: "thread-1",
+      turn: { id: "turn-1" },
+    });
+    (proc as any).handleNotification("item/started", {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      item: {
+        type: "commandExecution",
+        id: "cmd-1",
+        command: "npm run dev",
+        cwd: "/tmp",
+        processId: "pty-1",
+        source: "unifiedExecStartup",
+        status: "inProgress",
+      },
+    });
+    (proc as any).handleNotification("thread/started", {
+      thread: { id: "child-1", parentThreadId: "thread-1", agentNickname: "Scout" },
+    });
+    (proc as any).handleNotification("turn/completed", {
+      threadId: "thread-1",
+      turn: { id: "turn-1", status: "completed" },
+    });
+    expect(proc.status).toBe("idle");
+
+    // A child agent's turn does not drive the parent session.
+    (proc as any).handleNotification("turn/started", {
+      threadId: "child-1",
+      turn: { id: "child-turn" },
+    });
+    expect(proc.status).toBe("idle");
+    (proc as any).handleNotification("turn/completed", {
+      threadId: "child-1",
+      turn: { id: "child-turn", status: "completed" },
+    });
+
+    const snapshots = messages
+      .filter((message) => message.type === "background_tasks")
+      .map((message) => message.tasks);
+    expect(snapshots).toEqual([
+      [
+        { taskId: "cmd-1", taskType: "codex_terminal", description: "npm run dev" },
+        { taskId: "child-1", taskType: "codex_agent", description: "Scout" },
+      ],
+      [{ taskId: "cmd-1", taskType: "codex_terminal", description: "npm run dev" }],
+    ]);
+    expect(
+      messages.filter((message) => message.type === "result"),
+    ).toHaveLength(1);
+  });
+
   it("finalizes streamed agent text before turn completion", () => {
     const proc = new CodexProcess("linux");
     const messages: Array<Record<string, unknown>> = [];

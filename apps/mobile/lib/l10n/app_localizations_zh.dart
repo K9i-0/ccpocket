@@ -3342,4 +3342,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get liteModeBackground => '后台运行中';
+
+  @override
+  String sessionCardBackgroundAgents(int count) {
+    return '子代理 $count';
+  }
+
+  @override
+  String get backgroundTasksStop => '停止后台任务';
 }

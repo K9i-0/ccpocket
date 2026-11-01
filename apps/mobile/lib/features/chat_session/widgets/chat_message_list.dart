@@ -79,6 +79,33 @@ Set<int> forkableAssistantEntryIndices(List<ChatEntry> entries) {
   return result;
 }
 
+/// Claude results that do not end the work: a later result follows without
+/// user input in between (Claude started a follow-up turn when a background
+/// task reported back), or background tasks are still running after the
+/// latest one. Their completion chips would announce a finish too early.
+@visibleForTesting
+Set<int> intermediateResultEntryIndices(
+  List<ChatEntry> entries, {
+  required bool backgroundActive,
+}) {
+  final hidden = <int>{};
+  int? lastResult;
+  for (var index = 0; index < entries.length; index++) {
+    final entry = entries[index];
+    if (entry is UserChatEntry) {
+      lastResult = null;
+      continue;
+    }
+    if (entry is! ServerChatEntry) continue;
+    final message = entry.message;
+    if (message is! ResultMessage) continue;
+    if (lastResult != null) hidden.add(lastResult);
+    lastResult = message.subtype == 'success' ? index : null;
+  }
+  if (backgroundActive && lastResult != null) hidden.add(lastResult);
+  return hidden;
+}
+
 @visibleForTesting
 Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
   final fallbackIndices = <int>{};
@@ -220,6 +247,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   List<ChatEntry>? _derivedSourceEntries;
   String? _derivedForHttpBaseUrl;
   ProcessStatus? _derivedForProcessStatus;
+  bool? _derivedForBackgroundActive;
   String? _derivedForActivePermissionId;
   _ChatListDerivedData? _derivedData;
   _VisibleAnchor? _pendingAnchor;
@@ -680,6 +708,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
                           ) &&
                           isSyntheticPermissionOutcome(result)) {
                     child = const SizedBox.shrink();
+                  } else if (derivedData.intermediateResultEntryIndices
+                          .contains(entryIndex) &&
+                      // Keep a result whose text is not shown anywhere else.
+                      !derivedData.successResultFallbackEntryIndices.contains(
+                        entryIndex,
+                      )) {
+                    child = const SizedBox.shrink();
                   } else {
                     final permissionTranscriptStatus = switch (entry) {
                       ServerChatEntry(
@@ -774,6 +809,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           listEquals(previousEntries, entries) &&
           listEquals(_derivedSourceEntries, chatState.entries) &&
           _derivedForProcessStatus == chatState.status &&
+          _derivedForBackgroundActive == chatState.backgroundTasks.isNotEmpty &&
           _derivedForActivePermissionId == activePermissionId) {
         _derivedForState = chatState;
         return cached;
@@ -803,6 +839,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
       successResultFallbackEntryIndices: successResultFallbackEntryIndices(
         entries,
       ),
+      intermediateResultEntryIndices: widget.isCodex
+          ? const <int>{}
+          : intermediateResultEntryIndices(
+              entries,
+              backgroundActive: chatState.backgroundTasks.isNotEmpty,
+            ),
       permissionTranscriptStatuses: derivePermissionTranscriptStatuses(
         chatState.entries,
         processStatus: chatState.status,
@@ -815,6 +857,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _derivedSourceEntries = chatState.entries;
     _derivedForHttpBaseUrl = widget.httpBaseUrl;
     _derivedForProcessStatus = chatState.status;
+    _derivedForBackgroundActive = chatState.backgroundTasks.isNotEmpty;
     _derivedForActivePermissionId = activePermissionId;
     _derivedData = next;
     stopwatch?.stop();
@@ -972,6 +1015,7 @@ class _ChatListDerivedData {
   final Set<String> completedGeneratedImageToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
   final Set<int> successResultFallbackEntryIndices;
+  final Set<int> intermediateResultEntryIndices;
   final Map<String, PermissionTranscriptStatus> permissionTranscriptStatuses;
   final String? latestPlanText;
 
@@ -981,6 +1025,7 @@ class _ChatListDerivedData {
     required this.completedGeneratedImageToolUseIds,
     required this.forkableAssistantEntryIndices,
     required this.successResultFallbackEntryIndices,
+    required this.intermediateResultEntryIndices,
     required this.permissionTranscriptStatuses,
     required this.latestPlanText,
   });

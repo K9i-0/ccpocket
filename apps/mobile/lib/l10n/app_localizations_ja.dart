@@ -3382,4 +3382,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get liteModeBackground => 'バックグラウンド実行中';
+
+  @override
+  String sessionCardBackgroundAgents(int count) {
+    return 'サブエージェント $count';
+  }
+
+  @override
+  String get backgroundTasksStop => 'バックグラウンドタスクを停止';
 }

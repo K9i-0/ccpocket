@@ -415,6 +415,87 @@ void main() {
       expect(find.byIcon(Icons.stop_circle_outlined), findsNothing);
     });
 
+    SessionInfo backgroundSession({
+      required String provider,
+      String status = 'idle',
+      int tasks = 0,
+      int agents = 0,
+    }) => SessionInfo(
+      id: 'bg-$provider-$status',
+      provider: provider,
+      projectPath: '/home/user/my-app',
+      status: status,
+      createdAt: DateTime.now().toIso8601String(),
+      lastActivityAt: DateTime.now().toIso8601String(),
+      backgroundTaskCount: tasks,
+      backgroundAgentCount: agents,
+    );
+
+    testWidgets('keeps an idle Claude session Working while agents run', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: backgroundSession(provider: 'claude', tasks: 2, agents: 2),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Working'), findsOneWidget);
+      expect(find.text('Ready'), findsNothing);
+      expect(find.text('2 agents'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('session_card_background_badge')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shows a quiet count for background shells and monitors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: backgroundSession(provider: 'claude', tasks: 3, agents: 1),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Working'), findsOneWidget);
+      expect(find.text('1 agent'), findsOneWidget);
+      final badge = find.byKey(const ValueKey('session_card_background_badge'));
+      expect(badge, findsOneWidget);
+      expect(
+        find.descendant(of: badge, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(find.text('Background 2'), findsNothing);
+    });
+
+    testWidgets('a Codex session with leftover terminals stays Ready', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: backgroundSession(provider: 'codex', tasks: 2, agents: 1),
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Ready'), findsOneWidget);
+      expect(find.text('1 agent'), findsNothing);
+      final badge = find.byKey(const ValueKey('session_card_background_badge'));
+      expect(
+        find.descendant(of: badge, matching: find.text('2')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shows compact queue badge when queued input exists', (
       tester,
     ) async {

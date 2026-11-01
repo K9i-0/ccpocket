@@ -1413,5 +1413,14 @@
       }
     }
   },
-  "liteModeBackground": "Background running"
+  "liteModeBackground": "Background running",
+  "sessionCardBackgroundAgents": "{count, plural, =1{1 agent} other{{count} agents}}",
+  "@sessionCardBackgroundAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backgroundTasksStop": "Stop background tasks"
 }
