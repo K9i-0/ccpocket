@@ -3,18 +3,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/messages.dart';
 import '../services/bridge_service.dart';
+import '../theme/provider_style.dart';
 import 'rename_session_dialog.dart';
 
 /// Tappable session name in the AppBar. Shows session name or project name.
-/// Tap to rename via dialog.
+/// Tap to rename via dialog. The text uses the provider accent color so
+/// Claude and Codex sessions are distinguishable at a glance.
 class SessionNameTitle extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
   final SessionWorkspaceInfo? workspace;
+  final Provider provider;
 
   const SessionNameTitle({
     super.key,
     required this.sessionId,
+    required this.provider,
     this.projectPath,
     this.workspace,
   });
@@ -60,10 +64,7 @@ class SessionNameTitle extends StatelessWidget {
               name != null && name.isNotEmpty ? name : fallback,
               style: TextStyle(
                 fontSize: 14,
-                color: name != null && name.isNotEmpty
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface
-                          .withValues(alpha: 0.5),
+                color: providerStyleFor(context, provider).foreground,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

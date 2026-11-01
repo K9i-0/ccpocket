@@ -998,6 +998,7 @@ class _ChatScreenBody extends HookWidget {
                     title: chrome.wrapTitle(
                       SessionNameTitle(
                         sessionId: sessionId,
+                        provider: Provider.claude,
                         projectPath: effectiveProjectPath,
                         workspace: workspace,
                       ),

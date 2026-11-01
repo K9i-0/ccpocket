@@ -1100,6 +1100,7 @@ class _CodexChatBody extends HookWidget {
                     title: chrome.wrapTitle(
                       SessionNameTitle(
                         sessionId: sessionId,
+                        provider: Provider.codex,
                         projectPath: effectiveProjectPath,
                         workspace: workspace,
                       ),
