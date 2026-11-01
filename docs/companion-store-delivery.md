@@ -16,7 +16,7 @@ No private-repository token or signing key is copied to another repository.
 4. Create a **draft** GitHub release in `K9i-0/ccpocket` with the tag name
    `companion-staging/<app>/<version>+<build>/<candidate-sha-first-12>/<platform>`
    and upload `delivery.zip`. Keep it draft; never publish this transport release.
-   Only the signed binary, final Duo screenshots and a manifest are transferred.
+   Only the signed binary (or unsigned archive for CI signing), final Duo screenshots and a manifest are transferred.
 5. Dispatch `companion-store-delivery.yml` with app, platform, operation `upload`,
    version, build_number, candidate_sha, expected_ref_sha (hub main SHA),
    payload_release_id and payload_sha256. The hub validates the draft identity,
@@ -52,3 +52,15 @@ No private-repository token or signing key is copied to another repository.
   announcements. Remove them only after completion when no retry needs them.
 
 CI signing uses pinned codemagic-cli-tools 0.70.2 through `fetch-signing.py`. It allows creation of missing App Store profiles but explicitly disables certificate and bundle-ID creation. A missing certificate matching the existing CI key is a blocker; credentials are never sent back to the Mac. Archive extraction rejects symlinks, traversal and oversized payloads. Only binaries and metadata are accepted, and app code is not executed by the signing job.
+
+## Lessons verified on 2026-11-01
+
+- Draft release downloads require `contents: write`; `contents: read` returned 403 even though the job only downloaded the asset. Keep the existing delivery permission and pass the token only to the validating download step. Checkout must retain `persist-credentials: false`; do not publish the draft or introduce a PAT to work around this.
+- Local keychain identities being visible does not prove codesign can use them. T2QR hit `errSecInternalComponent`; unsigned archives exported and verified successfully on macos-26 with the hub's existing signing key. Preserve each app's release/flavor flags when building unsigned archives.
+- A matching existing CI certificate can lack matching app/extension profiles. `fetch-signing.py` permits missing profile creation, blocks certificate/bundle-ID creation, and verifies the exact app/extension identifier set before mutation. Do not replace it with unrestricted `fetch-signing-files --create` or delete stale profiles as a retry.
+- asc 6.3 returns nested `versions view` data; shared inspection/submission scripts retain compatibility with older flattened data. `review submit --build` was removed in 5.0: companion review sets `ASC_REVIEW_BUILD_FLAG=--build-id`, while legacy callers retain their default. When changing asc pins, inspect command help and response shapes for both inspection and mutation paths; an inspection-only test misses submission flag changes.
+- Duo uses one `APP_IPHONE_DUO` set per locale, including cover and inner images. T2QR PNGs needed opaque output (`-background white -alpha remove -alpha off`). Verify final images, not only generator inputs; the uploader checks filenames, checksums, order and COMPLETE state.
+- Google bundle upload uses the authenticated API client directly; calling Supply helpers without initialized `Supply.config` failed. Retain the direct upload path and verify the resulting internal draft before submission.
+- Both successful iOS deliveries took several minutes in upload/processing/image verification. Inspect the active step and completion rather than canceling or redispatching a pending run. After a partial failure, retry only the unfinished stage with the original candidate/payload; never treat an existing build number as proof of identical binary content.
+
+Verified submissions: [T2QR iOS](https://github.com/K9i-0/ccpocket/actions/runs/41273125006), [T2QR Android](https://github.com/K9i-0/ccpocket/actions/runs/41272105800), [Bookmark Safe both platforms](https://github.com/K9i-0/ccpocket/actions/runs/41273136582). Both iOS runs confirmed WAITING_FOR_REVIEW; Android runs committed production changes for review. These are historical results, not current store status.
