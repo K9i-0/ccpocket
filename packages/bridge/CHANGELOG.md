@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.94.0] - 2026-11-01
+
+### Added
+
+- Convert skill triggers in a new session's first prompt: `/name` for Codex and `$name` for Claude are rewritten to the provider's syntax, and Codex also receives the skills as structured inputs.
+- Warn in `doctor` when a Mac host will go to sleep while idle (and, on laptops, when the lid is closed), since the Bridge goes offline while the Mac sleeps.
+
+### Changed
+
+- Keep Claude sessions busy until background tasks settle, and send the completion push with the latest result once the session stays idle. Stopping a session between turns also stops its background tasks. Codex terminals and child agent threads that outlive their turn are tracked as background tasks.
+
 ## [1.93.0] - 2026-10-31
 
 ### Added
