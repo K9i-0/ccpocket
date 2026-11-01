@@ -35,6 +35,9 @@ const {
   checkSystemdService,
   checkScreenRecording,
   checkKeychainAccess,
+  checkSleep,
+  parsePmsetSleep,
+  evaluateSleepSettings,
   printReport,
   runDoctor,
 } = await import("./doctor.js");
@@ -446,6 +449,122 @@ describe("doctor checks", () => {
       } finally {
         Object.defineProperty(process, "platform", { value: originalPlatform });
       }
+    });
+  });
+
+  describe("parsePmsetSleep", () => {
+    it("reads the idle sleep minutes and ignores the assertion suffix", () => {
+      const out = [
+        "System-wide power settings:",
+        "Currently in use:",
+        " displaysleep         10",
+        " sleep                1 (sleep prevented by coreaudiod)",
+        " disksleep            10",
+      ].join("\n");
+      expect(parsePmsetSleep(out)).toEqual({ idleSleepMinutes: 1, sleepDisabled: false });
+    });
+
+    it("detects SleepDisabled", () => {
+      const out = " SleepDisabled\t\t1\n sleep                0\n";
+      expect(parsePmsetSleep(out)).toEqual({ idleSleepMinutes: 0, sleepDisabled: true });
+    });
+
+    it("treats SleepDisabled 0 as not disabled", () => {
+      expect(parsePmsetSleep(" SleepDisabled 0\n sleep 0\n").sleepDisabled).toBe(false);
+    });
+
+    it("returns null when the sleep line is missing", () => {
+      expect(parsePmsetSleep("").idleSleepMinutes).toBeNull();
+    });
+  });
+
+  describe("evaluateSleepSettings", () => {
+    it("warns when idle sleep is enabled", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: 10, sleepDisabled: false }, false);
+      expect(r.status).toBe("warn");
+      expect(r.message).toContain("10 idle min");
+      expect(r.message).not.toContain("lid");
+      expect(r.remediation).toContain("caffeinate -s");
+    });
+
+    it("mentions the lid on laptops", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: 10, sleepDisabled: false }, true);
+      expect(r.status).toBe("warn");
+      expect(r.message).toContain("closing the lid");
+    });
+
+    it("passes with a lid note when idle sleep is off on a laptop", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: 0, sleepDisabled: false }, true);
+      expect(r.status).toBe("pass");
+      expect(r.message).toContain("closing the lid");
+    });
+
+    it("passes when idle sleep is off on a desktop", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: 0, sleepDisabled: false }, false);
+      expect(r).toMatchObject({ status: "pass", message: "Idle sleep off" });
+    });
+
+    it("passes when sleep is disabled system-wide", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: 10, sleepDisabled: true }, true);
+      expect(r.status).toBe("pass");
+      expect(r.message).toContain("disablesleep");
+    });
+
+    it("skips when the setting is unreadable", () => {
+      const r = evaluateSleepSettings({ idleSleepMinutes: null, sleepDisabled: false }, true);
+      expect(r.status).toBe("skip");
+    });
+  });
+
+  describe("checkSleep", () => {
+    let originalPlatform: string;
+    beforeEach(() => {
+      originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "darwin" });
+    });
+    afterEach(() => {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    });
+
+    it("combines pmset and ioreg output", async () => {
+      mockExecFile.mockImplementation(
+        (cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          if (cmd === "pmset") cb(null, " sleep                5\n", "");
+          else cb(null, '"AppleClamshellState" = No\n', "");
+        },
+      );
+      const result = await checkSleep();
+      expect(result.status).toBe("warn");
+      expect(result.message).toContain("5 idle min");
+      expect(result.message).toContain("closing the lid");
+    });
+
+    it("treats ioreg failure as no lid", async () => {
+      mockExecFile.mockImplementation(
+        (cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          if (cmd === "pmset") cb(null, " sleep                0\n", "");
+          else cb(new Error("fail"), "", "");
+        },
+      );
+      const result = await checkSleep();
+      expect(result).toMatchObject({ status: "pass", message: "Idle sleep off" });
+    });
+
+    it("skips when pmset fails", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(new Error("not found"), "", "");
+        },
+      );
+      const result = await checkSleep();
+      expect(result.status).toBe("skip");
+    });
+
+    it("skips on non-macOS platforms", async () => {
+      Object.defineProperty(process, "platform", { value: "linux" });
+      const result = await checkSleep();
+      expect(result.status).toBe("skip");
+      expect(mockExecFile).not.toHaveBeenCalled();
     });
   });
 

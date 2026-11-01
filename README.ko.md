@@ -76,6 +76,11 @@ npx @ccpocket/bridge@1 setup
 ```
 
 서비스 설정은 macOS launchd와 Linux systemd를 지원합니다.
+macOS에서는 Mac이 잠자기 상태인 동안 Bridge가 오프라인이 됩니다. 유휴 잠자기를 막으려면
+시스템 설정 > 배터리 > 옵션에서 "디스플레이가 꺼져 있을 때 전원 어댑터 사용 시 자동으로 잠자기 방지"를
+켜세요(또는 `caffeinate -s` 실행). MacBook은 덮개를 닫으면 잠자기 상태가 되므로,
+전원·외부 디스플레이·키보드와 마우스를 연결한 클램쉘 모드로 사용하세요.
+현재 잠자기 설정은 `doctor`로 확인할 수 있습니다.
 `BRIDGE_ALLOWED_DIRS` 같은 Bridge 설정과 service setup이 저장하는 항목은
 [Bridge package README](packages/bridge/README.md#configuration)를 참고하세요.
 

@@ -100,6 +100,11 @@ npx @ccpocket/bridge@1 setup
 ```
 
 Service setup supports macOS launchd and Linux systemd.
+On macOS the Bridge goes offline while the Mac sleeps. To prevent idle sleep, enable
+"Prevent automatic sleeping on power adapter when the display is off" in
+System Settings > Battery > Options (or run `caffeinate -s`). Closing a MacBook lid
+still sleeps it unless it runs in closed-display mode (power, external display,
+keyboard and mouse). `doctor` reports the current sleep settings.
 For Bridge flags and persisted service settings such as `BRIDGE_ALLOWED_DIRS`,
 see the [Bridge package README](packages/bridge/README.md#configuration).
 

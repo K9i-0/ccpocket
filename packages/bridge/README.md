@@ -315,7 +315,7 @@ Run the built-in doctor command to verify your environment:
 npx @ccpocket/bridge@latest doctor
 ```
 
-It checks Node.js, Git, CLI providers, macOS permissions (Screen Recording, Keychain), network connectivity, and more.
+It checks Node.js, Git, CLI providers, macOS permissions (Screen Recording, Keychain), macOS sleep settings, network connectivity, and more.
 
 ## Architecture
 

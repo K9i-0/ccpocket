@@ -92,6 +92,11 @@ npx @ccpocket/bridge@1 setup
 ```
 
 サービス化は macOS launchd と Linux systemd に対応しています。
+macOS では Mac がスリープしている間 Bridge はオフラインになります。アイドルスリープを防ぐには、
+システム設定 > バッテリー > オプション の「電源アダプタ接続時にディスプレイがオフのときに自動でスリープさせない」を
+有効にしてください（または `caffeinate -s` を実行）。MacBook は蓋を閉じるとスリープするため、
+電源・外部ディスプレイ・キーボードとマウスを接続したクラムシェルモードで使ってください。
+現在のスリープ設定は `doctor` で確認できます。
 `BRIDGE_ALLOWED_DIRS` などの Bridge 設定・service setup で保存される項目は
 [Bridge package README](packages/bridge/README.md#configuration) を参照してください。
 

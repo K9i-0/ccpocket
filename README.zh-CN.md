@@ -77,6 +77,10 @@ npx @ccpocket/bridge@1 setup
 ```
 
 服务化设置支持 macOS launchd 和 Linux systemd。
+在 macOS 上，Mac 睡眠期间 Bridge 会离线。要防止闲置睡眠，请在
+系统设置 > 电池 > 选项 中启用“使用电源适配器且显示器关闭时，防止自动进入睡眠”
+（或运行 `caffeinate -s`）。MacBook 合上盖子后仍会睡眠，除非在接通电源、
+外接显示器、键盘和鼠标的合盖模式下使用。可用 `doctor` 查看当前的睡眠设置。
 关于 `BRIDGE_ALLOWED_DIRS` 等 Bridge 设置，以及 service setup 会保存哪些设置，请见
 [Bridge package README](packages/bridge/README.md#configuration)。
 
