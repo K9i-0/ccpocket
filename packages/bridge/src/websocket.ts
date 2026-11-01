@@ -5893,13 +5893,33 @@ export class BridgeWebSocketServer {
               wtMapping?.projectPath ?? resumeProjectPath,
               this.platform,
             );
-          const effectiveProfile = msg.profile
-            ? await this.resolveCodexResumeProfile(
-                msg.profile,
-                sessionRefId,
-                effectiveProjectPath,
-              )
-            : undefined;
+          let effectiveProfile: string | undefined;
+          try {
+            effectiveProfile = msg.profile
+              ? await this.resolveCodexResumeProfile(
+                  msg.profile,
+                  sessionRefId,
+                  effectiveProjectPath,
+                )
+              : undefined;
+          } catch (err) {
+            console.error(
+              `[ws] Failed to resolve Codex profile on resume: ${err}`,
+            );
+            this.sendResumeFailed(ws, {
+              provider,
+              sourceSessionId: sessionRefId,
+              projectPath: effectiveProjectPath,
+              resumeRequestId: msg.resumeRequestId,
+            });
+            this.send(ws, {
+              type: "error",
+              sessionId: sessionRefId,
+              requestId: msg.resumeRequestId,
+              message: `Failed to resolve Codex profile: ${codexErrorMessage(err)}`,
+            });
+            break;
+          }
           const additionalWritableRoots =
             this.normalizeAdditionalWritableRoots(
               resumeAdditionalRoots,

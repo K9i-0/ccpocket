@@ -2990,6 +2990,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("reports resume failure when the codex resume profile cannot be resolved", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    vi.spyOn(bridge as any, "loadCodexProfiles").mockRejectedValue(
+      new Error("config/read failed"),
+    );
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_profile_fail",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        profile: "ccpocket",
+        resumeRequestId: "resume-profile-fail",
+      },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "session_resume_failed",
+        provider: "codex",
+        sourceSessionId: "thr_profile_fail",
+        resumeRequestId: "resume-profile-fail",
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        sessionId: "thr_profile_fail",
+        requestId: "resume-profile-fail",
+        message: expect.stringContaining("config/read failed"),
+      }),
+    );
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
   it("forwards additional writable roots on codex resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
