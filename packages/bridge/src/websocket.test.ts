@@ -2270,6 +2270,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("reports handler rejections to the client instead of leaking them", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const handlers = new Map<string, (data?: unknown) => void>();
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn((event: string, handler: (data?: unknown) => void) => {
+        handlers.set(event, handler);
+      }),
+    } as any;
+    (bridge as any).handleConnection(ws);
+    ws.send.mockClear();
+
+    const original = (bridge as any).handleClientMessage.bind(bridge);
+    const spy = vi
+      .spyOn(bridge as any, "handleClientMessage")
+      .mockImplementation(async (...args: unknown[]) => {
+        const msg = args[0] as { type: string };
+        if (msg.type === "get_history") throw new Error("boom");
+        return original(...args);
+      });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    handlers.get("message")!(
+      Buffer.from(
+        JSON.stringify({ type: "get_history", sessionId: "session-x" }),
+      ),
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        sessionId: "session-x",
+        message: expect.stringContaining("boom"),
+      }),
+    );
+    expect(errorSpy).toHaveBeenCalled();
+
+    spy.mockRestore();
+    errorSpy.mockRestore();
+    bridge.close();
+  });
+
   it("suppresses guardian approvals unless the client opts in", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

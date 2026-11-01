@@ -2983,7 +2983,9 @@ export class BridgeWebSocketServer {
       }
 
       console.log(`[ws] Received: ${msg.type}`);
-      this.handleClientMessage(msg, ws);
+      this.handleClientMessage(msg, ws).catch((err: unknown) => {
+        this.reportClientMessageFailure(ws, msg, err);
+      });
     });
 
     ws.on("close", () => {
@@ -3011,6 +3013,35 @@ export class BridgeWebSocketServer {
     this.lastConnectMetadataRefreshAt = now;
     void this.refreshCodexMetadata();
     void this.refreshClaudeModels();
+  }
+
+  /**
+   * Last-resort handler for a rejected handleClientMessage call. Without it an
+   * async handler failure becomes an unhandled rejection and terminates the
+   * Bridge process.
+   */
+  private reportClientMessageFailure(
+    ws: WebSocket,
+    msg: ClientMessage,
+    err: unknown,
+  ): void {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[ws] Failed to handle ${msg.type}:`, err);
+    const fields = msg as { sessionId?: unknown; requestId?: unknown };
+    try {
+      this.send(ws, {
+        type: "error",
+        message: `Failed to handle ${msg.type}: ${detail}`,
+        ...(typeof fields.sessionId === "string"
+          ? { sessionId: fields.sessionId }
+          : {}),
+        ...(typeof fields.requestId === "string"
+          ? { requestId: fields.requestId }
+          : {}),
+      });
+    } catch (sendErr) {
+      console.error("[ws] Failed to report handler error:", sendErr);
+    }
   }
 
   private async handleClientMessage(
@@ -8541,7 +8572,10 @@ export class BridgeWebSocketServer {
     const queuedInputs = pendingResumes?.get(sourceSessionId) ?? [];
     pendingResumes?.delete(sourceSessionId);
     for (const input of queuedInputs) {
-      void this.handleClientMessage({ ...input, sessionId }, ws);
+      const message = { ...input, sessionId };
+      this.handleClientMessage(message, ws).catch((err: unknown) => {
+        this.reportClientMessageFailure(ws, message, err);
+      });
     }
   }
 
