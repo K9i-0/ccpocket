@@ -199,6 +199,11 @@ class MockMachineManagerService implements MachineManagerService {
   }
 
   @override
+  void markConnected(String host, int port) {
+    calls.add('markConnected:$host:$port');
+  }
+
+  @override
   Machine? findByHostPort(String host, int port) {
     for (final machine in _machines.values) {
       if (machine.host == host && machine.port == port) return machine;
@@ -445,6 +450,19 @@ void main() {
       await cubit.refreshAll();
 
       expect(cubit.state.error, contains('checkAllHealth failed'));
+    });
+  });
+
+  group('MachineManagerCubit - markConnected', () {
+    test('delegates to the service', () async {
+      final cubit = createCubit();
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockService.calls.clear();
+      cubit.markConnected('10.0.0.1', 8765);
+
+      expect(mockService.calls, ['markConnected:10.0.0.1:8765']);
     });
   });
 

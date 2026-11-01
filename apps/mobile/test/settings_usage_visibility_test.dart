@@ -273,6 +273,9 @@ class _StaticMachineManagerService implements MachineManagerService {
   List<MachineWithStatus> get machinesWithStatus => _statuses;
 
   @override
+  void markConnected(String host, int port) {}
+
+  @override
   Machine? findByHostPort(String host, int port) {
     for (final status in _statuses) {
       if (status.machine.host == host && status.machine.port == port) {

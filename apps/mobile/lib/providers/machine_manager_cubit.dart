@@ -569,6 +569,11 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
   Machine? findByHostPort(String host, int port) =>
       _service.findByHostPort(host, port);
 
+  /// Mark the saved machine for [host]:[port] online after a successful
+  /// Bridge WebSocket connection, clearing any stale health-check error.
+  void markConnected(String host, int port) =>
+      _service.markConnected(host, port);
+
   /// Get API key for a machine
   Future<String?> getApiKey(String machineId) => _service.getApiKey(machineId);
 
