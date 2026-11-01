@@ -41,7 +41,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   delivery:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.platform == 'ios' && 'macos-26' || 'ubuntu-latest' }}
     timeout-minutes: 60
     environment: store-review
     env:
@@ -67,6 +67,23 @@ jobs:
         uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d
         with:
           version: 6.3.0
+      - name: Install signing tools
+        if: inputs.platform == 'ios' && env.STORE_NEEDS_SIGNING == 'true'
+        run: pipx install codemagic-cli-tools==0.70.2
+      - name: Fetch existing signing resources
+        if: inputs.platform == 'ios' && env.STORE_NEEDS_SIGNING == 'true'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+        run: |
+          app-store-connect fetch-signing-files "$STORE_BUNDLE_ID" --type IOS_APP_STORE
+          keychain initialize
+          keychain add-certificates
+      - name: Export and verify signed IPA
+        if: inputs.platform == 'ios' && env.STORE_NEEDS_SIGNING == 'true'
+        run: python3 scripts/store-review/apps/export-ios.py
       - name: Upload IPA and verify Duo screenshots
         if: inputs.platform == 'ios'
         env:

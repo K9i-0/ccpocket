@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import zipfile
 
 
@@ -17,6 +18,7 @@ def main():
     parser.add_argument("root", type=Path)
     parser.add_argument("--platform", choices=("ios", "android"), required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--unsigned-archive", action="store_true")
     args = parser.parse_args()
     root = args.root.resolve()
     validated = json.loads(subprocess.check_output([
@@ -24,9 +26,21 @@ def main():
     ], cwd=root))['inputs']
     app = validated["app"]
     assert app in ("T2QR", "Bookmark-Safe")
+    assert not args.unsigned_archive or args.platform == "ios"
+    temporary = tempfile.TemporaryDirectory()
     if args.platform == "ios":
         artifact = root / "build/ios/ipa" / ("T2QR.ipa" if app == "T2QR" else "Bookmark Safe.ipa")
         files = {"app.ipa": artifact}
+        if args.unsigned_archive:
+            archive_root = root / "build/ios/archive/Runner.xcarchive"
+            artifact = Path(temporary.name) / "archive.zip"
+            assert (archive_root / "Info.plist").is_file()
+            with zipfile.ZipFile(artifact, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for path in sorted(archive_root.rglob("*")):
+                    assert not path.is_symlink(), "Archive symlinks need explicit handling"
+                    if path.is_file():
+                        archive.write(path, str(path.relative_to(archive_root.parent)))
+            files = {"archive.zip": artifact}
         suffix = "png" if app == "T2QR" else "jpg"
         for locale in ("en-US", "ja"):
             for display in ("inner", "cover"):

@@ -44,6 +44,16 @@ class DeliveryTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         delivery.extract(root/'delivery.zip', root/'out', self.env)
 
+    def test_archive_paths_cannot_escape_destination(self):
+        for name in ('../outside', '/absolute', 'Runner.xcarchive/../../outside', 'Other.app/Info.plist'):
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                with zipfile.ZipFile(root/'archive.zip', 'w') as archive:
+                    archive.writestr(name, 'unsafe')
+                with zipfile.ZipFile(root/'archive.zip') as archive, self.assertRaises(ValueError):
+                    delivery.unpack_archive(archive, root/'out')
+                self.assertFalse((root/'out').exists())
+
     def test_screenshots_require_exact_order_checksums_and_processing(self):
         with tempfile.TemporaryDirectory() as folder:
             files = [Path(folder)/f'cover-{i}.png' for i in (1, 2)]
@@ -53,6 +63,8 @@ class DeliveryTests(unittest.TestCase):
             self.assertTrue(ios.verify_screenshots(remote, files, complete=True))
             self.assertFalse(ios.verify_screenshots(remote[:1], files, complete=True))
             with self.assertRaises(ValueError): ios.verify_screenshots(remote[::-1], files)
+            remote[0]['attributes']['sourceFileChecksum'] = ''
+            self.assertTrue(ios.verify_screenshots(remote, files))
             remote[0]['attributes']['assetDeliveryState']['state'] = 'PROCESSING'
             self.assertFalse(ios.verify_screenshots(remote, files, complete=True))
 

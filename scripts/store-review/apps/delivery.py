@@ -21,7 +21,7 @@ def validate_manifest(manifest, env):
                           ("platform", "PLATFORM")]:
         if manifest.get(key) != env[variable]:
             raise ValueError(f"Payload {key} mismatch")
-    expected = {"app.ipa"} if env["PLATFORM"] == "ios" else {"app.aab"}
+    expected = ({"archive.zip"} if "archive.zip" in manifest.get("files", {}) else {"app.ipa"}) if env["PLATFORM"] == "ios" else {"app.aab"}
     if env["PLATFORM"] == "ios":
         suffix = "png" if env["TARGET_APP"] == "T2QR" else "jpg"
         for locale in ("en-US", "ja"):
@@ -54,14 +54,34 @@ def extract(archive, destination, env):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
     if env["PLATFORM"] == "ios":
-        with zipfile.ZipFile(destination / "app.ipa") as ipa:
-            plists = [n for n in ipa.namelist() if re.fullmatch(r"Payload/[^/]+\.app/Info.plist", n)]
+        is_archive = (destination / "archive.zip").exists()
+        with zipfile.ZipFile(destination / ("archive.zip" if is_archive else "app.ipa")) as ipa:
+            prefix = r"Runner\.xcarchive/Products/Applications" if is_archive else "Payload"
+            plists = [n for n in ipa.namelist() if re.fullmatch(prefix + r"/[^/]+\.app/Info.plist", n)]
             if len(plists) != 1:
                 raise ValueError("Expected one IPA application")
             info = plistlib.loads(ipa.read(plists[0]))
             if (info.get("CFBundleIdentifier"), info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != (APPS[env["TARGET_APP"]][0], env["VERSION"], env["BUILD_NUMBER"]):
                 raise ValueError("IPA identity mismatch")
+            if is_archive:
+                unpack_archive(ipa, destination)
     return manifest
+
+
+def unpack_archive(archive, destination):
+    names = archive.namelist()
+    if len(names) != len(set(names)) or sum(i.file_size for i in archive.infolist()) > 4 * 1024**3:
+        raise ValueError("Duplicate or oversized archive")
+    for info in archive.infolist():
+        path = Path(info.filename)
+        if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != "Runner.xcarchive" or (info.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError("Unsafe archive member")
+    archive.extractall(destination)
+    # zipfile does not retain executable permissions. No extracted binary is run.
+    for info in archive.infolist():
+        path = destination / info.filename
+        if path.is_file():
+            path.chmod((info.external_attr >> 16) & 0o777 or 0o644)
 
 
 def main():
@@ -93,6 +113,7 @@ def main():
     with open(env["GITHUB_ENV"], "a") as output:
         output.write(f"STORE_DELIVERY={destination}\nASC_BUNDLE_ID={APPS[env['TARGET_APP']][0]}\n")
         output.write(f"STORE_BUNDLE_ID={APPS[env['TARGET_APP']][0]}\nSTORE_RELEASE_TYPE={APPS[env['TARGET_APP']][1]}\n")
+        output.write(f"STORE_NEEDS_SIGNING={'true' if (destination / 'archive.zip').exists() else 'false'}\n")
 
 
 if __name__ == "__main__":
