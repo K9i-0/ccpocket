@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.149.0] - 2026-11-01
+
+### Added
+
+- Use either `/` or `$` to invoke skills with Claude and Codex. The composer completes skills for both triggers (configurable: both, always `/`, always `$`) and converts known skills to the session's native trigger on send, retry and queued-message edits (requires Bridge 1.94.0 for a new session's first prompt).
+- Keep Claude sessions shown as Working while background tasks run, name running subagents in the status row, and defer the completion notification until background work settles. The background bar can stop tasks between turns and now also appears in Codex sessions (requires Bridge 1.94.0).
+
+### Changed
+
+- Hide the Done chip for Claude results that are followed by another turn or while background tasks are still running.
+- Show background shells, monitors and Codex terminals as a compact icon count instead of a wide badge.
+
+### Fixed
+
+- Keep question answers, selections and the answered state in sync between the running session card and the chat screen on tablet and desktop layouts.
+- Scroll reliably to the support section in settings.
+
 ## [1.148.0] - 2026-10-31
 
 ### Added
