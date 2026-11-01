@@ -1124,6 +1124,10 @@ sealed class ServerMessage {
         workspaceKind: json['workspaceKind'] as String?,
         requestScope: json['requestScope'] as String?,
         requestId: json['requestId'] as String?,
+        pinnedSessions: (json['pinnedSessions'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(RecentSession.fromJson)
+            .toList(),
       ),
       'past_history' => PastHistoryMessage(
         claudeSessionId: json['claudeSessionId'] as String? ?? '',
@@ -2778,6 +2782,14 @@ class SessionListMessage implements ServerMessage {
   });
 }
 
+/// Provider-qualified identity of a recent (provider) session.
+typedef RecentSessionRef = ({String provider, String sessionId});
+
+RecentSessionRef recentSessionRefOf(RecentSession session) => (
+  provider: session.provider ?? Provider.claude.value,
+  sessionId: session.sessionId,
+);
+
 class RecentSessionsMessage implements ServerMessage {
   final List<RecentSession> sessions;
   final bool hasMore;
@@ -2788,6 +2800,11 @@ class RecentSessionsMessage implements ServerMessage {
   final String? workspaceKind;
   final String? requestScope;
   final String? requestId;
+
+  /// Requested pinned sessions matching the listing filters, independent of
+  /// pagination. Null when the Bridge does not support it or no pins were
+  /// requested.
+  final List<RecentSession>? pinnedSessions;
   const RecentSessionsMessage({
     required this.sessions,
     this.hasMore = false,
@@ -2798,6 +2815,7 @@ class RecentSessionsMessage implements ServerMessage {
     this.workspaceKind,
     this.requestScope,
     this.requestId,
+    this.pinnedSessions,
   });
 
   String? get projectFilterKey {
@@ -5267,6 +5285,7 @@ class ClientMessage {
     String? provider,
     bool? namedOnly,
     String? searchQuery,
+    List<RecentSessionRef>? pinnedSessions,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'list_recent_sessions',
@@ -5280,6 +5299,11 @@ class ClientMessage {
       'provider': ?provider,
       'namedOnly': ?namedOnly,
       'searchQuery': ?searchQuery,
+      if (pinnedSessions != null && pinnedSessions.isNotEmpty)
+        'pinnedSessions': [
+          for (final pin in pinnedSessions)
+            {'provider': pin.provider, 'sessionId': pin.sessionId},
+        ],
     });
   }
 

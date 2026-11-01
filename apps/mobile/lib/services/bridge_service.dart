@@ -138,7 +138,18 @@ class BridgeService implements BridgeServiceBase {
   final List<ClientMessage> _messageQueue = [];
   final List<ClientMessage> _flushingMessageQueue = [];
   List<SessionInfo> _sessions = [];
+
+  /// Sessions loaded through list pages and project-scoped merges. Pagination
+  /// offsets are based on this list only.
   List<RecentSession> _recentSessions = [];
+
+  /// Pinned sessions returned outside the loaded pages
+  /// (`recent_sessions.pinnedSessions`), kept until the next first page.
+  List<RecentSession> _pinnedRecentExtras = const [];
+
+  /// What subscribers see: loaded sessions plus pinned extras not among them.
+  List<RecentSession> _visibleRecentSessions = const [];
+  List<RecentSessionRef> _pinnedRecentSessionRefs = const [];
   RecentSessionsMessage? _lastRecentSessionsMessage;
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
@@ -482,7 +493,51 @@ class BridgeService implements BridgeServiceBase {
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
   List<SessionInfo> get sessions => _sessions;
-  List<RecentSession> get recentSessions => _recentSessions;
+  List<RecentSession> get recentSessions => _visibleRecentSessions;
+
+  /// Whether [session] is only visible because it is pinned (not part of the
+  /// loaded pages), so it must not count toward pagination offsets.
+  bool isPinnedRecentExtra(RecentSession session) {
+    if (_pinnedRecentExtras.isEmpty) return false;
+    final ref = recentSessionRefOf(session);
+    return _pinnedRecentExtras.any((s) => recentSessionRefOf(s) == ref) &&
+        !_recentSessions.any((s) => recentSessionRefOf(s) == ref);
+  }
+
+  /// Pinned provider sessions to request with first list pages so they stay
+  /// visible regardless of pagination. Unpinned extras are dropped locally.
+  void setPinnedRecentSessions(Iterable<RecentSessionRef> pins) {
+    final next = pins.toSet().toList()
+      ..sort(
+        (a, b) => a.provider == b.provider
+            ? a.sessionId.compareTo(b.sessionId)
+            : a.provider.compareTo(b.provider),
+      );
+    _pinnedRecentSessionRefs = List.unmodifiable(next);
+    if (_pinnedRecentExtras.isEmpty) return;
+    final pinned = next.toSet();
+    final kept = _pinnedRecentExtras
+        .where((session) => pinned.contains(recentSessionRefOf(session)))
+        .toList();
+    if (kept.length == _pinnedRecentExtras.length) return;
+    _pinnedRecentExtras = kept;
+    _publishRecentSessions();
+  }
+
+  void _publishRecentSessions() {
+    if (_pinnedRecentExtras.isEmpty) {
+      _visibleRecentSessions = _recentSessions;
+    } else {
+      final loaded = _recentSessions.map(recentSessionRefOf).toSet();
+      _visibleRecentSessions = [
+        ..._recentSessions,
+        for (final session in _pinnedRecentExtras)
+          if (loaded.add(recentSessionRefOf(session))) session,
+      ];
+    }
+    _recentSessionsController.add(_visibleRecentSessions);
+  }
+
   bool get recentSessionsHasMore => _recentSessionsHasMore;
   RecentSessionsMessage? get lastRecentSessionsMessage =>
       _lastRecentSessionsMessage;
@@ -877,10 +932,16 @@ class BridgeService implements BridgeServiceBase {
                     );
                   } else {
                     _recentSessions = sessions;
+                    final pinned = _pinnedRecentSessionRefs.toSet();
+                    _pinnedRecentExtras = [
+                      for (final session in msg.pinnedSessions ?? const [])
+                        if (pinned.contains(recentSessionRefOf(session)))
+                          session,
+                    ];
                   }
                   _appendMode = false;
                 }
-                _recentSessionsController.add(_recentSessions);
+                _publishRecentSessions();
               case PastHistoryMessage():
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -1509,6 +1570,7 @@ class BridgeService implements BridgeServiceBase {
     );
     _sessions = const [];
     _recentSessions = const [];
+    _pinnedRecentExtras = const [];
     _lastRecentSessionsMessage = null;
     _recentSessionsHasMore = false;
     _appendMode = false;
@@ -1553,7 +1615,7 @@ class BridgeService implements BridgeServiceBase {
     clearDiffImageCache();
 
     _publishSessionList();
-    _recentSessionsController.add(_recentSessions);
+    _publishRecentSessions();
     _galleryController.add(_galleryImages);
     _projectHistoryController.add(_projectHistory);
     _fileListController.add(const []);
@@ -3142,6 +3204,10 @@ class BridgeService implements BridgeServiceBase {
       requestScope: requestScope,
       projectPath: projectPath,
     );
+    // Pinned sessions are resolved by the Bridge for first list pages only.
+    final pinnedSessions = requestScope != 'project' && (offset ?? 0) == 0
+        ? _pinnedRecentSessionRefs
+        : const <RecentSessionRef>[];
     final queryKey = jsonEncode([
       limit,
       offset,
@@ -3150,6 +3216,7 @@ class BridgeService implements BridgeServiceBase {
       provider,
       namedOnly,
       searchQuery,
+      [for (final pin in pinnedSessions) '${pin.provider}:${pin.sessionId}'],
     ]);
     final existing = _pendingRecentSessionsRequests[scopeKey];
     if (existing?.queryKey == queryKey) return;
@@ -3177,6 +3244,7 @@ class BridgeService implements BridgeServiceBase {
         provider: provider,
         namedOnly: namedOnly,
         searchQuery: searchQuery,
+        pinnedSessions: pinnedSessions,
       ),
     );
   }

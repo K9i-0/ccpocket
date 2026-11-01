@@ -15,6 +15,18 @@ class MockBridgeService extends BridgeService {
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _messageController = StreamController<ServerMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
+  List<RecentSessionRef>? pushedPins;
+  Set<String> pinnedExtraIds = {};
+
+  @override
+  void setPinnedRecentSessions(Iterable<RecentSessionRef> pins) {
+    pushedPins = pins.toList();
+    super.setPinnedRecentSessions(pins);
+  }
+
+  @override
+  bool isPinnedRecentExtra(RecentSession session) =>
+      pinnedExtraIds.contains(session.sessionId);
 
   bool _hasMore = false;
   String? _projectFilter;
@@ -277,6 +289,90 @@ void main() {
       },
     );
 
+    test('pin toggles push provider session refs to the bridge', () async {
+      final claude = _session(id: 'claude-pin', projectPath: '/a/proj1');
+      final codex = RecentSession(
+        sessionId: 'codex-pin',
+        provider: 'codex',
+        firstPrompt: 'p',
+        created: '2025-01-01T00:00:00Z',
+        modified: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/a/proj2',
+        isSidechain: false,
+      );
+
+      await cubit.toggleRecentSessionPinned(claude);
+      await cubit.toggleRecentSessionPinned(codex);
+      expect(
+        mockBridge.pushedPins,
+        unorderedEquals([
+          (provider: 'claude', sessionId: 'claude-pin'),
+          (provider: 'codex', sessionId: 'codex-pin'),
+        ]),
+      );
+
+      await cubit.toggleRecentSessionPinned(claude);
+      expect(mockBridge.pushedPins, [
+        (provider: 'codex', sessionId: 'codex-pin'),
+      ]);
+    });
+
+    test(
+      'restored pins are pushed and re-request a page sent before restore',
+      () async {
+        final session = _session(id: 'restored-pin', projectPath: '/a/proj1');
+        await cubit.close();
+        mockBridge.dispose();
+        SharedPreferences.setMockInitialValues({
+          'session_list_pinned_session_keys_v1': [recentSessionPinKey(session)],
+        });
+        mockBridge = MockBridgeService();
+        cubit = SessionListCubit(bridge: mockBridge);
+
+        // Connect-time refresh can run before preferences finish loading.
+        cubit.refresh();
+        int listRequests() => mockBridge.sentMessages
+            .where((m) => m.type == 'list_recent_sessions')
+            .length;
+        expect(listRequests(), 1);
+        expect(mockBridge.pushedPins, isNull);
+
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockBridge.pushedPins, [
+          (provider: 'claude', sessionId: 'restored-pin'),
+        ]);
+        expect(listRequests(), 2);
+      },
+    );
+
+    test('restoring without pins does not re-request the list', () async {
+      cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(mockBridge.pushedPins, isEmpty);
+      expect(
+        mockBridge.sentMessages.where((m) => m.type == 'list_recent_sessions'),
+        hasLength(1),
+      );
+    });
+
+    test('pin key parsing extracts provider and session id', () {
+      expect(
+        recentSessionRefFromPinKey(
+          sessionPinKey(
+            provider: 'codex',
+            projectPath: '/a/proj',
+            sessionId: 'thread-1',
+          ),
+        ),
+        (provider: 'codex', sessionId: 'thread-1'),
+      );
+      expect(recentSessionRefFromPinKey('garbage'), isNull);
+      expect(recentSessionRefFromPinKey('gemini\n/a\nid'), isNull);
+    });
+
     test(
       'running session can only be pinned after provider ID resolves',
       () async {
@@ -496,6 +592,21 @@ void main() {
         expect(cubit.state.sessions.single.sessionId, 'one');
       },
     );
+
+    test('loadMoreProject offset ignores pinned extras', () async {
+      mockBridge.pinnedExtraIds = {'pinned-extra'};
+      mockBridge.emitSessions([
+        _session(id: 's1', projectPath: '/a/proj1'),
+        _session(id: 'pinned-extra', projectPath: '/a/proj1'),
+      ], hasMore: true);
+      await Future.microtask(() {});
+
+      cubit.loadMoreProject('/a/proj1');
+
+      final json = mockBridge.sentMessages.last.toJson();
+      expect(json, contains('"requestScope":"project"'));
+      expect(json, contains('"offset":1'));
+    });
 
     test(
       'loadMoreProject requests project-scoped page from current count',

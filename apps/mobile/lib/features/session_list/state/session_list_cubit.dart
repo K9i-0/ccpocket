@@ -36,6 +36,19 @@ String? runningSessionPinKey(SessionInfo session) {
   );
 }
 
+/// Parse the provider-qualified identity from a [sessionPinKey].
+RecentSessionRef? recentSessionRefFromPinKey(String key) {
+  final parts = key.split('\n');
+  if (parts.length < 3) return null;
+  final provider = parts.first;
+  final sessionId = parts.last;
+  if (sessionId.isEmpty ||
+      (provider != Provider.claude.value && provider != Provider.codex.value)) {
+    return null;
+  }
+  return (provider: provider, sessionId: sessionId);
+}
+
 List<T> prioritizePinned<T>(
   Iterable<T> items, {
   required bool Function(T item) isPinned,
@@ -69,6 +82,10 @@ class SessionListCubit extends Cubit<SessionListState> {
   StreamSubscription<ServerMessage>? _messageSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
+
+  /// Whether a first-page list request went out (possibly before the pinned
+  /// sessions were loaded from preferences).
+  bool _hasRequestedList = false;
 
   SessionListCubit({required BridgeService bridge})
     : _bridge = bridge,
@@ -110,6 +127,18 @@ class SessionListCubit extends Cubit<SessionListState> {
         pinnedSessionKeys: pinnedSessionKeys,
         pinnedProjectPaths: pinnedProjectPaths,
       ),
+    );
+    _pushPinnedSessionsToBridge();
+    // The first page may have been requested before preferences loaded; ask
+    // again so the Bridge can return the pinned sessions with it.
+    if (_hasRequestedList && pinnedSessionKeys.isNotEmpty) {
+      _requestWithCurrentFilters();
+    }
+  }
+
+  void _pushPinnedSessionsToBridge() {
+    _bridge.setPinnedRecentSessions(
+      state.pinnedSessionKeys.map(recentSessionRefFromPinKey).nonNulls,
     );
   }
 
@@ -201,6 +230,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// from offset 0 for the selected project.
   void selectProject(String? projectPath) {
     emit(state.copyWith(isInitialLoading: true));
+    _hasRequestedList = true;
     _bridge.switchFilter(
       projectPath: projectPath,
       provider: _providerToString(state.providerFilter),
@@ -273,8 +303,14 @@ class SessionListCubit extends Cubit<SessionListState> {
         state.loadingProjectPaths.contains(projectPath)) {
       return;
     }
+    // Pinned extras are not part of the loaded pages, so they must not shift
+    // the project-scoped offset.
     final loadedCount = state.sessions
-        .where((session) => session.workspaceGroupKey == projectPath)
+        .where(
+          (session) =>
+              session.workspaceGroupKey == projectPath &&
+              !_bridge.isPinnedRecentExtra(session),
+        )
         .length;
     final currentLimit =
         state.projectSessionDisplayLimits[projectPath] ??
@@ -344,6 +380,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedSessionKeys};
     if (!next.remove(key)) next.add(key);
     emit(state.copyWith(pinnedSessionKeys: next));
+    _pushPinnedSessionsToBridge();
     await _persistStringSet(_pinnedSessionKeysKey, next);
   }
 
@@ -407,6 +444,7 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   /// Send a re-fetch request with all current filters applied.
   void _requestWithCurrentFilters() {
+    _hasRequestedList = true;
     _bridge.switchFilter(
       projectPath: _bridge.currentProjectFilter,
       provider: _providerToString(state.providerFilter),
