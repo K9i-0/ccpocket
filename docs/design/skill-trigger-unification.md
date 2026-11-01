@@ -109,7 +109,7 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 
 - Claude の組み込みコマンドの判定: `sdk-process` は説明文を持つコマンドをすべて `skills` として返すため、`/compact` なども skill に分類される。`knownCommands` に入っていない新しい組み込みにも `$` 版ができる可能性がある。ただし送信時に `/` に戻るので、実際の害は小さい。
 - Claude で `$` の補完を有効にすると、`$` から始まる文字（金額、シェル変数）でも候補が出る可能性がある。一致する候補が無いときは出さない（今の `filtered.isNotEmpty` の判定）ことで抑える。
-- 送信したテキストをプロンプト履歴（`prompt-history-store`）に保存するときは、変換後の形になる。別のエージェントで呼び出し直しても、送信時にまた変換されるので問題ない。
+- アプリのプロンプト履歴（`PromptHistoryService.recordPrompt`）には、変換前の入力した形が残る（Codex で `/skill` と打てば `/skill`）。チャット履歴は変換後の形なので、両者で見た目が異なる。履歴から呼び出して別のエージェントで送っても、送信時にまた変換されるので動作上の問題はない。
 
 ## 今後の拡張（Phase 2 候補）
 
@@ -123,7 +123,7 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 - cubit テスト: `sendMessage` / `updateQueuedInput` / retry で、変換後のテキストと `skills` が `ClientMessage.input` に入ること。
 - Widget テスト: Claude セッションで `$` を打つと補完が開くこと、Codex で `/skill` を選んだときの挿入文字列が style どおりになること。
 - `dart analyze` / `dart format` / 上記テスト。
-- 前提の確認: Claude（Agent SDK）で `foo /skill` のように途中に置いた場合に発動しないこと、先頭に置いた場合は発動することを実機で確かめる。
+- 前提の確認（実施済み）: Claude（Agent SDK）で途中に置いた `/skill` は発動せず、先頭に置いた場合は発動することを実機で確かめた。
 - シミュレーターでの E2E（`mobile-automation`、テスト用 Bridge 8766）: Claude と Codex の両方で、`/` と `$` の両方からスキルを呼び出して実際に発動するか確認し、設定を切り替えたときの挿入記号も確認する。
 
 ## 実装メモ
@@ -132,6 +132,9 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 - 設定: `SkillTriggerStyle`（`settings_skill_trigger_style`）。Claude の `$` ボタンは「常に `$`」のときだけ表示し、`$` 補完は「常に `/`」以外で有効。Codex の `$` 補完は app があるため常に有効。
 - 名前の前後にある日本語などの非 ASCII 文字は区切りとして扱う（`これを/review-prして` も変換する）。
 - `$skill.` のように末尾に記号が付いた場合も、Codex の構造化スキル入力に入るようにした。
+- §3 の案と異なり、Claude の `$` 版は `_buildCommandList` ではなく入力欄ウィジェット側（`_dollarAlias`）で作る。cubit 側の変換は `/` のスキル一覧から判定する。
+- 境界判定の共通化（§1）は未達。補完・ハイライトは `:` を区切りとして扱い、変換は扱わないため、`foo:/skill` のような入力ではハイライトと変換がずれる。
+- retry では Codex の `skills[]` と app / plugin の `mentions[]` を付け直すが、プロジェクトファイルの `@` メンションは retry 時に候補パスが無いため付かない（従来どおり）。
 
 ## 検証結果（iPhone 18 Pro シミュレーター + テスト用 Bridge 8766）
 
