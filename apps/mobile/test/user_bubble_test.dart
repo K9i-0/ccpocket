@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {ThemeData? theme}) {
   return MaterialApp(
-    theme: AppTheme.darkTheme,
+    theme: theme ?? AppTheme.darkTheme,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
@@ -16,7 +16,50 @@ Widget _wrap(Widget child) {
   );
 }
 
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (la > lb ? la + 0.05 : lb + 0.05) / (la > lb ? lb + 0.05 : la + 0.05);
+}
+
 void main() {
+  group('UserBubble selection highlight', () {
+    for (final (name, theme) in [
+      ('light', AppTheme.lightTheme),
+      ('dark', AppTheme.darkTheme),
+    ]) {
+      testWidgets('is distinguishable from the bubble in $name theme', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _wrap(const UserBubble(text: 'Highlight me'), theme: theme),
+        );
+
+        final appColors = theme.extension<AppColors>()!;
+        final richText = tester.widget<RichText>(
+          find.descendant(
+            of: find.byType(SelectionArea),
+            matching: find.byType(RichText),
+          ),
+        );
+        final selectionColor = richText.selectionColor;
+        expect(selectionColor, isNotNull);
+
+        final highlighted = Color.alphaBlend(
+          selectionColor!,
+          appColors.userBubble,
+        );
+        // The highlight used to match the bubble (contrast 1.0).
+        expect(_contrast(highlighted, appColors.userBubble), greaterThan(1.4));
+        // Selected text stays readable on top of the highlight.
+        expect(
+          _contrast(appColors.userBubbleText, highlighted),
+          greaterThan(4.5),
+        );
+      });
+    }
+  });
+
   group('UserBubble text selection and actions', () {
     testWidgets('renders standard and command messages as selectable text', (
       tester,
