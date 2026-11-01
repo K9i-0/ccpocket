@@ -235,12 +235,23 @@ class SessionListScreen extends StatefulWidget {
   final bool embedded;
   final ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession;
 
+  /// Whether another pane fully covers this list (compact workspace with a
+  /// chat or tool pane in front).
+  ///
+  /// While obscured, data changes do not rebuild the list content: the
+  /// previously built subtree is reused as-is, and the first build after the
+  /// list becomes visible again picks up the current state. Listeners and
+  /// subscriptions (unseen tracking, connection handling, bridge messages)
+  /// keep running regardless.
+  final bool obscured;
+
   const SessionListScreen({
     super.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
     this.embedded = false,
     this.onSelectWorkspaceSession,
+    this.obscured = false,
   });
 
   @override
@@ -287,6 +298,11 @@ class _SessionListScreenState extends State<SessionListScreen>
   // Unseen session tracking
   final _unseenCubit = UnseenSessionsCubit();
   StreamSubscription<List<SessionInfo>>? _activeSessionsSub;
+
+  // Last built list content, reused while [SessionListScreen.obscured] so
+  // data changes behind a covering chat do not rebuild the whole list.
+  Widget? _lastVisibleBody;
+  Widget? _lastVisibleHomeContent;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyMacOSNativeAppBannerDismissed =
@@ -1795,7 +1811,8 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Read state from cubits
+    // Read state from cubits. The dependencies are kept registered even when
+    // the cached body is served below, so the list rebuilds once it is shown.
     final slState = context.watch<SessionListCubit>().state;
     final connectionState = widget.debugRecentSessions != null
         ? BridgeConnectionState.connected
@@ -1840,45 +1857,56 @@ class _SessionListScreenState extends State<SessionListScreen>
                   _markConnectedMachineOnline();
                 }
               },
-              child: CallbackShortcuts(
-                bindings: <ShortcutActivator, VoidCallback>{
-                  // Cmd+N: New Session
-                  const SingleActivator(
-                    LogicalKeyboardKey.keyN,
-                    meta: true,
-                  ): () {
-                    if (showConnectedUI) _showNewSessionDialog();
+              child: _buildVisibleBody(
+                () => CallbackShortcuts(
+                  bindings: <ShortcutActivator, VoidCallback>{
+                    // Cmd+N: New Session
+                    const SingleActivator(
+                      LogicalKeyboardKey.keyN,
+                      meta: true,
+                    ): () {
+                      if (showConnectedUI) _showNewSessionDialog();
+                    },
+                    // Cmd+K: Focus search
+                    const SingleActivator(
+                      LogicalKeyboardKey.keyK,
+                      meta: true,
+                    ): () {
+                      _homeContentKey.currentState?.openSearch();
+                    },
                   },
-                  // Cmd+K: Focus search
-                  const SingleActivator(
-                    LogicalKeyboardKey.keyK,
-                    meta: true,
-                  ): () {
-                    _homeContentKey.currentState?.openSearch();
-                  },
-                },
-                child: Focus(
-                  autofocus: true,
-                  child: _buildScaffoldBody(
-                    context: context,
-                    l: l,
-                    showConnectedUI: showConnectedUI,
-                    connectionState: connectionState,
-                    sessions: sessions,
-                    recentSessionsList: recentSessionsList,
-                    workspaceProjects: workspaceProjects,
-                    slState: slState,
-                    unseenSessionIds: unseenSessionIds,
-                    discoveredServers: discoveredServers,
-                    machineState: machineState,
-                    machineManagerCubit: machineManagerCubit,
-                    connectedBridgeLabel: connectedBridgeLabel,
+                  child: Focus(
+                    autofocus: true,
+                    child: _buildScaffoldBody(
+                      context: context,
+                      l: l,
+                      showConnectedUI: showConnectedUI,
+                      connectionState: connectionState,
+                      sessions: sessions,
+                      recentSessionsList: recentSessionsList,
+                      workspaceProjects: workspaceProjects,
+                      slState: slState,
+                      unseenSessionIds: unseenSessionIds,
+                      discoveredServers: discoveredServers,
+                      machineState: machineState,
+                      machineManagerCubit: machineManagerCubit,
+                      connectedBridgeLabel: connectedBridgeLabel,
+                    ),
                   ),
                 ),
               ),
             ),
       ),
     );
+  }
+
+  /// Returns the previously built list body while the list is obscured, so
+  /// its subtree is not rebuilt on data changes. Builds (and caches) a fresh
+  /// body whenever the list is visible.
+  Widget _buildVisibleBody(Widget Function() build) {
+    final cached = _lastVisibleBody;
+    if (widget.obscured && cached != null) return cached;
+    return _lastVisibleBody = build();
   }
 
   Widget _buildScaffoldBody({
@@ -2030,9 +2058,11 @@ class _SessionListScreenState extends State<SessionListScreen>
         stream: bridge.offlinePendingActionsStream,
         initialData: bridge.offlinePendingActions,
         builder: (context, snapshot) {
+          final cachedHome = _lastVisibleHomeContent;
+          if (widget.obscured && cachedHome != null) return cachedHome;
           final offlinePendingActions =
               snapshot.data ?? const <OfflinePendingAction>[];
-          return RefreshIndicator(
+          return _lastVisibleHomeContent = RefreshIndicator(
             onRefresh: () async => _refresh(),
             child: HomeContent(
               key: _homeContentKey,

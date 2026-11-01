@@ -6,6 +6,7 @@ import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/features/session_list/session_list_screen.dart';
+import 'package:ccpocket/features/session_list/widgets/home_content.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -17,6 +18,7 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/providers/server_discovery_cubit.dart';
+import 'package:ccpocket/providers/unseen_sessions_cubit.dart';
 import 'package:ccpocket/services/app_icon_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
@@ -57,6 +59,7 @@ class _MockBridgeService extends BridgeService {
   final String? _lastUrl;
   final sentMessages = <ClientMessage>[];
   bool disconnectCalled = false;
+  int sessionListRequests = 0;
 
   _MockBridgeService({
     BridgeConnectionState initialState = BridgeConnectionState.connected,
@@ -142,7 +145,9 @@ class _MockBridgeService extends BridgeService {
   }
 
   @override
-  void requestSessionList() {}
+  void requestSessionList() {
+    sessionListRequests++;
+  }
 
   @override
   void requestProjectHistory() {}
@@ -243,6 +248,7 @@ class _StaticMachineManagerService implements MachineManagerService {
   final _controller = StreamController<List<MachineWithStatus>>.broadcast();
   List<MachineWithStatus> statuses;
   final String? sshPassword;
+  final markedConnected = <String>[];
 
   _StaticMachineManagerService({this.statuses = const [], this.sshPassword});
 
@@ -373,7 +379,9 @@ class _StaticMachineManagerService implements MachineManagerService {
   }) => Machine(id: 'new', host: host, port: port, name: name, useSsl: useSsl);
 
   @override
-  void markConnected(String host, int port) {}
+  void markConnected(String host, int port) {
+    markedConnected.add('$host:$port');
+  }
 
   @override
   Machine? findByHostPort(String host, int port) {
@@ -2891,5 +2899,132 @@ void main() {
     }
     await tester.tap(find.byKey(const ValueKey('guide_done_button')));
     await expectOfflineRoot();
+  });
+
+  group('compact list pane covered by a chat', () {
+    Future<
+      ({
+        _MockBridgeService bridge,
+        GlobalKey<WorkspaceShellScreenState> shellKey,
+        _StaticMachineManagerService machines,
+      })
+    >
+    pumpShell(WidgetTester tester, Size size) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService(lastUrl: 'ws://192.168.1.20:8765');
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final machines = _StaticMachineManagerService();
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+          machineManagerCubit: MachineManagerCubit(machines, null),
+        ),
+      );
+      await _pumpUi(tester);
+      return (bridge: bridge, shellKey: shellKey, machines: machines);
+    }
+
+    const selection = WorkspaceSessionSelection(
+      sessionId: 'covering-chat',
+      projectPath: '/Users/demo/project-covering-chat',
+      provider: Provider.codex,
+      isPending: true,
+    );
+
+    testWidgets(
+      'skips list rebuilds while covered and shows current data after back',
+      (tester) async {
+        final (:bridge, :shellKey, :machines) = await pumpShell(
+          tester,
+          const Size(390, 844),
+        );
+        shellKey.currentState!.selectSession(selection);
+        await _pumpUi(tester);
+
+        final homeFinder = find.byType(HomeContent);
+        final homeBefore = tester.widget<HomeContent>(homeFinder);
+        final homeElement = tester.element(homeFinder);
+        expect(find.byType(RunningSessionCard), findsNothing);
+
+        bridge.emitSessions([_runningSession(id: 'background')]);
+        await _pumpUi(tester);
+
+        // The covered list was not rebuilt: same HomeContent instance and no
+        // card for the new running session yet.
+        expect(
+          identical(tester.widget<HomeContent>(homeFinder), homeBefore),
+          isTrue,
+        );
+        expect(find.byType(RunningSessionCard), findsNothing);
+        // Unseen tracking still follows active sessions while covered.
+        expect(
+          homeElement.read<UnseenSessionsCubit>().state,
+          contains('background'),
+        );
+
+        // The connection listener still runs while covered.
+        final requestsBefore = bridge.sessionListRequests;
+        bridge.emitConnection(BridgeConnectionState.reconnecting);
+        await _pumpUi(tester);
+        bridge.emitConnection(BridgeConnectionState.connected);
+        await _pumpUi(tester);
+        expect(bridge.sessionListRequests, greaterThan(requestsBefore));
+        expect(machines.markedConnected, contains('192.168.1.20:8765'));
+        expect(
+          identical(tester.widget<HomeContent>(homeFinder), homeBefore),
+          isTrue,
+        );
+
+        await tester.binding.handlePopRoute();
+        await tester.pump(const Duration(milliseconds: 400));
+        await _pumpUi(tester);
+
+        expect(shellKey.currentState!.selectedSession, isNull);
+        expect(find.byType(RunningSessionCard), findsOneWidget);
+        expect(
+          tester
+              .widget<RunningSessionCard>(find.byType(RunningSessionCard))
+              .isUnseen,
+          isTrue,
+        );
+        // Same element: the list was updated in place, not remounted, so
+        // scroll offset and HomeContent state survive.
+        expect(identical(tester.element(homeFinder), homeElement), isTrue);
+
+        // Updates keep flowing normally once visible again.
+        bridge.emitSessions([
+          _runningSession(id: 'background'),
+          _runningSession(id: 'second'),
+        ]);
+        await _pumpUi(tester);
+        expect(find.byType(RunningSessionCard), findsNWidgets(2));
+      },
+    );
+
+    testWidgets('wide layout keeps updating the list while a chat is open', (
+      tester,
+    ) async {
+      final (:bridge, :shellKey, machines: _) = await pumpShell(
+        tester,
+        const Size(1400, 900),
+      );
+      shellKey.currentState!.selectSession(selection);
+      await _pumpUi(tester);
+
+      bridge.emitSessions([_runningSession(id: 'background')]);
+      await _pumpUi(tester);
+
+      expect(find.byType(RunningSessionCard), findsOneWidget);
+    });
   });
 }

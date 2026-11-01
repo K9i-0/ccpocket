@@ -652,6 +652,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
               _selectedSession != null ||
               _centerOverlay != WorkspaceCenterOverlay.none;
           final showRightPane = _toolPane != null;
+          // On compact layouts the list stays mounted underneath a covering
+          // chat/tool pane so its state survives; it must not rebuild there.
+          final listObscured = compact && (hasCenter || showRightPane);
           final centerActive =
               !compact ||
               (hasCenter && (!showRightPane || _state.centerInFront));
@@ -815,21 +818,27 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                   left: 0,
                   width: leftWidth,
                   child: IgnorePointer(
-                    ignoring: compact && (hasCenter || showRightPane),
+                    ignoring: listObscured,
                     child: ExcludeFocus(
-                      excluding: compact && (hasCenter || showRightPane),
+                      excluding: listObscured,
                       child: ExcludeSemantics(
-                        excluding: compact && (hasCenter || showRightPane),
-                        child: ColoredBox(
-                          color: Theme.of(context).colorScheme.surface,
-                          child: MediaQuery.removePadding(
-                            context: context,
-                            removeRight: !compact,
-                            child: SessionListScreen(
-                              deepLinkNotifier: widget.deepLinkNotifier,
-                              debugRecentSessions: widget.debugRecentSessions,
-                              embedded: !compact,
-                              onSelectWorkspaceSession: selectSession,
+                        excluding: listObscured,
+                        // Pause status-dot animations behind a covering pane,
+                        // like Navigator does for covered routes.
+                        child: TickerMode(
+                          enabled: !listObscured,
+                          child: ColoredBox(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: MediaQuery.removePadding(
+                              context: context,
+                              removeRight: !compact,
+                              child: SessionListScreen(
+                                deepLinkNotifier: widget.deepLinkNotifier,
+                                debugRecentSessions: widget.debugRecentSessions,
+                                embedded: !compact,
+                                onSelectWorkspaceSession: selectSession,
+                                obscured: listObscured,
+                              ),
                             ),
                           ),
                         ),
