@@ -99,12 +99,27 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final isCodexSession = session.provider == Provider.codex.value;
     final visualStatus = sessionVisualStatusFor(
       rawStatus: session.status,
       permissionMode: session.effectivePermissionMode,
       planMode: session.resolvedPlanMode,
       pendingPermission: session.pendingPermission,
+      backgroundWorking: !isCodexSession && session.backgroundTaskCount > 0,
     );
+    // Agents explain why a session is working; shells, monitors and Codex
+    // work left behind by a turn only get a quiet count.
+    final statusDetail =
+        visualStatus.detail ??
+        (visualStatus.primary == SessionPrimaryStatus.working &&
+                !isCodexSession &&
+                session.backgroundAgentCount > 0
+            ? AppLocalizations.of(context)
+                  .sessionCardBackgroundAgents(session.backgroundAgentCount)
+            : null);
+    final backgroundBadgeCount = isCodexSession
+        ? session.backgroundTaskCount
+        : session.backgroundTaskCount - session.backgroundAgentCount;
     final isReadyUnseen =
         visualStatus.primary == SessionPrimaryStatus.ready && widget.isUnseen;
     final statusColor = switch (visualStatus.primary) {
@@ -119,7 +134,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final permission = session.pendingPermission;
     final hasPermission = permission != null;
     final queuedInput = session.queuedInput;
-    final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
         hasPermission && permission.toolName == 'ExitPlanMode';
     final isToolSuggestion = hasPermission && permission.isToolSuggestion;
@@ -199,11 +213,11 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             color: statusColor,
                           ),
                         ),
-                        if (visualStatus.detail != null) ...[
+                        if (statusDetail != null) ...[
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              visualStatus.detail!,
+                              statusDetail,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: statusColor.withValues(alpha: 0.82),
@@ -223,9 +237,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     pinTooltip: AppLocalizations.of(context).pin,
                     unpinTooltip: AppLocalizations.of(context).unpin,
                   ),
-                  if (session.backgroundTaskCount > 0) ...[
+                  if (backgroundBadgeCount > 0) ...[
                     const SizedBox(width: 4),
-                    _BackgroundTasksBadge(count: session.backgroundTaskCount),
+                    _BackgroundTasksBadge(count: backgroundBadgeCount),
                   ],
                   if (queuedInput != null) ...[
                     const SizedBox(width: 4),
@@ -547,6 +561,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
   }
 }
 
+/// Quiet count of background shells, monitors and terminals. Kept small so
+/// it does not compete with the status label.
 class _BackgroundTasksBadge extends StatelessWidget {
   final int count;
 
@@ -555,37 +571,30 @@ class _BackgroundTasksBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    final label = l.sessionCardBackgroundTasks(count);
+    final label = AppLocalizations.of(context)
+        .sessionCardBackgroundTasks(count);
+    final color = colorScheme.onSurfaceVariant;
     return Semantics(
       label: label,
+      excludeSemantics: true,
       child: Tooltip(
-        message: l.backgroundTasksRunning,
-        child: Container(
+        message: label,
+        child: Padding(
           key: const ValueKey('session_card_background_badge'),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            color: colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: colorScheme.tertiary.withValues(alpha: 0.32),
-              width: 0.6,
-            ),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.sync, size: 12, color: colorScheme.tertiary),
-              const SizedBox(width: 4),
+              Icon(Icons.layers_outlined, size: 13, color: color),
+              const SizedBox(width: 2),
               Text(
-                label,
+                '$count',
                 style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onTertiaryContainer,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

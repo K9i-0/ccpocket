@@ -3410,4 +3410,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get liteModeBackground => '백그라운드 실행 중';
+
+  @override
+  String sessionCardBackgroundAgents(int count) {
+    return '서브에이전트 $count';
+  }
+
+  @override
+  String get backgroundTasksStop => '백그라운드 작업 중지';
 }

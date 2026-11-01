@@ -1467,5 +1467,14 @@
   "backgroundTasksRunning": "正在后台运行",
   "backgroundTasksMore": "另有{count}项",
   "sessionCardBackgroundTasks": "后台 {count}",
-  "liteModeBackground": "后台运行中"
+  "liteModeBackground": "后台运行中",
+  "sessionCardBackgroundAgents": "子代理 {count}",
+  "@sessionCardBackgroundAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backgroundTasksStop": "停止后台任务"
 }

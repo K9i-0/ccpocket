@@ -981,7 +981,7 @@ class BridgeService implements BridgeServiceBase {
                 if (accepted != null) _messageController.add(accepted);
               case BackgroundTasksMessage(:final tasks):
                 if (sessionId != null) {
-                  _patchSessionBackgroundTaskCount(sessionId, tasks.length);
+                  _patchSessionBackgroundTaskCount(sessionId, tasks);
                 }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -4593,11 +4593,24 @@ class BridgeService implements BridgeServiceBase {
     _publishSessionList();
   }
 
-  void _patchSessionBackgroundTaskCount(String sessionId, int count) {
+  void _patchSessionBackgroundTaskCount(
+    String sessionId,
+    List<BackgroundTaskInfo> tasks,
+  ) {
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
-    if (idx < 0 || _sessions[idx].backgroundTaskCount == count) return;
+    if (idx < 0) return;
+    final count = tasks.length;
+    final agentCount = tasks.where((task) => task.isAgent).length;
+    final current = _sessions[idx];
+    if (current.backgroundTaskCount == count &&
+        current.backgroundAgentCount == agentCount) {
+      return;
+    }
     _sessions = List.of(_sessions)
-      ..[idx] = _sessions[idx].copyWith(backgroundTaskCount: count);
+      ..[idx] = current.copyWith(
+        backgroundTaskCount: count,
+        backgroundAgentCount: agentCount,
+      );
     _publishSessionList();
   }
 

@@ -6358,6 +6358,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'バックグラウンド実行中'**
   String get liteModeBackground;
+
+  /// No description provided for @sessionCardBackgroundAgents.
+  ///
+  /// In ja, this message translates to:
+  /// **'サブエージェント {count}'**
+  String sessionCardBackgroundAgents(int count);
+
+  /// No description provided for @backgroundTasksStop.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックグラウンドタスクを停止'**
+  String get backgroundTasksStop;
 }
 
 class _AppLocalizationsDelegate

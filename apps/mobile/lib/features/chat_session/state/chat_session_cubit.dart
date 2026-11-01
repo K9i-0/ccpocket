@@ -12,6 +12,7 @@ import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
 import '../permission_transcript.dart';
 import '../question_answer_transcript.dart';
+import 'background_completion_gate.dart';
 import 'chat_session_state.dart';
 import 'streaming_state_cubit.dart';
 
@@ -38,6 +39,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   SessionInfo? _latestSessionContext;
   bool _pastHistoryLoaded = false;
   Timer? _statusRefreshTimer;
+  late final BackgroundCompletionGate _completionGate =
+      BackgroundCompletionGate(
+        isSettled: () =>
+            state.status == ProcessStatus.idle && state.backgroundTasks.isEmpty,
+        onRelease: () {
+          if (!isClosed) {
+            _sideEffectsController.add({ChatSideEffect.notifySessionComplete});
+          }
+        },
+      );
   final Map<String, Timer> _deliveryPendingTimers = {};
   final Map<String, QueuedInputItem> _deliveryPendingInputs = {};
 
@@ -1135,9 +1146,32 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     // --- Fire side effects ---
-    if (update.sideEffects.isNotEmpty) {
-      _sideEffectsController.add(update.sideEffects);
+    final sideEffects = _deferCompletionWhileBackgroundRuns(
+      update.sideEffects,
+      originalMsg,
+    );
+    if (sideEffects.isNotEmpty) {
+      _sideEffectsController.add(sideEffects);
     }
+    _completionGate.update();
+  }
+
+  /// A Claude result while background tasks are live is not the end of the
+  /// session: Claude starts a follow-up turn when they report back.
+  Set<ChatSideEffect> _deferCompletionWhileBackgroundRuns(
+    Set<ChatSideEffect> effects,
+    ServerMessage msg,
+  ) {
+    if (!effects.contains(ChatSideEffect.notifySessionComplete)) return effects;
+    if (isCodex || msg is! ResultMessage || msg.subtype != 'success') {
+      _completionGate.discard();
+      return effects;
+    }
+    final held = _completionGate.hold(
+      hasBackgroundWork: state.backgroundTasks.isNotEmpty,
+    );
+    if (!held) return effects;
+    return {...effects}..remove(ChatSideEffect.notifySessionComplete);
   }
 
   bool _isAnsweredToolResult(ChatEntry entry) => switch (entry) {
@@ -2869,6 +2903,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   @override
   Future<void> close() {
     _statusRefreshTimer?.cancel();
+    _completionGate.dispose();
     for (final timer in _deliveryPendingTimers.values) {
       timer.cancel();
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ccpocket/features/chat_session/state/background_completion_gate.dart';
 import 'package:ccpocket/features/chat_session/widgets/background_tasks_bar.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -91,5 +92,112 @@ void main() {
 
     expect(find.text('Running in background'), findsOneWidget);
     expect(find.text('Wait for CI · +1 more'), findsOneWidget);
+  });
+
+  test('session list carries the background agent count', () {
+    final session = SessionInfo.fromJson({
+      'id': 's1',
+      'projectPath': '/tmp/p',
+      'backgroundTaskCount': 3,
+      'backgroundAgentCount': 1,
+    });
+    expect(session.backgroundAgentCount, 1);
+    expect(
+      const BackgroundTaskInfo(taskId: 'a', taskType: 'local_agent').isAgent,
+      isTrue,
+    );
+    expect(
+      const BackgroundTaskInfo(taskId: 'c', taskType: 'codex_agent').isAgent,
+      isTrue,
+    );
+    expect(
+      const BackgroundTaskInfo(taskId: 'm', taskType: 'monitor').isAgent,
+      isFalse,
+    );
+  });
+
+  testWidgets('bar offers a stop button only when given one', (tester) async {
+    var stopped = 0;
+    Future<void> pump(VoidCallback? onStop) => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: BackgroundTasksBar(
+            tasks: const [
+              BackgroundTaskInfo(taskId: 'a1', taskType: 'local_agent'),
+            ],
+            onStop: onStop,
+          ),
+        ),
+      ),
+    );
+
+    await pump(null);
+    expect(
+      find.byKey(const ValueKey('background_tasks_stop_button')),
+      findsNothing,
+    );
+
+    await pump(() => stopped++);
+    await tester.tap(
+      find.byKey(const ValueKey('background_tasks_stop_button')),
+    );
+    expect(stopped, 1);
+  });
+
+  group('BackgroundCompletionGate', () {
+    late bool settled;
+    late int released;
+    late BackgroundCompletionGate gate;
+
+    void setUpGate() {
+      settled = false;
+      released = 0;
+      gate = BackgroundCompletionGate(
+        isSettled: () => settled,
+        onRelease: () => released++,
+      );
+    }
+
+    testWidgets('notifies directly without background work', (tester) async {
+      setUpGate();
+      expect(gate.hold(hasBackgroundWork: false), isFalse);
+      expect(gate.isHolding, isFalse);
+    });
+
+    testWidgets('releases once the session stays settled', (tester) async {
+      setUpGate();
+      expect(gate.hold(hasBackgroundWork: true), isTrue);
+      settled = true;
+      gate.update();
+      await tester.pump(const Duration(milliseconds: 1999));
+      expect(released, 0);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(released, 1);
+      expect(gate.isHolding, isFalse);
+    });
+
+    testWidgets('keeps holding when work resumes before settling', (
+      tester,
+    ) async {
+      setUpGate();
+      gate.hold(hasBackgroundWork: true);
+      settled = true;
+      gate.update();
+      await tester.pump(const Duration(milliseconds: 500));
+      settled = false;
+      gate.update();
+      await tester.pump(const Duration(seconds: 5));
+      expect(released, 0);
+      expect(gate.isHolding, isTrue);
+
+      // A follow-up turn finished with nothing left in the background.
+      expect(gate.hold(hasBackgroundWork: false), isFalse);
+      expect(gate.isHolding, isFalse);
+      gate.dispose();
+    });
   });
 }

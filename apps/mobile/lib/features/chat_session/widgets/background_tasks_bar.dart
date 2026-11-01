@@ -5,9 +5,9 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../state/chat_session_cubit.dart';
 
-/// Shows live background tasks (shells, monitors, subagents) of the current
-/// session. A Claude turn can finish while these keep running, so the session
-/// is not done even when its status is idle.
+/// Shows live background tasks of the current session: Claude shells,
+/// monitors and subagents, or Codex terminals and child agents. A turn can
+/// finish while these keep running.
 class SessionBackgroundTasksBar extends StatelessWidget {
   const SessionBackgroundTasksBar({super.key});
 
@@ -17,14 +17,23 @@ class SessionBackgroundTasksBar extends StatelessWidget {
       (cubit) => cubit.state.backgroundTasks,
     );
     if (tasks.isEmpty) return const SizedBox.shrink();
-    return BackgroundTasksBar(tasks: tasks);
+    // Between Claude turns, interrupting stops the background tasks. While a
+    // turn runs, the input bar's stop button interrupts the turn instead.
+    final canStop = context.select<ChatSessionCubit, bool>(
+      (cubit) => !cubit.isCodex && cubit.state.status == ProcessStatus.idle,
+    );
+    return BackgroundTasksBar(
+      tasks: tasks,
+      onStop: canStop ? context.read<ChatSessionCubit>().interrupt : null,
+    );
   }
 }
 
 class BackgroundTasksBar extends StatelessWidget {
-  const BackgroundTasksBar({super.key, required this.tasks});
+  const BackgroundTasksBar({super.key, required this.tasks, this.onStop});
 
   final List<BackgroundTaskInfo> tasks;
+  final VoidCallback? onStop;
 
   static String taskLabel(BackgroundTaskInfo task) {
     final description = task.description?.trim();
@@ -78,6 +87,21 @@ class BackgroundTasksBar extends StatelessWidget {
                   style: textTheme.bodySmall?.copyWith(color: cs.onSurface),
                 ),
               ),
+              if (onStop != null)
+                IconButton(
+                  key: const ValueKey('background_tasks_stop_button'),
+                  tooltip: l.backgroundTasksStop,
+                  onPressed: onStop,
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  iconSize: 20,
+                  color: cs.error,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
             ],
           ),
         ),

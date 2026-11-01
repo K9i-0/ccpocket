@@ -1326,5 +1326,14 @@
   "backgroundTasksRunning": "백그라운드에서 실행 중",
   "backgroundTasksMore": "외 {count}개",
   "sessionCardBackgroundTasks": "백그라운드 {count}",
-  "liteModeBackground": "백그라운드 실행 중"
+  "liteModeBackground": "백그라운드 실행 중",
+  "sessionCardBackgroundAgents": "서브에이전트 {count}",
+  "@sessionCardBackgroundAgents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "backgroundTasksStop": "백그라운드 작업 중지"
 }
