@@ -1,6 +1,6 @@
 # スキル呼び出し記号（`/` と `$`）の統一
 
-ステータス: 設計（未実装） / 2026-11-01
+ステータス: 実装済み（Phase 1） / 2026-11-01
 
 ## 背景と課題
 
@@ -8,7 +8,7 @@ Claude と Codex でスキルの呼び出し記号が違うため、両方を使
 
 | | Claude (Agent SDK) | Codex (app-server) |
 |---|---|---|
-| スキル呼び出し | `/name`（**メッセージ先頭のみ**コマンドとして実行 ※未検証の前提。E2E で確認する） | `$name`（任意の位置・複数可） |
+| スキル呼び出し | `/name`（**メッセージ先頭のみ**コマンドとして実行。途中の `/name` はただの文字列になることを実機で確認済み） | `$name`（任意の位置・複数可） |
 | 構造化入力 | なし（本文テキストのみ） | `{type:"skill", name, path}` を本文の前に置く（Bridge `toRpcInput`） |
 | 反対側の記号 | `$name` はただの文字列 | `/name` はスキルとして解釈しない（ただの文字列） |
 
@@ -125,3 +125,16 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 - `dart analyze` / `dart format` / 上記テスト。
 - 前提の確認: Claude（Agent SDK）で `foo /skill` のように途中に置いた場合に発動しないこと、先頭に置いた場合は発動することを実機で確かめる。
 - シミュレーターでの E2E（`mobile-automation`、テスト用 Bridge 8766）: Claude と Codex の両方で、`/` と `$` の両方からスキルを呼び出して実際に発動するか確認し、設定を切り替えたときの挿入記号も確認する。
+
+## 実装メモ
+
+- 変換: `lib/utils/skill_invocation.dart`（`convertSkillTriggers` / `SkillTriggerCatalog`）。`ChatSessionCubit.toNativeSkillTriggers` から `sendMessage` と `updateQueuedInput` で呼ぶ。retry は送信済み（変換後）のテキストを使い、Codex の `skills[]` / `mentions[]` を付け直す。
+- 設定: `SkillTriggerStyle`（`settings_skill_trigger_style`）。Claude の `$` ボタンは「常に `$`」のときだけ表示し、`$` 補完は「常に `/`」以外で有効。Codex の `$` 補完は app があるため常に有効。
+- 名前の前後にある日本語などの非 ASCII 文字は区切りとして扱う（`これを/review-prして` も変換する）。
+- `$skill.` のように末尾に記号が付いた場合も、Codex の構造化スキル入力に入るようにした。
+
+## 検証結果（iPhone 18 Pro シミュレーター + テスト用 Bridge 8766）
+
+- Claude: `$test-f` で補完が出て、選ぶと `/test-flutter` が入る。手入力の `$test-flutter …` は `/test-flutter …` で送られ、セッション記録でスキル本文の読み込みを確認した。途中に置いた場合は変換されるが発動しない。
+- Codex: `/flutter-up` の補完から選ぶと `$flutter-upgrade` が入る。手入力の `/flutter-upgrade …` は `$flutter-upgrade …` で送られ、rollout で `<skill><name>flutter-upgrade</name>` の注入を確認した。
+- 設定「常に /」: Codex で `$` 補完から選ぶと `/flutter-upgrade` が入る。
