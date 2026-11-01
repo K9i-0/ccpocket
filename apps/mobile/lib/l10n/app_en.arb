@@ -1362,6 +1362,8 @@
   "mediaFeedbackSendError": "Could not attach media. Check your connection and image count (maximum 5). Your instructions are still saved.",
   "mediaFeedbackSourceChanged": "This media has changed since you commented. Check the content and timestamps.",
   "mediaFeedbackConfirmSource": "Use updated media",
+  "diffCommentHint": "Comment on {line}…",
+  "diffCommentOutdated": "Outdated — the commented lines changed",
   "newProject": "Create a new project",
   "existingProject": "Start in an existing project",
   "multiProjectStart": "Start in a multi-project",

@@ -1258,6 +1258,9 @@ class ChatInputWithOverlays extends HookWidget {
                   MediaFeedbackCards(
                     binding: feedbackBinding,
                     entries: feedbackEntries,
+                    onOpenCode: onOpenGitScreen == null
+                        ? null
+                        : () => onOpenGitScreen!(attachedDiffSelection.value),
                   ),
                   ChatInputBar(
                     inputController: inputController,

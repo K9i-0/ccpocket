@@ -3287,6 +3287,14 @@ class AppLocalizationsKo extends AppLocalizations {
   String get mediaFeedbackConfirmSource => '업데이트된 미디어에 적용';
 
   @override
+  String diffCommentHint(String line) {
+    return '$line에 대한 코멘트…';
+  }
+
+  @override
+  String get diffCommentOutdated => '변경되어 코멘트한 줄을 찾을 수 없음';
+
+  @override
   String get newProject => 'Create a new project';
 
   @override

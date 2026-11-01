@@ -1,14 +1,11 @@
-# 差分への複数コメント（Diff Review Comments）設計
+# 差分への複数コメント（Diff Review Comments）
 
 Issue: [#147 Diff Commenting](https://github.com/K9i-0/ccpocket/issues/147)
 
-ステータス: 設計のみ（未実装）
-
 ## 背景と目的
 
-現在のGit画面でAIに修正を依頼する経路は、hunk / ファイルの「Request Change」だけである。
-これは選んだ1つの差分を ```` ```diff ```` としてチャット入力欄に添付する方式で、
-次の制約がある。
+Git画面でAIに修正を依頼する既存の経路は、hunk / ファイルの「Request Change」だけである。
+選んだ1つの差分を ```` ```diff ```` としてチャット入力欄に添付する方式で、次の制約がある。
 
 - 添付できる差分は1件のみ（`attachedDiffSelection` は単一値）。
 - 差分とコメントが対応しない。複数箇所への指摘は1つのプロンプトにまとめて書く必要がある。
@@ -17,178 +14,141 @@ Issue: [#147 Diff Commenting](https://github.com/K9i-0/ccpocket/issues/147)
 GitHubのレビューやCodexアプリと同じく、差分を見ながら複数箇所にコメントを付け、
 まとめてAIへ送れるようにする。
 
-既存の動画タイムスタンプコメント（[media-feedback.md](../media-feedback.md)）は
+動画のタイムスタンプコメント（[media-feedback.md](../media-feedback.md)）が持つ
 「セッション単位の下書き」「自動保存」「チャット入力欄から送信」
-「送信したスナップショットだけ削除」という仕組みを持つ。差分コメントはこの仕組みを
-拡張し、アンカーを「動画の再生位置」から「ファイルの行範囲」に置き換えたものとして扱う。
+「送信したスナップショットだけ削除」という仕組みを拡張し、アンカーを
+「動画の再生位置」から「差分の行範囲」に置き換えたものとして扱う。
 
 ## スコープ
 
-### v1
-
-- hunkの行単位（1行または連続した範囲）と、hunk全体へのコメント。
+- 差分の1行・連続した行範囲（同じhunk内）、またはhunk全体へのコメント。
 - 1つのセッションに複数ファイル・複数箇所のコメントを下書きとして保存する。
-- 差分画面内に、アンカー位置の直下へコメントをインライン表示し、編集・削除できる。
-- チャット入力欄にコメントのカードを表示し、プロンプトが空でもコメントだけで送れる。
+- 差分画面内で、対象行の直下にコメントを表示し、編集・削除できる。
+- チャット入力欄にファイル単位のカードを表示し、プロンプトが空でもコメントだけで送れる。
 - Claude / Codex共通。Bridgeとプロトコルの変更はない。
 
-### 対象外（後続候補）
-
-- ファイル全体ビュー（FilePeek）の任意行へのコメント。アンカー形式は共通化できるよう設計する。
-- コメントへの返信・スレッド・解決状態。
-- 過去のターン差分やコミット済み差分へのコメント（作業ツリー・staged差分のみ）。
+対象外: ファイル全体ビュー（FilePeek）へのコメント、返信・解決状態、
+ツール結果の個別差分（`initialDiff`）やコミット済み差分へのコメント。
 
 ## 既存機能との関係
 
-| 機能 | 扱い |
-| --- | --- |
-| Request Change（hunk / ファイル） | 残す。単発で差分を丸ごと渡す用途として共存させる。 |
-| 動画・画像コメント | 同じCubit・同じカード列・同じ送信経路を使う。 |
-
-送信テキストの順序は「Request Changeの差分（先頭）→ 本文 → 画像/動画コメント → 差分コメント」。
-既存2種の位置は変えない。
+- Request Change（hunk / ファイル）は残す。単発で差分を丸ごと渡す用途として共存させる。
+- 画像・動画コメントと同じ `MediaFeedbackCubit`、同じカード列、同じ送信経路を使う。
+- 送信テキストの順序は「Request Changeの差分 → 本文 → 画像/動画コメント → 差分コメント」。
+  既存2種の位置は変えない。
 
 ## データモデル
 
-`MediaFeedbackCubit` と `MediaFeedback` を拡張する。新しいCubitは作らない。
+`MediaFeedbackCubit` / `MediaFeedback` を拡張し、新しいCubitは作らない。
 pending → 実セッションIDへの移行（`DraftService` の `mediaFeedback.migrate`）、
-送信スナップショットの削除（`removeSent`）、入力欄のカードをそのまま共有できる。
+送信スナップショットの削除（`removeSent`）、入力欄のカードをそのまま共有する。
 
 ```dart
-enum FeedbackMediaKind { image, video, code }
-
 FeedbackMedia(
-  key: 'code:<projectPath>:<filePath>',
+  key: 'code:<working|staged>:<projectPath>:<filePath>',
   label: '<ファイル名>',
-  kind: FeedbackMediaKind.code,   // 追加。省略時は isVideo から導出
-  isVideo: false,                 // 既存JSONとの互換のため残す
+  isCode: true,                 // 追加
   path: '<filePath>',
   projectPath: '<projectPath>',
 )
 
-MediaFeedback(
-  id: 'code:<micros>:<seq>',
-  media: ...,
-  text: 'コメント本文',
-  positionMs: null,
-  code: CodeAnchor(...),          // 追加。code以外では null
-)
+MediaFeedback(id: 'code:<micros>:<seq>', media: ..., text: '...', code: CodeAnchor(...))
 
 CodeAnchor(
-  diffSource: DiffSource.working | DiffSource.staged,
+  source: DiffSource.working | DiffSource.staged,
   side: DiffSide.newSide | DiffSide.oldSide,
-  startLine: 12,                  // side側の行番号
-  endLine: 14,
-  hunkHeader: '@@ -10,6 +10,9 @@ ...',
-  excerpt: '+foo\n+bar\n-baz',     // コメント時点の対象行（diff形式、最大40行）
+  startLine: 12, endLine: 14,   // side側の行番号（表示・送信用）
+  lineCount: 3,                 // 選択した差分行数
+  hunkHeader: '@@ -10,6 +10,9 @@',
+  excerpt: '+foo\n+bar\n-baz',   // コメント時点の差分行（最大40行）
 )
 ```
 
-- 追加フィールドはすべて省略可能にする。既存の `media_feedback_v1_` のJSONはそのまま読める。
-  保存キーは変えない。
-- 永続化された `hunkIdx` / `fileIdx` は使わない。再取得・stage・編集でずれるため。
-- 行番号は `side` 側で数える。追加行・コンテキスト行は新側、削除行だけの範囲は旧側。
-  追加と削除をまたぐ範囲は新側の行番号を優先し、`excerpt` で削除行も渡す。
-- working と staged では同じファイルでも行番号が異なるため、`diffSource` をアンカーに含める。
-- hunk全体へのコメントは、そのhunkの新側の範囲を `startLine`〜`endLine` に入れる。
-
-### 互換性
-
-- 旧アプリが新形式のJSONを読むと、未知のフィールドは無視され、code項目は画像コメントとして
-  扱われる。ダウングレードは想定外とし、対処しない。
-- Bridgeのバージョンに依存しない（送信は既存の `sendMessage` のテキスト）。
+- 追加フィールドはすべて省略可能。既存の `media_feedback_v1_` のJSONはそのまま読める。保存キーは変えない。
+- 差分内のインデックス（fileIdx / hunkIdx）は保存しない。再取得・stage・編集でずれるため。
+- 範囲に新側の行番号があれば新側、削除行だけなら旧側で数える。削除行は `excerpt` で渡す。
+- working と staged では行番号が異なるため、`source` をアンカーとカードのキーに含める。
+- 旧アプリが新形式を読むと未知フィールドは無視され、画像コメントとして扱われる。ダウングレードは考慮しない。
 
 ## 再アンカーと古いコメント
 
-AIがファイルを書き換えるとアンカーがずれるのが前提になる。そのため、画像・動画と違って
-**送信を止めない**（media-feedbackの更新時刻チェックとは意図的に異なる）。
+AIがファイルを書き換えるとアンカーがずれることが前提になる。そのため画像・動画と違って
+**送信を止めない**。code項目は `modifiedAt` を設定せず、既存の送信前チェックの対象外になる。
 
-差分の取得ごとに、各コメントを次の順で現在の差分へ対応付ける。結果は表示用で、保存しない。
+表示のたびに、各コメントを現在の差分へ対応付ける（`locateCodeAnchor`、結果は保存しない）。
 
-1. 同じ `diffSource` / ファイル / `side` で、`excerpt` の変更行が同じ並びで現れる位置。
-   行番号が最も近いものを選ぶ。
-2. 見つからなければ「古いコメント（outdated）」とし、ファイル見出しの直下に
-   `excerpt` と一緒にまとめて表示する。
-3. ファイル自体が差分から消えた場合は、差分画面の先頭にまとめて表示する。
+1. 同じ `source` / ファイルの差分で、`excerpt` の行が同じ並びで現れる位置を探す。
+   複数あれば元の行番号に最も近いものを選ぶ。
+2. 見つからなければ「古いコメント」としてファイル見出しの直下に `excerpt` 付きで表示する。
+3. ファイル自体が差分から消えたコメントは差分画面には出ない。チャット入力欄のカードには残り、
+   そのまま送信・削除できる。
 
-送信には常に保存済みの `excerpt` を使う。古いコメントにも送信時に `(outdated)` を付ける。
+送信には常に保存済みの `excerpt` を使い、送信時に差分を取り直さない。送信する行番号もコメント時点の値。
+差分画面のカードは、再アンカーできた場合に現在の行番号を表示する。
 
 ## UI
 
 ### 差分画面
 
-- 行の長押し、または行番号ガターのタップでコメントを開始する。
-  開始後、別の行をタップすると範囲を伸ばす。範囲は同じhunk内に限る。
-- hunkのアクションメニューに「Comment」を追加する（hunk全体へのコメント）。
-- コメント入力はアンカー直下のインラインエディタにする。動画用の `MediaFeedbackEditor` は
-  一時停止・シーク前提なので流用せず、保存処理（入力中に `put`、空なら削除）だけ揃える。
+- 行のタップでコメントを開始する。長押しは既存どおりhunkのアクションメニューを開く。
+- 開いているコメントと同じhunk内の別の行をタップすると範囲を伸縮する。別のhunkやファイルの
+  行をタップすると新しいコメントを始める。空のコメントの単一行をもう一度タップすると閉じる。
+- hunkのアクションメニューに「Comment」（hunk全体）を追加する。メニューの既存項目と同じく英語固定。
+- 入力はアンカー直下のインラインエディタ。入力ごとに `put` し、空なら削除する（画像・動画と同じ）。
+  動画用の `MediaFeedbackEditor` は一時停止・シーク前提なので流用しない。
 - 保存済みのコメントはアンカー行の直下にカードで表示し、タップで編集、×で削除する。
-  ファイル見出しにコメント数のバッジを出す。
-- セッションに紐付かないGit画面（`MediaFeedbackBinding.maybeOf` が null）ではコメント操作を出さない。
-- ルートの差分画面でも埋め込みペインでも、コメントはCubitに直接保存する。
-  Request Changeのような `pop` / `onRequestChange` の受け渡しは不要。
+- 入力中は、編集中のコメント本文の変化だけでは差分全体を再構築しない（`needsRebuild`）。
+- bindingは `GitScreen.sessionId` と `DraftService` から作る（ルート・埋め込みペインとも
+  sessionIdが渡される）。sessionIdがない場合だけ `MediaFeedbackBinding.maybeOf` に戻し、
+  それも null ならコメント操作を出さない。
+- コメントはCubitへ直接保存するため、Request Changeのような `pop` / `onRequestChange` の受け渡しは不要。
 
 ### チャット入力欄
 
 - `MediaFeedbackCards` に code 種別を追加する。ファイル単位で1枚、件数と先頭コメントを表示する。
-- タップでGit画面を開き、そのファイルへスクロールする。×でそのファイルのコメントを全削除する。
-- 画像・動画コメントと同じく、プロンプトが空でも送信できる。
+- タップでGit画面を開く（ファイルへの自動スクロールはしない）。×でそのファイルのコメントを全削除する。
 
 ## 送信フォーマット
 
-`appendMediaFeedback` に code 種別の分岐を追加する。ファイル順はコメント追加順、
-ファイル内は `startLine` 順。
+`appendMediaFeedback` が code 種別を最後にまとめる。ファイル順は最初のコメント追加順、
+ファイル内は `startLine` 順。複数行の本文は字下げする。
 
 ````text
-Code review comments
-Project: /path/to/project
+Code review comments:
 
 File: lib/foo.dart (working tree diff)
-- L12-14 (new):
+Project: /path/to/project
+- L12-14:
   ```diff
   +final a = 1;
   +final b = 2;
   -final c = 3;
   ```
   Use const here.
-- L40 (old) (outdated):
+- L40 (old):
   ```diff
   -return null;
   ```
   Why was this removed?
 ````
 
-- 画像の添付処理（`feedbackImages`）の対象外。
-- `excerpt` はコメント時点のものを使う。送信時に差分を取り直さない。
+`path` があるため、画像添付の準備（`feedbackImages`）では既存条件でスキップされる。
 
-## 状態遷移と送信後
+## 主な実装
 
-- 下書きは自動保存。差分画面を閉じても残る。
-- 送信経路が受け付けた時点で、送信したスナップショットと一致するコメントだけを削除する
-  （既存の `removeSent`）。
+- `features/media_feedback/state/media_feedback_state.dart`: `isCode`、`CodeAnchor`、送信フォーマット
+- `features/git/diff_comments.dart`: アンカー作成・再アンカー・配置の純粋関数
+- `features/git/widgets/diff_comment_presenter.dart`: 下書きから差分の装飾を作る
+- `features/git/widgets/diff_comment_widgets.dart`: カード、インラインエディタ、古いコメント
+- `features/git/widgets/diff_hunk_widget.dart` / `diff_content_list.dart`: 行タップ、選択表示、行間への挿入
+- `features/git/git_screen.dart`: binding取得、hunkメニューの「Comment」
+- `features/media_feedback/widgets/media_feedback_cards.dart`: code カード
 
-## 主な変更ファイル（予定）
+## 検証
 
-- `features/media_feedback/state/media_feedback_state.dart`: `FeedbackMediaKind`、`CodeAnchor`、送信フォーマット
-- `features/media_feedback/widgets/media_feedback_cards.dart`: code カードと遷移
-- `utils/diff_parser.dart`: excerpt 生成、再アンカーの純粋関数
-- `features/git/widgets/diff_hunk_widget.dart` / `diff_content_list.dart`: 行選択、インライン表示・エディタ
-- `features/git/git_screen.dart`: hunkメニューの「Comment」、binding取得、指定ファイルへのスクロール
-- `features/chat_session/widgets/chat_input_with_overlays.dart`: 送信条件（必要に応じて）
-- `l10n/app_*.arb`（en / ja / ko / zh）
-
-## 検証方法
-
-- 単体テスト
-  - `appendMediaFeedback`: code種別の出力、ファイル内の行順、outdated表記、画像・動画との混在順。
-  - 既存の `media_feedback_v1_` JSON（code フィールドなし）が読めること。
-  - 再アンカー: 行がずれた場合の追従、同一内容が複数あるときの最近傍選択、見つからない場合のoutdated、
-    working / staged の取り違えがないこと。
-  - excerpt 生成: 追加・削除・コンテキスト混在、40行上限。
-- Cubitテスト: 複数ファイルへの `put`、`removeSent` で送信中の追加分を残すこと、`migrate`。
-- Widgetテスト: 行の長押しでエディタが出る、範囲選択、インライン表示、セッションなしで操作が出ないこと。
-- `dart analyze` / `dart format` / 関連テスト。
-- シミュレーターでのUI検証（mobile-automation、テスト用Bridge `8766`）
-  - 2ファイル・3箇所にコメント → 入力欄のカード → 送信 → 送信テキストの確認。
-  - AIの編集後に差分を再取得し、追従・outdated表示を確認。
-  - 埋め込みペイン（デスクトップ幅）でも同様に確認。
+- `test/diff_comments_test.dart`: アンカー作成（新側/旧側、40行上限）、移動への追従、最近傍選択、
+  outdated、送信フォーマットと画像・動画との順序、画像添付の対象外、旧JSONの読み込みと永続化。
+- `test/git_diff_comments_widget_test.dart`: 行タップ→範囲拡張→保存→カード表示、複数コメント、削除、
+  hunkメニューからのコメント、outdated表示、セッションなしで操作が出ないこと。
+- 既存の `git_screen_test.dart` / `media_feedback_test.dart` が通ること。
+- シミュレーターでの確認: 差分画面で複数箇所にコメント → 入力欄のカード → 送信テキスト。

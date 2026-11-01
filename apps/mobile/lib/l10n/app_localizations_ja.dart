@@ -3261,6 +3261,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mediaFeedbackConfirmSource => '更新後の素材に適用';
 
   @override
+  String diffCommentHint(String line) {
+    return '$line へのコメント…';
+  }
+
+  @override
+  String get diffCommentOutdated => '変更されたためコメント元の行が見つかりません';
+
+  @override
   String get newProject => '新しいプロジェクトを作る';
 
   @override

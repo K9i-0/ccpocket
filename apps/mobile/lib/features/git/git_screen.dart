@@ -15,7 +15,11 @@ import '../../utils/diff_parser.dart'
     show DiffSelection, reconstructDiff, reconstructUnifiedDiff;
 import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../../services/draft_service.dart';
 import '../file_peek/file_peek_sheet.dart';
+import '../media_feedback/media_feedback_scope.dart';
+import '../media_feedback/state/media_feedback_cubit.dart';
+import '../media_feedback/state/media_feedback_state.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../settings/state/settings_cubit.dart';
 import 'state/commit_cubit.dart';
@@ -23,6 +27,7 @@ import 'state/git_view_cubit.dart';
 import 'state/git_view_cache_service.dart';
 import 'state/git_view_state.dart';
 import 'widgets/commit_bottom_sheet.dart';
+import 'widgets/diff_comment_presenter.dart';
 import 'widgets/diff_content_list.dart';
 import 'widgets/diff_empty_state.dart';
 import 'widgets/diff_error_state.dart';
@@ -152,6 +157,7 @@ class _GitScreenState extends State<GitScreen> {
       child: _GitScreenBody(
         title: widget.title,
         projectPath: widget.projectPath,
+        sessionId: widget.sessionId,
         isProjectMode: isProjectMode,
         scrollController: _scrollController,
         scrollToFileIndex: _scrollToFileIndex,
@@ -207,6 +213,7 @@ class _GitScreenBody extends StatefulWidget {
   const _GitScreenBody({
     this.title,
     this.projectPath,
+    this.sessionId,
     this.isProjectMode = false,
     required this.scrollController,
     required this.scrollToFileIndex,
@@ -217,6 +224,7 @@ class _GitScreenBody extends StatefulWidget {
   });
 
   final String? projectPath;
+  final String? sessionId;
 
   @override
   State<_GitScreenBody> createState() => _GitScreenBodyState();
@@ -225,6 +233,76 @@ class _GitScreenBody extends StatefulWidget {
 class _GitScreenBodyState extends State<_GitScreenBody> {
   bool _focusMode = false;
   bool _orientationLockedForFocus = false;
+  DiffCommentEditing? _commentEditing;
+  DiffCommentPresenter? _comments;
+
+  /// Review comments are drafts of the chat session that opened this screen.
+  MediaFeedbackBinding? _commentBinding(BuildContext context) {
+    if (!widget.isProjectMode || widget.projectPath == null) return null;
+    final sessionId = widget.sessionId;
+    final drafts = context.read<DraftService?>();
+    if (sessionId != null && drafts != null) {
+      return MediaFeedbackBinding(drafts.mediaFeedback, sessionId);
+    }
+    return MediaFeedbackBinding.maybeOf(context);
+  }
+
+  void _setCommentEditing(DiffCommentEditing? editing) {
+    if (mounted) setState(() => _commentEditing = editing);
+  }
+
+  Widget _content(
+    GitViewState state,
+    GitViewCubit cubit,
+    GitDiffInteractionMode interactionMode, {
+    EdgeInsetsGeometry? padding,
+  }) {
+    Widget build(DiffCommentPresenter? comments) {
+      _comments = comments;
+      return _GitScreenContent(
+        state: state,
+        cubit: cubit,
+        isProjectMode: widget.isProjectMode,
+        interactionMode: interactionMode,
+        onConfirmRevert: _confirmRevert,
+        onShowFileActionSheet: _showFileActionSheet,
+        onShowHunkActionSheet: _showHunkActionSheet,
+        scrollController: widget.scrollController,
+        comments: comments,
+        padding: padding,
+      );
+    }
+
+    final binding = _commentBinding(context);
+    if (binding == null) return build(null);
+    final projectPath = widget.projectPath!;
+    final source = state.viewMode == GitViewMode.staged
+        ? DiffSource.staged
+        : DiffSource.working;
+    return BlocBuilder<MediaFeedbackCubit, MediaFeedbackState>(
+      bloc: binding.cubit,
+      buildWhen: (previous, next) => DiffCommentPresenter.needsRebuild(
+        binding,
+        previous,
+        next,
+        projectPath,
+        source,
+        _commentEditing?.id,
+      ),
+      builder: (context, _) {
+        return build(
+          DiffCommentPresenter(
+            binding: binding,
+            projectPath: projectPath,
+            source: source,
+            files: state.files,
+            editing: _commentEditing,
+            onEditingChanged: _setCommentEditing,
+          ),
+        );
+      },
+    );
+  }
 
   void _setFocusMode(bool enabled) {
     if (_focusMode == enabled) return;
@@ -358,15 +436,10 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
       body: focusMode
           ? SafeArea(
               top: false,
-              child: _GitScreenContent(
-                state: state,
-                cubit: cubit,
-                isProjectMode: widget.isProjectMode,
-                interactionMode: interactionMode,
-                onConfirmRevert: _confirmRevert,
-                onShowFileActionSheet: _showFileActionSheet,
-                onShowHunkActionSheet: _showHunkActionSheet,
-                scrollController: widget.scrollController,
+              child: _content(
+                state,
+                cubit,
+                interactionMode,
                 padding: EdgeInsets.only(
                   top:
                       MediaQuery.paddingOf(context).top +
@@ -382,18 +455,7 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
               children: [
                 if (widget.isProjectMode)
                   GitProjectHeader(state: state, cubit: cubit),
-                Expanded(
-                  child: _GitScreenContent(
-                    state: state,
-                    cubit: cubit,
-                    isProjectMode: widget.isProjectMode,
-                    interactionMode: interactionMode,
-                    onConfirmRevert: _confirmRevert,
-                    onShowFileActionSheet: _showFileActionSheet,
-                    onShowHunkActionSheet: _showHunkActionSheet,
-                    scrollController: widget.scrollController,
-                  ),
-                ),
+                Expanded(child: _content(state, cubit, interactionMode)),
               ],
             ),
     );
@@ -567,6 +629,14 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
             subtitle: 'Discard changes in this hunk',
             destructive: true,
           ),
+        if (_comments != null)
+          const AdaptiveActionMenuItem(
+            key: ValueKey('git_comment_hunk_action'),
+            value: 'comment',
+            icon: Icons.add_comment_outlined,
+            label: 'Comment',
+            subtitle: 'Add a review comment to this hunk',
+          ),
         const AdaptiveActionMenuItem(
           value: 'request_change',
           icon: Icons.rate_review_outlined,
@@ -591,6 +661,8 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
               .gitDiscardHunkUnstagedChangesMessage,
           onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
         );
+      case 'comment':
+        _comments?.begin(fileIdx, hunkIdx, 0, hunk.lines.length - 1);
       case 'request_change':
         _requestChange(
           context,
@@ -795,6 +867,7 @@ class _GitScreenContent extends StatelessWidget {
   )
   onShowHunkActionSheet;
   final EdgeInsetsGeometry? padding;
+  final DiffCommentPresenter? comments;
 
   const _GitScreenContent({
     required this.state,
@@ -806,6 +879,7 @@ class _GitScreenContent extends StatelessWidget {
     required this.onShowFileActionSheet,
     required this.onShowHunkActionSheet,
     this.padding,
+    this.comments,
   });
 
   @override
@@ -886,6 +960,8 @@ class _GitScreenContent extends StatelessWidget {
           : false,
       interactionMode: interactionMode,
       padding: padding ?? const EdgeInsets.symmetric(vertical: 8),
+      hunkComments: comments?.hunkComments,
+      fileComments: comments?.fileComments,
     );
   }
 }

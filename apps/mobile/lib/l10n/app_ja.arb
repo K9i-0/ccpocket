@@ -1392,6 +1392,15 @@
   "mediaFeedbackSendError": "素材を添付できませんでした。接続と画像の枚数を確認してください（最大5枚）。指示は下書きに残っています。",
   "mediaFeedbackSourceChanged": "この素材はコメント作成後に更新されています。内容と時刻を確認してください。",
   "mediaFeedbackConfirmSource": "更新後の素材に適用",
+  "diffCommentHint": "{line} へのコメント…",
+  "@diffCommentHint": {
+    "placeholders": {
+      "line": {
+        "type": "String"
+      }
+    }
+  },
+  "diffCommentOutdated": "変更されたためコメント元の行が見つかりません",
   "newProject": "新しいプロジェクトを作る",
   "existingProject": "既存のプロジェクトで始める",
   "multiProjectStart": "マルチプロジェクトで始める",

@@ -3393,6 +3393,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaFeedbackConfirmSource => 'Use updated media';
 
   @override
+  String diffCommentHint(String line) {
+    return 'Comment on $line…';
+  }
+
+  @override
+  String get diffCommentOutdated => 'Outdated — the commented lines changed';
+
+  @override
   String get newProject => 'Create a new project';
 
   @override

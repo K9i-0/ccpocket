@@ -6131,6 +6131,18 @@ abstract class AppLocalizations {
   /// **'更新後の素材に適用'**
   String get mediaFeedbackConfirmSource;
 
+  /// No description provided for @diffCommentHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'{line} へのコメント…'**
+  String diffCommentHint(String line);
+
+  /// No description provided for @diffCommentOutdated.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更されたためコメント元の行が見つかりません'**
+  String get diffCommentOutdated;
+
   /// No description provided for @newProject.
   ///
   /// In ja, this message translates to:

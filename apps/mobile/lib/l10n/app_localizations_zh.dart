@@ -3220,6 +3220,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mediaFeedbackConfirmSource => '应用于更新后的素材';
 
   @override
+  String diffCommentHint(String line) {
+    return '对 $line 的评论…';
+  }
+
+  @override
+  String get diffCommentOutdated => '已过时 — 评论的代码行已更改';
+
+  @override
   String get newProject => 'Create a new project';
 
   @override

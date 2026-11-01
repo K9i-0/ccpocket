@@ -77,6 +77,13 @@ class DiffHunkWidget extends StatefulWidget {
   final VoidCallback? onSwipeRevert;
   final CodeTextSettings codeSettings;
 
+  /// Tapping a line starts or extends a review comment.
+  final ValueChanged<int>? onTapLine;
+  final Set<int> selectedLines;
+
+  /// Widgets shown directly below the line at each index (review comments).
+  final Map<int, List<Widget>> belowLines;
+
   const DiffHunkWidget({
     super.key,
     required this.hunk,
@@ -90,6 +97,9 @@ class DiffHunkWidget extends StatefulWidget {
     this.onSwipeUnstage,
     this.onSwipeRevert,
     this.codeSettings = const CodeTextSettings(),
+    this.onTapLine,
+    this.selectedLines = const {},
+    this.belowLines = const {},
   });
 
   @override
@@ -130,6 +140,38 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
     _maxContentWidth = maxWidth;
   }
 
+  /// Splits the body after lines that have widgets below them, so comments can
+  /// sit between lines in both wrapped and horizontally scrolling layouts.
+  List<Widget> _buildBody() {
+    final lines = widget.hunk.lines;
+    if (lines.isEmpty) return const [];
+    final breaks =
+        widget.belowLines.keys
+            .where((i) => i >= 0 && i < lines.length - 1)
+            .toList()
+          ..sort();
+    final children = <Widget>[];
+    var start = 0;
+    for (final end in [...breaks, lines.length - 1]) {
+      children.add(
+        _DiffHunkBody(
+          lines: lines.sublist(start, end + 1),
+          offset: start,
+          maxContentWidth: _maxContentWidth,
+          lineNumberWidth: widget.lineNumberWidth,
+          lineWrapEnabled: widget.lineWrapEnabled,
+          codeSettings: widget.codeSettings,
+          onLongPress: widget.onShowActions == null ? widget.onLongPress : null,
+          onTapLine: widget.onTapLine,
+          selectedLines: widget.selectedLines,
+        ),
+      );
+      children.addAll(widget.belowLines[end] ?? const []);
+      start = end + 1;
+    }
+    return children;
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget content = Column(
@@ -143,17 +185,7 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
                 ? widget.onLongPress
                 : null,
           ),
-        if (widget.hunk.lines.isNotEmpty)
-          _DiffHunkBody(
-            lines: widget.hunk.lines,
-            maxContentWidth: _maxContentWidth,
-            lineNumberWidth: widget.lineNumberWidth,
-            lineWrapEnabled: widget.lineWrapEnabled,
-            codeSettings: widget.codeSettings,
-            onLongPress: widget.onShowActions == null
-                ? widget.onLongPress
-                : null,
-          ),
+        ..._buildBody(),
         const SizedBox(height: 4),
       ],
     );
@@ -233,6 +265,9 @@ class _DiffHunkHeader extends StatelessWidget {
 
 class _DiffHunkBody extends StatelessWidget {
   final List<DiffLine> lines;
+  final int offset;
+  final ValueChanged<int>? onTapLine;
+  final Set<int> selectedLines;
   final double maxContentWidth;
   final double lineNumberWidth;
   final bool lineWrapEnabled;
@@ -241,12 +276,20 @@ class _DiffHunkBody extends StatelessWidget {
 
   const _DiffHunkBody({
     required this.lines,
+    this.offset = 0,
+    this.onTapLine,
+    this.selectedLines = const {},
     required this.maxContentWidth,
     required this.lineNumberWidth,
     required this.lineWrapEnabled,
     required this.codeSettings,
     this.onLongPress,
   });
+
+  VoidCallback? _tap(int i) =>
+      onTapLine == null ? null : () => onTapLine!(offset + i);
+
+  bool _selected(int i) => selectedLines.contains(offset + i);
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +298,7 @@ class _DiffHunkBody extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final line in lines)
+          for (final (i, line) in lines.indexed)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -264,6 +307,8 @@ class _DiffHunkBody extends StatelessWidget {
                   appColors: appColors,
                   lineNumberWidth: lineNumberWidth,
                   codeSettings: codeSettings,
+                  selected: _selected(i),
+                  onTap: _tap(i),
                 ),
                 Expanded(
                   child: _DiffCodeRow(
@@ -272,6 +317,8 @@ class _DiffHunkBody extends StatelessWidget {
                     wrap: true,
                     codeSettings: codeSettings,
                     onLongPress: onLongPress,
+                    selected: _selected(i),
+                    onTap: _tap(i),
                   ),
                 ),
               ],
@@ -286,12 +333,14 @@ class _DiffHunkBody extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final line in lines)
+            for (final (i, line) in lines.indexed)
               _DiffGutterRow(
                 line: line,
                 appColors: appColors,
                 lineNumberWidth: lineNumberWidth,
                 codeSettings: codeSettings,
+                selected: _selected(i),
+                onTap: _tap(i),
               ),
           ],
         ),
@@ -309,7 +358,7 @@ class _DiffHunkBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final line in lines)
+                    for (final (i, line) in lines.indexed)
                       _DiffCodeRow(
                         line: line,
                         appColors: appColors,
@@ -317,6 +366,8 @@ class _DiffHunkBody extends StatelessWidget {
                         codeSettings: codeSettings,
                         contentWidth: effectiveWidth,
                         onLongPress: onLongPress,
+                        selected: _selected(i),
+                        onTap: _tap(i),
                       ),
                   ],
                 ),
@@ -334,12 +385,16 @@ class _DiffGutterRow extends StatelessWidget {
   final AppColors appColors;
   final double lineNumberWidth;
   final CodeTextSettings codeSettings;
+  final bool selected;
+  final VoidCallback? onTap;
 
   const _DiffGutterRow({
     required this.line,
     required this.appColors,
     required this.lineNumberWidth,
     required this.codeSettings,
+    this.selected = false,
+    this.onTap,
   });
 
   @override
@@ -347,8 +402,8 @@ class _DiffGutterRow extends StatelessWidget {
     final (bgColor, textColor, prefix) = _lineStyle(line, appColors);
     final displayNumber = line.newLineNumber ?? line.oldLineNumber;
 
-    return Container(
-      color: bgColor,
+    final row = Container(
+      color: _selectedColor(context, bgColor, selected),
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -379,8 +434,23 @@ class _DiffGutterRow extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null
+        ? row
+        : GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: row,
+          );
   }
 }
+
+Color _selectedColor(BuildContext context, Color base, bool selected) =>
+    selected
+    ? Color.alphaBlend(
+        Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
+        base,
+      )
+    : base;
 
 class _DiffCodeRow extends StatelessWidget {
   final DiffLine line;
@@ -389,6 +459,8 @@ class _DiffCodeRow extends StatelessWidget {
   final CodeTextSettings codeSettings;
   final double? contentWidth;
   final VoidCallback? onLongPress;
+  final bool selected;
+  final VoidCallback? onTap;
 
   const _DiffCodeRow({
     required this.line,
@@ -397,6 +469,8 @@ class _DiffCodeRow extends StatelessWidget {
     required this.codeSettings,
     this.contentWidth,
     this.onLongPress,
+    this.selected = false,
+    this.onTap,
   });
 
   @override
@@ -411,8 +485,9 @@ class _DiffCodeRow extends StatelessWidget {
 
     return GestureDetector(
       onLongPress: onLongPress,
+      onTap: onTap,
       child: Container(
-        color: bgColor,
+        color: _selectedColor(context, bgColor, selected),
         padding: const EdgeInsets.symmetric(vertical: 1),
         constraints: wrap ? null : BoxConstraints(minWidth: contentWidth ?? 0),
         child: text,

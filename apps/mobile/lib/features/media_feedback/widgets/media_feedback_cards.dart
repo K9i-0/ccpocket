@@ -13,13 +13,21 @@ import '../state/media_feedback_state.dart';
 class MediaFeedbackCards extends StatelessWidget {
   final MediaFeedbackBinding binding;
   final List<MediaFeedback> entries;
+
+  /// Opens the Git diff where code comments are edited.
+  final VoidCallback? onOpenCode;
   const MediaFeedbackCards({
     super.key,
     required this.binding,
     required this.entries,
+    this.onOpenCode,
   });
 
   Future<void> _open(BuildContext context, FeedbackMedia media) async {
+    if (media.isCode) {
+      onOpenCode?.call();
+      return;
+    }
     final bridge = context.read<BridgeService>();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -56,12 +64,15 @@ class MediaFeedbackCards extends StatelessWidget {
         children: groups.values.map((items) {
           final media = items.first.media;
           return SizedBox(
+            key: ValueKey('media_feedback_card_${media.key}'),
             width: 240,
             child: Card(
               child: ListTile(
                 dense: true,
                 leading: Icon(
-                  media.isVideo
+                  media.isCode
+                      ? Icons.rate_review_outlined
+                      : media.isVideo
                       ? Icons.video_file_outlined
                       : Icons.image_outlined,
                 ),

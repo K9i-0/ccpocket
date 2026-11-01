@@ -10,6 +10,13 @@ import 'diff_hunk_widget.dart';
 import 'diff_image_widget.dart';
 import 'git_swipe_action_background.dart';
 
+/// Review comment decoration for one hunk.
+typedef DiffHunkComments = ({
+  ValueChanged<int>? onTapLine,
+  Set<int> selectedLines,
+  Map<int, List<Widget>> belowLines,
+});
+
 class DiffContentList extends StatelessWidget {
   final List<DiffFile> files;
   final AutoScrollController scrollController;
@@ -30,6 +37,10 @@ class DiffContentList extends StatelessWidget {
   final GitDiffInteractionMode interactionMode;
   final Set<String> stagedFilePaths;
   final EdgeInsetsGeometry padding;
+  final DiffHunkComments? Function(int fileIdx, int hunkIdx)? hunkComments;
+
+  /// Shown below the file header, e.g. comments whose lines changed.
+  final Widget? Function(int fileIdx)? fileComments;
 
   const DiffContentList({
     super.key,
@@ -51,6 +62,8 @@ class DiffContentList extends StatelessWidget {
     this.interactionMode = GitDiffInteractionMode.quickActions,
     this.stagedFilePaths = const {},
     this.padding = const EdgeInsets.symmetric(vertical: 8),
+    this.hunkComments,
+    this.fileComments,
   });
 
   FileStageStatus _stageStatusFor(DiffFile file) {
@@ -126,6 +139,7 @@ class DiffContentList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header,
+          if (!collapsed) ?fileComments?.call(fileIdx),
           if (!collapsed)
             if (file.isBinary)
               if (file.isImage && file.imageData != null)
@@ -170,30 +184,44 @@ class DiffContentList extends StatelessWidget {
     final lineNumberWidth = calcLineNumberWidth(file, codeSettings);
     return [
       for (var hunkIdx = 0; hunkIdx < file.hunks.length; hunkIdx++)
-        DiffHunkWidget(
-          hunk: file.hunks[hunkIdx],
-          lineNumberWidth: lineNumberWidth,
-          dismissKey: '${file.filePath}:$hunkIdx',
-          codeSettings: codeSettings,
-          lineWrapEnabled: lineWrapEnabled,
-          interactionMode: interactionMode,
-          onLongPress: onLongPressHunk != null
-              ? () => onLongPressHunk!(fileIdx, hunkIdx, null)
-              : null,
-          onShowActions: onLongPressHunk != null
-              ? (position) => onLongPressHunk!(fileIdx, hunkIdx, position)
-              : null,
-          onSwipeStage: onSwipeStageHunk != null
-              ? () => onSwipeStageHunk!(fileIdx, hunkIdx)
-              : null,
-          onSwipeUnstage: onSwipeUnstageHunk != null
-              ? () => onSwipeUnstageHunk!(fileIdx, hunkIdx)
-              : null,
-          onSwipeRevert: onSwipeRevertHunk != null
-              ? () => onSwipeRevertHunk!(fileIdx, hunkIdx)
-              : null,
-        ),
+        _buildHunk(fileIdx, hunkIdx, file, lineNumberWidth, codeSettings),
     ];
+  }
+
+  Widget _buildHunk(
+    int fileIdx,
+    int hunkIdx,
+    DiffFile file,
+    double lineNumberWidth,
+    CodeTextSettings codeSettings,
+  ) {
+    final comments = hunkComments?.call(fileIdx, hunkIdx);
+    return DiffHunkWidget(
+      onTapLine: comments?.onTapLine,
+      selectedLines: comments?.selectedLines ?? const {},
+      belowLines: comments?.belowLines ?? const {},
+      hunk: file.hunks[hunkIdx],
+      lineNumberWidth: lineNumberWidth,
+      dismissKey: '${file.filePath}:$hunkIdx',
+      codeSettings: codeSettings,
+      lineWrapEnabled: lineWrapEnabled,
+      interactionMode: interactionMode,
+      onLongPress: onLongPressHunk != null
+          ? () => onLongPressHunk!(fileIdx, hunkIdx, null)
+          : null,
+      onShowActions: onLongPressHunk != null
+          ? (position) => onLongPressHunk!(fileIdx, hunkIdx, position)
+          : null,
+      onSwipeStage: onSwipeStageHunk != null
+          ? () => onSwipeStageHunk!(fileIdx, hunkIdx)
+          : null,
+      onSwipeUnstage: onSwipeUnstageHunk != null
+          ? () => onSwipeUnstageHunk!(fileIdx, hunkIdx)
+          : null,
+      onSwipeRevert: onSwipeRevertHunk != null
+          ? () => onSwipeRevertHunk!(fileIdx, hunkIdx)
+          : null,
+    );
   }
 }
 
