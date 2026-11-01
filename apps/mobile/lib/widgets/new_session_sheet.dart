@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -437,6 +438,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   List<String> projectHistory = const [],
   BridgeService? bridge,
   NewSessionParams? initialParams,
+  Map<Provider, NewSessionParams> providerDefaults = const {},
   bool lockProvider = false,
   bool multiProjectOnly = false,
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
@@ -456,6 +458,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       projectHistory: projectHistory,
       bridge: bridge,
       initialParams: initialParams,
+      providerDefaults: providerDefaults,
       lockProvider: lockProvider,
       multiProjectOnly: multiProjectOnly,
       visibleTabs: visibleTabs,
@@ -513,6 +516,11 @@ class _NewSessionSheetContent extends StatefulWidget {
   final List<String> projectHistory;
   final BridgeService? bridge;
   final NewSessionParams? initialParams;
+
+  /// Saved defaults per provider. Used for the provider-specific options of
+  /// the tab that [initialParams] does not belong to, so switching tabs shows
+  /// that provider's own saved choices instead of hardcoded defaults.
+  final Map<Provider, NewSessionParams> providerDefaults;
   final bool lockProvider;
   final bool multiProjectOnly;
   final List<NewSessionTab> visibleTabs;
@@ -524,6 +532,7 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.projectHistory = const [],
     this.bridge,
     this.initialParams,
+    this.providerDefaults = const {},
     this.lockProvider = false,
     this.multiProjectOnly = false,
     this.visibleTabs = defaultNewSessionTabs,
@@ -600,11 +609,20 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   bool _claudePersistSession = true;
 
   // Model lists from Bridge (with fallbacks)
-  late final List<String> _claudeModelList;
-  late final Map<String, ClaudeModelOption> _claudeModelOptions;
-  late final Map<String, List<ClaudeEffort>> _claudeModelEfforts;
-  late final List<String> _codexModelList;
-  late final Map<String, List<ReasoningEffort>> _codexModelReasoningEfforts;
+  // They are refreshed when the Bridge publishes a newer catalog: right after a
+  // Bridge restart it announces a fallback catalog before the real one loads.
+  late List<String> _claudeModelList;
+  late Map<String, ClaudeModelOption> _claudeModelOptions;
+  late Map<String, List<ClaudeEffort>> _claudeModelEfforts;
+  late List<String> _codexModelList;
+  late Map<String, List<ReasoningEffort>> _codexModelReasoningEfforts;
+
+  /// Saved choices that seed the Claude / Codex options. Kept so a late
+  /// catalog can still resolve them while the user has not changed them.
+  NewSessionParams? _claudeSource;
+  NewSessionParams? _codexSource;
+  bool _claudeModelTouched = false;
+  bool _claudeEffortTouched = false;
   Map<String, List<String>> get _codexModelServiceTiers =>
       widget.bridge?.codexModelServiceTiers ?? const {};
   Map<String, List<CodexSpeed>> get _codexModelServiceTierMetadata =>
@@ -861,26 +879,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _workspaceProjectsState =
         widget.bridge?.projectsState ?? _workspaceProjectsState;
 
-    // Load available models from Bridge (with hardcoded fallbacks).
-    final bridgeClaudeOptions =
-        widget.bridge?.claudeModelOptions ?? const <ClaudeModelOption>[];
-    final claudeOptions = bridgeClaudeOptions.isNotEmpty
-        ? bridgeClaudeOptions
-        : defaultClaudeModelOptions;
-    _claudeModelList = [for (final option in claudeOptions) option.value];
-    _claudeModelOptions = {
-      for (final option in claudeOptions) option.value: option,
-    };
-    _claudeModelEfforts = normalizeClaudeModelEfforts(
-      widget.bridge?.claudeModelEfforts ?? const {},
-    );
-    final bridgeCodexModels = widget.bridge?.codexModels ?? const [];
-    _codexModelList = bridgeCodexModels.isNotEmpty
-        ? bridgeCodexModels
-        : _defaultCodexModels;
-    _codexModelReasoningEfforts = _normalizeCodexModelReasoningEfforts(
-      widget.bridge?.codexModelReasoningEfforts ?? const {},
-    );
+    _loadModelCatalogs();
     _codexProfiles = widget.bridge?.codexProfiles ?? const [];
     _codexAutoReviewDisabled = widget.bridge?.codexAutoReviewDisabled ?? false;
     final defaultCodexProfile = widget.bridge?.defaultCodexProfile;
@@ -922,7 +921,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         });
     // Catalog and capability changes invalidate saved choices without rewriting them.
     _codexCatalogSub = widget.bridge?.sessionList.listen((_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(_refreshModelCatalogs);
     });
     _codexConnectionSub = widget.bridge?.connectionStatus.listen((_) {
       if (mounted) setState(() {});
@@ -1011,6 +1011,93 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     }
   }
 
+  /// Load available models from Bridge (with hardcoded fallbacks).
+  void _loadModelCatalogs() {
+    final bridgeClaudeOptions =
+        widget.bridge?.claudeModelOptions ?? const <ClaudeModelOption>[];
+    final claudeOptions = bridgeClaudeOptions.isNotEmpty
+        ? bridgeClaudeOptions
+        : defaultClaudeModelOptions;
+    _claudeModelList = [for (final option in claudeOptions) option.value];
+    _claudeModelOptions = {
+      for (final option in claudeOptions) option.value: option,
+    };
+    _claudeModelEfforts = normalizeClaudeModelEfforts(
+      widget.bridge?.claudeModelEfforts ?? const {},
+    );
+    final bridgeCodexModels = widget.bridge?.codexModels ?? const [];
+    _codexModelList = bridgeCodexModels.isNotEmpty
+        ? bridgeCodexModels
+        : _defaultCodexModels;
+    _codexModelReasoningEfforts = _normalizeCodexModelReasoningEfforts(
+      widget.bridge?.codexModelReasoningEfforts ?? const {},
+    );
+  }
+
+  /// Apply a newer catalog and re-resolve saved choices the user has not
+  /// changed in this sheet, so a fallback catalog cannot replace them.
+  void _refreshModelCatalogs() {
+    final previousCodexModels = _codexModelList;
+    final previousClaudeModels = _claudeModelList;
+    _loadModelCatalogs();
+    final codexChanged = !listEquals(previousCodexModels, _codexModelList);
+    final claudeChanged = !listEquals(previousClaudeModels, _claudeModelList);
+    final codex = _codexSource;
+    if (codexChanged && codex != null) {
+      if (!_codexModelTouched) _resolveCodexModel(codex);
+      if (!_codexReasoningEffortTouched && codex.modelReasoningEffort != null) {
+        _modelReasoningEffort = codex.modelReasoningEffort!;
+      }
+    }
+    if (_selectedModel != null && !_codexModelList.contains(_selectedModel)) {
+      _selectedModel = null;
+    }
+    _normalizeSelectedCodexReasoningEffort();
+    final claude = _claudeSource;
+    if (claudeChanged && claude != null) {
+      if (!_claudeModelTouched) _resolveClaudeModels(claude);
+      if (!_claudeEffortTouched && claude.claudeEffort != null) {
+        _claudeEffort = claude.claudeEffort!;
+      }
+    }
+    if (_selectedClaudeModel != null &&
+        !_claudeModelList.contains(_selectedClaudeModel)) {
+      _selectedClaudeModel = null;
+    }
+    if (_selectedClaudeFallbackModel != null &&
+        !_claudeModelList.contains(_selectedClaudeFallbackModel)) {
+      _selectedClaudeFallbackModel = null;
+    }
+    _normalizeSelectedClaudeEffort();
+  }
+
+  void _resolveCodexModel(NewSessionParams p) {
+    final normalizedCodexModel = normalizeCodexModelForAvailableList(
+      p.model,
+      _codexModelList,
+    );
+    _selectedModel = _codexModelList.contains(normalizedCodexModel)
+        ? normalizedCodexModel
+        : null;
+  }
+
+  void _resolveClaudeModels(NewSessionParams p) {
+    _selectedClaudeModel = _claudeModelList.contains(p.claudeModel)
+        ? p.claudeModel
+        : null;
+    _selectedClaudeFallbackModel =
+        _claudeModelList.contains(p.claudeFallbackModel)
+        ? p.claudeFallbackModel
+        : null;
+  }
+
+  /// The defaults that seed [provider]'s options: [initialParams] for its own
+  /// provider, otherwise that provider's saved defaults when available.
+  NewSessionParams _sourceFor(Provider provider, NewSessionParams initial) {
+    if (initial.provider == provider || widget.lockProvider) return initial;
+    return widget.providerDefaults[provider] ?? initial;
+  }
+
   void _applyInitialParams() {
     final p = widget.initialParams;
     if (p == null) return;
@@ -1023,71 +1110,25 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       (t) => t.toProvider() == p.provider,
     );
     _provider = isVisible ? p.provider : widget.visibleTabs.first.toProvider();
-    _executionMode = p.executionMode;
-    _codexPermissionsMode = p.codexPermissionsMode;
-    _claudePermissionMode = p.provider == Provider.claude
-        ? p.permissionMode
-        : PermissionMode.defaultMode;
-    _codexApprovalPolicy =
-        p.codexApprovalPolicy == CodexApprovalPolicy.onFailure
-        ? CodexApprovalPolicy.onRequest
-        : p.codexApprovalPolicy;
-    _codexAutoReviewEnabled =
-        _codexApprovalPolicy == CodexApprovalPolicy.onRequest &&
-        p.codexAutoReviewEnabled;
+
+    final codex = _sourceFor(Provider.codex, p);
+    final claude = _sourceFor(Provider.claude, p);
+    _codexSource = codex;
+    _claudeSource = claude;
+    _applyCodexParams(codex);
+    _applyClaudeParams(claude);
+
+    // Options shared by both tabs follow the initial provider. Apply them last
+    // because Codex permissions also derive the shared execution mode.
+    if (p.provider == Provider.claude) _executionMode = p.executionMode;
     _planMode = p.planMode;
     _useWorktree = p.useWorktree || p.existingWorktreePath != null;
     _branchController.text = p.worktreeBranch ?? "";
-    final normalizedCodexModel = normalizeCodexModelForAvailableList(
-      p.model,
-      _codexModelList,
-    );
-    _selectedModel = _codexModelList.contains(normalizedCodexModel)
-        ? normalizedCodexModel
-        : null;
-    _selectedCodexProfile = _codexProfiles.contains(p.codexProfile)
-        ? p.codexProfile
-        : null;
-    if (p.provider == Provider.claude) {
-      _claudeSandboxMode = p.sandboxMode ?? SandboxMode.off;
-    } else {
-      _codexSandboxMode = p.sandboxMode ?? SandboxMode.on;
-    }
-    if (p.provider == Provider.codex) {
-      _applyCodexPermissionsMode(p.codexPermissionsMode);
-      _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
-      _codexAutoReviewTouched = p.codexAutoReviewOverridden;
-      _codexSandboxModeTouched = p.codexSandboxModeOverridden;
-    }
-    _modelReasoningEffort = p.modelReasoningEffort ?? _modelReasoningEffort;
-    _codexSpeed = p.codexSpeed;
-    _normalizeSelectedCodexReasoningEffort();
-    _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
-    _webSearchMode = p.webSearchMode;
     if (_selectedProjectId == null) {
       _additionalWritableRoots = [...p.additionalWritableRoots];
     }
-    _selectedClaudeModel = _claudeModelList.contains(p.claudeModel)
-        ? p.claudeModel
-        : null;
-    _claudeEffort = p.claudeEffort ?? _claudeEffort;
-    _claudeFastMode = p.claudeFastMode ?? false;
-    _normalizeSelectedClaudeEffort();
     _claudeMaxTurnsController.text = p.claudeMaxTurns?.toString() ?? "";
     _claudeMaxBudgetController.text = p.claudeMaxBudgetUsd?.toString() ?? "";
-    _selectedClaudeFallbackModel =
-        _claudeModelList.contains(p.claudeFallbackModel)
-        ? p.claudeFallbackModel
-        : null;
-    _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
-    _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
-    _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
-    _codexAutoReviewTouched = p.codexAutoReviewOverridden;
-    _codexModelTouched = p.codexModelOverridden;
-    _codexSandboxModeTouched = p.codexSandboxModeOverridden;
-    _codexReasoningEffortTouched = p.codexReasoningEffortOverridden;
-    _codexNetworkAccessTouched = p.codexNetworkAccessOverridden;
-    _codexWebSearchTouched = p.codexWebSearchModeOverridden;
 
     if (p.existingWorktreePath != null) {
       _worktreeMode = _WorktreeMode.useExisting;
@@ -1098,6 +1139,51 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       );
     }
     _enforceCodexAutoReviewPolicy();
+  }
+
+  void _applyCodexParams(NewSessionParams p) {
+    _executionMode = p.executionMode;
+    _codexPermissionsMode = p.codexPermissionsMode;
+    _codexApprovalPolicy =
+        p.codexApprovalPolicy == CodexApprovalPolicy.onFailure
+        ? CodexApprovalPolicy.onRequest
+        : p.codexApprovalPolicy;
+    _codexAutoReviewEnabled =
+        _codexApprovalPolicy == CodexApprovalPolicy.onRequest &&
+        p.codexAutoReviewEnabled;
+    _resolveCodexModel(p);
+    _selectedCodexProfile = _codexProfiles.contains(p.codexProfile)
+        ? p.codexProfile
+        : null;
+    if (p.provider == Provider.codex) {
+      _codexSandboxMode = p.sandboxMode ?? SandboxMode.on;
+      _applyCodexPermissionsMode(p.codexPermissionsMode);
+    }
+    _modelReasoningEffort = p.modelReasoningEffort ?? _modelReasoningEffort;
+    _codexSpeed = p.codexSpeed;
+    _normalizeSelectedCodexReasoningEffort();
+    _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
+    _webSearchMode = p.webSearchMode;
+    _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
+    _codexAutoReviewTouched = p.codexAutoReviewOverridden;
+    _codexModelTouched = p.codexModelOverridden;
+    _codexSandboxModeTouched = p.codexSandboxModeOverridden;
+    _codexReasoningEffortTouched = p.codexReasoningEffortOverridden;
+    _codexNetworkAccessTouched = p.codexNetworkAccessOverridden;
+    _codexWebSearchTouched = p.codexWebSearchModeOverridden;
+  }
+
+  void _applyClaudeParams(NewSessionParams p) {
+    if (p.provider == Provider.claude) {
+      _claudePermissionMode = p.permissionMode;
+      _claudeSandboxMode = p.sandboxMode ?? SandboxMode.off;
+    }
+    _resolveClaudeModels(p);
+    _claudeEffort = p.claudeEffort ?? _claudeEffort;
+    _claudeFastMode = p.claudeFastMode ?? false;
+    _normalizeSelectedClaudeEffort();
+    _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
+    _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
   }
 
   void _fetchWorktrees() {
@@ -1669,12 +1755,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             onClaudeModelChanged: (value) {
               setState(() {
                 _selectedClaudeModel = value;
+                _claudeModelTouched = true;
                 _normalizeSelectedClaudeEffort();
               });
             },
             claudeEffort: _claudeEffort,
             onClaudeEffortChanged: (value) {
-              setState(() => _claudeEffort = value);
+              setState(() {
+                _claudeEffort = value;
+                _claudeEffortTouched = true;
+              });
             },
             claudeFastMode: _claudeFastMode,
             onClaudeFastModeChanged: (value) {
@@ -1692,7 +1782,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             },
             selectedClaudeFallbackModel: _selectedClaudeFallbackModel,
             onClaudeFallbackModelChanged: (value) {
-              setState(() => _selectedClaudeFallbackModel = value);
+              setState(() {
+                _selectedClaudeFallbackModel = value;
+                _claudeModelTouched = true;
+              });
             },
             claudeForkSession: _claudeForkSession,
             onClaudeForkSessionChanged: (value) {

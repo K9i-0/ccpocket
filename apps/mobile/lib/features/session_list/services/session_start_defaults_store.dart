@@ -55,11 +55,32 @@ class SessionStartDefaultsStore {
       preservedLegacy = await _saveScoped(prefs, legacy);
     }
 
-    final savedDefaults = await _saveScoped(prefs, params);
+    final savedDefaults = await _saveScoped(
+      prefs,
+      _preserveUnchangedCodexModel(prefs, params),
+    );
     final savedSelection = await _saveSelection(prefs, params.provider);
     if (preservedLegacy && savedDefaults && savedSelection) {
       await prefs.remove(_legacyKey);
     }
+  }
+
+  /// Keeps the saved Codex model unless the user picked one in the sheet.
+  ///
+  /// The sheet falls back to the first catalog model when the saved model is
+  /// missing from the catalog it received (for example the Bridge's fallback
+  /// catalog right after a restart). That fallback must not replace the
+  /// user's preference.
+  NewSessionParams _preserveUnchangedCodexModel(
+    SharedPreferences prefs,
+    NewSessionParams params,
+  ) {
+    if (params.provider != Provider.codex || params.codexModelOverridden) {
+      return params;
+    }
+    final savedModel = _loadScoped(prefs, Provider.codex)?.model;
+    if (savedModel == null || savedModel.isEmpty) return params;
+    return params.copyWith(model: savedModel);
   }
 
   NewSessionParams? _loadScoped(SharedPreferences prefs, Provider provider) {

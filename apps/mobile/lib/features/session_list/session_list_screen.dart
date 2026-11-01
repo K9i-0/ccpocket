@@ -197,6 +197,34 @@ NewSessionParams? mergeCodexDefaultsIntoInitialSessionDefaults(
   );
 }
 
+/// Decides how a `session_created` message affects a pending Claude start.
+///
+/// Returns `matched: false` for messages that belong to other sessions (other
+/// clients, Codex, restarts of unrelated projects), so the pending start keeps
+/// waiting for its own message. A matched message only yields [corrected]
+/// defaults when the Bridge explicitly reports that Auto fell back to another
+/// mode; a missing `permissionMode` means "unknown" and keeps the defaults.
+({bool matched, NewSessionParams? corrected}) claudeDefaultsCorrectionFor(
+  NewSessionParams pending,
+  SystemMessage msg,
+) {
+  const unmatched = (matched: false, corrected: null);
+  if (pending.provider != Provider.claude ||
+      msg.subtype != 'session_created' ||
+      msg.provider != Provider.claude.value ||
+      msg.projectPath != pending.projectPath) {
+    return unmatched;
+  }
+  const noChange = (matched: true, corrected: null);
+  if (pending.permissionMode != PermissionMode.auto) return noChange;
+  final actualMode = permissionModeFromRaw(msg.permissionMode);
+  if (actualMode == null || actualMode == PermissionMode.auto) return noChange;
+  return (
+    matched: true,
+    corrected: pending.copyWith(claudePermissionMode: actualMode),
+  );
+}
+
 // ---- Screen ----
 
 class SessionListScreen extends StatefulWidget {
@@ -818,8 +846,12 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _showNewSessionDialog() async {
     final defaults = await _loadInitialNewSessionDefaults();
+    final providerDefaults = await _loadProviderSessionDefaults();
     if (!mounted) return;
-    final result = await _openNewSessionSheet(initialParams: defaults);
+    final result = await _openNewSessionSheet(
+      initialParams: defaults,
+      providerDefaults: providerDefaults,
+    );
 
     if (result == null || !mounted) return;
     if (!result.isNewProject) await _sessionStartDefaultsStore.save(result);
@@ -831,6 +863,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   Future<NewSessionParams?> _openNewSessionSheet({
     NewSessionParams? initialParams,
+    Map<Provider, NewSessionParams> providerDefaults = const {},
     bool lockProvider = false,
     bool multiProjectOnly = false,
   }) async {
@@ -846,6 +879,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       projectHistory: history,
       bridge: bridge,
       initialParams: initialParams,
+      providerDefaults: providerDefaults,
       lockProvider: lockProvider,
       multiProjectOnly: multiProjectOnly,
       visibleTabs: settings.newSessionTabs,
@@ -1020,17 +1054,21 @@ class _SessionListScreenState extends State<SessionListScreen>
     SystemMessage msg,
   ) async {
     final pending = _pendingClaudeDefaultsCorrection;
+    if (pending == null) return;
+    final decision = claudeDefaultsCorrectionFor(pending, msg);
+    if (!decision.matched) return;
     _pendingClaudeDefaultsCorrection = null;
-    if (pending == null || pending.provider != Provider.claude) return;
-    if (pending.permissionMode != PermissionMode.auto) return;
+    final corrected = decision.corrected;
+    if (corrected == null) return;
+    await _sessionStartDefaultsStore.save(corrected);
+  }
 
-    final actualMode =
-        permissionModeFromRaw(msg.permissionMode) ?? PermissionMode.defaultMode;
-    if (actualMode == pending.permissionMode) return;
-
-    await _sessionStartDefaultsStore.save(
-      pending.copyWith(claudePermissionMode: actualMode),
-    );
+  /// Saved defaults of each provider, so the tab the sheet does not open on
+  /// still shows that provider's own choices (model, approval mode, ...).
+  Future<Map<Provider, NewSessionParams>> _loadProviderSessionDefaults() async {
+    final claude = await _sessionStartDefaultsStore.loadFor(Provider.claude);
+    final codex = await _sessionStartDefaultsStore.loadFor(Provider.codex);
+    return {Provider.claude: ?claude, Provider.codex: ?codex};
   }
 
   Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
