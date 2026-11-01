@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
+import '../services/question_draft_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
@@ -1274,19 +1275,22 @@ class _AskUserArea extends StatefulWidget {
 class _AskUserAreaState extends State<_AskUserArea> {
   late final PageController _pageController;
 
+  /// Shared with the chat screen's question widget for the same toolUseId.
+  late QuestionDraft _draft;
+
   /// 0 to questions.length (where questions.length == summary page).
   int _currentPage = 0;
 
   /// questionIndex -> chosen label
-  final Map<int, String> _singleAnswers = {};
+  Map<int, String> get _singleAnswers => _draft.singleAnswers;
 
   /// questionIndex -> set of chosen labels
-  final Map<int, Set<String>> _multiAnswers = {};
-
-  final Map<int, TextEditingController> _customControllers = {};
+  Map<int, Set<String>> get _multiAnswers => _draft.multiAnswers;
 
   /// Keep track of which questions have their "Other" input shown
-  final Set<int> _customInputs = {};
+  Set<int> get _customInputs => _draft.customInputs;
+
+  QuestionDraftStore get _store => QuestionDraftStore.instance;
 
   List<dynamic> get _questions =>
       widget.permission.input['questions'] as List<dynamic>? ?? [];
@@ -1306,54 +1310,78 @@ class _AskUserAreaState extends State<_AskUserArea> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _attachDraft(widget.permission.toolUseId);
+    _pageController = PageController(initialPage: _currentPage);
   }
 
   @override
   void didUpdateWidget(covariant _AskUserArea oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.permission.toolUseId == widget.permission.toolUseId) return;
-    _resetForQuestionIdentity();
+    if (oldWidget.permission.toolUseId == widget.permission.toolUseId) {
+      return;
+    }
+    _detachDraft(oldWidget.permission.toolUseId);
+    _attachDraft(widget.permission.toolUseId);
+    _syncPageControllerToDraft();
   }
 
-  void _resetForQuestionIdentity() {
-    _singleAnswers.clear();
-    _multiAnswers.clear();
-    _customInputs.clear();
-    for (final controller in _customControllers.values) {
-      controller.clear();
+  void _attachDraft(String toolUseId) {
+    _draft = _store.acquire(toolUseId);
+    _draft.addListener(_onDraftChanged);
+    _currentPage = _draft.currentPage;
+  }
+
+  void _detachDraft(String toolUseId) {
+    _draft.removeListener(_onDraftChanged);
+    _store.release(toolUseId, _draft);
+  }
+
+  /// Another surface (e.g. the chat screen) changed the shared draft.
+  void _onDraftChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (_draft.currentPage != _currentPage) {
+      _syncPageControllerToDraft();
     }
-    _currentPage = 0;
+  }
+
+  void _syncPageControllerToDraft() {
+    _currentPage = _draft.currentPage;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _pageController.hasClients) {
-        _pageController.jumpToPage(0);
+      if (!mounted || !_pageController.hasClients) return;
+      final page = _draft.currentPage;
+      if (_pageController.page?.round() != page) {
+        _pageController.jumpToPage(page);
       }
     });
   }
 
   @override
   void dispose() {
-    for (var c in _customControllers.values) {
-      c.dispose();
-    }
+    _detachDraft(widget.permission.toolUseId);
     _pageController.dispose();
     super.dispose();
   }
 
+  void _sendAnswer(String result) {
+    if (!_draft.markAnswered()) return;
+    widget.onAnswer(result);
+  }
+
   void _answerSingle(int questionIndex, String label) {
-    setState(() {
+    _draft.update(() {
       _singleAnswers[questionIndex] = label;
 
       // Only clear custom input for single-select questions
       final q = _questions[questionIndex] as Map<String, dynamic>;
       final isMulti = q['multiSelect'] as bool? ?? false;
       if (!isMulti) {
-        _customControllers[questionIndex]?.clear();
+        _draft.clearCustomText(questionIndex);
       }
     });
     if (!_isMultiQuestion) {
       // Single question → send immediately
-      widget.onAnswer(label);
+      _sendAnswer(label);
     } else {
       _goToPage(questionIndex + 1);
     }
@@ -1366,14 +1394,14 @@ class _AskUserAreaState extends State<_AskUserArea> {
     if (!_isMultiQuestion) {
       final question = _questions[questionIndex] as Map<String, dynamic>;
       final answerKey = _answerKeyForQuestion(question, questionIndex);
-      widget.onAnswer(
+      _sendAnswer(
         jsonEncode({
           'questions': _questions,
           'answers': {answerKey: selected.toList(growable: false)},
         }),
       );
     } else {
-      setState(() {
+      _draft.update(() {
         _singleAnswers[questionIndex] = answer;
       });
       _goToPage(_currentPage + 1);
@@ -1387,7 +1415,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
     final q = _questions[questionIndex] as Map<String, dynamic>;
     final isMulti = q['multiSelect'] as bool? ?? false;
 
-    final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+    final customText = _draft.customText(questionIndex);
 
     if (isMulti) {
       final selected = _multiAnswers[questionIndex] ?? {};
@@ -1405,14 +1433,14 @@ class _AskUserAreaState extends State<_AskUserArea> {
         final answerKey = _answerKeyForQuestion(q, questionIndex);
         final answer = <String>[...(_multiAnswers[questionIndex] ?? {})];
         if (customText.isNotEmpty) answer.add(customText);
-        widget.onAnswer(
+        _sendAnswer(
           jsonEncode({
             'questions': _questions,
             'answers': {answerKey: answer},
           }),
         );
       } else {
-        widget.onAnswer(finalAnswer);
+        _sendAnswer(finalAnswer);
       }
       return;
     }
@@ -1433,7 +1461,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
       if (isMulti) {
         final selected = _multiAnswers[i] ?? {};
         final answer = <String>[...selected];
-        final customText = _customControllers[i]?.text.trim() ?? '';
+        final customText = _draft.customText(i);
         if (customText.isNotEmpty) answer.add(customText);
         if (answer.isNotEmpty) answers[answerKey] = answer;
       } else {
@@ -1441,7 +1469,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
         if (answer.isNotEmpty) answers[answerKey] = answer;
       }
     }
-    widget.onAnswer(jsonEncode({'questions': _questions, 'answers': answers}));
+    _sendAnswer(jsonEncode({'questions': _questions, 'answers': answers}));
   }
 
   bool get _allRequiredAnswered {
@@ -1450,7 +1478,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
       if (!(question['required'] as bool? ?? true)) continue;
       if (question['multiSelect'] as bool? ?? false) {
         final selected = _multiAnswers[i] ?? {};
-        final customText = _customControllers[i]?.text.trim() ?? '';
+        final customText = _draft.customText(i);
         if (selected.isEmpty && customText.isEmpty) return false;
       } else if ((_singleAnswers[i]?.trim() ?? '').isEmpty) {
         return false;
@@ -1460,27 +1488,17 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   void _resetAll() {
-    setState(() {
-      _singleAnswers.clear();
-      for (var s in _multiAnswers.values) {
-        s.clear();
-      }
-      _multiAnswers.clear();
-      _customInputs.clear();
-      for (var c in _customControllers.values) {
-        c.clear();
-      }
-      _currentPage = 0;
-      _pageController.animateToPage(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    });
+    _currentPage = 0;
+    _draft.reset();
+    _pageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _toggleMultiSelectLabel(int questionIndex, String label) {
-    setState(() {
+    _draft.update(() {
       final selected = _multiAnswers.putIfAbsent(questionIndex, () => {});
       if (selected.contains(label)) {
         selected.remove(label);
@@ -1489,7 +1507,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
       }
 
       final parts = [...selected];
-      final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+      final customText = _draft.customText(questionIndex);
       if (customText.isNotEmpty) parts.add(customText);
 
       _singleAnswers[questionIndex] = parts.join(', ');
@@ -1497,7 +1515,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   void _onCustomTextChanged(int questionIndex, String text) {
-    setState(() {
+    _draft.update(() {
       final q = _questions[questionIndex] as Map<String, dynamic>;
       final isMulti = q['multiSelect'] as bool? ?? false;
 
@@ -1518,22 +1536,20 @@ class _AskUserAreaState extends State<_AskUserArea> {
 
   void _showCustomInput(int questionIndex) {
     if (!_allowsCustomInput) return;
-    setState(() {
+    _draft.update(() {
       _customInputs.add(questionIndex);
     });
   }
 
   TextEditingController _getOrCreateController(int questionIndex) {
-    return _customControllers.putIfAbsent(
-      questionIndex,
-      () => TextEditingController(),
-    );
+    return _draft.controllerFor(questionIndex);
   }
 
   void _onPageChanged(int index) {
     setState(() {
       _currentPage = index;
     });
+    _draft.setPage(index);
   }
 
   void _goToPage(int index) {
@@ -1548,6 +1564,10 @@ class _AskUserAreaState extends State<_AskUserArea> {
   Widget build(BuildContext context) {
     final questions = _questions;
     if (questions.isEmpty) return const SizedBox.shrink();
+
+    if (_draft.answered) {
+      return _AnsweredQuestionNotice(statusColor: widget.statusColor);
+    }
 
     final firstQ = questions[0] as Map<String, dynamic>;
     final options = firstQ['options'] as List<dynamic>? ?? [];
@@ -1606,6 +1626,43 @@ class _AskUserAreaState extends State<_AskUserArea> {
             const SizedBox(height: 6),
             _OpenButton(onTap: widget.onTap),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown once the shared question draft was answered on any surface.
+class _AnsweredQuestionNotice extends StatelessWidget {
+  final Color statusColor;
+
+  const _AnsweredQuestionNotice({required this.statusColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Container(
+      key: const ValueKey('session_card_question_answered'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: appColors.subtleText,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            AppLocalizations.of(context).answered,
+            style: TextStyle(
+              color: appColors.subtleText,
+              fontStyle: FontStyle.italic,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../services/question_draft_store.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/request_user_input.dart';
 import 'ask_question_option_button.dart';
@@ -30,14 +31,17 @@ class AskUserQuestionWidget extends StatefulWidget {
 }
 
 class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
-  final Map<int, String> _singleAnswers = {};
-  final Map<int, Set<String>> _multiAnswers = {};
-  final Map<int, TextEditingController> _customControllers = {};
-  final Set<int> _customInputs = {};
+  late QuestionDraft _draft;
 
   late final PageController _pageController;
   int _currentPage = 0;
-  bool _answered = false;
+
+  Map<int, String> get _singleAnswers => _draft.singleAnswers;
+  Map<int, Set<String>> get _multiAnswers => _draft.multiAnswers;
+  Set<int> get _customInputs => _draft.customInputs;
+  bool get _answered => _draft.answered;
+
+  QuestionDraftStore get _store => QuestionDraftStore.instance;
 
   List<Map<String, dynamic>> get _questions =>
       requestUserInputQuestions(widget.input);
@@ -59,45 +63,63 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _attachDraft(widget.toolUseId);
+    _pageController = PageController(initialPage: _currentPage);
   }
 
   @override
   void didUpdateWidget(covariant AskUserQuestionWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.toolUseId == widget.toolUseId) return;
-    _resetForQuestionIdentity();
+    if (oldWidget.toolUseId == widget.toolUseId) {
+      return;
+    }
+    _detachDraft(oldWidget.toolUseId);
+    _attachDraft(widget.toolUseId);
+    _syncPageControllerToDraft();
   }
 
-  void _resetForQuestionIdentity() {
-    _singleAnswers.clear();
-    _multiAnswers.clear();
-    _customInputs.clear();
-    for (final controller in _customControllers.values) {
-      controller.clear();
+  void _attachDraft(String toolUseId) {
+    _draft = _store.acquire(toolUseId);
+    _draft.addListener(_onDraftChanged);
+    _currentPage = _draft.currentPage;
+  }
+
+  void _detachDraft(String toolUseId) {
+    _draft.removeListener(_onDraftChanged);
+    _store.release(toolUseId, _draft);
+  }
+
+  /// Another surface (e.g. the session card) changed the shared draft.
+  void _onDraftChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (_draft.currentPage != _currentPage) {
+      _currentPage = _draft.currentPage;
+      _syncPageControllerToDraft();
     }
-    _currentPage = 0;
-    _answered = false;
+  }
+
+  void _syncPageControllerToDraft() {
+    _currentPage = _draft.currentPage;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _pageController.hasClients) {
-        _pageController.jumpToPage(0);
+      if (!mounted || !_pageController.hasClients) return;
+      final page = _draft.currentPage;
+      if (_pageController.page?.round() != page) {
+        _pageController.jumpToPage(page);
       }
     });
   }
 
   @override
   void dispose() {
-    for (final c in _customControllers.values) {
-      c.dispose();
-    }
+    _detachDraft(widget.toolUseId);
     _pageController.dispose();
     super.dispose();
   }
 
   void _sendAnswer(String answer) {
-    if (_answered) return;
+    if (!_draft.markAnswered()) return;
     HapticFeedback.mediumImpact();
-    setState(() => _answered = true);
     widget.onAnswer(widget.toolUseId, answer);
   }
 
@@ -111,7 +133,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
       final multiSelect = q['multiSelect'] as bool? ?? false;
       if (multiSelect) {
         final selected = _multiAnswers[i] ?? <String>{};
-        final custom = _customControllers[i]?.text.trim() ?? '';
+        final custom = _draft.customText(i);
         final merged = <String>[...selected];
         if (custom.isNotEmpty) merged.add(custom);
         if (merged.isNotEmpty) answers[answerKey] = merged;
@@ -131,7 +153,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
       final multiSelect = q['multiSelect'] as bool? ?? false;
       if (multiSelect) {
         final selected = _multiAnswers[i] ?? <String>{};
-        final custom = _customControllers[i]?.text.trim() ?? '';
+        final custom = _draft.customText(i);
         if (selected.isEmpty && custom.isEmpty) return false;
       } else {
         final value = _singleAnswers[i]?.trim() ?? '';
@@ -142,10 +164,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 
   TextEditingController _getOrCreateController(int questionIndex) {
-    return _customControllers.putIfAbsent(
-      questionIndex,
-      () => TextEditingController(),
-    );
+    return _draft.controllerFor(questionIndex);
   }
 
   void _onAnswerSingle(int questionIndex, String label) {
@@ -153,10 +172,10 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     final q = _questions[questionIndex];
     final isMulti = q['multiSelect'] as bool? ?? false;
 
-    setState(() {
+    _draft.update(() {
       _singleAnswers[questionIndex] = label;
       if (!isMulti) {
-        _customControllers[questionIndex]?.clear();
+        _draft.clearCustomText(questionIndex);
       }
     });
 
@@ -175,14 +194,14 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   void _toggleMultiSelectLabel(int questionIndex, String label) {
     HapticFeedback.selectionClick();
-    setState(() {
+    _draft.update(() {
       final selected = _multiAnswers.putIfAbsent(questionIndex, () => {});
       if (selected.contains(label)) {
         selected.remove(label);
       } else {
         selected.add(label);
       }
-      final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+      final customText = _draft.customText(questionIndex);
       final parts = <String>[...selected];
       if (customText.isNotEmpty) {
         parts.add(customText);
@@ -193,7 +212,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   void _confirmMultiSelect(int questionIndex) {
     final selected = _multiAnswers[questionIndex] ?? <String>{};
-    final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+    final customText = _draft.customText(questionIndex);
     final parts = <String>[...selected];
     if (customText.isNotEmpty) {
       parts.add(customText);
@@ -201,7 +220,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     final answer = parts.join(', ');
     if (answer.isEmpty) return;
 
-    setState(() {
+    _draft.update(() {
       _singleAnswers[questionIndex] = answer;
     });
 
@@ -218,7 +237,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   void _submitCustomText(int questionIndex) {
     final q = _questions[questionIndex];
     final isMulti = q['multiSelect'] as bool? ?? false;
-    final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+    final customText = _draft.customText(questionIndex);
 
     if (isMulti) {
       final selected = _multiAnswers[questionIndex] ?? <String>{};
@@ -227,7 +246,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
         parts.add(customText);
       }
       if (parts.isEmpty) return;
-      setState(() {
+      _draft.update(() {
         _singleAnswers[questionIndex] = parts.join(', ');
       });
       if (_isSingleQuestion) {
@@ -246,7 +265,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
         : (_singleAnswers[questionIndex]?.trim() ?? '');
     if (answer.isEmpty) return;
 
-    setState(() {
+    _draft.update(() {
       _singleAnswers[questionIndex] = answer;
     });
 
@@ -262,7 +281,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 
   void _onCustomTextChanged(int questionIndex, String text) {
-    setState(() {
+    _draft.update(() {
       final q = _questions[questionIndex];
       final isMulti = q['multiSelect'] as bool? ?? false;
       if (isMulti) {
@@ -280,7 +299,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   void _showCustomInput(int questionIndex) {
     if (!_singleQuestionAllowsCustomInput && !_isMultiQuestion) return;
-    setState(() {
+    _draft.update(() {
       _customInputs.add(questionIndex);
     });
   }
@@ -289,6 +308,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     setState(() {
       _currentPage = index;
     });
+    _draft.setPage(index);
   }
 
   void _goToPage(int index) {
@@ -300,15 +320,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 
   void _resetAll() {
-    setState(() {
-      _singleAnswers.clear();
-      _multiAnswers.clear();
-      _customInputs.clear();
-      for (final controller in _customControllers.values) {
-        controller.clear();
-      }
-      _currentPage = 0;
-    });
+    _currentPage = 0;
+    _draft.reset();
     _goToPage(0);
   }
 
