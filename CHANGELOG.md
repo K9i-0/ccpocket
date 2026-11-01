@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.150.0] - 2026-11-01
+
+### Added
+
+- Draft comments on multiple Git diff lines or hunks and send them together to the AI from the chat input. Comments retain code anchors and are re-anchored after edits.
+
+### Changed
+
+- Color the chat title by AI provider.
+- Use a neutral user message bubble to make text selection easier to see.
+
+### Fixed
+
+- Preserve message text selection while scrolling the chat.
+
 ## [1.149.0] - 2026-11-01
 
 ### Added
