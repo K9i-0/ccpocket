@@ -3088,6 +3088,7 @@ export class BridgeWebSocketServer {
               ws,
               this.buildPathNotAllowedError(
                 normalized.deniedRoot ?? project.rootPaths[0],
+                msg.requestId,
               ),
             );
             break;

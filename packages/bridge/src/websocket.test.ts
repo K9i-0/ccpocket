@@ -2818,6 +2818,51 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("includes requestId when a Project root is outside bridge allowed directories", async () => {
+    const workspaceStore = {
+      getProject: vi.fn(() => ({
+        id: "project-1",
+        name: "Outside",
+        rootPaths: ["/tmp/other"],
+      })),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: ["/tmp/project-a"],
+      workspaceStore: workspaceStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/other",
+        projectId: "project-1",
+        workspaceKind: "project",
+        provider: "codex",
+        requestId: "start-outside",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "path_not_allowed",
+        requestId: "start-outside",
+      }),
+    );
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
   it("forwards selected codex profile without an explicit permissions mode on resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
