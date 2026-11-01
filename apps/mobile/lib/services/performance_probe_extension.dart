@@ -11,7 +11,7 @@ final _probe = _FrameTimingProbe();
 final chatListPerformanceProbe = ChatListPerformanceProbe();
 
 void registerPerformanceProbeExtensions() {
-  if (!kDebugMode) return;
+  if (kReleaseMode) return;
   _probe.ensureAttached();
 
   registerMarionetteExtension(
@@ -54,12 +54,12 @@ class ChatListPerformanceProbe {
   }
 
   void recordBuild() {
-    if (!kDebugMode) return;
+    if (kReleaseMode) return;
     _buildCount++;
   }
 
   void recordDerivedData(Duration elapsed) {
-    if (!kDebugMode) return;
+    if (kReleaseMode) return;
     _derivedDataCount++;
     _derivedDataMicros += elapsed.inMicroseconds;
   }

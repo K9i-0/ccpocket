@@ -210,7 +210,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final buildWatch = kDebugMode ? (Stopwatch()..start()) : null;
+    final buildWatch = !kReleaseMode ? (Stopwatch()..start()) : null;
     final codeElement = element.children
         ?.whereType<md.Element>()
         .cast<md.Element?>()
@@ -386,7 +386,7 @@ List<TextSpan> highlightToTextSpans({
   required String? language,
 }) {
   if (source.length > _maxHighlightedCodeBlockChars) {
-    if (kDebugMode) markdownPerformanceProbe.highlightSkipped += 1;
+    if (!kReleaseMode) markdownPerformanceProbe.highlightSkipped += 1;
     return [TextSpan(text: source, style: baseStyle)];
   }
 
@@ -398,11 +398,11 @@ List<TextSpan> highlightToTextSpans({
   );
   final cached = _highlightCache.get(cacheKey);
   if (cached != null) {
-    if (kDebugMode) markdownPerformanceProbe.highlightCacheHits += 1;
+    if (!kReleaseMode) markdownPerformanceProbe.highlightCacheHits += 1;
     return cached;
   }
 
-  final watch = kDebugMode ? (Stopwatch()..start()) : null;
+  final watch = !kReleaseMode ? (Stopwatch()..start()) : null;
   List<TextSpan> finish(List<TextSpan> spans) {
     if (watch != null) {
       watch.stop();

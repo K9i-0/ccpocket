@@ -64,7 +64,7 @@ class StoreScreenshotState {
 /// and services — these are populated later during app startup, which
 /// is fine because extensions are only called after the app is running.
 void registerStoreScreenshotExtensions() {
-  if (!kDebugMode) return;
+  if (kReleaseMode) return;
 
   registerMarionetteExtension(
     name: 'ccpocket.setDeviceOrientation',

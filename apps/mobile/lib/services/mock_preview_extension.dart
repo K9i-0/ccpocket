@@ -6,7 +6,7 @@ import '../screens/mock_preview_screen.dart';
 import 'store_screenshot_extension.dart';
 
 void registerMockPreviewExtensions() {
-  if (!kDebugMode) return;
+  if (kReleaseMode) return;
 
   registerMarionetteExtension(
     name: 'ccpocket.mock.openScenario',

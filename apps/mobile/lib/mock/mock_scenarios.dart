@@ -116,7 +116,7 @@ final List<MockScenario> mockScenarios = [
   supporterPreviewVeteran,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
-  if (kDebugMode)
+  if (!kReleaseMode)
     for (final name in [
       'LP Conversation',
       'LP Imagegen',

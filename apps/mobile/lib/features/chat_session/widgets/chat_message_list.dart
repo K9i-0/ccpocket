@@ -816,7 +816,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       }
     }
 
-    final stopwatch = kDebugMode ? (Stopwatch()..start()) : null;
+    final stopwatch = !kReleaseMode ? (Stopwatch()..start()) : null;
     final imageGroupMemberIndices = <int>{};
     final imageItemsByAnchor = <int, List<GeneratedImagePreviewItem>>{};
     for (final group in groupGeneratedImageResponses(entries)) {

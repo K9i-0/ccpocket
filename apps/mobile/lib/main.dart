@@ -3,7 +3,7 @@
 /// This is the main entry point for the ccpocket Flutter application.
 ///
 /// Key responsibilities:
-/// - Initializes Marionette binding for E2E testing in debug mode
+/// - Initializes Marionette binding for E2E testing in debug and profile modes
 /// - Sets up global error handling
 /// - Initializes core services (BridgeService, DatabaseService, NotificationService, etc.)
 /// - Configures repository and Bloc providers for state management
@@ -93,7 +93,7 @@ Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
 }
 
 void main() async {
-  if (kDebugMode && !kIsWeb) {
+  if (!kReleaseMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
     registerStoreScreenshotExtensions();
     registerMockPreviewExtensions();

@@ -20,7 +20,7 @@ class FilePathSuffixPerformanceProbe {
   }
 
   void record(Duration elapsed) {
-    if (!kDebugMode) return;
+    if (kReleaseMode) return;
     buildCount++;
     buildMicros += elapsed.inMicroseconds;
   }
@@ -67,7 +67,7 @@ class FilePathSyntax extends md.InlineSyntax {
   /// For each path like `lib/models/messages.dart`, generates all suffixes:
   /// `lib/models/messages.dart`, `models/messages.dart`, `messages.dart`.
   static Set<String> buildSuffixSet(Iterable<String> filePaths) {
-    final stopwatch = kDebugMode ? (Stopwatch()..start()) : null;
+    final stopwatch = !kReleaseMode ? (Stopwatch()..start()) : null;
     final suffixes = <String>{};
     for (final filePath in filePaths) {
       final parts = filePath
@@ -100,7 +100,7 @@ class FilePathSyntax extends md.InlineSyntax {
   static Set<String> cachedSuffixSet(List<String> filePaths) {
     final cached = _suffixCache[filePaths];
     if (cached != null && listEquals(cached.filePaths, filePaths)) {
-      if (kDebugMode) filePathSuffixPerformanceProbe.cacheHits++;
+      if (!kReleaseMode) filePathSuffixPerformanceProbe.cacheHits++;
       return cached.suffixes;
     }
     final next = _CachedFilePathSuffixes(
