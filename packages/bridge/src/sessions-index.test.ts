@@ -25,6 +25,7 @@ import {
   extractMessageImages,
   codexThreadToSessionHistory,
   getSessionHistory,
+  getClaudeSessionName,
 } from "./sessions-index.js";
 import { buildAutoRenamePrompt } from "./auto-rename.js";
 
@@ -2593,7 +2594,174 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions.map((s) => s.sessionId)).toEqual(["real-s1"]);
   });
 
-  it("skips jsonl-only Claude directories when namedOnly=true", async () => {
+  function claudeUserLine(text: string, timestamp: string): string {
+    return JSON.stringify({
+      type: "user",
+      message: { role: "user", content: text },
+      cwd: "/tmp/project-a",
+      timestamp,
+    });
+  }
+
+  function claudeTitleLine(sessionId: string, customTitle: string): string {
+    return JSON.stringify({ type: "custom-title", customTitle, sessionId });
+  }
+
+  it("includes jsonl-only Claude sessions renamed via a custom-title line", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "renamed.jsonl"),
+      [
+        claudeUserLine("renamed session", "2026-02-13T12:00:00.000Z"),
+        claudeTitleLine("renamed", "Renamed in ccpocket"),
+      ].join("\n") + "\n",
+    );
+    writeFileSync(
+      join(projectDir, "unnamed.jsonl"),
+      claudeUserLine("unnamed session", "2026-02-13T12:30:00.000Z") + "\n",
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(result.sessions.map((s) => [s.sessionId, s.name])).toEqual([
+      ["renamed", "Renamed in ccpocket"],
+    ]);
+  });
+
+  it("uses the tail custom title of large jsonl-only Claude sessions", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    const filler = Array.from({ length: 40 }, (_, i) =>
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "x".repeat(1024) }] },
+        timestamp: `2026-02-13T12:${String(i).padStart(2, "0")}:00.000Z`,
+      }),
+    );
+    writeFileSync(
+      join(projectDir, "large.jsonl"),
+      [
+        claudeUserLine("large session", "2026-02-13T11:59:00.000Z"),
+        ...filler,
+        claudeTitleLine("large", "Named at the end"),
+      ].join("\n") + "\n",
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(result.sessions.map((s) => [s.sessionId, s.name])).toEqual([
+      ["large", "Named at the end"],
+    ]);
+  });
+
+  it("excludes jsonl-only Claude sessions whose custom title was cleared", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "cleared.jsonl"),
+      [
+        claudeUserLine("cleared session", "2026-02-13T12:00:00.000Z"),
+        claudeTitleLine("cleared", "Old name"),
+        claudeTitleLine("cleared", ""),
+      ].join("\n") + "\n",
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(result.sessions).toEqual([]);
+  });
+
+  it("includes indexed Claude sessions named only in their JSONL", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "indexed.jsonl"),
+      [
+        claudeUserLine("indexed session", "2026-02-13T12:00:00.000Z"),
+        claudeTitleLine("indexed", "JSONL name"),
+      ].join("\n") + "\n",
+    );
+    writeFileSync(
+      join(projectDir, "not-indexed.jsonl"),
+      [
+        claudeUserLine("not indexed session", "2026-02-13T13:00:00.000Z"),
+        claudeTitleLine("not-indexed", "Unindexed name"),
+      ].join("\n") + "\n",
+    );
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId: "indexed",
+            fullPath: join(projectDir, "indexed.jsonl"),
+            fileMtime: Date.now(),
+            firstPrompt: "indexed session",
+            messageCount: 1,
+            created: "2026-02-13T12:00:00.000Z",
+            modified: "2026-02-13T12:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(
+      result.sessions.map((s) => [s.sessionId, s.name]).sort(),
+    ).toEqual([
+      ["indexed", "JSONL name"],
+      ["not-indexed", "Unindexed name"],
+    ]);
+  });
+
+  it("treats a cleared tail title as overriding an earlier head title", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", pathToSlug("/tmp/project-a"));
+    mkdirSync(projectDir, { recursive: true });
+    const filler = Array.from({ length: 40 }, (_, i) =>
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "x".repeat(1024) }] },
+        timestamp: `2026-02-13T12:${String(i).padStart(2, "0")}:00.000Z`,
+      }),
+    );
+    writeFileSync(
+      join(projectDir, "cleared-large.jsonl"),
+      [
+        claudeUserLine("large session", "2026-02-13T11:59:00.000Z"),
+        claudeTitleLine("cleared-large", "Old name"),
+        ...filler,
+        claudeTitleLine("cleared-large", ""),
+      ].join("\n") + "\n",
+    );
+
+    await expect(
+      getClaudeSessionName("/tmp/project-a", "cleared-large"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("excludes unnamed jsonl-only Claude sessions when namedOnly=true", async () => {
     const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
     mkdirSync(projectDir, { recursive: true });
     writeFileSync(

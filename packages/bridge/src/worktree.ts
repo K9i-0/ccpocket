@@ -218,10 +218,11 @@ export function createWorktree(
   // Ensure the worktrees root directory exists
   mkdirSync(worktreesRoot(resolvedProject), { recursive: true });
 
-  // Check if the branch already exists
+  // Check if a local branch already exists. Only refs/heads counts: a tag,
+  // SHA or remote ref with the same name would be checked out detached.
   let branchExists = false;
   try {
-    execFileSync("git", ["rev-parse", "--verify", branchName], {
+    execFileSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`], {
       cwd: resolvedProject,
       stdio: "ignore",
     });

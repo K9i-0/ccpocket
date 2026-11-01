@@ -235,6 +235,11 @@ function logRecentSessionsPerf(
 interface ScanJsonlDirOptions {
   excludeSessionIds?: ReadonlySet<string>;
   stats?: JsonlScanStats;
+  /**
+   * Only return sessions with a non-empty custom title. Titles are checked
+   * with a head/tail read before the transcript is parsed.
+   */
+  namedOnly?: boolean;
 }
 
 /** Convert a filesystem path to Claude's project directory slug (e.g. /foo/bar → -foo-bar). */
@@ -1035,6 +1040,10 @@ export async function scanJsonlDir(
     targets,
     PARALLEL_FILE_READ_LIMIT,
     async ({ sessionId, filePath }) => {
+      if (options.namedOnly && !(await getClaudeJsonlCustomTitle(filePath))) {
+        scanStats && (scanStats.filesRead += 1);
+        return null;
+      }
       const entry = await parseClaudeJsonlFileFast(sessionId, filePath);
       if (entry) {
         scanStats && (scanStats.filesRead += 1);
@@ -1138,36 +1147,48 @@ export async function getAllRecentSessions(
 
           const indexedIds = new Set<string>();
           for (const entry of index.entries) {
-            const name = entry.customTitle || undefined;
-            if (includeOnlyNamedClaude && (!name || name === "")) {
-              continue;
+            // Mark as indexed even when filtered out so the JSONL scan below
+            // does not read the same transcript again.
+            indexedIds.add(entry.sessionId);
+
+            let name: string | undefined;
+            if (includeOnlyNamedClaude) {
+              // ccpocket/SDK renames only append a JSONL custom-title line, so
+              // the index customTitle alone misses renamed sessions.
+              name =
+                (await getClaudeJsonlCustomTitle(
+                  entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`),
+                )) ?? entry.customTitle;
+              if (!name) continue;
             }
 
-            indexedIds.add(entry.sessionId);
             const hydrated = await hydrateClaudeIndexedEntry(dirPath, entry);
             if (hydrated) {
+              if (name && !hydrated.name) hydrated.name = name;
               result.entries.push(hydrated);
               result.indexEntries += 1;
             }
           }
 
-          if (!includeOnlyNamedClaude) {
-            const scanned = await scanJsonlDir(dirPath, {
-              excludeSessionIds: indexedIds,
-              stats: result.jsonlStats,
-            });
-            result.entries.push(...scanned);
-          } else {
+          if (includeOnlyNamedClaude) {
             perfStats.claudeNamedOnlyFastPathUsed = true;
           }
+          const scanned = await scanJsonlDir(dirPath, {
+            excludeSessionIds: indexedIds,
+            stats: result.jsonlStats,
+            namedOnly: includeOnlyNamedClaude,
+          });
+          result.entries.push(...scanned);
         } else {
           if (includeOnlyNamedClaude) {
             perfStats.claudeNamedOnlyFastPathUsed = true;
-            return result;
           }
 
           result.jsonlOnlyDirs = 1;
-          const scanned = await scanJsonlDir(dirPath, { stats: result.jsonlStats });
+          const scanned = await scanJsonlDir(dirPath, {
+            stats: result.jsonlStats,
+            namedOnly: includeOnlyNamedClaude,
+          });
           result.entries.push(...scanned);
         }
 
@@ -1734,14 +1755,18 @@ function isCodexInternalSessionSource(source: unknown): boolean {
   return sourceObj?.subagent !== undefined;
 }
 
+/**
+ * Return the last custom-title value in [text]. An empty string means the
+ * title was explicitly cleared; undefined means no custom-title line exists.
+ */
 function extractClaudeCustomTitleFromText(text: string): string | undefined {
-  let customTitle = "";
+  let customTitle: string | undefined;
   for (const line of text.split("\n")) {
     if (!RE_TYPE_CUSTOM_TITLE.test(line)) continue;
     const match = line.match(RE_CUSTOM_TITLE);
     if (match) customTitle = match[1];
   }
-  return customTitle || undefined;
+  return customTitle;
 }
 
 async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | undefined> {
@@ -1759,7 +1784,7 @@ async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | und
     if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
       const buf = Buffer.alloc(fileSize);
       await fh.read(buf, 0, fileSize, 0);
-      return extractClaudeCustomTitleFromText(buf.toString("utf-8"));
+      return extractClaudeCustomTitleFromText(buf.toString("utf-8")) || undefined;
     }
 
     const headBuf = Buffer.alloc(HEAD_BYTES);
@@ -1771,7 +1796,9 @@ async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | und
     const tailRaw = tailBuf.toString("utf-8");
     const firstNewline = tailRaw.indexOf("\n");
     const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
-    return extractClaudeCustomTitleFromText(cleanTail) ?? headTitle;
+    // Custom titles are last-wins: a cleared title in the tail overrides a
+    // title written near the start of the transcript.
+    return (extractClaudeCustomTitleFromText(cleanTail) ?? headTitle) || undefined;
   } finally {
     await fh.close();
   }

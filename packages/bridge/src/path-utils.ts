@@ -86,7 +86,8 @@ export function isPathWithinAllowedDirectory(
   const relativePath = pathApi.relative(resolvedAllowedDir, resolvedTarget);
   return (
     relativePath !== "" &&
-    !relativePath.startsWith("..") &&
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${pathApi.sep}`) &&
     !pathApi.isAbsolute(relativePath)
   );
 }
