@@ -802,6 +802,37 @@ void main() {
       expect(inputController.selection.baseOffset, 1);
     });
 
+    testWidgets('Ctrl+D deletes the whole next grapheme cluster', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      inputController.value = const TextEditingValue(
+        text: 'a\u{1F600}b\u{1F468}\u200D\u{1F469}\u200D\u{1F467}c',
+        selection: TextSelection.collapsed(offset: 1),
+      );
+      Future<void> pressCtrlD() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      }
+
+      await pressCtrlD();
+      expect(
+        inputController.text,
+        'ab\u{1F468}\u200D\u{1F469}\u200D\u{1F467}c',
+      );
+      expect(inputController.selection.baseOffset, 1);
+
+      inputController.value = inputController.value.copyWith(
+        selection: const TextSelection.collapsed(offset: 2),
+      );
+      await pressCtrlD();
+      expect(inputController.text, 'abc');
+      expect(inputController.selection.baseOffset, 2);
+    });
+
     testWidgets('Ctrl+V probes image paste without consuming paste shortcut', (
       tester,
     ) async {
