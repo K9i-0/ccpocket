@@ -227,9 +227,17 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             ),
                           ),
                         ],
+                        if (backgroundBadgeCount > 0) ...[
+                          const SizedBox(width: 4),
+                          _BackgroundTasksBadge(count: backgroundBadgeCount),
+                        ],
                       ],
                     ),
                   ),
+                  if (queuedInput != null) ...[
+                    _QueuedInputBadge(item: queuedInput),
+                    const SizedBox(width: 4),
+                  ],
                   PinToggleButton(
                     key: ValueKey('running_session_pin_${session.id}_button'),
                     isPinned: widget.isPinned,
@@ -237,14 +245,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     pinTooltip: AppLocalizations.of(context).pin,
                     unpinTooltip: AppLocalizations.of(context).unpin,
                   ),
-                  if (backgroundBadgeCount > 0) ...[
-                    const SizedBox(width: 4),
-                    _BackgroundTasksBadge(count: backgroundBadgeCount),
-                  ],
-                  if (queuedInput != null) ...[
-                    const SizedBox(width: 4),
-                    _QueuedInputBadge(item: queuedInput),
-                  ],
                   if (widget.onStop != null) ...[
                     const SizedBox(width: 6),
                     _RunningSessionStopButton(onPressed: widget.onStop!),

@@ -475,6 +475,42 @@ void main() {
       expect(find.text('Background 2'), findsNothing);
     });
 
+    testWidgets('places the background badge by the status, not the actions', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: backgroundSession(
+              provider: 'claude',
+              status: 'running',
+              tasks: 2,
+            ),
+            onTap: () {},
+            onStop: () {},
+            onTogglePinned: () {},
+          ),
+        ),
+      );
+
+      double x(Finder f) => tester.getCenter(f).dx;
+      final status = x(find.text('Working'));
+      final badge = x(
+        find.byKey(const ValueKey('session_card_background_badge')),
+      );
+      final pin = x(
+        find.byKey(
+          const ValueKey('running_session_pin_bg-claude-running_button'),
+        ),
+      );
+      final stop = x(find.byKey(const ValueKey('running_session_stop_button')));
+      expect(status < badge, isTrue);
+      expect(badge < pin, isTrue);
+      expect(pin < stop, isTrue);
+      // The badge sits next to the status, leaving the gap before the pin.
+      expect(pin - badge, greaterThan(badge - status));
+    });
+
     testWidgets('a Codex session with leftover terminals stays Ready', (
       tester,
     ) async {
