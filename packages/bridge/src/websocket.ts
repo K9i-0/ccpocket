@@ -2983,7 +2983,9 @@ export class BridgeWebSocketServer {
       }
 
       console.log(`[ws] Received: ${msg.type}`);
-      this.handleClientMessage(msg, ws);
+      this.handleClientMessage(msg, ws).catch((err: unknown) => {
+        this.reportClientMessageFailure(ws, msg, err);
+      });
     });
 
     ws.on("close", () => {
@@ -3011,6 +3013,35 @@ export class BridgeWebSocketServer {
     this.lastConnectMetadataRefreshAt = now;
     void this.refreshCodexMetadata();
     void this.refreshClaudeModels();
+  }
+
+  /**
+   * Last-resort handler for a rejected handleClientMessage call. Without it an
+   * async handler failure becomes an unhandled rejection and terminates the
+   * Bridge process.
+   */
+  private reportClientMessageFailure(
+    ws: WebSocket,
+    msg: ClientMessage,
+    err: unknown,
+  ): void {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[ws] Failed to handle ${msg.type}:`, err);
+    const fields = msg as { sessionId?: unknown; requestId?: unknown };
+    try {
+      this.send(ws, {
+        type: "error",
+        message: `Failed to handle ${msg.type}: ${detail}`,
+        ...(typeof fields.sessionId === "string"
+          ? { sessionId: fields.sessionId }
+          : {}),
+        ...(typeof fields.requestId === "string"
+          ? { requestId: fields.requestId }
+          : {}),
+      });
+    } catch (sendErr) {
+      console.error("[ws] Failed to report handler error:", sendErr);
+    }
   }
 
   private async handleClientMessage(
@@ -3088,6 +3119,7 @@ export class BridgeWebSocketServer {
               ws,
               this.buildPathNotAllowedError(
                 normalized.deniedRoot ?? project.rootPaths[0],
+                msg.requestId,
               ),
             );
             break;
@@ -4712,7 +4744,9 @@ export class BridgeWebSocketServer {
           const worktreeBranch = session.worktreeBranch;
           const sessionName = session.name;
           const permissionMode = (session.process as SdkProcess).permissionMode;
-          const model = (session.process as SdkProcess).model;
+          // Use the user's selected settings (alias, effort, fast mode) rather
+          // than the resolved runtime model id, matching fork behavior.
+          const settings = (session.process as SdkProcess).settings ?? {};
           const workspace = this.workspaceForRuntimeSession(session);
 
           this.destroySession(oldSessionId);
@@ -4725,7 +4759,9 @@ export class BridgeWebSocketServer {
             {
               sessionId: claudeSessionId,
               permissionMode,
-              model,
+              ...(settings.model ? { model: settings.model } : {}),
+              ...(settings.effort ? { effort: settings.effort } : {}),
+              ...(settings.fastMode ? { fastMode: true } : {}),
               sandboxEnabled: newEnabled,
               additionalDirectories: workspace?.rootPaths.slice(1),
             },
@@ -5040,6 +5076,8 @@ export class BridgeWebSocketServer {
           const claudeSessionId = session.claudeSessionId;
           const projectPath = session.projectPath;
           const permissionMode = sdkProc.permissionMode;
+          const settings = sdkProc.settings ?? {};
+          const sandboxEnabled = session.sandboxEnabled;
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
           const workspace = this.workspaceForRuntimeSession(session);
@@ -5057,6 +5095,10 @@ export class BridgeWebSocketServer {
                   }
                 : {}),
               permissionMode,
+              ...(settings.model ? { model: settings.model } : {}),
+              ...(settings.effort ? { effort: settings.effort } : {}),
+              ...(settings.fastMode ? { fastMode: true } : {}),
+              ...(sandboxEnabled !== undefined ? { sandboxEnabled } : {}),
               initialInput: planText || undefined,
               additionalDirectories: workspace?.rootPaths.slice(1),
             },
@@ -5861,13 +5903,33 @@ export class BridgeWebSocketServer {
               wtMapping?.projectPath ?? resumeProjectPath,
               this.platform,
             );
-          const effectiveProfile = msg.profile
-            ? await this.resolveCodexResumeProfile(
-                msg.profile,
-                sessionRefId,
-                effectiveProjectPath,
-              )
-            : undefined;
+          let effectiveProfile: string | undefined;
+          try {
+            effectiveProfile = msg.profile
+              ? await this.resolveCodexResumeProfile(
+                  msg.profile,
+                  sessionRefId,
+                  effectiveProjectPath,
+                )
+              : undefined;
+          } catch (err) {
+            console.error(
+              `[ws] Failed to resolve Codex profile on resume: ${err}`,
+            );
+            this.sendResumeFailed(ws, {
+              provider,
+              sourceSessionId: sessionRefId,
+              projectPath: effectiveProjectPath,
+              resumeRequestId: msg.resumeRequestId,
+            });
+            this.send(ws, {
+              type: "error",
+              sessionId: sessionRefId,
+              requestId: msg.resumeRequestId,
+              message: `Failed to resolve Codex profile: ${codexErrorMessage(err)}`,
+            });
+            break;
+          }
           const additionalWritableRoots =
             this.normalizeAdditionalWritableRoots(
               resumeAdditionalRoots,
@@ -8540,7 +8602,10 @@ export class BridgeWebSocketServer {
     const queuedInputs = pendingResumes?.get(sourceSessionId) ?? [];
     pendingResumes?.delete(sourceSessionId);
     for (const input of queuedInputs) {
-      void this.handleClientMessage({ ...input, sessionId }, ws);
+      const message = { ...input, sessionId };
+      this.handleClientMessage(message, ws).catch((err: unknown) => {
+        this.reportClientMessageFailure(ws, message, err);
+      });
     }
   }
 
@@ -10556,18 +10621,42 @@ export class BridgeWebSocketServer {
       }
     }
 
+    const resetUntrackedAll = () => {
+      if (untrackedFilesAll.length === 0) return;
+      try {
+        execFileSync("git", ["reset", "--", ...untrackedFilesAll], { cwd });
+      } catch {
+        // Ignore
+      }
+    };
+
+    // Unborn branches have no HEAD; diff against the empty tree instead.
+    // Computing it spawns git synchronously, which throws (e.g. ENOENT) when
+    // cwd no longer exists, such as a deleted worktree.
+    let diffBase: string;
+    try {
+      diffBase = hasGitHead(cwd)
+        ? "HEAD"
+        : execFileSync("git", ["hash-object", "-t", "tree", "--stdin"], {
+            cwd,
+            input: "",
+            encoding: "utf8",
+          }).trim();
+    } catch (err) {
+      resetUntrackedAll();
+      callback({
+        diff: "",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
     execFile(
       "git",
-      gitArgs("diff", hasGitHead(cwd) ? "HEAD" : execFileSync("git", ["hash-object", "-t", "tree", "--stdin"], { cwd, input: "", encoding: "utf8" }).trim(), "--no-color"),
+      gitArgs("diff", diffBase, "--no-color"),
       execOpts,
       (err, stdout) => {
-        if (untrackedFilesAll.length > 0) {
-          try {
-            execFileSync("git", ["reset", "--", ...untrackedFilesAll], { cwd });
-          } catch {
-            // Ignore
-          }
-        }
+        resetUntrackedAll();
 
         if (err) {
           callback({ diff: "", error: err.message });

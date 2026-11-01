@@ -2270,6 +2270,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("reports handler rejections to the client instead of leaking them", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const handlers = new Map<string, (data?: unknown) => void>();
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+      close: vi.fn(),
+      on: vi.fn((event: string, handler: (data?: unknown) => void) => {
+        handlers.set(event, handler);
+      }),
+    } as any;
+    (bridge as any).handleConnection(ws);
+    ws.send.mockClear();
+
+    const original = (bridge as any).handleClientMessage.bind(bridge);
+    const spy = vi
+      .spyOn(bridge as any, "handleClientMessage")
+      .mockImplementation(async (...args: unknown[]) => {
+        const msg = args[0] as { type: string };
+        if (msg.type === "get_history") throw new Error("boom");
+        return original(...args);
+      });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    handlers.get("message")!(
+      Buffer.from(
+        JSON.stringify({ type: "get_history", sessionId: "session-x" }),
+      ),
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        sessionId: "session-x",
+        message: expect.stringContaining("boom"),
+      }),
+    );
+    expect(errorSpy).toHaveBeenCalled();
+
+    spy.mockRestore();
+    errorSpy.mockRestore();
+    bridge.close();
+  });
+
   it("suppresses guardian approvals unless the client opts in", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -2818,6 +2866,51 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("includes requestId when a Project root is outside bridge allowed directories", async () => {
+    const workspaceStore = {
+      getProject: vi.fn(() => ({
+        id: "project-1",
+        name: "Outside",
+        rootPaths: ["/tmp/other"],
+      })),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: ["/tmp/project-a"],
+      workspaceStore: workspaceStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/other",
+        projectId: "project-1",
+        workspaceKind: "project",
+        provider: "codex",
+        requestId: "start-outside",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "path_not_allowed",
+        requestId: "start-outside",
+      }),
+    );
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+
+    bridge.close();
+  });
+
   it("forwards selected codex profile without an explicit permissions mode on resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -2893,6 +2986,54 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(ws.send).not.toHaveBeenCalledWith(
       expect.stringContaining("Codex profile not found"),
     );
+
+    bridge.close();
+  });
+
+  it("reports resume failure when the codex resume profile cannot be resolved", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    vi.spyOn(bridge as any, "loadCodexProfiles").mockRejectedValue(
+      new Error("config/read failed"),
+    );
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_profile_fail",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        profile: "ccpocket",
+        resumeRequestId: "resume-profile-fail",
+      },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "session_resume_failed",
+        provider: "codex",
+        sourceSessionId: "thr_profile_fail",
+        resumeRequestId: "resume-profile-fail",
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        sessionId: "thr_profile_fail",
+        requestId: "resume-profile-fail",
+        message: expect.stringContaining("config/read failed"),
+      }),
+    );
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
 
     bridge.close();
   });
@@ -5657,6 +5798,28 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         if (staged !== true) expect(result.diff).toContain("new file");
       }
     } finally { bridge.close(); rmSync(parentPath, { recursive: true, force: true }); }
+  });
+
+  it("reports an error instead of throwing when the diff cwd no longer exists", async () => {
+    const parentPath = mkdtempSync(resolve(tmpdir(), "ccpocket-diff-missing-"));
+    const missingPath = resolve(parentPath, "deleted-worktree");
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    try {
+      const result = await new Promise<{ diff: string; error?: string }>(
+        (resolvePromise, reject) => {
+          try {
+            (bridge as any).collectGitDiff(missingPath, resolvePromise);
+          } catch (err) {
+            reject(err);
+          }
+        },
+      );
+      expect(result.diff).toBe("");
+      expect(result.error).toEqual(expect.any(String));
+    } finally {
+      bridge.close();
+      rmSync(parentPath, { recursive: true, force: true });
+    }
   });
 
   it("returns unstaged diff for mixed ASCII and non-ASCII untracked paths", async () => {
@@ -8469,6 +8632,113 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       );
     expect(clearContextCreated).toMatchObject({
       sourceSessionId: sessionId,
+    });
+
+    bridge.close();
+  });
+
+  it("Claude sandbox change keeps the selected model, effort and fast mode", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    session.claudeSessionId = "claude-session-1";
+    session.sandboxEnabled = false;
+    session.process.model = "claude-opus-resolved-id";
+    session.process.settings = {
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_sandbox_mode",
+        sessionId: created.sessionId,
+        sandboxMode: "on",
+      },
+      ws,
+    );
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSession = (bridge as any).sessionManager.get(sessions[0].id);
+    expect(newSession.startOptions).toMatchObject({
+      sessionId: "claude-session-1",
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+      sandboxEnabled: true,
+    });
+
+    bridge.close();
+  });
+
+  it("clearContext approve keeps Claude model settings and sandbox", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "claude-session-1";
+    session.sandboxEnabled = true;
+    session.process.model = "claude-opus-resolved-id";
+    session.process.settings = {
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "approve",
+        id: "tool-exit-1",
+        clearContext: true,
+        sessionId,
+      },
+      ws,
+    );
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSession = (bridge as any).sessionManager.get(sessions[0].id);
+    expect(newSession.startOptions).toMatchObject({
+      sessionId: "claude-session-1",
+      continueMode: true,
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+      sandboxEnabled: true,
     });
 
     bridge.close();
