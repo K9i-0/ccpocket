@@ -80,7 +80,7 @@ jobs:
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
           CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
         run: |
-          app-store-connect fetch-signing-files "$STORE_BUNDLE_ID" --type IOS_APP_STORE
+          "$(dirname "$(realpath "$(command -v app-store-connect)")")/python" scripts/store-review/apps/fetch-signing.py fetch-signing-files "$STORE_BUNDLE_ID" --type IOS_APP_STORE --create
           keychain initialize
           keychain add-certificates
       - name: Export and verify signed IPA

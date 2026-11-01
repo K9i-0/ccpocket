@@ -12,7 +12,7 @@ No private-repository token or signing key is copied to another repository.
 3. Run `scripts/store-review/apps/pack-delivery.py <app-root> --platform ios
    --output /tmp/delivery.zip` from the hub. The app's submit dry-run verifies
    clean main, remote tag/version and successful candidate CI; it does not submit.
-   Android uses `--platform android`. Inspect the artifact signature locally first. If the local keychain is unavailable, build with `flutter build ipa --no-codesign` (and the app's usual release/flavor flags), then package using `--unsigned-archive`. The macOS delivery job exports the archive using the hub's existing signing key, certificate and profiles and verifies the signed app and extension before upload. It does not create or revoke signing resources.
+   Android uses `--platform android`. Inspect the artifact signature locally first. If the local keychain is unavailable, build with `flutter build ipa --no-codesign` (and the app's usual release/flavor flags), then package using `--unsigned-archive`. The macOS delivery job exports the archive using the hub's existing signing key and certificate, reusing or creating the required profiles and verifies the signed app and extension before upload. It never creates keys, certificates or bundle IDs, and never revokes signing resources.
 4. Create a **draft** GitHub release in `K9i-0/ccpocket` with the tag name
    `companion-staging/<app>/<version>+<build>/<candidate-sha-first-12>/<platform>`
    and upload `delivery.zip`. Keep it draft; never publish this transport release.
@@ -51,4 +51,4 @@ No private-repository token or signing key is copied to another repository.
 - Draft payload releases remain private transport records and are not app release
   announcements. Remove them only after completion when no retry needs them.
 
-CI signing uses pinned codemagic-cli-tools 0.70.2 without `--create`. Missing existing profiles or a certificate matching the existing CI key is a blocker; credentials are never sent back to the Mac. Archive extraction rejects symlinks, traversal and oversized payloads. Only binaries and metadata are accepted, and app code is not executed by the signing job.
+CI signing uses pinned codemagic-cli-tools 0.70.2 through `fetch-signing.py`. It allows creation of missing App Store profiles but explicitly disables certificate and bundle-ID creation. A missing certificate matching the existing CI key is a blocker; credentials are never sent back to the Mac. Archive extraction rejects symlinks, traversal and oversized payloads. Only binaries and metadata are accepted, and app code is not executed by the signing job.
