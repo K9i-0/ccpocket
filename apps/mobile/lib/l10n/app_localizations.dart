@@ -4727,6 +4727,12 @@ abstract class AppLocalizations {
   /// **'録音を停止'**
   String get tooltipStopRecording;
 
+  /// No description provided for @voiceInputUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'音声入力を利用できません。設定でマイクと音声認識へのアクセスを許可してください。'**
+  String get voiceInputUnavailable;
+
   /// No description provided for @tooltipSendMessage.
   ///
   /// In ja, this message translates to:

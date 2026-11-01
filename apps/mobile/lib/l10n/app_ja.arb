@@ -1047,6 +1047,7 @@
   "tooltipPromptHistory": "プロンプト履歴を開く",
   "tooltipVoiceInput": "音声入力を開始",
   "tooltipStopRecording": "録音を停止",
+  "voiceInputUnavailable": "音声入力を利用できません。設定でマイクと音声認識へのアクセスを許可してください。",
   "tooltipSendMessage": "メッセージを送信",
   "tooltipRemoveImage": "画像を削除",
   "tooltipClearDiff": "Diff選択を解除",

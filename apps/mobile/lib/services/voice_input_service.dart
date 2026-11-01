@@ -10,11 +10,24 @@ class VoiceInputService {
   bool _isAvailable = false;
   bool _isListening = false;
 
+  /// Whether this platform can offer voice input at all.
+  ///
+  /// This is a cheap check that never touches the speech plugin, so it does
+  /// not trigger microphone / speech recognition permission prompts.
+  bool get isPlatformSupported => !kIsWeb && !isDesktopPlatform;
+
+  /// Whether [initialize] has succeeded (permissions granted and a recognizer
+  /// is available).
   bool get isAvailable => _isAvailable;
   bool get isListening => _isListening;
 
+  /// Initializes the speech recognizer.
+  ///
+  /// On Android this requests RECORD_AUDIO, and on iOS it requests microphone
+  /// and speech recognition access, so only call it in response to the user
+  /// asking for voice input.
   Future<bool> initialize() async {
-    if (kIsWeb || isDesktopPlatform) {
+    if (!isPlatformSupported) {
       _isAvailable = false;
       return false;
     }

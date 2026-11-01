@@ -2515,6 +2515,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get tooltipStopRecording => '녹음 중지';
 
   @override
+  String get voiceInputUnavailable =>
+      '음성 입력을 사용할 수 없습니다. 설정에서 마이크 및 음성 인식 접근을 허용해 주세요.';
+
+  @override
   String get tooltipSendMessage => '메시지 보내기';
 
   @override

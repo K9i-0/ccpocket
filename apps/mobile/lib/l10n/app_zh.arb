@@ -1095,6 +1095,7 @@
   "tooltipPromptHistory": "打开提示词历史",
   "tooltipVoiceInput": "开始语音输入",
   "tooltipStopRecording": "停止录音",
+  "voiceInputUnavailable": "无法使用语音输入。请在设置中允许访问麦克风和语音识别。",
   "tooltipSendMessage": "发送消息",
   "tooltipRemoveImage": "移除图片",
   "tooltipClearDiff": "清除 diff 选择",

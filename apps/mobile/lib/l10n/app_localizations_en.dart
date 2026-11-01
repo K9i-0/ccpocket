@@ -2593,6 +2593,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipStopRecording => 'Stop recording';
 
   @override
+  String get voiceInputUnavailable =>
+      'Voice input is unavailable. Allow microphone and speech recognition access in Settings.';
+
+  @override
   String get tooltipSendMessage => 'Send message';
 
   @override
