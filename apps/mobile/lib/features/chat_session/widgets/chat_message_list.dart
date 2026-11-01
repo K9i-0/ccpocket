@@ -177,6 +177,18 @@ Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
 /// With reverse list, offset 0 = bottom of chat, so new messages appear
 /// immediately without scroll adjustment, and history prepend does not
 /// shift the viewport.
+/// Whether the primary focus is an editable (keyboard-driven) text field.
+///
+/// Read-only focus owners such as [SelectionArea] or [SelectableText] return
+/// false so that scrolling does not clear an in-progress text selection.
+@visibleForTesting
+bool isEditableTextFocused() {
+  final focusContext = FocusManager.instance.primaryFocus?.context;
+  if (focusContext == null) return false;
+  final editable = focusContext.findAncestorStateOfType<EditableTextState>();
+  return editable != null && !editable.widget.readOnly;
+}
+
 class ChatMessageList extends StatefulWidget {
   final String sessionId;
   final AutoScrollController scrollController;
@@ -617,9 +629,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
         },
         child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {
-            // Only unfocus when user drags the list (not programmatic scroll).
+            // Only unfocus when user drags the list (not programmatic scroll),
+            // and only to dismiss the keyboard: a message's text selection
+            // also holds focus, and unfocusing it would clear the selection.
             if (notification is UserScrollNotification &&
-                notification.direction != ScrollDirection.idle) {
+                notification.direction != ScrollDirection.idle &&
+                isEditableTextFocused()) {
               FocusScope.of(context).unfocus();
             }
             return false;

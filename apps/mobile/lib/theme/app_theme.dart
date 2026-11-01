@@ -508,8 +508,9 @@ class AppColors extends ThemeExtension<AppColors> {
 
   // ---- Light (Graphite & Ember palette) ----
   factory AppColors.light() => const AppColors(
-    userBubble: Color(0xFFD4450A), // Ember (brighter)
-    userBubbleText: Color(0xFFFFFFFF),
+    // Neutral so the orange text-selection highlight stays visible.
+    userBubble: Color(0xFFE4E4E7), // Zinc 200
+    userBubbleText: Color(0xFF18181B), // Zinc 900
     assistantBubble: Color(0xFFF3F0EE), // warm cream (refined)
     toolBubble: Color(0xFFF0FDFA), // Teal 50
     toolBubbleBorder: Color(0xFF5EEAD4), // Teal 300
@@ -553,8 +554,9 @@ class AppColors extends ThemeExtension<AppColors> {
 
   // ---- Dark (Graphite & Ember palette) ----
   factory AppColors.dark() => const AppColors(
-    userBubble: Color(0xFFF97316), // Orange 500
-    userBubbleText: Color(0xFFFFFFFF),
+    // Neutral so the orange text-selection highlight stays visible.
+    userBubble: Color(0xFF2A2A2A), // Neutral 800
+    userBubbleText: Color(0xFFF5F5F5), // Neutral 100
     assistantBubble: Color(0xFF1E1E1E), // neutral dark
     toolBubble: Color(0xFF0A1F12), // deep green
     toolBubbleBorder: Color(0xFF1A5C35),
