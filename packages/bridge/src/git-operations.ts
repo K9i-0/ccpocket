@@ -271,25 +271,70 @@ export function getStagedDiff(projectPath: string): string {
   );
 }
 
+/**
+ * `--stage` makes cached entries carry their mode so submodules (gitlinks,
+ * mode 160000) can be told apart from files. Untracked entries are printed
+ * as bare paths.
+ */
+const GIT_VISIBLE_FILES_ARGS = [
+  "ls-files",
+  "-z",
+  "--cached",
+  "--others",
+  "--exclude-standard",
+  "--stage",
+];
+
+const GIT_STAGE_ENTRY_PATTERN = /^([0-7]{6}) [0-9a-f]{40,64} [0-3]\t/;
+const GIT_GITLINK_MODE = "160000";
+
+/**
+ * Convert a `git ls-files --stage` entry to a client path. Submodules are
+ * returned as `dir/` so clients treat them as directories.
+ */
+function gitStageEntryToPath(entry: string): string {
+  const match = GIT_STAGE_ENTRY_PATTERN.exec(entry);
+  if (!match) return entry;
+  const path = entry.slice(match[0].length);
+  return match[1] === GIT_GITLINK_MODE && path && !path.endsWith("/")
+    ? `${path}/`
+    : path;
+}
+
+/**
+ * Map `--stage` entries to paths, dropping the repeated entries an unmerged
+ * path has for each conflict stage (they are adjacent in index order).
+ */
+function createGitStageEntryParser(): (entry: string) => string | null {
+  let previous: string | null = null;
+  return (entry) => {
+    const path = gitStageEntryToPath(entry);
+    if (path === previous) return null;
+    previous = path;
+    return path;
+  };
+}
+
 /** Return tracked and untracked project files for autocomplete/explorer views. */
 export function listGitFiles(projectPath: string): string[] {
   const cwd = resolveProject(projectPath);
   const output = execFileSync(
     "git",
-    withGitPathConfig([
-      "ls-files",
-      "-z",
-      "--cached",
-      "--others",
-      "--exclude-standard",
-    ]),
+    withGitPathConfig(GIT_VISIBLE_FILES_ARGS),
     {
       cwd,
       encoding: "utf-8",
-      maxBuffer: 10 * 1024 * 1024,
+      maxBuffer: 32 * 1024 * 1024,
     },
   );
-  return output.split("\0").filter(Boolean);
+  const parse = createGitStageEntryParser();
+  const files: string[] = [];
+  for (const entry of output.split("\0")) {
+    if (!entry) continue;
+    const path = parse(entry);
+    if (path) files.push(path);
+  }
+  return files;
 }
 
 /** Stream a bounded Git file list without buffering the complete command output. */
@@ -300,8 +345,9 @@ export function listGitFilesForClient(
   const cwd = resolveProject(projectPath);
   return listGitFilesWithArgsForClient(
     cwd,
-    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+    GIT_VISIBLE_FILES_ARGS,
     options,
+    createGitStageEntryParser(),
   );
 }
 
@@ -335,6 +381,7 @@ function listGitFilesWithArgsForClient(
   cwd: string,
   args: string[],
   options: Pick<ClientFileListOptions, "maxEntries" | "maxBytes">,
+  parseEntry: (entry: string) => string | null = (entry) => entry,
 ): Promise<ClientFileListResult> {
   const maxEntries = requirePositiveLimit(options.maxEntries, "maxEntries");
   const maxBytes = requirePositiveLimit(options.maxBytes, "maxBytes");
@@ -368,7 +415,9 @@ function listGitFilesWithArgsForClient(
       truncated = true;
       child.kill("SIGTERM");
     };
-    const acceptFile = (file: string): boolean => {
+    const acceptFile = (entry: string): boolean => {
+      if (!entry) return true;
+      const file = parseEntry(entry);
       if (!file) return true;
       const nextBytes = serializedFileEntryBytes(file, files.length > 0);
       if (
@@ -632,16 +681,17 @@ export function withDirectoryCandidates(files: readonly string[]): string[] {
     const normalized = toPosixRelativePath(file).replace(/^\/+/, "");
     if (!normalized) continue;
 
-    const filePath = normalized.endsWith("/")
-      ? normalized.slice(0, -1)
-      : normalized;
-    if (!filePath) continue;
+    // A trailing slash marks a directory entry (e.g. a submodule or nested
+    // repository) and must be kept so clients do not treat it as a file.
+    const isDirectory = normalized.endsWith("/");
+    const segments = normalized.split("/").filter(Boolean);
+    if (segments.length === 0) continue;
 
-    const segments = filePath.split("/").filter(Boolean);
     for (let i = 1; i < segments.length; i++) {
       entries.add(`${segments.slice(0, i).join("/")}/`);
     }
-    entries.add(filePath);
+    const entryPath = segments.join("/");
+    entries.add(isDirectory ? `${entryPath}/` : entryPath);
   }
   return [...entries].sort((a, b) => a.localeCompare(b));
 }

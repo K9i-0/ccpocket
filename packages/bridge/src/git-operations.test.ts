@@ -48,6 +48,19 @@ function createTempRepo(): string {
   return dir;
 }
 
+/** Register a submodule-style gitlink (mode 160000) in the index. */
+function addGitlink(repo: string, path: string): void {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repo,
+    encoding: "utf-8",
+  }).trim();
+  execFileSync(
+    "git",
+    ["update-index", "--add", "--cacheinfo", `160000,${head},${path}`],
+    { cwd: repo },
+  );
+}
+
 function createTempProject(): string {
   const dir = join(tmpdir(), `git-ops-fs-test-${randomUUID().slice(0, 8)}`);
   mkdirSync(dir, { recursive: true });
@@ -644,6 +657,36 @@ describe("listGitFiles", () => {
     expect(files.join("\n")).not.toContain("\\347\\251");
   });
 
+  it("returns submodules with a trailing slash", async () => {
+    addGitlink(repo, "sub");
+    writeFileSync(join(repo, "untracked.txt"), "u\n");
+
+    expect(listGitFiles(repo).sort()).toEqual([
+      "initial.txt",
+      "sub/",
+      "untracked.txt",
+    ]);
+    const result = await listGitFilesForClient(repo, {
+      maxEntries: 10,
+      maxBytes: 1024,
+    });
+    expect(result.files.sort()).toEqual(["initial.txt", "sub/", "untracked.txt"]);
+  });
+
+  it("lists unmerged paths once", () => {
+    const blob = execFileSync("git", ["hash-object", "-w", "--stdin"], {
+      cwd: repo,
+      input: "x\n",
+      encoding: "utf-8",
+    }).trim();
+    execFileSync("git", ["update-index", "--index-info"], {
+      cwd: repo,
+      input: [1, 2, 3].map((stage) => `100644 ${blob} ${stage}\tconflict.txt\n`).join(""),
+    });
+
+    expect(listGitFiles(repo).filter((f) => f === "conflict.txt")).toHaveLength(1);
+  });
+
   it("keeps paths with embedded newlines intact", () => {
     mkdirSync(join(repo, "docs"), { recursive: true });
     writeFileSync(join(repo, "docs", "line\nbreak.md"), "hello\n");
@@ -814,6 +857,40 @@ describe("listProjectFilesAndDirectories", () => {
       "initial.txt",
       "README.md",
     ]);
+  });
+
+  it("lists submodules as directory entries", async () => {
+    project = createTempRepo();
+    addGitlink(project, "vendor/sub");
+    writeFileSync(join(project, "README.md"), "\n");
+
+    await expect(listProjectFilesAndDirectories(project)).resolves.toEqual([
+      "initial.txt",
+      "README.md",
+      "vendor/",
+      "vendor/sub/",
+    ]);
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 20,
+      maxBytes: 4096,
+    });
+    expect(result.files).toContain("vendor/sub/");
+    expect(result.files).not.toContain("vendor/sub");
+    expect(result.ignored?.[result.files.indexOf("vendor/sub/")]).toBe(false);
+  });
+
+  it("keeps nested untracked repositories as directory entries", async () => {
+    project = createTempRepo();
+    const nested = join(project, "nested");
+    mkdirSync(nested);
+    execFileSync("git", ["init", "-q"], { cwd: nested });
+    writeFileSync(join(nested, "file.txt"), "x\n");
+
+    const files = await listProjectFilesAndDirectories(project);
+
+    expect(files).toContain("nested/");
+    expect(files).not.toContain("nested");
   });
 
   it("limits client entries after adding directory candidates", async () => {
