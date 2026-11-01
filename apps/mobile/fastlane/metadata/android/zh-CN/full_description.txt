@@ -15,7 +15,7 @@
 用Codex Imagegen生成图片，在聊天中查看结果。视频和音频文件也能直接在应用内播放。
 
 从审查到提交
-浏览项目文件，查看代码和图片差异，执行stage、commit、push或revert。通过git worktree分离并行任务。
+浏览项目文件，查看代码和图片差异，在差异的多处添加评论并一起发送给AI审查，执行stage、commit、push或revert。通过git worktree分离并行任务。
 
 使用自己的主机
 在Mac、Linux或Windows上运行Bridge Server。用二维码或已保存主机连接，通过Tailscale从外部网络访问，也可通过SSH管理Bridge。

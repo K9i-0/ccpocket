@@ -15,7 +15,7 @@ CREATE AND PREVIEW
 Generate images with Codex Imagegen and open the results in chat. Play video and audio files without leaving the app.
 
 REVIEW AND SHIP
-Browse project files, inspect code and image diffs, stage changes, commit, push, or revert. Keep parallel tasks separate with git worktrees.
+Browse project files, inspect code and image diffs, add comments to multiple diff lines for AI review, stage changes, commit, push, or revert. Keep parallel tasks separate with git worktrees.
 
 YOUR OWN MACHINES
 Run the Bridge Server on your Mac, Linux, or Windows computer. Connect by QR code or saved host. Tailscale supports access away from your local network, and SSH lets you manage the Bridge remotely.

@@ -15,7 +15,7 @@ CodexとClaudeを、スマホのチャット感覚で。指示を出し、次の
 CodexのImagegenで画像を生成し、チャットで確認。動画や音声ファイルも、アプリを離れず再生できます。
 
 確認から反映まで
-プロジェクトのファイル、コードや画像の差分を確認。stage、commit、push、revertまで操作できます。並列の作業はgit worktreeで分けられます。
+プロジェクトのファイル、コードや画像の差分を確認。差分の複数箇所にコメントを付け、まとめてAIへレビューを依頼できます。stage、commit、push、revertまで操作できます。並列の作業はgit worktreeで分けられます。
 
 自分のマシンで動かす
 Mac・Linux・Windows上でBridge Serverを実行。QRコードや保存済みホストで接続し、外出先からはTailscaleを利用できます。SSHからBridgeを管理することもできます。

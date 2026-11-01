@@ -15,7 +15,7 @@
 Codex Imagegen으로 이미지를 만들고 채팅에서 확인하세요. 동영상과 오디오 파일도 앱 안에서 재생할 수 있습니다.
 
 검토부터 반영까지
-프로젝트 파일을 탐색하고 코드·이미지 diff를 검토하세요. stage, commit, push, revert를 지원하며, git worktree로 병렬 작업을 분리할 수 있습니다.
+프로젝트 파일을 탐색하고 코드·이미지 diff를 검토하세요. diff의 여러 줄에 댓글을 달아 한 번에 AI 검토를 요청할 수 있습니다. stage, commit, push, revert를 지원하며, git worktree로 병렬 작업을 분리할 수 있습니다.
 
 내 컴퓨터에서 실행
 Mac, Linux, Windows에서 Bridge Server를 실행하세요. QR 코드나 저장된 호스트로 연결하고, 외부에서는 Tailscale을 사용할 수 있습니다. SSH로 Bridge를 관리할 수도 있습니다.
