@@ -88,4 +88,34 @@ describe("path-utils", () => {
     expect(parseAllowedDirectories("C:\\Users\\alice", "win32"))
       .toEqual(["C:\\Users\\alice"]);
   });
+
+  it("accepts children whose names start with two dots", () => {
+    expect(
+      isPathWithinAllowedDirectory("/home/alice/..notes/x", "/home/alice", "linux"),
+    ).toBe(true);
+    expect(
+      isPathWithinAllowedDirectory(
+        "D:\\Users\\alice\\..notes\\x",
+        "D:\\Users\\alice",
+        "win32",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects parent and sibling paths on POSIX and Windows", () => {
+    expect(isPathWithinAllowedDirectory("/home", "/home/alice", "linux")).toBe(false);
+    expect(
+      isPathWithinAllowedDirectory("/home/bob/x", "/home/alice", "linux"),
+    ).toBe(false);
+    expect(
+      isPathWithinAllowedDirectory("D:\\Users", "D:\\Users\\alice", "win32"),
+    ).toBe(false);
+    expect(
+      isPathWithinAllowedDirectory(
+        "D:\\Users\\bob\\x",
+        "D:\\Users\\alice",
+        "win32",
+      ),
+    ).toBe(false);
+  });
 });
