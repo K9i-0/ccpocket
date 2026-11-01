@@ -1203,15 +1203,27 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
     });
 
+    // A failed spawn (e.g. ENOENT) only emits "error", never "exit", so this
+    // handler must tear the transport down itself. `failed` suppresses a late
+    // "exit" from the same transport after it was already reported.
+    let failed = false;
     transport.on("error", (err) => {
-      if (this.stopped) return;
+      if (this.stopped || failed) return;
+      failed = true;
       console.error("[codex-process] app-server process error:", err);
-      this.emitMessage(codexAppServerStartError(err));
+      const startError = codexAppServerStartError(err);
+      const rejection = new Error(startError.message);
+      if (this.transport === transport) this.transport = null;
+      transport.stop();
+      this.rejectReadiness(rejection);
+      this.rejectAllPending(rejection);
+      this.emitMessage(startError);
       this.setStatus("idle");
       this.emit("exit", 1);
     });
 
     transport.on("exit", (code) => {
+      if (failed) return;
       const exitCode = code ?? 0;
       this.transport = null;
       this.rejectAllPending(new Error("codex app-server exited"));

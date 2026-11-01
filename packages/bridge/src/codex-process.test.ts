@@ -990,6 +990,41 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("rejects readiness and pending RPCs when Codex CLI spawn fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const proc = new CodexProcess("linux");
+    proc.on("message", () => {});
+    const exits: Array<number | null> = [];
+    proc.on("exit", (code) => exits.push(code));
+
+    try {
+      proc.start("/tmp/project-missing-codex");
+      const ready = proc.waitUntilReady();
+
+      const err = new Error("spawn codex ENOENT") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      fakeChildren[0].emit("error", err);
+
+      await expect(ready).rejects.toThrow(/Codex CLI is not installed/);
+      expect((proc as any).pendingRpc.size).toBe(0);
+      expect((proc as any).transport).toBeNull();
+      expect(fakeChildren[0].killed).toBe(true);
+      expect(exits.length).toBeGreaterThan(0);
+
+      const initialized = proc.initializeOnly("/tmp/project-missing-codex");
+      const err2 = new Error("spawn codex ENOENT") as NodeJS.ErrnoException;
+      err2.code = "ENOENT";
+      fakeChildren[1].emit("error", err2);
+      await expect(initialized).rejects.toThrow(/Codex CLI is not installed/);
+      await expect(proc.waitUntilReady()).rejects.toThrow(
+        /Codex CLI is not installed/,
+      );
+    } finally {
+      errorSpy.mockRestore();
+      proc.stop();
+    }
+  });
+
   it("starts codex app-server and sends initialize + thread/start", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];
