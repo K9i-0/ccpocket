@@ -178,7 +178,7 @@ List<DiffFile> parseDiff(String diffText) {
 
   // If the content has no `diff --git` header, treat it as a single-file diff
   // (common for tool_result content from Edit/FileEdit tools).
-  if (!diffText.contains('diff --git')) {
+  if (!lines.any((line) => line.startsWith('diff --git '))) {
     return [_parseSingleFileDiff(lines)];
   }
 
@@ -533,7 +533,7 @@ DiffSelection reconstructDiff(
 
     for (final hunkIdx in selectedHunks) {
       final hunk = file.hunks[hunkIdx];
-      if (hunk.header.isNotEmpty) buffer.writeln(hunk.header);
+      buffer.writeln(_hunkHeaderFor(hunk));
       for (final line in hunk.lines) {
         final prefix = switch (line.type) {
           DiffLineType.addition => '+',
@@ -650,7 +650,7 @@ String reconstructUnifiedDiff(DiffFile file) {
   if (file.isBinary) return buffer.toString().trimRight();
 
   for (final hunk in file.hunks) {
-    if (hunk.header.isNotEmpty) buffer.writeln(hunk.header);
+    buffer.writeln(_hunkHeaderFor(hunk));
     for (final line in hunk.lines) {
       final prefix = switch (line.type) {
         DiffLineType.addition => '+',
@@ -661,6 +661,27 @@ String reconstructUnifiedDiff(DiffFile file) {
     }
   }
   return buffer.toString().trimRight();
+}
+
+/// Returns the hunk's `@@` header, generating one from its lines when the
+/// hunk was synthesized without a header (tool inputs, raw +/- output).
+/// Without a header, [parseDiff] would drop the hunk entirely.
+String _hunkHeaderFor(DiffHunk hunk) {
+  if (hunk.header.isNotEmpty) return hunk.header;
+  var oldCount = 0;
+  var newCount = 0;
+  for (final line in hunk.lines) {
+    switch (line.type) {
+      case DiffLineType.context:
+        oldCount++;
+        newCount++;
+      case DiffLineType.deletion:
+        oldCount++;
+      case DiffLineType.addition:
+        newCount++;
+    }
+  }
+  return '@@ -${hunk.oldStart},$oldCount +${hunk.newStart},$newCount @@';
 }
 
 void _writeFileHeader(StringBuffer buffer, DiffFile file) {

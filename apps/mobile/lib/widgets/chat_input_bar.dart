@@ -1100,8 +1100,15 @@ class _InputTextFieldState extends State<_InputTextField>
     }
 
     final cursor = selection.baseOffset;
-    if (cursor >= value.text.length) return;
-    widget.controller.value = _replaceRange(value, cursor, cursor + 1, '');
+    final text = value.text;
+    if (cursor < 0 || cursor >= text.length) return;
+    // Delete the whole next grapheme cluster so surrogate pairs and
+    // multi-code-point emoji are not split.
+    final range = CharacterRange.at(text, cursor);
+    final end = range.moveNext()
+        ? text.length - range.stringAfterLength
+        : cursor + 1;
+    widget.controller.value = _replaceRange(value, cursor, end, '');
   }
 
   TextEditingValue _replaceRange(
