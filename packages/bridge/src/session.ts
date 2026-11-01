@@ -1417,6 +1417,8 @@ export class SessionManager {
       transcript,
     });
     if (!name || session.name) return;
+    // The CLI can take a while; skip if the session was destroyed meanwhile.
+    if (this.sessions.get(session.id) !== session) return;
 
     const persisted = await this.persistSessionName(session, name);
     if (!persisted || session.name) return;
