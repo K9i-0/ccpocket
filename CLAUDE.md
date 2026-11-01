@@ -11,6 +11,9 @@ Claude Code / Codex 対応モバイルクライアント。Bridge は `packages/
 - 関連するローカル検証と、今回の変更に起因する失敗の修正・再検証は続けて行う。既存の無関係な問題は報告し、作業範囲を広げない。
 - 機能単位でコミットする。Conventional Commits (`type(scope): description`) を使う。
 - 基本は `main` ブランチで直接作業・コミットする。複数タスクをまとめてサブエージェントで並行対応するときのみ worktree + ブランチを作る。
+- `main` へのコミットは確認なしで push する。
+- worktree は `worktree.baseRef: "head"` でローカルの HEAD から作られる。作業開始時に `bash scripts/worktree-bootstrap.sh` を実行し、依存とビルドキャッシュをメインから複製する（gitignore 対象の設定ファイルは `.worktreeinclude` でコピーされる）。
+- Android/iOS のネイティブビルド（gradle・xcodebuild・`flutter build`）は worktree では行わず、マージ後にメインのチェックアウトで行う。worktree での検証は Dart/TypeScript のテスト・解析に留める。
 
 ## 変更対象ごとの参照
 

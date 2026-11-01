@@ -1,0 +1,20 @@
+# Gitignored files copied into every worktree Claude Code creates
+# (`--worktree`, subagent `isolation: worktree`). Keep this to small files;
+# large caches are cloned by scripts/worktree-bootstrap.sh instead.
+
+# Local environment
+.env
+.env.local
+packages/bridge/.env
+
+# Firebase / platform config needed to build the app
+apps/mobile/android/app/google-services.json
+apps/mobile/ios/Runner/GoogleService-Info.plist
+apps/mobile/macos/Runner/GoogleService-Info.plist
+apps/mobile/lib/firebase_options.dart
+
+# Android toolchain files Flutter generates locally
+apps/mobile/android/local.properties
+apps/mobile/android/gradlew
+apps/mobile/android/gradlew.bat
+apps/mobile/android/gradle/wrapper/gradle-wrapper.jar
