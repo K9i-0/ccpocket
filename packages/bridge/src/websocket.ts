@@ -4744,7 +4744,9 @@ export class BridgeWebSocketServer {
           const worktreeBranch = session.worktreeBranch;
           const sessionName = session.name;
           const permissionMode = (session.process as SdkProcess).permissionMode;
-          const model = (session.process as SdkProcess).model;
+          // Use the user's selected settings (alias, effort, fast mode) rather
+          // than the resolved runtime model id, matching fork behavior.
+          const settings = (session.process as SdkProcess).settings ?? {};
           const workspace = this.workspaceForRuntimeSession(session);
 
           this.destroySession(oldSessionId);
@@ -4757,7 +4759,9 @@ export class BridgeWebSocketServer {
             {
               sessionId: claudeSessionId,
               permissionMode,
-              model,
+              ...(settings.model ? { model: settings.model } : {}),
+              ...(settings.effort ? { effort: settings.effort } : {}),
+              ...(settings.fastMode ? { fastMode: true } : {}),
               sandboxEnabled: newEnabled,
               additionalDirectories: workspace?.rootPaths.slice(1),
             },

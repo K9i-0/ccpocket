@@ -8637,6 +8637,58 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("Claude sandbox change keeps the selected model, effort and fast mode", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    session.claudeSessionId = "claude-session-1";
+    session.sandboxEnabled = false;
+    session.process.model = "claude-opus-resolved-id";
+    session.process.settings = {
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_sandbox_mode",
+        sessionId: created.sessionId,
+        sandboxMode: "on",
+      },
+      ws,
+    );
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSession = (bridge as any).sessionManager.get(sessions[0].id);
+    expect(newSession.startOptions).toMatchObject({
+      sessionId: "claude-session-1",
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+      sandboxEnabled: true,
+    });
+
+    bridge.close();
+  });
+
   it("clearContext approve keeps Claude model settings and sandbox", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
