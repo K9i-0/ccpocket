@@ -996,7 +996,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authResolution = Promise.resolve();
     this.authResolutionPending = false;
     this.sessionEndEmitted = false;
-    this.pendingPermissions.clear();
+    this.denyAllPendingPermissions("Session restarted");
     this.permissionModeGeneration += 1;
     this.permissionModeUpdates = Promise.resolve();
     this._permissionMode = resolvePermissionMode(
@@ -1161,7 +1161,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.queryInstance.close();
       this.queryInstance = null;
     }
-    this.pendingPermissions.clear();
+    this.denyAllPendingPermissions("Session stopped");
     this.userMessageResolve = null;
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
@@ -1195,7 +1195,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.queryInstance.interrupt().catch((err) => {
         console.error("[sdk-process] Interrupt error:", err);
       });
-      this.pendingPermissions.clear();
+      this.denyAllPendingPermissions("Interrupted by user");
     }
   }
 
@@ -1928,6 +1928,21 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     });
   }
 
+  /**
+   * Settle every outstanding canUseTool promise with a deny and forget it.
+   * The SDK awaits these promises without racing an abort, so dropping them
+   * would leak the request. Intentionally emits no messages or status
+   * changes: callers already move the session to its next state.
+   */
+  private denyAllPendingPermissions(message: string): void {
+    if (this.pendingPermissions.size === 0) return;
+    const pending = [...this.pendingPermissions.values()];
+    this.pendingPermissions.clear();
+    for (const entry of pending) {
+      entry.resolve({ behavior: "deny", message });
+    }
+  }
+
   private resolvePendingPermission(
     toolUseId: string,
     pending: PendingPermission,
@@ -2037,7 +2052,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
         break;
       case "result":
-        this.pendingPermissions.clear();
+        this.denyAllPendingPermissions("Turn ended before a response");
         this.setStatus("idle");
         this.deliverQueuedInputIfWaiting();
         if (!this.stopped && this.queryInstance && !this.isTurnActive) {

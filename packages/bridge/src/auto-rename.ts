@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -101,32 +101,73 @@ export function sanitizeAutoRenameName(output: string): string | null {
   return name || null;
 }
 
-export function generateAutoRenameName(
+/** Upper bound for a single auto-rename CLI invocation. */
+export const AUTO_RENAME_TIMEOUT_MS = 45_000;
+
+export async function generateAutoRenameName(
   options: AutoRenameOptions,
-): string | null {
+): Promise<string | null> {
   const cwd = resolve(options.projectPath);
   const prompt = buildAutoRenamePrompt(options.transcript);
   const output =
     options.provider === "codex"
-      ? runCodexAutoRename(cwd, prompt)
-      : execFileSync(
+      ? await runCodexAutoRename(cwd, prompt)
+      : await runCli(
           "claude",
           ["-p", ...(options.model ? ["--model", options.model] : []), prompt],
-          {
-            cwd,
-            encoding: "utf-8",
-            maxBuffer: 1024 * 1024,
-          },
+          cwd,
         );
   return sanitizeAutoRenameName(output);
 }
 
-function runCodexAutoRename(cwd: string, prompt: string): string {
+/**
+ * Run a CLI asynchronously so a slow or stalled helper never blocks the
+ * Bridge event loop. The child is killed once AUTO_RENAME_TIMEOUT_MS elapses.
+ */
+function runCli(
+  command: string,
+  args: string[],
+  cwd: string,
+  input?: string,
+): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    const child = execFile(
+      command,
+      args,
+      {
+        cwd,
+        encoding: "utf-8",
+        maxBuffer: 1024 * 1024,
+        timeout: AUTO_RENAME_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+      },
+      (err, stdout) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolvePromise(stdout);
+      },
+    );
+    if (child.stdin) {
+      child.stdin.on("error", () => {
+        // The child may exit before consuming stdin; the exec callback
+        // reports the real failure.
+      });
+      child.stdin.end(input ?? "");
+    }
+  });
+}
+
+async function runCodexAutoRename(
+  cwd: string,
+  prompt: string,
+): Promise<string> {
   const outputDir = mkdtempSync(join(tmpdir(), "ccpocket-auto-rename-"));
   const outputPath = join(outputDir, "session-name.txt");
 
   try {
-    execFileSync(
+    await runCli(
       "codex",
       [
         "exec",
@@ -139,12 +180,8 @@ function runCodexAutoRename(cwd: string, prompt: string): string {
         outputPath,
         "-",
       ],
-      {
-        cwd,
-        encoding: "utf-8",
-        input: prompt,
-        maxBuffer: 1024 * 1024,
-      },
+      cwd,
+      prompt,
     );
     return readFileSync(outputPath, "utf-8");
   } finally {

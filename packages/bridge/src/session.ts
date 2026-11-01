@@ -1405,7 +1405,7 @@ export class SessionManager {
     const transcript = buildAutoRenameTranscript(session.history);
     if (!transcript) return;
 
-    const name = generateAutoRenameName({
+    const name = await generateAutoRenameName({
       provider: session.provider,
       projectPath: session.worktreePath ?? session.projectPath,
       model:
@@ -1768,7 +1768,19 @@ export class SessionManager {
     const assistantUuid = this.findAssistantUuidBeforeUser(session, targetUuid);
 
     const projectPath = session.projectPath;
-    const permissionMode = (session.process as SdkProcess).permissionMode;
+    const sdkProcess = session.process as SdkProcess;
+    const permissionMode = sdkProcess.permissionMode;
+    const { model, effort, fastMode } = sdkProcess.settings;
+    // Carry the user's runtime choices into the restarted session.
+    const carriedOptions: StartOptions = {
+      permissionMode,
+      ...(session.sandboxEnabled != null
+        ? { sandboxEnabled: session.sandboxEnabled }
+        : {}),
+      ...(model ? { model } : {}),
+      ...(effort ? { effort } : {}),
+      ...(fastMode ? { fastMode } : {}),
+    };
     const worktreePath = session.worktreePath;
     const worktreeBranch = session.worktreeBranch;
 
@@ -1782,11 +1794,11 @@ export class SessionManager {
       projectPath,
       assistantUuid
         ? {
+            ...carriedOptions,
             sessionId: claudeSessionId,
-            permissionMode,
             resumeSessionAt: assistantUuid,
           }
-        : { permissionMode },
+        : carriedOptions,
       undefined,
       worktreePath
         ? { existingWorktreePath: worktreePath, worktreeBranch }
@@ -1987,6 +1999,9 @@ export class SessionManager {
     const idleSessions = Array.from(this.sessions.values())
       .filter((session) => session.status === "idle" &&
         !session.queuedInput &&
+        // Background agents/shells keep running after the turn goes idle;
+        // destroying the session would kill them mid-flight.
+        !session.backgroundTasks?.length &&
         session.process.getPendingPermissions().length === 0 &&
         !(session.provider === "codex" &&
           (session.process as CodexProcess).getRecoveryState().phase === "waiting"))

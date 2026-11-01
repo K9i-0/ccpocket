@@ -3051,3 +3051,91 @@ describe("Claude background tasks", () => {
     expect(stopTask).not.toHaveBeenCalled();
   });
 });
+
+describe("SdkProcess pending permission cleanup", () => {
+  const startPending = (proc: SdkProcess, toolUseId: string) =>
+    (proc as any).waitForPermission(
+      toolUseId,
+      "Bash",
+      { command: "ls" },
+      new AbortController().signal,
+    ) as Promise<unknown>;
+
+  const settledWithin = async (promise: Promise<unknown>) =>
+    Promise.race([
+      promise,
+      new Promise((resolve) => setTimeout(() => resolve("pending"), 20)),
+    ]);
+
+  it.each([
+    [
+      "interrupt",
+      (proc: SdkProcess) => {
+        (proc as any).queryInstance = {
+          interrupt: vi.fn(() => Promise.resolve()),
+          stopTask: vi.fn(() => Promise.resolve()),
+        };
+        proc.interrupt();
+      },
+    ],
+    [
+      "stop",
+      (proc: SdkProcess) => {
+        proc.stop();
+      },
+    ],
+    [
+      "result",
+      (proc: SdkProcess) => {
+        (proc as any).updateStatusFromMessage({
+          type: "result",
+          subtype: "success",
+        });
+      },
+    ],
+  ])("denies outstanding canUseTool requests on %s", async (_label, trigger) => {
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    const first = startPending(proc, "tool-1");
+    const second = startPending(proc, "tool-2");
+    messages.length = 0;
+
+    trigger(proc);
+
+    await expect(settledWithin(first)).resolves.toEqual({
+      behavior: "deny",
+      message: expect.any(String),
+    });
+    await expect(settledWithin(second)).resolves.toEqual({
+      behavior: "deny",
+      message: expect.any(String),
+    });
+    expect(proc.getPendingPermissions()).toEqual([]);
+    expect(
+      messages.filter((m) => m.type === "permission_resolved"),
+    ).toEqual([]);
+  });
+
+  it("leaves normal approve and reject flows unchanged", async () => {
+    const proc = new SdkProcess();
+    const approved = startPending(proc, "tool-a");
+    const rejected = startPending(proc, "tool-r");
+
+    expect(proc.approve("tool-a")).toBe(true);
+    expect(proc.reject("tool-r", "nope")).toBe(true);
+
+    await expect(approved).resolves.toEqual({
+      behavior: "allow",
+      updatedInput: { command: "ls" },
+    });
+    await expect(rejected).resolves.toEqual({
+      behavior: "deny",
+      message: "nope",
+    });
+
+    proc.stop();
+    expect(proc.getPendingPermissions()).toEqual([]);
+  });
+});
