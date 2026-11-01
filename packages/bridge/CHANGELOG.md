@@ -2,6 +2,27 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.95.0] - 2026-11-01
+
+### Added
+
+- Return pinned sessions with the first page of `list_recent_sessions` when the client sends `pinnedSessions`, so pinned sessions stay visible regardless of pagination.
+
+### Fixed
+
+- Report failures while handling a client message as an `error` instead of crashing the Bridge, including Git diffs for a deleted working directory and Codex resumes whose profile lookup fails.
+- Keep the Claude model, effort, fast mode and sandbox setting when approving with Clear & Accept, toggling sandbox mode, or rewinding a conversation.
+- List Git submodules (and nested repositories) as folders in file lists, so they can be opened from the file browser (#192).
+- Show Claude sessions renamed from ccpocket in the named-only session list.
+- Stop a missing Codex CLI from leaving app-server startup and pending requests waiting forever.
+- Decline a rejected Codex MCP form request instead of submitting it, and stop a finished Codex turn from being treated as still running.
+- Generate session names without blocking the Bridge, with a timeout.
+- Write the gallery index atomically so concurrent saves can no longer corrupt it.
+- Keep idle sessions with running background tasks from being evicted, and deny pending tool permission requests when a turn is interrupted or stopped.
+- Keep trailing whitespace when staging, unstaging or reverting individual hunks.
+- Create a real branch when a worktree name matches a tag or other non-branch ref.
+- Allow folders whose names start with `..` inside allowed directories, and include the `requestId` when a Project start is rejected for a disallowed root.
+
 ## [1.94.0] - 2026-11-01
 
 ### Added
