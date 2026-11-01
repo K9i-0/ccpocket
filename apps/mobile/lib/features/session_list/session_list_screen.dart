@@ -23,6 +23,7 @@ import '../../router/app_router.dart';
 import '../../services/app_update_service.dart';
 import '../../services/bridge_endpoint_probe.dart';
 import '../../services/bridge_service.dart';
+import '../../services/connect_deep_link_scope.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
@@ -251,6 +252,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     with WidgetsBindingObserver {
   bool _isAutoConnecting = false;
 
+  /// Connect deep-link source: the constructor argument when provided,
+  /// otherwise the app-level notifier from [ConnectDeepLinkScope].
+  ValueNotifier<ConnectionParams?>? _deepLinkNotifier;
+
   /// Key to access HomeContent state for programmatic search (Cmd+K).
   final _homeContentKey = GlobalKey<HomeContentState>();
 
@@ -414,8 +419,18 @@ class _SessionListScreenState extends State<SessionListScreen>
             .showSnackBar(SnackBar(content: Text(text)));
       }
     });
-    widget.deepLinkNotifier?.addListener(_onDeepLink);
-    _loadPreferencesAndAutoConnect();
+    _deepLinkNotifier =
+        widget.deepLinkNotifier ?? ConnectDeepLinkScope.maybeOf(context);
+    _deepLinkNotifier?.addListener(_onDeepLink);
+    if (_deepLinkNotifier?.value != null) {
+      // A link arrived before this screen subscribed (e.g. cold start).
+      // It takes precedence over auto-connecting to the saved URL.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onDeepLink();
+      });
+    } else {
+      _loadPreferencesAndAutoConnect();
+    }
 
     // Feed active session updates to the unseen tracker.
     final activeCubit = context.read<ActiveSessionsCubit>();
@@ -459,10 +474,10 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   void _onDeepLink() {
-    final params = widget.deepLinkNotifier?.value;
+    final params = _deepLinkNotifier?.value;
     if (params == null) return;
     // Reset notifier to avoid re-triggering
-    widget.deepLinkNotifier?.value = null;
+    _deepLinkNotifier?.value = null;
     _connectWithParams(params.serverUrl, params.token);
   }
 
@@ -754,7 +769,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   void dispose() {
     _archiveRequests.dispose();
     WidgetsBinding.instance.removeObserver(this);
-    widget.deepLinkNotifier?.removeListener(_onDeepLink);
+    _deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
     _activeSessionsSub?.cancel();
     _unseenCubit.close();

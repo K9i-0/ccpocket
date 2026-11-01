@@ -45,6 +45,7 @@ import 'router/session_route_observer.dart';
 import 'router/session_stack_navigation.dart';
 import 'services/app_icon_service.dart';
 import 'services/bridge_service.dart';
+import 'services/connect_deep_link_scope.dart';
 import 'services/connection_url_parser.dart';
 import 'services/database_service.dart';
 import 'services/deep_link_dispatcher.dart';
@@ -536,32 +537,35 @@ class _CcpocketAppState extends State<CcpocketApp> {
         final themeLocale =
             appLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
         updateReleaseErrorWidgetLocale(appLocale);
-        return MaterialApp.router(
-          title: 'CC Pocket',
-          theme: AppTheme.lightThemeForLocale(themeLocale),
-          darkTheme: AppTheme.darkThemeForLocale(themeLocale),
-          themeMode: settings.themeMode,
-          locale: appLocale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          routerConfig: _appRouter.config(
-            navigatorObservers: () => [SessionRouteObserver()],
-          ),
-          builder: (context, child) {
-            final mediaQuery = MediaQuery.maybeOf(context);
-            final app = child ?? const SizedBox.shrink();
-            if (mediaQuery == null) return app;
-            return MediaQuery(
-              data: mediaQuery.copyWith(
-                textScaler: _AppTextScaler(
-                  base: mediaQuery.textScaler,
-                  multiplier: settings.textScale,
+        return ConnectDeepLinkScope(
+          notifier: _deepLinkNotifier,
+          child: MaterialApp.router(
+            title: 'CC Pocket',
+            theme: AppTheme.lightThemeForLocale(themeLocale),
+            darkTheme: AppTheme.darkThemeForLocale(themeLocale),
+            themeMode: settings.themeMode,
+            locale: appLocale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: _appRouter.config(
+              navigatorObservers: () => [SessionRouteObserver()],
+            ),
+            builder: (context, child) {
+              final mediaQuery = MediaQuery.maybeOf(context);
+              final app = child ?? const SizedBox.shrink();
+              if (mediaQuery == null) return app;
+              return MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaler: _AppTextScaler(
+                    base: mediaQuery.textScaler,
+                    multiplier: settings.textScale,
+                  ),
                 ),
-              ),
-              child: app,
-            );
-          },
-          debugShowCheckedModeBanner: false,
+                child: app,
+              );
+            },
+            debugShowCheckedModeBanner: false,
+          ),
         );
       },
     );

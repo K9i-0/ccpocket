@@ -19,6 +19,8 @@ import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/providers/server_discovery_cubit.dart';
 import 'package:ccpocket/services/app_icon_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/connect_deep_link_scope.dart';
+import 'package:ccpocket/services/connection_url_parser.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
@@ -416,6 +418,7 @@ Widget _buildWorkspaceApp({
   AppRouter? router,
   MachineManagerCubit? machineManagerCubit,
   ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession,
+  ValueNotifier<ConnectionParams?>? connectDeepLinkNotifier,
 }) {
   final sessionListCubit = SessionListCubit(bridge: bridge);
   final connectionCubit = ConnectionCubit(
@@ -467,44 +470,55 @@ Widget _buildWorkspaceApp({
           create: (_) => ServerDiscoveryCubit(),
         ),
       ],
-      child: router != null
-          ? MaterialApp.router(
-              routerConfig: router.config(
-                navigatorObservers: () => [SessionRouteObserver()],
-              ),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: locale,
-              theme: AppTheme.darkTheme.copyWith(platform: platform),
-            )
-          : MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: locale,
-              theme: AppTheme.darkTheme.copyWith(platform: platform),
-              home: Scaffold(
-                body: SizedBox(
-                  width: 1400,
-                  height: 900,
-                  child: adaptiveHome
-                      ? AdaptiveHomeScreen(
-                          debugRecentSessions: debugRecentSessions,
-                        )
-                      : sessionListOnly
-                      ? SessionListScreen(
-                          debugRecentSessions: debugRecentSessions,
-                          embedded: onSelectWorkspaceSession != null,
-                          onSelectWorkspaceSession: onSelectWorkspaceSession,
-                        )
-                      : WorkspaceShellScreen(
-                          key: shellKey,
-                          debugRecentSessions: debugRecentSessions,
-                        ),
+      child: _wrapConnectDeepLinkScope(
+        connectDeepLinkNotifier,
+        router != null
+            ? MaterialApp.router(
+                routerConfig: router.config(
+                  navigatorObservers: () => [SessionRouteObserver()],
+                ),
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: locale,
+                theme: AppTheme.darkTheme.copyWith(platform: platform),
+              )
+            : MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: locale,
+                theme: AppTheme.darkTheme.copyWith(platform: platform),
+                home: Scaffold(
+                  body: SizedBox(
+                    width: 1400,
+                    height: 900,
+                    child: adaptiveHome
+                        ? AdaptiveHomeScreen(
+                            debugRecentSessions: debugRecentSessions,
+                          )
+                        : sessionListOnly
+                        ? SessionListScreen(
+                            debugRecentSessions: debugRecentSessions,
+                            embedded: onSelectWorkspaceSession != null,
+                            onSelectWorkspaceSession: onSelectWorkspaceSession,
+                          )
+                        : WorkspaceShellScreen(
+                            key: shellKey,
+                            debugRecentSessions: debugRecentSessions,
+                          ),
+                  ),
                 ),
               ),
-            ),
+      ),
     ),
   );
+}
+
+Widget _wrapConnectDeepLinkScope(
+  ValueNotifier<ConnectionParams?>? notifier,
+  Widget child,
+) {
+  if (notifier == null) return child;
+  return ConnectDeepLinkScope(notifier: notifier, child: child);
 }
 
 RecentSession _recentSession(String id) => RecentSession(
@@ -2891,5 +2905,74 @@ void main() {
     }
     await tester.tap(find.byKey(const ValueKey('guide_done_button')));
     await expectOfflineRoot();
+  });
+  group('connect deep links', () {
+    Future<void> pumpRouterApp(
+      WidgetTester tester,
+      ValueNotifier<ConnectionParams?> notifier,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService(
+        initialState: BridgeConnectionState.disconnected,
+      );
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          router: AppRouter(),
+          connectDeepLinkNotifier: notifier,
+        ),
+      );
+      await _pumpUi(tester);
+    }
+
+    Future<void> expectConnectAttempted(
+      WidgetTester tester,
+      ValueNotifier<ConnectionParams?> notifier,
+    ) async {
+      // The fake health check fails in tests, so a connection attempt
+      // surfaces the "Server Unreachable" setup guide dialog.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Server Unreachable'), findsOneWidget);
+      expect(notifier.value, isNull);
+    }
+
+    testWidgets('link received while the session list is mounted connects', (
+      tester,
+    ) async {
+      final notifier = ValueNotifier<ConnectionParams?>(null);
+      addTearDown(notifier.dispose);
+      await pumpRouterApp(tester, notifier);
+      expect(find.text('Server Unreachable'), findsNothing);
+
+      notifier.value = ConnectionParams(serverUrl: 'ws://127.0.0.1:9');
+      await _pumpUi(tester);
+
+      await expectConnectAttempted(tester, notifier);
+    });
+
+    testWidgets('link received before the session list mounted connects', (
+      tester,
+    ) async {
+      final notifier = ValueNotifier<ConnectionParams?>(
+        ConnectionParams(serverUrl: 'ws://127.0.0.1:9'),
+      );
+      addTearDown(notifier.dispose);
+      await pumpRouterApp(tester, notifier);
+
+      await expectConnectAttempted(tester, notifier);
+    });
   });
 }
