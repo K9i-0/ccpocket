@@ -1673,6 +1673,60 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it.each([
+    ["before", ["response", "started", "completed"]],
+    ["after", ["started", "completed", "response"]],
+  ])(
+    "does not reinstate a completed turn id from a turn/start response delivered %s its completion",
+    async (_label, order) => {
+      const proc = new CodexProcess("linux");
+      proc.on("message", () => {});
+      proc.start("/tmp/project-fast-turn");
+      const child = fakeChildren[0];
+
+      await tick();
+      const initReq = nextOutgoingRequest(child);
+      child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+      await tick();
+      nextOutgoingNotification(child);
+      const threadReq = nextOutgoingRequest(child);
+      child.stdout.emit(
+        "data",
+        `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_fast" } } })}\n`,
+      );
+      await tick();
+
+      proc.sendInput("hello");
+      await tick();
+      const turnReq = nextOutgoingRequest(child);
+      expect(turnReq.method).toBe("turn/start");
+
+      const lines: Record<string, string> = {
+        response: JSON.stringify({
+          id: turnReq.id,
+          result: { turn: { id: "turn_fast", status: "inProgress", items: [] } },
+        }),
+        started: JSON.stringify({
+          method: "turn/started",
+          params: { threadId: "thr_fast", turn: { id: "turn_fast", status: "inProgress", items: [] } },
+        }),
+        completed: JSON.stringify({
+          method: "turn/completed",
+          params: { threadId: "thr_fast", turn: { id: "turn_fast", status: "completed", items: [] } },
+        }),
+      };
+      // Same stdout chunk: the RPC response resolves in a microtask after
+      // every notification in the chunk has already been handled.
+      child.stdout.emit("data", `${order.map((key) => lines[key]).join("\n")}\n`);
+      await tick();
+
+      expect((proc as any).pendingTurnId).toBeNull();
+      expect(proc.status).toBe("idle");
+
+      proc.stop();
+    },
+  );
+
   it("handles managed app-server spawn errors without crashing", () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
     process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18767";

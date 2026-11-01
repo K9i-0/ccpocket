@@ -349,6 +349,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private inputResolve: ((input: PendingInput) => void) | null = null;
   private pendingTurnId: string | null = null;
+  /** Guards against a late turn/start response reinstating a finished turn. */
+  private lastCompletedTurnId: string | null = null;
   private pendingTurnCompletion: PendingTurnCompletion | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private pendingUserInputs = new Map<string, PendingUserInputRequest>();
@@ -2679,7 +2681,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             const turn = (result as Record<string, unknown>).turn as
               | Record<string, unknown>
               | undefined;
-            if (typeof turn?.id === "string") {
+            // The response resolves in a microtask, after any turn/completed
+            // that arrived in the same stdout chunk was already handled.
+            if (
+              typeof turn?.id === "string" &&
+              turn.id !== this.lastCompletedTurnId
+            ) {
               this.pendingTurnId = turn.id;
             }
           })
@@ -3356,6 +3363,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
 
     this.pendingTurnId = null;
+    if (typeof turn?.id === "string") this.lastCompletedTurnId = turn.id;
 
     // Plan mode: emit synthetic plan approval and wait for user decision
     if (this._collaborationMode === "plan" && this.lastPlanItemText) {
