@@ -27,6 +27,8 @@ class MarkdownPerformanceProbe {
   var highlightMicros = 0;
   var highlightCacheHits = 0;
   var highlightSkipped = 0;
+  var streamingBlockBuilds = 0;
+  var streamingBlockReuses = 0;
 
   void reset() {
     codeBlockBuilds = 0;
@@ -35,6 +37,8 @@ class MarkdownPerformanceProbe {
     highlightMicros = 0;
     highlightCacheHits = 0;
     highlightSkipped = 0;
+    streamingBlockBuilds = 0;
+    streamingBlockReuses = 0;
   }
 
   Map<String, Object?> summary() {
@@ -51,6 +55,8 @@ class MarkdownPerformanceProbe {
           : _roundMs(highlightMicros / highlightCalls),
       'highlightCacheHits': highlightCacheHits,
       'highlightSkipped': highlightSkipped,
+      'streamingBlockBuilds': streamingBlockBuilds,
+      'streamingBlockReuses': streamingBlockReuses,
     };
   }
 
