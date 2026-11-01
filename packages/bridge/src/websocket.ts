@@ -5072,6 +5072,8 @@ export class BridgeWebSocketServer {
           const claudeSessionId = session.claudeSessionId;
           const projectPath = session.projectPath;
           const permissionMode = sdkProc.permissionMode;
+          const settings = sdkProc.settings ?? {};
+          const sandboxEnabled = session.sandboxEnabled;
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
           const workspace = this.workspaceForRuntimeSession(session);
@@ -5089,6 +5091,10 @@ export class BridgeWebSocketServer {
                   }
                 : {}),
               permissionMode,
+              ...(settings.model ? { model: settings.model } : {}),
+              ...(settings.effort ? { effort: settings.effort } : {}),
+              ...(settings.fastMode ? { fastMode: true } : {}),
+              ...(sandboxEnabled !== undefined ? { sandboxEnabled } : {}),
               initialInput: planText || undefined,
               additionalDirectories: workspace?.rootPaths.slice(1),
             },

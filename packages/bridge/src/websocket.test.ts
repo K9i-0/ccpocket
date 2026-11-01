@@ -8637,6 +8637,61 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("clearContext approve keeps Claude model settings and sandbox", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "claude-session-1";
+    session.sandboxEnabled = true;
+    session.process.model = "claude-opus-resolved-id";
+    session.process.settings = {
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "approve",
+        id: "tool-exit-1",
+        clearContext: true,
+        sessionId,
+      },
+      ws,
+    );
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSession = (bridge as any).sessionManager.get(sessions[0].id);
+    expect(newSession.startOptions).toMatchObject({
+      sessionId: "claude-session-1",
+      continueMode: true,
+      model: "opus",
+      effort: "xhigh",
+      fastMode: true,
+      sandboxEnabled: true,
+    });
+
+    bridge.close();
+  });
+
   it("routes tool suggestion installation to the Codex process", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
