@@ -9,6 +9,12 @@ import io.flutter.plugin.common.MethodChannel
 private const val APP_ICON_CHANNEL = "ccpocket/app_icon"
 
 class MainActivity : AudioServiceActivity() {
+    // app_links owns URI delivery. FlutterActivity reads
+    // `flutter_deeplinking_enabled` from the launching component, which is a
+    // launcher activity-alias without that meta-data (default: true), so the
+    // manifest flag alone doesn't stop Flutter from pushing the URI as a route.
+    override fun shouldHandleDeeplinking(): Boolean = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(

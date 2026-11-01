@@ -100,9 +100,23 @@ adb shell dumpsys activity activities | grep -E \
   "Task\{|com\.k9i\.ccpocket/(\.DeepLinkActivity|\.MainActivity)"
 ```
 
-Confirm that only the canonical `MainActivity` remains, the URI is handled once,
+Confirm that the task keeps a single `MainActivity` record (shown under the
+launcher alias it was started with, e.g. `.MainActivityDefault`), no
+`.DeepLinkActivity` remains, the URI is handled once,
 the existing Bridge connection stays active, and Back/Recents navigation is
 unchanged. Repeat after selecting each alternate launcher icon.
+
+The launcher starts `MainActivity` through an activity-alias
+(`.MainActivityDefault` or a supporter icon alias), and `SINGLE_TOP` only
+matches the component the running activity was started with. `DeepLinkActivity`
+therefore forwards the URI to the base component of the existing app task,
+then the enabled launcher alias, then `.MainActivity`, using
+`NEW_TASK | SINGLE_TOP | CLEAR_TOP`. Logcat must not show
+`evicted by another attaching activity`. `MainActivity` also overrides
+`shouldHandleDeeplinking()` to `false`, because the alias records lack the
+`flutter_deeplinking_enabled` meta-data. Known limitation: after switching the
+launcher icon while the task is alive, the task root alias is disabled and a
+deep link may still create a second activity until the app is restarted.
 
 ## Cleanup
 
