@@ -38,7 +38,8 @@ background subagent that runs `sleep 25` in a background shell):
 - **Display.** The app shows a Claude session as Working when its raw status is
   idle and `backgroundTaskCount > 0`. Shells and monitors count as well as
   agents, as decided with the user. A long-lived dev server therefore keeps the
-  session Working until it is stopped.
+  session Working, without a completion push, until it is stopped. The user
+  accepted this.
 - **Completion push.** The Bridge (`BackgroundCompletionGate`) holds a
   successful Claude `result` while background tasks are live. Once the session
   stays idle without background tasks for 2 s, it pushes the latest held
@@ -47,6 +48,12 @@ background subagent that runs `sleep 25` in a background shell):
   discard the held one.
 - **Local notification fallback.** The app's `ChatSessionCubit` applies the
   same rule to `notifySessionComplete`.
+- **Chat completion chips.** In Claude chats, a successful result chip is
+  hidden when a later result follows without user input in between (a
+  follow-up turn Claude started itself), or when it is the latest result and
+  background tasks are still live. A result whose text is shown nowhere else
+  stays visible. Codex chats are unchanged, because goal mode runs
+  consecutive turns on purpose.
 - **Stop.** Between turns, `interrupt` on a Claude session with background
   tasks calls the SDK's `stopTask` for each task. During a turn it interrupts
   the turn as before. The chat screen's background bar shows a stop button
