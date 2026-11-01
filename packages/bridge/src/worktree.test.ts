@@ -272,6 +272,27 @@ describe("createWorktree / listWorktrees / removeWorktree", () => {
     expect(existsSync(wt.worktreePath)).toBe(true);
   });
 
+  it("checks out an existing local branch", () => {
+    execFileSync("git", ["branch", "existing"], { cwd: projectDir });
+    const wt = createWorktree(projectDir, "sess-existing", "existing");
+    const head = execFileSync("git", ["branch", "--show-current"], {
+      cwd: wt.worktreePath,
+      encoding: "utf-8",
+    }).trim();
+    expect(head).toBe("existing");
+  });
+
+  it("creates a new branch when the name only matches a tag", () => {
+    execFileSync("git", ["tag", "v1"], { cwd: projectDir });
+    const wt = createWorktree(projectDir, "sess-tag", "v1");
+    expect(wt.branch).toBe("v1");
+    const head = execFileSync("git", ["branch", "--show-current"], {
+      cwd: wt.worktreePath,
+      encoding: "utf-8",
+    }).trim();
+    expect(head).toBe("v1");
+  });
+
   it("lists created worktrees", () => {
     createWorktree(projectDir, "s1");
     createWorktree(projectDir, "s2");
