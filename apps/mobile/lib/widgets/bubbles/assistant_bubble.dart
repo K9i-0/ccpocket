@@ -284,7 +284,9 @@ class _DefaultLayout extends StatelessWidget {
               child: LinkHoverUnderline(
                 child: MarkdownBody(
                   data: text,
-                  selectable: !googleSearchSelectionMenuEnabled,
+                  // The surrounding selection area handles selection;
+                  // per-paragraph SelectableTexts are expensive to build.
+                  selectable: false,
                   styleSheet: buildMarkdownStyle(context),
                   onTapLink: buildChatMarkdownLinkHandler(
                     context,
