@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile, writeFile, mkdir, copyFile, stat, unlink } from "node:fs/promises";
+import { readFile, writeFile, mkdir, copyFile, stat, unlink, rename } from "node:fs/promises";
 import { join, extname, basename, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -45,6 +45,8 @@ function projectNameFromPath(projectPath: string): string {
 
 export class GalleryStore {
   private index: GalleryImageMeta[] = [];
+  /** Serializes index writes so concurrent saves never interleave. */
+  private saveChain: Promise<void> = Promise.resolve();
 
   private async resolveReadablePath(filePath: string, projectPath: string): Promise<string | null> {
     const candidates: string[] = [];
@@ -78,8 +80,25 @@ export class GalleryStore {
     }
   }
 
-  private async saveIndex(): Promise<void> {
-    await writeFile(INDEX_FILE, JSON.stringify(this.index, null, 2), "utf-8");
+  private saveIndex(): Promise<void> {
+    const next = this.saveChain
+      .catch(() => {})
+      .then(async () => {
+        // Snapshot at write time so the last queued save persists the latest
+        // index. Write a temp file and rename it so a crash or overlapping
+        // write can never leave a truncated index.json behind.
+        const data = JSON.stringify(this.index, null, 2);
+        const tmp = `${INDEX_FILE}.${randomUUID()}.tmp`;
+        try {
+          await writeFile(tmp, data, "utf-8");
+          await rename(tmp, INDEX_FILE);
+        } catch (err) {
+          await unlink(tmp).catch(() => {});
+          throw err;
+        }
+      });
+    this.saveChain = next;
+    return next;
   }
 
   async addImage(
