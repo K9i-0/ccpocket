@@ -61,8 +61,8 @@ version_detail=$(asc versions view \
   --version-id "$version_id" \
   --include-build \
   --output json)
-version_state=$(jq -r '.state // "UNKNOWN"' <<< "$version_detail")
-attached_build_id=$(jq -r '.buildId // empty' <<< "$version_detail")
+version_state=$(jq -r '.state // .data.attributes.appVersionState // .data.attributes.appStoreState // "UNKNOWN"' <<< "$version_detail")
+attached_build_id=$(jq -r '.buildId // .data.relationships.build.data.id // empty' <<< "$version_detail")
 [[ "$attached_build_id" == "$build_id" ]] ||
   fail "App Store version ${version} is not attached to expected build ${build_id}"
 
@@ -83,7 +83,7 @@ case "$version_state" in
 esac
 
 final_detail=$(asc versions view --version-id "$version_id" --include-build --output json)
-final_state=$(jq -r '.state // "UNKNOWN"' <<< "$final_detail")
+final_state=$(jq -r '.state // .data.attributes.appVersionState // .data.attributes.appStoreState // "UNKNOWN"' <<< "$final_detail")
 case "$final_state" in
   PENDING_DEVELOPER_RELEASE|PROCESSING_FOR_DISTRIBUTION|PROCESSING_FOR_APP_STORE|PENDING_APPLE_RELEASE|READY_FOR_DISTRIBUTION|READY_FOR_SALE) ;;
   *) fail "Unexpected state after release request: ${final_state}" ;;

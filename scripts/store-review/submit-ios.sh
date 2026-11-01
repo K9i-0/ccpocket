@@ -205,7 +205,7 @@ else
   submission_json=$(asc review submit \
     --app "$app_id" \
     --version-id "$version_id" \
-    "${ASC_REVIEW_BUILD_FLAG:---build}" "$build_id" \
+    "${ASC_REVIEW_BUILD_FLAG:---build-id}" "$build_id" \
     --platform IOS \
     --confirm \
     --output json)

@@ -2,7 +2,7 @@
 
 ## 自動化の範囲
 
-`submit-store-review.yml` の iOS job は、App Store Connect API を使う `asc` 4.9.2 を固定して実行する。ブラウザや Computer Use は使わない。
+`submit-store-review.yml` の iOS job は、App Store Connect API を使う `asc` 6.3.0 を固定して実行する。ブラウザや Computer Use は使わない。
 
 `inspect-store-state.yml` は `asc versions list --paginate` の結果から、新APIの `appVersionState=READY_FOR_DISTRIBUTION` または旧APIの `appStoreState=READY_FOR_SALE` で作成日時が最新のiOS版を選ぶ。新APIの状態があればそちらを優先し、`asc versions view --include-build` で正確なバージョンとbuild numberを取得する。新旧stateは同じ `--state` filterに混在できないため、CLI側ではfilterせずローカルで絞り込む。成果物 `ios-store-state` は公開状態だけを含み、認証情報やAPIの生レスポンスは含めない。
 
