@@ -11,11 +11,16 @@ import 'package:ccpocket/features/chat_session/widgets/anchor_maintaining_auto_s
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 void main() {
-  Future<void> pumpList(WidgetTester tester, {Widget? footer}) async {
+  Future<void> pumpList(
+    WidgetTester tester, {
+    Widget? footer,
+    String role = 'user',
+  }) async {
     // SelectableRegion only clears its selection on focus loss while resumed.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final bridge = _SelectionTestBridge();
@@ -38,6 +43,9 @@ void main() {
           providers: [
             BlocProvider<ChatSessionCubit>.value(value: chatCubit),
             BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+            BlocProvider<FileListCubit>(
+              create: (_) => FileListCubit(const [], const Stream.empty()),
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
@@ -71,7 +79,7 @@ void main() {
         messages: List.generate(
           30,
           (index) => PastMessage(
-            role: 'user',
+            role: role,
             content: [TextContent(text: 'message $index selectable words')],
           ),
         ),
@@ -112,6 +120,42 @@ void main() {
 
     expect(target, findsOneWidget);
     // The list actually scrolled, so a UserScrollNotification was sent.
+    expect(tester.getTopLeft(target).dy, isNot(listTopBefore));
+    expect(selectionsOf(tester, target), isNotEmpty);
+  });
+
+  testWidgets('dragging the list keeps an assistant markdown selection', (
+    tester,
+  ) async {
+    await pumpList(tester, role: 'assistant');
+
+    final target = find.text('message 29 selectable words');
+    expect(target, findsOneWidget);
+    // Assistant markdown is selected through a SelectionArea, not an
+    // EditableText per paragraph.
+    expect(
+      find.ancestor(of: target, matching: find.byType(SelectionArea)),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(of: target, matching: find.byType(EditableText)),
+      findsNothing,
+    );
+    await tester.longPress(target);
+    await tester.pumpAndSettle();
+
+    expect(selectionsOf(tester, target), isNotEmpty);
+    expect(isEditableTextFocused(), isFalse);
+    final listTopBefore = tester.getTopLeft(target).dy;
+
+    await tester.drag(
+      find.byType(ListView),
+      const Offset(0, 40),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+
+    expect(target, findsOneWidget);
     expect(tester.getTopLeft(target).dy, isNot(listTopBefore));
     expect(selectionsOf(tester, target), isNotEmpty);
   });

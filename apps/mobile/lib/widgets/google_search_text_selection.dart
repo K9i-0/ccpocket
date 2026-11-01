@@ -10,8 +10,6 @@ import '../l10n/app_localizations.dart';
 bool get _isMacOSNative =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
-bool get googleSearchSelectionMenuEnabled => _isMacOSNative;
-
 Widget googleSearchSelectableTextContextMenuBuilder(
   BuildContext context,
   EditableTextState editableTextState,
@@ -38,6 +36,15 @@ Widget googleSearchSelectableTextContextMenuBuilder(
   );
 }
 
+/// A [SelectionArea] for read-only message text on every platform.
+///
+/// Wrapping plain (non-selectable) text in one selection area keeps it
+/// selectable and copyable without building an [EditableText] per paragraph,
+/// which is what `MarkdownBody(selectable: true)` does and which made long
+/// messages slow to build and lay out.
+///
+/// On native macOS the context menu also offers a Google search of the
+/// selection; other platforms keep their default selection toolbar.
 class GoogleSearchSelectionArea extends StatefulWidget {
   final Widget child;
 
@@ -53,7 +60,7 @@ class _GoogleSearchSelectionAreaState extends State<GoogleSearchSelectionArea> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isMacOSNative) return widget.child;
+    if (!_isMacOSNative) return SelectionArea(child: widget.child);
 
     return SelectionArea(
       onSelectionChanged: (content) {
