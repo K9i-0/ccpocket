@@ -50,9 +50,9 @@ version_detail=$(asc versions view \
   --include-build \
   --output json)
 
-version=$(jq -er '.versionString' <<< "$version_detail")
-build_number=$(jq -er '.buildVersion' <<< "$version_detail")
-state=$(jq -er '.state' <<< "$version_detail")
+version=$(jq -er '.versionString // .data.attributes.versionString' <<< "$version_detail")
+build_number=$(jq -er '.buildVersion // (.data.relationships.build.data.id as $id | .included[]? | select(.type == "builds" and .id == $id) | .attributes.version)' <<< "$version_detail")
+state=$(jq -er '.state // .data.attributes.appVersionState // .data.attributes.appStoreState' <<< "$version_detail")
 [[ "$state" == "READY_FOR_DISTRIBUTION" || "$state" == "READY_FOR_SALE" ]] ||
   fail "Expected a live iOS state, got ${state}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Unexpected live version: ${version}"

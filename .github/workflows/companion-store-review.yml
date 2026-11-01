@@ -93,7 +93,7 @@ jobs:
         if: matrix.platform == 'ios'
         uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d
         with:
-          version: 4.9.2
+          version: 6.3.0
       - name: Set up Ruby
         if: matrix.platform == 'android'
         uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
@@ -113,6 +113,7 @@ jobs:
           mkdir -p store-state
           if [[ "$OPERATION" == inspect ]]; then
             scripts/store-review/inspect-ios.sh store-state/ios.json
+            python3 scripts/store-review/apps/inspect-ios-candidates.py store-state/ios.json
           else
             scripts/store-review/submit-ios.sh "$VERSION" "$BUILD_NUMBER" "$STORE_RELEASE_TYPE"
           fi

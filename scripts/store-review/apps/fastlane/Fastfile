@@ -101,6 +101,8 @@ def google_play_store_state(credentials:)
       reviewState: "UNKNOWN",
       publicationState: "UNKNOWN",
       productionRelease: google_play_track_release_to_h(public_release),
+      uploadedVersionCodes: (client.apks_version_codes + client.aab_version_codes).map(&:to_i).uniq.sort,
+      tracks: client.tracks.map { |track| { name: track.track, releases: Array(track.releases).map { |release| google_play_track_release_to_h(release) } } },
     }
   ensure
     client.abort_current_edit if client.current_edit
@@ -138,6 +140,44 @@ def google_play_release_notes_match?(release:, expected_notes:)
 end
 
 platform :android do
+  desc "Upload one verified AAB to an internal draft without submitting review"
+  lane :upload_candidate do
+    require "supply"
+    UI.user_error!("Android supports upload only") unless ENV.fetch("DELIVERY_OPERATION") == "upload"
+    version_code = Integer(ENV.fetch("BUILD_NUMBER"), 10)
+    client = Supply::Client.make_from_config(params: {
+      json_key_data: ENV.fetch("GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"), timeout: 300,
+    })
+    client.begin_edit(package_name: ENV.fetch("STORE_BUNDLE_ID"))
+    begin
+      existing = client.apks_version_codes + client.aab_version_codes
+      UI.user_error!("Version code already uploaded; inspect the previous delivery") if existing.map(&:to_i).include?(version_code)
+      uploaded = client.client.upload_edit_bundle(
+        ENV.fetch("STORE_BUNDLE_ID"), client.current_edit.id,
+        upload_source: File.join(ENV.fetch("STORE_DELIVERY"), "app.aab"),
+        content_type: "application/octet-stream",
+      ).version_code
+      UI.user_error!("AAB version code mismatch") unless uploaded.to_i == version_code
+      release = Google::Apis::AndroidpublisherV3::TrackRelease.new(
+        name: ENV.fetch("VERSION"), version_codes: [version_code.to_s], status: "draft",
+      )
+      track = Google::Apis::AndroidpublisherV3::Track.new(track: "internal", releases: [release])
+      client.update_track("internal", track)
+      # Keep the existing review intact. This edit contains only an internal draft.
+      api = client.client
+      UI.user_error!("API lacks safe review behavior") unless api.method(:commit_edit).parameters.any? { |_, name| name == :changes_in_review_behavior }
+      api.commit_edit(ENV.fetch("STORE_BUNDLE_ID"), client.current_edit.id,
+                      changes_in_review_behavior: "ERROR_IF_IN_REVIEW",
+                      changes_not_sent_for_review: false)
+      client.current_edit = nil
+    ensure
+      client.abort_current_edit if client.current_edit
+    end
+    state = google_play_release_state(credentials: ENV.fetch("GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"), version_code: version_code)
+    UI.user_error!("Internal draft verification failed") unless state[:internal]&.status == "draft" && Array(state[:internal].version_codes).map(&:to_i) == [version_code]
+    UI.success("Verified internal draft #{version_code}; no production promotion")
+  end
+
   desc "Write the current public Google Play production state as JSON"
   lane :store_state do
     credentials = ENV["GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"].to_s

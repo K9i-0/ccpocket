@@ -93,8 +93,8 @@ version_detail=$(asc versions view \
   --include-build \
   --include-submission \
   --output json)
-version_state=$(jq -r '.state // "UNKNOWN"' <<< "$version_detail")
-attached_build_id=$(jq -r '.buildId // empty' <<< "$version_detail")
+version_state=$(jq -r '.state // .data.attributes.appVersionState // .data.attributes.appStoreState // "UNKNOWN"' <<< "$version_detail")
+attached_build_id=$(jq -r '.buildId // .data.relationships.build.data.id // empty' <<< "$version_detail")
 
 if [[ -n "$attached_build_id" && "$attached_build_id" != "$build_id" ]]; then
   fail "App Store version ${version} already has a different build attached (${attached_build_id}); refusing to replace it with ${build_id}"

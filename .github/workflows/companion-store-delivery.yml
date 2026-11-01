@@ -1,0 +1,95 @@
+name: Companion Store Delivery
+run-name: Companion Store Delivery · ${{ inputs.app }} · ${{ inputs.operation }} · ${{ inputs.platform }} · ${{ inputs.version }}+${{ inputs.build_number }}
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        type: choice
+        options: [T2QR, Bookmark-Safe]
+        required: true
+      platform:
+        type: choice
+        options: [ios, android]
+        required: true
+      operation:
+        type: choice
+        options: [upload, screenshots]
+        default: upload
+        required: true
+      version:
+        type: string
+        required: true
+      build_number:
+        type: string
+        required: true
+      candidate_sha:
+        type: string
+        required: true
+      expected_ref_sha:
+        type: string
+        required: true
+      payload_release_id:
+        type: string
+        required: true
+      payload_sha256:
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: companion-store-${{ inputs.app }}
+  cancel-in-progress: false
+jobs:
+  delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: store-review
+    env:
+      TARGET_APP: ${{ inputs.app }}
+      PLATFORM: ${{ inputs.platform }}
+      DELIVERY_OPERATION: ${{ inputs.operation }}
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      EXPECTED_REF_SHA: ${{ inputs.expected_ref_sha }}
+      PAYLOAD_RELEASE_ID: ${{ inputs.payload_release_id }}
+      PAYLOAD_SHA256: ${{ inputs.payload_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify and unpack immutable delivery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/store-review/apps/delivery.py
+      - name: Set up asc
+        if: inputs.platform == 'ios'
+        uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d
+        with:
+          version: 6.3.0
+      - name: Upload IPA and verify Duo screenshots
+        if: inputs.platform == 'ios'
+        env:
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_STRICT_AUTH: 'true'
+          ASC_TELEMETRY_DISABLED: '1'
+        run: python3 scripts/store-review/apps/deliver-ios.py
+      - name: Set up Ruby
+        if: inputs.platform == 'android'
+        uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: scripts/store-review/apps
+      - name: Upload AAB to internal draft
+        if: inputs.platform == 'android'
+        working-directory: scripts/store-review/apps
+        env:
+          GCLOUD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
+        run: bundle exec fastlane android upload_candidate
+      - name: Record provenance
+        run: |
+          printf '\nApp: %s\n\nPlatform: %s\n\nCandidate: %s\n\nPayload SHA-256: %s\n\nWorkflow: %s\n' \
+            "$TARGET_APP" "$PLATFORM" "$CANDIDATE_SHA" "$PAYLOAD_SHA256" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
