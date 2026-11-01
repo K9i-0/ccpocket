@@ -5752,6 +5752,28 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally { bridge.close(); rmSync(parentPath, { recursive: true, force: true }); }
   });
 
+  it("reports an error instead of throwing when the diff cwd no longer exists", async () => {
+    const parentPath = mkdtempSync(resolve(tmpdir(), "ccpocket-diff-missing-"));
+    const missingPath = resolve(parentPath, "deleted-worktree");
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    try {
+      const result = await new Promise<{ diff: string; error?: string }>(
+        (resolvePromise, reject) => {
+          try {
+            (bridge as any).collectGitDiff(missingPath, resolvePromise);
+          } catch (err) {
+            reject(err);
+          }
+        },
+      );
+      expect(result.diff).toBe("");
+      expect(result.error).toEqual(expect.any(String));
+    } finally {
+      bridge.close();
+      rmSync(parentPath, { recursive: true, force: true });
+    }
+  });
+
   it("returns unstaged diff for mixed ASCII and non-ASCII untracked paths", async () => {
     const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-diff-"));
     execFileSync("git", ["init"], { cwd: projectPath });

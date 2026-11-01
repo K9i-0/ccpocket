@@ -10591,18 +10591,42 @@ export class BridgeWebSocketServer {
       }
     }
 
+    const resetUntrackedAll = () => {
+      if (untrackedFilesAll.length === 0) return;
+      try {
+        execFileSync("git", ["reset", "--", ...untrackedFilesAll], { cwd });
+      } catch {
+        // Ignore
+      }
+    };
+
+    // Unborn branches have no HEAD; diff against the empty tree instead.
+    // Computing it spawns git synchronously, which throws (e.g. ENOENT) when
+    // cwd no longer exists, such as a deleted worktree.
+    let diffBase: string;
+    try {
+      diffBase = hasGitHead(cwd)
+        ? "HEAD"
+        : execFileSync("git", ["hash-object", "-t", "tree", "--stdin"], {
+            cwd,
+            input: "",
+            encoding: "utf8",
+          }).trim();
+    } catch (err) {
+      resetUntrackedAll();
+      callback({
+        diff: "",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
     execFile(
       "git",
-      gitArgs("diff", hasGitHead(cwd) ? "HEAD" : execFileSync("git", ["hash-object", "-t", "tree", "--stdin"], { cwd, input: "", encoding: "utf8" }).trim(), "--no-color"),
+      gitArgs("diff", diffBase, "--no-color"),
       execOpts,
       (err, stdout) => {
-        if (untrackedFilesAll.length > 0) {
-          try {
-            execFileSync("git", ["reset", "--", ...untrackedFilesAll], { cwd });
-          } catch {
-            // Ignore
-          }
-        }
+        resetUntrackedAll();
 
         if (err) {
           callback({ diff: "", error: err.message });
