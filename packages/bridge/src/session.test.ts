@@ -1470,6 +1470,54 @@ describe("SessionManager codex path", () => {
   });
 });
 
+describe("SessionManager rewindConversation", () => {
+  const rewindable = (manager: SessionManager, id: string) => {
+    const session = manager.get(id)!;
+    session.claudeSessionId = "claude-session-1";
+    session.history.push(
+      { type: "user_input", text: "first", userMessageUuid: "user-1" } as ServerMessage,
+      {
+        type: "assistant",
+        message: { role: "assistant", content: [] },
+        messageUuid: "assistant-1",
+      } as unknown as ServerMessage,
+      { type: "user_input", text: "second", userMessageUuid: "user-2" } as ServerMessage,
+    );
+    (sdkInstances.at(-1) as unknown as { settings: unknown }).settings = {
+      model: "opus",
+      effort: "high",
+      fastMode: true,
+    };
+  };
+
+  it.each([
+    ["resuming at the previous assistant", "user-2", { sessionId: "claude-session-1", resumeSessionAt: "assistant-1" }],
+    ["starting fresh from the first turn", "user-1", {}],
+  ])("keeps sandbox and model settings when %s", (_label, target, expected) => {
+    const manager = new SessionManager(() => {});
+    const id = manager.create("/tmp/rewind", { sandboxEnabled: true });
+    rewindable(manager, id);
+
+    const onReady = vi.fn();
+    manager.rewindConversation(id, target, onReady);
+
+    const newId = onReady.mock.calls[0][0] as string;
+    expect(manager.get(newId)?.sandboxEnabled).toBe(true);
+    expect(sdkInstances.at(-1)!.start).toHaveBeenCalledWith(
+      "/tmp/rewind",
+      expect.objectContaining({
+        ...expected,
+        permissionMode: "default",
+        sandboxEnabled: true,
+        model: "opus",
+        effort: "high",
+        fastMode: true,
+      }),
+    );
+    manager.destroyAll();
+  });
+});
+
 describe("SessionManager claude input queue", () => {
   beforeEach(() => {
     codexInstances.length = 0;
