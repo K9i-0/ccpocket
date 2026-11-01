@@ -990,6 +990,41 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("rejects readiness and pending RPCs when Codex CLI spawn fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const proc = new CodexProcess("linux");
+    proc.on("message", () => {});
+    const exits: Array<number | null> = [];
+    proc.on("exit", (code) => exits.push(code));
+
+    try {
+      proc.start("/tmp/project-missing-codex");
+      const ready = proc.waitUntilReady();
+
+      const err = new Error("spawn codex ENOENT") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      fakeChildren[0].emit("error", err);
+
+      await expect(ready).rejects.toThrow(/Codex CLI is not installed/);
+      expect((proc as any).pendingRpc.size).toBe(0);
+      expect((proc as any).transport).toBeNull();
+      expect(fakeChildren[0].killed).toBe(true);
+      expect(exits.length).toBeGreaterThan(0);
+
+      const initialized = proc.initializeOnly("/tmp/project-missing-codex");
+      const err2 = new Error("spawn codex ENOENT") as NodeJS.ErrnoException;
+      err2.code = "ENOENT";
+      fakeChildren[1].emit("error", err2);
+      await expect(initialized).rejects.toThrow(/Codex CLI is not installed/);
+      await expect(proc.waitUntilReady()).rejects.toThrow(
+        /Codex CLI is not installed/,
+      );
+    } finally {
+      errorSpy.mockRestore();
+      proc.stop();
+    }
+  });
+
   it("starts codex app-server and sends initialize + thread/start", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];
@@ -1637,6 +1672,60 @@ describe("CodexProcess (app-server)", () => {
 
     proc.stop();
   });
+
+  it.each([
+    ["before", ["response", "started", "completed"]],
+    ["after", ["started", "completed", "response"]],
+  ])(
+    "does not reinstate a completed turn id from a turn/start response delivered %s its completion",
+    async (_label, order) => {
+      const proc = new CodexProcess("linux");
+      proc.on("message", () => {});
+      proc.start("/tmp/project-fast-turn");
+      const child = fakeChildren[0];
+
+      await tick();
+      const initReq = nextOutgoingRequest(child);
+      child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+      await tick();
+      nextOutgoingNotification(child);
+      const threadReq = nextOutgoingRequest(child);
+      child.stdout.emit(
+        "data",
+        `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_fast" } } })}\n`,
+      );
+      await tick();
+
+      proc.sendInput("hello");
+      await tick();
+      const turnReq = nextOutgoingRequest(child);
+      expect(turnReq.method).toBe("turn/start");
+
+      const lines: Record<string, string> = {
+        response: JSON.stringify({
+          id: turnReq.id,
+          result: { turn: { id: "turn_fast", status: "inProgress", items: [] } },
+        }),
+        started: JSON.stringify({
+          method: "turn/started",
+          params: { threadId: "thr_fast", turn: { id: "turn_fast", status: "inProgress", items: [] } },
+        }),
+        completed: JSON.stringify({
+          method: "turn/completed",
+          params: { threadId: "thr_fast", turn: { id: "turn_fast", status: "completed", items: [] } },
+        }),
+      };
+      // Same stdout chunk: the RPC response resolves in a microtask after
+      // every notification in the chunk has already been handled.
+      child.stdout.emit("data", `${order.map((key) => lines[key]).join("\n")}\n`);
+      await tick();
+
+      expect((proc as any).pendingTurnId).toBeNull();
+      expect(proc.status).toBe("idle");
+
+      proc.stop();
+    },
+  );
 
   it("handles managed app-server spawn errors without crashing", () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
@@ -3424,6 +3513,64 @@ describe("CodexProcess (app-server)", () => {
         },
       },
     });
+    proc.stop();
+  });
+
+  it("declines MCP form elicitations when rejected", async () => {
+    const proc = new CodexProcess("linux");
+    proc.on("message", () => {});
+
+    proc.start("/tmp/project-elicitation-reject");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_elicit" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: "req-elicit-reject",
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thr_elicit",
+          turnId: "turn_elicit",
+          serverName: "codex_apps",
+          mode: "form",
+          message: "Enter a note",
+          requestedSchema: {
+            type: "object",
+            properties: {
+              note: { type: "string", title: "Note" },
+            },
+            required: ["note"],
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(proc.getPendingPermission("req-elicit-reject")).toBeDefined();
+    expect(proc.reject("req-elicit-reject")).toBe(true);
+    await tick();
+
+    const response = nextOutgoingResponse(child);
+    expect(response).toEqual({
+      id: "req-elicit-reject",
+      result: { action: "decline", content: null, _meta: null },
+    });
+
     proc.stop();
   });
 

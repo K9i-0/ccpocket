@@ -349,6 +349,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private inputResolve: ((input: PendingInput) => void) | null = null;
   private pendingTurnId: string | null = null;
+  /** Guards against a late turn/start response reinstating a finished turn. */
+  private lastCompletedTurnId: string | null = null;
   private pendingTurnCompletion: PendingTurnCompletion | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private pendingUserInputs = new Map<string, PendingUserInputRequest>();
@@ -1203,15 +1205,27 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
     });
 
+    // A failed spawn (e.g. ENOENT) only emits "error", never "exit", so this
+    // handler must tear the transport down itself. `failed` suppresses a late
+    // "exit" from the same transport after it was already reported.
+    let failed = false;
     transport.on("error", (err) => {
-      if (this.stopped) return;
+      if (this.stopped || failed) return;
+      failed = true;
       console.error("[codex-process] app-server process error:", err);
-      this.emitMessage(codexAppServerStartError(err));
+      const startError = codexAppServerStartError(err);
+      const rejection = new Error(startError.message);
+      if (this.transport === transport) this.transport = null;
+      transport.stop();
+      this.rejectReadiness(rejection);
+      this.rejectAllPending(rejection);
+      this.emitMessage(startError);
       this.setStatus("idle");
       this.emit("exit", 1);
     });
 
     transport.on("exit", (code) => {
+      if (failed) return;
       const exitCode = code ?? 0;
       this.transport = null;
       this.rejectAllPending(new Error("codex app-server exited"));
@@ -1834,10 +1848,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.forgetPendingRequest(pending.toolUseId);
     this.respondToServerRequest(
       pending.requestId,
-      buildUserInputResponse(
-        pending,
-        resolveUserInputRejectResult(pending, result),
-      ),
+      // Form elicitations would otherwise coerce the reject label into an
+      // accepted field value; a rejection must decline with no content.
+      pending.kind === "elicitation_form"
+        ? { action: "decline", content: null, _meta: null }
+        : buildUserInputResponse(
+            pending,
+            resolveUserInputRejectResult(pending, result),
+          ),
     );
     this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
@@ -2663,7 +2681,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             const turn = (result as Record<string, unknown>).turn as
               | Record<string, unknown>
               | undefined;
-            if (typeof turn?.id === "string") {
+            // The response resolves in a microtask, after any turn/completed
+            // that arrived in the same stdout chunk was already handled.
+            if (
+              typeof turn?.id === "string" &&
+              turn.id !== this.lastCompletedTurnId
+            ) {
               this.pendingTurnId = turn.id;
             }
           })
@@ -3340,6 +3363,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
 
     this.pendingTurnId = null;
+    if (typeof turn?.id === "string") this.lastCompletedTurnId = turn.id;
 
     // Plan mode: emit synthetic plan approval and wait for user decision
     if (this._collaborationMode === "plan" && this.lastPlanItemText) {
