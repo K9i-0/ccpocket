@@ -446,4 +446,61 @@ Binary files a/image.png and b/image.png differ
       );
     });
   });
+  group('synthesized tool diffs round-trip', () {
+    test('Edit diff reconstructs with a hunk header and parses back', () {
+      final file = synthesizeEditToolDiff('Edit', {
+        'file_path': 'lib/a.dart',
+        'old_string': 'foo',
+        'new_string': 'bar',
+      })!;
+      final text = reconstructUnifiedDiff(file);
+      expect(text, contains('@@ -1,1 +1,1 @@'));
+
+      final parsed = parseDiff(text);
+      expect(parsed, hasLength(1));
+      expect(parsed[0].filePath, 'lib/a.dart');
+      expect(parsed[0].hunks, hasLength(1));
+      expect(parsed[0].stats.added, 1);
+      expect(parsed[0].stats.removed, 1);
+    });
+
+    test('MultiEdit diff keeps one hunk per edit', () {
+      final file = synthesizeEditToolDiff('MultiEdit', {
+        'file_path': 'lib/a.dart',
+        'edits': [
+          {'old_string': 'a', 'new_string': 'b\nc'},
+          {'old_string': 'd', 'new_string': 'e'},
+        ],
+      })!;
+      final parsed = parseDiff(reconstructUnifiedDiff(file));
+      expect(parsed[0].hunks, hasLength(2));
+      expect(parsed[0].stats.added, 3);
+      expect(parsed[0].stats.removed, 2);
+    });
+
+    test('Write diff reconstructs as a new file with additions', () {
+      final file = synthesizeEditToolDiff('Write', {
+        'file_path': 'lib/new.dart',
+        'content': 'one\ntwo',
+      })!;
+      final text = reconstructUnifiedDiff(file);
+      expect(text, contains('@@ -0,0 +1,2 @@'));
+
+      final parsed = parseDiff(text);
+      expect(parsed[0].isNewFile, isTrue);
+      expect(parsed[0].hunks, hasLength(1));
+      expect(parsed[0].stats.added, 2);
+      expect(parsed[0].stats.removed, 0);
+    });
+
+    test('reconstructDiff emits a header for header-less hunks', () {
+      final files = parseDiff('-old\n+new');
+      expect(files[0].hunks.single.header, isEmpty);
+      final selection = reconstructDiff(files, {'0:0'});
+      final reparsed = parseDiff(selection.diffText);
+      expect(reparsed[0].hunks, hasLength(1));
+      expect(reparsed[0].stats.added, 1);
+      expect(reparsed[0].stats.removed, 1);
+    });
+  });
 }
