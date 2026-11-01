@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.150.2] - 2026-11-01
+
+### Changed
+
+- Render streaming replies faster by re-rendering only the markdown block that is still growing.
+- Open chats with long replies faster on iOS and Android by selecting assistant text through a single selection area, as on macOS.
+- Stop the session list from rebuilding while a chat covers it on phones, so chats no longer stutter when other sessions update.
+
+### Fixed
+
+- Ask for microphone permission only when voice input is first used, instead of when a chat opens, and keep the voice button available after a denial.
+- Connect from `ccpocket://connect` links again; they were ignored by the app.
+- Deliver Android deep links to the running app instead of opening a second, disconnected app instance (#188).
+
 ## [1.150.1] - 2026-11-01
 
 ### Fixed
