@@ -3462,6 +3462,64 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("declines MCP form elicitations when rejected", async () => {
+    const proc = new CodexProcess("linux");
+    proc.on("message", () => {});
+
+    proc.start("/tmp/project-elicitation-reject");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_elicit" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: "req-elicit-reject",
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thr_elicit",
+          turnId: "turn_elicit",
+          serverName: "codex_apps",
+          mode: "form",
+          message: "Enter a note",
+          requestedSchema: {
+            type: "object",
+            properties: {
+              note: { type: "string", title: "Note" },
+            },
+            required: ["note"],
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(proc.getPendingPermission("req-elicit-reject")).toBeDefined();
+    expect(proc.reject("req-elicit-reject")).toBe(true);
+    await tick();
+
+    const response = nextOutgoingResponse(child);
+    expect(response).toEqual({
+      id: "req-elicit-reject",
+      result: { action: "decline", content: null, _meta: null },
+    });
+
+    proc.stop();
+  });
+
   it("maps MCP elicitation form requests to answer flow", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];

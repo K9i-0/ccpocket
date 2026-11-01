@@ -1846,10 +1846,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.forgetPendingRequest(pending.toolUseId);
     this.respondToServerRequest(
       pending.requestId,
-      buildUserInputResponse(
-        pending,
-        resolveUserInputRejectResult(pending, result),
-      ),
+      // Form elicitations would otherwise coerce the reject label into an
+      // accepted field value; a rejection must decline with no content.
+      pending.kind === "elicitation_form"
+        ? { action: "decline", content: null, _meta: null }
+        : buildUserInputResponse(
+            pending,
+            resolveUserInputRejectResult(pending, result),
+          ),
     );
     this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
 
