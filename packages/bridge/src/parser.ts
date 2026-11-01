@@ -295,6 +295,12 @@ export type ClientMessage =
       provider?: "claude" | "codex";
       namedOnly?: boolean;
       searchQuery?: string;
+      /**
+       * Pinned provider sessions to return in `recent_sessions.pinnedSessions`
+       * independent of pagination (first list page only). Additive: older
+       * Bridges ignore it.
+       */
+      pinnedSessions?: Array<{ provider: "claude" | "codex"; sessionId: string }>;
     }
   | {
       type: "resume_session";
@@ -1342,6 +1348,20 @@ function hasValidStartOptions(msg: Record<string, unknown>): boolean {
 const RECENT_SESSIONS_MAX_LIMIT = 500;
 const RECENT_SESSIONS_MAX_OFFSET = 100_000;
 const RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH = 128;
+const RECENT_SESSIONS_MAX_PINNED_SESSIONS = 1000;
+
+function isValidRecentPinnedSessions(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length > RECENT_SESSIONS_MAX_PINNED_SESSIONS) return false;
+  return value.every((pin) => {
+    if (!pin || typeof pin !== "object") return false;
+    const { provider, sessionId } = pin as Record<string, unknown>;
+    return (
+      (provider === "claude" || provider === "codex") &&
+      isNonEmptyString(sessionId)
+    );
+  });
+}
 const GALLERY_MAX_PROJECT_PATH_LENGTH = 4096;
 const GALLERY_MAX_SESSION_ID_LENGTH = 512;
 const GALLERY_MAX_REQUEST_ID_LENGTH = 128;
@@ -1766,6 +1786,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.searchQuery !== undefined &&
           typeof msg.searchQuery !== "string"
+        )
+          return null;
+        if (
+          msg.pinnedSessions !== undefined &&
+          !isValidRecentPinnedSessions(msg.pinnedSessions)
         )
           return null;
         break;

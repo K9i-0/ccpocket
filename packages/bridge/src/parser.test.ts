@@ -778,6 +778,58 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses list_recent_sessions with pinned sessions", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 0,
+        pinnedSessions: [
+          { provider: "claude", sessionId: "c1" },
+          { provider: "codex", sessionId: "x1" },
+        ],
+      }),
+    );
+    expect(msg).toEqual({
+      type: "list_recent_sessions",
+      limit: 20,
+      offset: 0,
+      pinnedSessions: [
+        { provider: "claude", sessionId: "c1" },
+        { provider: "codex", sessionId: "x1" },
+      ],
+    });
+  });
+
+  it("rejects malformed list_recent_sessions pinned sessions", () => {
+    for (const pinnedSessions of [
+      "c1",
+      [{ provider: "gemini", sessionId: "c1" }],
+      [{ provider: "claude", sessionId: "" }],
+      [{ provider: "claude" }],
+      [null],
+      Array.from({ length: 1001 }, (_, i) => ({
+        provider: "claude",
+        sessionId: `s${i}`,
+      })),
+    ]) {
+      expect(
+        parseClientMessage(
+          JSON.stringify({ type: "list_recent_sessions", pinnedSessions }),
+        ),
+      ).toBeNull();
+    }
+  });
+
+  it("ignores unknown list_recent_sessions fields", () => {
+    // Older Bridges must not reject newer optional fields from the app.
+    expect(
+      parseClientMessage(
+        '{"type":"list_recent_sessions","futureField":[1,2,3]}',
+      ),
+    ).toMatchObject({ type: "list_recent_sessions" });
+  });
+
   it("parses Project CRUD messages", () => {
     expect(parseClientMessage('{"type":"list_projects"}')).toEqual({
       type: "list_projects",

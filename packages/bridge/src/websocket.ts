@@ -61,6 +61,10 @@ import {
 } from "./protocol-version.js";
 import {
   getAllRecentSessions,
+  getPinnedCodexSessions,
+  codexEntryAsThreadListShape,
+  recentSessionIdentityKey,
+  type SessionIndexEntry,
   getCodexSessionHistory,
   getSessionHistory,
   codexUserTurnUuid,
@@ -765,6 +769,52 @@ function recentSessionDedupeKey(session: unknown, fallbackIndex: number): string
     : `unknown:${fallbackIndex}`;
 }
 
+type ListRecentSessionsMessage = Extract<
+  ClientMessage,
+  { type: "list_recent_sessions" }
+>;
+
+interface RecentSessionsListing {
+  sessions: unknown[];
+  hasMore: boolean;
+  /**
+   * Requested pinned sessions that match the listing filters, independent of
+   * pagination. Only set for first-page list requests that sent pins.
+   */
+  pinnedSessions?: unknown[];
+}
+
+/**
+ * Provider-qualified keys of the pinned sessions a request asks for, or
+ * undefined when pinned sessions must not be resolved for this request
+ * (project-scoped pages, later pages, or no pins sent).
+ */
+export function pinnedSessionKeysForRecentRequest(
+  msg: ListRecentSessionsMessage,
+): Set<string> | undefined {
+  if (msg.requestScope === "project") return undefined;
+  if ((msg.offset ?? 0) !== 0) return undefined;
+  const pinned = msg.pinnedSessions;
+  if (!pinned || pinned.length === 0) return undefined;
+  return new Set(
+    pinned
+      .filter((pin) => !msg.provider || pin.provider === msg.provider)
+      .map((pin) => recentSessionIdentityKey(pin.provider, pin.sessionId)),
+  );
+}
+
+/**
+ * Pinned entries from the rollout/index scan, shaped like the page entries the
+ * app-server `thread/list` listing produces for Codex.
+ */
+function pinnedIndexEntriesAsListingShape(
+  entries: readonly SessionIndexEntry[] | undefined,
+): SessionIndexEntry[] | undefined {
+  return entries?.map((entry) =>
+    entry.provider === "codex" ? codexEntryAsThreadListShape(entry) : entry,
+  );
+}
+
 function mergeRecentSessionPages(sessions: unknown[]): unknown[] {
   const seen = new Set<string>();
   const merged: unknown[] = [];
@@ -854,7 +904,7 @@ export class BridgeWebSocketServer {
   private recentSessionsRequestIds = new WeakMap<WebSocket, number>();
   private recentSessionsInFlight = new Map<
     string,
-    Promise<{ sessions: unknown[]; hasMore: boolean }>
+    Promise<RecentSessionsListing>
   >();
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
@@ -5547,7 +5597,7 @@ export class BridgeWebSocketServer {
           this.recentSessionsRequestIds.set(ws, requestId);
         }
         this.listRecentSessionsCoalesced(msg)
-          .then(({ sessions, hasMore }) => {
+          .then(({ sessions, hasMore, pinnedSessions }) => {
             // List refreshes supersede older list responses. Project responses
             // are correlated independently by requestId on the client.
             if (
@@ -5560,6 +5610,7 @@ export class BridgeWebSocketServer {
               type: "recent_sessions",
               sessions,
               hasMore,
+              ...(pinnedSessions ? { pinnedSessions } : {}),
               limit: msg.limit,
               offset: msg.offset,
               projectPath: msg.projectPath,
@@ -8988,7 +9039,8 @@ export class BridgeWebSocketServer {
 
   private async listRecentSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+  ): Promise<RecentSessionsListing> {
+    const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
     const primaryProjectIds = new Set(
       msg.projectPath === undefined
         ? []
@@ -9001,11 +9053,21 @@ export class BridgeWebSocketServer {
       msg.workspaceKind !== undefined ||
       primaryProjectIds.size > 0;
     if (!workspaceFilterRequested) {
-      const rawResult = await this.listRecentSessionsRaw(msg);
+      const rawResult = await this.listRecentSessionsRaw(msg, pinnedKeys);
       const enriched = rawResult.sessions.map((session) =>
         this.enrichRecentSessionWorkspace(session),
       );
-      return { sessions: enriched, hasMore: rawResult.hasMore };
+      return {
+        sessions: enriched,
+        hasMore: rawResult.hasMore,
+        ...(rawResult.pinnedSessions
+          ? {
+              pinnedSessions: rawResult.pinnedSessions.map((session) =>
+                this.enrichRecentSessionWorkspace(session),
+              ),
+            }
+          : {}),
+      };
     }
 
     const matchesWorkspace = (session: unknown): boolean => {
@@ -9033,18 +9095,29 @@ export class BridgeWebSocketServer {
     const limit = msg.limit ?? 20;
     const requiredMatches = offset + limit + 1;
     let filtered: unknown[];
+    let pinnedSessions: unknown[] | undefined;
     if (msg.provider === "codex") {
-      filtered = await this.listWorkspaceFilteredCodexSessions(
-        msg,
-        matchesWorkspace,
-        requiredMatches,
-      );
+      const [codex, pinned] = await Promise.all([
+        this.listWorkspaceFilteredCodexSessions(
+          msg,
+          matchesWorkspace,
+          requiredMatches,
+        ),
+        pinnedKeys
+          ? this.listPinnedCodexSessions(msg, pinnedKeys, matchesWorkspace)
+          : undefined,
+      ]);
+      filtered = codex;
+      pinnedSessions = pinned;
     } else if (msg.provider === "claude") {
-      filtered = await this.listWorkspaceFilteredIndexedSessions(
+      const indexed = await this.listWorkspaceFilteredIndexedSessions(
         msg,
         matchesWorkspace,
         requiredMatches,
+        pinnedKeys,
       );
+      filtered = indexed.sessions;
+      pinnedSessions = indexed.pinnedSessions;
     } else {
       // The filesystem index includes both providers and is also the fallback
       // for Codex rollouts not returned by app-server. Merge it with one
@@ -9054,6 +9127,7 @@ export class BridgeWebSocketServer {
           msg,
           matchesWorkspace,
           requiredMatches,
+          pinnedKeys,
         ),
         this.listWorkspaceFilteredCodexSessions(
           { ...msg, provider: "codex" },
@@ -9061,19 +9135,60 @@ export class BridgeWebSocketServer {
           requiredMatches,
         ),
       ]);
-      filtered = mergeRecentSessionPages([...codex, ...indexed]);
+      filtered = mergeRecentSessionPages([...codex, ...indexed.sessions]);
+      pinnedSessions = indexed.pinnedSessions;
     }
     return {
       sessions: filtered.slice(offset, offset + limit),
       hasMore: filtered.length > offset + limit,
+      ...(pinnedSessions ? { pinnedSessions } : {}),
     };
+  }
+
+  /**
+   * Resolve pinned Codex threads for a listing backed by app-server
+   * `thread/list`. Parses only the pinned rollout files instead of paging the
+   * whole thread list, and never fails the page itself.
+   */
+  private async listPinnedCodexSessions(
+    msg: ListRecentSessionsMessage,
+    pinnedKeys: ReadonlySet<string>,
+    matchesWorkspace?: (session: unknown) => boolean,
+  ): Promise<unknown[]> {
+    const threadIds = (msg.pinnedSessions ?? [])
+      .filter(
+        (pin) =>
+          pin.provider === "codex" &&
+          pinnedKeys.has(recentSessionIdentityKey(pin.provider, pin.sessionId)),
+      )
+      .map((pin) => pin.sessionId);
+    if (threadIds.length === 0) return [];
+    try {
+      const entries = await getPinnedCodexSessions({
+        threadIds,
+        // The workspace-filtered listing does not pre-filter thread/list by cwd.
+        projectPath: matchesWorkspace ? undefined : msg.projectPath,
+        namedOnly: msg.namedOnly,
+        searchQuery: msg.searchQuery,
+        archivedSessionIds: this.archiveStore.archivedIds(),
+        sessionFilter: matchesWorkspace
+          ? (session) =>
+              matchesWorkspace(this.enrichRecentSessionWorkspace(session))
+          : undefined,
+      });
+      return entries.map((entry) => this.enrichRecentSessionWorkspace(entry));
+    } catch (err) {
+      console.warn(`[ws] Failed to resolve pinned Codex sessions: ${err}`);
+      return [];
+    }
   }
 
   private async listWorkspaceFilteredIndexedSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
     matchesWorkspace: (session: unknown) => boolean,
     limit: number,
-  ): Promise<unknown[]> {
+    pinnedKeys?: ReadonlySet<string>,
+  ): Promise<{ sessions: unknown[]; pinnedSessions?: unknown[] }> {
     const result = await getAllRecentSessions({
       limit,
       offset: 0,
@@ -9085,10 +9200,23 @@ export class BridgeWebSocketServer {
       archivedSessionIds: this.archiveStore.archivedIds(),
       sessionFilter: (session) =>
         matchesWorkspace(this.enrichRecentSessionWorkspace(session)),
+      pinnedSessionKeys: pinnedKeys,
     });
-    return result.sessions.map((session) =>
-      this.enrichRecentSessionWorkspace(session),
+    const pinnedSessions = pinnedIndexEntriesAsListingShape(
+      result.pinnedSessions,
     );
+    return {
+      sessions: result.sessions.map((session) =>
+        this.enrichRecentSessionWorkspace(session),
+      ),
+      ...(pinnedSessions
+        ? {
+            pinnedSessions: pinnedSessions.map((session) =>
+              this.enrichRecentSessionWorkspace(session),
+            ),
+          }
+        : {}),
+    };
   }
 
   private async listWorkspaceFilteredCodexSessions(
@@ -9106,11 +9234,13 @@ export class BridgeWebSocketServer {
       console.warn(
         `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
       );
-      return this.listWorkspaceFilteredIndexedSessions(
-        { ...msg, provider: "codex" },
-        matchesWorkspace,
-        limit,
-      );
+      return (
+        await this.listWorkspaceFilteredIndexedSessions(
+          { ...msg, provider: "codex" },
+          matchesWorkspace,
+          limit,
+        )
+      ).sessions;
     }
   }
 
@@ -9173,13 +9303,14 @@ export class BridgeWebSocketServer {
 
   private async listRecentSessionsRaw(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    pinnedKeys?: ReadonlySet<string>,
+  ): Promise<RecentSessionsListing> {
     if (msg.provider === "codex") {
-      return this.listRecentCodexSessions(msg);
+      return this.listRecentCodexSessions(msg, pinnedKeys);
     }
 
     if (!msg.provider) {
-      return this.listRecentAllProviderSessions(msg);
+      return this.listRecentAllProviderSessions(msg, pinnedKeys);
     }
 
     return getAllRecentSessions({
@@ -9190,6 +9321,7 @@ export class BridgeWebSocketServer {
       namedOnly: msg.namedOnly,
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
+      pinnedSessionKeys: pinnedKeys,
     });
   }
 
@@ -9314,7 +9446,8 @@ export class BridgeWebSocketServer {
 
   private listRecentSessionsCoalesced(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+  ): Promise<RecentSessionsListing> {
+    const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
     const key = JSON.stringify({
       limit: msg.limit ?? null,
       offset: msg.offset ?? null,
@@ -9324,6 +9457,7 @@ export class BridgeWebSocketServer {
       provider: msg.provider ?? null,
       namedOnly: msg.namedOnly ?? null,
       searchQuery: msg.searchQuery ?? null,
+      pinnedSessions: pinnedKeys ? [...pinnedKeys].sort() : null,
     });
     const existing = this.recentSessionsInFlight.get(key);
     if (existing) return existing;
@@ -9341,7 +9475,8 @@ export class BridgeWebSocketServer {
 
   private async listRecentAllProviderSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    pinnedKeys?: ReadonlySet<string>,
+  ): Promise<RecentSessionsListing> {
     const limit = msg.limit ?? 20;
     const offset = msg.offset ?? 0;
     const sourceLimit = offset + limit;
@@ -9354,6 +9489,9 @@ export class BridgeWebSocketServer {
         namedOnly: msg.namedOnly,
         searchQuery: msg.searchQuery,
         archivedSessionIds: this.archiveStore.archivedIds(),
+        // Both providers are already scanned here, so pinned Codex threads
+        // come from the same pass (no extra lookup).
+        pinnedSessionKeys: pinnedKeys,
       }),
       this.listRecentCodexSessions({
         ...msg,
@@ -9368,20 +9506,29 @@ export class BridgeWebSocketServer {
       ...scanResult.sessions,
     ]);
 
+    const pinnedSessions = pinnedIndexEntriesAsListingShape(
+      scanResult.pinnedSessions,
+    );
     return {
       sessions: merged.slice(offset, offset + limit),
       hasMore:
         merged.length > offset + limit ||
         scanResult.hasMore ||
         codexResult.hasMore,
+      ...(pinnedSessions ? { pinnedSessions } : {}),
     };
   }
 
   private async listRecentCodexSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    pinnedKeys?: ReadonlySet<string>,
+  ): Promise<RecentSessionsListing> {
     try {
-      return await this.listRecentCodexThreads(msg);
+      const [page, pinnedSessions] = await Promise.all([
+        this.listRecentCodexThreads(msg),
+        pinnedKeys ? this.listPinnedCodexSessions(msg, pinnedKeys) : undefined,
+      ]);
+      return { ...page, ...(pinnedSessions ? { pinnedSessions } : {}) };
     } catch (err) {
       console.warn(
         `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
@@ -9394,6 +9541,7 @@ export class BridgeWebSocketServer {
         namedOnly: msg.namedOnly,
         searchQuery: msg.searchQuery,
         archivedSessionIds: this.archiveStore.archivedIds(),
+        pinnedSessionKeys: pinnedKeys,
       });
     }
   }

@@ -81,11 +81,53 @@ export interface GetRecentSessionsOptions {
    * sparse in a large history.
    */
   sessionFilter?: (session: SessionIndexEntry) => boolean;
+  /**
+   * Pinned provider sessions (keys from [recentSessionIdentityKey]) to return
+   * in [GetRecentSessionsResult.pinnedSessions] regardless of pagination.
+   * They still have to pass every other filter above.
+   */
+  pinnedSessionKeys?: ReadonlySet<string>;
 }
 
 export interface GetRecentSessionsResult {
   sessions: SessionIndexEntry[];
   hasMore: boolean;
+  /** Present only when [GetRecentSessionsOptions.pinnedSessionKeys] is set. */
+  pinnedSessions?: SessionIndexEntry[];
+}
+
+function matchesRecentSessionSearch(
+  entry: SessionIndexEntry,
+  searchQuery: string,
+): boolean {
+  const q = searchQuery.toLowerCase();
+  return Boolean(
+    entry.name?.toLowerCase().includes(q) ||
+      entry.firstPrompt?.toLowerCase().includes(q) ||
+      entry.lastPrompt?.toLowerCase().includes(q) ||
+      entry.summary?.toLowerCase().includes(q),
+  );
+}
+
+/** Provider-qualified session identity used for pinned session lookups. */
+export function recentSessionIdentityKey(
+  provider: string,
+  sessionId: string,
+): string {
+  return `${provider}:${sessionId}`;
+}
+
+/**
+ * Select pinned entries from an already filtered (but not yet paginated)
+ * session list, preserving its order.
+ */
+export function selectPinnedRecentSessions<
+  T extends { provider: string; sessionId: string },
+>(filtered: readonly T[], pinnedSessionKeys: ReadonlySet<string>): T[] {
+  if (pinnedSessionKeys.size === 0) return [];
+  return filtered.filter((entry) =>
+    pinnedSessionKeys.has(recentSessionIdentityKey(entry.provider, entry.sessionId)),
+  );
 }
 
 interface JsonlScanStats {
@@ -1243,14 +1285,8 @@ export async function getAllRecentSessions(
 
   // Filter by search query (name, firstPrompt, lastPrompt, summary)
   if (options.searchQuery) {
-    const q = options.searchQuery.toLowerCase();
-    filtered = filtered.filter(
-      (e) =>
-        e.name?.toLowerCase().includes(q) ||
-        e.firstPrompt?.toLowerCase().includes(q) ||
-        e.lastPrompt?.toLowerCase().includes(q) ||
-        e.summary?.toLowerCase().includes(q),
-    );
+    const q = options.searchQuery;
+    filtered = filtered.filter((e) => matchesRecentSessionSearch(e, q));
   }
   perfStats.counts.afterSearch = filtered.length;
 
@@ -1271,13 +1307,18 @@ export async function getAllRecentSessions(
   const sliced = filtered.slice(offset, offset + limit);
   const hasMore = offset + limit < filtered.length;
   perfStats.counts.returned = sliced.length;
+  const pinnedSessions = options.pinnedSessionKeys
+    ? selectPinnedRecentSessions(filtered, options.pinnedSessionKeys)
+    : undefined;
   markDuration(durations, "paginate", paginateStartedAt);
 
   // Supplement missing lastPrompt for Claude sessions (sessions-index.json
-  // doesn't include lastPrompt).  Only the paginated page is processed so at
-  // most `limit` tail reads are needed — lightweight enough to keep inline.
+  // doesn't include lastPrompt).  Only the paginated page (plus requested
+  // pinned sessions) is processed so the number of tail reads stays bounded.
   const supplementStartedAt = process.hrtime.bigint();
-  const needLastPrompt = sliced.filter(
+  const needLastPrompt = [
+    ...new Set([...sliced, ...(pinnedSessions ?? [])]),
+  ].filter(
     (e) => e.provider === "claude" && !e.lastPrompt && e.projectPath,
   );
   if (needLastPrompt.length > 0) {
@@ -1298,7 +1339,11 @@ export async function getAllRecentSessions(
   markDuration(durations, "total", totalStartedAt);
   logRecentSessionsPerf(options, durations, perfStats);
 
-  return { sessions: sliced, hasMore };
+  return {
+    sessions: sliced,
+    hasMore,
+    ...(pinnedSessions ? { pinnedSessions } : {}),
+  };
 }
 
 interface CodexRecentOptions {
@@ -2027,32 +2072,163 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   for (const parsed of parsedResults) {
     options.perfStats && (options.perfStats.filesRead += 1);
     if (!parsed) continue;
-    // Attach thread name if available
-    const threadName = threadNames.get(parsed.threadId);
-    if (threadName) {
-      parsed.entry.name = threadName;
-    }
-    const threadProfile = threadProfiles.get(parsed.threadId);
-    if (threadProfile) {
-      parsed.entry.codexSettings = {
-        ...(parsed.entry.codexSettings ?? {}),
-        profile: threadProfile,
-      };
-    }
-    const additionalWritableRoots = threadAdditionalWritableRoots.get(
-      parsed.threadId,
-    );
-    if (additionalWritableRoots) {
-      parsed.entry.codexSettings = {
-        ...(parsed.entry.codexSettings ?? {}),
-        additionalWritableRoots,
-      };
-    }
+    attachCodexThreadMetadata(parsed, {
+      threadNames,
+      threadProfiles,
+      threadAdditionalWritableRoots,
+    });
     entries.push(parsed.entry);
     options.perfStats && (options.perfStats.entriesReturned += 1);
   }
 
   return entries;
+}
+
+function attachCodexThreadMetadata(
+  parsed: CodexSessionParseResult,
+  metadata: {
+    threadNames: ReadonlyMap<string, string>;
+    threadProfiles: ReadonlyMap<string, string>;
+    threadAdditionalWritableRoots: ReadonlyMap<string, string[]>;
+  },
+): void {
+  // Attach thread name if available
+  const threadName = metadata.threadNames.get(parsed.threadId);
+  if (threadName) {
+    parsed.entry.name = threadName;
+  }
+  const threadProfile = metadata.threadProfiles.get(parsed.threadId);
+  if (threadProfile) {
+    parsed.entry.codexSettings = {
+      ...(parsed.entry.codexSettings ?? {}),
+      profile: threadProfile,
+    };
+  }
+  const additionalWritableRoots = metadata.threadAdditionalWritableRoots.get(
+    parsed.threadId,
+  );
+  if (additionalWritableRoots) {
+    parsed.entry.codexSettings = {
+      ...(parsed.entry.codexSettings ?? {}),
+      additionalWritableRoots,
+    };
+  }
+}
+
+/**
+ * Convert a rollout-scan Codex entry to the shape produced from app-server
+ * `thread/list` (projectPath is the raw thread cwd, not the repository root),
+ * so pinned keys built from either source stay identical.
+ */
+export function codexEntryAsThreadListShape(
+  entry: SessionIndexEntry,
+): SessionIndexEntry {
+  const cwd = entry.resumeCwd ?? entry.projectPath;
+  const { resumeCwd: _resumeCwd, ...rest } = entry;
+  // Mirrors codexThreadToRecentSession: resumeCwd is only reported for
+  // worktree cwds (where the rollout parser normalizes the project path).
+  return {
+    ...rest,
+    projectPath: cwd,
+    ...(cwd !== normalizeWorktreePath(cwd) ? { resumeCwd: cwd } : {}),
+  };
+}
+
+export interface GetPinnedCodexSessionsOptions {
+  threadIds: readonly string[];
+  /** Exact thread cwd filter, matching app-server `thread/list` `cwd`. */
+  projectPath?: string;
+  namedOnly?: boolean;
+  searchQuery?: string;
+  archivedSessionIds?: ReadonlySet<string>;
+  sessionFilter?: (session: SessionIndexEntry) => boolean;
+}
+
+/**
+ * Targeted lookup for pinned Codex threads when the page itself came from
+ * app-server `thread/list`. Only rollout files whose names match the requested
+ * thread IDs are parsed (one directory walk, no full history parse). Entries
+ * use the `thread/list` shape (projectPath = cwd) and are filtered with the
+ * local equivalents of the listing filters. Search uses the same local
+ * name/firstPrompt/lastPrompt/summary match as the rollout listing.
+ */
+export async function getPinnedCodexSessions(
+  options: GetPinnedCodexSessionsOptions,
+): Promise<SessionIndexEntry[]> {
+  const archived = options.archivedSessionIds;
+  const wantedThreadIds = new Set(
+    options.threadIds.filter((id) => id.length > 0 && !archived?.has(id)),
+  );
+  if (wantedThreadIds.size === 0) return [];
+
+  const files = await listCodexSessionFiles();
+  const targets = files.filter((filePath) =>
+    matchingCodexThreadIdFromFilePath(filePath, wantedThreadIds) !== null,
+  );
+  if (targets.length === 0) return [];
+
+  const [
+    parsedResults,
+    threadNames,
+    threadProfiles,
+    threadAdditionalWritableRoots,
+  ] = await Promise.all([
+    parallelMap(targets, PARALLEL_FILE_READ_LIMIT, async (filePath) => {
+      const parsed = await parseCodexSessionJsonlFast(
+        filePath,
+        basename(filePath, ".jsonl"),
+      );
+      if (!parsed || !wantedThreadIds.has(parsed.threadId)) return null;
+      try {
+        return { parsed, modified: (await stat(filePath)).mtimeMs };
+      } catch {
+        return null;
+      }
+    }),
+    loadCodexSessionNames(),
+    loadCodexSessionProfiles(),
+    loadCodexSessionAdditionalWritableRoots(),
+  ]);
+
+  const newestByThread = new Map<
+    string,
+    { parsed: CodexSessionParseResult; modified: number }
+  >();
+  for (const candidate of parsedResults) {
+    if (!candidate) continue;
+    const existing = newestByThread.get(candidate.parsed.threadId);
+    if (!existing || candidate.modified > existing.modified) {
+      newestByThread.set(candidate.parsed.threadId, candidate);
+    }
+  }
+
+  const entries: SessionIndexEntry[] = [];
+  for (const { parsed } of newestByThread.values()) {
+    attachCodexThreadMetadata(parsed, {
+      threadNames,
+      threadProfiles,
+      threadAdditionalWritableRoots,
+    });
+    const entry = codexEntryAsThreadListShape(parsed.entry);
+    if (
+      options.projectPath !== undefined &&
+      entry.projectPath !== options.projectPath
+    ) {
+      continue;
+    }
+    if (options.namedOnly && !entry.name) continue;
+    if (
+      options.searchQuery &&
+      !matchesRecentSessionSearch(entry, options.searchQuery)
+    ) {
+      continue;
+    }
+    if (options.sessionFilter && !options.sessionFilter(entry)) continue;
+    entries.push(entry);
+  }
+  return entries.sort(
+    (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime(),
+  );
 }
 
 function matchingCodexThreadIdFromFilePath(

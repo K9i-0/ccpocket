@@ -26,6 +26,7 @@ const {
   getCodexSessionIndexMetadataMock,
   loadCodexSessionNamesMock,
   saveCodexSessionProfileMock,
+  getPinnedCodexSessionsMock,
   generateCommitMessageMock,
   gitCommitMock,
   consumeFinderProofMock,
@@ -40,6 +41,7 @@ const {
   getCodexSessionIndexMetadataMock: vi.fn(),
   loadCodexSessionNamesMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
+  getPinnedCodexSessionsMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
   consumeFinderProofMock: vi.fn(),
@@ -60,6 +62,13 @@ vi.mock("./sessions-index.js", () => ({
   extractMessageImages: extractMessageImagesMock,
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
+  getPinnedCodexSessions: getPinnedCodexSessionsMock,
+  codexEntryAsThreadListShape: (entry: { resumeCwd?: string; projectPath: string }) => {
+    const { resumeCwd, ...rest } = entry;
+    return { ...rest, projectPath: resumeCwd ?? entry.projectPath };
+  },
+  recentSessionIdentityKey: (provider: string, sessionId: string) =>
+    `${provider}:${sessionId}`,
   getCodexSessionIndexMetadata: getCodexSessionIndexMetadataMock,
   loadCodexSessionNames: loadCodexSessionNamesMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
@@ -908,6 +917,188 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       projectPath: "/tmp/project",
       requestScope: "project",
     });
+
+    bridge.close();
+  });
+
+  it("returns pinned sessions with a first list page", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    getAllRecentSessionsMock.mockReset();
+    getAllRecentSessionsMock.mockResolvedValue({
+      sessions: [{ provider: "claude", sessionId: "page", projectPath: "/tmp/p" }],
+      hasMore: true,
+      pinnedSessions: [
+        { provider: "claude", sessionId: "old-pin", projectPath: "/tmp/p" },
+      ],
+    });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 0,
+        provider: "claude",
+        pinnedSessions: [
+          { provider: "claude", sessionId: "old-pin" },
+          { provider: "codex", sessionId: "other-provider" },
+        ],
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const options = getAllRecentSessionsMock.mock.calls[0][0];
+    expect([...options.pinnedSessionKeys]).toEqual(["claude:old-pin"]);
+    const recent = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "recent_sessions");
+    expect(recent.sessions.map((s: any) => s.sessionId)).toEqual(["page"]);
+    expect(recent.pinnedSessions).toEqual([
+      expect.objectContaining({
+        sessionId: "old-pin",
+        workspace: expect.objectContaining({ kind: "unassigned" }),
+      }),
+    ]);
+
+    bridge.close();
+  });
+
+  it("does not resolve pinned sessions for later pages or project pages", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    getAllRecentSessionsMock.mockReset();
+    getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
+    const pinnedSessions = [{ provider: "claude", sessionId: "pin" }];
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 20,
+        provider: "claude",
+        pinnedSessions,
+      },
+      ws,
+    );
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 0,
+        projectPath: "/tmp/p",
+        requestScope: "project",
+        provider: "claude",
+        pinnedSessions,
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getAllRecentSessionsMock).toHaveBeenCalledTimes(2);
+    for (const [options] of getAllRecentSessionsMock.mock.calls) {
+      expect(options.pinnedSessionKeys).toBeUndefined();
+    }
+    const recent = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .filter((m: any) => m.type === "recent_sessions");
+    expect(recent).toHaveLength(2);
+    for (const message of recent) {
+      expect(message.pinnedSessions).toBeUndefined();
+    }
+
+    bridge.close();
+  });
+
+  it("returns pinned Codex sessions in thread/list shape for all-provider pages", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    getAllRecentSessionsMock.mockReset();
+    getAllRecentSessionsMock.mockResolvedValue({
+      sessions: [],
+      hasMore: false,
+      pinnedSessions: [
+        {
+          provider: "codex",
+          sessionId: "codex-pin",
+          projectPath: "/tmp/repo",
+          resumeCwd: "/tmp/repo/packages/app",
+        },
+      ],
+    });
+    vi.spyOn(bridge as any, "listRecentCodexSessions").mockResolvedValue({
+      sessions: [],
+      hasMore: false,
+    });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        pinnedSessions: [{ provider: "codex", sessionId: "codex-pin" }],
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const recent = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "recent_sessions");
+    expect(recent.pinnedSessions).toEqual([
+      expect.objectContaining({
+        sessionId: "codex-pin",
+        projectPath: "/tmp/repo/packages/app",
+      }),
+    ]);
+
+    bridge.close();
+  });
+
+  it("looks up pinned Codex threads directly for thread/list pages", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    vi.spyOn(bridge as any, "listRecentCodexThreads").mockResolvedValue({
+      sessions: [{ provider: "codex", sessionId: "page", projectPath: "/tmp/p" }],
+      hasMore: true,
+    });
+    getPinnedCodexSessionsMock.mockReset();
+    getPinnedCodexSessionsMock.mockResolvedValue([
+      { provider: "codex", sessionId: "old-thread", projectPath: "/tmp/p" },
+    ]);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        limit: 20,
+        offset: 0,
+        provider: "codex",
+        projectPath: "/tmp/p",
+        namedOnly: true,
+        searchQuery: "fix",
+        pinnedSessions: [
+          { provider: "codex", sessionId: "old-thread" },
+          { provider: "claude", sessionId: "claude-pin" },
+        ],
+      },
+      ws,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getPinnedCodexSessionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadIds: ["old-thread"],
+        projectPath: "/tmp/p",
+        namedOnly: true,
+        searchQuery: "fix",
+      }),
+    );
+    const recent = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "recent_sessions");
+    expect(recent.sessions.map((s: any) => s.sessionId)).toEqual(["page"]);
+    expect(recent.pinnedSessions.map((s: any) => s.sessionId)).toEqual([
+      "old-thread",
+    ]);
 
     bridge.close();
   });

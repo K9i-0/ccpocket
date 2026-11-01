@@ -17,6 +17,8 @@ import {
   normalizeWorktreePath,
   scanJsonlDir,
   getAllRecentSessions,
+  getPinnedCodexSessions,
+  selectPinnedRecentSessions,
   getCodexSessionIndexMetadata,
   getCodexSessionHistory,
   loadCodexSessionNames,
@@ -2945,5 +2947,238 @@ describe("getSessionHistory non-prompt user entries", () => {
 
     expect(prompts).toEqual(["Investigate the bridge", "Follow up"]);
     expect(history.filter((message) => message.isMeta)).toHaveLength(3);
+  });
+});
+
+describe("selectPinnedRecentSessions", () => {
+  it("keeps provider-qualified matches in listing order", () => {
+    const entries = [
+      { provider: "claude", sessionId: "a" },
+      { provider: "codex", sessionId: "a" },
+      { provider: "claude", sessionId: "b" },
+    ];
+    expect(
+      selectPinnedRecentSessions(entries, new Set(["codex:a", "claude:b"])),
+    ).toEqual([entries[1], entries[2]]);
+  });
+});
+
+describe("pinned recent sessions", () => {
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  let tempHome: string;
+
+  beforeEach(() => {
+    tempHome = mkdtempSync(join(tmpdir(), "ccpocket-test-pinned-home-"));
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    process.env.USERPROFILE = oldUserProfile;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  function writeCodexRollout(
+    id: string,
+    timestamp: string,
+    prompt: string,
+    cwd = "/tmp/pinned-project",
+  ): void {
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T00-00-00-${id}.jsonl`),
+      [
+        JSON.stringify({ timestamp, type: "session_meta", payload: { id, cwd } }),
+        JSON.stringify({
+          timestamp,
+          type: "event_msg",
+          payload: { type: "user_message", message: prompt },
+        }),
+      ].join("\n"),
+    );
+  }
+
+  function writeCodexNames(names: Record<string, string>): void {
+    mkdirSync(join(tempHome, ".codex"), { recursive: true });
+    writeFileSync(
+      join(tempHome, ".codex", "session_index.jsonl"),
+      Object.entries(names)
+        .map(([id, name]) => JSON.stringify({ id, thread_name: name }))
+        .join("\n"),
+    );
+  }
+
+  function writeClaudeIndex(
+    entries: Array<{ sessionId: string; modified: string; customTitle?: string }>,
+  ): void {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-claude-project");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: entries.map((entry) => ({
+          sessionId: entry.sessionId,
+          fullPath: join(projectDir, `${entry.sessionId}.jsonl`),
+          fileMtime: Date.now(),
+          firstPrompt: `${entry.sessionId} prompt`,
+          ...(entry.customTitle ? { customTitle: entry.customTitle } : {}),
+          messageCount: 2,
+          created: entry.modified,
+          modified: entry.modified,
+          gitBranch: "main",
+          projectPath: "/tmp/claude-project",
+          isSidechain: false,
+        })),
+      }),
+    );
+  }
+
+  it("returns a pinned Claude session beyond the first page", async () => {
+    writeClaudeIndex([
+      { sessionId: "newest", modified: "2026-02-13T12:00:00.000Z" },
+      { sessionId: "middle", modified: "2026-02-13T11:00:00.000Z" },
+      { sessionId: "oldest-pinned", modified: "2026-02-13T10:00:00.000Z" },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      limit: 1,
+      pinnedSessionKeys: new Set(["claude:oldest-pinned"]),
+    });
+
+    expect(result.sessions.map((s) => s.sessionId)).toEqual(["newest"]);
+    expect(result.hasMore).toBe(true);
+    expect(result.pinnedSessions?.map((s) => s.sessionId)).toEqual([
+      "oldest-pinned",
+    ]);
+  });
+
+  it("omits pinnedSessions when no pins were requested", async () => {
+    writeClaudeIndex([
+      { sessionId: "only", modified: "2026-02-13T12:00:00.000Z" },
+    ]);
+
+    const result = await getAllRecentSessions({ provider: "claude" });
+
+    expect(result.pinnedSessions).toBeUndefined();
+  });
+
+  it("applies provider, namedOnly and search filters to pinned sessions", async () => {
+    writeClaudeIndex([
+      {
+        sessionId: "claude-named",
+        modified: "2026-02-13T12:00:00.000Z",
+        customTitle: "Deploy fix",
+      },
+      { sessionId: "claude-unnamed", modified: "2026-02-13T11:00:00.000Z" },
+    ]);
+    writeCodexRollout("codex-pin", "2026-02-13T10:00:00.000Z", "deploy codex");
+    const pins = new Set([
+      "claude:claude-named",
+      "claude:claude-unnamed",
+      "codex:codex-pin",
+    ]);
+
+    const claudeOnly = await getAllRecentSessions({
+      provider: "claude",
+      limit: 1,
+      pinnedSessionKeys: pins,
+    });
+    expect(claudeOnly.pinnedSessions?.map((s) => s.sessionId)).toEqual([
+      "claude-named",
+      "claude-unnamed",
+    ]);
+
+    const namedOnly = await getAllRecentSessions({
+      namedOnly: true,
+      limit: 1,
+      pinnedSessionKeys: pins,
+    });
+    expect(namedOnly.pinnedSessions?.map((s) => s.sessionId)).toEqual([
+      "claude-named",
+    ]);
+
+    const searched = await getAllRecentSessions({
+      searchQuery: "codex",
+      limit: 1,
+      pinnedSessionKeys: pins,
+    });
+    expect(searched.pinnedSessions?.map((s) => s.sessionId)).toEqual([
+      "codex-pin",
+    ]);
+  });
+
+  it("excludes archived pinned sessions", async () => {
+    writeCodexRollout("newer", "2026-02-13T12:00:00.000Z", "newer");
+    writeCodexRollout("archived-pin", "2026-02-13T10:00:00.000Z", "old");
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 1,
+      archivedSessionIds: new Set(["archived-pin"]),
+      pinnedSessionKeys: new Set(["codex:archived-pin"]),
+    });
+
+    expect(result.pinnedSessions).toEqual([]);
+  });
+
+  it("looks up pinned Codex threads in thread/list shape", async () => {
+    const worktreeCwd = "/tmp/pinned-project-worktrees/feature";
+    writeCodexRollout("wt-pin", "2026-02-13T10:00:00.000Z", "fix bug", worktreeCwd);
+    writeCodexRollout("unrelated", "2026-02-13T11:00:00.000Z", "other");
+    writeCodexNames({ "wt-pin": "Worktree fix" });
+
+    const result = await getPinnedCodexSessions({ threadIds: ["wt-pin"] });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        sessionId: "wt-pin",
+        provider: "codex",
+        name: "Worktree fix",
+        projectPath: worktreeCwd,
+        resumeCwd: worktreeCwd,
+      }),
+    ]);
+  });
+
+  it("filters pinned Codex threads like the listing", async () => {
+    writeCodexRollout("named", "2026-02-13T12:00:00.000Z", "deploy it");
+    writeCodexRollout("unnamed", "2026-02-13T11:00:00.000Z", "deploy too");
+    writeCodexRollout("archived", "2026-02-13T10:00:00.000Z", "deploy");
+    writeCodexRollout(
+      "elsewhere",
+      "2026-02-13T09:00:00.000Z",
+      "deploy",
+      "/tmp/other-project",
+    );
+    writeCodexNames({ named: "Named thread", archived: "Archived thread" });
+    const threadIds = ["named", "unnamed", "archived", "elsewhere"];
+    const archivedSessionIds = new Set(["archived"]);
+
+    const all = await getPinnedCodexSessions({ threadIds, archivedSessionIds });
+    expect(all.map((s) => s.sessionId)).toEqual([
+      "named",
+      "unnamed",
+      "elsewhere",
+    ]);
+
+    const projectScoped = await getPinnedCodexSessions({
+      threadIds,
+      archivedSessionIds,
+      projectPath: "/tmp/pinned-project",
+      namedOnly: true,
+    });
+    expect(projectScoped.map((s) => s.sessionId)).toEqual(["named"]);
+
+    const searched = await getPinnedCodexSessions({
+      threadIds,
+      archivedSessionIds,
+      searchQuery: "TOO",
+    });
+    expect(searched.map((s) => s.sessionId)).toEqual(["unnamed"]);
   });
 });
