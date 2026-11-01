@@ -3017,4 +3017,37 @@ describe("Claude background tasks", () => {
       [],
     ]);
   });
+
+  it("stops background tasks instead of interrupting between turns", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const interrupt = vi.fn(() => Promise.resolve());
+    const stopTask = vi.fn(() => Promise.resolve());
+    internal.queryInstance = { interrupt, stopTask };
+    internal._status = "idle";
+    internal._backgroundTasks = [
+      { taskId: "a1", taskType: "local_agent" },
+      { taskId: "b1", taskType: "local_bash" },
+    ];
+
+    proc.interrupt();
+
+    expect(stopTask.mock.calls).toEqual([["a1"], ["b1"]]);
+    expect(interrupt).not.toHaveBeenCalled();
+  });
+
+  it("interrupts the running turn even with background tasks", () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    const interrupt = vi.fn(() => Promise.resolve());
+    const stopTask = vi.fn(() => Promise.resolve());
+    internal.queryInstance = { interrupt, stopTask };
+    internal._status = "running";
+    internal._backgroundTasks = [{ taskId: "a1", taskType: "local_agent" }];
+
+    proc.interrupt();
+
+    expect(interrupt).toHaveBeenCalledOnce();
+    expect(stopTask).not.toHaveBeenCalled();
+  });
 });

@@ -29,6 +29,7 @@ import {
 } from "./codex-service-tier.js";
 import { resolvePlatformPath } from "./path-utils.js";
 import type { CodexRateLimitsResponse } from "./usage.js";
+import { CodexBackgroundTracker } from "./codex-background-tracker.js";
 
 export { buildCodexSpawnSpec };
 
@@ -331,6 +332,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private launchOptions: CodexStartOptions | undefined;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
+  private readonly backgroundTracker = new CodexBackgroundTracker(
+    () => this._threadId,
+  );
+  private emittedBackgroundTasks = "[]";
   private _agentNickname: string | null = null;
   private _agentRole: string | null = null;
   private stopped = false;
@@ -1114,6 +1119,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.transport = null;
     }
 
+    this.resetBackgroundTasks();
     this.setStatus("idle");
     console.log("[codex-process] Stopped");
   }
@@ -1125,6 +1131,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.stopped = false;
     this.recovery.setEnabled(false);
     this._threadId = null;
+    this.resetBackgroundTasks();
     this._agentNickname = null;
     this._agentRole = null;
     this.pendingTurnId = null;
@@ -3005,6 +3012,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     method: string,
     params: Record<string, unknown>,
   ): void {
+    const isChildAgentNotification = this.backgroundTracker.observe(
+      method,
+      params,
+    );
+    this.emitBackgroundTasksIfChanged();
+    if (isChildAgentNotification) return;
     if (this.isForeignThreadNotification(method, params)) return;
 
     switch (method) {
@@ -4011,6 +4024,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return [...this.pendingUserInputs.values()].some(
       (request) => request.isBlocking !== false,
     );
+  }
+
+  private resetBackgroundTasks(): void {
+    this.backgroundTracker.reset();
+    this.emitBackgroundTasksIfChanged();
+  }
+
+  private emitBackgroundTasksIfChanged(): void {
+    const tasks = this.backgroundTracker.tasks();
+    const serialized = JSON.stringify(tasks);
+    if (serialized === this.emittedBackgroundTasks) return;
+    this.emittedBackgroundTasks = serialized;
+    this.emitMessage({ type: "background_tasks", tasks });
   }
 
   private setStatus(status: ProcessStatus): void {

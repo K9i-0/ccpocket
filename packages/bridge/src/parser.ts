@@ -90,12 +90,28 @@ export interface CodexGoal {
   updatedAt: number;
 }
 
-/** A live background task of a Claude session (shell, monitor, subagent). */
+/**
+ * A live background task of a session. Claude reports shells, monitors and
+ * subagents; Codex reports terminals and child agent threads that outlive
+ * the turn that started them.
+ */
 export interface BackgroundTaskInfo {
   taskId: string;
   taskType: string;
   description?: string;
   subagentType?: string;
+}
+
+/** Task types that are agents rather than shells or monitors. */
+const AGENT_BACKGROUND_TASK_TYPES = new Set([
+  "local_agent",
+  "remote_agent",
+  "local_workflow",
+  "codex_agent",
+]);
+
+export function isAgentBackgroundTask(task: BackgroundTaskInfo): boolean {
+  return AGENT_BACKGROUND_TASK_TYPES.has(task.taskType);
 }
 
 export interface QueuedInputItem {

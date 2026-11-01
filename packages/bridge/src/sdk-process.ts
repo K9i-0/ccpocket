@@ -1178,6 +1178,16 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   interrupt(): void {
+    if (
+      this.queryInstance &&
+      !this.isTurnActive &&
+      this._backgroundTasks.length > 0
+    ) {
+      // Between turns there is nothing to interrupt; stopping the session
+      // means stopping the background work that keeps it busy.
+      this.stopBackgroundTasks();
+      return;
+    }
     if (this.queryInstance) {
       console.log("[sdk-process] Interrupting query");
       // NOTE: Do NOT clear pendingInputQueue here — queued messages should
@@ -1186,6 +1196,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         console.error("[sdk-process] Interrupt error:", err);
       });
       this.pendingPermissions.clear();
+    }
+  }
+
+  private stopBackgroundTasks(): void {
+    const query = this.queryInstance;
+    if (!query) return;
+    for (const task of this._backgroundTasks) {
+      console.log(`[sdk-process] Stopping background task ${task.taskId}`);
+      query.stopTask(task.taskId).catch((err) => {
+        console.error(`[sdk-process] stopTask(${task.taskId}) error:`, err);
+      });
     }
   }
 

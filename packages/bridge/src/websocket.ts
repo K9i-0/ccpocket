@@ -131,6 +131,7 @@ import { fetchAllUsage } from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 import type { PromptHistoryStore } from "./prompt-history-store.js";
 import { getPackageVersion } from "./version.js";
+import { BackgroundCompletionGate } from "./background-completion-gate.js";
 import {
   isPathWithinAllowedDirectory,
   resolvePlatformPath,
@@ -147,6 +148,10 @@ import {
 } from "./codex-permissions.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
+type ResultServerMessage = Extract<ServerMessage, { type: "result" }>;
+
+/** How long a session must stay idle without background work before Done. */
+const BACKGROUND_COMPLETION_SETTLE_MS = 2_000;
 type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
 type ResumeClientMessage = Extract<ClientMessage, { type: "resume_session" }>;
 type CorrelatedProjectRequest = {
@@ -834,6 +839,7 @@ export class BridgeWebSocketServer {
   private recordingStore: RecordingStore | null;
   private worktreeStore: WorktreeStore;
   private pushRelay: PushRelayClient;
+  private completionGate: BackgroundCompletionGate<ResultServerMessage>;
   private promptHistoryBackup: PromptHistoryBackupStore | null;
   private promptHistoryStore: PromptHistoryStore | null;
 
@@ -953,6 +959,19 @@ export class BridgeWebSocketServer {
     this.recordingStore = recordingStore ?? null;
     this.worktreeStore = new WorktreeStore();
     this.pushRelay = new PushRelayClient({ firebaseAuth });
+    this.completionGate = new BackgroundCompletionGate<ResultServerMessage>({
+      settleMs: BACKGROUND_COMPLETION_SETTLE_MS,
+      isSettled: (sessionId) => {
+        const session = this.sessionManager.get(sessionId);
+        return (
+          !!session &&
+          session.status === "idle" &&
+          !session.backgroundTasks?.length
+        );
+      },
+      release: (sessionId, completion) =>
+        this.sendCompletionPush(sessionId, completion),
+    });
     this.promptHistoryBackup = promptHistoryBackup ?? null;
     this.promptHistoryStore = promptHistoryStore ?? null;
     this.platform = platform ?? process.platform;
@@ -2843,6 +2862,7 @@ export class BridgeWebSocketServer {
     this.flushAllDeltaBatches();
     this.sessionManager.destroyAll();
     this.flushAllDeltaBatches();
+    this.completionGate.dispose();
     stopManagedCodexAppServers();
     this.debugEvents.clear();
     this.wss.close();
@@ -8841,6 +8861,7 @@ export class BridgeWebSocketServer {
 
   private destroySession(sessionId: string): void {
     this.flushSessionDeltaBatches(sessionId);
+    this.completionGate.discard(sessionId);
     this.pendingSessionWorkspaces.delete(sessionId);
     this.sessionManager.destroy(sessionId);
   }
@@ -9880,10 +9901,46 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    if (msg.type !== "result") return;
-    if (msg.subtype === "stopped") return;
-    if (msg.subtype !== "success" && msg.subtype !== "error") return;
+    if (msg.type === "status" || msg.type === "background_tasks") {
+      this.completionGate.update(sessionId);
+      return;
+    }
 
+    if (msg.type !== "result") return;
+    if (msg.subtype === "stopped") {
+      this.completionGate.discard(sessionId);
+      return;
+    }
+    if (msg.subtype !== "success" && msg.subtype !== "error") return;
+    if (msg.subtype === "error") {
+      this.completionGate.discard(sessionId);
+    } else if (
+      this.completionGate.hold(
+        sessionId,
+        msg,
+        this.keepsWorkingInBackground(sessionId),
+      )
+    ) {
+      return;
+    }
+    this.sendCompletionPush(sessionId, msg);
+  }
+
+  /**
+   * Claude keeps working after a result while background tasks are live: it
+   * starts a follow-up turn when they report back. Codex does not, so its
+   * background terminals and child agents never delay completion.
+   */
+  private keepsWorkingInBackground(sessionId: string): boolean {
+    const session = this.sessionManager.get(sessionId);
+    return session?.provider === "claude" && !!session.backgroundTasks?.length;
+  }
+
+  private sendCompletionPush(sessionId: string, msg: ResultServerMessage): void {
+    if (!this.pushRelay.isConfigured) return;
+    if (this.tokenLocales.size === 0) return;
+    const privacy = this.isPrivacyMode();
+    const label = privacy ? "" : this.sessionLabel(sessionId);
     const isSuccess = msg.subtype === "success";
     const eventType = isSuccess ? "session_completed" : "session_failed";
 
@@ -10084,7 +10141,6 @@ export class BridgeWebSocketServer {
     sessionId: string,
     session: SessionInfo,
   ): void {
-    if (session.provider !== "claude") return;
     this.send(ws, {
       type: "background_tasks",
       sessionId,
