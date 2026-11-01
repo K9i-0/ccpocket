@@ -54,6 +54,11 @@ on:
         options:
           - completed
           - inProgress
+      android_upload_metadata:
+        description: 'Include current descriptions and screenshots in the same production review edit'
+        required: false
+        type: boolean
+        default: false
       android_user_fraction:
         description: 'Initial production fraction when status is inProgress (0 < value < 1)'
         required: true
@@ -101,6 +106,7 @@ jobs:
           IOS_REVIEW_SCOPE: ${{ inputs.ios_review_scope }}
           ANDROID_RELEASE_STATUS: ${{ inputs.android_release_status }}
           ANDROID_USER_FRACTION: ${{ inputs.android_user_fraction }}
+          ANDROID_UPLOAD_METADATA: ${{ inputs.android_upload_metadata }}
         run: |
           scripts/store-review/preflight.sh \
             "$PLATFORM" \
@@ -165,4 +171,5 @@ jobs:
           ANDROID_VERSION_CODE: ${{ inputs.build_number }}
           ANDROID_RELEASE_STATUS: ${{ inputs.android_release_status }}
           ANDROID_USER_FRACTION: ${{ inputs.android_user_fraction }}
+          ANDROID_UPLOAD_METADATA: ${{ inputs.android_upload_metadata }}
         run: bundle exec fastlane android submit_review

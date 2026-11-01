@@ -57,3 +57,11 @@ fastlane/metadata/android/zh-CN/changelogs/<N>.txt
 - versionCodeが内部トラックにない: release workflowの成功とGoogle Play側の処理状況を確認する。新しいAABをこのスキルで作らない。
 - ポリシー申告や契約の未完了: APIで扱えない項目を報告し、提出を止める。
 - commit成功: editは審査へ送られている。Managed publishingに応じて承認後の公開操作が別途必要か報告する。
+
+## ストア画像・説明文も更新する場合
+
+提出workflowへ `android_upload_metadata=true` を渡す。候補ビルドの本番昇格、
+リリースノート、説明文、スクリーンショットを同じeditで審査へ送る。
+別の `upload-metadata.yml` のAndroid jobを先行させない。先行する素材審査と
+ビルド提出が競合することを避け、`ERROR_IF_IN_REVIEW` による既存審査の保護を維持する。
+アイコン・feature graphicはこのオプションでは変更しない。
