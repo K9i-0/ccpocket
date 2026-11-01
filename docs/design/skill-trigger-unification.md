@@ -8,12 +8,12 @@ Claude と Codex でスキルの呼び出し記号が違うため、両方を使
 
 | | Claude (Agent SDK) | Codex (app-server) |
 |---|---|---|
-| スキル呼び出し | `/name`（**メッセージ先頭のみ**コマンドとして実行） | `$name`（任意の位置・複数可） |
+| スキル呼び出し | `/name`（**メッセージ先頭のみ**コマンドとして実行 ※未検証の前提。E2E で確認する） | `$name`（任意の位置・複数可） |
 | 構造化入力 | なし（本文テキストのみ） | `{type:"skill", name, path}` を本文の前に置く（Bridge `toRpcInput`） |
 | 反対側の記号 | `$name` はただの文字列 | `/name` はスキルとして解釈しない（ただの文字列） |
 
 Codex 本体の検出規則（`codex-rs/skills/src/mentions.rs` `extract_tool_mentions`）:
-`$` の直後から名前に使える文字が続く間を名前として扱う。`$HOME` などよく使う環境変数は除外される。構造化された `skill` 入力がある場合はそちらを優先する。
+`$` の直後から名前に使える文字 `[A-Za-z0-9_:-]`（`is_mention_name_char`）が続く間を名前として扱う。`$HOME` などよく使う環境変数は除外される。構造化された `skill` 入力がある場合はそちらを優先する。
 
 ### 現状の ccpocket 実装
 
@@ -55,6 +55,7 @@ normalizeOutgoingInput(String text, SkillCatalog catalog, {Iterable<String>? men
 ```
 
 - 既存の `_extractCodexStructuredInputs` はこの関数に取り込む（apps / plugins / ファイルメンションの抽出もここで行う）。
+- `$name` の名前部分の文字は Codex の `[A-Za-z0-9_:-]` に揃える。今の `_extractCodexStructuredInputs` の正規表現 `[A-Za-z0-9_:/.-]` は `/` と `.` も含んでいて、Codex の判定とずれている（`$skill.` のように文末にピリオドがあると一致しない）。
 - トークンの境界判定は `composer_tokens.dart` の `_isTokenBoundary` / `_findTokenEnd` と共通化し、ハイライト・補完・送信で同じ判定を使う。
 
 #### 変換規則
@@ -122,4 +123,5 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 - cubit テスト: `sendMessage` / `updateQueuedInput` / retry で、変換後のテキストと `skills` が `ClientMessage.input` に入ること。
 - Widget テスト: Claude セッションで `$` を打つと補完が開くこと、Codex で `/skill` を選んだときの挿入文字列が style どおりになること。
 - `dart analyze` / `dart format` / 上記テスト。
+- 前提の確認: Claude（Agent SDK）で `foo /skill` のように途中に置いた場合に発動しないこと、先頭に置いた場合は発動することを実機で確かめる。
 - シミュレーターでの E2E（`mobile-automation`、テスト用 Bridge 8766）: Claude と Codex の両方で、`/` と `$` の両方からスキルを呼び出して実際に発動するか確認し、設定を切り替えたときの挿入記号も確認する。
