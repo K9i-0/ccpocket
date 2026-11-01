@@ -87,3 +87,9 @@ prefix_rule(
         "xcrun simctl ui booted appearance light",
     ],
 )
+
+# Native UI automation for local simulators and emulators.
+prefix_rule(
+    pattern=["mise", "exec", "--", "agent-device"],
+    justification="agent-device drives local simulators/emulators for permission dialogs and UI verification.",
+)

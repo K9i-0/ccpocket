@@ -54,6 +54,22 @@ mcp__marionette__get_interactive_elements
 
 UI要素の一覧が返れば接続成功。
 
+## profile ビルドで検証する
+
+Marionette は release 以外（debug / profile）で有効。性能計測（`ccpocket.performance.*`）や release に近い挙動の確認は profile で行う。
+
+- iOS シミュレーターは profile を実行できない。Android エミュレーター、実機、macOS を使う。
+- profile は hot reload 不可。コード変更後は再ビルドする。
+- dart-mcp `launch_app` は使わず CLI で起動し、出力の VM Service URI（`http://127.0.0.1:<port>/<token>=/`）を `ws://127.0.0.1:<port>/<token>=/ws` にして Marionette `connect` に渡す。
+
+```bash
+cd apps/mobile
+flutter build apk --profile
+flutter run -d emulator-5554 --profile --use-application-binary build/app/outputs/flutter-apk/app-profile.apk
+```
+
+`flutter run --profile` を直接使うと Android で `package identifier or launch activity not found` になる場合がある。先に APK をビルドして `--use-application-binary` で渡す。
+
 ## CLI vs MCP の使い分け
 
 **原則: DTD/VM Service接続が必要な操作はMCP、それ以外はCLI**
@@ -87,6 +103,8 @@ MCP が必要な操作はアプリのランタイムに接続して情報を取�
 | カスタム拡張一覧 | Marionette | `list_custom_extensions` |
 | カスタム拡張呼び出し | Marionette | `call_custom_extension` |
 
+権限ダイアログ・システムアラート・端末の回転など Flutter 外のネイティブUIは Marionette から操作できない。agent-device CLI を使う: [agent-device.md](agent-device.md)
+
 ### CLI 操作一覧
 
 | 操作 | コマンド |
@@ -96,3 +114,4 @@ MCP が必要な操作はアプリのランタイムに接続して情報を取�
 | 静的解析 | `dart analyze apps/mobile` |
 | フォーマット | `dart format apps/mobile` |
 | 依存関係 | `cd apps/mobile && flutter pub get` |
+| ネイティブダイアログ・回転 | `mise exec -- agent-device ...`（[agent-device.md](agent-device.md)） |

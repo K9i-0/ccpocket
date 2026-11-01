@@ -189,13 +189,14 @@ launchctl unload ~/Library/LaunchAgents/com.ccpocket.bridge.plist
 | ウィジェットツリー | **MCP** | dart-mcp `get_widget_tree` |
 | UI要素一覧 | **MCP** | marionette `get_interactive_elements` |
 | UI操作 | **MCP** | marionette `tap` / `enter_text` / `scroll_to` / `double_tap` / `long_press` / `swipe` / `pinch_zoom` / `press_back_button` |
+| ネイティブダイアログ・回転 | CLI | `mise exec -- agent-device alert accept` / `orientation landscape-left` |
 | デバイス一覧 | CLI | `flutter devices` |
 | 静的解析 | CLI | `dart analyze apps/mobile` |
 | フォーマット | CLI | `dart format apps/mobile` |
 | テスト | CLI | `cd apps/mobile && flutter test` |
 | 依存関係 | CLI | `cd apps/mobile && flutter pub get` |
 
-詳細は `/mobile-automation` スキルを参照。
+Marionette は release 以外（debug / profile）で有効。詳細は `/mobile-automation` スキルを参照。
 
 
 環境設定・プロトコル・ランタイム操作が必要な場合に参照する。コマンドはリポジトリルート基準。

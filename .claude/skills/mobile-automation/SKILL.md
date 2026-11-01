@@ -1,13 +1,14 @@
 ---
 name: mobile-automation
-description: FlutterアプリのUI動作をシミュレーターで検証する、またはBridgeとのE2Eを確認するときに使う。
+description: FlutterアプリのUI動作をシミュレーター・エミュレーター・実機で検証する、BridgeとのE2Eを確認する、または権限ダイアログ等のネイティブUIを操作するときに使う。
 ---
 
 # Mobile Automation
 
-検証対象に応じて必要な参照だけ読む。dart-mcp / Marionette で実行時の状態を確認する。
+検証対象に応じて必要な参照だけ読む。Flutter画面は dart-mcp / Marionette（debug・profile）、権限ダイアログなどのネイティブUIは agent-device で操作する。
 
-- 起動・接続・CLIとMCPの使い分け: [references/startup.md](references/startup.md)
+- 起動・接続・profile起動・CLIとMCPの使い分け: [references/startup.md](references/startup.md)
+- 権限ダイアログ・システムアラート・回転などのネイティブUI: [references/agent-device.md](references/agent-device.md)
 - Bridge不要のMock UI検証と要素キー: [references/mock-and-keys.md](references/mock-and-keys.md)
 - 実際のBridge通信を含む検証: [references/e2e.md](references/e2e.md)
 - 接続・ジェスチャー・モック制限の問題: [references/troubleshooting.md](references/troubleshooting.md)

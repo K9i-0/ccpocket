@@ -26,9 +26,13 @@
 - `long_press` の検証対象は実画面を優先する。ストアスクリーンショット用のモック `Session List` は `onLongPressRecentSession` / `onLongPressRunningSession` が no-op のため、長押し挙動の確認には使えない
 - `swipe`: `Slidable` と `Dismissible` の両方で有効。CC Pocket では recent session card のアーカイブ action pane 表示や、Git画面の stage / unstage / revert に使える
 - `swipe` 実行後は必ず `get_interactive_elements` を再取得して、action pane が開いたか、対象セルが横移動したかを確認する
-- クリップボード系アクションは Marionette から直接読み出せない。`copy_resume_command` のような機能は、長押しでシートが出ること、対象項目をタップできること、シートが閉じることをもってUIフロー確認とする
+- クリップボード系アクションは Marionette から直接読み出せない（iOSシミュレーターでは agent-device の `clipboard read` で確認できる）。`copy_resume_command` のような機能は、長押しでシートが出ること、対象項目をタップできること、シートが閉じることをもってUIフロー確認とする
 - recent session card は `Slidable` の key が要素一覧に出るので、`swipe(key: "recent_session_<id>", direction: "left")` のように key 指定で狙うのが安定
 - 長押し対象に key が無い場合は、まず `get_interactive_elements` で bounds を確認し、`long_press(coordinates: {x, y})` を使うと成功率が高い
+
+### ネイティブダイアログで操作が止まる
+- **原因:** 権限ダイアログやシステムアラートは Flutter の外側に描画され、Marionette の要素一覧にもタップ対象にも現れない
+- **対策:** agent-device の `alert get` / `alert accept` / `alert dismiss` で処理する。詳細は [agent-device.md](agent-device.md)
 
 ### Dart MCP Tips
 - `launch_app`: root は絶対パスで指定。返り値のPIDは必ず保存する

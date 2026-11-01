@@ -27,7 +27,7 @@ Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。�
 ## 運用上の制約
 
 - 本番Bridgeの既定ポートは `8765`。E2Eでは別のテスト用Bridge（既定 `8766`）を使い、本番を停止・再起動しない。終了時は自分が起動したプロセスだけ停止する。
-- ランタイム操作は dart-mcp / Marionette、テスト・静的解析・フォーマットはCLIを使う。詳細は `mobile-automation` を参照。
+- ランタイム操作は dart-mcp / Marionette（debug・profile）、権限ダイアログ等のネイティブUIは `mise exec -- agent-device`、テスト・静的解析・フォーマットはCLIを使う。詳細は `mobile-automation` を参照。
 - 新しいクライアントメッセージは古いBridgeの `unsupported_message` に対応する。通常チャットは `_unsupportedActions`、直接応答を待つ専用UIはそのUI内で更新案内を扱う。
 - TypeScript は ESM / strict / NodeNext module resolution。
 

@@ -4,10 +4,10 @@
 
 ## 前提
 
-- デバッグモードのアプリにはストアスクショ用のカスタムエクステンション（`ccpocket.navigateToStoreScenario`）が登録済み
+- debug / profile ビルドのアプリにはストアスクショ用のカスタムエクステンション（`ccpocket.navigateToStoreScenario`）が登録済み（iOSシミュレーターはdebugのみ実行可能）
 - Marionette MCPの`call_custom_extension`が使用可能
 - ImageMagickがインストール済み（`compose.sh`で使用）
-- **sim-tap.swift**: 同梱のSwiftスクリプト（`scripts/sim-tap.swift`）。macOSアクセシビリティAPIでSimulatorのネイティブダイアログ（通知許可等）をラベル指定でタップできる
+- **agent-device**: Simulatorの回転とネイティブダイアログ（通知・音声認識・マイク許可等）の操作に使う。`mise exec -- agent-device ...` で実行する（`.mise.toml` でバージョン固定）
 
 **iPhone スクリーンショット（8シナリオ）:**
 
@@ -175,42 +175,26 @@ xcrun simctl erase "iPad Pro 13-inch (M4)"
 xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
 ```
 
-**横向き前提**: iPad スクショは landscape で撮る。起動後に `sim-tap.swift` の準備コマンドを必ず実行する:
+**横向き前提**: iPad スクショは landscape で撮る。アプリ起動後、agent-device のセッションを開いて横向きに固定する（`<udid>` は `xcrun simctl list devices booted` で確認）:
 ```bash
-swift .claude/skills/update-store/scripts/sim-tap.swift prepare-store ipad
+mise exec -- agent-device open com.k9i.ccpocket --platform ios --udid <udid> --foreground
+mise exec -- agent-device orientation landscape-left
 ```
-これで以下をまとめて行う:
-- Simulator を前面化
-- `Device > Orientation > Landscape Left` で iPad を明示的に横向き固定
-- 通知許諾などのネイティブダイアログを dismiss
+撮影中に向きが崩れた場合も、スクショを撮る前に `orientation landscape-left` を再実行する。撮影を終えたら `mise exec -- agent-device close` でセッションを閉じる。
 
-撮影中に向きが崩れた場合や許諾ダイアログが再表示された場合も、スクショを撮る前に再度これを実行する。
-
-**ネイティブダイアログの自動dismiss**: `erase` を避ければ、これらのダイアログは通常は再発しない。既存シミュレーター再利用時は、まず `prepare-store ipad` で向きを整え、ダイアログが出ていた場合だけ dismiss する。
-
-**事前権限付与**: もし `erase` を実行した場合のみ、アプリ起動前に実行する:
+**事前権限付与**: `erase` を避ければ通知・音声認識・マイクのダイアログは通常再発しない。`erase` した場合はアプリ起動前に付与してダイアログ自体を防ぐ:
 ```bash
 xcrun simctl privacy booted grant notifications com.k9i.ccpocket
 xcrun simctl privacy booted grant speech-recognition com.k9i.ccpocket
 xcrun simctl privacy booted grant microphone com.k9i.ccpocket
 ```
-これによりダイアログの表示自体を防止できる。`simctl privacy` が失敗した場合は以下のフォールバックを使う。
 
-**フォールバック: sim-tap.swift の個別コマンド**:
-ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。
-最初のシナリオ遷移後にdismissし、必要なら撮り直す。
-
-AX API でボタンが見つからない場合（特にiPad）、CGEvent ベースのクリックで自動フォールバックする:
+**ネイティブダイアログが出た場合**: ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。最初のシナリオ遷移後に確認し、必要なら撮り直す:
 ```bash
-swift .claude/skills/update-store/scripts/sim-tap.swift rotate right
-swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs ipad
-swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs iphone
+mise exec -- agent-device alert get        # 表示中のダイアログ文言を確認
+mise exec -- agent-device alert accept     # 許可（dismiss で拒否）
 ```
-
-従来の個別タップも引き続き使用可能:
-```bash
-while swift .claude/skills/update-store/scripts/sim-tap.swift tap "許可" 2>/dev/null; do sleep 1; done
-```
+`alert` がダイアログを検出できない場合（iPhone Duo のウィンドウ表示などで発生）は、`mise exec -- agent-device screenshot /tmp/ad.png` で画面を確認し、ボタン位置を `mise exec -- agent-device press <x> <y>` でタップする（座標はポイント単位）。
 
 #### 5-2. シナリオ撮影 & 解像度検証
 
@@ -235,9 +219,13 @@ marionette `call_custom_extension`
 
 2. 2-3秒待機
 
-3. 撮影
+3. 撮影（`simctl io` は端末の縦向き基準で保存するため、縦長なら `sips` で横向きに戻す。agent-device の `screenshot` はポイント解像度なのでストア素材には使わない）
    ```bash
-   swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+   OUT=apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+   xcrun simctl io booted screenshot "$OUT"
+   W=$(sips -g pixelWidth "$OUT" | tail -1 | awk '{print $2}')
+   H=$(sips -g pixelHeight "$OUT" | tail -1 | awk '{print $2}')
+   [ "$W" -lt "$H" ] && sips -r 270 "$OUT" --out "$OUT" >/dev/null
    ```
 
 4. marionette `call_custom_extension`
@@ -250,8 +238,6 @@ marionette `call_custom_extension`
 撮影後、スクショの解像度がiPadのネイティブ解像度と一致するか検証する:
 
 ```bash
-swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
-
 # 解像度検証（互換モード検出）
 WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 HEIGHT=$(sips -g pixelHeight apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')

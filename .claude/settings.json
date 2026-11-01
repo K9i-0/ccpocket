@@ -20,6 +20,8 @@
       "Bash(tar:*)",
       "Bash(chmod:*)",
       "Bash(xcrun simctl:*)",
+      "Bash(agent-device:*)",
+      "Bash(mise exec -- agent-device:*)",
       "Bash(pod install:*)",
       "Bash(gh api:*)",
       "Bash(gh search:*)",
