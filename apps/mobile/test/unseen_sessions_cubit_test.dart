@@ -298,5 +298,28 @@ void main() {
         await cubit2.close();
       });
     });
+
+    test('empty session list (disconnect) keeps seen-at records', () async {
+      final cubit = UnseenSessionsCubit();
+      await Future<void>.delayed(Duration.zero);
+
+      cubit.updateSessions([
+        _session(id: 'a', lastActivityAt: '2026-03-11T10:00:00Z'),
+      ]);
+      cubit.markSeen('a');
+      expect(cubit.isUnseen('a'), isFalse);
+
+      // Disconnect publishes an empty list.
+      cubit.updateSessions(const []);
+      expect(cubit.state, isEmpty);
+
+      // Reconnect delivers the same session with unchanged activity.
+      cubit.updateSessions([
+        _session(id: 'a', lastActivityAt: '2026-03-11T10:00:00Z'),
+      ]);
+      expect(cubit.isUnseen('a'), isFalse);
+
+      await cubit.close();
+    });
   });
 }

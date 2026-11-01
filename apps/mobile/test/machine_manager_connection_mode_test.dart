@@ -127,6 +127,54 @@ void main() {
     },
   );
 
+  test(
+    'markConnected clears a stale health-check error after WS connect',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final probe = _StaticProbe(const BridgeEndpointProbeResult.unreachable());
+      final manager = MachineManagerService(
+        prefs,
+        const FlutterSecureStorage(),
+        endpointProbe: probe,
+      );
+      addTearDown(manager.dispose);
+
+      await manager.addMachine(
+        const Machine(id: 'stale', host: 'bridge.example.com', port: 8765),
+      );
+      final failed = manager.machinesWithStatus.single;
+      expect(failed.status, isNot(MachineStatus.online));
+      expect(failed.lastError, isNotNull);
+
+      manager.markConnected('Bridge.Example.com', 8765);
+
+      final recovered = manager.machinesWithStatus.single;
+      expect(recovered.status, MachineStatus.online);
+      expect(recovered.lastError, isNull);
+    },
+  );
+
+  test('markConnected ignores endpoints without a saved machine', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final probe = _StaticProbe(const BridgeEndpointProbeResult.unreachable());
+    final manager = MachineManagerService(
+      prefs,
+      const FlutterSecureStorage(),
+      endpointProbe: probe,
+    );
+    addTearDown(manager.dispose);
+
+    await manager.addMachine(
+      const Machine(id: 'other', host: 'bridge.example.com', port: 8765),
+    );
+
+    manager.markConnected('bridge.example.com', 9999);
+
+    final status = manager.machinesWithStatus.single;
+    expect(status.status, isNot(MachineStatus.online));
+    expect(status.lastError, isNotNull);
+  });
+
   test('automatic mode uses WS inside an SSH jump-host tunnel', () async {
     final prefs = await SharedPreferences.getInstance();
     final manager = MachineManagerService(prefs, const FlutterSecureStorage());

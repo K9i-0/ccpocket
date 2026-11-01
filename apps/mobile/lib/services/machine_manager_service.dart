@@ -465,6 +465,22 @@ class MachineManagerService {
     return machine;
   }
 
+  /// Mark the saved machine for [host]:[port] as online after a successful
+  /// WebSocket connection, clearing any stale health-check error.
+  ///
+  /// The machine card status otherwise only reflects the last HTTP health
+  /// probe, so an error from a failed probe would linger after the app
+  /// reconnected on its own.
+  void markConnected(String host, int port) {
+    final machine = findByHostPort(host, port);
+    if (machine == null) return;
+    final wasOnline = _statusCache[machine.id] == MachineStatus.online;
+    _statusCache[machine.id] = MachineStatus.online;
+    _lastChecked[machine.id] = DateTime.now();
+    final hadError = _lastErrors.remove(machine.id) != null;
+    if (!wasOnline || hadError) _notifyListeners();
+  }
+
   // ---- CRUD Operations ----
 
   /// Generate a new machine with unique ID

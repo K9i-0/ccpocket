@@ -1776,6 +1776,16 @@ class _SessionListScreenState extends State<SessionListScreen>
     return formatHostPort(uri.host, port);
   }
 
+  /// Clear a stale health-check error on the machine card once the Bridge
+  /// WebSocket (re)connects successfully.
+  void _markConnectedMachineOnline() {
+    final cubit = context.read<MachineManagerCubit?>();
+    if (cubit == null) return;
+    final uri = _bridgeUri(context.read<BridgeService>().lastUrl);
+    if (uri == null || uri.host.isEmpty) return;
+    cubit.markConnected(uri.host, uri.hasPort ? uri.port : 8765);
+  }
+
   Uri? _bridgeUri(String? url) {
     if (url == null || url.isEmpty) return null;
     return Uri.tryParse(
@@ -1827,6 +1837,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                 }
                 if (nextState == BridgeConnectionState.connected) {
                   _refresh();
+                  _markConnectedMachineOnline();
                 }
               },
               child: CallbackShortcuts(

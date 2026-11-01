@@ -74,6 +74,14 @@ class UnseenSessionsCubit extends Cubit<Set<String>> {
       }
     }
 
+    // An empty list is published on disconnect / protocol incompatibility,
+    // not because every session ended. Keep seen-at records so sessions are
+    // not all marked unseen again after reconnecting.
+    if (sessions.isEmpty) {
+      emit(unseen);
+      return;
+    }
+
     // Clean up stale entries: remove IDs not in the current running list.
     final currentIds = sessions.map((s) => s.id).toSet();
     _seenAt.removeWhere((id, _) => !currentIds.contains(id));

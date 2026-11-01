@@ -373,6 +373,9 @@ class _StaticMachineManagerService implements MachineManagerService {
   }) => Machine(id: 'new', host: host, port: port, name: name, useSsl: useSsl);
 
   @override
+  void markConnected(String host, int port) {}
+
+  @override
   Machine? findByHostPort(String host, int port) {
     for (final status in statuses) {
       final machine = status.machine;
