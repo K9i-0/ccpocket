@@ -1017,6 +1017,7 @@
   "tooltipPromptHistory": "Open prompt history",
   "tooltipVoiceInput": "Start voice input",
   "tooltipStopRecording": "Stop recording",
+  "voiceInputUnavailable": "Voice input is unavailable. Allow microphone and speech recognition access in Settings.",
   "tooltipSendMessage": "Send message",
   "tooltipRemoveImage": "Remove image",
   "tooltipClearDiff": "Clear diff selection",

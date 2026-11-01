@@ -2503,6 +2503,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipStopRecording => '録音を停止';
 
   @override
+  String get voiceInputUnavailable =>
+      '音声入力を利用できません。設定でマイクと音声認識へのアクセスを許可してください。';
+
+  @override
   String get tooltipSendMessage => 'メッセージを送信';
 
   @override

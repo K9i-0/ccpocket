@@ -1,9 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../features/settings/state/settings_cubit.dart';
+import '../l10n/app_localizations.dart';
 import '../services/voice_input_service.dart';
 
 /// Result record returned by [useVoiceInput].
@@ -16,47 +19,90 @@ typedef VoiceInputResult = ({
 /// Manages [VoiceInputService] lifecycle: initialization, start/stop, and
 /// disposal.
 ///
+/// The speech recognizer is initialized lazily on the first [toggle] so that
+/// opening a chat does not trigger microphone / speech recognition permission
+/// prompts. `isAvailable` reflects platform support only, so the voice button
+/// stays visible until the user actually tries it. If initialization fails
+/// (e.g. permission denied), a SnackBar is shown and the next tap retries.
+///
 /// The [controller] is updated in real-time with recognized speech text.
 /// Speech locale is read from [SettingsCubit].
-VoiceInputResult useVoiceInput(TextEditingController controller) {
+VoiceInputResult useVoiceInput(
+  TextEditingController controller, {
+  @visibleForTesting VoiceInputService Function()? createService,
+}) {
   final context = useContext();
-  final voiceInput = useMemoized(() => VoiceInputService());
-  final isAvailable = useState(false);
+  final voiceInput = useMemoized(createService ?? VoiceInputService.new);
   final isRecording = useState(false);
+  final isInitializing = useRef(false);
 
-  useEffect(() {
-    voiceInput.initialize().then((available) {
-      if (context.mounted) isAvailable.value = available;
-    });
-    return voiceInput.dispose;
-  }, const []);
+  useEffect(() => voiceInput.dispose, const []);
+
+  void startListening() {
+    HapticFeedback.mediumImpact();
+    isRecording.value = true;
+    final localeId = context.read<SettingsCubit>().state.speechLocaleId;
+    final baseInputValue = controller.value;
+    voiceInput.startListening(
+      onResult: (text, _) {
+        controller.value = composeVoiceInputValue(baseInputValue, text);
+      },
+      onDone: () {
+        if (context.mounted) isRecording.value = false;
+      },
+      localeId: localeId.isNotEmpty ? localeId : null,
+    );
+  }
+
+  Future<void> initializeAndStart() async {
+    isInitializing.value = true;
+    var available = false;
+    try {
+      available = await voiceInput.initialize();
+    } catch (_) {
+      available = false;
+    } finally {
+      isInitializing.value = false;
+    }
+    if (!context.mounted) return;
+    if (!available) {
+      _showUnavailableMessage(context);
+      return;
+    }
+    startListening();
+  }
 
   void toggle() {
     if (isRecording.value) {
       voiceInput.stopListening();
       isRecording.value = false;
+      return;
+    }
+    if (isInitializing.value) return;
+    if (voiceInput.isAvailable) {
+      startListening();
     } else {
-      HapticFeedback.mediumImpact();
-      isRecording.value = true;
-      final localeId = context.read<SettingsCubit>().state.speechLocaleId;
-      final baseInputValue = controller.value;
-      voiceInput.startListening(
-        onResult: (text, _) {
-          controller.value = composeVoiceInputValue(baseInputValue, text);
-        },
-        onDone: () {
-          if (context.mounted) isRecording.value = false;
-        },
-        localeId: localeId.isNotEmpty ? localeId : null,
-      );
+      unawaited(initializeAndStart());
     }
   }
 
   return (
-    isAvailable: isAvailable.value,
+    isAvailable: voiceInput.isPlatformSupported,
     isRecording: isRecording.value,
     toggle: toggle,
   );
+}
+
+void _showUnavailableMessage(BuildContext context) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).voiceInputUnavailable),
+      ),
+    );
 }
 
 @visibleForTesting

@@ -2473,6 +2473,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tooltipStopRecording => '停止录音';
 
   @override
+  String get voiceInputUnavailable => '无法使用语音输入。请在设置中允许访问麦克风和语音识别。';
+
+  @override
   String get tooltipSendMessage => '发送消息';
 
   @override
