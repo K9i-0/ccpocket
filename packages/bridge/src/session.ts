@@ -1999,6 +1999,9 @@ export class SessionManager {
     const idleSessions = Array.from(this.sessions.values())
       .filter((session) => session.status === "idle" &&
         !session.queuedInput &&
+        // Background agents/shells keep running after the turn goes idle;
+        // destroying the session would kill them mid-flight.
+        !session.backgroundTasks?.length &&
         session.process.getPendingPermissions().length === 0 &&
         !(session.provider === "codex" &&
           (session.process as CodexProcess).getRecoveryState().phase === "waiting"))

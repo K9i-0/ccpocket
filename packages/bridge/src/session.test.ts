@@ -1518,6 +1518,34 @@ describe("SessionManager rewindConversation", () => {
   });
 });
 
+describe("SessionManager idle eviction with background tasks", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubEnv("BRIDGE_IDLE_SESSION_TTL_MINUTES", "15");
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  it("retains idle sessions whose background tasks are still running", () => {
+    const manager = new SessionManager(() => {});
+    const busy = manager.create("/tmp/bg-busy");
+    const idle = manager.create("/tmp/bg-idle");
+    sdkInstances.forEach((proc) => proc.emit("status", "idle"));
+    manager.get(busy)!.backgroundTasks = [
+      { taskId: "t1", taskType: "local_agent", description: "Explore" },
+    ];
+    manager.get(idle)!.backgroundTasks = [];
+
+    vi.advanceTimersByTime(16 * 60_000);
+
+    expect(manager.get(busy)).toBeDefined();
+    expect(manager.get(idle)).toBeUndefined();
+    manager.destroyAll();
+  });
+});
+
 describe("SessionManager claude input queue", () => {
   beforeEach(() => {
     codexInstances.length = 0;
