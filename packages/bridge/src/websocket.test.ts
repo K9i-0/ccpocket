@@ -5430,6 +5430,22 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally { bridge.close(); rmSync(projectPath, { recursive: true, force: true }); }
   });
 
+  it("converts dollar skills in a Claude initial prompt once skills arrive", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-initial-skill-"));
+    const bridge = new BridgeWebSocketServer({ server: httpServer, allowedDirs: [projectPath] });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    // The first lookups happen before the provider has reported its skills.
+    vi.spyOn((bridge as any).sessionManager, "getCachedCommands")
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValue({ slashCommands: ["review-pr", "compact"], skills: ["review-pr"], apps: [], plugins: [] });
+    try {
+      await (bridge as any).handleClientMessage({ type: "start", projectPath, provider: "claude", initialPrompt: "$review-pr 42 costs $5 $compact", requestId: "skill" }, ws);
+      await expect.poll(() => ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string)).find((m: any) => m.type === "user_input")?.text).toBe("/review-pr 42 costs $5 $compact");
+    } finally { bridge.close(); rmSync(projectPath, { recursive: true, force: true }); }
+  });
+
   it("bootstraps a project and returns correlated unborn diffs without restarting a session", async () => {
     const parentPath = mkdtempSync(resolve(tmpdir(), "ccpocket-new-project-"));
     const bridge = new BridgeWebSocketServer({ server: httpServer, allowedDirs: [parentPath] });

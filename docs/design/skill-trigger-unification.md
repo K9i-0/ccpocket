@@ -1,6 +1,6 @@
 # スキル呼び出し記号（`/` と `$`）の統一
 
-ステータス: 実装済み（Phase 1） / 2026-11-01
+ステータス: 実装済み / 2026-11-01
 
 ## 背景と課題
 
@@ -83,9 +83,9 @@ normalizeOutgoingInput(String text, SkillCatalog catalog, {Iterable<String>? men
 | `sendMessage` | Codex のときだけ `$` を抽出 | 最初に `normalizeOutgoingInput` を呼び、以降（ローカルの entry、キュー、`ClientMessage.input`）はすべて変換後のテキストを使う |
 | `updateQueuedInput` | Codex のときだけ `$` を抽出 | 同上 |
 | retry | `entry.text` をそのまま再送し、`skills` は付けない | 同じ関数を通して `skills` / `mentions` も付ける（既存の抜けの修正） |
-| 新規セッションの `initialPrompt` | 補完なしの通常の入力欄 | **Phase 1 では対象外**。この時点ではスキル一覧がまだ無い（下記「今後の拡張」） |
+| 新規セッションの `initialPrompt` | 補完なしの通常の入力欄 | Bridge 側で変換する（下記「最初のメッセージの変換（Bridge）」） |
 
-Bridge やプロトコルは変更しない。既存の `input.text` / `input.skills` / `input.mentions` だけで実現できるので、古い Bridge でもそのまま動き、`unsupported_message` への対応も不要。
+プロトコル（メッセージの型）は変更しない。既存の `input.text` / `input.skills` / `input.mentions` だけで実現できるので、`unsupported_message` への対応も不要。チャット欄の変換は古い Bridge でも動く。最初のメッセージの変換だけは新しい Bridge が必要で、古い Bridge では変換されずにそのまま届く。
 
 ### 3. 入力欄（補完とハイライト）
 
@@ -111,9 +111,15 @@ Bridge やプロトコルは変更しない。既存の `input.text` / `input.sk
 - Claude で `$` の補完を有効にすると、`$` から始まる文字（金額、シェル変数）でも候補が出る可能性がある。一致する候補が無いときは出さない（今の `filtered.isNotEmpty` の判定）ことで抑える。
 - アプリのプロンプト履歴（`PromptHistoryService.recordPrompt`）には、変換前の入力した形が残る（Codex で `/skill` と打てば `/skill`）。チャット履歴は変換後の形なので、両者で見た目が異なる。履歴から呼び出して別のエージェントで送っても、送信時にまた変換されるので動作上の問題はない。
 
-## 今後の拡張（Phase 2 候補）
+## 最初のメッセージの変換（Bridge）
 
-- `initialPrompt`: Bridge がプロジェクトごとにキャッシュしているコマンド一覧（`websocket.ts` の `cached.slashCommands / skillMetadata`）を使って、Bridge 側で同じ規則で変換する。Bridge 側の変更になるため、古い Bridge では変換されないだけで動作はそのまま。
+新規セッションの最初のメッセージ（`start.initialPrompt`）は、アプリのチャット送信処理を通らずに Bridge から最初の入力として渡される。アプリはこの時点でスキル一覧を持っていないため、Bridge 側で変換する。
+
+- 実装: `packages/bridge/src/skill-triggers.ts`（規則は Dart 側と同じ。変更時は両方を揃える）。`websocket.ts` の `prepareInitialPrompt` から使う。
+- スキル一覧は `SessionManager` のコマンドキャッシュ（プロジェクトの実行ディレクトリ単位）から作る。Codex は `skillMetadata`（無効なスキルと `/goal` などの組み込みを除く）、Claude は `slashCommands` から組み込みコマンドを除いたもの。
+- 反対側の記号の候補が無ければ待たずにそのまま送る。候補があり一覧が未取得のとき（Bridge 起動後の最初のセッションなど）は、プロバイダーが一覧を報告するまで最大 5 秒待つ。時間切れならそのまま送る。
+- Codex では、本文中のスキルを構造化入力 `skills[]` としても渡す。
+- 古い Bridge は変換しないので、最初のメッセージはエージェント本来の記号で書いた場合だけ発動する（従来どおり）。
 
 ## 検証計画
 
