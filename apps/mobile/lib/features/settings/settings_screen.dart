@@ -120,8 +120,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!widget.focusSupport || _didHandleSupportFocus) return;
     _didHandleSupportFocus = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_supportSectionKey.currentContext == null &&
-          _scrollController.hasClients) {
+      // The lazy list only estimates its extent, so one jump to the end may
+      // stop short of the support section; repeat until it is built.
+      for (
+        var attempt = 0;
+        attempt < 5 &&
+            mounted &&
+            _supportSectionKey.currentContext == null &&
+            _scrollController.hasClients;
+        attempt++
+      ) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         await WidgetsBinding.instance.endOfFrame;
       }
@@ -187,6 +195,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     unawaited(_loadPlatformEnvironment());
+    // The support section may sit beyond the lazily built part of the list,
+    // so start scrolling toward it instead of waiting for it to build.
+    _maybeFocusSupportSection();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(
