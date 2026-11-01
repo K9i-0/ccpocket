@@ -25,6 +25,7 @@ import '../features/explore/explore_screen.dart';
 import '../features/git/git_screen.dart';
 import '../features/git/state/git_status_cubit.dart';
 import '../features/git/state/git_view_cache_service.dart';
+import '../features/media_feedback/media_feedback_scope.dart';
 import '../features/session_list/workspace_shell_screen.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/session_list/state/session_list_state.dart';
@@ -951,7 +952,13 @@ class _StoreGitRouteState extends State<_StoreGitRoute> {
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const GitScreen(projectPath: '/mock/web-store'),
+      child: MediaFeedbackScope(
+        binding: MediaFeedbackBinding(
+          context.read<DraftService>().mediaFeedback,
+          'store-git-review',
+        ),
+        child: const GitScreen(projectPath: '/mock/web-store'),
+      ),
     );
   }
 }

@@ -62,7 +62,7 @@ SCREENSHOTS=(
   "01_conversation|Your agents.\nIn your pocket.|Codex and Claude, made for your phone.|エージェントを、\nポケットに。|CodexとClaudeを、チャット感覚で。|把编程代理，\n装进口袋。|像聊天一样使用 Codex 和 Claude。|에이전트를\n주머니에.|Codex와 Claude를 채팅처럼."
   "02_recent_sessions|Pick up\nwhere you left off.|Open the same work on your phone or Mac.|どこでも、\n続きから。|スマホでもMacでも、同じ作業を。|换个设备，\n继续工作。|手机或 Mac，都能打开同一项工作。|어디서든\n이어서.|휴대폰이나 Mac에서 같은 작업을."
   "03_approval_list|Your next move.\nOne tap away.|Review waiting approvals in one place.|次の判断を、\nワンタップで。|複数セッションの承認を、ひとつの一覧で。|下一步，\n轻点就好。|在一个列表中查看待审批操作。|다음 결정도\n한 번의 탭으로.|여러 세션의 승인 대기를 한곳에서."
-  "04_git_review|Review it.\nShip it.|Inspect diffs, stage, commit, and push.|差分を見て、\nそのまま反映。|レビューからコミット、pushまで。|查看差异，\n提交变更。|审查、暂存、提交和推送。|검토하고,\n반영하세요.|diff 확인부터 커밋과 push까지."
+  "04_git_review|Review it.\nShip it.|Comment on diffs. Stage, commit, and push.|差分を見て、\nそのまま反映。|差分にコメント。コミット、pushまで。|查看差异，\n提交变更。|评论差异、暂存、提交和推送。|검토하고,\n반영하세요.|diff 댓글부터 커밋과 push까지."
   "05_network_resilience|Bad signal.\nKeep your place.|Queued messages send after reconnecting.|電波が途切れても、\nその先へ。|入力を保持。再接続後に自動送信。|断网也不丢\n输入。|消息暂存，重连后自动发送。|연결이 끊겨도\n입력은 그대로.|메시지를 보관하고 재연결 후 전송."
   "06_imagegen|An idea.\nAn image.|Generate with Codex Imagegen. View in chat.|アイデアを、\n画像に。|Codex Imagegenで生成。チャットで確認。|把想法，\n变成图片。|用 Codex Imagegen 生成，在聊天中查看。|아이디어를\n이미지로.|Codex Imagegen으로 만들고 채팅에서 확인."
   "07_video|Press play.\nStay in the app.|Preview video, seek, or go full screen.|つくった動画を、\nその場で再生。|シークも、全画面表示も。|视频预览，\n就在这里。|拖动进度，切换全屏。|만든 영상을\n바로 재생.|탐색부터 전체 화면까지."
@@ -210,8 +210,10 @@ echo "=== Japanese ==="
 mkdir -p "${SCRIPT_DIR}/ja"
 for entry in "${SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Always copy latest source screenshot from en-US
-  cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ja/${key}.png" 2>/dev/null || true
+  # Localized capture runs keep their own raw images.
+  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
+    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ja/${key}.png"
+  fi
   compose_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG"
 done
 
@@ -221,8 +223,10 @@ echo "=== Chinese (Simplified) ==="
 mkdir -p "${SCRIPT_DIR}/zh-CN"
 for entry in "${SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Always copy latest source screenshot from en-US
-  cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/zh-CN/${key}.png" 2>/dev/null || true
+  # Localized capture runs keep their own raw images.
+  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
+    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/zh-CN/${key}.png"
+  fi
   compose_screenshot "$key" "$kw_zh" "$tt_zh" "zh-CN" "$FONT_ZH_BOLD" "$FONT_ZH_REG"
 done
 
@@ -232,8 +236,10 @@ echo "=== Korean ==="
 mkdir -p "${SCRIPT_DIR}/ko"
 for entry in "${SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Always copy latest source screenshot from en-US
-  cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ko/${key}.png" 2>/dev/null || true
+  # Localized capture runs keep their own raw images.
+  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
+    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ko/${key}.png"
+  fi
   compose_screenshot "$key" "$kw_ko" "$tt_ko" "ko" "$FONT_KO_BOLD" "$FONT_KO_REG"
 done
 
