@@ -3011,6 +3011,67 @@ void main() {
       },
     );
 
+    testWidgets('keeps the list live while a back swipe reveals it', (
+      tester,
+    ) async {
+      final (:bridge, :shellKey, machines: _) = await pumpShell(
+        tester,
+        const Size(390, 844),
+      );
+      shellKey.currentState!.selectSession(selection);
+      await _pumpUi(tester);
+
+      final homeFinder = find.byType(HomeContent);
+      final homeElement = tester.element(homeFinder);
+      final centerNavigator = tester.state<NavigatorState>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('workspace_center_slot')),
+              matching: find.byType(Navigator),
+            )
+            .first,
+      );
+      bool listTickersEnabled() => TickerMode.valuesOf(homeElement).enabled;
+
+      bridge.emitSessions([_runningSession(id: 'background')]);
+      await _pumpUi(tester);
+      expect(find.byType(RunningSessionCard), findsNothing);
+      expect(listTickersEnabled(), isFalse);
+
+      // Start an interactive back swipe (as the Cupertino back gesture does).
+      centerNavigator.didStartUserGesture();
+      await _pumpUi(tester);
+
+      expect(
+        shellKey.currentState!.selectedSession?.sessionId,
+        selection.sessionId,
+      );
+      expect(find.byType(RunningSessionCard), findsOneWidget);
+      expect(listTickersEnabled(), isTrue);
+
+      // Updates during the drag are shown live.
+      bridge.emitSessions([
+        _runningSession(id: 'background'),
+        _runningSession(id: 'second'),
+      ]);
+      await _pumpUi(tester);
+      expect(find.byType(RunningSessionCard), findsNWidgets(2));
+
+      // A cancelled swipe re-applies the gate.
+      centerNavigator.didStopUserGesture();
+      await _pumpUi(tester);
+      expect(listTickersEnabled(), isFalse);
+      final homeAfterCancel = tester.widget<HomeContent>(homeFinder);
+      bridge.emitSessions([_runningSession(id: 'background')]);
+      await _pumpUi(tester);
+      expect(
+        identical(tester.widget<HomeContent>(homeFinder), homeAfterCancel),
+        isTrue,
+      );
+      expect(find.byType(RunningSessionCard), findsNWidgets(2));
+      expect(identical(tester.element(homeFinder), homeElement), isTrue);
+    });
+
     testWidgets('wide layout keeps updating the list while a chat is open', (
       tester,
     ) async {

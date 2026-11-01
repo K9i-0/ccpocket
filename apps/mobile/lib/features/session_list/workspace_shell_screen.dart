@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -177,6 +178,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   bool _rootVisible = true;
   final _centerNavigatorKey = GlobalKey<NavigatorState>();
   final _toolNavigatorKey = GlobalKey<NavigatorState>();
+  // Back-swipe progress of the pane navigators. A compact back swipe reveals
+  // the list underneath, so it must be live (not obscured) during the drag.
+  final Map<GlobalKey<NavigatorState>, ValueListenable<bool>>
+  _paneGestureNotifiers = {};
   GlobalKey<NavigatorState> _browserNavigatorKey = GlobalKey<NavigatorState>();
   WidgetBuilder? _browserBuilder;
   VoidCallback? _browserBack;
@@ -612,7 +617,35 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       SessionRouteRegistry.instance.unregisterWorkspace(identity, this);
     }
     _presentationVersion.dispose();
+    for (final notifier in _paneGestureNotifiers.values) {
+      notifier.removeListener(_handlePaneGestureChanged);
+    }
     super.dispose();
+  }
+
+  bool get _paneBackGestureInProgress =>
+      _paneGestureNotifiers.values.any((notifier) => notifier.value);
+
+  /// Tracks the pane navigators' user gesture notifiers. The navigators only
+  /// exist after the first build, so this runs after each frame and is a no-op
+  /// once attached.
+  void _attachPaneGestureListeners() {
+    for (final key in [_centerNavigatorKey, _toolNavigatorKey]) {
+      final notifier = key.currentState?.userGestureInProgressNotifier;
+      final attached = _paneGestureNotifiers[key];
+      if (identical(notifier, attached)) continue;
+      attached?.removeListener(_handlePaneGestureChanged);
+      if (notifier == null) {
+        _paneGestureNotifiers.remove(key);
+      } else {
+        notifier.addListener(_handlePaneGestureChanged);
+        _paneGestureNotifiers[key] = notifier;
+      }
+    }
+  }
+
+  void _handlePaneGestureChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -654,7 +687,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           final showRightPane = _toolPane != null;
           // On compact layouts the list stays mounted underneath a covering
           // chat/tool pane so its state survives; it must not rebuild there.
-          final listObscured = compact && (hasCenter || showRightPane);
+          final listCovered = compact && (hasCenter || showRightPane);
+          // During an interactive back swipe the list is being revealed, so
+          // it is kept live (fresh data, running tickers) for the drag.
+          final listObscured = listCovered && !_paneBackGestureInProgress;
           final centerActive =
               !compact ||
               (hasCenter && (!showRightPane || _state.centerInFront));
@@ -794,6 +830,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
               ),
             ),
           );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _attachPaneGestureListeners();
+          });
           final resizeHandleHitWidth = _resizeHandleHitWidth(
             Theme.of(context).platform,
           );
@@ -818,11 +857,11 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                   left: 0,
                   width: leftWidth,
                   child: IgnorePointer(
-                    ignoring: listObscured,
+                    ignoring: listCovered,
                     child: ExcludeFocus(
-                      excluding: listObscured,
+                      excluding: listCovered,
                       child: ExcludeSemantics(
-                        excluding: listObscured,
+                        excluding: listCovered,
                         // Pause status-dot animations behind a covering pane,
                         // like Navigator does for covered routes.
                         child: TickerMode(
