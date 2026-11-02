@@ -2,6 +2,25 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.96.0] - 2026-11-02
+
+### Added
+
+- Edit a sent message and resend it with `edit_message` (Codex App style): the conversation is rewound in place before that message and the edited text is sent in the same session. Bridges advertise `message_edit_v1`.
+- Retract an unanswered prompt with `interrupt { retract: true }` (Claude Code's Esc-to-edit): when the agent has shown no output yet, the prompt is removed and returned as `input_retracted` so the app can put it back in the composer.
+- Notify clients with `conversation_rewound` when a conversation is rewound in place.
+
+### Changed
+
+- Rewind conversations in place, keeping the session and its id: Codex uses `thread/revert` (falling back to `thread/rollback`) and Claude restarts the same process with `resumeSessionAt`.
+
+### Fixed
+
+- Fork Codex conversations in a throwaway app-server so the fork no longer fails with "thread already has an active writer".
+- Interrupt a Codex turn that was stopped before its turn id arrived instead of letting it run.
+- Show only the current branch of rewound conversations: Codex rollout segments created by `thread/revert` are followed through `history_base`, and Claude history and UUID backfill skip turns abandoned by a rewind or edit.
+- Wait for a replaced Codex app-server to exit before resuming a rewound thread.
+
 ## [1.95.0] - 2026-11-01
 
 ### Added
