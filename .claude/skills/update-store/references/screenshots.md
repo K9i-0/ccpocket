@@ -1,302 +1,199 @@
 # ストアスクリーンショット
 
-コマンドはリポジトリルート基準。撮影は指定されたデバイスだけを対象とする。
+コマンドはリポジトリルート基準。撮影は指定されたデバイスだけを対象とする。構成・見出し文言・出力先の正本は [apps/mobile/fastlane/screenshots/README.md](../../../../apps/mobile/fastlane/screenshots/README.md) と `compose.sh`。この手順と食い違う場合はそちらに合わせて更新する。
+
+2026-11-02 に Xcode 27.2 / iOS 27.2 シミュレーターで全手順（iPhone 8枚・iPad 5枚・compose.sh）を通して確認済み。
 
 ## 前提
 
-- debug / profile ビルドのアプリにはストアスクショ用のカスタムエクステンション（`ccpocket.navigateToStoreScenario`）が登録済み（iOSシミュレーターはdebugのみ実行可能）
-- Marionette MCPの`call_custom_extension`が使用可能
-- ImageMagickがインストール済み（`compose.sh`で使用）
-- **agent-device**: Simulatorの回転とネイティブダイアログ（通知・音声認識・マイク許可等）の操作に使う。`mise exec -- agent-device ...` で実行する（`.mise.toml` でバージョン固定）
+- debug ビルド（iOSシミュレーターは profile 不可）。ストア用 `ccpocket.navigateToStoreScenario` と LP 用 `ccpocket.mock.openScenario` は debug でのみ登録される。
+- Marionette MCP の `call_custom_extension` と `tap`。
+- ImageMagick（`magick`）と ffmpeg（LPメディアの準備）。
+- agent-device: ネイティブダイアログと iPad の回転に使う。`mise exec -- agent-device ...` で実行する。
+- Xcode 27.2 以降は Simulator.app ではなく `DeviceHub.app`。GUI が必要なら [mobile-automation の startup.md](../../mobile-automation/references/startup.md) を参照。撮影自体は `simctl` だけで完結する。
 
-**iPhone スクリーンショット（8シナリオ）:**
+## 撮影対象
 
-| Key | シナリオ名 | 内容 | テーマ |
-|-----|-----------|------|--------|
-| `01_session_list` | Session List (Recent) | ホーム画面（名前付きセッション） | ライト |
-| `02_approval_list` | Session List | 承認待ち一覧（3セッション） | ライト |
-| `03_multi_question` | Multi-Question Approval | 質問UI（3問） | ライト |
-| `04_markdown_input` | Markdown Input | Markdown箇条書き入力 | ライト |
-| `05_image_attach` | Image Attach | 画像添付UI | ライト |
-| `06_git_diff` | Git Diff | Diff表示画面 | ライト |
-| `07_new_session` | New Session | 新規セッションシート | ライト |
-| `08_dark_theme` | Session List | 承認待ち一覧（ダークモード訴求） | ダーク |
+### iPhone（8枚・ダークテーマ・英語UI）
 
-**iPad スクリーンショット（5シナリオ）:**
+raw は `apps/mobile/fastlane/screenshots/en-US/<key>.png`。各言語の枠付き画像は `compose.sh` が en-US の raw から作る。
 
-| Key | シナリオ名 | 内容 | テーマ |
-|-----|-----------|------|--------|
-| `01_workspace_overview` | Workspace Overview | 左一覧 + 中央チャット + 右Git | ライト |
-| `02_workspace_explorer` | Workspace Explorer | 左一覧 + 中央チャット + 右Explorer | ライト |
-| `03_approval_context` | Approval In Context | 左一覧 + 中央承認UI | ライト |
-| `04_approval_queue` | Approval Queue | 複数の承認待ちセッションを同時に確認 | ライト |
-| `05_dark_workspace` | Dark Workspace | 3-pane ワークスペースのダークテーマ訴求 | ダーク |
+| Key | 呼び出し | 引数 `scenario` | 補足 |
+|-----|---------|----------------|------|
+| `01_conversation` | `ccpocket.mock.openScenario` | `LP Conversation` | |
+| `02_recent_sessions` | `ccpocket.navigateToStoreScenario` | `Recent Sessions` | |
+| `03_approval_list` | `ccpocket.navigateToStoreScenario` | `Approval List` | |
+| `04_git_review` | `ccpocket.navigateToStoreScenario` | `Git Actions` | 既存画像には差分コメント（"Keep retries safe…"）が表示されているが、遷移だけでは出ない。再現手順は未確立 |
+| `05_network_resilience` | `ccpocket.mock.openScenario` | `LP Network` | |
+| `06_imagegen` | `ccpocket.mock.openScenario` | `LP Imagegen` | |
+| `07_video` | `ccpocket.mock.openScenario` | `LP Video` | 読み込み後に Marionette `tap` key `file_peek_video_viewport` で操作UIを出してから撮る。12s 表示を確認 |
+| `08_audio` | `ccpocket.mock.openScenario` | `LP Audio` | 12s 表示を確認 |
 
-### Step 4: iPhone スクリーンショット撮影（選択された場合）
+会話内の時刻はモックが現在時刻から生成するため、撮影時刻に応じて変わる。
 
-#### 4-1. デバイス確認 & シミュレーター起動
+### iPad（5枚・landscape・英語UI）
+
+raw は `en-US/ipad_<key>.png`。テーマは `light` に設定し、`Dark Workspace` はシナリオ側でダークに切り替わる。
+
+| Key | `ccpocket.navigateToStoreScenario` の `scenario` |
+|-----|------------------------------------------------|
+| `01_workspace_overview` | `Workspace Overview` |
+| `02_workspace_explorer` | `Workspace Explorer` |
+| `03_approval_context` | `Approval In Context` |
+| `04_approval_queue` | `Approval Queue` |
+| `05_dark_workspace` | `Dark Workspace` |
+
+## 1. デバイス準備
+
+| 用途 | デバイス | raw 解像度 |
+|------|---------|-----------|
+| iPhone | iPhone 17 Pro | 1206x2622 |
+| iPad | iPad Pro 13-inch (M5) | 2752x2064（landscape） |
+
+iOS 27.2 の標準デバイスに iPhone 17 Pro は含まれない。既存がなければ作成する（デバイスタイプは残っている）。
 
 ```bash
-xcrun simctl list devices available | grep -E "iPhone 17|iPad Pro.*13"
+xcrun simctl list devices available | grep -E "iPhone 17 Pro|iPad Pro 13"
+xcrun simctl create "iPhone 17 Pro" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-27-2
 ```
 
-**ソフトウェアキーボードを無効化**（全デバイス共通、セッション冒頭で1回実行）:
+iPhone と iPad を同時に起動したまま進めるため、`booted` は使わず UDID を変数に入れて指定する（`booted` は複数起動時に対象が曖昧になる）。既存シミュレーターを再利用し、`erase` しない。`erase` すると通知などのダイアログが毎回復活する。
+
 ```bash
-defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool true
+ID=<撮影するデバイスのUDID>
+xcrun simctl boot $ID 2>/dev/null || true
+
+# システムを英語化（DatePicker・システムダイアログ・iPadステータスバーの日付も英語になる）。反映に再起動が必要
+xcrun simctl spawn $ID defaults write -g AppleLanguages "(en-US)"
+xcrun simctl spawn $ID defaults write -g AppleLocale "en_US"
+xcrun simctl shutdown $ID && xcrun simctl boot $ID
+
+# ステータスバーを 9:41 / Wi-Fi / 100% に固定
+xcrun simctl status_bar $ID override --time "9:41" --dataNetwork wifi --wifiMode active \
+  --wifiBars 3 --cellularMode notSupported --batteryState charged --batteryLevel 100
 ```
-これによりソフトウェアキーボードが表示されなくなり、日本語キーボードがスクショに映り込む問題を防止する。
 
-iPhone / iPad ともに **既存シミュレーターを再利用するのがデフォルト**。毎回 `erase` すると通知・音声認識・マイク等のネイティブダイアログが再出現し、スクショフローが不安定になる。通常はアプリの再起動と向き調整だけで十分。
+iPad のステータスバーには日付も出るが、`status_bar --time` では変えられない。システム日付のまま許容する。
 
-iPhone 17 Proシミュレーターを起動し、ライトモードに設定:
+### 権限ダイアログ
+
+iOS 27.2 では `xcrun simctl privacy $ID grant notifications|speech-recognition` が `Failed to create TCC authorization record` で失敗する。事前付与できるのは `microphone` など `simctl privacy` の一覧にあるサービスだけ。通知ダイアログは初回起動時に出るので、アプリ起動後にセッションなしで処理する。
+
 ```bash
-xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
-xcrun simctl ui booted appearance light
+mise exec -- agent-device alert get --platform ios --udid $ID
+mise exec -- agent-device alert accept --platform ios --udid $ID
 ```
 
-**英語ロケール設定**（ストアスクショは en-US 基準のため）:
+一度許可すれば、`erase` しない限り再発しない。
+
+### ソフトウェアキーボード
+
+Xcode 27.2（DeviceHub）では `defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool true` が効かず、入力欄にフォーカスするとソフトウェアキーボードが出る。現行の13シナリオは入力欄にフォーカスしないので対策は不要。映り込んだら `ccpocket.popToRoot` してシナリオを開き直す。
+
+## 2. アプリ起動 & Marionette 接続
+
+`flutter run` は1台ずつ実行する。同じプロジェクトを並行ビルドすると `build/ios` が衝突して失敗する。
+
 ```bash
-# 撮影対象に選んだデバイスIDだけで実行
-for ID in <選択したデバイスIDのリスト>; do
-  xcrun simctl spawn $ID defaults write -g AppleLanguages "(en-US)"
-  xcrun simctl spawn $ID defaults write -g AppleLocale "en_US"
-done
-
-# 反映には再起動が必要
-for ID in <選択したデバイスIDのリスト>; do
-  xcrun simctl shutdown $ID
-done
-sleep 2
-for ID in <選択したデバイスIDのリスト>; do
-  xcrun simctl boot $ID
-done
+cd apps/mobile
+flutter run -d $ID --debug --pid-file /tmp/ss-run.pid > /tmp/ss-run.log 2>&1 &
+grep "Dart VM Service" /tmp/ss-run.log   # 起動完了まで待つ
 ```
 
-これによりアプリ内の標準コンポーネント（DatePicker、システムダイアログ等）も英語化される。
-アプリ内文言はカスタムエクステンション `ccpocket.setLocale` で別途 `en` に切り替える。
+出力の `http://127.0.0.1:<port>/<token>=/` を `ws://127.0.0.1:<port>/<token>=/ws` にして Marionette `connect` に渡す。dart-mcp `launch_app` が使える環境ならそれでもよい。
 
-**ステータスバーを Apple 純正風に固定**（9:41 / WiFi / 100% 充電 / キャリア非表示）:
+LP シナリオ（Video / Audio）用のメディアを用意する。サーバーは撮影が終わるまで動かしておく。
+
 ```bash
-for ID in <選択したデバイスIDのリスト>; do
-  xcrun simctl status_bar $ID override \
-    --time "9:41" \
-    --dataNetwork wifi \
-    --wifiMode active \
-    --wifiBars 3 \
-    --cellularMode notSupported \
-    --batteryState charged \
-    --batteryLevel 100
-done
+bash scripts/landing-preview/prepare.sh
+node scripts/landing-preview/serve.mjs &   # 127.0.0.1:8898。PIDを控える
 ```
 
-**iPad の日付について（既知の制限）**:
-iPad のステータスバーには時刻に加えて日付（例: `Tue Apr 21`）が表示されるが、`xcrun simctl status_bar --time` は **時刻部分のみ反映**で日付は変更不可（Xcode 26.1 時点で ISO 日付を渡してもエラーになる）。
+起動直後のアプリに `agent-device open <app>` すると、アプリが再起動されて `flutter run` の接続が切れることがある（`/tmp/ss-run.log` に `Lost connection to device.`）。ダイアログ処理は上記のセッションなしコマンドで行い、切れた場合は `flutter run` からやり直す。
 
-Apple 純正アプリのスクショは `Apr 1` 等になっているが、現状はシミュレーターのシステム日付がそのまま出る。完全一致が必要な場合のみ、シミュレーター内 `Settings > General > Date & Time > Set Automatically OFF` で手動設定する。通常は許容して進める。
+## 3. iPhone 撮影
 
-参考:
-- [Apple Developer Forums - Can't change time in Xcode Simulator](https://developer.apple.com/forums/thread/720610)
-- [ControlRoom Issue #205](https://github.com/twostraws/ControlRoom/issues/205)
+接続後に一度だけ設定する。
 
-#### 4-2. アプリ起動 & Marionette接続
+- `ccpocket.setLocale` / `{ "locale": "en" }`
+- `ccpocket.setTheme` / `{ "theme": "dark" }`
 
-dart-mcp `launch_app` でアプリを起動:
-```
-root: <リポジトリルート>/apps/mobile
-device: <iPhone 17 Pro の device ID>
-```
+各 Key について次を繰り返す。
 
-起動後、dart-mcp `list_running_apps` でDTD URIを取得し、`connect_dart_tooling_daemon` で接続。
+1. 表の呼び出しと `scenario` で遷移する。
+2. 3秒待つ（Video / Audio はメディアの読み込みを待つ）。
+3. 撮影する。
 
-dart-mcp `get_app_logs` でVM Service URIを取得し、marionette `connect` で接続。
-
-#### 4-3. 各シナリオのスクショ撮影
-
-**テーマ設定**: アプリ起動後、カスタムエクステンションでテーマを切り替える（01〜07はライトテーマ）:
-- marionette `call_custom_extension`: `ccpocket.setTheme` / `{ "theme": "light" }`
-- 値: `light`, `dark`, `system`
-
-**言語設定**: 必要に応じてカスタムエクステンションで言語を切り替える:
-- marionette `call_custom_extension`: `ccpocket.setLocale` / `{ "locale": "en" }`
-- 値: `en`, `ja`, `zh`, `""` (システムデフォルト)
-
-選択された各シナリオに対して:
-
-1. **遷移**: marionette `call_custom_extension`
-   - extension: `ccpocket.navigateToStoreScenario`
-   - params: `{ "scenario": "<シナリオ名>" }`
-
-2. **待機**: 2-3秒（描画完了を待つ。New SessionやImage Attachなど複雑なUIは3秒推奨）
-
-3. **撮影**:
    ```bash
-   xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/<key>.png
+   xcrun simctl io $ID screenshot apps/mobile/fastlane/screenshots/en-US/<key>.png
    ```
 
-4. **戻る**: marionette `call_custom_extension`
-   - extension: `ccpocket.popToRoot`
+4. `ccpocket.popToRoot` で戻る。
 
-5. **待機**: 1秒（ルートへの遷移完了）
+## 4. iPad 撮影
 
-**08_dark_theme の撮影**: 01〜07撮影後、`ccpocket.setTheme` で `dark` に切り替え、Session List シナリオを撮影する。
+iPhone の `flutter run` を止めてから、iPad で起動・接続する。設定は `setLocale en` と `setTheme light`。
 
-#### 4-4. アプリ停止
-
-dart-mcp `stop_app` でアプリを停止。
-**シミュレーターはシャットダウンしない**。次のデバイスの起動に進む。
-
-### Step 5: iPad スクリーンショット撮影（選択された場合）
-
-iPad は iPhone とは別セットを撮影する。既存の mobile 専用シナリオを流用せず、
-workspace レイアウト前提の 5 シナリオを撮る。
-
-#### 5-1. iPadシミュレーターの全画面表示を保証
-
-iPadでアプリが互換モード（iPhone用の小さいウィンドウ + 黒帯）で起動する場合がある。
-ただし、**通常は `erase` しない**。まずは既存シミュレーターをそのまま使い、アプリだけ再起動する:
+landscape に固定するには agent-device のセッションが必要（`orientation` はセッションなしでは動かない）。アプリが起動して落ち着いてから開く。
 
 ```bash
-# シミュレーターを起動（未起動なら）
-xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
+mise exec -- agent-device open com.k9i.ccpocket --platform ios --udid $ID --session ss-ipad
+mise exec -- agent-device orientation landscape-left --session ss-ipad
 ```
 
-**重要**: `erase` を実行するとアプリがアンインストールされ、通知・音声認識・マイク等のネイティブダイアログが毎回復活する。これはスクショ取得の妨げになるため、`erase` は最後の手段に限定する。
-
-**`erase` を使ってよいケース**:
-- 実際に互換モード（iPhone用の小さいウィンドウ + 黒帯）で起動した
-- アプリ再起動だけでは解消しない
-- raw スクショの解像度が期待値から大きく外れている
-
-その場合のみ、以下を実行してやり直す:
+各 Key について遷移 → 3秒待機 → 撮影 → `ccpocket.popToRoot`。iOS 27.2 の `simctl io` は landscape のまま保存するが、縦で保存された場合に備えて向きを確認する。
 
 ```bash
-xcrun simctl shutdown "iPad Pro 13-inch (M4)" 2>/dev/null || true
-xcrun simctl erase "iPad Pro 13-inch (M4)"
-xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
+OUT=apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+xcrun simctl io $ID screenshot "$OUT"
+W=$(sips -g pixelWidth "$OUT" | tail -1 | awk '{print $2}')
+H=$(sips -g pixelHeight "$OUT" | tail -1 | awk '{print $2}')
+[ "$W" -lt "$H" ] && sips -r 270 "$OUT" --out "$OUT" >/dev/null
 ```
 
-**横向き前提**: iPad スクショは landscape で撮る。アプリ起動後、agent-device のセッションを開いて横向きに固定する（`<udid>` は `xcrun simctl list devices booted` で確認）:
-```bash
-mise exec -- agent-device open com.k9i.ccpocket --platform ios --udid <udid> --foreground
-mise exec -- agent-device orientation landscape-left
-```
-撮影中に向きが崩れた場合も、スクショを撮る前に `orientation landscape-left` を再実行する。撮影を終えたら `mise exec -- agent-device close` でセッションを閉じる。
+撮影後に `mise exec -- agent-device close --session ss-ipad`。
 
-**事前権限付与**: `erase` を避ければ通知・音声認識・マイクのダイアログは通常再発しない。`erase` した場合はアプリ起動前に付与してダイアログ自体を防ぐ:
-```bash
-xcrun simctl privacy booted grant notifications com.k9i.ccpocket
-xcrun simctl privacy booted grant speech-recognition com.k9i.ccpocket
-xcrun simctl privacy booted grant microphone com.k9i.ccpocket
-```
+## 5. 解像度の確認
 
-**ネイティブダイアログが出た場合**: ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。最初のシナリオ遷移後に確認し、必要なら撮り直す:
-```bash
-mise exec -- agent-device alert get        # 表示中のダイアログ文言を確認
-mise exec -- agent-device alert accept     # 許可（dismiss で拒否）
-```
-`alert` がダイアログを検出できない場合（iPhone Duo のウィンドウ表示などで発生）は、`mise exec -- agent-device screenshot /tmp/ad.png` で画面を確認し、ボタン位置を `mise exec -- agent-device press <x> <y>` でタップする（座標はポイント単位）。
-
-#### 5-2. シナリオ撮影 & 解像度検証
-
-**テーマ設定**: iPad 側は `Dark Workspace` 以外をライトテーマで撮る。アプリ起動後に最初に一度:
-marionette `call_custom_extension`
-- extension: `ccpocket.setTheme`
-- params: `{ "theme": "light" }`
-
-`Dark Workspace` はシナリオ側で一時的にダークへ切り替わるため、個別に `setTheme dark` する必要はない。
-
-各シナリオに対して:
-
-1. marionette `call_custom_extension`
-   - extension: `ccpocket.navigateToStoreScenario`
-   - params: `{ "scenario": "<シナリオ名>" }`
-   - 値:
-     - `Workspace Overview`
-     - `Workspace Explorer`
-     - `Approval In Context`
-     - `Approval Queue`
-     - `Dark Workspace`
-
-2. 2-3秒待機
-
-3. 撮影（`simctl io` は端末の縦向き基準で保存するため、縦長なら `sips` で横向きに戻す。agent-device の `screenshot` はポイント解像度なのでストア素材には使わない）
-   ```bash
-   OUT=apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
-   xcrun simctl io booted screenshot "$OUT"
-   W=$(sips -g pixelWidth "$OUT" | tail -1 | awk '{print $2}')
-   H=$(sips -g pixelHeight "$OUT" | tail -1 | awk '{print $2}')
-   [ "$W" -lt "$H" ] && sips -r 270 "$OUT" --out "$OUT" >/dev/null
-   ```
-
-4. marionette `call_custom_extension`
-   - extension: `ccpocket.popToRoot`
-
-5. 1秒待機
-
-#### 5-3. 解像度検証
-
-撮影後、スクショの解像度がiPadのネイティブ解像度と一致するか検証する:
+raw がすべて期待値（iPhone 1206x2622、iPad 2752x2064）になっていることを確認する。iPad が大幅に小さい場合は互換モード（iPhone用ウィンドウ + 黒帯）を疑い、まずアプリを再起動する。解消しない場合に限り `erase` する。
 
 ```bash
-# 解像度検証（互換モード検出）
-WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
-HEIGHT=$(sips -g pixelHeight apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
-echo "Screenshot: ${WIDTH}x${HEIGHT}"
-# iPad Pro 13-inch (M4) landscape: 2752x2064 が期待値
-# 解像度が大幅に小さい場合のみ、互換モードを疑って erase を検討する
+cd apps/mobile/fastlane/screenshots/en-US
+for f in 0[1-8]_*.png ipad_0[1-5]_*.png; do
+  case $f in *_framed.png) continue;; esac
+  echo "$f $(sips -g pixelWidth -g pixelHeight $f | tail -2 | awk '{print $2}' | tr '\n' ' ')"
+done
 ```
 
-もし解像度が期待値と異なる場合は、まずアプリ再起動で再確認する。それでも解消しない場合のみ `erase`、必要に応じて `flutter clean` → `flutter build ios --simulator` でやり直すこと。
-
-#### 5-4. アプリ停止
-
-dart-mcp `stop_app` でアプリを停止。
-**シミュレーターはシャットダウンしない**（compose.sh 実行や確認に支障はない）。
-
-### Step 6: スクリーンショット合成 & 配置
+## 6. 合成 & 配置
 
 ```bash
-cd apps/mobile && bash fastlane/screenshots/compose.sh
+bash apps/mobile/fastlane/screenshots/compose.sh
 ```
 
-このスクリプトが行うこと:
-- iPhone/iPad の raw スクショにデバイスフレーム・テキストオーバーレイを追加
-- en-US と ja の両方のframed画像を生成
-- `fastlane/screenshots/store/` へコピー（fastlane deliver用）
-- `fastlane/metadata/android/` へコピー（Google Play用）
-- `docs/images/screenshots.png` を更新（READMEバナー）
+所要時間は約2分。en-US の raw を ja / zh-CN / ko にコピーし、各言語の見出しで枠付き画像を作る。出力先は次のとおり。
 
-### Step 7: 確認
+- `fastlane/screenshots/store/{en-US,ja,zh-Hans,ko}/`: iPhone 8枚 + iPad 5枚（1320x2868 / 2752x2064、alpha なし）
+- `fastlane/metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/`: iPhone 8枚
+- `docs/images/screenshots*.png`: README バナー
+
+合成の挙動だけを試すときは、`apps/mobile/fastlane/{screenshots,metadata/android}` を `/tmp/<dir>/apps/mobile/fastlane/` に複製し、`/tmp/<dir>/docs/images` を作ってから複製側の `compose.sh` を実行すれば、リポジトリの素材を変更しない。
+
+## 7. 確認
+
+- 生成画像を数枚開き、見出し・枠・UIの欠けを目視する。
+- `git diff --stat` で変更範囲を確認する。
+
+## 8. 後片付け
+
+自分が起動したものだけを止める。
 
 ```bash
-# 生成画像の確認
-ls -la apps/mobile/fastlane/screenshots/store/en-US/
-ls -la apps/mobile/fastlane/screenshots/store/ja/
-
-# 変更ファイル一覧
-git diff --stat
+kill $(cat /tmp/ss-run.pid)          # flutter run
+kill <serve.mjs の PID>               # LPメディアサーバー
+mise exec -- agent-device session list
+xcrun simctl status_bar $ID clear     # override は再起動後も残る
+xcrun simctl spawn $ID defaults write -g AppleLanguages "(ja-JP)"
+xcrun simctl spawn $ID defaults write -g AppleLocale "ja_JP"
+xcrun simctl shutdown $ID
 ```
-
-## シナリオ名 ↔ ファイルキー対応表
-
-| シナリオ名（extension引数） | ファイルキー（スクショファイル名） | テーマ |
-|---------------------------|-------------------------------|--------|
-| Session List (Recent) | `01_session_list` | ライト |
-| Session List | `02_approval_list` | ライト |
-| Multi-Question Approval | `03_multi_question` | ライト |
-| Markdown Input | `04_markdown_input` | ライト |
-| Image Attach | `05_image_attach` | ライト |
-| Git Diff | `06_git_diff` | ライト |
-| New Session | `07_new_session` | ライト |
-| Session List | `08_dark_theme` | ダーク |
-
-## 注意事項
-
-- **New Session シナリオ**: ボトムシートが`addPostFrameCallback`で自動表示されるため、3秒待機推奨
-- **Markdown Input シナリオ**: DraftServiceで入力欄にテキストが事前セットされる。キーボードは非表示のまま撮影すること（`ConnectHardwareKeyboard` を有効化済み）
-- **Image Attach シナリオ**: モック画像が自動的に添付される
-- **シミュレーターデバイス名**: Xcode バージョンにより正確な名前が異なる場合がある。`xcrun simctl list devices available` で確認
-- **compose.sh**: ImageMagick (`convert` / `magick`) が必要。PNGタイムスタンプを除去して不要なgit diffを防止
-- **iPad スクショ**: landscape 前提。raw スクショも framed 画像も `2752x2064` を基準に扱う
-- **ステータスバー override の解除**: 撮影完了後に通常開発に戻す場合は `xcrun simctl status_bar <ID> clear` を実行する（override 自体はシミュレーター再起動後も保持される）
-- **ロケールを日本語に戻す**: `xcrun simctl spawn <ID> defaults write -g AppleLanguages "(ja-JP)"` + `defaults write -g AppleLocale "ja_JP"` を実行して再起動
