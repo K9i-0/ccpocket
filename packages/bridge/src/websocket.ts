@@ -1734,7 +1734,6 @@ export class BridgeWebSocketServer {
         `codex:user-turn:${turns}`,
         "conversation",
         notifyRetracted,
-        true,
       );
       return;
     }
@@ -1803,8 +1802,6 @@ export class BridgeWebSocketServer {
     targetUuid: string,
     mode: "conversation" | "code" | "both",
     onRewound?: () => void,
-    /** Hide the source thread: a retract replaces it rather than branching. */
-    archiveSource = false,
   ): Promise<void> {
     if (mode !== "conversation") {
       this.send(ws, {
@@ -1919,13 +1916,15 @@ export class BridgeWebSocketServer {
       expectedUserTurns: targetOrdinal - 1,
       fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
     });
-    if (archiveSource) {
-      // Archive through the process that has the thread loaded.
+    // A rewind replaces the conversation rather than branching it (Codex
+    // App's edit-and-resend leaves no old copy in history), so hide the
+    // source thread. Archive through the process that has it loaded.
+    {
       try {
         await codexProcess.archiveThread(threadId);
       } catch (err) {
         console.warn(
-          `[ws] Failed to archive retracted Codex thread ${threadId}: ${codexErrorMessage(err)}`,
+          `[ws] Failed to archive rewound Codex thread ${threadId}: ${codexErrorMessage(err)}`,
         );
       }
       await this.archiveStore

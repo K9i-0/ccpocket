@@ -10078,6 +10078,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
     ];
     const forkThread = session.process.forkThreadAtUserTurn;
+    session.process.archiveThread = vi.fn(async () => {});
 
     ws.send.mockClear();
     await (bridge as any).handleClientMessage(
@@ -10089,8 +10090,16 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(
+        ws.send.mock.calls.some((c: unknown[]) =>
+          String(c[0]).includes('"rewind_result"'),
+        ),
+      ).toBe(true);
+    });
 
+    // Like Codex App's edit-and-resend, the old thread leaves history.
+    expect(session.process.archiveThread).toHaveBeenCalledWith("thread-rollback");
     if (target === 1) expect(forkThread).not.toHaveBeenCalled();
     else expect(forkThread).toHaveBeenCalledWith(1);
     expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
