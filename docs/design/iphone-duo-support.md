@@ -206,5 +206,8 @@ returning to a screen whose strip is empty.
 - Inner landscape: global actions only in the strip (decided).
 - Known gaps: empty-state copy still says "New in the left pane"; strip
   clearance uses the 170pt fallback on inner landscape (cluster is 120pt);
-  the keyboard on the cover was not checked against the strip.
+  half-open pose not checked (needs the phase 2 bridge for the fold).
+- Cover keyboard (checked): it spans the full width including the strip, so
+  strip controls are top-aligned and New is hidden while the keyboard is up.
+  Text selection toolbars land in the content area despite the root overlay.
 - Open: take `foldable` now or wait for `duo_kit_ios` (phase 2).
