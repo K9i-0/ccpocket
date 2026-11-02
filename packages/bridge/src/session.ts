@@ -102,6 +102,11 @@ export interface SessionInfo {
    * after the latest user input. A prompt without output can be retracted.
    */
   turnOutputSinceUserInput?: boolean;
+  /**
+   * History revision at the last in-place rewind. Clients synced before it
+   * hold removed entries and must take a full snapshot.
+   */
+  historyResetSeq?: number;
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
   /** Live Claude background tasks. Kept out of chat history. */
@@ -299,6 +304,18 @@ export function isVisibleTurnOutput(msg: ServerMessage): boolean {
 export interface RetractableUserInput {
   text: string;
   historySeq: number;
+}
+
+function pastMessageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((block) =>
+      block && typeof block === "object" && (block as { type?: unknown }).type === "text"
+        ? String((block as { text?: unknown }).text ?? "")
+        : "",
+    )
+    .join("");
 }
 
 function publicQueuedInput(item?: QueuedSessionInput): QueuedInputItem | undefined {
@@ -950,6 +967,15 @@ export class SessionManager {
 
     const toSeq = session.historyRevision;
     const entries = session.historyEntries;
+    if (session.historyResetSeq !== undefined && sinceSeq < session.historyResetSeq) {
+      return {
+        kind: "snapshot",
+        fromSeq: entries[0]?.seq ?? toSeq + 1,
+        toSeq,
+        entries: [...entries],
+        reason: "compacted",
+      };
+    }
     if (entries.length === 0) {
       return {
         kind: "delta",
@@ -1810,6 +1836,168 @@ export class SessionManager {
   }
 
   /**
+   * Remove a user turn (the latest one when [targetUuid] is null) and
+   * everything after it from the conversation, keeping this session and its
+   * id (Codex App's edit-and-resend). Returns the removed prompt's text.
+   *
+   * Codex rewinds its thread on the running app-server; Claude restarts the
+   * same SdkProcess with `resumeSessionAt` the assistant message before the
+   * prompt. Clients are told with `conversation_rewound` and refetch history.
+   */
+  async rewindInPlace(
+    id: string,
+    targetUuid: string | null,
+  ): Promise<{ text: string }> {
+    const session = this.sessions.get(id);
+    if (!session) throw new Error(`Session ${id} not found`);
+    if (session.status !== "idle") {
+      throw new Error("Cannot rewind while the agent is running");
+    }
+    if (session.queuedInput) {
+      throw new Error("Cannot rewind while input is queued");
+    }
+
+    type Item = {
+      source: "past" | "live";
+      index: number;
+      role: "user" | "assistant" | "other";
+      uuid?: string;
+      text: string;
+    };
+    const items: Item[] = [];
+    (session.pastMessages ?? []).forEach((raw, index) => {
+      const pm = raw as {
+        role?: string;
+        uuid?: string;
+        isMeta?: boolean;
+        content?: unknown;
+      };
+      const role =
+        pm.role === "user" && pm.isMeta !== true
+          ? "user"
+          : pm.role === "assistant"
+            ? "assistant"
+            : "other";
+      items.push({
+        source: "past",
+        index,
+        role,
+        uuid: pm.uuid,
+        text: role === "user" ? pastMessageText(pm.content) : "",
+      });
+    });
+    session.history.forEach((msg, index) => {
+      if (msg.type === "user_input" && !msg.isMeta) {
+        items.push({
+          source: "live",
+          index,
+          role: "user",
+          uuid: msg.userMessageUuid,
+          text: msg.text,
+        });
+      } else if (msg.type === "assistant") {
+        items.push({
+          source: "live",
+          index,
+          role: "assistant",
+          uuid: msg.messageUuid,
+          text: "",
+        });
+      }
+    });
+
+    let targetPos = -1;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].role !== "user") continue;
+      if (targetUuid === null || items[i].uuid === targetUuid) {
+        targetPos = i;
+        break;
+      }
+    }
+    if (targetPos < 0) throw new Error("Rewind target not found");
+    const target = items[targetPos];
+    const earlier = items.slice(0, targetPos);
+    const trimmed = (session.historyEntries[0]?.seq ?? 1) > 1;
+
+    if (session.process instanceof CodexProcess) {
+      const userOrdinal = earlier.filter((item) => item.role === "user").length + 1;
+      const parsed = target.uuid?.match(/^codex:user-turn:(\d+)$/);
+      const ordinal = parsed ? Number(parsed[1]) : userOrdinal;
+      if (!parsed && trimmed) {
+        throw new Error("Cannot locate the Codex turn to rewind");
+      }
+      await session.process.rewindBeforeUserTurn(ordinal);
+    } else {
+      const sdkProcess = session.process as SdkProcess;
+      let assistantUuid: string | null = null;
+      let earlierUser = false;
+      for (let i = earlier.length - 1; i >= 0; i--) {
+        if (earlier[i].role === "assistant" && earlier[i].uuid) {
+          assistantUuid = earlier[i].uuid!;
+          break;
+        }
+        if (earlier[i].role === "user") earlierUser = true;
+      }
+      if (!assistantUuid && (earlierUser || trimmed)) {
+        throw new Error("Cannot locate the turn before the rewound prompt");
+      }
+      if (assistantUuid && !session.claudeSessionId) {
+        throw new Error("Session has no Claude session ID");
+      }
+      const options = this.claudeCarriedOptions(session);
+      const cwd = session.worktreePath ?? session.projectPath;
+      sdkProcess.start(
+        cwd,
+        assistantUuid
+          ? {
+              ...options,
+              sessionId: session.claudeSessionId!,
+              resumeSessionAt: assistantUuid,
+            }
+          : options,
+      );
+    }
+
+    // Drop the prompt and everything after it from Bridge-side history.
+    if (target.source === "past") {
+      session.pastMessages = (session.pastMessages ?? []).slice(0, target.index);
+      session.history.length = 0;
+      session.historyEntries.length = 0;
+    } else {
+      session.history.splice(target.index);
+      session.historyEntries.splice(target.index);
+    }
+    if (session.provider === "codex") {
+      // Codex history is re-read from the rewound thread.
+      session.codexOrderedHistoryEntries = [];
+      session.codexOrderedHistoryRevision = session.historyRevision + 1;
+      session.codexLatestUserInput = undefined;
+    }
+    session.turnOutputSinceUserInput = undefined;
+    session.historyRevision += 1;
+    session.historyResetSeq = session.historyRevision;
+    session.historyLowWatermark =
+      session.historyEntries[0]?.seq ?? session.historyRevision + 1;
+    session.lastActivityAt = new Date();
+    this.onMessage(id, { type: "conversation_rewound" } as ServerMessage);
+    return { text: target.text };
+  }
+
+  private claudeCarriedOptions(session: SessionInfo): StartOptions {
+    const sdkProcess = session.process as SdkProcess;
+    const { model, effort, fastMode } = sdkProcess.settings;
+    return {
+      permissionMode: sdkProcess.permissionMode,
+      ...(session.sandboxEnabled != null
+        ? { sandboxEnabled: session.sandboxEnabled }
+        : {}),
+      ...(model ? { model } : {}),
+      ...(effort ? { effort } : {}),
+      ...(fastMode ? { fastMode } : {}),
+    };
+  }
+
+  /**
    * The latest prompt, when it can still be retracted: it is the newest user
    * input, the agent has shown no output for it, it carries no images, and no
    * further input is queued behind it.
@@ -1836,61 +2024,6 @@ export class SessionManager {
     return null;
   }
 
-  /**
-   * Restart a Claude session just before its latest user input, located by
-   * position so it works before the SDK has assigned the prompt a UUID.
-   */
-  rewindBeforeLastUserInput(
-    id: string,
-    onReady: (newSessionId: string) => void,
-  ): void {
-    const session = this.sessions.get(id);
-    if (!session) throw new Error(`Session ${id} not found`);
-    if (session.provider === "codex") {
-      throw new Error("Use the Codex rewind path for Codex sessions");
-    }
-
-    let lastUserIndex = -1;
-    for (let i = session.history.length - 1; i >= 0; i--) {
-      const msg = session.history[i];
-      if (msg.type === "user_input" && !msg.isMeta) {
-        lastUserIndex = i;
-        break;
-      }
-    }
-    if (lastUserIndex < 0) throw new Error("No user input to retract");
-
-    let assistantUuid: string | null = null;
-    let earlierUserInput = false;
-    for (let i = lastUserIndex - 1; i >= 0; i--) {
-      const msg = session.history[i];
-      if (msg.type === "assistant" && msg.messageUuid) {
-        assistantUuid = msg.messageUuid;
-        break;
-      }
-      if (msg.type === "user_input" && !msg.isMeta) earlierUserInput = true;
-    }
-    if (!assistantUuid && session.pastMessages) {
-      for (let i = session.pastMessages.length - 1; i >= 0; i--) {
-        const pm = session.pastMessages[i] as { role?: string; uuid?: string };
-        if (pm.role === "assistant" && pm.uuid) {
-          assistantUuid = pm.uuid;
-          break;
-        }
-        if (pm.role === "user") earlierUserInput = true;
-      }
-    }
-    const trimmed = (session.historyEntries[0]?.seq ?? 1) > 1;
-    if (!assistantUuid && (earlierUserInput || trimmed)) {
-      // Never fall back to an empty session when earlier turns exist.
-      throw new Error("Cannot locate the turn before the latest prompt");
-    }
-    if (assistantUuid && !session.claudeSessionId) {
-      throw new Error("Session has no Claude session ID");
-    }
-    this.restartClaudeAt(id, session, assistantUuid, onReady);
-  }
-
   private restartClaudeAt(
     id: string,
     session: SessionInfo,
@@ -1899,19 +2032,8 @@ export class SessionManager {
   ): void {
     const claudeSessionId = session.claudeSessionId;
     const projectPath = session.projectPath;
-    const sdkProcess = session.process as SdkProcess;
-    const permissionMode = sdkProcess.permissionMode;
-    const { model, effort, fastMode } = sdkProcess.settings;
     // Carry the user's runtime choices into the restarted session.
-    const carriedOptions: StartOptions = {
-      permissionMode,
-      ...(session.sandboxEnabled != null
-        ? { sandboxEnabled: session.sandboxEnabled }
-        : {}),
-      ...(model ? { model } : {}),
-      ...(effort ? { effort } : {}),
-      ...(fastMode ? { fastMode } : {}),
-    };
+    const carriedOptions = this.claudeCarriedOptions(session);
     const worktreePath = session.worktreePath;
     const worktreeBranch = session.worktreeBranch;
 

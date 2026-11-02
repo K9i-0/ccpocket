@@ -2275,6 +2275,96 @@ function matchingCodexThreadIdFromFilePath(
   return null;
 }
 
+/** Id a rollout file is addressed by in a later segment's `history_base`. */
+function codexRolloutSegmentId(filePath: string): string {
+  const name = basename(filePath, ".jsonl");
+  const underscore = name.lastIndexOf("_");
+  if (underscore >= 0) return name.slice(underscore + 1);
+  const match = name.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+  return match ? match[1] : name;
+}
+
+/**
+ * Codex App edits and `thread/revert` on paginated threads start a new
+ * rollout segment whose `session_meta.history_base` keeps the base segment
+ * only up to `end_byte_offset`. Resolve that chain into the effective rollout
+ * so summaries and history skip the reverted turns.
+ */
+export async function readCodexRolloutChain(
+  filePath: string,
+  files: readonly string[],
+  endByteOffset?: number,
+  depth = 0,
+): Promise<string> {
+  const buffer = await readFile(filePath);
+  const own = endByteOffset === undefined
+    ? buffer
+    : buffer.subarray(0, Math.min(endByteOffset, buffer.length));
+  const firstNewline = own.indexOf(0x0a);
+  const headerText = own
+    .subarray(0, firstNewline < 0 ? own.length : firstNewline)
+    .toString("utf-8");
+  let base: { thread_id?: unknown; end_byte_offset?: unknown } | undefined;
+  try {
+    const header = JSON.parse(headerText) as {
+      type?: unknown;
+      payload?: { history_base?: typeof base };
+    };
+    if (header.type === "session_meta") base = header.payload?.history_base;
+  } catch {
+    base = undefined;
+  }
+  if (
+    !base ||
+    typeof base.thread_id !== "string" ||
+    typeof base.end_byte_offset !== "number" ||
+    depth > 64
+  ) {
+    return own.toString("utf-8");
+  }
+  const baseId = base.thread_id;
+  const basePath = files.find((file) => codexRolloutSegmentId(file) === baseId);
+  if (!basePath) return own.toString("utf-8");
+  const prefix = await readCodexRolloutChain(
+    basePath,
+    files,
+    base.end_byte_offset,
+    depth + 1,
+  );
+  const rest = firstNewline < 0 ? "" : own.subarray(firstNewline + 1).toString("utf-8");
+  return `${prefix}${prefix.endsWith("\n") || !prefix ? "" : "\n"}${rest}`;
+}
+
+async function readCodexHead(filePath: string): Promise<string> {
+  const handle = await open(filePath, "r");
+  try {
+    const buffer = Buffer.alloc(CODEX_HEAD_BYTES);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const text = buffer.subarray(0, bytesRead).toString("utf-8");
+    const newline = text.indexOf("\n");
+    return newline < 0 ? text : text.slice(0, newline);
+  } finally {
+    await handle.close();
+  }
+}
+
+function codexRolloutBaseSegmentId(head: string): string | undefined {
+  if (!codexRolloutHasHistoryBase(head)) return undefined;
+  try {
+    const header = JSON.parse(head) as {
+      payload?: { history_base?: { thread_id?: unknown } };
+    };
+    const id = header.payload?.history_base?.thread_id;
+    return typeof id === "string" ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function codexRolloutHasHistoryBase(head: string): boolean {
+  return head.includes('"history_base"');
+}
+
 export async function getCodexSessionIndexMetadata(
   threadIds: readonly string[],
 ): Promise<Map<string, CodexSessionIndexMetadata>> {
@@ -2292,29 +2382,63 @@ export async function getCodexSessionIndexMetadata(
     PARALLEL_FILE_READ_LIMIT,
     async (filePath) => {
       const fallbackSessionId = basename(filePath, ".jsonl");
-      const parsed = await parseCodexSessionJsonlFast(filePath, fallbackSessionId);
-      if (!parsed || !wantedThreadIds.has(parsed.threadId)) return null;
       try {
-        return { parsed, modified: (await stat(filePath)).mtimeMs };
+        const head = await readCodexHead(filePath);
+        const baseSegmentId = codexRolloutBaseSegmentId(head);
+        // A fresh revert segment may hold only metadata, so it is resolved
+        // through its chain instead of parsed on its own.
+        const parsed = baseSegmentId
+          ? null
+          : await parseCodexSessionJsonlFast(filePath, fallbackSessionId);
+        if (!baseSegmentId && (!parsed || !wantedThreadIds.has(parsed.threadId))) {
+          return null;
+        }
+        return {
+          parsed,
+          threadId:
+            parsed?.threadId ??
+            matchingCodexThreadIdFromFilePath(filePath, wantedThreadIds)!,
+          filePath,
+          baseSegmentId,
+          modified: (await stat(filePath)).mtimeMs,
+        };
       } catch {
         return null;
       }
     },
   );
 
+  // A reverted segment is superseded by the segment based on it, even when
+  // turn activity touched it last.
+  const supersededSegments = new Set(
+    parsedResults.flatMap((candidate) =>
+      candidate?.baseSegmentId ? [candidate.baseSegmentId] : [],
+    ),
+  );
   const newestByThread = new Map<
     string,
-    { parsed: CodexSessionParseResult; modified: number }
+    NonNullable<(typeof parsedResults)[number]>
   >();
   for (const candidate of parsedResults) {
     if (!candidate) continue;
-    const existing = newestByThread.get(candidate.parsed.threadId);
+    if (supersededSegments.has(codexRolloutSegmentId(candidate.filePath))) continue;
+    const existing = newestByThread.get(candidate.threadId);
     if (!existing || candidate.modified > existing.modified) {
-      newestByThread.set(candidate.parsed.threadId, candidate);
+      newestByThread.set(candidate.threadId, candidate);
     }
   }
 
-  for (const [threadId, { parsed }] of newestByThread) {
+  for (const [threadId, candidate] of newestByThread) {
+    let parsed = candidate.parsed;
+    if (candidate.baseSegmentId) {
+      try {
+        const raw = await readCodexRolloutChain(candidate.filePath, files);
+        parsed = parseCodexSessionJsonl(raw, threadId);
+      } catch {
+        parsed = null;
+      }
+    }
+    if (!parsed) continue;
     result.set(threadId, {
       ...(parsed.entry.codexSettings
         ? { codexSettings: parsed.entry.codexSettings }
@@ -3139,9 +3263,26 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
       await file?.close();
     }
   });
-  const newest = matches
-    .filter((match): match is { filePath: string; modified: number } => match !== null)
-    .sort((a, b) => b.modified - a.modified)[0];
+  const found = matches.filter(
+    (match): match is { filePath: string; modified: number } => match !== null,
+  );
+  // Prefer the leaf segment: a reverted segment is superseded by the one
+  // based on it, even when it was written to last.
+  const superseded = new Set<string>();
+  if (found.length > 1) {
+    for (const match of found) {
+      try {
+        const baseId = codexRolloutBaseSegmentId(await readCodexHead(match.filePath));
+        if (baseId) superseded.add(baseId);
+      } catch {
+        // Unreadable headers just do not supersede anything.
+      }
+    }
+  }
+  const newest = found
+    .filter((match) => !superseded.has(codexRolloutSegmentId(match.filePath)))
+    .sort((a, b) => b.modified - a.modified)[0] ??
+    found.sort((a, b) => b.modified - a.modified)[0];
   if (newest) return newest.filePath;
 
   for (const filePath of files) {
@@ -3164,6 +3305,82 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
  * Read past conversation messages from a session's JSONL file.
  * Returns user and assistant messages suitable for display.
  */
+/**
+ * A rewind or edit (`resumeSessionAt`, Claude Code's /rewind) leaves the
+ * abandoned turns in the transcript and starts a sibling branch at a user
+ * prompt. Like `claude --resume`, the branch ending at the latest entry is
+ * the conversation. Returns the uuids of abandoned turns: every prompt off
+ * that branch together with its descendants. Parallel tool calls also branch
+ * the transcript, but never at a prompt, so they are kept. Returns null when
+ * nothing was abandoned or the chain cannot be followed.
+ */
+export function claudeAbandonedBranchUuids(lines: readonly string[]): Set<string> | null {
+  const parents = new Map<string, string | undefined>();
+  const children = new Map<string, string[]>();
+  const prompts: string[] = [];
+  let leaf: string | undefined;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    const uuid = entry.uuid;
+    if (typeof uuid !== "string" || entry.isSidechain === true) continue;
+    // Transcripts without parent links cannot be branched.
+    if (
+      (entry.type === "user" || entry.type === "assistant") &&
+      !("parentUuid" in entry)
+    ) {
+      return null;
+    }
+    const parent =
+      typeof entry.parentUuid === "string"
+        ? entry.parentUuid
+        : typeof entry.logicalParentUuid === "string"
+          ? entry.logicalParentUuid
+          : undefined;
+    parents.set(uuid, parent);
+    if (parent) children.set(parent, [...(children.get(parent) ?? []), uuid]);
+    if (entry.type === "user" || entry.type === "assistant") leaf = uuid;
+    if (entry.type === "user" && isClaudePromptEntry(entry)) prompts.push(uuid);
+  }
+  if (!leaf) return null;
+  const active = new Set<string>();
+  let current: string | undefined = leaf;
+  while (current !== undefined && !active.has(current)) {
+    // A parent missing from the file means the chain cannot be trusted.
+    if (!parents.has(current)) return null;
+    active.add(current);
+    current = parents.get(current);
+  }
+  const abandoned = new Set<string>();
+  const stack = prompts.filter((uuid) => !active.has(uuid));
+  while (stack.length > 0) {
+    const uuid = stack.pop()!;
+    if (abandoned.has(uuid) || active.has(uuid)) continue;
+    abandoned.add(uuid);
+    stack.push(...(children.get(uuid) ?? []));
+  }
+  return abandoned.size > 0 ? abandoned : null;
+}
+
+function isClaudePromptEntry(entry: Record<string, unknown>): boolean {
+  if (entry.isMeta === true || entry.isCompactSummary === true) return false;
+  const message = entry.message as { content?: unknown } | undefined;
+  const content = message?.content;
+  if (typeof content === "string") {
+    return content.trim().length > 0 && !isClaudeNonPromptUserEntry(entry, content);
+  }
+  if (!Array.isArray(content)) return false;
+  const blocks = content as Array<{ type?: unknown }>;
+  if (blocks.some((block) => block?.type === "tool_result")) return false;
+  if (!blocks.some((block) => block?.type === "text")) return false;
+  return !isClaudeNonPromptUserEntry(entry, content);
+}
+
 export async function getSessionHistory(
   sessionId: string,
 ): Promise<SessionHistoryMessage[]> {
@@ -3179,6 +3396,7 @@ export async function getSessionHistory(
 
   const messages: SessionHistoryMessage[] = [];
   const lines = raw.split("\n");
+  const abandonedBranch = claudeAbandonedBranchUuids(lines);
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -3192,6 +3410,9 @@ export async function getSessionHistory(
 
     const type = entry.type as string;
     if (type !== "user" && type !== "assistant") continue;
+    if (typeof entry.uuid === "string" && abandonedBranch?.has(entry.uuid)) {
+      continue;
+    }
 
     // Skip context compaction and transcript-only messages (not real user input)
     if (type === "user") {
@@ -3767,6 +3988,9 @@ export async function getCodexSessionHistory(
   let raw: string;
   try {
     raw = await readFile(jsonlPath, "utf-8");
+    if (codexRolloutHasHistoryBase(raw.slice(0, raw.indexOf("\n") >>> 0))) {
+      raw = await readCodexRolloutChain(jsonlPath, await listCodexSessionFiles());
+    }
   } catch {
     return [];
   }

@@ -2197,6 +2197,40 @@ describe("CodexProcess (app-server)", () => {
     expect(proc.sessionId).toBe("source");
   });
 
+  it("rewinds in place with thread/revert before the target turn", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "source";
+    const turns = [1, 2, 3].map((n) => ({ id: `turn${n}`, status: "completed", items: [{ type: "userMessage", content: [{ type: "text", text: String(n) }] }] }));
+    vi.spyOn(proc, "readThread").mockResolvedValue({ turns });
+    const request = vi.spyOn(proc as any, "request").mockResolvedValue({ thread: { id: "source" } });
+    await proc.rewindBeforeUserTurn(2);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith("thread/revert", { threadId: "source", beforeTurnId: "turn2" });
+  });
+
+  it("falls back to thread/rollback when revert is unavailable", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "source";
+    const turns = [1, 2, 3].map((n) => ({ id: `turn${n}`, status: "completed", items: [{ type: "userMessage", content: [{ type: "text", text: String(n) }] }] }));
+    vi.spyOn(proc, "readThread").mockResolvedValue({ turns });
+    const request = vi.spyOn(proc as any, "request")
+      .mockRejectedValueOnce(new CodexRpcError("thread/revert", { code: -32600, message: "not paginated" }))
+      .mockResolvedValueOnce({ thread: { id: "source" } });
+    await proc.rewindBeforeUserTurn(2);
+    expect(request).toHaveBeenLastCalledWith("thread/rollback", { threadId: "source", numTurns: 2 });
+  });
+
+  it("refuses to rewind inside a steered turn or while running", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "source";
+    vi.spyOn(proc, "readThread").mockResolvedValue({ turns: [{ id: "turn1", items: ["first", "steer"].map((text) => ({ type: "userMessage", content: [{ type: "text", text }] })) }] });
+    const request = vi.spyOn(proc as any, "request");
+    await expect(proc.rewindBeforeUserTurn(2)).rejects.toThrow("multiple user messages");
+    (proc as any).pendingTurnId = "turn1";
+    await expect(proc.rewindBeforeUserTurn(1)).rejects.toThrow("running");
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("rejects a fork when an older server ignores the boundary", async () => {
     const proc = new CodexProcess("linux");
     (proc as any)._threadId = "source";

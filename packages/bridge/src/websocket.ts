@@ -1718,52 +1718,58 @@ export class BridgeWebSocketServer {
     if (!latest || latest.historySeq !== candidate.historySeq) return;
     if (this.sessionManager.get(sessionId) !== session) return;
 
-    const notifyRetracted = () => {
+    this.flushSessionDeltaBatches(sessionId);
+    await this.sessionManager.rewindInPlace(sessionId, null);
+    this.send(ws, {
+      type: "input_retracted",
+      sessionId,
+      text: latest.text,
+    });
+  }
+
+  /**
+   * Codex App's edit-and-resend: rewind the conversation in place to just
+   * before [targetUuid], then send [text] as a new prompt through the normal
+   * input path. Only allowed between turns.
+   */
+  private async editUserMessage(
+    ws: WebSocket,
+    msg: Extract<ClientMessage, { type: "edit_message" }>,
+  ): Promise<void> {
+    const fail = (message: string) => {
       this.send(ws, {
-        type: "input_retracted",
-        sessionId,
-        text: latest.text,
+        type: "error",
+        sessionId: msg.sessionId,
+        message,
+        errorCode: "edit_message_failed",
+        ...(msg.clientMessageId ? { clientMessageId: msg.clientMessageId } : {}),
       });
     };
-
-    if (session.provider === "codex") {
-      const turns = countCodexUserTurnsInSession(session);
-      await this.rewindCodexConversation(
-        ws,
-        sessionId,
-        `codex:user-turn:${turns}`,
-        "conversation",
-        notifyRetracted,
-      );
+    const session = this.sessionManager.get(msg.sessionId);
+    if (!session) {
+      fail(`Session ${msg.sessionId} not found`);
       return;
     }
-
-    this.flushSessionDeltaBatches(sessionId);
-    this.sessionManager.rewindBeforeLastUserInput(sessionId, (newSessionId) => {
-      notifyRetracted();
-      this.send(ws, {
-        type: "rewind_result",
-        sessionId,
-        success: true,
-        mode: "conversation",
-      });
-      const newSession = this.sessionManager.get(newSessionId);
-      this.send(
-        ws,
-        this.buildSessionCreatedMessage({
-          sessionId: newSessionId,
-          provider: newSession?.provider ?? "claude",
-          projectPath: newSession?.projectPath ?? "",
-          session: newSession,
-          permissionMode:
-            newSession?.process instanceof SdkProcess
-              ? newSession.process.permissionMode
-              : undefined,
-          sourceSessionId: sessionId,
-        }),
-      );
-      this.sendSessionList(ws);
-    });
+    if (session.status !== "idle") {
+      fail("Cannot edit a message while a turn is in progress.");
+      return;
+    }
+    try {
+      this.flushSessionDeltaBatches(msg.sessionId);
+      await this.sessionManager.rewindInPlace(msg.sessionId, msg.targetUuid);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    await this.handleClientMessage(
+      {
+        type: "input",
+        sessionId: msg.sessionId,
+        text: msg.text,
+        ...(msg.clientMessageId ? { clientMessageId: msg.clientMessageId } : {}),
+      },
+      ws,
+    );
   }
 
   private waitForSessionIdle(
@@ -6593,6 +6599,11 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "edit_message": {
+        await this.editUserMessage(ws, msg);
+        break;
+      }
+
       case "list_project_history": {
         const projects = this.legacyProjectHistoryProjects();
         this.send(ws, { type: "project_history", projects });
@@ -8957,6 +8968,7 @@ export class BridgeWebSocketServer {
         "input_delivery_v1",
         "claude_session_settings_v1",
         "claude_fork_v1",
+        "message_edit_v1",
       ],
     });
   }
@@ -9008,6 +9020,7 @@ export class BridgeWebSocketServer {
         "input_delivery_v1",
         "claude_session_settings_v1",
         "claude_fork_v1",
+        "message_edit_v1",
       ],
     });
   }

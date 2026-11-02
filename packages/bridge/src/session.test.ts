@@ -1566,50 +1566,108 @@ describe("SessionManager prompt retraction", () => {
     manager.destroyAll();
   });
 
-  it("restarts at the assistant before the latest prompt without needing its uuid", () => {
-    const { manager, id } = setup();
+  const idle = (proc: { emit: (e: string, ...a: unknown[]) => boolean }) =>
+    proc.emit("status", "idle");
+
+  it("restarts the same process at the assistant before the latest prompt", async () => {
+    const { manager, id, proc, session } = setup();
+    idle(proc);
     manager.appendHistory(id, { type: "user_input", text: "first", userMessageUuid: "u1" } as ServerMessage);
     manager.appendHistory(id, assistant("a1", [{ type: "text", text: "hi" }]));
     manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+    proc.start.mockClear();
+    const forwarded = vi.spyOn(manager as unknown as { onMessage: (...a: unknown[]) => void }, "onMessage");
 
-    const onReady = vi.fn();
-    manager.rewindBeforeLastUserInput(id, onReady);
+    const result = await manager.rewindInPlace(id, null);
 
-    expect(onReady).toHaveBeenCalledOnce();
-    expect(sdkInstances.at(-1)!.start).toHaveBeenCalledWith(
+    expect(result.text).toBe("typo");
+    expect(manager.get(id)).toBe(session);
+    expect(proc.start).toHaveBeenCalledWith(
       "/tmp/retract",
-      expect.objectContaining({
-        sessionId: "claude-session-1",
-        resumeSessionAt: "a1",
-      }),
+      expect.objectContaining({ sessionId: "claude-session-1", resumeSessionAt: "a1" }),
     );
+    expect(session.history.map((m) => m.type)).toEqual(["user_input", "assistant"]);
+    expect(manager.getHistorySince(id, session.historyRevision - 1)?.kind).toBe("snapshot");
+    expect(forwarded).toHaveBeenCalledWith(id, { type: "conversation_rewound" });
     manager.destroyAll();
   });
 
-  it("starts empty when the retracted prompt was the first turn", () => {
-    const { manager, id } = setup();
+  it("rewinds an earlier prompt by uuid, dropping later turns", async () => {
+    const { manager, id, proc, session } = setup();
+    idle(proc);
+    manager.appendHistory(id, { type: "user_input", text: "first", userMessageUuid: "u1" } as ServerMessage);
+    manager.appendHistory(id, assistant("a1", [{ type: "text", text: "hi" }]));
+    manager.appendHistory(id, { type: "user_input", text: "second", userMessageUuid: "u2" } as ServerMessage);
+    manager.appendHistory(id, assistant("a2", [{ type: "text", text: "yo" }]));
+    manager.appendHistory(id, { type: "user_input", text: "third", userMessageUuid: "u3" } as ServerMessage);
+
+    const result = await manager.rewindInPlace(id, "u2");
+
+    expect(result.text).toBe("second");
+    expect(proc.start).toHaveBeenLastCalledWith(
+      "/tmp/retract",
+      expect.objectContaining({ resumeSessionAt: "a1" }),
+    );
+    expect(session.history.filter((m) => m.type === "user_input")).toHaveLength(1);
+    manager.destroyAll();
+  });
+
+  it("rewinds into resumed past history", async () => {
+    const { manager, id, proc, session } = setup();
+    idle(proc);
+    session.pastMessages = [
+      { role: "user", uuid: "p1", content: [{ type: "text", text: "old" }] },
+      { role: "assistant", uuid: "pa1", content: [] },
+      { role: "user", uuid: "p2", content: "older typo" },
+    ];
+    manager.appendHistory(id, { type: "user_input", text: "live", userMessageUuid: "u9" } as ServerMessage);
+
+    const result = await manager.rewindInPlace(id, "p2");
+
+    expect(result.text).toBe("older typo");
+    expect(proc.start).toHaveBeenLastCalledWith(
+      "/tmp/retract",
+      expect.objectContaining({ resumeSessionAt: "pa1" }),
+    );
+    expect(session.pastMessages).toHaveLength(2);
+    expect(session.history).toHaveLength(0);
+    manager.destroyAll();
+  });
+
+  it("starts empty when the rewound prompt was the first turn", async () => {
+    const { manager, id, proc } = setup();
+    idle(proc);
     manager.get(id)!.claudeSessionId = undefined;
     manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+    proc.start.mockClear();
 
-    const onReady = vi.fn();
-    manager.rewindBeforeLastUserInput(id, onReady);
+    await manager.rewindInPlace(id, null);
 
-    expect(onReady).toHaveBeenCalledOnce();
-    const options = sdkInstances.at(-1)!.start.mock.calls[0][1];
+    const options = proc.start.mock.calls[0][1];
     expect(options.resumeSessionAt).toBeUndefined();
     expect(options.sessionId).toBeUndefined();
     manager.destroyAll();
   });
 
-  it("refuses to drop earlier turns when no rewind point is known", () => {
-    const { manager, id } = setup();
+  it("refuses to drop earlier turns when no rewind point is known", async () => {
+    const { manager, id, proc } = setup();
+    idle(proc);
     manager.appendHistory(id, { type: "user_input", text: "first" } as ServerMessage);
     manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+    proc.start.mockClear();
 
-    expect(() => manager.rewindBeforeLastUserInput(id, vi.fn())).toThrow(
-      "Cannot locate the turn before the latest prompt",
+    await expect(manager.rewindInPlace(id, null)).rejects.toThrow(
+      "Cannot locate the turn before the rewound prompt",
     );
-    expect(manager.get(id)).toBeDefined();
+    expect(proc.start).not.toHaveBeenCalled();
+    manager.destroyAll();
+  });
+
+  it("refuses while the agent is running", async () => {
+    const { manager, id, proc } = setup();
+    proc.emit("status", "running");
+    manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+    await expect(manager.rewindInPlace(id, null)).rejects.toThrow("running");
     manager.destroyAll();
   });
 });

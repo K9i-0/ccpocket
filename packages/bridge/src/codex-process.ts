@@ -846,6 +846,65 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     } while (cursor !== undefined);
   }
 
+  /**
+   * Drop the given user turn and everything after it from this thread, in
+   * place (Codex App's edit-and-resend). Uses `thread/revert` and falls back
+   * to the older `thread/rollback` when the server or thread lacks it.
+   */
+  async rewindBeforeUserTurn(userTurnOrdinal: number): Promise<void> {
+    const threadId = this._threadId;
+    if (!threadId) throw new Error("No thread ID available for rewind");
+    if (!Number.isInteger(userTurnOrdinal) || userTurnOrdinal < 1) {
+      throw new Error("Invalid Codex rewind target");
+    }
+    if (this.pendingTurnId) {
+      throw new Error("Cannot rewind while Codex is running");
+    }
+    const source = await this.readThread(threadId);
+    const turns = (Array.isArray(source.turns) ? source.turns : [])
+      .map((raw) => asRecord(raw))
+      .filter((turn): turn is Record<string, unknown> => turn !== null);
+    let userCount = 0;
+    let cutIndex = -1;
+    for (let i = 0; i < turns.length; i++) {
+      const before = userCount;
+      userCount += codexThreadToSessionHistory({ turns: [turns[i]] }).filter(
+        (message) => message.role === "user",
+      ).length;
+      if (userCount >= userTurnOrdinal) {
+        if (before + 1 !== userTurnOrdinal) {
+          throw new Error(
+            "Cannot rewind within a Codex turn containing multiple user messages",
+          );
+        }
+        cutIndex = i;
+        break;
+      }
+    }
+    if (cutIndex < 0) {
+      throw new Error("Codex rewind target was not found in stored history");
+    }
+    if (turns.slice(cutIndex).some((turn) => turn.status === "inProgress")) {
+      throw new Error("Cannot rewind an in-progress Codex turn");
+    }
+    const beforeTurnId = turns[cutIndex].id;
+    if (typeof beforeTurnId === "string") {
+      try {
+        await this.request("thread/revert", { threadId, beforeTurnId });
+        return;
+      } catch (err) {
+        if (!(err instanceof CodexRpcError)) throw err;
+        console.log(
+          `[codex-process] thread/revert unavailable (${err.message}); using thread/rollback`,
+        );
+      }
+    }
+    await this.request("thread/rollback", {
+      threadId,
+      numTurns: turns.length - cutIndex,
+    });
+  }
+
   /** Fork at a complete turn boundary without mutating the source history. */
   async forkThreadAtUserTurn(userTurnOrdinal: number): Promise<{
     threadId: string;

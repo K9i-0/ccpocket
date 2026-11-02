@@ -446,12 +446,9 @@ vi.mock("./session.js", () => ({
 
     retractableUserInput = vi.fn((_id: string): unknown => null);
 
-    rewindBeforeLastUserInput(
-      id: string,
-      onReady: (newSessionId: string) => void,
-    ) {
-      this.rewindConversation(id, "", onReady);
-    }
+    rewindInPlace = vi.fn(async (_id: string, _target: string | null) => ({
+      text: "typo",
+    }));
 
     rewindConversation(
       id: string,
@@ -10124,58 +10121,84 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("retracts an interrupted codex prompt by forking before its turn", async () => {
-    const bridge = new BridgeWebSocketServer({ server: httpServer });
-    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
-    (bridge as any).handleClientMessage(
-      { type: "start", projectPath: "/tmp/project-codex", provider: "codex" },
-      ws,
-    );
-    await Promise.resolve();
-    const created = ws.send.mock.calls
-      .map((c: unknown[]) => JSON.parse(c[0] as string))
-      .find((m: any) => m.type === "system" && m.subtype === "session_created");
-    const sessionId = created.sessionId as string;
-    const manager = (bridge as any).sessionManager;
-    const session = manager.get(sessionId);
-    session.claudeSessionId = "thread-retract";
-    session.process.sessionId = "thread-retract";
-    session.pastMessages = [
-      { role: "user", uuid: "codex:user-turn:1", content: [{ type: "text", text: "first" }] },
-      { role: "assistant", content: [{ type: "text", text: "answer" }] },
-    ];
-    manager.appendHistory(sessionId, { type: "user_input", text: "typo" });
-    session.status = "running";
-    session.process.interrupt = vi.fn(() => {
-      session.status = "idle";
-    });
-    manager.retractableUserInput.mockReturnValue({ text: "typo", historySeq: 1 });
-    session.process.archiveThread = vi.fn(async () => {});
+  describe("edit_message", () => {
+    const start = async (bridge: any, ws: any) => {
+      bridge.handleClientMessage(
+        { type: "start", projectPath: "/tmp/edit-test", provider: "claude" },
+        ws,
+      );
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find((m: any) => m.type === "system" && m.subtype === "session_created");
+      ws.send.mockClear();
+      return created.sessionId as string;
+    };
 
-    ws.send.mockClear();
-    (bridge as any).handleClientMessage(
-      { type: "interrupt", sessionId, retract: true },
-      ws,
-    );
-    await vi.waitFor(() => {
-      expect(
-        ws.send.mock.calls.some((c: unknown[]) =>
-          String(c[0]).includes('"input_retracted"'),
-        ),
-      ).toBe(true);
+    it("rewinds in place, then sends the edited text as new input", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const sessionId = await start(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      const handle = vi.spyOn(bridge as any, "handleClientMessage");
+
+      await (bridge as any).handleClientMessage(
+        { type: "edit_message", sessionId, targetUuid: "u2", text: "fixed", clientMessageId: "c1" },
+        ws,
+      );
+
+      expect(manager.rewindInPlace).toHaveBeenCalledWith(sessionId, "u2");
+      expect(handle).toHaveBeenCalledWith(
+        { type: "input", sessionId, text: "fixed", clientMessageId: "c1" },
+        ws,
+      );
+      bridge.close();
     });
 
-    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledWith(1);
-    // The retracted thread is replaced, not kept as a sibling in history.
-    expect(session.process.archiveThread).toHaveBeenCalledWith("thread-retract");
-    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
-    const retractedIndex = sends.findIndex((m: any) => m.type === "input_retracted");
-    const createdIndex = sends.findIndex(
-      (m: any) => m.type === "system" && m.subtype === "session_created",
-    );
-    expect(sends[retractedIndex]).toEqual({ type: "input_retracted", sessionId, text: "typo" });
-    expect(createdIndex).toBeGreaterThan(retractedIndex);
-    bridge.close();
+    it("refuses while a turn is running", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const sessionId = await start(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      manager.get(sessionId).status = "running";
+
+      await (bridge as any).handleClientMessage(
+        { type: "edit_message", sessionId, targetUuid: "u2", text: "fixed" },
+        ws,
+      );
+
+      expect(manager.rewindInPlace).not.toHaveBeenCalled();
+      const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+      expect(sends).toContainEqual(
+        expect.objectContaining({ type: "error", errorCode: "edit_message_failed" }),
+      );
+      bridge.close();
+    });
+
+    it("reports a failed rewind without sending input", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const sessionId = await start(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      manager.rewindInPlace.mockRejectedValueOnce(new Error("Rewind target not found"));
+      const handle = vi.spyOn(bridge as any, "handleClientMessage");
+
+      await (bridge as any).handleClientMessage(
+        { type: "edit_message", sessionId, targetUuid: "zz", text: "fixed" },
+        ws,
+      );
+
+      expect(handle).toHaveBeenCalledTimes(1);
+      const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+      expect(sends).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "edit_message_failed",
+          message: "Rewind target not found",
+        }),
+      );
+      bridge.close();
+    });
   });
 
   it("forks codex conversation directly at a target turn", async () => {
@@ -10955,7 +10978,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sent = (ws: any) =>
       ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
 
-    it("hands the prompt back before switching to the rewound session", async () => {
+    it("rewinds in place and hands the prompt back", async () => {
       const bridge = new BridgeWebSocketServer({ server: httpServer });
       const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
       const { sessionId, session } = await startClaude(bridge, ws);
@@ -10969,18 +10992,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       await flush();
 
       expect(session.process.interrupt).toHaveBeenCalledOnce();
+      expect(manager.rewindInPlace).toHaveBeenCalledWith(sessionId, null);
       const messages = sent(ws);
-      const retractedIndex = messages.findIndex((m: any) => m.type === "input_retracted");
-      const createdIndex = messages.findIndex(
-        (m: any) => m.type === "system" && m.subtype === "session_created",
-      );
-      expect(messages[retractedIndex]).toEqual({
-        type: "input_retracted",
-        sessionId,
-        text: "typo",
-      });
-      expect(createdIndex).toBeGreaterThan(retractedIndex);
-      expect(messages[createdIndex].sourceSessionId).toBe(sessionId);
+      expect(messages).toContainEqual({ type: "input_retracted", sessionId, text: "typo" });
+      expect(
+        messages.some((m: any) => m.type === "system" && m.subtype === "session_created"),
+      ).toBe(false);
+      expect(manager.get(sessionId)).toBe(session);
       bridge.close();
     });
 

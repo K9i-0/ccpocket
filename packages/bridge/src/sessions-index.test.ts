@@ -20,6 +20,7 @@ import {
   getPinnedCodexSessions,
   selectPinnedRecentSessions,
   getCodexSessionIndexMetadata,
+  claudeAbandonedBranchUuids,
   getCodexSessionHistory,
   loadCodexSessionNames,
   extractMessageImages,
@@ -1538,6 +1539,73 @@ describe("codex sessions integration", () => {
       lastPrompt: "latest prompt",
       summary: expect.stringMatching(/^latest summary/),
     });
+  });
+
+  it("follows reverted Codex rollout segments (thread/revert, Codex App edit)", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d680aa";
+    const segmentId = "019c56c0-d4d8-7b22-9e3c-200664d680bb";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    const line = (type: string, payload: unknown) =>
+      `${JSON.stringify({ timestamp: "2026-02-13T10:00:00.000Z", type, payload })}\n`;
+    const user = (text: string) => line("event_msg", { type: "user_message", message: text });
+    const answer = (text: string) =>
+      line("response_item", {
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text }],
+      });
+    const meta = line("session_meta", { id: threadId, cwd: "/tmp/p" });
+    const keep = meta + user("ONE") + answer("one");
+    const basePath = join(codexDir, `rollout-2026-02-13T10-00-00-${threadId}.jsonl`);
+    writeFileSync(basePath, keep + user("TWO") + answer("two"));
+    const segmentPath = join(
+      codexDir,
+      `rollout-2026-02-13T10-01-00-${threadId}_${segmentId}.jsonl`,
+    );
+    const segmentKeep =
+      line("session_meta", {
+        id: threadId,
+        cwd: "/tmp/p",
+        history_base: {
+          thread_id: threadId,
+          end_byte_offset: Buffer.byteLength(keep),
+        },
+      }) + user("EDITED") + answer("edited");
+    writeFileSync(segmentPath, segmentKeep + user("RETRACTED"));
+    // A retract right after: the newest segment holds only metadata.
+    const leafPath = join(
+      codexDir,
+      `rollout-2026-02-13T10-02-00-${threadId}_019c56c0-d4d8-7b22-9e3c-200664d680cc.jsonl`,
+    );
+    writeFileSync(
+      leafPath,
+      line("session_meta", {
+        id: threadId,
+        cwd: "/tmp/p",
+        history_base: {
+          thread_id: segmentId,
+          end_byte_offset: Buffer.byteLength(segmentKeep),
+        },
+      }),
+    );
+    // Reverted segments can be written after the segment replacing them.
+    utimesSync(leafPath, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    utimesSync(segmentPath, new Date(1_700_000_050_000), new Date(1_700_000_050_000));
+    utimesSync(basePath, new Date(1_700_000_100_000), new Date(1_700_000_100_000));
+
+    const metadata = await getCodexSessionIndexMetadata([threadId]);
+    expect(metadata.get(threadId)).toMatchObject({
+      firstPrompt: "ONE",
+      lastPrompt: "EDITED",
+    });
+
+    const history = await getCodexSessionHistory(threadId);
+    expect(
+      history.filter((m) => m.role === "user").map((m) =>
+        (m.content as Array<{ text?: string }>).map((b) => b.text).join(""),
+      ),
+    ).toEqual(["ONE", "EDITED"]);
   });
 
   it("reads codex history from jsonl", async () => {
@@ -3348,5 +3416,50 @@ describe("pinned recent sessions", () => {
       searchQuery: "TOO",
     });
     expect(searched.map((s) => s.sessionId)).toEqual(["unnamed"]);
+  });
+});
+
+
+describe("claudeAbandonedBranchUuids", () => {
+  const entry = (
+    type: "user" | "assistant" | "attachment",
+    uuid: string,
+    parentUuid: string | null,
+    content: unknown = type === "user" ? "prompt" : [{ type: "text", text: "a" }],
+  ) => JSON.stringify({ type, uuid, parentUuid, message: { role: type, content } });
+
+  it("drops turns abandoned by an edit and keeps the new branch", () => {
+    const lines = [
+      entry("user", "u1", null, "ONE"),
+      entry("assistant", "a1", "u1"),
+      entry("attachment", "x1", "a1"),
+      entry("user", "u2", "x1", "TWO"),
+      entry("assistant", "a2", "u2"),
+      entry("user", "u3", "a2", "THREE"),
+      entry("user", "u2b", "a1", "EDITED"),
+      entry("assistant", "a2b", "u2b"),
+    ];
+    expect(claudeAbandonedBranchUuids(lines)).toEqual(new Set(["u2", "a2", "u3"]));
+  });
+
+  it("keeps parallel tool call siblings", () => {
+    const lines = [
+      entry("user", "u1", null, "go"),
+      entry("assistant", "t1", "u1", [{ type: "tool_use", id: "1", name: "Read", input: {} }]),
+      entry("assistant", "t2", "u1", [{ type: "tool_use", id: "2", name: "Read", input: {} }]),
+      entry("user", "r1", "t1", [{ type: "tool_result", tool_use_id: "1", content: "x" }]),
+      entry("user", "r2", "t2", [{ type: "tool_result", tool_use_id: "2", content: "y" }]),
+      entry("assistant", "a1", "r2"),
+    ];
+    expect(claudeAbandonedBranchUuids(lines)).toBeNull();
+  });
+
+  it("does not filter when the chain to the latest entry is broken", () => {
+    const lines = [
+      entry("user", "u1", null, "ONE"),
+      entry("assistant", "a1", "u1"),
+      entry("user", "u2", "missing", "TWO"),
+    ];
+    expect(claudeAbandonedBranchUuids(lines)).toBeNull();
   });
 });

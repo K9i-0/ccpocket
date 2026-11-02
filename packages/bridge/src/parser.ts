@@ -430,6 +430,14 @@ export type ClientMessage =
        */
       retract?: boolean;
     }
+  | {
+      /** Rewind to just before a user message and resend it edited. */
+      type: "edit_message";
+      sessionId: string;
+      targetUuid: string;
+      text: string;
+      clientMessageId?: string;
+    }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
   | { type: "bootstrap_project"; parentPath: string; name: string; initializeGit: boolean; sourcePath?: string; requestId: string }
@@ -956,6 +964,14 @@ export type ServerMessage =
       error?: string;
     }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
+  | {
+      /**
+       * The session's conversation was rewound in place (edit or retract).
+       * Clients drop their cached history and fetch it again.
+       */
+      type: "conversation_rewound";
+      sessionId?: string;
+    }
   | {
       /**
        * The interrupted prompt was removed from the conversation. Sent before
@@ -2004,6 +2020,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "interrupt":
         if (msg.retract !== undefined && typeof msg.retract !== "boolean")
+          return null;
+        break;
+      case "edit_message":
+        if (typeof msg.sessionId !== "string") return null;
+        if (typeof msg.targetUuid !== "string" || !msg.targetUuid) return null;
+        if (typeof msg.text !== "string" || !msg.text.trim()) return null;
+        if (msg.clientMessageId !== undefined && typeof msg.clientMessageId !== "string")
           return null;
         break;
       case "list_project_history":
