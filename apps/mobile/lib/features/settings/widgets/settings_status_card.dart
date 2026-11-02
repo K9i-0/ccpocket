@@ -473,7 +473,8 @@ class _UsageBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Flexible(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
               child: Text(
                 name,
                 maxLines: 1,
