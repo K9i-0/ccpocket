@@ -12,6 +12,7 @@ import '../../media_feedback/widgets/video_feedback_layout.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import 'file_peek_media_controls.dart';
+import 'file_peek_video_controls.dart';
 import '../playback/local_media_snapshot.dart';
 import '../playback/background_media_handler.dart';
 
@@ -229,53 +230,50 @@ class _VideoPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilePeekVideoControlsTheme(
-      player: controller.player,
-      child: ColoredBox(
-        key: const ValueKey('file_peek_video_player'),
-        color: Colors.black,
-        child: SafeArea(
-          top: false,
-          left: false,
-          right: false,
-          minimum: const EdgeInsets.only(bottom: 12),
-          child: Center(
-            child: StreamBuilder<VideoParams>(
-              stream: controller.player.stream.videoParams,
-              initialData: controller.player.state.videoParams,
-              builder: (context, snapshot) {
-                final aspectRatio = filePeekVideoAspectRatio(
-                  snapshot.data ?? const VideoParams(),
-                );
-                return LayoutBuilder(
-                  key: const ValueKey('file_peek_video_viewport'),
-                  builder: (context, constraints) {
-                    final height = filePeekVideoViewportHeight(
-                      width: constraints.maxWidth,
-                      aspectRatio: aspectRatio,
-                      maxHeight: constraints.maxHeight,
-                    );
-                    return SizedBox(
-                      width: constraints.maxWidth,
-                      height: height,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Video(
-                            controller: controller,
-                            pauseUponEnteringBackgroundMode: false,
-                            fit: BoxFit.contain,
-                            aspectRatio: aspectRatio,
-                          ),
-                          if (loading)
-                            const CircularProgressIndicator.adaptive(),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+    return ColoredBox(
+      key: const ValueKey('file_peek_video_player'),
+      color: Colors.black,
+      child: SafeArea(
+        top: false,
+        left: false,
+        right: false,
+        minimum: const EdgeInsets.only(bottom: 12),
+        child: Center(
+          child: StreamBuilder<VideoParams>(
+            stream: controller.player.stream.videoParams,
+            initialData: controller.player.state.videoParams,
+            builder: (context, snapshot) {
+              final aspectRatio = filePeekVideoAspectRatio(
+                snapshot.data ?? const VideoParams(),
+              );
+              return LayoutBuilder(
+                key: const ValueKey('file_peek_video_viewport'),
+                builder: (context, constraints) {
+                  final height = filePeekVideoViewportHeight(
+                    width: constraints.maxWidth,
+                    aspectRatio: aspectRatio,
+                    maxHeight: constraints.maxHeight,
+                  );
+                  return SizedBox(
+                    width: constraints.maxWidth,
+                    height: height,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Video(
+                          controller: controller,
+                          pauseUponEnteringBackgroundMode: false,
+                          fit: BoxFit.contain,
+                          aspectRatio: aspectRatio,
+                          controls: filePeekVideoControlsBuilder,
+                        ),
+                        if (loading) const CircularProgressIndicator.adaptive(),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ),
       ),
