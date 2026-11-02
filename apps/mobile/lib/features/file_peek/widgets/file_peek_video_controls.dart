@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -23,6 +24,23 @@ const filePeekVideoCenterTransportMinHeight = 56.0;
 bool filePeekVideoControlsCompact(double height) =>
     height - filePeekVideoBottomControlsHeight <
     filePeekVideoCenterTransportMinHeight;
+
+/// Width of the desktop volume slider next to the mute button.
+const filePeekVideoVolumeSliderWidth = 88.0;
+
+/// Desktop platforms have no hardware volume keys, so they get a slider in
+/// addition to mute. Narrow rows keep only the mute button.
+bool filePeekVideoShowsVolumeSlider({
+  required TargetPlatform platform,
+  required double rowWidth,
+}) =>
+    switch (platform) {
+      TargetPlatform.macOS ||
+      TargetPlatform.windows ||
+      TargetPlatform.linux => true,
+      _ => false,
+    } &&
+    rowWidth >= 360;
 
 /// Height of the single-row layout used when even the seek bar and bottom row
 /// do not fit (e.g. landscape with the keyboard open).
@@ -284,19 +302,27 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (compact) _PlayButton(player: player, size: 40, filled: false),
-        _MuteButton(player: player),
-        const SizedBox(width: 4),
-        Expanded(child: _PositionLabel(player: player)),
-        FilePeekPlaybackRateMenu(
-          player: player,
-          onDarkSurface: true,
-          compact: true,
-        ),
-        _FullscreenButton(fullscreen: fullscreen),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          if (compact) _PlayButton(player: player, size: 40, filled: false),
+          _VolumeControl(
+            player: player,
+            showSlider: filePeekVideoShowsVolumeSlider(
+              platform: defaultTargetPlatform,
+              rowWidth: constraints.maxWidth,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(child: _PositionLabel(player: player)),
+          FilePeekPlaybackRateMenu(
+            player: player,
+            onDarkSurface: true,
+            compact: true,
+          ),
+          _FullscreenButton(fullscreen: fullscreen),
+        ],
+      ),
     );
   }
 }
@@ -416,28 +442,84 @@ void _seekBy(Player player, int seconds) {
   );
 }
 
-class _MuteButton extends StatelessWidget {
+class _VolumeControl extends StatefulWidget {
   final Player player;
+  final bool showSlider;
 
-  const _MuteButton({required this.player});
+  const _VolumeControl({required this.player, required this.showSlider});
+
+  @override
+  State<_VolumeControl> createState() => _VolumeControlState();
+}
+
+class _VolumeControlState extends State<_VolumeControl> {
+  /// Volume restored by unmute, so muting does not lose the slider level.
+  double _restoreVolume = 100;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final player = widget.player;
+    final accent = Theme.of(context).colorScheme.primary;
     return StreamBuilder<double>(
       stream: player.stream.volume,
       initialData: player.state.volume,
       builder: (context, snapshot) {
-        final muted = (snapshot.data ?? 100) <= 0;
-        return _RoundButton(
-          key: const ValueKey('file_peek_video_volume_button'),
-          tooltip: muted ? l10n.filePreviewUnmute : l10n.filePreviewMute,
-          size: 40,
-          filled: false,
-          onPressed: () => unawaited(player.setVolume(muted ? 100 : 0)),
-          icon: Icon(
-            muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-          ),
+        final volume = (snapshot.data ?? 100).clamp(0, 100).toDouble();
+        final muted = volume <= 0;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _RoundButton(
+              key: const ValueKey('file_peek_video_volume_button'),
+              tooltip: muted ? l10n.filePreviewUnmute : l10n.filePreviewMute,
+              size: 40,
+              filled: false,
+              onPressed: () {
+                if (!muted) _restoreVolume = volume;
+                unawaited(player.setVolume(muted ? _restoreVolume : 0));
+              },
+              icon: Icon(
+                muted
+                    ? Icons.volume_off_rounded
+                    : volume < 50
+                    ? Icons.volume_down_rounded
+                    : Icons.volume_up_rounded,
+              ),
+            ),
+            if (widget.showSlider)
+              SizedBox(
+                width: filePeekVideoVolumeSliderWidth,
+                height: 36,
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    activeTrackColor: Colors.white,
+                    inactiveTrackColor: Colors.white30,
+                    thumbColor: Colors.white,
+                    overlayColor: accent.withValues(alpha: 0.2),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  child: Slider(
+                    key: const ValueKey('file_peek_video_volume_slider'),
+                    value: volume,
+                    max: 100,
+                    semanticFormatterCallback: (value) =>
+                        '${l10n.filePreviewVolume} ${value.round()}%',
+                    onChanged: (next) {
+                      if (next > 0) _restoreVolume = next;
+                      unawaited(player.setVolume(next));
+                    },
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
