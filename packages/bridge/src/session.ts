@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   pathToSlug,
+  claudeAbandonedBranchUuids,
   codexUserTurnUuid,
   isCodexUserTurnUuid,
   renameClaudeSession,
@@ -2135,6 +2136,9 @@ export class SessionManager {
     // Use an array per text key so duplicate messages ("yes", "ok", etc.)
     // are matched in order rather than collapsed to one UUID.
     const diskUuids = new Map<string, string[]>();
+    // Turns removed by a rewind or edit stay in the transcript; resending
+    // the same text must not pick up their uuids.
+    const abandoned = claudeAbandonedBranchUuids(lines);
     for (const line of lines) {
       try {
         const entry = JSON.parse(line) as {
@@ -2145,6 +2149,7 @@ export class SessionManager {
         };
         if (entry.type !== "user" && entry.role !== "user") continue;
         if (!entry.uuid) continue;
+        if (abandoned?.has(entry.uuid)) continue;
 
         // Extract text from content array
         const content = entry.message?.content;

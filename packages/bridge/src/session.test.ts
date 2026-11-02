@@ -1840,6 +1840,41 @@ describe("SessionManager claude UUID backfill", () => {
     fakeFiles.clear();
   });
 
+  it("skips uuids of turns abandoned by a rewind when backfilling", () => {
+    const testId = randomUUID();
+    const projectPath = `/tmp/ccpocket-backfill-${testId}`;
+    const threadId = `thread-${testId}`;
+    const line = (type: string, uuid: string, parentUuid: string | null, text: string) =>
+      JSON.stringify({ type, uuid, parentUuid, message: { role: type, content: [{ type: "text", text }] } });
+    // "again" was sent, rewound, then resent unchanged on a new branch.
+    registerHistoryJsonl(projectPath, threadId, [
+      line("user", "u1", null, "first"),
+      line("assistant", "a1", "u1", "ok"),
+      line("user", "old-again", "a1", "again"),
+      line("assistant", "a2", "old-again", "ok"),
+      line("user", "new-again", "a1", "again"),
+      line("assistant", "a3", "new-again", "ok"),
+    ]);
+
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(projectPath);
+    const session = manager.get(sessionId)!;
+    session.claudeSessionId = threadId;
+    manager.appendHistory(sessionId, { type: "user_input", text: "again" } as ServerMessage);
+
+    sdkInstances[0].emit("message", {
+      type: "result",
+      subtype: "success",
+      sessionId: threadId,
+    } satisfies ServerMessage);
+
+    const userInput = session.history.find((msg) => msg.type === "user_input") as
+      | { userMessageUuid?: string }
+      | undefined;
+    expect(userInput?.userMessageUuid).toBe("new-again");
+    manager.destroyAll();
+  });
+
   it("backfills user UUIDs from worktree history jsonl", () => {
     const testId = randomUUID();
     const projectPath = `/tmp/ccpocket-main-${testId}`;

@@ -2197,6 +2197,22 @@ describe("CodexProcess (app-server)", () => {
     expect(proc.sessionId).toBe("source");
   });
 
+  it("interrupts a turn as soon as it starts when stop came first", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "thread";
+    (proc as any).pendingTurnCompletion = { resolve: () => {}, reject: () => {} };
+    const request = vi.spyOn(proc as any, "request").mockResolvedValue({});
+
+    proc.interrupt();
+    expect(request).not.toHaveBeenCalled();
+
+    (proc as any).handleNotification("turn/started", { turn: { id: "turn-1" } });
+    expect(request).toHaveBeenCalledWith("turn/interrupt", {
+      threadId: "thread",
+      turnId: "turn-1",
+    });
+  });
+
   it("rewinds in place with thread/revert before the target turn", async () => {
     const proc = new CodexProcess("linux");
     (proc as any)._threadId = "source";

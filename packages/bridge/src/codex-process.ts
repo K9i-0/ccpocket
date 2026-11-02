@@ -350,6 +350,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private inputResolve: ((input: PendingInput) => void) | null = null;
   private pendingTurnId: string | null = null;
+  /** Stop was requested after turn/start was sent but before its id arrived. */
+  private interruptWhenTurnStarts = false;
   /** Guards against a late turn/start response reinstating a finished turn. */
   private lastCompletedTurnId: string | null = null;
   private pendingTurnCompletion: PendingTurnCompletion | null = null;
@@ -1222,6 +1224,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._agentNickname = null;
     this._agentRole = null;
     this.pendingTurnId = null;
+    this.interruptWhenTurnStarts = false;
     this.pendingTurnCompletion = null;
     this.pendingApprovals.clear();
     this.pendingUserInputs.clear();
@@ -1329,7 +1332,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   interrupt(): void {
     this.cancelRecovery();
-    if (!this._threadId || !this.pendingTurnId) return;
+    if (!this._threadId) return;
+    if (!this.pendingTurnId) {
+      // The turn was requested but its id is not known yet: interrupt it as
+      // soon as it starts instead of silently letting it run.
+      if (this.pendingTurnCompletion) this.interruptWhenTurnStarts = true;
+      return;
+    }
+    this.interruptWhenTurnStarts = false;
 
     void this.request("turn/interrupt", {
       threadId: this._threadId,
@@ -2773,6 +2783,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
               turn.id !== this.lastCompletedTurnId
             ) {
               this.pendingTurnId = turn.id;
+              if (this.interruptWhenTurnStarts) this.interrupt();
             }
           })
           .catch((err) => {
@@ -3146,6 +3157,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         if (typeof turn?.id === "string") {
           this.pendingTurnId = turn.id;
         }
+        if (this.interruptWhenTurnStarts) this.interrupt();
         this.lastResultText = null;
         this.pendingAgentTextByItemId.clear();
         this.confirmedAgentTextByItemId.clear();
@@ -3448,6 +3460,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
 
     this.pendingTurnId = null;
+    this.interruptWhenTurnStarts = false;
     if (typeof turn?.id === "string") this.lastCompletedTurnId = turn.id;
 
     // Plan mode: emit synthetic plan approval and wait for user decision
