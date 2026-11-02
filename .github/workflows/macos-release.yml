@@ -241,8 +241,20 @@ jobs:
             exit 1
           fi
 
-          # Staple the notarization ticket
-          xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"
+          # Staple the notarization ticket. The ticket lookup right after an
+          # Accepted submission can fail transiently (CloudKit "network
+          # connection was lost", error 68), so retry with a delay.
+          for attempt in 1 2 3 4 5 6; do
+            if xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"; then
+              break
+            fi
+            if [ "$attempt" = 6 ]; then
+              echo "::error::Stapling failed after $attempt attempts"
+              exit 1
+            fi
+            echo "Stapling attempt $attempt failed; retrying in 30s"
+            sleep 30
+          done
           echo "✅ Notarization complete"
 
       # --- GitHub Release ---
