@@ -1517,6 +1517,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rewindToHere => 'Rewind to here';
 
   @override
+  String get editMessage => 'Edit message';
+
+  @override
+  String get restoreFilesToHere => 'Restore files to this point';
+
+  @override
+  String get copyMessage => 'Copy message';
+
+  @override
   String get rewindModeConversationAndCode => 'Restore conversation & code';
 
   @override

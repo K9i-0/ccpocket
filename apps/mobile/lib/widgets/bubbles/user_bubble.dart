@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,13 +11,21 @@ import '../../theme/app_theme.dart';
 import '../../utils/command_parser.dart';
 import '../adaptive_context_menu.dart';
 
-enum _UserMessageAction { copy, rewind }
+enum _UserMessageAction { rewind, restoreFiles }
 
-class UserBubble extends StatelessWidget {
+class UserBubble extends StatefulWidget {
   final String text;
   final MessageStatus status;
   final VoidCallback? onRetry;
+
+  /// Legacy rewind (Bridges without in-place edit).
   final VoidCallback? onRewind;
+
+  /// Edit and resend this message (Codex App style). Null hides the pencil.
+  final ValueChanged<String>? onEdit;
+
+  /// Claude only: restore files to this message's checkpoint.
+  final VoidCallback? onRestoreFiles;
   final List<String> imageUrls;
   final String? httpBaseUrl;
   final List<Uint8List> imageBytesList;
@@ -29,6 +39,8 @@ class UserBubble extends StatelessWidget {
     this.status = MessageStatus.sent,
     this.onRetry,
     this.onRewind,
+    this.onEdit,
+    this.onRestoreFiles,
     this.imageUrls = const [],
     this.httpBaseUrl,
     this.imageBytesList = const [],
@@ -36,42 +48,97 @@ class UserBubble extends StatelessWidget {
   });
 
   @override
+  State<UserBubble> createState() => _UserBubbleState();
+}
+
+class _UserBubbleState extends State<UserBubble> {
+  bool _editing = false;
+  TextEditingController? _editController;
+
+  @override
+  void didUpdateWidget(covariant UserBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Editing ends when it is no longer allowed (e.g. a turn started).
+    if (_editing && widget.onEdit == null) _stopEditing();
+  }
+
+  @override
+  void dispose() {
+    _editController?.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    _editController?.dispose();
+    _editController = TextEditingController(text: widget.text);
+    setState(() => _editing = true);
+  }
+
+  void _stopEditing() {
+    setState(() => _editing = false);
+  }
+
+  void _submitEdit() {
+    final text = _editController?.text.trim() ?? '';
+    if (text.isEmpty) return;
+    _stopEditing();
+    widget.onEdit?.call(text);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_editing && _editController != null) {
+      return _EditingBubble(
+        controller: _editController!,
+        onCancel: _stopEditing,
+        onSend: _submitEdit,
+      );
+    }
+    final onEdit = widget.onEdit == null ? null : _startEditing;
     // Detect command message with XML tags
-    final parsed = parseCommandMessage(text);
+    final parsed = parseCommandMessage(widget.text);
     return _UserMessageActionsScope(
       builder: (actionsButtonKey) {
         if (parsed != null) {
           return _CommandBubble(
             command: parsed,
-            status: status,
-            onRetry: onRetry,
-            onRewind: onRewind,
-            onCopy: () => _copyMessage(context),
+            status: widget.status,
+            onRetry: widget.onRetry,
+            onRewind: widget.onRewind,
+            onRestoreFiles: widget.onRestoreFiles,
+            onEdit: null,
+            onCopy: _copyText,
             actionsButtonKey: actionsButtonKey,
             onShowContextMenu: (position) =>
-                _showContextMenu(context, position: position),
+                _showContextMenu(context, position: position, onEdit: null),
           );
         }
 
         return _StandardBubble(
-          displayText: text,
-          status: status,
-          onRetry: onRetry,
-          onRewind: onRewind,
-          imageBytesList: imageBytesList,
-          imageUrls: imageUrls,
-          httpBaseUrl: httpBaseUrl,
-          onCopy: () => _copyMessage(context),
+          displayText: widget.text,
+          status: widget.status,
+          onRetry: widget.onRetry,
+          onRewind: widget.onRewind,
+          onRestoreFiles: widget.onRestoreFiles,
+          onEdit: onEdit,
+          imageBytesList: widget.imageBytesList,
+          imageUrls: widget.imageUrls,
+          httpBaseUrl: widget.httpBaseUrl,
+          onCopy: _copyText,
           actionsButtonKey: actionsButtonKey,
           onShowContextMenu: (position) =>
-              _showContextMenu(context, position: position),
+              _showContextMenu(context, position: position, onEdit: onEdit),
         );
       },
     );
   }
 
-  void _showContextMenu(BuildContext context, {Offset? position}) async {
+  void _showContextMenu(
+    BuildContext context, {
+    Offset? position,
+    VoidCallback? onEdit,
+  }) async {
+    final l = AppLocalizations.of(context);
     final action = await showAdaptiveActionMenu<String>(
       context: context,
       position: position,
@@ -79,32 +146,119 @@ class UserBubble extends StatelessWidget {
         AdaptiveActionMenuItem(
           value: 'copy',
           icon: Icons.copy,
-          label: AppLocalizations.of(context).copyEntireMessage,
+          label: l.copyEntireMessage,
         ),
-        if (onRewind != null)
+        if (onEdit != null)
+          AdaptiveActionMenuItem(
+            value: 'edit',
+            icon: Icons.edit_outlined,
+            label: l.editMessage,
+          ),
+        if (widget.onRewind != null)
           AdaptiveActionMenuItem(
             value: 'rewind',
             icon: Icons.history,
-            label: AppLocalizations.of(context).rewindToHere,
+            label: l.rewindToHere,
+          ),
+        if (widget.onRestoreFiles != null)
+          AdaptiveActionMenuItem(
+            value: 'restoreFiles',
+            icon: Icons.restore_page_outlined,
+            label: l.restoreFilesToHere,
           ),
       ],
     );
     if (!context.mounted || action == null) return;
-    if (action == 'copy') {
-      _copyMessage(context);
-      return;
-    }
-    if (action == 'rewind') {
-      onRewind?.call();
+    switch (action) {
+      case 'copy':
+        _copyText();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l.copied),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      case 'edit':
+        onEdit?.call();
+      case 'rewind':
+        widget.onRewind?.call();
+      case 'restoreFiles':
+        widget.onRestoreFiles?.call();
     }
   }
 
-  void _copyMessage(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copied),
-        duration: const Duration(seconds: 1),
+  void _copyText() {
+    Clipboard.setData(ClipboardData(text: widget.text));
+  }
+}
+
+/// Inline editor shown in place of the bubble while editing (Codex App).
+class _EditingBubble extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onCancel;
+  final VoidCallback onSend;
+
+  const _EditingBubble({
+    required this.controller,
+    required this.onCancel,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Container(
+      key: const ValueKey('user_message_editor'),
+      margin: const EdgeInsets.symmetric(
+        vertical: AppSpacing.bubbleMarginV,
+        horizontal: AppSpacing.bubbleMarginH,
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        border: Border.all(color: cs.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('user_message_edit_field'),
+            controller: controller,
+            autofocus: true,
+            minLines: 1,
+            maxLines: 10,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration.collapsed(hintText: l.editMessage),
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  key: const ValueKey('user_message_edit_cancel'),
+                  onPressed: onCancel,
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(l.cancel),
+                ),
+                const SizedBox(width: 6),
+                FilledButton(
+                  key: const ValueKey('user_message_edit_send'),
+                  onPressed: value.text.trim().isEmpty ? null : onSend,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(l.send),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -136,6 +290,8 @@ class _StandardBubble extends StatelessWidget {
   final MessageStatus status;
   final VoidCallback? onRetry;
   final VoidCallback? onRewind;
+  final VoidCallback? onRestoreFiles;
+  final VoidCallback? onEdit;
   final List<Uint8List> imageBytesList;
   final List<String> imageUrls;
   final String? httpBaseUrl;
@@ -148,6 +304,8 @@ class _StandardBubble extends StatelessWidget {
     required this.status,
     required this.onRetry,
     required this.onRewind,
+    required this.onRestoreFiles,
+    required this.onEdit,
     required this.imageBytesList,
     required this.imageUrls,
     required this.httpBaseUrl,
@@ -261,7 +419,9 @@ class _StandardBubble extends StatelessWidget {
             _UserMessageFooter(
               status: status,
               onCopy: onCopy,
+              onEdit: onEdit,
               onRewind: onRewind,
+              onRestoreFiles: onRestoreFiles,
               actionsButtonKey: actionsButtonKey,
             ),
           ],
@@ -277,6 +437,8 @@ class _CommandBubble extends StatelessWidget {
   final MessageStatus status;
   final VoidCallback? onRetry;
   final VoidCallback? onRewind;
+  final VoidCallback? onRestoreFiles;
+  final VoidCallback? onEdit;
   final VoidCallback onCopy;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
   final ValueChanged<Offset?> onShowContextMenu;
@@ -286,6 +448,8 @@ class _CommandBubble extends StatelessWidget {
     required this.status,
     required this.onRetry,
     required this.onRewind,
+    required this.onRestoreFiles,
+    required this.onEdit,
     required this.onCopy,
     required this.actionsButtonKey,
     required this.onShowContextMenu,
@@ -356,7 +520,9 @@ class _CommandBubble extends StatelessWidget {
             _UserMessageFooter(
               status: status,
               onCopy: onCopy,
+              onEdit: onEdit,
               onRewind: onRewind,
+              onRestoreFiles: onRestoreFiles,
               actionsButtonKey: actionsButtonKey,
             ),
           ],
@@ -433,28 +599,43 @@ class _MessageRetryTapRegionState extends State<_MessageRetryTapRegion> {
 class _UserMessageFooter extends StatelessWidget {
   final MessageStatus status;
   final VoidCallback onCopy;
+  final VoidCallback? onEdit;
   final VoidCallback? onRewind;
+  final VoidCallback? onRestoreFiles;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
 
   const _UserMessageFooter({
     required this.status,
     required this.onCopy,
+    required this.onEdit,
     required this.onRewind,
+    required this.onRestoreFiles,
     required this.actionsButtonKey,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _UserMessageActionsButton(
-            key: actionsButtonKey,
-            onCopy: onCopy,
-            onRewind: onRewind,
-          ),
+          _CopyMessageButton(onCopy: onCopy),
+          if (onEdit != null)
+            _FooterIconButton(
+              key: const ValueKey('user_message_edit_button'),
+              icon: Icons.edit_outlined,
+              tooltip: l.editMessage,
+              onPressed: onEdit!,
+            ),
+          if (onRewind != null || onRestoreFiles != null)
+            _UserMessageActionsButton(
+              key: actionsButtonKey,
+              onRewind: onRewind,
+              onRestoreFiles: onRestoreFiles,
+            ),
+          const SizedBox(width: 2),
           _StatusIndicator(status: status),
         ],
       ),
@@ -462,14 +643,84 @@ class _UserMessageFooter extends StatelessWidget {
   }
 }
 
-class _UserMessageActionsButton extends StatefulWidget {
+class _FooterIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _FooterIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 14, color: appColors.subtleText),
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(30, 18),
+        maximumSize: const Size(30, 18),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
+/// Copy button that briefly turns into a check mark (Codex App).
+class _CopyMessageButton extends StatefulWidget {
   final VoidCallback onCopy;
+
+  const _CopyMessageButton({required this.onCopy});
+
+  @override
+  State<_CopyMessageButton> createState() => _CopyMessageButtonState();
+}
+
+class _CopyMessageButtonState extends State<_CopyMessageButton> {
+  Timer? _resetTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _copy() {
+    widget.onCopy();
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return _FooterIconButton(
+      key: const ValueKey('user_message_copy_button'),
+      icon: _copied ? Icons.check : Icons.copy_outlined,
+      tooltip: _copied ? l.copied : l.copyMessage,
+      onPressed: _copy,
+    );
+  }
+}
+
+class _UserMessageActionsButton extends StatefulWidget {
   final VoidCallback? onRewind;
+  final VoidCallback? onRestoreFiles;
 
   const _UserMessageActionsButton({
     super.key,
-    required this.onCopy,
     this.onRewind,
+    this.onRestoreFiles,
   });
 
   @override
@@ -545,20 +796,21 @@ class _UserMessageActionsButtonState extends State<_UserMessageActionsButton> {
         tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
         onSelected: (action) {
           switch (action) {
-            case _UserMessageAction.copy:
-              widget.onCopy();
             case _UserMessageAction.rewind:
               widget.onRewind?.call();
+            case _UserMessageAction.restoreFiles:
+              widget.onRestoreFiles?.call();
           }
         },
         itemBuilder: (context) => [
-          PopupMenuItem(
-            value: _UserMessageAction.copy,
-            child: _UserMessageActionRow(
-              icon: Icons.copy,
-              label: l.copyEntireMessage,
+          if (widget.onRestoreFiles != null)
+            PopupMenuItem(
+              value: _UserMessageAction.restoreFiles,
+              child: _UserMessageActionRow(
+                icon: Icons.restore_page_outlined,
+                label: l.restoreFilesToHere,
+              ),
             ),
-          ),
           if (widget.onRewind != null)
             PopupMenuItem(
               value: _UserMessageAction.rewind,

@@ -1447,6 +1447,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rewindToHere => 'ここまで巻き戻す';
 
   @override
+  String get editMessage => 'メッセージを編集';
+
+  @override
+  String get restoreFilesToHere => 'この時点のファイルに戻す';
+
+  @override
+  String get copyMessage => 'メッセージをコピー';
+
+  @override
   String get rewindModeConversationAndCode => '会話とコードを復元';
 
   @override

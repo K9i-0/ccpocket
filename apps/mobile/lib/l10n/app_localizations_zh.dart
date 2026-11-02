@@ -1428,6 +1428,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rewindToHere => '回退到这里';
 
   @override
+  String get editMessage => '编辑消息';
+
+  @override
+  String get restoreFilesToHere => '将文件恢复到此时';
+
+  @override
+  String get copyMessage => '复制消息';
+
+  @override
   String get rewindModeConversationAndCode => '恢复对话和代码';
 
   @override

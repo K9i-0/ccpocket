@@ -576,6 +576,9 @@
 
   "rewind": "回退",
   "rewindToHere": "回退到这里",
+  "editMessage": "编辑消息",
+  "restoreFilesToHere": "将文件恢复到此时",
+  "copyMessage": "复制消息",
   "rewindModeConversationAndCode": "恢复对话和代码",
   "rewindModeConversationOnly": "仅恢复对话",
   "rewindModeCodeOnly": "仅恢复代码",

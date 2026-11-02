@@ -2777,6 +2777,24 @@ abstract class AppLocalizations {
   /// **'ここまで巻き戻す'**
   String get rewindToHere;
 
+  /// No description provided for @editMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージを編集'**
+  String get editMessage;
+
+  /// No description provided for @restoreFilesToHere.
+  ///
+  /// In ja, this message translates to:
+  /// **'この時点のファイルに戻す'**
+  String get restoreFilesToHere;
+
+  /// No description provided for @copyMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージをコピー'**
+  String get copyMessage;
+
   /// No description provided for @rewindModeConversationAndCode.
   ///
   /// In ja, this message translates to:

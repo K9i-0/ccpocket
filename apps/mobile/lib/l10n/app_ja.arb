@@ -583,6 +583,9 @@
 
   "rewind": "巻き戻す",
   "rewindToHere": "ここまで巻き戻す",
+  "editMessage": "メッセージを編集",
+  "restoreFilesToHere": "この時点のファイルに戻す",
+  "copyMessage": "メッセージをコピー",
   "rewindModeConversationAndCode": "会話とコードを復元",
   "rewindModeConversationOnly": "会話のみ復元",
   "rewindModeCodeOnly": "コードのみ復元",

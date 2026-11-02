@@ -1325,6 +1325,7 @@ sealed class ServerMessage {
         mode: json['mode'] as String? ?? 'both',
         error: json['error'] as String?,
       ),
+      'conversation_rewound' => const ConversationRewoundMessage(),
       'input_retracted' => InputRetractedMessage(
         text: json['text'] as String? ?? '',
       ),
@@ -3488,6 +3489,12 @@ class RewindResultMessage implements ServerMessage {
   });
 }
 
+/// The conversation was rewound in place (message edit or retract). Cached
+/// history is stale; clients drop it and fetch the session history again.
+class ConversationRewoundMessage implements ServerMessage {
+  const ConversationRewoundMessage();
+}
+
 /// The interrupted prompt was removed from the conversation so the user can
 /// edit and resend it. Sent before the replacement session's
 /// `session_created`.
@@ -5545,6 +5552,21 @@ class ClientMessage {
     'filePath': filePath,
     'version': version,
     'requestId': ?requestId,
+  });
+
+  /// Rewind to just before [targetUuid] and send [text] in its place (Codex
+  /// App's edit-and-resend). Requires `message_edit_v1`.
+  factory ClientMessage.editMessage({
+    required String sessionId,
+    required String targetUuid,
+    required String text,
+    String? clientMessageId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'edit_message',
+    'sessionId': sessionId,
+    'targetUuid': targetUuid,
+    'text': text,
+    'clientMessageId': ?clientMessageId,
   });
 
   /// [retract] asks the Bridge to also remove the prompt when the agent has

@@ -579,6 +579,9 @@
 
   "rewind": "Rewind",
   "rewindToHere": "Rewind to here",
+  "editMessage": "Edit message",
+  "restoreFilesToHere": "Restore files to this point",
+  "copyMessage": "Copy message",
   "rewindModeConversationAndCode": "Restore conversation & code",
   "rewindModeConversationOnly": "Restore conversation only",
   "rewindModeCodeOnly": "Restore code only",

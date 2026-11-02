@@ -287,6 +287,25 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsInputDelivery =>
       _protocolCapabilities.contains('input_delivery_v1');
 
+  /// Drop cached history for [sessionId], let its chat clear the view
+  /// ([ConversationRewoundMessage]), then refetch the history. Used after the
+  /// conversation was rewound in place.
+  void reloadSessionHistory(String sessionId) {
+    _runtimeStore.clearHistory(sessionId);
+    _pendingHistoryDeltaSinceSeq.remove(sessionId);
+    _taggedMessageController.add((
+      const ConversationRewoundMessage(),
+      sessionId,
+    ));
+    if (_historyObservers.containsKey(sessionId)) {
+      send(ClientMessage.getHistory(sessionId));
+    }
+  }
+
+  /// Bridge rewinds conversations in place and accepts `edit_message`.
+  bool get supportsMessageEdit =>
+      _protocolCapabilities.contains('message_edit_v1');
+
   /// Bridge forks Claude sessions from an assistant message UUID.
   bool get supportsClaudeFork =>
       _protocolCapabilities.contains('claude_fork_v1');
@@ -822,6 +841,10 @@ class BridgeService implements BridgeServiceBase {
             }
             if (sessionId != null && msg is HistorySnapshotMessage) {
               _handleHistorySnapshot(sessionId, msg);
+              return;
+            }
+            if (sessionId != null && msg is ConversationRewoundMessage) {
+              reloadSessionHistory(sessionId);
               return;
             }
             if (sessionId != null) {

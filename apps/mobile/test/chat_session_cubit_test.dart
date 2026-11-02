@@ -117,6 +117,13 @@ class MockBridgeService extends BridgeService {
   }
 
   final interruptCalls = <({String sessionId, bool retract})>[];
+  final reloadedHistories = <String>[];
+
+  @override
+  void reloadSessionHistory(String sessionId) {
+    reloadedHistories.add(sessionId);
+    emitMessage(const ConversationRewoundMessage(), sessionId: sessionId);
+  }
 
   @override
   void interrupt(String sessionId, {bool retract = false}) {
@@ -248,6 +255,111 @@ void main() {
         expect(cubit.state.entries.length, entriesBefore);
       },
     );
+
+    group('editMessage', () {
+      Future<ChatSessionCubit> seeded() async {
+        final cubit = createCubit('s1');
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
+          const HistoryMessage(
+            messages: [
+              UserInputMessage(text: 'one', userMessageUuid: 'u1'),
+              UserInputMessage(text: 'two', userMessageUuid: 'u2'),
+              UserInputMessage(text: 'three', userMessageUuid: 'u3'),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        return cubit;
+      }
+
+      List<String> userTexts(ChatSessionCubit cubit) => cubit.state.entries
+          .whereType<UserChatEntry>()
+          .map((e) => e.text)
+          .toList();
+
+      test('drops later turns and sends edit_message', () async {
+        final cubit = await seeded();
+        addTearDown(cubit.close);
+        final two = cubit.state.entries.whereType<UserChatEntry>().firstWhere(
+          (e) => e.text == 'two',
+        );
+
+        cubit.editMessage(two, '  TWO  ');
+
+        expect(userTexts(cubit), ['one', 'TWO']);
+        final edit = cubit.state.entries.whereType<UserChatEntry>().last;
+        expect(edit.status, MessageStatus.sending);
+        final sent = jsonDecode(mockBridge.sentMessages.last.toJson());
+        expect(sent, {
+          'type': 'edit_message',
+          'sessionId': 's1',
+          'targetUuid': 'u2',
+          'text': 'TWO',
+          'clientMessageId': edit.clientMessageId,
+        });
+      });
+
+      test(
+        'a rewind keeps only the pending edit until history returns',
+        () async {
+          final cubit = await seeded();
+          addTearDown(cubit.close);
+          final two = cubit.state.entries.whereType<UserChatEntry>().firstWhere(
+            (e) => e.text == 'two',
+          );
+          cubit.editMessage(two, 'TWO');
+
+          mockBridge.emitMessage(
+            const ConversationRewoundMessage(),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+
+          expect(userTexts(cubit), ['TWO']);
+        },
+      );
+
+      test('a retract clears the stale prompt', () async {
+        final cubit = await seeded();
+        addTearDown(cubit.close);
+
+        mockBridge.emitMessage(
+          const ConversationRewoundMessage(),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        expect(cubit.state.entries, isEmpty);
+      });
+
+      test('a failed edit reloads the conversation', () async {
+        final cubit = await seeded();
+        addTearDown(cubit.close);
+        final two = cubit.state.entries.whereType<UserChatEntry>().firstWhere(
+          (e) => e.text == 'two',
+        );
+        cubit.editMessage(two, 'TWO');
+
+        mockBridge.emitMessage(
+          const ErrorMessage(
+            message: 'Cannot edit',
+            errorCode: 'edit_message_failed',
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        expect(mockBridge.reloadedHistories, ['s1']);
+        expect(
+          cubit.state.entries.whereType<UserChatEntry>().where(
+            (e) => e.status == MessageStatus.sending,
+          ),
+          isEmpty,
+        );
+      });
+    });
 
     test('status message updates state.status', () async {
       final cubit = createCubit('s1');

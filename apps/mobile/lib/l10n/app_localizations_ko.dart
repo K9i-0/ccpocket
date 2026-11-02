@@ -1462,6 +1462,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get rewindToHere => '여기로 되돌리기';
 
   @override
+  String get editMessage => '메시지 편집';
+
+  @override
+  String get restoreFilesToHere => '이 시점의 파일로 되돌리기';
+
+  @override
+  String get copyMessage => '메시지 복사';
+
+  @override
   String get rewindModeConversationAndCode => '대화와 코드 복원';
 
   @override

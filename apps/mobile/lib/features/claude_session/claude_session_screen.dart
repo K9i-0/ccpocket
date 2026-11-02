@@ -865,6 +865,9 @@ class _ChatScreenBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final supportsMessageEdit = context.select<ChatSessionCubit, bool>(
+      (cubit) => cubit.supportsMessageEdit,
+    );
     final queuedInput = sessionState.queuedInput;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
@@ -1379,15 +1382,35 @@ class _ChatScreenBody extends HookWidget {
                       onRetryMessage: (entry) {
                         context.read<ChatSessionCubit>().retryMessage(entry);
                       },
-                      onRewindMessage: (entry) {
-                        _showRewindActionSheet(
-                          context,
-                          entry,
-                          sessionId: sessionId,
-                          inputController: chatInputController,
-                          draftService: draftService,
-                        );
-                      },
+                      // In-place edit replaces the legacy conversation
+                      // rewind; file restore stays as its own action.
+                      onRewindMessage: supportsMessageEdit
+                          ? null
+                          : (entry) {
+                              _showRewindActionSheet(
+                                context,
+                                entry,
+                                sessionId: sessionId,
+                                inputController: chatInputController,
+                                draftService: draftService,
+                              );
+                            },
+                      onEditMessage:
+                          supportsMessageEdit && status == ProcessStatus.idle
+                          ? (entry, text) => context
+                                .read<ChatSessionCubit>()
+                                .editMessage(entry, text)
+                          : null,
+                      onRestoreFilesMessage: supportsMessageEdit
+                          ? (entry) => _showRewindActionSheet(
+                              context,
+                              entry,
+                              sessionId: sessionId,
+                              inputController: chatInputController,
+                              draftService: draftService,
+                              availableModes: const [RewindMode.code],
+                            )
+                          : null,
                       onForkMessage:
                           context.read<BridgeService>().supportsClaudeFork
                           ? (message) => unawaited(
@@ -1800,13 +1823,15 @@ void _showUserMessageHistory(
       onScrollToMessage: (msg) {
         scrollToUserEntry.value = msg;
       },
-      onRewindMessage: (msg) => _showRewindActionSheet(
-        context,
-        msg,
-        sessionId: sessionId,
-        inputController: inputController,
-        draftService: draftService,
-      ),
+      onRewindMessage: cubit.supportsMessageEdit
+          ? null
+          : (msg) => _showRewindActionSheet(
+              context,
+              msg,
+              sessionId: sessionId,
+              inputController: inputController,
+              draftService: draftService,
+            ),
     ),
   );
 }
@@ -1817,6 +1842,7 @@ void _showRewindActionSheet(
   required String sessionId,
   required TextEditingController inputController,
   required DraftService draftService,
+  List<RewindMode> availableModes = RewindMode.values,
 }) {
   final cubit = context.read<ChatSessionCubit>();
 
@@ -1835,6 +1861,7 @@ void _showRewindActionSheet(
           final preview = snapshot.data?.rewindPreview;
 
           return RewindActionSheet(
+            availableModes: availableModes,
             userMessage: message,
             preview: preview,
             isLoadingPreview: preview == null,

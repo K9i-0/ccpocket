@@ -28,6 +28,12 @@ class ChatEntryWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
+
+  /// Edit and resend a sent message (in-place rewind).
+  final void Function(UserChatEntry, String)? onEditMessage;
+
+  /// Claude: restore files to a message's checkpoint.
+  final void Function(UserChatEntry)? onRestoreFilesMessage;
   final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
@@ -52,6 +58,8 @@ class ChatEntryWidget extends StatelessWidget {
     this.httpBaseUrl,
     this.onRetryMessage,
     this.onRewindMessage,
+    this.onEditMessage,
+    this.onRestoreFilesMessage,
     this.onForkMessage,
     this.collapseToolResults,
     this.resolvedPlanText,
@@ -93,6 +101,17 @@ class ChatEntryWidget extends StatelessWidget {
                 : null,
             onRewind: onRewindMessage != null && user.messageUuid != null
                 ? () => onRewindMessage!(user)
+                : null,
+            onEdit:
+                onEditMessage != null &&
+                    user.messageUuid != null &&
+                    user.imageCount == 0 &&
+                    user.status == MessageStatus.sent
+                ? (text) => onEditMessage!(user, text)
+                : null,
+            onRestoreFiles:
+                onRestoreFilesMessage != null && user.messageUuid != null
+                ? () => onRestoreFilesMessage!(user)
                 : null,
             imageUrls: user.imageUrls,
             httpBaseUrl: httpBaseUrl,
@@ -302,6 +321,7 @@ class ServerMessageWidget extends StatelessWidget {
       RewindPreviewMessage() => const SizedBox.shrink(),
       RewindResultMessage() => const SizedBox.shrink(),
       InputRetractedMessage() => const SizedBox.shrink(),
+      ConversationRewoundMessage() => const SizedBox.shrink(),
       UserInputMessage() => const SizedBox.shrink(),
       InputAckMessage() => const SizedBox.shrink(),
       InputRejectedMessage() => const SizedBox.shrink(),

@@ -83,7 +83,9 @@ void main() {
       );
     });
 
-    testWidgets('action button copies the entire message', (tester) async {
+    testWidgets('copy button copies the entire message and confirms', (
+      tester,
+    ) async {
       String? clipboardText;
       var retryCount = 0;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -102,54 +104,117 @@ void main() {
         ),
       );
 
-      Widget failedBubble() => _wrap(
-        UserBubble(
-          text: 'Copy this entire message',
-          status: MessageStatus.failed,
-          onRetry: () => retryCount++,
+      await tester.pumpWidget(
+        _wrap(
+          UserBubble(
+            text: 'Copy this entire message',
+            status: MessageStatus.failed,
+            onRetry: () => retryCount++,
+          ),
         ),
       );
 
-      await tester.pumpWidget(failedBubble());
+      // Without edit or rewind there is no overflow menu.
+      expect(
+        find.byKey(const ValueKey('user_message_edit_button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('user_message_actions_button')),
+        findsNothing,
+      );
 
-      final actionIcon = find.byKey(
-        const ValueKey('user_message_actions_button'),
-      );
-      final iconCenter = tester.getCenter(actionIcon);
-      final boundaryGesture = await tester.startGesture(
-        iconCenter - const Offset(0, 21),
-      );
-      await boundaryGesture.moveBy(const Offset(0, -2));
-      await boundaryGesture.up();
+      await tester.tap(find.byKey(const ValueKey('user_message_copy_button')));
       await tester.pump();
-
-      expect(find.text('Copy entire message'), findsNothing);
-      expect(retryCount, 0);
-
-      // The icon stays visually small, but taps just outside its 24x14 layout
-      // still land inside the 44px mobile tap target. The upper edge
-      // overlaps the failed-message bubble, so it also verifies that retry
-      // does not fire from the expanded menu target.
-      final menuGesture = await tester.startGesture(
-        iconCenter - const Offset(0, 18),
-      );
-      await tester.pumpWidget(failedBubble());
-      await menuGesture.up();
-      await tester.pumpAndSettle();
-
-      expect(find.text('Copy entire message'), findsOneWidget);
-      expect(find.text('Rewind to here'), findsNothing);
-      expect(retryCount, 0);
-
-      await tester.tap(find.text('Copy entire message'));
-      await tester.pumpAndSettle();
-
       expect(clipboardText, 'Copy this entire message');
-      expect(find.text('Copied'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(retryCount, 0);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byIcon(Icons.copy_outlined), findsOneWidget);
 
       await tester.tap(find.text('Copy this entire message'));
       await tester.pump();
       expect(retryCount, 1);
+    });
+
+    testWidgets('edit opens an inline editor that resends or cancels', (
+      tester,
+    ) async {
+      final edits = <String>[];
+      await tester.pumpWidget(
+        _wrap(UserBubble(text: 'fix the tpyo', onEdit: edits.add)),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user_message_editor')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_cancel')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user_message_editor')), findsNothing);
+      expect(find.text('fix the tpyo'), findsOneWidget);
+      expect(edits, isEmpty);
+
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('user_message_edit_field')),
+        '  fix the typo  ',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_send')));
+      await tester.pumpAndSettle();
+
+      expect(edits, ['fix the typo']);
+      expect(find.byKey(const ValueKey('user_message_editor')), findsNothing);
+    });
+
+    testWidgets('send is disabled for an empty edit', (tester) async {
+      await tester.pumpWidget(_wrap(UserBubble(text: 'x', onEdit: (_) {})));
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('user_message_edit_field')),
+        '   ',
+      );
+      await tester.pump();
+      final send = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('user_message_edit_send')),
+      );
+      expect(send.onPressed, isNull);
+    });
+
+    testWidgets('editing closes when edit stops being allowed', (tester) async {
+      await tester.pumpWidget(_wrap(UserBubble(text: 'x', onEdit: (_) {})));
+      await tester.tap(find.byKey(const ValueKey('user_message_edit_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user_message_editor')), findsOneWidget);
+
+      await tester.pumpWidget(_wrap(const UserBubble(text: 'x')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user_message_editor')), findsNothing);
+    });
+
+    testWidgets('overflow menu offers file restore', (tester) async {
+      var restoreCount = 0;
+      await tester.pumpWidget(
+        _wrap(
+          UserBubble(
+            text: 'Restorable message',
+            onRestoreFiles: () => restoreCount++,
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('user_message_actions_button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restore files to this point'));
+      await tester.pumpAndSettle();
+
+      expect(restoreCount, 1);
     });
 
     testWidgets('action button offers rewind when available', (tester) async {

@@ -486,6 +486,33 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       _pastHistoryLoaded = true;
     }
 
+    if (msg is ConversationRewoundMessage) {
+      // The Bridge removed turns in place; history is about to be refetched.
+      // Keep only an edit that is still on its way.
+      _pastEntryCount = 0;
+      _pastHistoryLoaded = false;
+      emit(
+        state.copyWith(
+          entries: state.entries
+              .where(
+                (e) =>
+                    e is UserChatEntry &&
+                    e.status == MessageStatus.sending &&
+                    e.clientMessageId != null &&
+                    e.clientMessageId == _pendingEditClientMessageId,
+              )
+              .toList(),
+        ),
+      );
+      return;
+    }
+    if (msg is ErrorMessage &&
+        msg.errorCode == 'edit_message_failed' &&
+        _pendingEditClientMessageId != null) {
+      // Drop the optimistic edit and show the conversation as it is.
+      _pendingEditClientMessageId = null;
+      _bridge.reloadSessionHistory(sessionId);
+    }
     if (msg is InputRetractedMessage) {
       if (!_retractedInputsController.isClosed) {
         _retractedInputsController.add(msg.text);
@@ -2217,6 +2244,44 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _markToolUseResponded(toolUseId);
     _bridge.send(ClientMessage.answer(toolUseId, result, sessionId: sessionId));
     _emitNextPendingInputOrNone(toolUseId);
+  }
+
+  String? _pendingEditClientMessageId;
+
+  /// Whether sent messages can be edited and resent (Codex App style).
+  bool get supportsMessageEdit => _bridge.supportsMessageEdit;
+
+  /// Edit a sent message and resend it: the Bridge removes [entry] and every
+  /// later turn, then sends [text] as a new prompt in the same session.
+  void editMessage(UserChatEntry entry, String text) {
+    final targetUuid = entry.messageUuid;
+    final trimmed = text.trim();
+    if (targetUuid == null || trimmed.isEmpty) return;
+    final index = state.entries.indexWhere((e) => identical(e, entry));
+    if (index < 0) return;
+    final clientMessageId = _uuid.v4();
+    _pendingEditClientMessageId = clientMessageId;
+    emit(
+      state.copyWith(
+        entries: [
+          ...state.entries.take(index),
+          UserChatEntry(
+            trimmed,
+            sessionId: sessionId,
+            clientMessageId: clientMessageId,
+            status: MessageStatus.sending,
+          ),
+        ],
+      ),
+    );
+    _bridge.send(
+      ClientMessage.editMessage(
+        sessionId: sessionId,
+        targetUuid: targetUuid,
+        text: toNativeSkillTriggers(trimmed),
+        clientMessageId: clientMessageId,
+      ),
+    );
   }
 
   /// Interrupt the current operation.

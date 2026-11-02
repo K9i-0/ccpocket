@@ -943,6 +943,9 @@ class _CodexChatBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final supportsMessageEdit = context.select<ChatSessionCubit, bool>(
+      (cubit) => cubit.supportsMessageEdit,
+    );
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
     final queuedInput = sessionState.queuedInput;
@@ -1522,15 +1525,23 @@ class _CodexChatBody extends HookWidget {
                       httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
                       projectPath: effectiveProjectPath,
                       onRetryMessage: null,
-                      onRewindMessage: (entry) {
-                        _showCodexRewindDialog(
-                          context,
-                          entry,
-                          sessionId: sessionId,
-                          inputController: chatInputController,
-                          draftService: draftService,
-                        );
-                      },
+                      onRewindMessage: supportsMessageEdit
+                          ? null
+                          : (entry) {
+                              _showCodexRewindDialog(
+                                context,
+                                entry,
+                                sessionId: sessionId,
+                                inputController: chatInputController,
+                                draftService: draftService,
+                              );
+                            },
+                      onEditMessage:
+                          supportsMessageEdit && status == ProcessStatus.idle
+                          ? (entry, text) => context
+                                .read<ChatSessionCubit>()
+                                .editMessage(entry, text)
+                          : null,
                       onForkMessage: (message) {
                         unawaited(_forkCodexFromAssistant(context, message));
                       },
@@ -1911,13 +1922,15 @@ void _showUserMessageHistory(
       onScrollToMessage: (msg) {
         scrollToUserEntry.value = msg;
       },
-      onRewindMessage: (msg) => _showCodexRewindDialog(
-        context,
-        msg,
-        sessionId: sessionId,
-        inputController: inputController,
-        draftService: draftService,
-      ),
+      onRewindMessage: context.read<ChatSessionCubit>().supportsMessageEdit
+          ? null
+          : (msg) => _showCodexRewindDialog(
+              context,
+              msg,
+              sessionId: sessionId,
+              inputController: inputController,
+              draftService: draftService,
+            ),
     ),
   );
 }

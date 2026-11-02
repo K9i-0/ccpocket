@@ -54,7 +54,8 @@ class ResultChip extends StatelessWidget {
         label =
             'Done${parts.isNotEmpty ? ' (${parts.join(", ")})' : ''}$truncated';
         chipColor = appColors.successChip;
-      case 'stopped':
+      // Codex reports a user interrupt as an `interrupted` turn.
+      case 'stopped' || 'interrupted':
         label = 'Stopped';
         chipColor = appColors.subtleText.withValues(alpha: 0.2);
       default:

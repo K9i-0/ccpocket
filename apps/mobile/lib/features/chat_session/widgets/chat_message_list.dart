@@ -195,6 +195,8 @@ class ChatMessageList extends StatefulWidget {
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
+  final void Function(UserChatEntry, String)? onEditMessage;
+  final void Function(UserChatEntry)? onRestoreFilesMessage;
   final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final double bottomPadding;
@@ -220,6 +222,8 @@ class ChatMessageList extends StatefulWidget {
     required this.httpBaseUrl,
     required this.onRetryMessage,
     this.onRewindMessage,
+    this.onEditMessage,
+    this.onRestoreFilesMessage,
     this.onForkMessage,
     required this.collapseToolResults,
     this.scrollToUserEntry,
@@ -744,6 +748,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
                       httpBaseUrl: widget.httpBaseUrl,
                       onRetryMessage: widget.onRetryMessage,
                       onRewindMessage: widget.onRewindMessage,
+                      onEditMessage: widget.onEditMessage,
+                      onRestoreFilesMessage: widget.onRestoreFilesMessage,
                       onForkMessage: onForkMessage,
                       collapseToolResults: widget.collapseToolResults,
                       resolvedPlanText: _hasExitPlanMode(entry)
