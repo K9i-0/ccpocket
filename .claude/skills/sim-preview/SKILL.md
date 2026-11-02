@@ -7,6 +7,8 @@ description: iOSシミュレーターで動くFlutterアプリをExpo Device Hub
 
 MacのiOSシミュレーターを **Expo Device Hub → Tailscale Serve (HTTPS) → スマホのブラウザ** で配信する。Expoプロジェクトは不要。Flutterアプリをそのまま確認・操作できる。
 
+ここでいう Device Hub は Expo の配信ツール（npm パッケージ）を指す。Xcode 27.2 以降で Simulator.app の代わりに同梱される Apple の `DeviceHub.app` とは別物なので混同しない。
+
 既定はH.264・30fps・最大1000px・2.5Mbps。Device Hub 0.10.1でccpocketの配信を確認し、ユーザーから旧VNC方式より快適との評価を得た設定。TrollVNC / noVNCを既定に戻さない。
 
 ## 1. シミュレーターとアプリ

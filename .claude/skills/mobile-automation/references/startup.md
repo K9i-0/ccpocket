@@ -1,5 +1,15 @@
 ## アプリ起動ワークフロー
 
+### シミュレーターの画面表示
+
+Xcode 27.2 以降、Simulator.app は廃止され Apple の `DeviceHub.app`（bundle id `com.apple.dt.Devices`）に置き換わった。`open -a Simulator` は失敗する。画面を表示するときは次を使う。
+
+```bash
+open "$(xcode-select -p)/../Applications/DeviceHub.app"
+```
+
+`xcrun simctl` と `flutter run -d <udid>` は GUI がなくても動く。sim-preview の「Expo Device Hub」は別製品。
+
 ### Step 1: デバイス確認
 
 ```bash
