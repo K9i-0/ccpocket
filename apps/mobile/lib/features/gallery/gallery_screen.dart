@@ -77,10 +77,22 @@ class GalleryScreen extends HookWidget {
     final duoPolicy = WorkspacePaneScope.duoStripPolicyOf(context);
     final duoStripMode = duoPolicy.useStrip && DuoStripScope.hasStrip(context);
     final duoBack = onBack ?? onClose;
+    // In a multi-pane layout the strip may belong to another pane, so the
+    // header keeps a way back (or a close button for a tool pane).
+    final duoHeaderLeading =
+        leading ??
+        (embedded && onClose != null
+            ? IconButton(
+                key: const ValueKey('embedded_gallery_close_button'),
+                onPressed: onClose,
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                icon: const Icon(Icons.close),
+              )
+            : null);
     return DuoAdaptiveScaffold(
       useStrip: duoPolicy.useStrip,
       publish: duoPolicy.publish,
-      leadingInHeader: false,
+      leadingInHeader: !duoPolicy.compact,
       primary: DuoStripPrimaryButton(
         key: const ValueKey('gallery_strip_back_button'),
         tooltip: MaterialLocalizations.of(context).backButtonTooltip,
@@ -91,7 +103,9 @@ class GalleryScreen extends HookWidget {
       appBar: AppBar(
         toolbarHeight: chrome.toolbarHeight,
         automaticallyImplyLeading: !embedded,
-        leading: chrome.wrapLeading(leading),
+        leading: chrome.wrapLeading(
+          duoStripMode && !duoPolicy.compact ? duoHeaderLeading : leading,
+        ),
         leadingWidth: chrome.resolveLeadingWidth(
           hasLeading: leading != null,
           baseWidth: chrome.useMacOSAdaptiveChrome

@@ -316,7 +316,19 @@ class BrowserHeader extends StatelessWidget {
       child: stripMode
           ? KeyedSubtree(
               key: const ValueKey('browser_header'),
-              child: DuoSlimHeader(title: Text(l.browserTitle)),
+              child: DuoSlimHeader(
+                // In a multi-pane layout the strip may belong to another
+                // pane, so the header keeps its own way out.
+                leading: duoPolicy.compact
+                    ? null
+                    : IconButton(
+                        key: const ValueKey('browser_header_close_button'),
+                        tooltip: l.browserClose,
+                        onPressed: onClose,
+                        icon: const Icon(Icons.close),
+                      ),
+                title: Text(l.browserTitle),
+              ),
             )
           : SizedBox(
               key: const ValueKey('browser_header'),

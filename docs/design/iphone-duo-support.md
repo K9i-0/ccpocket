@@ -232,7 +232,14 @@ primary slot riding above a 300pt keyboard.
 ## Decisions and open items
 
 - Chat title/status on the cover: slim header line (decided).
-- Inner landscape: global actions only in the strip (decided).
+- Inner landscape: same tools-top / primary-bottom strip as the cover; the
+  strip follows the pane touched last (`DuoStripTouchRegion` around each
+  workspace pane). Because the strip may belong to another pane, Git, Explorer
+  and Gallery panes keep their own back / close in the slim header when not
+  compact (user feedback: Gallery was hard to leave). Supersedes the earlier
+  "global actions only" decision.
+- Slim headers get 10pt top spacing on the inner display (no top inset, but
+  rounded corners and the status cluster beside them).
 - Strip roles: tools on top, one primary action at the bottom; list extras in
   the bridge menu (decided).
 - Pre-existing, not Duo-specific: the multi-pane list header overflows by 8pt

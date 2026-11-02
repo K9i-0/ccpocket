@@ -693,6 +693,10 @@ class DuoSlimHeader extends StatelessWidget {
 
   static const height = 40.0;
 
+  /// Room above the header: the inner display has no top inset, but its
+  /// corners are rounded and the status cluster sits beside the header.
+  static const topSpacing = 10.0;
+
   final Widget? leading;
   final Widget? title;
   final Widget? flexibleSpace;
@@ -711,9 +715,11 @@ class DuoSlimHeader extends StatelessWidget {
     return SafeArea(
       key: const ValueKey('duo_slim_header'),
       bottom: false,
+      minimum: const EdgeInsets.only(top: topSpacing),
       child: SizedBox(
         height: height,
         child: Stack(
+          fit: StackFit.expand,
           children: [
             if (flexibleSpace != null) Positioned.fill(child: flexibleSpace),
             Padding(

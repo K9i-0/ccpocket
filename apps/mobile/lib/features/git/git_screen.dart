@@ -358,7 +358,7 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
     return DuoAdaptiveScaffold(
       useStrip: duoPolicy.useStrip,
       publish: duoPolicy.publish,
-      leadingInHeader: false,
+      leadingInHeader: !duoPolicy.compact,
       primary: DuoStripPrimaryButton(
         key: ValueKey(
           widget.embedded ? 'close_git_pane_button' : 'git_back_button',

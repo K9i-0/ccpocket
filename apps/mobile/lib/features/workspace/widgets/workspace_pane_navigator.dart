@@ -140,13 +140,19 @@ class WorkspacePaneScope extends InheritedWidget {
 
   /// Whether content may trade its app bar for the iPhone Duo control strip
   /// and whether it may own the strip now (its pane is in front).
-  static ({bool useStrip, bool publish}) duoStripPolicyOf(
+  ///
+  /// `compact` is false in a multi-pane layout, where the strip follows the
+  /// pane touched last (DuoStripTouchRegion), so each pane must keep its own
+  /// way back in its header.
+  static ({bool useStrip, bool publish, bool compact}) duoStripPolicyOf(
     BuildContext context,
   ) {
     final pane = maybeOf(context);
-    // Every pane trades its app bar for the strip; in a multi-pane layout the
-    // strip follows the pane touched last (DuoStripTouchRegion).
-    return (useStrip: true, publish: pane?.active ?? true);
+    return (
+      useStrip: true,
+      publish: pane?.active ?? true,
+      compact: pane?.compact ?? true,
+    );
   }
 
   @override

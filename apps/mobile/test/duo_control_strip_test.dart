@@ -344,7 +344,10 @@ void main() {
       // Back stays in the header; tools go to the top of the strip.
       final leading = _rectOf(tester, find.byKey(const ValueKey('leading')));
       expect(leading.right, lessThanOrEqualTo(382));
-      expect(leading.bottom, lessThanOrEqualTo(DuoSlimHeader.height));
+      expect(
+        leading.bottom,
+        lessThanOrEqualTo(DuoSlimHeader.topSpacing + DuoSlimHeader.height),
+      );
       final action = _rectOf(
         tester,
         find.byKey(const ValueKey('action_explore')),
