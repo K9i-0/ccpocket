@@ -24,6 +24,14 @@ bool filePeekVideoControlsCompact(double height) =>
     height - filePeekVideoBottomControlsHeight <
     filePeekVideoCenterTransportMinHeight;
 
+/// Height of the single-row layout used when even the seek bar and bottom row
+/// do not fit (e.g. landscape with the keyboard open).
+const filePeekVideoMinimalControlsHeight = 48.0;
+
+/// Whether only a single row (play, seek bar, fullscreen) fits.
+bool filePeekVideoControlsMinimal(double height) =>
+    height < filePeekVideoBottomControlsHeight;
+
 /// Size of the centered play button, scaled to the free space above the
 /// bottom controls.
 double filePeekVideoPlayButtonSize(double height) => math
@@ -173,6 +181,7 @@ class _ControlsLayout extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = filePeekVideoControlsCompact(constraints.maxHeight);
+        final minimal = filePeekVideoControlsMinimal(constraints.maxHeight);
         return DecoratedBox(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -182,43 +191,58 @@ class _ControlsLayout extends StatelessWidget {
               colors: [Color(0x33000000), Color(0x22000000), Color(0x99000000)],
             ),
           ),
-          child: Column(
-            children: [
-              Expanded(
-                child: compact
-                    ? const SizedBox.shrink()
-                    : Center(
-                        child: _CenterTransport(
-                          player: player,
-                          playSize: filePeekVideoPlayButtonSize(
-                            constraints.maxHeight,
-                          ),
-                        ),
+          child: minimal
+              ? ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.bottomCenter,
+                    minHeight: filePeekVideoMinimalControlsHeight,
+                    maxHeight: filePeekVideoMinimalControlsHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                      child: _MinimalBar(
+                        player: player,
+                        fullscreen: fullscreen,
                       ),
-              ),
-              SizedBox(
-                height: filePeekVideoBottomControlsHeight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 36,
-                        child: _VideoSeekBar(player: player),
-                      ),
-                      Expanded(
-                        child: _BottomBar(
-                          player: player,
-                          compact: compact,
-                          fullscreen: fullscreen,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: compact
+                          ? const SizedBox.shrink()
+                          : Center(
+                              child: _CenterTransport(
+                                player: player,
+                                playSize: filePeekVideoPlayButtonSize(
+                                  constraints.maxHeight,
+                                ),
+                              ),
+                            ),
+                    ),
+                    SizedBox(
+                      height: filePeekVideoBottomControlsHeight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: 36,
+                              child: _VideoSeekBar(player: player),
+                            ),
+                            Expanded(
+                              child: _BottomBar(
+                                player: player,
+                                compact: compact,
+                                fullscreen: fullscreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         );
       },
     );
@@ -265,13 +289,30 @@ class _BottomBar extends StatelessWidget {
         if (compact) _PlayButton(player: player, size: 40, filled: false),
         _MuteButton(player: player),
         const SizedBox(width: 4),
-        Flexible(child: _PositionLabel(player: player)),
-        const Spacer(),
+        Expanded(child: _PositionLabel(player: player)),
         FilePeekPlaybackRateMenu(
           player: player,
           onDarkSurface: true,
           compact: true,
         ),
+        _FullscreenButton(fullscreen: fullscreen),
+      ],
+    );
+  }
+}
+
+class _MinimalBar extends StatelessWidget {
+  final Player player;
+  final bool fullscreen;
+
+  const _MinimalBar({required this.player, required this.fullscreen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _PlayButton(player: player, size: 40, filled: false),
+        Expanded(child: _VideoSeekBar(player: player)),
         _FullscreenButton(fullscreen: fullscreen),
       ],
     );

@@ -96,6 +96,17 @@ void main() {
     expect(filePeekVideoControlsCompact(144), isFalse);
     expect(filePeekVideoControlsCompact(143), isTrue);
     expect(filePeekVideoControlsCompact(100), isTrue);
+    expect(filePeekVideoControlsMinimal(88), isFalse);
+    expect(filePeekVideoControlsMinimal(87), isTrue);
+  });
+
+  testWidgets('bottom row actions stay right-aligned', (tester) async {
+    await _pump(tester, const Size(800, 300));
+    final bounds = tester.getRect(find.byType(FilePeekVideoControls));
+    final fullscreen = tester.getRect(
+      find.byKey(const ValueKey('file_peek_video_fullscreen_button')),
+    );
+    expect(bounds.right - fullscreen.right, lessThan(16));
   });
 
   for (final size in const [
@@ -105,6 +116,8 @@ void main() {
     Size(320, 150),
     Size(320, 120),
     Size(844, 100),
+    Size(450, 71),
+    Size(280, 60),
     Size(844, 390),
   ]) {
     testWidgets('controls never overlap at $size', (tester) async {
