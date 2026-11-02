@@ -139,7 +139,7 @@ class BridgeUpdateStatusTile extends StatelessWidget {
         : latestCheckFailed
         ? cs.error
         : isKnownUpToDate
-        ? cs.primary
+        ? settingsSuccessColor(Theme.of(context).brightness)
         : cs.onSurfaceVariant;
 
     return ListTile(

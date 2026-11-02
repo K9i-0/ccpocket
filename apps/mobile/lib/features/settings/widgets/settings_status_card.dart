@@ -249,7 +249,7 @@ class _ConnectedStatus extends StatelessWidget {
                     else if (updateStatus.isKnownUpToDate)
                       _InlineStatus(
                         icon: Icons.check_circle_rounded,
-                        color: cs.primary,
+                        color: settingsSuccessColor(theme.brightness),
                         label: l.bridgeIsUpToDate,
                       ),
                   ],
@@ -282,7 +282,7 @@ class _StatusPill extends StatelessWidget {
     final checking =
         !online && (status == null || status == MachineStatus.unknown);
     final color = online
-        ? const Color(0xFF22C55E)
+        ? settingsSuccessColor(theme.brightness)
         : checking
         ? theme.colorScheme.outline
         : theme.colorScheme.error;

@@ -50,24 +50,12 @@ class SettingsGroup extends StatelessWidget {
           SettingsSectionHeader(title: title!)
         else
           const SizedBox(height: 16),
-        Card(
+        SettingsCard(
           key: cardKey,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          color: cs.surfaceContainerLow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
-          ),
           child: Column(
             children: [
               for (final (index, child) in children.indexed) ...[
-                if (index > 0)
-                  Divider(
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                    color: cs.outlineVariant.withValues(alpha: 0.55),
-                  ),
+                if (index > 0) const SettingsDivider(),
                 child,
               ],
             ],
@@ -86,6 +74,49 @@ class SettingsGroup extends StatelessWidget {
     );
   }
 }
+
+/// Rounded surface shared by every settings group.
+class SettingsCard extends StatelessWidget {
+  const SettingsCard({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      color: cs.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Inset divider between rows of a [SettingsCard].
+class SettingsDivider extends StatelessWidget {
+  const SettingsDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: Theme.of(context).colorScheme.outlineVariant
+          .withValues(alpha: 0.55),
+    );
+  }
+}
+
+/// Success color used for "up to date" / "online" states.
+Color settingsSuccessColor(Brightness brightness) =>
+    brightness == Brightness.dark
+    ? const Color(0xFF4ADE80)
+    : const Color(0xFF16A34A);
 
 /// Provides the accent color of the current settings category.
 class SettingsAccent extends InheritedWidget {

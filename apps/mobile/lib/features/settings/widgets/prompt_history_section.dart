@@ -6,6 +6,7 @@ import '../../../services/bridge_service.dart';
 import '../../../services/machine_manager_service.dart';
 import '../../../services/prompt_history_service.dart';
 import '../../../utils/network_endpoint.dart';
+import 'settings_tiles.dart';
 
 class PromptHistorySection extends StatefulWidget {
   final BridgeService bridgeService;
@@ -193,20 +194,8 @@ class _PromptHistorySectionState extends State<PromptHistorySection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(
-            l.promptHistorySectionTitle.toUpperCase(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+        SettingsSectionHeader(title: l.promptHistorySectionTitle),
+        SettingsCard(
           child: Column(
             children: [
               if (_canMigrateLegacy) ...[
