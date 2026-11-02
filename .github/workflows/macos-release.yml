@@ -350,10 +350,22 @@ jobs:
         id: asset
         run: |
           ASSET_DIR="$RUNNER_TEMP/sparkle-release"
+          # GitHub API calls from macOS runners occasionally fail with
+          # transient connection errors, so retry with a delay.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "Attempt $attempt failed: $*; retrying in 15s"
+              sleep 15
+            done
+            echo "::error::Command failed after 5 attempts: $*"
+            return 1
+          }
           mkdir -p "$ASSET_DIR"
-          gh release download "$GITHUB_REF_NAME" \
+          retry gh release download "$GITHUB_REF_NAME" \
             --pattern "${{ needs.release.outputs.dmg_name }}" \
-            --dir "$ASSET_DIR"
+            --dir "$ASSET_DIR" --clobber
           DMG_PATH="$ASSET_DIR/${{ needs.release.outputs.dmg_name }}"
           if [[ ! -f "$DMG_PATH" ]]; then
             echo "::error::Downloaded DMG not found at $DMG_PATH"
@@ -365,11 +377,23 @@ jobs:
         id: sparkle
         run: |
           TOOLS_DIR="$RUNNER_TEMP/sparkle-tools"
+          # GitHub API calls from macOS runners occasionally fail with
+          # transient connection errors, so retry with a delay.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "Attempt $attempt failed: $*; retrying in 15s"
+              sleep 15
+            done
+            echo "::error::Command failed after 5 attempts: $*"
+            return 1
+          }
           mkdir -p "$TOOLS_DIR"
-          gh release download "$SPARKLE_VERSION" \
+          retry gh release download "$SPARKLE_VERSION" \
             --repo sparkle-project/Sparkle \
             --pattern "Sparkle-${SPARKLE_VERSION}.tar.xz" \
-            --dir "$TOOLS_DIR"
+            --dir "$TOOLS_DIR" --clobber
           tar -xf "$TOOLS_DIR/Sparkle-${SPARKLE_VERSION}.tar.xz" -C "$TOOLS_DIR"
           SIGN_UPDATE_PATH="$(find "$TOOLS_DIR" -type f -name sign_update | head -n 1)"
           if [[ -z "$SIGN_UPDATE_PATH" ]]; then
@@ -476,7 +500,20 @@ jobs:
           PY
 
       - name: Publish signed appcast with the release
-        run: gh release upload "$GITHUB_REF_NAME" docs/sparkle/appcast.xml --clobber
+        run: |
+          # GitHub API calls from macOS runners occasionally fail with
+          # transient connection errors, so retry with a delay.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "Attempt $attempt failed: $*; retrying in 15s"
+              sleep 15
+            done
+            echo "::error::Command failed after 5 attempts: $*"
+            return 1
+          }
+          retry gh release upload "$GITHUB_REF_NAME" docs/sparkle/appcast.xml --clobber
 
       - name: Publish through the Pages workflow
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
