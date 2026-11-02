@@ -3,16 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
-import '../../../models/messages.dart';
 import '../../../providers/machine_manager_cubit.dart';
 import '../../../services/bridge_service.dart';
 import '../models/settings_catalog.dart';
 import '../sections/connection_settings_section.dart';
-import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
 import 'bridge_update_status_tile.dart';
 import 'settings_category_visuals.dart';
 import 'settings_tiles.dart';
+import 'usage_section.dart';
 
 /// Hero card at the top of settings: Bridge status and plan usage at a glance.
 class SettingsStatusCard extends StatelessWidget {
@@ -57,15 +56,39 @@ class SettingsStatusCard extends StatelessWidget {
         ),
         child: Material(
           type: MaterialType.transparency,
-          child: visibility.hasActiveMachine
-              ? _ConnectedStatus(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (visibility.hasActiveMachine)
+                _ConnectedStatus(
                   state: state,
                   visibility: visibility,
                   accent: accent,
                   onOpenCategory: onOpenCategory,
                   onUpdateBridge: onUpdateBridge,
                 )
-              : _DisconnectedStatus(accent: accent),
+              else
+                _DisconnectedStatus(accent: accent),
+              if (visibility.bridgeConnected) ...[
+                Divider(
+                  height: 1,
+                  indent: 18,
+                  endIndent: 18,
+                  color: cs.outlineVariant.withValues(alpha: 0.6),
+                ),
+                // Plan usage lives here instead of on its own page, so the
+                // usage shortcut on the home screen is a single hop back.
+                SettingsItem(
+                  id: SettingsEntryIds.usage,
+                  child: UsageSection(
+                    bridgeService: context.read<BridgeService>(),
+                    embedded: true,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -258,11 +281,6 @@ class _ConnectedStatus extends StatelessWidget {
             ),
           ),
         ),
-        if (visibility.bridgeConnected)
-          _UsageGlance(
-            bridge: bridge,
-            onTap: () => onOpenCategory(SettingsCategory.usage),
-          ),
       ],
     );
   }
@@ -378,145 +396,6 @@ class _InlineStatus extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Compact usage bars. Reads cached results only; fetching is owned by the
-/// usage page so opening settings never sends an extra request.
-class _UsageGlance extends StatelessWidget {
-  const _UsageGlance({required this.bridge, required this.onTap});
-
-  final BridgeService bridge;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<UsageResultMessage>(
-      stream: bridge.usageResults,
-      initialData: bridge.lastUsageResult,
-      builder: (context, snapshot) {
-        final providers = [
-          for (final info in snapshot.data?.providers ?? const <UsageInfo>[])
-            if (info.hasData) info,
-        ];
-        if (providers.isEmpty) return const SizedBox.shrink();
-        final cs = Theme.of(context).colorScheme;
-        final mode = context.select(
-          (SettingsCubit cubit) => cubit.state.usageDisplayMode,
-        );
-        return InkWell(
-          key: const ValueKey('settings_status_usage'),
-          onTap: onTap,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(22),
-          ),
-          child: Column(
-            children: [
-              Divider(
-                height: 1,
-                indent: 18,
-                endIndent: 18,
-                color: cs.outlineVariant.withValues(alpha: 0.6),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
-                child: Column(
-                  children: [
-                    for (final (index, info) in providers.indexed) ...[
-                      if (index > 0) const SizedBox(height: 8),
-                      _UsageBar(info: info, mode: mode),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _UsageBar extends StatelessWidget {
-  const _UsageBar({required this.info, required this.mode});
-
-  final UsageInfo info;
-  final UsageDisplayMode mode;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final window = info.fiveHour ?? info.sevenDay!;
-    final windowLabel = info.fiveHour != null
-        ? l.usageFiveHour
-        : l.usageSevenDay;
-    final used = window.utilization.clamp(0, 100).toDouble();
-    final shown = mode == UsageDisplayMode.remaining ? 100 - used : used;
-    final barColor = used >= 90
-        ? cs.error
-        : used >= 70
-        ? const Color(0xFFF59E0B)
-        : SettingsCategory.usage.color(theme.brightness);
-    final name = info.provider.isEmpty
-        ? info.provider
-        : info.provider[0].toUpperCase() + info.provider.substring(1);
-    final modeLabel = mode == UsageDisplayMode.remaining
-        ? l.usageDisplayModeRemaining
-        : l.usageDisplayModeUsed;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$modeLabel · $windowLabel',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '${shown.round()}%',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: shown / 100,
-            minHeight: 7,
-            color: barColor,
-            backgroundColor: cs.surface.withValues(alpha: 0.8),
-          ),
-        ),
-      ],
     );
   }
 }

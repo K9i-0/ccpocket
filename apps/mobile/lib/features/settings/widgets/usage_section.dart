@@ -17,10 +17,14 @@ class UsageSection extends StatefulWidget {
 
   /// Hides the "Usage" label when the page title already says it.
   final bool showTitle;
+
+  /// Renders without outer cards, for use inside another card.
+  final bool embedded;
   const UsageSection({
     super.key,
     required this.bridgeService,
     this.showTitle = true,
+    this.embedded = false,
   });
 
   @override
@@ -111,20 +115,26 @@ class _UsageSectionState extends State<UsageSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          padding: widget.embedded
+              ? const EdgeInsets.fromLTRB(18, 10, 12, 0)
+              : const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Row(
             children: [
-              if (widget.showTitle)
-                Text(
-                  l.settingsUsageSectionTitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              const Spacer(),
+              Expanded(
+                child: widget.showTitle
+                    ? Text(
+                        l.settingsUsageSectionTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               _UsageDisplayModeButton(mode: usageDisplayMode),
               const SizedBox(width: 8),
               if (_loading)
@@ -150,10 +160,18 @@ class _UsageSectionState extends State<UsageSection> {
         ),
         if (visibleProviders.isNotEmpty)
           for (final (index, info) in visibleProviders.indexed) ...[
-            if (index > 0) const SizedBox(height: 8),
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+            if (index > 0)
+              widget.embedded
+                  ? Divider(
+                      height: 1,
+                      indent: 18,
+                      endIndent: 18,
+                      color: cs.outlineVariant.withValues(alpha: 0.6),
+                    )
+                  : const SizedBox(height: 8),
+            _UsageContainer(
               key: ValueKey('usage_card_${info.provider}'),
+              embedded: widget.embedded,
               child: _ProviderUsageTile(
                 info: info,
                 displayMode: usageDisplayMode,
@@ -161,9 +179,9 @@ class _UsageSectionState extends State<UsageSection> {
             ),
           ]
         else if (_providers == null)
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+          _UsageContainer(
             key: const ValueKey('usage_card_placeholder'),
+            embedded: widget.embedded,
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Center(
@@ -187,9 +205,9 @@ class _UsageSectionState extends State<UsageSection> {
             ),
           )
         else
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
+          _UsageContainer(
             key: const ValueKey('usage_card_placeholder'),
+            embedded: widget.embedded,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
@@ -199,6 +217,32 @@ class _UsageSectionState extends State<UsageSection> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// A card per provider, or a plain block when embedded in another card.
+class _UsageContainer extends StatelessWidget {
+  const _UsageContainer({
+    super.key,
+    required this.embedded,
+    required this.child,
+  });
+
+  final bool embedded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (embedded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: child,
+      );
+    }
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: child,
     );
   }
 }
@@ -506,12 +550,14 @@ class _UsagePaceIndicator extends StatelessWidget {
                 children: [
                   Icon(_paceIcon(pace.stage), size: 14, color: color),
                   const SizedBox(width: 5),
-                  Text(
-                    _paceStageLabel(l, pace.stage),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: color,
+                  Flexible(
+                    child: Text(
+                      _paceStageLabel(l, pace.stage),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
                     ),
                   ),
                 ],

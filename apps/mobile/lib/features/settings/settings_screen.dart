@@ -60,6 +60,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   SettingsCategory? _selectedCategory;
   SettingsHighlightRequest? _highlight;
 
+  /// Row on the settings home to reveal (usage lives in the status card).
+  SettingsHighlightRequest? _homeHighlight;
+
   /// Category page pushed in the single-pane layout.
   Route<void>? _categoryRoute;
   bool _isTwoPane = false;
@@ -128,12 +131,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Support can appear once the store catalog loads, so it is always opened.
     final canOpen =
         category == SettingsCategory.support ||
-        visibleSettingsCategories(visibility).contains(category);
+        (settingsEntryById(entryId!)?.isVisible(visibility) ?? false);
     if (!canOpen) return;
     _openCategory(category, entryId: entryId);
   }
 
   void _openCategory(SettingsCategory category, {String? entryId}) {
+    if (inlineSettingsCategories.contains(category)) {
+      // Inline categories live on the home: close any open page so a single
+      // back gesture leaves settings, and reveal the row in place.
+      final route = _categoryRoute;
+      if (route != null && route.isActive) {
+        Navigator.of(context).removeRoute(route);
+        _categoryRoute = null;
+      }
+      setState(() {
+        _homeHighlight = SettingsHighlightRequest(
+          entryId ?? SettingsEntryIds.usage,
+        );
+      });
+      return;
+    }
     final highlight = entryId == null
         ? null
         : SettingsHighlightRequest(entryId);
@@ -210,6 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!_isTwoPane) {
             return SettingsHome(
               environment: _environment,
+              highlight: _homeHighlight,
               onOpenCategory: _openCategory,
               onUpdateBridge: _updateBridgeFromSettings,
             );
@@ -228,6 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     width: 360,
                     child: SettingsHome(
                       environment: _environment,
+                      highlight: _homeHighlight,
                       selectedCategory: selected,
                       onOpenCategory: _openCategory,
                       onUpdateBridge: _updateBridgeFromSettings,

@@ -446,13 +446,19 @@ List<SettingsEntry> visibleSettingsEntries(
   ];
 }
 
-/// Categories that have at least one visible entry.
+/// Categories rendered inside the settings home (the status card) rather
+/// than as their own page.
+const Set<SettingsCategory> inlineSettingsCategories = {SettingsCategory.usage};
+
+/// Page categories that have at least one visible entry.
 List<SettingsCategory> visibleSettingsCategories(
   SettingsVisibility visibility,
 ) {
   return [
     for (final category in SettingsCategory.values)
-      if (visibleSettingsEntries(category, visibility).isNotEmpty) category,
+      if (!inlineSettingsCategories.contains(category) &&
+          visibleSettingsEntries(category, visibility).isNotEmpty)
+        category,
   ];
 }
 

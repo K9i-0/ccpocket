@@ -34,6 +34,7 @@ class SettingsHome extends StatefulWidget {
     required this.onOpenCategory,
     required this.onUpdateBridge,
     this.selectedCategory,
+    this.highlight,
   });
 
   final ValueListenable<SettingsEnvironment> environment;
@@ -42,6 +43,9 @@ class SettingsHome extends StatefulWidget {
 
   /// Highlighted category in the two-pane layout.
   final SettingsCategory? selectedCategory;
+
+  /// Row on the home itself (e.g. usage in the status card) to reveal.
+  final SettingsHighlightRequest? highlight;
 
   @override
   State<SettingsHome> createState() => _SettingsHomeState();
@@ -75,7 +79,7 @@ class _SettingsHomeState extends State<SettingsHome> {
       environment: widget.environment,
       builder: (context, state, visibility, env) {
         final query = _query.trim();
-        return ListView(
+        final list = ListView(
           key: const PageStorageKey('settings_list'),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.only(
@@ -109,6 +113,7 @@ class _SettingsHomeState extends State<SettingsHome> {
               ),
           ],
         );
+        return SettingsHighlightScope(request: widget.highlight, child: list);
       },
     );
   }
@@ -188,11 +193,7 @@ class _CategoryList extends StatelessWidget {
   final SettingsOpenCategory onOpenCategory;
 
   static const _groups = [
-    [
-      SettingsCategory.connection,
-      SettingsCategory.notifications,
-      SettingsCategory.usage,
-    ],
+    [SettingsCategory.connection, SettingsCategory.notifications],
     [
       SettingsCategory.appearance,
       SettingsCategory.input,

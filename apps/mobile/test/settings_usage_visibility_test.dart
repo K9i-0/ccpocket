@@ -64,7 +64,11 @@ class _FakeBridgeService extends BridgeService {
   Stream<UsageResultMessage> get usageResults => _usageController.stream;
 
   @override
-  UsageResultMessage? get lastUsageResult => cachedUsage;
+  // Connected fakes answer with an empty result so the usage block in the
+  // status card does not spin forever.
+  UsageResultMessage? get lastUsageResult =>
+      cachedUsage ??
+      (_connected ? const UsageResultMessage(providers: []) : null);
 
   @override
   void requestUsage() {}
@@ -897,10 +901,7 @@ void main() {
           find.byKey(const ValueKey('settings_category_usage')),
           findsNothing,
         );
-        expect(
-          find.byKey(const ValueKey('settings_status_usage')),
-          findsNothing,
-        );
+        expect(find.byKey(const ValueKey('settings_item_usage')), findsNothing);
         expect(
           find.byKey(const ValueKey('settings_category_appearance')),
           findsOneWidget,
@@ -1165,13 +1166,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_codex')),
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
@@ -1226,13 +1226,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_codex')),
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
@@ -1320,12 +1319,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _openCategory(tester, SettingsCategory.usage);
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_claude')),
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.byKey(const ValueKey('usage_card_codex')), findsNothing);
       expect(
@@ -1375,6 +1373,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Usage is on the settings home, so no extra page is pushed and a
+      // single back leaves settings.
+      expect(find.byType(SettingsHome), findsOneWidget);
+      expect(
+        tester.state<NavigatorState>(find.byType(Navigator).first).canPop(),
+        isFalse,
+      );
       expect(find.byKey(const ValueKey('usage_card_codex')), findsOneWidget);
       expect(find.text('On pace'), findsOneWidget);
       expect(find.text('Expected 40% used'), findsOneWidget);
@@ -1383,7 +1388,7 @@ void main() {
         find.byKey(const ValueKey('usage_card_codex')),
       );
       final listRect = tester.getRect(
-        find.byKey(const PageStorageKey('settings_category_usage')),
+        find.byKey(const PageStorageKey('settings_list')),
       );
       expect(usageRect.overlaps(listRect), isTrue);
 
@@ -1427,13 +1432,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_codex')),
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
@@ -2051,7 +2055,12 @@ void main() {
         );
         final categories = visibleSettingsCategories(visibility);
         expect(categories.contains(SettingsCategory.connection), connected);
-        expect(categories.contains(SettingsCategory.usage), connected);
+        expect(categories, isNot(contains(SettingsCategory.usage)));
+        // Usage is part of the status card on the home instead.
+        expect(
+          find.byKey(const ValueKey('settings_item_usage')),
+          connected ? findsOneWidget : findsNothing,
+        );
         expect(categories, contains(SettingsCategory.appearance));
 
         for (final category in categories) {
@@ -2388,10 +2397,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('settings_status_usage')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('settings_item_usage')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('settings_status_update_button')),
         findsOneWidget,
