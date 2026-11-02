@@ -1994,6 +1994,106 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsTitle => '設定';
 
   @override
+  String get settingsCategoryConnection => '接続とBridge';
+
+  @override
+  String get settingsCategoryAppearance => '外観';
+
+  @override
+  String get settingsCategoryInput => '入力';
+
+  @override
+  String get settingsCategoryAgents => 'エージェント';
+
+  @override
+  String get settingsCategoryGit => 'Gitと差分';
+
+  @override
+  String get settingsCategoryNotifications => '通知';
+
+  @override
+  String get settingsCategoryUsage => '利用状況';
+
+  @override
+  String get settingsCategoryUsageSummary => 'Claude・Codexのプラン利用量';
+
+  @override
+  String get settingsCategorySupport => '応援・シェア';
+
+  @override
+  String get settingsCategorySupportSummary => 'サポーター・レビュー・シェア';
+
+  @override
+  String get settingsCategoryAbout => 'このアプリについて';
+
+  @override
+  String get settingsCategoryAboutSummary => 'バージョン・変更履歴・ライセンス';
+
+  @override
+  String get settingsGroupDisplay => '表示';
+
+  @override
+  String get settingsGroupCode => 'コード表示';
+
+  @override
+  String get settingsGroupSending => 'メッセージ送信';
+
+  @override
+  String get settingsGroupAttachments => '添付';
+
+  @override
+  String get settingsGroupPerformance => 'パフォーマンス';
+
+  @override
+  String get settingsGroupSessions => 'セッション';
+
+  @override
+  String get settingsGroupFilesAndApps => 'ファイルとアプリ連携';
+
+  @override
+  String get settingsGroupDiffView => '差分ビュー';
+
+  @override
+  String get settingsEnabledAgents => '使うエージェント';
+
+  @override
+  String get settingsAgentsBoth => '両方';
+
+  @override
+  String get settingsBridgeMachine => 'Bridgeマシン';
+
+  @override
+  String get settingsNotConnected => '未接続';
+
+  @override
+  String get settingsStatusOnline => 'オンライン';
+
+  @override
+  String get settingsStatusOffline => 'オフライン';
+
+  @override
+  String get settingsStatusChecking => '確認中';
+
+  @override
+  String get settingsStatusDisconnectedTitle => 'Bridgeに未接続';
+
+  @override
+  String get settingsStatusDisconnectedBody =>
+      'マシンに接続すると、Bridgeの状態や利用状況がここに表示されます。';
+
+  @override
+  String get settingsSearchHint => '設定を検索';
+
+  @override
+  String get settingsSearchNoResults => '一致する設定がありません';
+
+  @override
+  String get settingsOn => 'オン';
+
+  @override
+  String get settingsOff => 'オフ';
+
+  @override
   String get sectionGeneral => '一般';
 
   @override

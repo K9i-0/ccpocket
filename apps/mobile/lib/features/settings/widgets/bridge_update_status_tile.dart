@@ -3,6 +3,74 @@ import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
+import 'settings_tiles.dart';
+
+/// Derived Bridge version state shared by the status card and the tile.
+class BridgeUpdateStatus {
+  const BridgeUpdateStatus._({
+    required this.expectedVersion,
+    required this.updateTargetVersion,
+    required this.currentVersion,
+    required this.latestCheckFailed,
+    required this.bridgeNeedsUpdate,
+    required this.needsUpdate,
+    required this.canShowSetupHelp,
+    required this.isKnownUpToDate,
+  });
+
+  factory BridgeUpdateStatus.resolve({
+    required MachineWithStatus? machineWithStatus,
+    String? latestBridgeVersion,
+    bool isCheckingLatestBridgeVersion = false,
+    String? latestBridgeVersionError,
+  }) {
+    final expectedVersion = AppConstants.expectedBridgeVersion;
+    final updateTargetVersion =
+        latestBridgeVersion != null &&
+            compareSemanticVersions(latestBridgeVersion, expectedVersion) > 0
+        ? latestBridgeVersion
+        : expectedVersion;
+    final machine = machineWithStatus?.machine;
+    final versionInfo = machineWithStatus?.versionInfo;
+    final hasSshSetup = machine?.canStartRemotely ?? false;
+    final isOnline = machineWithStatus?.status == MachineStatus.online;
+    final latestCheckFailed =
+        latestBridgeVersion == null && latestBridgeVersionError != null;
+    final bridgeNeedsUpdate =
+        isOnline &&
+        versionInfo != null &&
+        versionInfo.needsUpdate(updateTargetVersion);
+    return BridgeUpdateStatus._(
+      expectedVersion: expectedVersion,
+      updateTargetVersion: updateTargetVersion,
+      currentVersion: versionInfo?.version,
+      latestCheckFailed: latestCheckFailed,
+      bridgeNeedsUpdate: bridgeNeedsUpdate,
+      needsUpdate: bridgeNeedsUpdate && hasSshSetup,
+      canShowSetupHelp: bridgeNeedsUpdate && !hasSshSetup,
+      isKnownUpToDate:
+          versionInfo != null &&
+          !bridgeNeedsUpdate &&
+          !isCheckingLatestBridgeVersion &&
+          !latestCheckFailed,
+    );
+  }
+
+  final String expectedVersion;
+  final String updateTargetVersion;
+  final String? currentVersion;
+  final bool latestCheckFailed;
+
+  /// The running Bridge is older than the target version.
+  final bool bridgeNeedsUpdate;
+
+  /// An update is needed and can be started over SSH.
+  final bool needsUpdate;
+
+  /// An update is needed but SSH is not configured.
+  final bool canShowSetupHelp;
+  final bool isKnownUpToDate;
+}
 
 class BridgeUpdateStatusTile extends StatelessWidget {
   final MachineWithStatus? machineWithStatus;
@@ -28,29 +96,20 @@ class BridgeUpdateStatusTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final expectedVersion = AppConstants.expectedBridgeVersion;
-    final updateTargetVersion =
-        latestBridgeVersion != null &&
-            compareSemanticVersions(latestBridgeVersion!, expectedVersion) > 0
-        ? latestBridgeVersion!
-        : expectedVersion;
-    final machine = machineWithStatus?.machine;
+    final status = BridgeUpdateStatus.resolve(
+      machineWithStatus: machineWithStatus,
+      latestBridgeVersion: latestBridgeVersion,
+      isCheckingLatestBridgeVersion: isCheckingLatestBridgeVersion,
+      latestBridgeVersionError: latestBridgeVersionError,
+    );
+    final expectedVersion = status.expectedVersion;
+    final updateTargetVersion = status.updateTargetVersion;
     final versionInfo = machineWithStatus?.versionInfo;
-    final hasSshSetup = machine?.canStartRemotely ?? false;
-    final isOnline = machineWithStatus?.status == MachineStatus.online;
-    final latestCheckFailed =
-        latestBridgeVersion == null && latestBridgeVersionError != null;
-    final bridgeNeedsUpdate =
-        isOnline &&
-        versionInfo != null &&
-        versionInfo.needsUpdate(updateTargetVersion);
-    final needsUpdate = bridgeNeedsUpdate && hasSshSetup;
-    final canShowSetupHelp = bridgeNeedsUpdate && !hasSshSetup;
-    final isKnownUpToDate =
-        versionInfo != null &&
-        !bridgeNeedsUpdate &&
-        !isCheckingLatestBridgeVersion &&
-        !latestCheckFailed;
+    final latestCheckFailed = status.latestCheckFailed;
+    final bridgeNeedsUpdate = status.bridgeNeedsUpdate;
+    final needsUpdate = status.needsUpdate;
+    final canShowSetupHelp = status.canShowSetupHelp;
+    final isKnownUpToDate = status.isKnownUpToDate;
 
     final title = bridgeNeedsUpdate
         ? l.bridgeUpdateAvailable
@@ -87,7 +146,7 @@ class BridgeUpdateStatusTile extends StatelessWidget {
       key: canShowSetupHelp
           ? const ValueKey('settings_bridge_update_setup_tile')
           : null,
-      leading: Icon(icon, color: iconColor),
+      leading: SettingsLeadingIcon(icon, color: iconColor),
       title: Text(title),
       subtitle: Text(subtitle),
       onTap: canShowSetupHelp

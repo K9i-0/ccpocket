@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../state/settings_state.dart';
+import 'settings_tiles.dart';
 
 class PushNotificationTile extends StatelessWidget {
   final SettingsState state;
@@ -46,7 +47,7 @@ class PushNotificationTile extends StatelessWidget {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.notifications_active_outlined),
+          : const SettingsLeadingIcon(Icons.notifications_active_rounded),
     );
   }
 }
@@ -71,7 +72,7 @@ class PushPrivacyTile extends StatelessWidget {
       onChanged: syncInProgress ? null : onChanged,
       title: Text(l.pushPrivacyMode),
       subtitle: Text(l.pushPrivacyModeSubtitle),
-      secondary: const Icon(Icons.visibility_off_outlined),
+      secondary: const SettingsLeadingIcon(Icons.visibility_off_rounded),
     );
   }
 }
@@ -90,7 +91,7 @@ class UpdateNotificationLanguageTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return ListTile(
-      leading: const Icon(Icons.translate_outlined),
+      leading: const SettingsLeadingIcon(Icons.translate_rounded),
       title: Text(l.updateNotificationLanguage),
       trailing: syncInProgress
           ? const SizedBox(

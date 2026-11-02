@@ -2075,6 +2075,107 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
+  String get settingsCategoryConnection => 'Connection & Bridge';
+
+  @override
+  String get settingsCategoryAppearance => 'Appearance';
+
+  @override
+  String get settingsCategoryInput => 'Input';
+
+  @override
+  String get settingsCategoryAgents => 'Agents';
+
+  @override
+  String get settingsCategoryGit => 'Git & Diff';
+
+  @override
+  String get settingsCategoryNotifications => 'Notifications';
+
+  @override
+  String get settingsCategoryUsage => 'Usage';
+
+  @override
+  String get settingsCategoryUsageSummary => 'Claude and Codex plan limits';
+
+  @override
+  String get settingsCategorySupport => 'Support & Share';
+
+  @override
+  String get settingsCategorySupportSummary =>
+      'Supporter, reviews, and sharing';
+
+  @override
+  String get settingsCategoryAbout => 'About';
+
+  @override
+  String get settingsCategoryAboutSummary => 'Version, changelog, and licenses';
+
+  @override
+  String get settingsGroupDisplay => 'Display';
+
+  @override
+  String get settingsGroupCode => 'Code';
+
+  @override
+  String get settingsGroupSending => 'Sending messages';
+
+  @override
+  String get settingsGroupAttachments => 'Attachments';
+
+  @override
+  String get settingsGroupPerformance => 'Performance';
+
+  @override
+  String get settingsGroupSessions => 'Sessions';
+
+  @override
+  String get settingsGroupFilesAndApps => 'Files & apps';
+
+  @override
+  String get settingsGroupDiffView => 'Diff view';
+
+  @override
+  String get settingsEnabledAgents => 'Enabled agents';
+
+  @override
+  String get settingsAgentsBoth => 'Both';
+
+  @override
+  String get settingsBridgeMachine => 'Bridge machine';
+
+  @override
+  String get settingsNotConnected => 'Not connected';
+
+  @override
+  String get settingsStatusOnline => 'Online';
+
+  @override
+  String get settingsStatusOffline => 'Offline';
+
+  @override
+  String get settingsStatusChecking => 'Checking';
+
+  @override
+  String get settingsStatusDisconnectedTitle => 'No Bridge connected';
+
+  @override
+  String get settingsStatusDisconnectedBody =>
+      'Connect to a machine to see Bridge status and usage here.';
+
+  @override
+  String get settingsSearchHint => 'Search settings';
+
+  @override
+  String get settingsSearchNoResults => 'No matching settings';
+
+  @override
+  String get settingsOn => 'On';
+
+  @override
+  String get settingsOff => 'Off';
+
+  @override
   String get sectionGeneral => 'GENERAL';
 
   @override

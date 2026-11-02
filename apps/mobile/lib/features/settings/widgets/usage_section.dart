@@ -14,7 +14,14 @@ import '../state/settings_state.dart';
 /// Settings セクション: Claude / Codex のプラン利用量表示
 class UsageSection extends StatefulWidget {
   final BridgeService bridgeService;
-  const UsageSection({super.key, required this.bridgeService});
+
+  /// Hides the "Usage" label when the page title already says it.
+  final bool showTitle;
+  const UsageSection({
+    super.key,
+    required this.bridgeService,
+    this.showTitle = true,
+  });
 
   @override
   State<UsageSection> createState() => _UsageSectionState();
@@ -107,15 +114,16 @@ class _UsageSectionState extends State<UsageSection> {
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Row(
             children: [
-              Text(
-                l.settingsUsageSectionTitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.8,
-                  color: cs.onSurfaceVariant,
+              if (widget.showTitle)
+                Text(
+                  l.settingsUsageSectionTitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
-              ),
               const Spacer(),
               _UsageDisplayModeButton(mode: usageDisplayMode),
               const SizedBox(width: 8),

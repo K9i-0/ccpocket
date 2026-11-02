@@ -3779,6 +3779,204 @@ abstract class AppLocalizations {
   /// **'設定'**
   String get settingsTitle;
 
+  /// No description provided for @settingsCategoryConnection.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続とBridge'**
+  String get settingsCategoryConnection;
+
+  /// No description provided for @settingsCategoryAppearance.
+  ///
+  /// In ja, this message translates to:
+  /// **'外観'**
+  String get settingsCategoryAppearance;
+
+  /// No description provided for @settingsCategoryInput.
+  ///
+  /// In ja, this message translates to:
+  /// **'入力'**
+  String get settingsCategoryInput;
+
+  /// No description provided for @settingsCategoryAgents.
+  ///
+  /// In ja, this message translates to:
+  /// **'エージェント'**
+  String get settingsCategoryAgents;
+
+  /// No description provided for @settingsCategoryGit.
+  ///
+  /// In ja, this message translates to:
+  /// **'Gitと差分'**
+  String get settingsCategoryGit;
+
+  /// No description provided for @settingsCategoryNotifications.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知'**
+  String get settingsCategoryNotifications;
+
+  /// No description provided for @settingsCategoryUsage.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用状況'**
+  String get settingsCategoryUsage;
+
+  /// No description provided for @settingsCategoryUsageSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude・Codexのプラン利用量'**
+  String get settingsCategoryUsageSummary;
+
+  /// No description provided for @settingsCategorySupport.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援・シェア'**
+  String get settingsCategorySupport;
+
+  /// No description provided for @settingsCategorySupportSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'サポーター・レビュー・シェア'**
+  String get settingsCategorySupportSummary;
+
+  /// No description provided for @settingsCategoryAbout.
+  ///
+  /// In ja, this message translates to:
+  /// **'このアプリについて'**
+  String get settingsCategoryAbout;
+
+  /// No description provided for @settingsCategoryAboutSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'バージョン・変更履歴・ライセンス'**
+  String get settingsCategoryAboutSummary;
+
+  /// No description provided for @settingsGroupDisplay.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示'**
+  String get settingsGroupDisplay;
+
+  /// No description provided for @settingsGroupCode.
+  ///
+  /// In ja, this message translates to:
+  /// **'コード表示'**
+  String get settingsGroupCode;
+
+  /// No description provided for @settingsGroupSending.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージ送信'**
+  String get settingsGroupSending;
+
+  /// No description provided for @settingsGroupAttachments.
+  ///
+  /// In ja, this message translates to:
+  /// **'添付'**
+  String get settingsGroupAttachments;
+
+  /// No description provided for @settingsGroupPerformance.
+  ///
+  /// In ja, this message translates to:
+  /// **'パフォーマンス'**
+  String get settingsGroupPerformance;
+
+  /// No description provided for @settingsGroupSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション'**
+  String get settingsGroupSessions;
+
+  /// No description provided for @settingsGroupFilesAndApps.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルとアプリ連携'**
+  String get settingsGroupFilesAndApps;
+
+  /// No description provided for @settingsGroupDiffView.
+  ///
+  /// In ja, this message translates to:
+  /// **'差分ビュー'**
+  String get settingsGroupDiffView;
+
+  /// No description provided for @settingsEnabledAgents.
+  ///
+  /// In ja, this message translates to:
+  /// **'使うエージェント'**
+  String get settingsEnabledAgents;
+
+  /// No description provided for @settingsAgentsBoth.
+  ///
+  /// In ja, this message translates to:
+  /// **'両方'**
+  String get settingsAgentsBoth;
+
+  /// No description provided for @settingsBridgeMachine.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeマシン'**
+  String get settingsBridgeMachine;
+
+  /// No description provided for @settingsNotConnected.
+  ///
+  /// In ja, this message translates to:
+  /// **'未接続'**
+  String get settingsNotConnected;
+
+  /// No description provided for @settingsStatusOnline.
+  ///
+  /// In ja, this message translates to:
+  /// **'オンライン'**
+  String get settingsStatusOnline;
+
+  /// No description provided for @settingsStatusOffline.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフライン'**
+  String get settingsStatusOffline;
+
+  /// No description provided for @settingsStatusChecking.
+  ///
+  /// In ja, this message translates to:
+  /// **'確認中'**
+  String get settingsStatusChecking;
+
+  /// No description provided for @settingsStatusDisconnectedTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeに未接続'**
+  String get settingsStatusDisconnectedTitle;
+
+  /// No description provided for @settingsStatusDisconnectedBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシンに接続すると、Bridgeの状態や利用状況がここに表示されます。'**
+  String get settingsStatusDisconnectedBody;
+
+  /// No description provided for @settingsSearchHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定を検索'**
+  String get settingsSearchHint;
+
+  /// No description provided for @settingsSearchNoResults.
+  ///
+  /// In ja, this message translates to:
+  /// **'一致する設定がありません'**
+  String get settingsSearchNoResults;
+
+  /// No description provided for @settingsOn.
+  ///
+  /// In ja, this message translates to:
+  /// **'オン'**
+  String get settingsOn;
+
+  /// No description provided for @settingsOff.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフ'**
+  String get settingsOff;
+
   /// No description provided for @sectionGeneral.
   ///
   /// In ja, this message translates to:

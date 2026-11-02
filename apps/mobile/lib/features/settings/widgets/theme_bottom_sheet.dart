@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 
@@ -40,6 +41,7 @@ class _ThemeBottomSheetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -65,7 +67,7 @@ class _ThemeBottomSheetContent extends StatelessWidget {
             children: [
               Icon(Icons.palette, color: cs.primary, size: 20),
               const SizedBox(width: 8),
-              Text('Theme', style: Theme.of(context).textTheme.titleMedium),
+              Text(l.theme, style: Theme.of(context).textTheme.titleMedium),
             ],
           ),
         ),
@@ -80,17 +82,17 @@ class _ThemeBottomSheetContent extends StatelessWidget {
             children: [
               RadioListTile<ThemeMode>(
                 value: ThemeMode.system,
-                title: const Text('System'),
+                title: Text(l.themeSystem),
                 secondary: const Icon(Icons.settings_brightness, size: 20),
               ),
               RadioListTile<ThemeMode>(
                 value: ThemeMode.light,
-                title: const Text('Light'),
+                title: Text(l.themeLight),
                 secondary: const Icon(Icons.light_mode, size: 20),
               ),
               RadioListTile<ThemeMode>(
                 value: ThemeMode.dark,
-                title: const Text('Dark'),
+                title: Text(l.themeDark),
                 secondary: const Icon(Icons.dark_mode, size: 20),
               ),
             ],

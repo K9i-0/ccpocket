@@ -55,30 +55,30 @@ class _SpreadAppealMessageContent extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context);
-    return Column(
-      children: [
-        Padding(
-          key: const ValueKey('spread_appeal_message'),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.campaign_outlined, color: cs.primary, size: 22),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  l.spreadAppealMessage,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    height: 1.25,
-                  ),
-                ),
+    return Container(
+      key: const ValueKey('spread_appeal_message'),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.campaign_rounded, color: cs.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              l.spreadAppealMessage,
+              style: textTheme.bodyMedium?.copyWith(
+                color: cs.onSurface,
+                height: 1.3,
               ),
-            ],
+            ),
           ),
-        ),
-        Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant),
-      ],
+        ],
+      ),
     );
   }
 }

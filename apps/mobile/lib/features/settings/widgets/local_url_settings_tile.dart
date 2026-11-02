@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/local_url_settings.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
+import 'settings_tiles.dart';
 
 String localUrlModeLabel(AppLocalizations l, LocalUrlMode mode) =>
     switch (mode) {
@@ -27,7 +28,8 @@ class LocalUrlSettingsTile extends StatelessWidget {
         );
         return ListTile(
           key: const ValueKey('local_url_settings_button'),
-          leading: const Icon(Icons.link),
+          leading: const SettingsLeadingIcon(Icons.link_rounded),
+          trailing: const Icon(Icons.chevron_right, size: 20),
           title: Text(l.localUrlTitle),
           subtitle: Text(localUrlModeLabel(l, settings.mode)),
           onTap: () async {

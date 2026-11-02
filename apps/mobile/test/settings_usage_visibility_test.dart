@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'package:ccpocket/features/settings/models/settings_catalog.dart';
 import 'package:ccpocket/features/settings/settings_screen.dart';
+import 'package:ccpocket/features/settings/widgets/settings_home.dart';
+import 'package:ccpocket/features/settings/widgets/settings_tiles.dart';
+import 'package:ccpocket/features/settings/widgets/settings_visibility_builder.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -352,6 +356,28 @@ Future<Widget> _buildScreen({
   );
 }
 
+/// Opens a category from the settings home list (single-pane layout).
+Future<void> _openCategory(
+  WidgetTester tester,
+  SettingsCategory category,
+) async {
+  // A previous pumpWidget can keep an earlier category page on the stack.
+  tester
+      .state<NavigatorState>(find.byType(Navigator).first)
+      .popUntil((route) => route.isFirst);
+  await tester.pumpAndSettle();
+  final tile = find.byKey(ValueKey('settings_category_${category.name}'));
+  await tester.scrollUntilVisible(
+    tile,
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.ensureVisible(tile);
+  await tester.pumpAndSettle();
+  await tester.tap(tile);
+  await tester.pumpAndSettle();
+}
+
 BridgeLatestVersionService _recommendedLatestVersionService() {
   return BridgeLatestVersionService(
     httpClient: MockClient(
@@ -428,6 +454,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await _openCategory(tester, SettingsCategory.connection);
         final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
         expect(find.text(l.bridgeUpdateAvailable), findsOneWidget);
@@ -488,6 +515,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.connection);
 
       await tester.tap(
         find.byKey(const ValueKey('settings_update_bridge_button')),
@@ -561,6 +589,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await _openCategory(tester, SettingsCategory.connection);
 
         await tester.tap(
           find.byKey(const ValueKey('settings_update_bridge_button')),
@@ -638,6 +667,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await _openCategory(tester, SettingsCategory.connection);
         final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
         expect(find.text(l.bridgeUpdateAvailable), findsOneWidget);
@@ -698,6 +728,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.connection);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       expect(find.text(l.bridgeIsUpToDate), findsOneWidget);
@@ -743,6 +774,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.connection);
 
       expect(find.text(l.bridgeIsUpToDate), findsOneWidget);
       expect(
@@ -796,6 +828,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.connection);
 
       expect(find.text(l.bridgeUpdateRequiresSetup), findsOneWidget);
       expect(
@@ -860,7 +893,18 @@ void main() {
 
         expect(find.text(l.settingsUsageSectionTitle), findsNothing);
         expect(find.byKey(const ValueKey('usage_card_codex')), findsNothing);
-        expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('settings_category_usage')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('settings_status_usage')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('settings_category_appearance')),
+          findsOneWidget,
+        );
 
         await settingsCubit.close();
         await machineManagerCubit.close();
@@ -868,7 +912,7 @@ void main() {
       },
     );
 
-    testWidgets('orders general settings by conversion and related controls', (
+    testWidgets('groups appearance and input settings in a stable order', (
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({});
@@ -887,27 +931,30 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
-      final appIconTop = tester
-          .getTopLeft(find.byKey(const ValueKey('app_icon_tile')))
-          .dy;
-      final themeTop = tester.getTopLeft(find.text(l.theme)).dy;
-      final languageTop = tester.getTopLeft(find.text(l.language)).dy;
-      final voiceInputTop = tester.getTopLeft(find.text(l.voiceInput)).dy;
-      final hideVoiceInputTop = tester
-          .getTopLeft(find.text(l.hideVoiceInput))
-          .dy;
-      final openGalleryDirectlyTop = tester
-          .getTopLeft(find.text(l.openGalleryDirectly))
-          .dy;
-      final textDensityTop = tester.getTopLeft(find.text(l.textDensity)).dy;
+      double top(String id) =>
+          tester.getTopLeft(find.byKey(ValueKey('settings_item_$id'))).dy;
 
-      expect(appIconTop, lessThan(themeTop));
-      expect(themeTop, lessThan(languageTop));
-      expect(languageTop, lessThan(voiceInputTop));
-      expect(voiceInputTop, lessThan(hideVoiceInputTop));
-      expect(hideVoiceInputTop, lessThan(openGalleryDirectlyTop));
-      expect(openGalleryDirectlyTop, lessThan(textDensityTop));
+      await _openCategory(tester, SettingsCategory.appearance);
+      expect(top(SettingsEntryIds.theme), lessThan(top('language')));
+      expect(top('language'), lessThan(top('app_icon')));
+      expect(top('app_icon'), lessThan(top('text_density')));
+      expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.input);
+      expect(
+        top(SettingsEntryIds.defaultInputDelivery),
+        lessThan(top(SettingsEntryIds.voiceInput)),
+      );
+      expect(
+        top(SettingsEntryIds.voiceInput),
+        lessThan(top(SettingsEntryIds.hideVoiceInput)),
+      );
+      expect(
+        top(SettingsEntryIds.hideVoiceInput),
+        lessThan(top(SettingsEntryIds.openGalleryDirectly)),
+      );
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -932,6 +979,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.agents);
 
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
       await tester.scrollUntilVisible(
@@ -977,6 +1025,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.agents);
 
       final toggle = find.byKey(
         const ValueKey('show_hidden_directories_toggle'),
@@ -1015,6 +1064,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.agents);
 
       final toggle = find.byKey(
         const ValueKey('show_extended_codex_efforts_toggle'),
@@ -1054,6 +1104,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.agents);
 
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
       await tester.scrollUntilVisible(
@@ -1114,9 +1165,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
-
-      expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_codex')),
@@ -1176,6 +1226,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1269,6 +1320,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.usage);
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_claude')),
@@ -1331,7 +1383,7 @@ void main() {
         find.byKey(const ValueKey('usage_card_codex')),
       );
       final listRect = tester.getRect(
-        find.byKey(const PageStorageKey('settings_list')),
+        find.byKey(const PageStorageKey('settings_category_usage')),
       );
       expect(usageRect.overlaps(listRect), isTrue);
 
@@ -1375,6 +1427,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.usage);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1448,6 +1501,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.support);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1502,6 +1556,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.support);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1561,6 +1616,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.support);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1663,6 +1719,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.about);
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('macos_native_app_settings_tile')),
@@ -1760,6 +1817,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.git);
       final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
@@ -1850,6 +1908,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.input);
 
       final toggle = find.byKey(const ValueKey('open_gallery_directly_toggle'));
       expect(toggle, findsOneWidget);
@@ -1864,6 +1923,348 @@ void main() {
 
       await settingsCubit.close();
       await machineManagerCubit.close();
+      bridge.dispose();
+    });
+  });
+
+  group('Settings categories', () {
+    test('catalog keeps every setting that the old single list had', () {
+      expect(settingsEntries.map((e) => e.id).toSet(), {
+        'bridge_machine',
+        'local_url',
+        'bridge_update',
+        'prompt_history',
+        'push_notifications',
+        'push_privacy',
+        'notification_language',
+        'usage',
+        'theme',
+        'language',
+        'app_icon',
+        'text_density',
+        'code_font',
+        'indent_size',
+        'voice_input',
+        'hide_voice_input',
+        'default_input_delivery',
+        'skill_trigger_style',
+        'open_gallery_directly',
+        'image_paste_shortcut',
+        'lite_mode',
+        'enabled_agents',
+        'new_session_tabs',
+        'auto_rename_codex',
+        'extended_codex_efforts',
+        'auto_rename_claude',
+        'show_hidden_directories',
+        'show_bridge_name',
+        'terminal_app',
+        'git_diff_mode',
+        'git_diff_auto_landscape',
+        'remote_git_status_badge',
+        'supporter',
+        'rate_app',
+        'share_app',
+        'star_on_github',
+        'version',
+        'macos_native_app',
+        'changelog',
+        'setup_guide',
+        'github_repository',
+        'licenses',
+      });
+      expect(
+        settingsEntries.map((e) => e.id).toSet().length,
+        settingsEntries.length,
+        reason: 'entry ids must be unique',
+      );
+    });
+
+    test('search matches titles, categories and keywords', () async {
+      final l = await AppLocalizations.delegate.load(const Locale('en'));
+      String title(SettingsCategory c) => c.name;
+      List<String> ids(String query) => searchSettingsEntries(
+        query: query,
+        l: l,
+        visibility: const SettingsVisibility(),
+        categoryTitle: title,
+      ).map((e) => e.id).toList();
+
+      expect(ids('dark'), contains('theme'));
+      expect(ids('ダーク'), contains('theme'));
+      expect(ids('git landscape'), ['git_diff_auto_landscape']);
+      expect(ids('   '), isEmpty);
+      // Hidden rows are not searchable.
+      expect(ids('notification'), isNot(contains('push_privacy')));
+    });
+
+    for (final connected in [false, true]) {
+      testWidgets('every visible entry renders on its category page '
+          '(connected: $connected)', (tester) async {
+        tester.view.physicalSize = const Size(400, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: connected ? 'machine-1' : null,
+        );
+        final machineManagerService = _StaticMachineManagerService([
+          if (connected)
+            MachineWithStatus(
+              machine: Machine(
+                id: 'machine-1',
+                name: 'Remote Mac',
+                host: '100.64.0.1',
+              ),
+              status: MachineStatus.online,
+              versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+            ),
+        ]);
+        final machineManagerCubit = _createMachineManagerCubit(
+          machineManagerService,
+        );
+        final bridge = _FakeBridgeService(
+          connected: connected,
+          fakeLastUrl: connected ? 'ws://100.64.0.1:8765' : null,
+          // Cached usage keeps the usage page from waiting on a request.
+          cachedUsage: const UsageResultMessage(providers: []),
+        );
+
+        await tester.pumpWidget(
+          await _buildScreen(
+            bridge: bridge,
+            settingsCubit: settingsCubit,
+            machineManagerCubit: machineManagerCubit,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final homeContext = tester.element(find.byType(SettingsHome));
+        final visibility = resolveSettingsVisibility(
+          homeContext,
+          state: settingsCubit.state,
+          environment: const SettingsEnvironment(),
+          catalog: homeContext.read<RevenueCatService>().catalogState.value,
+        );
+        final categories = visibleSettingsCategories(visibility);
+        expect(categories.contains(SettingsCategory.connection), connected);
+        expect(categories.contains(SettingsCategory.usage), connected);
+        expect(categories, contains(SettingsCategory.appearance));
+
+        for (final category in categories) {
+          await _openCategory(tester, category);
+          final expected = visibleSettingsEntries(
+            category,
+            visibility,
+          ).map((e) => e.id).toSet();
+          final rendered = tester
+              .widgetList<SettingsItem>(find.byType(SettingsItem))
+              .map((item) => item.id)
+              .toSet();
+          expect(rendered, expected, reason: 'category ${category.name}');
+        }
+
+        await settingsCubit.close();
+        await machineManagerCubit.close();
+        machineManagerService.dispose();
+        bridge.dispose();
+      });
+    }
+
+    testWidgets('search result opens its category and reveals the row', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('settings_search_field')),
+        'zzzz-nothing',
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('settings_search_empty')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('settings_search_field')),
+        'landscape',
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('settings_category_appearance')),
+        findsNothing,
+      );
+      final result = find.byKey(
+        const ValueKey('settings_search_result_git_diff_auto_landscape'),
+      );
+      expect(result, findsOneWidget);
+
+      await tester.tap(result);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings_category_page_git')),
+        findsOneWidget,
+      );
+      final toggle = find.byKey(
+        const ValueKey('git_diff_focus_auto_landscape_toggle'),
+      );
+      expect(toggle, findsOneWidget);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(settingsCubit.state.gitDiffFocusAutoLandscape, isTrue);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('theme picker updates the theme mode', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.appearance);
+
+      await tester.tap(find.byKey(const ValueKey('theme_option_dark')));
+      await tester.pumpAndSettle();
+      expect(settingsCubit.state.themeMode, ThemeMode.dark);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('wide layout shows the category list beside the detail', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Disconnected: the first visible category is selected by default.
+      expect(
+        find.byKey(const ValueKey('settings_detail_appearance')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('settings_category_git')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('settings_detail_git')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('settings_category_page_git')),
+        findsNothing,
+        reason: 'wide layout must not push a page',
+      );
+      expect(
+        find.byKey(const ValueKey('settings_category_appearance')),
+        findsOneWidget,
+      );
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('focusConnection opens the connection category', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final machineManagerService = _StaticMachineManagerService([
+        MachineWithStatus(
+          machine: Machine(id: 'machine-1', name: 'Remote Mac', host: 'h'),
+          status: MachineStatus.online,
+          versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+        ),
+      ]);
+      final machineManagerCubit = _createMachineManagerCubit(
+        machineManagerService,
+      );
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://h:8765',
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+          focusConnection: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings_category_page_connection')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('settings_connection_section_card')),
+        findsOneWidget,
+      );
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('settings_status_card')),
+        findsOneWidget,
+      );
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      machineManagerService.dispose();
       bridge.dispose();
     });
   });

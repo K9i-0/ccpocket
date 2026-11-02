@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/app_update_service.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
+import 'settings_tiles.dart';
 
 class VersionTile extends StatefulWidget {
   const VersionTile({super.key});
@@ -48,7 +49,6 @@ class _VersionTileState extends State<VersionTile> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
 
     return BlocBuilder<SettingsCubit, SettingsState>(
@@ -57,7 +57,7 @@ class _VersionTileState extends State<VersionTile> {
             ? ' [${settings.shorebirdTrack}]'
             : '';
         return ListTile(
-          leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
+          leading: const SettingsLeadingIcon(Icons.info_outline_rounded),
           title: Text(l.version),
           subtitle: Text(
             _versionText != null ? '$_versionText$trackSuffix' : l.loading,
@@ -82,7 +82,7 @@ class AppUpdateTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return ListTile(
-      leading: Icon(Icons.upgrade, color: cs.primary),
+      leading: SettingsLeadingIcon(Icons.upgrade_rounded, color: cs.primary),
       title: Text(
         l.appUpdateAvailable(update.latestVersion),
         style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
@@ -102,11 +102,10 @@ class MacOSNativeAppTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return ListTile(
       key: const ValueKey('macos_native_app_settings_tile'),
-      leading: Icon(Icons.desktop_mac_outlined, color: cs.onSurfaceVariant),
+      leading: const SettingsLeadingIcon(Icons.desktop_mac_rounded),
       title: Text(l.macosNativeAppSettingsTitle),
       subtitle: Text(l.macosNativeAppSettingsSubtitle),
       trailing: const Icon(Icons.open_in_new, size: 18),

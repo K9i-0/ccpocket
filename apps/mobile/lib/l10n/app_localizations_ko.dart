@@ -2007,6 +2007,106 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsTitle => '설정';
 
   @override
+  String get settingsCategoryConnection => '연결 및 Bridge';
+
+  @override
+  String get settingsCategoryAppearance => '화면';
+
+  @override
+  String get settingsCategoryInput => '입력';
+
+  @override
+  String get settingsCategoryAgents => '에이전트';
+
+  @override
+  String get settingsCategoryGit => 'Git 및 Diff';
+
+  @override
+  String get settingsCategoryNotifications => '알림';
+
+  @override
+  String get settingsCategoryUsage => '사용량';
+
+  @override
+  String get settingsCategoryUsageSummary => 'Claude·Codex 플랜 사용량';
+
+  @override
+  String get settingsCategorySupport => '응원 및 공유';
+
+  @override
+  String get settingsCategorySupportSummary => '서포터·리뷰·공유';
+
+  @override
+  String get settingsCategoryAbout => '앱 정보';
+
+  @override
+  String get settingsCategoryAboutSummary => '버전·변경 내역·라이선스';
+
+  @override
+  String get settingsGroupDisplay => '표시';
+
+  @override
+  String get settingsGroupCode => '코드';
+
+  @override
+  String get settingsGroupSending => '메시지 전송';
+
+  @override
+  String get settingsGroupAttachments => '첨부';
+
+  @override
+  String get settingsGroupPerformance => '성능';
+
+  @override
+  String get settingsGroupSessions => '세션';
+
+  @override
+  String get settingsGroupFilesAndApps => '파일 및 앱';
+
+  @override
+  String get settingsGroupDiffView => 'Diff 보기';
+
+  @override
+  String get settingsEnabledAgents => '사용할 에이전트';
+
+  @override
+  String get settingsAgentsBoth => '모두';
+
+  @override
+  String get settingsBridgeMachine => 'Bridge 머신';
+
+  @override
+  String get settingsNotConnected => '연결 안 됨';
+
+  @override
+  String get settingsStatusOnline => '온라인';
+
+  @override
+  String get settingsStatusOffline => '오프라인';
+
+  @override
+  String get settingsStatusChecking => '확인 중';
+
+  @override
+  String get settingsStatusDisconnectedTitle => 'Bridge에 연결되지 않음';
+
+  @override
+  String get settingsStatusDisconnectedBody =>
+      '머신에 연결하면 Bridge 상태와 사용량이 여기에 표시됩니다.';
+
+  @override
+  String get settingsSearchHint => '설정 검색';
+
+  @override
+  String get settingsSearchNoResults => '일치하는 설정이 없습니다';
+
+  @override
+  String get settingsOn => '켜짐';
+
+  @override
+  String get settingsOff => '꺼짐';
+
+  @override
   String get sectionGeneral => '일반';
 
   @override

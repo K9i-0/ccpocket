@@ -1969,6 +1969,105 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTitle => '设置';
 
   @override
+  String get settingsCategoryConnection => '连接与 Bridge';
+
+  @override
+  String get settingsCategoryAppearance => '外观';
+
+  @override
+  String get settingsCategoryInput => '输入';
+
+  @override
+  String get settingsCategoryAgents => '智能体';
+
+  @override
+  String get settingsCategoryGit => 'Git 与 Diff';
+
+  @override
+  String get settingsCategoryNotifications => '通知';
+
+  @override
+  String get settingsCategoryUsage => '用量';
+
+  @override
+  String get settingsCategoryUsageSummary => 'Claude 与 Codex 套餐用量';
+
+  @override
+  String get settingsCategorySupport => '支持与分享';
+
+  @override
+  String get settingsCategorySupportSummary => '支持者、评价与分享';
+
+  @override
+  String get settingsCategoryAbout => '关于';
+
+  @override
+  String get settingsCategoryAboutSummary => '版本、更新日志与许可';
+
+  @override
+  String get settingsGroupDisplay => '显示';
+
+  @override
+  String get settingsGroupCode => '代码';
+
+  @override
+  String get settingsGroupSending => '发送消息';
+
+  @override
+  String get settingsGroupAttachments => '附件';
+
+  @override
+  String get settingsGroupPerformance => '性能';
+
+  @override
+  String get settingsGroupSessions => '会话';
+
+  @override
+  String get settingsGroupFilesAndApps => '文件与应用';
+
+  @override
+  String get settingsGroupDiffView => '差异视图';
+
+  @override
+  String get settingsEnabledAgents => '启用的智能体';
+
+  @override
+  String get settingsAgentsBoth => '两者';
+
+  @override
+  String get settingsBridgeMachine => 'Bridge 机器';
+
+  @override
+  String get settingsNotConnected => '未连接';
+
+  @override
+  String get settingsStatusOnline => '在线';
+
+  @override
+  String get settingsStatusOffline => '离线';
+
+  @override
+  String get settingsStatusChecking => '检查中';
+
+  @override
+  String get settingsStatusDisconnectedTitle => '未连接 Bridge';
+
+  @override
+  String get settingsStatusDisconnectedBody => '连接到机器后，此处会显示 Bridge 状态和用量。';
+
+  @override
+  String get settingsSearchHint => '搜索设置';
+
+  @override
+  String get settingsSearchNoResults => '没有匹配的设置';
+
+  @override
+  String get settingsOn => '开';
+
+  @override
+  String get settingsOff => '关';
+
+  @override
   String get sectionGeneral => '通用';
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../state/settings_cubit.dart';
+import 'settings_tiles.dart';
 
 class TextScaleTile extends StatelessWidget {
   const TextScaleTile({
@@ -27,10 +28,7 @@ class TextScaleTile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(Icons.format_size, color: cs.primary),
-              ),
+              const SettingsLeadingIcon(Icons.format_size_rounded),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
