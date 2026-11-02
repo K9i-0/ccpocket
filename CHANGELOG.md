@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.153.0] - 2026-11-02
+
+### Added
+
+- Adjust video volume with a slider next to the mute button on macOS, Windows and Linux. Unmuting restores the previous level.
+
+### Fixed
+
+- Rebuild the video player controls so the play button no longer overlaps the seek bar on short screens. Controls adapt to the available height, moving play/pause into the bottom row or a single row when space is tight.
+
 ## [1.152.0] - 2026-11-02
 
 ### Changed
