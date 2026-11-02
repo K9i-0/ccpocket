@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: true
+      upload_duo_screenshots:
+        description: 'Upload the iPhone Duo screenshot set (iOS, asc; unchanged sets are skipped)'
+        required: false
+        type: boolean
+        default: false
       upload_metadata:
         description: 'Upload metadata (title, description, etc.)'
         required: false
@@ -86,6 +91,28 @@ jobs:
           SKIP_SCREENSHOTS: ${{ inputs.upload_screenshots == false }}
           SPACESHIP_SCREENSHOT_UPLOAD_TIMEOUT: "5"
         run: bundle exec fastlane ios metadata
+
+      # fastlane deliver does not know the iPhone Duo sizes; asc uploads
+      # screenshots/store_duo as APP_IPHONE_DUO. Runs after deliver, which
+      # creates the App Store version when it does not exist yet.
+      - name: Set up asc
+        if: ${{ inputs.upload_duo_screenshots }}
+        uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d # v1
+        with:
+          version: 6.3.0
+
+      - name: Upload iPhone Duo screenshots
+        if: ${{ inputs.upload_duo_screenshots }}
+        working-directory: .
+        env:
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_STRICT_AUTH: 'true'
+          VERSION: ${{ inputs.ios_version }}
+        run: |
+          asc --version
+          python3 scripts/store-review/upload-duo-screenshots.py
 
   android:
     if: ${{ inputs.platform == 'android' || inputs.platform == 'both' }}

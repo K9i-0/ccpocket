@@ -154,9 +154,12 @@ gh workflow run upload-metadata.yml \
   -f ios_version=<X.Y.Z> \
   -f expected_ref_sha=<review-sha> \
   -f upload_screenshots=false \
+  -f upload_duo_screenshots=true \
   -f upload_metadata=true \
   -f upload_images=false
 ```
+
+`upload_duo_screenshots=true` は iPhone Duo の画像（`screenshots/store_duo/`、`APP_IPHONE_DUO`）を asc で反映する。ストア側と同一なら変更しないので、毎回付けてよい。
 
 その後、同じrefで審査提出する。iOSとAndroidの候補が同一なら `both`、異なるなら別runを使う。
 

@@ -31,6 +31,10 @@ raw は `apps/mobile/fastlane/screenshots/en-US/<key>.png`。各言語の枠付�
 
 会話内の時刻はモックが現在時刻から生成するため、撮影時刻に応じて変わる。
 
+### iPhone Duo（8枚・外側画面・ダークテーマ・英語UI）
+
+iPhone と同じ8シナリオ・同じ見出しを、iPhone Duo の外側画面（縦 1398x2034）で撮る。raw は `en-US/duo_<key>.png`（`<key>` は iPhone の表と同じ）。Duo の操作列（右の縦列）が写る。手順は「3b. iPhone Duo 撮影」。
+
 ### iPad（5枚・landscape・英語UI）
 
 raw は `en-US/ipad_<key>.png`。テーマは `light` に設定し、`Dark Workspace` はシナリオ側でダークに切り替わる。
@@ -49,6 +53,7 @@ raw は `en-US/ipad_<key>.png`。テーマは `light` に設定し、`Dark Works
 |------|---------|-----------|
 | iPhone | iPhone 17 Pro | 1206x2622 |
 | iPad | iPad Pro 13-inch (M5) | 2752x2064（landscape） |
+| iPhone Duo | iPhone Duo（iOS 27.2 専用ランタイム） | 1398x2034（外側画面・縦） |
 
 iOS 27.2 の標準デバイスに iPhone 17 Pro は含まれない。既存がなければ作成する（デバイスタイプは残っている）。
 
@@ -130,6 +135,21 @@ node scripts/landing-preview/serve.mjs &   # 127.0.0.1:8898。PIDを控える
 
 4. `ccpocket.popToRoot` で戻る。
 
+## 3b. iPhone Duo 撮影
+
+Duo は他の作業でも使われていることが多い。`mise exec -- agent-device session list` で既存セッションを確認し、あればそのセッション名で `fold` する（新しく `open` するとアプリが再起動されることがある）。
+
+- システム言語は変えない（変更には再起動が必要で、実行中の `flutter run` が切れる）。アプリ内の `setLocale en` と `setTheme dark` で足りる。撮影後は `setLocale ""`・`setTheme system` で元に戻す。
+- 閉じた状態（外側画面）で撮る: `mise exec -- agent-device fold closed --session <name>`。
+- ステータスバーは iPhone と同じ `status_bar override`（9:41）。時刻は右の操作列の上に出る。
+- 外側画面は `--display=1`（内側は `--display=3`）。`simctl` のエラー出力で番号を確認できる。
+
+```bash
+xcrun simctl io $ID screenshot --display=1 apps/mobile/fastlane/screenshots/en-US/duo_<key>.png
+```
+
+各 Key は iPhone と同じく、遷移 → 3秒待機（Video / Audio は読み込み待ちと操作UI表示）→ 撮影 → `ccpocket.popToRoot`。`Recent Sessions` / `Approval List` のストア用モック一覧は、操作列があると本物と同じく検索と New を列に、ギャラリー等をタイトル横の接続先メニューに移す。撮影後に `fold open` と `status_bar clear` で戻す。
+
 ## 4. iPad 撮影
 
 iPhone の `flutter run` を止めてから、iPad で起動・接続する。設定は `setLocale en` と `setTheme light`。
@@ -155,7 +175,7 @@ H=$(sips -g pixelHeight "$OUT" | tail -1 | awk '{print $2}')
 
 ## 5. 解像度の確認
 
-raw がすべて期待値（iPhone 1206x2622、iPad 2752x2064）になっていることを確認する。iPad が大幅に小さい場合は互換モード（iPhone用ウィンドウ + 黒帯）を疑い、まずアプリを再起動する。解消しない場合に限り `erase` する。
+raw がすべて期待値（iPhone 1206x2622、iPad 2752x2064、iPhone Duo 1398x2034）になっていることを確認する。Duo のサイズは `compose.sh` も検査する。iPad が大幅に小さい場合は互換モード（iPhone用ウィンドウ + 黒帯）を疑い、まずアプリを再起動する。解消しない場合に限り `erase` する。
 
 ```bash
 cd apps/mobile/fastlane/screenshots/en-US
@@ -175,6 +195,7 @@ bash apps/mobile/fastlane/screenshots/compose.sh
 
 - `fastlane/screenshots/store/{en-US,ja,zh-Hans,ko}/`: iPhone 8枚 + iPad 5枚（1320x2868 / 2752x2064、alpha なし）
 - `fastlane/metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/`: iPhone 8枚
+- `fastlane/screenshots/store_duo/{en-US,ja,zh-Hans,ko}/`: iPhone Duo 8枚（1398x2034、alpha なし）。fastlane deliver は Duo のサイズを扱えないため `store/` とは分け、`upload-metadata.yml` の `upload_duo_screenshots` で asc（`APP_IPHONE_DUO`）から上げる。
 - `docs/images/screenshots*.png`: README バナー
 
 合成の挙動だけを試すときは、`apps/mobile/fastlane/{screenshots,metadata/android}` を `/tmp/<dir>/apps/mobile/fastlane/` に複製し、`/tmp/<dir>/docs/images` を作ってから複製側の `compose.sh` を実行すれば、リポジトリの素材を変更しない。
@@ -182,6 +203,7 @@ bash apps/mobile/fastlane/screenshots/compose.sh
 ## 7. 確認
 
 - 生成画像を数枚開き、見出し・枠・UIの欠けを目視する。
+- Duo は asc 6.3.0 で検証する: `asc screenshots validate --path apps/mobile/fastlane/screenshots/store_duo/<locale> --device-type APP_IPHONE_DUO`（認証不要）。
 - `git diff --stat` で変更範囲を確認する。
 
 ## 8. 後片付け

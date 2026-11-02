@@ -35,6 +35,11 @@ Japanese, Simplified Chinese, and Korean. Final phone cards are 1320×2868.
 | 07_video | LP Video | LP capture |
 | 08_audio | LP Audio | LP capture |
 
+The same eight scenarios are also captured on the iPhone Duo cover display as
+`en-US/duo_<key>.png` (1398×2034, portrait, dark, English). They show the Duo
+control strip and are composed with the same Mint headlines at the
+`APP_IPHONE_DUO` cover size.
+
 LP capture instructions and media fixture limitations are in
 [`scripts/landing-preview/README.md`](../../../../scripts/landing-preview/README.md).
 The five existing iPad workspace captures are retained and recomposed with Mint
@@ -44,6 +49,11 @@ headlines; their final size is 2752×2064. They represent iPad, not macOS.
 
 - `store/{en-US,ja,zh-Hans,ko}/`: 8 phone and 5 iPad cards per locale; the
   canonical App Store upload path used by `fastlane ios metadata`.
+- `store_duo/{en-US,ja,zh-Hans,ko}/`: 8 iPhone Duo cards per locale
+  (1398×2034). Kept out of `store/` because fastlane deliver does not know the
+  Duo sizes; `upload-metadata.yml` uploads them with asc as `APP_IPHONE_DUO`
+  when `upload_duo_screenshots` is set (`scripts/store-review/upload-duo-screenshots.py`
+  skips an identical remote set and replaces anything else).
 - `../metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/`:
   the same 8 phone cards, shared with iOS by the maintainer's explicit choice.
 - `docs/images/screenshots*.png`: four-card README banners.

@@ -43,7 +43,7 @@ asc review doctor --app <app-id> --version-id <version-id> --platform IOS
 英語、日本語、韓国語、簡体字中国語について次を確認する。
 
 - 概要、プロモーション用テキスト、このバージョンの最新情報
-- スクリーンショット、キーワード、サポートURL、プライバシーポリシー
+- スクリーンショット（iPhone・iPad は deliver、iPhone Duo は `upload_duo_screenshots` で asc が `APP_IPHONE_DUO` へ反映）、キーワード、サポートURL、プライバシーポリシー
 - App Reviewの連絡先、メモ、デモ動画、ログイン情報
 
 新しい課金商品がある場合は、アプリ内購入とサブスクリプションの状態、価格、ローカライズ、審査への追加を確認する。`asc validate iap` と `asc validate subscriptions` も利用する。

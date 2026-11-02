@@ -59,7 +59,7 @@ class SessionListSliverAppBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: _BridgeMenuButton(
+                  child: SessionListBridgeMenuButton(
                     bridgeLabel: bridgeLabel,
                     onOpenSettings:
                         onOpenSettings ??
@@ -161,7 +161,7 @@ class SessionListPaneHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Flexible(
-                    child: _BridgeMenuButton(
+                    child: SessionListBridgeMenuButton(
                       bridgeLabel: bridgeLabel,
                       onOpenSettings: onOpenSettings,
                       onOpenGallery: onOpenGallery,
@@ -309,8 +309,9 @@ class _PaneHeaderActionButton extends StatelessWidget {
 
 /// The bridge label of the title row, opening the actions that left the app
 /// bar for the iPhone Duo control strip: gallery, settings and disconnect.
-class _BridgeMenuButton extends StatelessWidget {
-  const _BridgeMenuButton({
+class SessionListBridgeMenuButton extends StatelessWidget {
+  const SessionListBridgeMenuButton({
+    super.key,
     required this.bridgeLabel,
     required this.onOpenSettings,
     required this.onOpenGallery,

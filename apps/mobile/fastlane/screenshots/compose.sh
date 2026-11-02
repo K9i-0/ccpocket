@@ -115,6 +115,15 @@ for entry in "${IPAD_SCREENSHOTS[@]}"; do
   IFS='|' read -r key _ <<< "$entry"
   test -f "${SCRIPT_DIR}/en-US/ipad_${key}.png" || { echo "Missing iPad capture: $key" >&2; exit 1; }
 done
+# iPhone Duo reuses the phone sequence and headlines, captured on the cover
+# display (portrait, 1398x2034) as en-US/duo_<key>.png.
+for entry in "${SCREENSHOTS[@]}"; do
+  IFS='|' read -r key _ <<< "$entry"
+  test -f "${SCRIPT_DIR}/en-US/duo_${key}.png" || { echo "Missing iPhone Duo capture: $key" >&2; exit 1; }
+  read -r duo_w duo_h <<< "$(magick identify -format '%w %h' "${SCRIPT_DIR}/en-US/duo_${key}.png")"
+  [ "$duo_w" = 1398 ] && [ "$duo_h" = 2034 ] ||
+    { echo "iPhone Duo capture $key is ${duo_w}x${duo_h}; expected the cover display at 1398x2034" >&2; exit 1; }
+done
 
 for lang_dir in en-US ja zh-CN ko; do
   cleanup_obsolete_phone_outputs "$lang_dir"
@@ -361,6 +370,82 @@ for entry in "${IPAD_SCREENSHOTS[@]}"; do
   compose_ipad_screenshot "$key" "$kw_ko" "$tt_ko" "ko" "$FONT_KO_BOLD" "$FONT_KO_REG" "en-US"
 done
 
+# === iPhone Duo cover display, portrait (1398x2034) ===
+# Same sequence, Mint style and headlines as the phone cards, on the canvas
+# App Store Connect requires for APP_IPHONE_DUO (the cover display size).
+DUO_CANVAS_W=1398
+DUO_CANVAS_H=2034
+
+compose_duo_screenshot() {
+  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
+  local input="${SCRIPT_DIR}/en-US/duo_${key}.png"
+  local output="${SCRIPT_DIR}/${lang_dir}/duo_${key}_framed.png"
+
+  local src_w src_h
+  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
+
+  local bezel=14
+  local ss_y=440
+  local max_h=$((DUO_CANVAS_H - ss_y - 64 - bezel * 2))
+  local screen_h=$max_h
+  local screen_w
+  screen_w=$(echo "$src_w * $screen_h / $src_h" | bc)
+  local device_w=$((screen_w + bezel * 2))
+  local device_h=$((screen_h + bezel * 2))
+  local ss_x=$(( (DUO_CANVAS_W - device_w) / 2 ))
+  local inner_radius=$((screen_w * 70 / 1000))
+  local outer_radius=$((inner_radius + bezel))
+
+  echo "Composing iPhone Duo: duo_$key ($lang_dir)"
+
+  magick -size "${screen_w}x${screen_h}" xc:black \
+    -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
+    /tmp/duo_mask_$$.png
+  magick "$input" -resize "${screen_w}x${screen_h}!" \
+    \( /tmp/duo_mask_$$.png -alpha off \) -compose CopyOpacity -composite \
+    /tmp/duo_ss_$$.png
+  magick -size "${device_w}x${device_h}" xc:none \
+    -fill '#252828' -stroke '#525957' -strokewidth 3 \
+    -draw "roundrectangle 2,2 $((device_w-3)),$((device_h-3)) ${outer_radius},${outer_radius}" \
+    /tmp/duo_ss_$$.png -geometry "+${bezel}+${bezel}" -composite \
+    /tmp/duo_framed_$$.png
+
+  magick -background none -size "1200x240" -gravity west \
+    -font "$font_bold" -pointsize 92 -fill "$MINT" \
+    caption:"$(printf '%b' "$keyword")" /tmp/duo_keyword_$$.png
+  magick -background none -size "1200x120" -gravity west \
+    -font "$font_reg" -pointsize 42 -fill "#A6B0AD" \
+    caption:"$title" /tmp/duo_title_$$.png
+
+  magick -size "${DUO_CANVAS_W}x${DUO_CANVAS_H}" "xc:$BG_COLOR" \
+    /tmp/duo_framed_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
+    /tmp/duo_keyword_$$.png -geometry "+100+44" -composite \
+    /tmp/duo_title_$$.png -geometry "+100+290" -composite \
+    -alpha off -depth 8 $PNG_STRIP "$output"
+
+  rm -f /tmp/duo_mask_$$.png /tmp/duo_ss_$$.png /tmp/duo_framed_$$.png \
+    /tmp/duo_keyword_$$.png /tmp/duo_title_$$.png
+  echo "  -> $output"
+}
+
+for duo_locale in "en-US|EN" "ja|JA" "zh-CN|ZH" "ko|KO"; do
+  IFS='|' read -r lang_dir font_key <<< "$duo_locale"
+  echo ""
+  echo "=== iPhone Duo ${lang_dir} ==="
+  bold_var="FONT_${font_key}_BOLD"
+  reg_var="FONT_${font_key}_REG"
+  for entry in "${SCREENSHOTS[@]}"; do
+    IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
+    case "$lang_dir" in
+      en-US) kw="$kw_en"; tt="$tt_en" ;;
+      ja) kw="$kw_ja"; tt="$tt_ja" ;;
+      zh-CN) kw="$kw_zh"; tt="$tt_zh" ;;
+      ko) kw="$kw_ko"; tt="$tt_ko" ;;
+    esac
+    compose_duo_screenshot "$key" "$kw" "$tt" "$lang_dir" "${!bold_var}" "${!reg_var}"
+  done
+done
+
 # === README banner (4 screenshots side by side, resized to 1200px width) ===
 echo ""
 echo "=== README banner ==="
@@ -388,6 +473,8 @@ done
 
 # === Copy framed screenshots to store upload directories ===
 # iOS: screenshots/store/{en-US,ja,zh-Hans,ko}/ (used by fastlane deliver)
+# iPhone Duo: screenshots/store_duo/{en-US,ja,zh-Hans,ko}/ (uploaded with asc as
+#   APP_IPHONE_DUO; kept out of store/ because deliver does not know the size)
 # Android: metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/
 echo ""
 echo "=== Store upload directories ==="
@@ -417,6 +504,15 @@ for lang_dir in en-US ja zh-CN ko; do
     cp "$f" "$store_lang_dir/ipad_${key}.png"
   done
   echo "  iOS  -> $store_lang_dir/ ($(ls "$store_lang_dir" | wc -l | tr -d ' ') files)"
+
+  duo_lang_dir="${SCRIPT_DIR}/store_duo/${ios_lang}"
+  mkdir -p "$duo_lang_dir"
+  rm -f "$duo_lang_dir"/*.png
+  for entry in "${SCREENSHOTS[@]}"; do
+    IFS='|' read -r key _ <<< "$entry"
+    cp "${SCRIPT_DIR}/${lang_dir}/duo_${key}_framed.png" "$duo_lang_dir/duo_${key}.png"
+  done
+  echo "  Duo  -> $duo_lang_dir/ ($(ls "$duo_lang_dir" | wc -l | tr -d ' ') files)"
 
   # Android metadata directory (phone screenshots only)
   if [ "$lang_dir" = "en-US" ]; then

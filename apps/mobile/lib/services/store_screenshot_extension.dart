@@ -40,6 +40,7 @@ import '../services/bridge_service.dart';
 import '../services/draft_service.dart';
 import '../services/mock_bridge_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/duo/duo_control_strip.dart';
 import '../widgets/new_session_sheet.dart';
 
 /// Static holder for app-level references needed by extension callbacks.
@@ -472,14 +473,35 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
       ...recent.map((s) => s.projectPath),
     };
 
+    // Mirror the real list on an iPhone Duo strip: search and New in the
+    // strip, gallery/settings/disconnect behind the bridge menu.
+    final duoStrip = DuoStripScope.hasStrip(context);
     Widget body = Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('CC Pocket'),
+        toolbarHeight: duoStrip ? DuoSlimHeader.height + 8 : null,
+        title: duoStrip
+            ? Row(
+                children: [
+                  const Text('CC Pocket'),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: SessionListBridgeMenuButton(
+                      bridgeLabel: 'MacBook Pro',
+                      onOpenSettings: () {},
+                      onOpenGallery: () {},
+                      onDisconnect: () {},
+                    ),
+                  ),
+                ],
+              )
+            : const Text('CC Pocket'),
         actions: [
-          IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.collections), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.link_off), onPressed: () {}),
+          if (!duoStrip) ...[
+            IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.collections), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.link_off), onPressed: () {}),
+          ],
         ],
       ),
       body: HomeContent(
@@ -524,14 +546,34 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
           ),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: FloatingActionButton.extended(
+      floatingActionButton: duoStrip
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: FloatingActionButton.extended(
+                onPressed: () {},
+                icon: const Icon(Icons.add),
+                label: const Text('New'),
+              ),
+            ),
+    );
+    body = DuoStripActions(
+      enabled: true,
+      top: [
+        IconButton(
+          icon: const Icon(Icons.search),
+          tooltip: 'Search',
           onPressed: () {},
-          icon: const Icon(Icons.add),
-          label: const Text('New'),
         ),
-      ),
+      ],
+      bottom: [
+        DuoStripPrimaryButton(
+          icon: const Icon(Icons.edit_square),
+          tooltip: 'New',
+          onPressed: () {},
+        ),
+      ],
+      child: body,
     );
 
     if (widget.draftService != null) {
