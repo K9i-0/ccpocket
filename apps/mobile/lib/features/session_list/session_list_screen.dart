@@ -2017,7 +2017,8 @@ class _SessionListScreenState extends State<SessionListScreen>
           DuoStripPrimaryButton(
             key: const ValueKey('new_session_fab'),
             onPressed: _showNewSessionDialog,
-            icon: const Icon(Icons.add),
+            // Same icon as the chats' new-session tool on the strip.
+            icon: const Icon(Icons.edit_square),
             tooltip: l.newSession,
           ),
       ],

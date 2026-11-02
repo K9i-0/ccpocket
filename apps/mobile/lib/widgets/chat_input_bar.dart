@@ -1564,7 +1564,8 @@ class _StripPrimaryAction extends StatelessWidget {
       children: [
         if (isVoiceAvailable)
           DuoStripSlotItem(
-            child: IconButton.filledTonal(
+            // Plain like the strip's other tools; only recording stands out.
+            child: IconButton(
               key: const ValueKey('voice_button'),
               tooltip: isRecording
                   ? l.tooltipStopRecording
