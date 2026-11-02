@@ -19,6 +19,9 @@ class SessionListSliverAppBar extends StatelessWidget {
   final double? toolbarHeight;
   final String? bridgeLabel;
 
+  /// False when the actions live in the iPhone Duo control strip instead.
+  final bool showActions;
+
   const SessionListSliverAppBar({
     super.key,
     required this.onTitleTap,
@@ -28,6 +31,7 @@ class SessionListSliverAppBar extends StatelessWidget {
     this.forceElevated = false,
     this.toolbarHeight,
     this.bridgeLabel,
+    this.showActions = true,
   });
 
   @override
@@ -44,30 +48,33 @@ class SessionListSliverAppBar extends StatelessWidget {
         child: _SessionListTitle(title: l.appTitle, subtitle: bridgeLabel),
       ),
       actions: [
-        IconButton(
-          key: const ValueKey('settings_button'),
-          icon: Badge(
-            isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
-            smallSize: 8,
-            child: const Icon(Icons.settings),
+        if (showActions) ...[
+          IconButton(
+            key: const ValueKey('settings_button'),
+            icon: Badge(
+              isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
+              smallSize: 8,
+              child: const Icon(Icons.settings),
+            ),
+            onPressed:
+                onOpenSettings ??
+                () => context.router.navigate(SettingsRoute()),
+            tooltip: l.settings,
           ),
-          onPressed:
-              onOpenSettings ?? () => context.router.navigate(SettingsRoute()),
-          tooltip: l.settings,
-        ),
-        IconButton(
-          key: const ValueKey('gallery_button'),
-          icon: const Icon(Icons.collections),
-          onPressed:
-              onOpenGallery ?? () => context.router.navigate(GalleryRoute()),
-          tooltip: l.gallery,
-        ),
-        IconButton(
-          key: const ValueKey('disconnect_button'),
-          icon: const Icon(Icons.link_off),
-          onPressed: onDisconnect,
-          tooltip: l.disconnect,
-        ),
+          IconButton(
+            key: const ValueKey('gallery_button'),
+            icon: const Icon(Icons.collections),
+            onPressed:
+                onOpenGallery ?? () => context.router.navigate(GalleryRoute()),
+            tooltip: l.gallery,
+          ),
+          IconButton(
+            key: const ValueKey('disconnect_button'),
+            icon: const Icon(Icons.link_off),
+            onPressed: onDisconnect,
+            tooltip: l.disconnect,
+          ),
+        ],
       ],
     );
   }
@@ -80,6 +87,9 @@ class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback? onDisconnect;
   final String? bridgeLabel;
 
+  /// False when the actions live in the iPhone Duo control strip instead.
+  final bool showActions;
+
   const SessionListPaneHeader({
     super.key,
     required this.onTitleTap,
@@ -87,6 +97,7 @@ class SessionListPaneHeader extends StatelessWidget {
     this.onOpenGallery,
     this.onDisconnect,
     this.bridgeLabel,
+    this.showActions = true,
   });
 
   @override
@@ -130,34 +141,36 @@ class SessionListPaneHeader extends StatelessWidget {
                   const Expanded(
                     child: MacOSWindowDragHandle(child: SizedBox.expand()),
                   ),
-                _PaneHeaderActionButton(
-                  key: const ValueKey('settings_button'),
-                  tooltip: l.settings,
-                  onPressed: onOpenSettings,
-                  icon: Badge(
-                    isLabelVisible:
-                        AppUpdateService.instance.cachedUpdate != null,
-                    smallSize: 8,
-                    child: const Icon(Icons.settings),
-                  ),
-                  compact: chrome.useMacOSAdaptiveChrome,
-                ),
-                if (openGallery != null)
+                if (showActions) ...[
                   _PaneHeaderActionButton(
-                    key: const ValueKey('gallery_button'),
-                    tooltip: l.gallery,
-                    onPressed: openGallery,
-                    icon: const Icon(Icons.collections_outlined),
+                    key: const ValueKey('settings_button'),
+                    tooltip: l.settings,
+                    onPressed: onOpenSettings,
+                    icon: Badge(
+                      isLabelVisible:
+                          AppUpdateService.instance.cachedUpdate != null,
+                      smallSize: 8,
+                      child: const Icon(Icons.settings),
+                    ),
                     compact: chrome.useMacOSAdaptiveChrome,
                   ),
-                if (disconnect != null)
-                  _PaneHeaderActionButton(
-                    key: const ValueKey('disconnect_button'),
-                    tooltip: l.disconnect,
-                    onPressed: disconnect,
-                    icon: const Icon(Icons.link_off),
-                    compact: chrome.useMacOSAdaptiveChrome,
-                  ),
+                  if (openGallery != null)
+                    _PaneHeaderActionButton(
+                      key: const ValueKey('gallery_button'),
+                      tooltip: l.gallery,
+                      onPressed: openGallery,
+                      icon: const Icon(Icons.collections_outlined),
+                      compact: chrome.useMacOSAdaptiveChrome,
+                    ),
+                  if (disconnect != null)
+                    _PaneHeaderActionButton(
+                      key: const ValueKey('disconnect_button'),
+                      tooltip: l.disconnect,
+                      onPressed: disconnect,
+                      icon: const Icon(Icons.link_off),
+                      compact: chrome.useMacOSAdaptiveChrome,
+                    ),
+                ],
               ],
             ),
           ),

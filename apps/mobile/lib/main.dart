@@ -65,6 +65,7 @@ import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
 import 'utils/platform_helper.dart';
+import 'widgets/duo/duo_control_strip.dart';
 import 'widgets/release_error_widget.dart';
 
 /// Top-level handler for FCM background messages.
@@ -561,7 +562,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
                     multiplier: settings.textScale,
                   ),
                 ),
-                child: app,
+                child: DuoStripHost(child: app),
               );
             },
             debugShowCheckedModeBanner: false,

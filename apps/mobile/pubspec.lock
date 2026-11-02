@@ -457,6 +457,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  duo_kit:
+    dependency: "direct main"
+    description:
+      name: duo_kit
+      sha256: "290575a07cba8a08cf7cbd5aab7b2917c3bc922f6744dede17e8484146d8fd84"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2"
   equatable:
     dependency: transitive
     description:

@@ -1,6 +1,6 @@
 # iPhone Duo support (proposal)
 
-Updated: 2026-11-02 · Status: proposal, not implemented
+Updated: 2026-11-02 · Status: phase 1 implemented, phase 2 proposed
 
 ## Goal
 
@@ -39,13 +39,12 @@ Screenshots on the simulator, 2026-11-02:
   the body does not. Cards and the "Add Machine" button extend to ~440pt, i.e.
   ~58pt under the strip, below the status cluster. `endFloat` FAB placement uses
   the inset, so the New FAB lands left of the strip and wastes a row of height.
-- **Inner landscape:** the workspace shell lays out panes over the full 951pt. The
-  center/right pane runs under the strip and its status cluster (center pane's
-  empty state is centered on 951, not 867).
-- `workspaceMultiPaneBreakpoint = 862`. Inner landscape is 951 wide, 867 without
-  the strip, so it stays multi-pane either way, but only just: left 260 + center
-  min 360 leaves ~245 for the tool pane. Keep the breakpoint, but compute it from
-  the width without the strip so the decision is honest.
+- **Inner landscape:** the workspace shell already sizes panes from the width
+  without horizontal padding (867), but the right-most pane receives the 84pt
+  inset and its content ignores it: the empty state is centered on 951, not
+  867, and actions can sit under the status cluster.
+- `workspaceMultiPaneBreakpoint = 862`. 867 stays multi-pane, but only just:
+  left 260 + center min 360 leaves ~245 for the tool pane.
 
 ## Reference behaviour
 
@@ -92,15 +91,41 @@ Prerequisites already met: Xcode 27.2 SDK, `UIApplicationSceneManifest`
 (UIScene), no `UIRequiresFullScreen`, portrait + landscape allowed on iPhone,
 deployment target 15.0.
 
-## Proposed design
+## Design
 
 ### Rule
 
 `strip != null` → no AppBar row for the frontmost compact screen; its actions go
-into a vertical `DuoControlStrip` occupying the strip; the body loses that side's
-inset. `strip == null` (inner portrait, every non-Duo device, Android) → current
-UI unchanged. `FoldScaffold` is used only for its strip placement; its `bottom`
-placement maps to our existing layout (no new bottom bar).
+into the strip; the body loses that side's inset. `strip == null` (inner
+portrait, every non-Duo device, Android) → current UI unchanged.
+
+### Implementation (phase 1)
+
+All in [duo_control_strip.dart](../../apps/mobile/lib/widgets/duo/duo_control_strip.dart):
+
+- **`DuoStripHost`** wraps the whole app in `MaterialApp.builder`. It detects the
+  strip with `FoldGeometry.fromMediaQuery` and lays the app (Navigator, dialogs,
+  sheets included) out beside it with that padding removed and `size` reduced.
+  This fixes the overlap for every screen at once, adapted or not. It also adds
+  an `Overlay` above the app, which becomes the root overlay. The tree has the
+  same shape in every pose. `FoldScaffold` is not used, because it would have to
+  wrap each screen, and screens inside workspace panes do not touch the window
+  edge.
+- **`DuoStripActions`** lets a screen publish `top` / `bottom` controls. They are
+  rendered through an `OverlayPortal` into the host's overlay, so they are built
+  in the screen's context and can read its providers. The controls are shown
+  while the screen is `enabled`, its tickers are on (not under an opaque route,
+  not a covered compact layer), and its route is active. The most recently
+  activated screen wins (`DuoStripController`). Under a popup route (menu,
+  dialog, sheet), the controls stay visible but ignore taps.
+- **`DuoAdaptiveScaffold`** (Claude/Codex chat) takes the screen's `AppBar`. In
+  strip mode it hides the bar, renders `DuoSlimHeader` (40pt: title +
+  `flexibleSpace` status line), and moves `leading` + `actions` to the strip.
+  The body stays at the same tree position, so folding keeps composer and
+  scroll state.
+- **`WorkspacePaneScope`** (in `WorkspacePaneNavigator`) exposes `compact` /
+  `active` to pane content. Chat uses `useStrip: isSinglePane` and
+  `publish: pane.active`.
 
 ### Strip budget
 
@@ -117,10 +142,12 @@ Top group (from the top AppBar), bottom group (bottom actions / FAB):
 
 | Screen | Strip top | Strip bottom | Stays in content |
 | --- | --- | --- | --- |
-| Session list | settings (update badge), gallery, disconnect | **New** (icon-only, filled tonal circle; replaces the extended FAB) | bridge title → a slim header inside the scrolling list (scrolls away) |
-| Claude / Codex chat | back, explore, changes (git badge), history, `more` (existing overflow menu; Codex join button moves into it) | — (composer keeps send) | session name + status line → 28–32pt line above the message list, or a status dot in the strip (decision below) |
-| Git / Explore / Gallery / Settings (pushed) | back, screen actions | — | screen title in a slim inline header |
-| Sheets (new session, slash commands) | unchanged in phase 1 | | |
+| Session list | settings (update badge), gallery, disconnect | **New** (56pt filled circle, key `new_session_fab`; replaces the extended FAB) | title + bridge label as a 48pt floating sliver app bar without actions (scrolls away) |
+| Claude / Codex chat | back, explore, changes (git badge), the app bar's other actions, overflow menu | — (composer keeps send) | session name + status line in a 40pt slim header |
+| Git / Explore / Gallery / Settings / demo / debug | — (strip empty) | | keep their own AppBar; the host keeps them clear of the strip |
+| Sheets (new session, slash commands) | unchanged | | laid out beside the strip by the host |
+
+Strip items keep the `ValueKey`s of the app bar buttons they replace.
 
 Plan-mode chip and `StatusLineFlexibleSpace` lose their AppBar home; keep them
 visible in the slim header, never only in the strip.
@@ -128,10 +155,10 @@ visible in the slim header, never only in the strip.
 ### Inner landscape (workspace multi-pane)
 
 The strip belongs to the window, so it sits right of the right-most pane. Panes
-get `width − 84`. Phase 1: keep the per-pane headers (vertical space is not the
-problem here), move only the **global** actions (settings, gallery, disconnect,
-New) from the left pane header into the strip so there is one home for them.
-Moving the active session's actions too is phase 2, gated on user feedback.
+get `width − 84`. The per-pane headers stay (vertical space is not the problem
+here); only the **global** actions (settings, gallery, disconnect, New) leave the
+left pane header for the strip, so there is one home for them. Chat panes keep
+their app bars (`useStrip: false` in multi-pane).
 
 ### Half-open
 
@@ -141,10 +168,9 @@ consider `FoldSplitView` for list | chat when folded like a book. Do not turn on
 
 ## Phasing
 
-1. **Phase 1 – duo_kit only, no native dependency.** Fix the overlaps (body and
-   workspace shell honour the strip inset), add `DuoControlStrip`, move session
-   list and chat AppBar actions + New into it on strip poses, slim inline
-   headers. Android and non-Duo iOS unchanged by construction.
+1. **Phase 1 – duo_kit only, no native dependency (done).** Host-level strip
+   reservation, session list and chat actions + New in the strip, slim headers.
+   Android and non-Duo iOS unchanged by construction.
 2. **Phase 2 – `foldable` bridge.** Exact occlusion clearances, fold awareness,
    dialog anchoring, optional book-mode split.
 3. Duo-specific store screenshots already exist
@@ -166,9 +192,19 @@ consider `FoldSplitView` for list | chat when folded like a book. Do not turn on
   cover with the composer focused (does the keyboard span the strip?).
 - Regression: plain iPhone and iPad simulators, Android phone.
 
-## Open decisions
+Phase 1 coverage: `test/duo_control_strip_test.dart` (cover, cover
+landscape-left, inner portrait, plain iPhone; strip ownership across routes;
+inert under a dialog; app bar ↔ slim header; body state across fold/unfold).
+Simulator (2026-11-02, iOS 27.2): inner landscape with global actions + New in
+the strip; cover session list; cover chat (mock preview) with back / explore /
+changes / overflow in the strip, the overflow menu opening beside it, and back
+returning to a screen whose strip is empty.
 
-- Chat title/status on the cover: slim header line vs. status dot in the strip.
-- Inner landscape: global actions only (proposed) vs. all session actions in the
-  strip.
-- Whether to take `foldable` now or wait for `duo_kit_ios`.
+## Decisions and open items
+
+- Chat title/status on the cover: slim header line (decided).
+- Inner landscape: global actions only in the strip (decided).
+- Known gaps: empty-state copy still says "New in the left pane"; strip
+  clearance uses the 170pt fallback on inner landscape (cluster is 120pt);
+  the keyboard on the cover was not checked against the strip.
+- Open: take `foldable` now or wait for `duo_kit_ios` (phase 2).

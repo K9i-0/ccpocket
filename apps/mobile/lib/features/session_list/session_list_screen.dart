@@ -34,6 +34,7 @@ import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
+import '../../widgets/duo/duo_control_strip.dart';
 import 'services/codex_project_profile_store.dart';
 import 'state/archive_request_tracker.dart';
 import 'state/session_list_cubit.dart';
@@ -1964,76 +1965,120 @@ class _SessionListScreenState extends State<SessionListScreen>
       connectedBridgeLabel: connectedBridgeLabel,
     );
 
-    return Scaffold(
-      appBar: widget.embedded
-          ? PreferredSize(
-              preferredSize: Size.fromHeight(
-                resolveWorkspacePaneChrome(
-                  platform: Theme.of(context).platform,
-                  isAdaptiveWorkspace: true,
-                  isLeftPaneVisible: true,
-                  slot: WorkspacePaneSlot.left,
-                ).toolbarHeight,
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: SessionListPaneHeader(
-                  onTitleTap: _onTitleTap,
-                  onOpenSettings: _openSettings,
-                  onOpenGallery: showConnectedUI ? _openGallery : null,
-                  onDisconnect: canDisconnect ? _disconnect : null,
-                  bridgeLabel: connectedBridgeLabel,
+    final hasStrip = DuoStripScope.hasStrip(context);
+    final showNewSession =
+        showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
+
+    return DuoStripActions(
+      enabled: true,
+      top: [
+        IconButton(
+          key: const ValueKey('settings_button'),
+          icon: Badge(
+            isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
+            smallSize: 8,
+            child: const Icon(Icons.settings),
+          ),
+          onPressed: _openSettings,
+          tooltip: l.settings,
+        ),
+        if (showConnectedUI)
+          IconButton(
+            key: const ValueKey('gallery_button'),
+            icon: const Icon(Icons.collections_outlined),
+            onPressed: _openGallery,
+            tooltip: l.gallery,
+          ),
+        if (canDisconnect)
+          IconButton(
+            key: const ValueKey('disconnect_button'),
+            icon: const Icon(Icons.link_off),
+            onPressed: _disconnect,
+            tooltip: l.disconnect,
+          ),
+      ],
+      bottom: [
+        if (showNewSession)
+          IconButton.filled(
+            key: const ValueKey('new_session_fab'),
+            iconSize: 28,
+            style: IconButton.styleFrom(fixedSize: const Size(56, 56)),
+            onPressed: _showNewSessionDialog,
+            icon: const Icon(Icons.add),
+            tooltip: l.newSession,
+          ),
+      ],
+      child: Scaffold(
+        appBar: widget.embedded
+            ? PreferredSize(
+                preferredSize: Size.fromHeight(
+                  resolveWorkspacePaneChrome(
+                    platform: Theme.of(context).platform,
+                    isAdaptiveWorkspace: true,
+                    isLeftPaneVisible: true,
+                    slot: WorkspacePaneSlot.left,
+                  ).toolbarHeight,
                 ),
-              ),
-            )
-          : showConnectedUI
-          ? null
-          : chrome.wrapAppBar(
-              AppBar(
-                toolbarHeight: chrome.toolbarHeight,
-                title: GestureDetector(
-                  onTap: _onTitleTap,
-                  child: Text(l.appTitle),
-                ),
-                actions: [
-                  IconButton(
-                    key: const ValueKey('settings_button'),
-                    icon: Badge(
-                      isLabelVisible:
-                          AppUpdateService.instance.cachedUpdate != null,
-                      smallSize: 8,
-                      child: const Icon(Icons.settings),
-                    ),
-                    onPressed: _openSettings,
-                    tooltip: l.settings,
+                child: SafeArea(
+                  bottom: false,
+                  child: SessionListPaneHeader(
+                    onTitleTap: _onTitleTap,
+                    onOpenSettings: _openSettings,
+                    onOpenGallery: showConnectedUI ? _openGallery : null,
+                    onDisconnect: canDisconnect ? _disconnect : null,
+                    bridgeLabel: connectedBridgeLabel,
+                    showActions: !hasStrip,
                   ),
-                  if (canDisconnect)
+                ),
+              )
+            : showConnectedUI || hasStrip
+            ? null
+            : chrome.wrapAppBar(
+                AppBar(
+                  toolbarHeight: chrome.toolbarHeight,
+                  title: GestureDetector(
+                    onTap: _onTitleTap,
+                    child: Text(l.appTitle),
+                  ),
+                  actions: [
                     IconButton(
-                      key: const ValueKey('disconnect_button'),
-                      icon: const Icon(Icons.link_off),
-                      onPressed: _disconnect,
-                      tooltip: l.disconnect,
+                      key: const ValueKey('settings_button'),
+                      icon: Badge(
+                        isLabelVisible:
+                            AppUpdateService.instance.cachedUpdate != null,
+                        smallSize: 8,
+                        child: const Icon(Icons.settings),
+                      ),
+                      onPressed: _openSettings,
+                      tooltip: l.settings,
                     ),
-                ],
+                    if (canDisconnect)
+                      IconButton(
+                        key: const ValueKey('disconnect_button'),
+                        icon: const Icon(Icons.link_off),
+                        onPressed: _disconnect,
+                        tooltip: l.disconnect,
+                      ),
+                  ],
+                ),
               ),
-            ),
-      body: body,
-      floatingActionButtonLocation: widget.embedded
-          ? FloatingActionButtonLocation.startFloat
-          : FloatingActionButtonLocation.endFloat,
-      floatingActionButton:
-          showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: FloatingActionButton.extended(
-                key: const ValueKey('new_session_fab'),
-                heroTag: null,
-                onPressed: _showNewSessionDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('New'),
-              ),
-            )
-          : null,
+        body: body,
+        floatingActionButtonLocation: widget.embedded
+            ? FloatingActionButtonLocation.startFloat
+            : FloatingActionButtonLocation.endFloat,
+        floatingActionButton: showNewSession && !hasStrip
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: FloatingActionButton.extended(
+                  key: const ValueKey('new_session_fab'),
+                  heroTag: null,
+                  onPressed: _showNewSessionDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New'),
+                ),
+              )
+            : null,
+      ),
     );
   }
 
@@ -2231,8 +2276,11 @@ class _SessionListScreenState extends State<SessionListScreen>
                   onTitleTap: _onTitleTap,
                   onDisconnect: _disconnect,
                   forceElevated: innerBoxIsScrolled,
-                  toolbarHeight: chrome.toolbarHeight,
+                  toolbarHeight: DuoStripScope.hasStrip(context)
+                      ? DuoSlimHeader.height + 8
+                      : chrome.toolbarHeight,
                   bridgeLabel: connectedBridgeLabel,
+                  showActions: !DuoStripScope.hasStrip(context),
                 ),
               ],
         body: content,

@@ -88,20 +88,24 @@ class _WorkspacePaneNavigatorState extends State<WorkspacePaneNavigator> {
                         widget.navigatorKey.currentState?.pop(result);
                       }
                     },
-                    child: Navigator(
-                      key: widget.navigatorKey,
-                      // The sibling list must retain focus when no page is selected.
-                      requestFocus: widget.active && widget.handlesBack,
-                      pages: [
-                        WorkspacePanePage(
-                          key: const ValueKey('pane_root'),
-                          compact: widget.compact,
-                          isRoot: true,
-                          child: widget.background,
-                        ),
-                        ...widget.pages,
-                      ],
-                      onDidRemovePage: widget.onDidRemovePage,
+                    child: WorkspacePaneScope(
+                      compact: widget.compact,
+                      active: widget.active,
+                      child: Navigator(
+                        key: widget.navigatorKey,
+                        // The sibling list must retain focus when no page is selected.
+                        requestFocus: widget.active && widget.handlesBack,
+                        pages: [
+                          WorkspacePanePage(
+                            key: const ValueKey('pane_root'),
+                            compact: widget.compact,
+                            isRoot: true,
+                            child: widget.background,
+                          ),
+                          ...widget.pages,
+                        ],
+                        onDidRemovePage: widget.onDidRemovePage,
+                      ),
                     ),
                   ),
                 ),
@@ -112,6 +116,27 @@ class _WorkspacePaneNavigatorState extends State<WorkspacePaneNavigator> {
       ),
     );
   }
+}
+
+/// Tells pane content whether its pane fills the window ([compact]) and
+/// whether it is the pane in front ([active]).
+class WorkspacePaneScope extends InheritedWidget {
+  const WorkspacePaneScope({
+    super.key,
+    required this.compact,
+    required this.active,
+    required super.child,
+  });
+
+  final bool compact;
+  final bool active;
+
+  static WorkspacePaneScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<WorkspacePaneScope>();
+
+  @override
+  bool updateShouldNotify(WorkspacePaneScope oldWidget) =>
+      compact != oldWidget.compact || active != oldWidget.active;
 }
 
 class WorkspacePanePage extends Page<Object?> {
