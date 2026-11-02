@@ -906,15 +906,18 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   /** Fork at a complete turn boundary without mutating the source history. */
-  async forkThreadAtUserTurn(userTurnOrdinal: number): Promise<{
+  async forkThreadAtUserTurn(
+    userTurnOrdinal: number,
+    sourceThreadId: string | null = this._threadId,
+  ): Promise<{
     threadId: string;
     thread: Record<string, unknown>;
   }> {
-    if (!this._threadId) throw new Error("No thread ID available for fork");
+    if (!sourceThreadId) throw new Error("No thread ID available for fork");
     if (!Number.isInteger(userTurnOrdinal) || userTurnOrdinal < 1) {
       throw new Error("Invalid Codex fork target");
     }
-    const source = await this.readThread(this._threadId);
+    const source = await this.readThread(sourceThreadId);
     let userCount = 0;
     let lastTurnId: string | undefined;
     for (const raw of Array.isArray(source.turns) ? source.turns : []) {
@@ -940,7 +943,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       throw new Error("Codex fork target was not found in stored history");
     }
     const response = (await this.request("thread/fork", {
-      threadId: this._threadId,
+      threadId: sourceThreadId,
       lastTurnId,
       excludeTurns: true,
     })) as Record<string, unknown>;

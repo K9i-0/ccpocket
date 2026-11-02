@@ -287,6 +287,8 @@ const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
 const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 /** Upper bound for waiting on a replaced Codex app-server to exit. */
 const CODEX_SHUTDOWN_WAIT_MS = 5_000;
+/** How long a retract waits for a just-sent prompt's turn to start. */
+const RETRACT_START_TIMEOUT_MS = 3_000;
 /** How long a retract waits for the interrupted turn to end. */
 const RETRACT_IDLE_TIMEOUT_MS = 15_000;
 
@@ -1703,10 +1705,20 @@ export class BridgeWebSocketServer {
     session: SessionInfo,
   ): Promise<void> {
     const sessionId = session.id;
-    const wasRunning = session.status !== "idle";
-    const candidate = wasRunning
-      ? this.sessionManager.retractableUserInput(sessionId)
-      : null;
+    let candidate = this.sessionManager.retractableUserInput(sessionId);
+    if (session.status === "idle") {
+      // Stop can be tapped right after sending, before the turn has started
+      // on the Bridge. Interrupting then would be a no-op and the turn would
+      // still run, so wait for it to start first.
+      if (
+        !candidate ||
+        !(await this.waitForSessionRunning(session, RETRACT_START_TIMEOUT_MS))
+      ) {
+        session.process.interrupt();
+        return;
+      }
+      candidate = this.sessionManager.retractableUserInput(sessionId);
+    }
     session.process.interrupt();
     if (!candidate) return;
 
@@ -1770,6 +1782,29 @@ export class BridgeWebSocketServer {
       },
       ws,
     );
+  }
+
+  private waitForSessionRunning(
+    session: SessionInfo,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    if (session.status !== "idle") return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const proc = session.process;
+      const finish = (running: boolean) => {
+        clearTimeout(timer);
+        proc.off("status", onStatus);
+        resolve(running);
+      };
+      const onStatus = (status: string) => {
+        if (status !== "idle") finish(true);
+      };
+      const timer = setTimeout(
+        () => finish(session.status !== "idle"),
+        timeoutMs,
+      );
+      proc.on("status", onStatus);
+    });
   }
 
   private waitForSessionIdle(
@@ -2139,7 +2174,28 @@ export class BridgeWebSocketServer {
         }
       : undefined;
 
-    const forked = await codexProcess.forkThreadAtUserTurn(targetOrdinal);
+    const sourceThreadId = codexProcess.sessionId ?? session.claudeSessionId;
+    if (!sourceThreadId) {
+      this.send(ws, {
+        type: "error",
+        message: "No Codex thread ID available for fork",
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+    // Fork in a throwaway app-server: whichever app-server forks a thread
+    // holds its write lock until it exits, and the source session keeps
+    // running, so the fork must not be created by the source process.
+    const forker = await this.createStandaloneCodexProcess(
+      session.worktreePath ?? projectPath,
+    );
+    let forked: Awaited<ReturnType<CodexProcess["forkThreadAtUserTurn"]>>;
+    try {
+      forked = await forker.forkThreadAtUserTurn(targetOrdinal, sourceThreadId);
+    } finally {
+      forker.stop();
+      await forker.waitForShutdown(CODEX_SHUTDOWN_WAIT_MS);
+    }
     const forkedThreadId = forked.threadId;
     const forkedThread = forked.thread;
 

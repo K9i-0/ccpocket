@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { WebSocket } from "ws";
@@ -10224,10 +10225,17 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
     session.process.sessionId = "thread-source";
-    session.process.forkThreadAtUserTurn.mockResolvedValueOnce({
-      threadId: "thread-forked",
-      thread: { id: "thread-forked", turns: [] },
-    });
+    // The fork runs in a throwaway app-server that must release the forked
+    // thread before the new session resumes it.
+    const forker = {
+      forkThreadAtUserTurn: vi.fn().mockResolvedValue({
+        threadId: "thread-forked",
+        thread: { id: "thread-forked", turns: [] },
+      }),
+      stop: vi.fn(),
+      waitForShutdown: vi.fn(async () => {}),
+    };
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue(forker);
     session.history = [
       {
         type: "user_input",
@@ -10268,8 +10276,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledTimes(1);
-    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledWith(1);
+    expect(session.process.forkThreadAtUserTurn).not.toHaveBeenCalled();
+    expect(forker.forkThreadAtUserTurn).toHaveBeenCalledWith(1, "thread-source");
+    expect(forker.stop).toHaveBeenCalled();
+    expect(forker.waitForShutdown).toHaveBeenCalled();
     expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
@@ -10999,6 +11009,33 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         messages.some((m: any) => m.type === "system" && m.subtype === "session_created"),
       ).toBe(false);
       expect(manager.get(sessionId)).toBe(session);
+      bridge.close();
+    });
+
+    it("waits for a just-sent prompt's turn to start before retracting", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const { sessionId, session } = await startClaude(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      manager.retractableUserInput.mockReturnValue({ text: "typo", historySeq: 3 });
+      const events = new EventEmitter();
+      session.process.on = events.on.bind(events);
+      session.process.off = events.off.bind(events);
+      session.status = "idle";
+
+      (bridge as any).handleClientMessage(
+        { type: "interrupt", sessionId, retract: true },
+        ws,
+      );
+      await flush();
+      expect(session.process.interrupt).not.toHaveBeenCalled();
+
+      session.status = "running";
+      events.emit("status", "running");
+      await flush();
+
+      expect(session.process.interrupt).toHaveBeenCalledOnce();
+      expect(manager.rewindInPlace).toHaveBeenCalledWith(sessionId, null);
       bridge.close();
     });
 
