@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.152.0] - 2026-11-02
+
+### Changed
+
+- Show the running subagent count on session cards as a compact icon badge next to the background task count, instead of the "N agents" text.
+- Make the pin and stop buttons on running session cards easier to tap: their tap areas now reach the card header's edges while the buttons look the same.
+
 ## [1.151.0] - 2026-11-02
 
 ### Added
