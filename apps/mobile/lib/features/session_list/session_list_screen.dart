@@ -1969,10 +1969,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     final showNewSession =
         showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
 
-    // On a compact iPhone Duo window the strip holds search and New; the
-    // global actions live in the bridge menu of the title row. In the
-    // multi-pane workspace they stay in the strip.
-    final compactConnectedStrip = !widget.embedded && showConnectedUI;
+    // With an iPhone Duo strip, a connected list puts search and New there;
+    // gallery, settings and disconnect live in the bridge menu of the title.
+    final compactConnectedStrip = showConnectedUI;
     return DuoStripActions(
       enabled: true,
       top: [

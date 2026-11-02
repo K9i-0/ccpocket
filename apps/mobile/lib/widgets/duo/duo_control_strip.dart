@@ -202,6 +202,15 @@ class DuoStripController extends ChangeNotifier {
     _scheduleNotify();
   }
 
+  /// Makes [token] the most recently activated screen, if it is active.
+  void touch(Object token) {
+    if (!_activations.containsKey(token)) return;
+    _activations[token] = ++_sequence;
+    if (identical(token, _owner)) return;
+    _owner = token;
+    _scheduleNotify();
+  }
+
   void _scheduleNotify() {
     if (_notifyScheduled) return;
     _notifyScheduled = true;
@@ -217,6 +226,47 @@ class DuoStripController extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+/// Hands the strip to the screens inside [child] when the user touches it.
+///
+/// Wrap each pane of a multi-pane layout, so the strip follows the pane the
+/// user works in: the chat's tools and send button after touching the chat,
+/// search and New after touching the session list.
+class DuoStripTouchRegion extends StatefulWidget {
+  const DuoStripTouchRegion({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<DuoStripTouchRegion> createState() => _DuoStripTouchRegionState();
+}
+
+class _DuoStripTouchRegionState extends State<DuoStripTouchRegion> {
+  var _touches = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => setState(() => _touches++),
+      child: _DuoStripTouches(touches: _touches, child: widget.child),
+    );
+  }
+}
+
+class _DuoStripTouches extends InheritedWidget {
+  const _DuoStripTouches({required this.touches, required super.child});
+
+  final int touches;
+
+  static int of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DuoStripTouches>()?.touches ??
+      0;
+
+  @override
+  bool updateShouldNotify(_DuoStripTouches oldWidget) =>
+      touches != oldWidget.touches;
 }
 
 /// Puts the controls of a screen into the control strip while the screen is
@@ -237,7 +287,8 @@ class DuoStripController extends ChangeNotifier {
 /// The controls are built in this widget's context, so they can read the
 /// providers of the screen. The screen counts as frontmost while [enabled],
 /// its route is not covered by an opaque route (tickers enabled), and it is
-/// the most recently activated such screen. Controls stay visible but ignore
+/// the most recently activated or touched (see [DuoStripTouchRegion]) such
+/// screen. Controls stay visible but ignore
 /// taps while a popup route (menu, dialog, sheet) is above the screen.
 class DuoStripActions extends StatefulWidget {
   const DuoStripActions({
@@ -269,6 +320,7 @@ class DuoStripActions extends StatefulWidget {
 class _DuoStripActionsState extends State<DuoStripActions> {
   final _portal = OverlayPortalController()..show();
   DuoStripController? _controller;
+  int? _touches;
 
   @override
   void dispose() {
@@ -295,6 +347,9 @@ class _DuoStripActionsState extends State<DuoStripActions> {
         (route?.isActive ?? true);
     final interactive = route?.isCurrent ?? true;
     controller.setActive(this, active);
+    final touches = _DuoStripTouches.of(context);
+    if (_touches != null && touches != _touches) controller.touch(this);
+    _touches = touches;
 
     return _DuoStripRegion(
       owner: this,

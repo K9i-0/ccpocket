@@ -27,6 +27,7 @@ import '../workspace/state/workspace_navigation_cubit.dart';
 import '../workspace/state/workspace_navigation_state.dart';
 import '../workspace/state/workspace_destination.dart';
 import '../workspace/widgets/workspace_pane_navigator.dart';
+import '../../widgets/duo/duo_control_strip.dart';
 
 export '../workspace/state/workspace_destination.dart'
     show WorkspaceSessionSelection;
@@ -871,12 +872,15 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                             child: MediaQuery.removePadding(
                               context: context,
                               removeRight: !compact,
-                              child: SessionListScreen(
-                                deepLinkNotifier: widget.deepLinkNotifier,
-                                debugRecentSessions: widget.debugRecentSessions,
-                                embedded: !compact,
-                                onSelectWorkspaceSession: selectSession,
-                                obscured: listObscured,
+                              child: DuoStripTouchRegion(
+                                child: SessionListScreen(
+                                  deepLinkNotifier: widget.deepLinkNotifier,
+                                  debugRecentSessions:
+                                      widget.debugRecentSessions,
+                                  embedded: !compact,
+                                  onSelectWorkspaceSession: selectSession,
+                                  obscured: listObscured,
+                                ),
                               ),
                             ),
                           ),

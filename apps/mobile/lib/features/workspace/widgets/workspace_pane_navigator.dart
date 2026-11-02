@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../widgets/duo/duo_control_strip.dart';
+
 /// A permanent navigation surface. Resizing changes its geometry, never its
 /// routes or their owners. The empty first page reveals the sibling pane during
 /// an interactive back gesture in compact layouts.
@@ -91,20 +93,22 @@ class _WorkspacePaneNavigatorState extends State<WorkspacePaneNavigator> {
                     child: WorkspacePaneScope(
                       compact: widget.compact,
                       active: widget.active,
-                      child: Navigator(
-                        key: widget.navigatorKey,
-                        // The sibling list must retain focus when no page is selected.
-                        requestFocus: widget.active && widget.handlesBack,
-                        pages: [
-                          WorkspacePanePage(
-                            key: const ValueKey('pane_root'),
-                            compact: widget.compact,
-                            isRoot: true,
-                            child: widget.background,
-                          ),
-                          ...widget.pages,
-                        ],
-                        onDidRemovePage: widget.onDidRemovePage,
+                      child: DuoStripTouchRegion(
+                        child: Navigator(
+                          key: widget.navigatorKey,
+                          // The sibling list must retain focus when no page is selected.
+                          requestFocus: widget.active && widget.handlesBack,
+                          pages: [
+                            WorkspacePanePage(
+                              key: const ValueKey('pane_root'),
+                              compact: widget.compact,
+                              isRoot: true,
+                              child: widget.background,
+                            ),
+                            ...widget.pages,
+                          ],
+                          onDidRemovePage: widget.onDidRemovePage,
+                        ),
                       ),
                     ),
                   ),
@@ -135,13 +139,14 @@ class WorkspacePaneScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<WorkspacePaneScope>();
 
   /// Whether content may trade its app bar for the iPhone Duo control strip
-  /// (its pane fills the window, or it is not in a pane) and whether it should
-  /// own the strip now (its pane is in front).
+  /// and whether it may own the strip now (its pane is in front).
   static ({bool useStrip, bool publish}) duoStripPolicyOf(
     BuildContext context,
   ) {
     final pane = maybeOf(context);
-    return (useStrip: pane?.compact ?? true, publish: pane?.active ?? true);
+    // Every pane trades its app bar for the strip; in a multi-pane layout the
+    // strip follows the pane touched last (DuoStripTouchRegion).
+    return (useStrip: true, publish: pane?.active ?? true);
   }
 
   @override

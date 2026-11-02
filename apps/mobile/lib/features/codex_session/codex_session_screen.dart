@@ -1088,7 +1088,7 @@ class _CodexChatBody extends HookWidget {
 
               final pane = WorkspacePaneScope.maybeOf(context);
               return DuoAdaptiveScaffold(
-                useStrip: isSinglePane,
+                useStrip: true,
                 publish: pane?.active ?? true,
                 wrapAppBar: chrome.wrapAppBar,
                 reserveBottomSlot: true,

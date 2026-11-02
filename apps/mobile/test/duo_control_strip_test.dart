@@ -288,6 +288,45 @@ void main() {
     });
   });
 
+  group('DuoStripTouchRegion', () {
+    testWidgets('hands the strip to the pane touched last', (tester) async {
+      Widget pane(String name) => Expanded(
+        child: DuoStripTouchRegion(
+          child: DuoStripActions(
+            enabled: true,
+            top: [Icon(Icons.circle, key: ValueKey('${name}_tool'))],
+            child: ColoredBox(
+              key: ValueKey('${name}_pane'),
+              color: Colors.white,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+
+      await _pump(
+        tester,
+        FoldTestPose.duoInnerLandscape.data,
+        Scaffold(body: Row(children: [pane('list'), pane('chat')])),
+      );
+      await tester.pump();
+      // The pane activated last owns the strip at first.
+      expect(find.byKey(const ValueKey('chat_tool')), findsOneWidget);
+      expect(find.byKey(const ValueKey('list_tool')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('list_pane')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('list_tool')), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat_tool')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('chat_pane')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const ValueKey('chat_tool')), findsOneWidget);
+    });
+  });
+
   group('DuoAdaptiveScaffold', () {
     testWidgets('trades the app bar for a slim header and the strip', (
       tester,

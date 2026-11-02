@@ -150,7 +150,25 @@ class SessionListPaneHeader extends StatelessWidget {
             ),
             child: Row(
               children: [
-                if (!chrome.useMacOSAdaptiveChrome)
+                if (!showActions) ...[
+                  GestureDetector(
+                    onTap: onTitleTap,
+                    child: _SessionListTitle(
+                      key: const ValueKey('session_list_pane_title'),
+                      title: l.appTitle,
+                      titleStyle: titleStyle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: _BridgeMenuButton(
+                      bridgeLabel: bridgeLabel,
+                      onOpenSettings: onOpenSettings,
+                      onOpenGallery: onOpenGallery,
+                      onDisconnect: onDisconnect,
+                    ),
+                  ),
+                ] else if (!chrome.useMacOSAdaptiveChrome)
                   Expanded(
                     child: GestureDetector(
                       onTap: onTitleTap,
@@ -301,8 +319,8 @@ class _BridgeMenuButton extends StatelessWidget {
 
   final String? bridgeLabel;
   final VoidCallback onOpenSettings;
-  final VoidCallback onOpenGallery;
-  final VoidCallback onDisconnect;
+  final VoidCallback? onOpenGallery;
+  final VoidCallback? onDisconnect;
 
   @override
   Widget build(BuildContext context) {
@@ -317,16 +335,17 @@ class _BridgeMenuButton extends StatelessWidget {
       tooltip: l.settings,
       onSelected: (action) => action(),
       itemBuilder: (_) => [
-        PopupMenuItem(
-          key: const ValueKey('gallery_button'),
-          value: onOpenGallery,
-          child: ListTile(
-            leading: const Icon(Icons.collections_outlined),
-            title: Text(l.gallery),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
+        if (onOpenGallery case final openGallery?)
+          PopupMenuItem(
+            key: const ValueKey('gallery_button'),
+            value: openGallery,
+            child: ListTile(
+              leading: const Icon(Icons.collections_outlined),
+              title: Text(l.gallery),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
         PopupMenuItem(
           key: const ValueKey('settings_button'),
           value: onOpenSettings,
@@ -341,17 +360,19 @@ class _BridgeMenuButton extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          key: const ValueKey('disconnect_button'),
-          value: onDisconnect,
-          child: ListTile(
-            leading: Icon(Icons.link_off, color: cs.error),
-            title: Text(l.disconnect, style: TextStyle(color: cs.error)),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
+        if (onDisconnect case final disconnect?) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            key: const ValueKey('disconnect_button'),
+            value: disconnect,
+            child: ListTile(
+              leading: Icon(Icons.link_off, color: cs.error),
+              title: Text(l.disconnect, style: TextStyle(color: cs.error)),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
+        ],
       ],
       child: Container(
         padding: const EdgeInsets.only(left: 10, right: 4, top: 4, bottom: 4),
