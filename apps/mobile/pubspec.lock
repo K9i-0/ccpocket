@@ -405,10 +405,10 @@ packages:
     dependency: "direct main"
     description:
       name: dartssh2
-      sha256: ce7347d76fd7115994f3785b3b7b7c61e957641faa01a2ce066699609f2b45be
+      sha256: "39359aceafcf5940b868249e3c9c6d86e4e0f989eec7417d033c943157c84c51"
       url: "https://pub.dev"
     source: hosted
-    version: "2.22.5"
+    version: "4.1.0"
   data_assets:
     dependency: transitive
     description:
