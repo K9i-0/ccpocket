@@ -96,7 +96,11 @@ class MockBridgeService extends BridgeService {
   }) => false;
 
   @override
-  void interrupt(String sessionId) {}
+  void interrupt(String sessionId, {bool retract = false}) {
+    interruptCalls.add((sessionId: sessionId, retract: retract));
+  }
+
+  final interruptCalls = <({String sessionId, bool retract})>[];
 
   @override
   void stopSession(String sessionId) {}

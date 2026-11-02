@@ -69,7 +69,7 @@ class _RecordingBridgeService extends BridgeService {
   void send(ClientMessage message) => sentMessages.add(message);
 
   @override
-  void interrupt(String sessionId) {}
+  void interrupt(String sessionId, {bool retract = false}) {}
 
   @override
   void requestSessionList() {}

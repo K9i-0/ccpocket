@@ -4365,8 +4365,8 @@ class BridgeService implements BridgeServiceBase {
   }
 
   @override
-  void interrupt(String sessionId) {
-    send(ClientMessage.interrupt(sessionId: sessionId));
+  void interrupt(String sessionId, {bool retract = false}) {
+    send(ClientMessage.interrupt(sessionId: sessionId, retract: retract));
   }
 
   void registerPushToken({

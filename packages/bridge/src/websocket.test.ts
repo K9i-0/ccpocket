@@ -444,6 +444,15 @@ vi.mock("./session.js", () => ({
       return { canRewind: true, filesChanged: ["test.ts"], insertions: 1, deletions: 0 };
     }
 
+    retractableUserInput = vi.fn((_id: string): unknown => null);
+
+    rewindBeforeLastUserInput(
+      id: string,
+      onReady: (newSessionId: string) => void,
+    ) {
+      this.rewindConversation(id, "", onReady);
+    }
+
     rewindConversation(
       id: string,
       _targetUuid: string,
@@ -10106,6 +10115,52 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("retracts an interrupted codex prompt by forking before its turn", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/project-codex", provider: "codex" },
+      ws,
+    );
+    await Promise.resolve();
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thread-retract";
+    session.process.sessionId = "thread-retract";
+    session.pastMessages = [
+      { role: "user", uuid: "codex:user-turn:1", content: [{ type: "text", text: "first" }] },
+      { role: "assistant", content: [{ type: "text", text: "answer" }] },
+    ];
+    manager.appendHistory(sessionId, { type: "user_input", text: "typo" });
+    session.status = "running";
+    session.process.interrupt = vi.fn(() => {
+      session.status = "idle";
+    });
+    manager.retractableUserInput.mockReturnValue({ text: "typo", historySeq: 1 });
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      { type: "interrupt", sessionId, retract: true },
+      ws,
+    );
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledWith(1);
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const retractedIndex = sends.findIndex((m: any) => m.type === "input_retracted");
+    const createdIndex = sends.findIndex(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    expect(sends[retractedIndex]).toEqual({ type: "input_retracted", sessionId, text: "typo" });
+    expect(createdIndex).toBeGreaterThan(retractedIndex);
+    bridge.close();
+  });
+
   it("forks codex conversation directly at a target turn", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -10854,6 +10909,98 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       expect(session.process.dispatchInput).toHaveBeenCalledWith("legacy");
       expect(session.process.interrupt).toHaveBeenCalled();
       expect(session.queuedInput).toBeUndefined();
+      bridge.close();
+    });
+  });
+
+  describe("interrupt with retract", () => {
+    const startClaude = async (bridge: any, ws: any) => {
+      bridge.handleClientMessage(
+        { type: "start", projectPath: "/tmp/retract-test", provider: "claude" },
+        ws,
+      );
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find((m: any) => m.type === "system" && m.subtype === "session_created");
+      const sessionId = created.sessionId as string;
+      const session = bridge.sessionManager.get(sessionId);
+      session.status = "running";
+      session.process.interrupt = vi.fn(() => {
+        session.status = "idle";
+      });
+      ws.send.mockClear();
+      return { sessionId, session };
+    };
+    const flush = async () => {
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    };
+    const sent = (ws: any) =>
+      ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+
+    it("hands the prompt back before switching to the rewound session", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const { sessionId, session } = await startClaude(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      manager.retractableUserInput.mockReturnValue({ text: "typo", historySeq: 3 });
+
+      (bridge as any).handleClientMessage(
+        { type: "interrupt", sessionId, retract: true },
+        ws,
+      );
+      await flush();
+
+      expect(session.process.interrupt).toHaveBeenCalledOnce();
+      const messages = sent(ws);
+      const retractedIndex = messages.findIndex((m: any) => m.type === "input_retracted");
+      const createdIndex = messages.findIndex(
+        (m: any) => m.type === "system" && m.subtype === "session_created",
+      );
+      expect(messages[retractedIndex]).toEqual({
+        type: "input_retracted",
+        sessionId,
+        text: "typo",
+      });
+      expect(createdIndex).toBeGreaterThan(retractedIndex);
+      expect(messages[createdIndex].sourceSessionId).toBe(sessionId);
+      bridge.close();
+    });
+
+    it("keeps the prompt when output arrived before the abort landed", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const { sessionId, session } = await startClaude(bridge, ws);
+      const manager = (bridge as any).sessionManager;
+      manager.retractableUserInput
+        .mockReturnValueOnce({ text: "typo", historySeq: 3 })
+        .mockReturnValueOnce(null);
+
+      (bridge as any).handleClientMessage(
+        { type: "interrupt", sessionId, retract: true },
+        ws,
+      );
+      await flush();
+
+      expect(session.process.interrupt).toHaveBeenCalledOnce();
+      expect(sent(ws).some((m: any) => m.type === "input_retracted")).toBe(false);
+      expect(manager.get(sessionId)).toBe(session);
+      bridge.close();
+    });
+
+    it("only interrupts when the prompt is not retractable", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const { sessionId, session } = await startClaude(bridge, ws);
+
+      (bridge as any).handleClientMessage(
+        { type: "interrupt", sessionId, retract: true },
+        ws,
+      );
+      await flush();
+
+      expect(session.process.interrupt).toHaveBeenCalledOnce();
+      expect(sent(ws)).toEqual([]);
       bridge.close();
     });
   });

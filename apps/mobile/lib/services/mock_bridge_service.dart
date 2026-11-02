@@ -528,7 +528,7 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
-  void interrupt(String sessionId) {
+  void interrupt(String sessionId, {bool retract = false}) {
     // Simulate interrupt: stop running and go idle
     _scheduleMessage(
       const Duration(milliseconds: 200),

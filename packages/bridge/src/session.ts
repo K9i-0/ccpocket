@@ -97,6 +97,11 @@ export interface SessionInfo {
   sandboxEnabled?: boolean;
   /** Codex-only pending input waiting for the next turn. */
   queuedInput?: QueuedSessionInput;
+  /**
+   * True once the agent showed output (text, tool use, permission request)
+   * after the latest user input. A prompt without output can be retracted.
+   */
+  turnOutputSinceUserInput?: boolean;
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
   /** Live Claude background tasks. Kept out of chat history. */
@@ -270,6 +275,30 @@ function sanitizeCodexModel(model: unknown): string | undefined {
   const normalized = model.trim();
   if (!normalized || normalized === "codex") return undefined;
   return normalized;
+}
+
+/** Output that makes an interrupted prompt no longer retractable. */
+export function isVisibleTurnOutput(msg: ServerMessage): boolean {
+  switch (msg.type) {
+    case "stream_delta":
+      return msg.text.trim().length > 0;
+    case "assistant":
+      return msg.message.content.some(
+        (block) =>
+          block.type === "tool_use" ||
+          (block.type === "text" && block.text.trim().length > 0),
+      );
+    case "tool_result":
+    case "permission_request":
+      return true;
+    default:
+      return false;
+  }
+}
+
+export interface RetractableUserInput {
+  text: string;
+  historySeq: number;
 }
 
 function publicQueuedInput(item?: QueuedSessionInput): QueuedInputItem | undefined {
@@ -687,6 +716,8 @@ export class SessionManager {
           }
         }
 
+        if (isVisibleTurnOutput(msg)) session.turnOutputSinceUserInput = true;
+
         // Don't add streaming deltas to history
         let mergedUserInput = false;
         let historyMsg: ServerMessage = msg;
@@ -1083,6 +1114,9 @@ export class SessionManager {
     session.historyRevision = entry.seq;
     session.history.push(msg);
     session.historyEntries.push(entry);
+    if (msg.type === "user_input" && !msg.isMeta) {
+      session.turnOutputSinceUserInput = false;
+    }
     if (session.provider === "codex" && msg.type === "user_input") {
       session.codexLatestUserInput = msg;
     }
@@ -1614,7 +1648,11 @@ export class SessionManager {
     beforeHistory?.();
     session.lastActivityAt = new Date();
     const userMsg = this.buildQueuedUserInputMessage(input);
+    // A steer joins the running turn: output already shown for that turn
+    // still makes it non-retractable.
+    const hadTurnOutput = session.turnOutputSinceUserInput;
     this.appendHistoryToSession(session, userMsg);
+    session.turnOutputSinceUserInput = hadTurnOutput;
     this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
     return { ok: true };
@@ -1768,7 +1806,98 @@ export class SessionManager {
     }
 
     const assistantUuid = this.findAssistantUuidBeforeUser(session, targetUuid);
+    this.restartClaudeAt(id, session, assistantUuid, onReady);
+  }
 
+  /**
+   * The latest prompt, when it can still be retracted: it is the newest user
+   * input, the agent has shown no output for it, it carries no images, and no
+   * further input is queued behind it.
+   */
+  retractableUserInput(id: string): RetractableUserInput | null {
+    const session = this.sessions.get(id);
+    if (!session || session.turnOutputSinceUserInput !== false) return null;
+    if (session.queuedInput) return null;
+    if (session.process instanceof SdkProcess && session.process.hasInputQueue) {
+      return null;
+    }
+    for (let i = session.history.length - 1; i >= 0; i--) {
+      const msg = session.history[i];
+      if (msg.type !== "user_input") continue;
+      if (msg.isMeta) continue;
+      if (msg.isSynthetic) return null;
+      if ((msg.imageCount ?? 0) > 0 || (msg.images?.length ?? 0) > 0) {
+        return null;
+      }
+      const historySeq = (msg as { historySeq?: unknown }).historySeq;
+      if (typeof historySeq !== "number") return null;
+      return { text: msg.text, historySeq };
+    }
+    return null;
+  }
+
+  /**
+   * Restart a Claude session just before its latest user input, located by
+   * position so it works before the SDK has assigned the prompt a UUID.
+   */
+  rewindBeforeLastUserInput(
+    id: string,
+    onReady: (newSessionId: string) => void,
+  ): void {
+    const session = this.sessions.get(id);
+    if (!session) throw new Error(`Session ${id} not found`);
+    if (session.provider === "codex") {
+      throw new Error("Use the Codex rewind path for Codex sessions");
+    }
+
+    let lastUserIndex = -1;
+    for (let i = session.history.length - 1; i >= 0; i--) {
+      const msg = session.history[i];
+      if (msg.type === "user_input" && !msg.isMeta) {
+        lastUserIndex = i;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) throw new Error("No user input to retract");
+
+    let assistantUuid: string | null = null;
+    let earlierUserInput = false;
+    for (let i = lastUserIndex - 1; i >= 0; i--) {
+      const msg = session.history[i];
+      if (msg.type === "assistant" && msg.messageUuid) {
+        assistantUuid = msg.messageUuid;
+        break;
+      }
+      if (msg.type === "user_input" && !msg.isMeta) earlierUserInput = true;
+    }
+    if (!assistantUuid && session.pastMessages) {
+      for (let i = session.pastMessages.length - 1; i >= 0; i--) {
+        const pm = session.pastMessages[i] as { role?: string; uuid?: string };
+        if (pm.role === "assistant" && pm.uuid) {
+          assistantUuid = pm.uuid;
+          break;
+        }
+        if (pm.role === "user") earlierUserInput = true;
+      }
+    }
+    const trimmed = (session.historyEntries[0]?.seq ?? 1) > 1;
+    if (!assistantUuid && (earlierUserInput || trimmed)) {
+      // Never fall back to an empty session when earlier turns exist.
+      throw new Error("Cannot locate the turn before the latest prompt");
+    }
+    if (assistantUuid && !session.claudeSessionId) {
+      throw new Error("Session has no Claude session ID");
+    }
+    this.restartClaudeAt(id, session, assistantUuid, onReady);
+  }
+
+  private restartClaudeAt(
+    id: string,
+    session: SessionInfo,
+    assistantUuid: string | null,
+    onReady: (newSessionId: string) => void,
+  ): void {
+    const claudeSessionId = session.claudeSessionId;
     const projectPath = session.projectPath;
     const sdkProcess = session.process as SdkProcess;
     const permissionMode = sdkProcess.permissionMode;
@@ -1794,7 +1923,7 @@ export class SessionManager {
     // user turn in history.
     const newId = this.create(
       projectPath,
-      assistantUuid
+      assistantUuid && claudeSessionId
         ? {
             ...carriedOptions,
             sessionId: claudeSessionId,

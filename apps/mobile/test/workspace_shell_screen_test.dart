@@ -191,7 +191,7 @@ class _MockBridgeService extends BridgeService {
   void requestFileList(String projectPath) {}
 
   @override
-  void interrupt(String sessionId) {}
+  void interrupt(String sessionId, {bool retract = false}) {}
 
   @override
   void send(ClientMessage message) {

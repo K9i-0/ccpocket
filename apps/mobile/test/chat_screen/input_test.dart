@@ -73,6 +73,32 @@ void main() {
       expect($(#stop_button), findsOneWidget);
     });
 
+    patrolWidgetTest(
+      'H3b: Stop with an empty composer asks to retract the prompt',
+      ($) async {
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+        await pumpN($.tester);
+        await emitAndPump($.tester, bridge, [
+          const StatusMessage(status: ProcessStatus.running),
+        ]);
+        await pumpN($.tester);
+
+        await $(#stop_button).tap();
+        await pumpN($.tester);
+        expect(bridge.interruptCalls.single.retract, isTrue);
+
+        await emitAndPump($.tester, bridge, [
+          const InputRetractedMessage(text: 'fix the tpyo'),
+        ]);
+        await pumpN($.tester);
+
+        final textField = $.tester.widget<TextField>(
+          find.byKey(const ValueKey('message_input')),
+        );
+        expect(textField.controller?.text, 'fix the tpyo');
+      },
+    );
+
     patrolWidgetTest('H4: Empty text does not send', ($) async {
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);

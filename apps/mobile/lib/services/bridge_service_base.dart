@@ -28,7 +28,7 @@ abstract class BridgeServiceBase {
     bool includeHidden = false,
   });
   void requestSessionList();
-  void interrupt(String sessionId);
+  void interrupt(String sessionId, {bool retract = false});
 
   /// Stream of file paths from the project.
   Stream<List<String>> get fileList;

@@ -116,9 +116,11 @@ class MockBridgeService extends BridgeService {
     return true;
   }
 
+  final interruptCalls = <({String sessionId, bool retract})>[];
+
   @override
-  void interrupt(String sessionId) {
-    // no-op for tests
+  void interrupt(String sessionId, {bool retract = false}) {
+    interruptCalls.add((sessionId: sessionId, retract: retract));
   }
 
   @override
@@ -211,6 +213,41 @@ void main() {
       expect(cubit.state.approval, isA<ApprovalNone>());
       expect(cubit.state.totalCost, 0.0);
     });
+
+    test('interrupt forwards the retract request to the bridge', () {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+
+      cubit.interrupt();
+      cubit.interrupt(retract: true);
+
+      expect(mockBridge.interruptCalls, [
+        (sessionId: 's1', retract: false),
+        (sessionId: 's1', retract: true),
+      ]);
+    });
+
+    test(
+      'input_retracted is surfaced for the composer, not the chat',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+        final retracted = <String>[];
+        final sub = cubit.retractedInputs.listen(retracted.add);
+        addTearDown(sub.cancel);
+        final entriesBefore = cubit.state.entries.length;
+
+        mockBridge.emitMessage(
+          ServerMessage.fromJson({'type': 'input_retracted', 'text': 'tpyo'}),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        expect(retracted, ['tpyo']);
+        expect(cubit.state.entries.length, entriesBefore);
+      },
+    );
 
     test('status message updates state.status', () async {
       final cubit = createCubit('s1');

@@ -420,7 +420,16 @@ export type ClientMessage =
       version: "old" | "new" | "both";
       requestId?: string;
     }
-  | { type: "interrupt"; sessionId?: string }
+  | {
+      type: "interrupt";
+      sessionId?: string;
+      /**
+       * Also retract the interrupted prompt when the agent has produced no
+       * visible output for it yet (Claude Code's Esc-to-edit behavior). Old
+       * Bridges ignore the field and perform a plain interrupt.
+       */
+      retract?: boolean;
+    }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
   | { type: "bootstrap_project"; parentPath: string; name: string; initializeGit: boolean; sourcePath?: string; requestId: string }
@@ -947,6 +956,16 @@ export type ServerMessage =
       error?: string;
     }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
+  | {
+      /**
+       * The interrupted prompt was removed from the conversation. Sent before
+       * the replacement session's `session_created` so the client can put the
+       * text back into the composer of the source session.
+       */
+      type: "input_retracted";
+      sessionId?: string;
+      text: string;
+    }
   | {
       type: "rewind_preview";
       sessionId?: string;
@@ -1984,6 +2003,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "interrupt":
+        if (msg.retract !== undefined && typeof msg.retract !== "boolean")
+          return null;
         break;
       case "list_project_history":
         break;

@@ -18,6 +18,13 @@ void main() {
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'interrupt');
       expect(json['sessionId'], 'sess-123');
+      expect(json.containsKey('retract'), isFalse);
+    });
+
+    test('asks the bridge to retract only when requested', () {
+      final msg = ClientMessage.interrupt(sessionId: 's', retract: true);
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['retract'], isTrue);
     });
   });
 

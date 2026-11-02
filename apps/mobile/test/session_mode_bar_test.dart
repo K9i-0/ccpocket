@@ -108,7 +108,7 @@ class _MockBridgeService extends BridgeService {
   }
 
   @override
-  void interrupt(String sessionId) {}
+  void interrupt(String sessionId, {bool retract = false}) {}
 
   @override
   void stopSession(String sessionId) {}

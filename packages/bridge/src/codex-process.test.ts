@@ -90,6 +90,51 @@ describe("CodexProcess (app-server)", () => {
     });
   });
 
+  it("waits for a stopped private app-server to exit before reporting shutdown", async () => {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "private";
+    spawnMock.mockImplementation(() => {
+      const child = new FakeChildProcess();
+      // A real app-server exits some time after SIGTERM.
+      child.kill = () => {
+        child.killed = true;
+        return true;
+      };
+      fakeChildren.push(child);
+      return child;
+    });
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/shutdown-project");
+    proc.waitUntilReady().catch(() => {});
+    proc.stop();
+
+    let settled = false;
+    const waiting = proc.waitForShutdown(5_000).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    fakeChildren[0].emit("exit", 0);
+    await waiting;
+    expect(settled).toBe(true);
+  });
+
+  it("bounds the shutdown wait when the app-server never exits", async () => {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "private";
+    spawnMock.mockImplementation(() => {
+      const child = new FakeChildProcess();
+      child.kill = () => true;
+      fakeChildren.push(child);
+      return child;
+    });
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/shutdown-project");
+    proc.waitUntilReady().catch(() => {});
+    proc.stop();
+
+    await expect(proc.waitForShutdown(10)).resolves.toBeUndefined();
+  });
+
   it("trusts and reloads an idle private thread without accepting input on the old process", async () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "private";
     const requests: Array<Record<string, any>> = [];

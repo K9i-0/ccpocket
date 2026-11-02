@@ -166,6 +166,23 @@ class ChatInputWithOverlays extends HookWidget {
     // Diff selection attachment state
     final attachedDiffSelection = useState<DiffSelection?>(null);
 
+    // Put a prompt retracted by the stop button back into the composer.
+    final retractCubit = context.read<ChatSessionCubit>();
+    final retractDrafts = context.read<DraftService>();
+    useEffect(() {
+      final sub = retractCubit.retractedInputs.listen((text) {
+        if (text.isEmpty) return;
+        final current = inputController.text;
+        final restored = current.trim().isEmpty ? text : '$text\n$current';
+        inputController.value = TextEditingValue(
+          text: restored,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+        retractDrafts.saveDraft(activeSessionId.value, restored);
+      });
+      return sub.cancel;
+    }, [retractCubit]);
+
     // Consume initialDiffSelection from parent
     useEffect(() {
       if (initialDiffSelection != null && !initialDiffSelection!.isEmpty) {
@@ -1157,7 +1174,13 @@ class ChatInputWithOverlays extends HookWidget {
 
     void interruptSession() {
       HapticFeedback.mediumImpact();
-      context.read<ChatSessionCubit>().interrupt();
+      // Like Claude Code's Esc: with an empty composer, an interrupted prompt
+      // the agent has not answered yet comes back here for editing.
+      final composerEmpty =
+          inputController.text.trim().isEmpty &&
+          attachedImages.value.isEmpty &&
+          attachedDiffSelection.value == null;
+      context.read<ChatSessionCubit>().interrupt(retract: composerEmpty);
     }
 
     void showPromptHistory() {

@@ -328,6 +328,7 @@ function codexAppServerStartError(
 
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private transport: CodexTransport | null = null;
+  private stoppedTransport: Promise<void> | null = null;
   private reloadingProject = false;
   private launchOptions: CodexStartOptions | undefined;
   private _status: ProcessStatus = "starting";
@@ -1098,6 +1099,23 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     });
   }
 
+  /**
+   * Wait (bounded) for a stopped app-server to exit. A thread this process
+   * forked or resumed stays write-locked until then, so a replacement process
+   * resuming it must wait.
+   */
+  async waitForShutdown(timeoutMs: number): Promise<void> {
+    if (!this.stoppedTransport) return;
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      this.stoppedTransport,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+    clearTimeout(timer);
+  }
+
   stop(): void {
     this.stopped = true;
     this.recovery.setEnabled(false);
@@ -1116,9 +1134,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.cleanupSteerTempPaths();
     this.rejectAllPending(new Error("stopped"));
 
-    if (this.transport) {
-      this.transport.stop();
+    const transport = this.transport;
+    if (transport) {
       this.transport = null;
+      transport.stop();
+      this.stoppedTransport =
+        typeof transport.whenStopped === "function"
+          ? transport.whenStopped()
+          : null;
     }
 
     this.resetBackgroundTasks();

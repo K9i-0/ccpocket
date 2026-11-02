@@ -1325,6 +1325,9 @@ sealed class ServerMessage {
         mode: json['mode'] as String? ?? 'both',
         error: json['error'] as String?,
       ),
+      'input_retracted' => InputRetractedMessage(
+        text: json['text'] as String? ?? '',
+      ),
       'input_ack' => InputAckMessage(
         sessionId: json['sessionId'] as String?,
         clientMessageId: json['clientMessageId'] as String?,
@@ -3485,6 +3488,14 @@ class RewindResultMessage implements ServerMessage {
   });
 }
 
+/// The interrupted prompt was removed from the conversation so the user can
+/// edit and resend it. Sent before the replacement session's
+/// `session_created`.
+class InputRetractedMessage implements ServerMessage {
+  final String text;
+  const InputRetractedMessage({required this.text});
+}
+
 class InputAckMessage implements ServerMessage {
   final String? sessionId;
   final String? clientMessageId;
@@ -5536,9 +5547,14 @@ class ClientMessage {
     'requestId': ?requestId,
   });
 
-  factory ClientMessage.interrupt({String? sessionId}) => ClientMessage._(
-    <String, dynamic>{'type': 'interrupt', 'sessionId': ?sessionId},
-  );
+  /// [retract] asks the Bridge to also remove the prompt when the agent has
+  /// shown no output for it yet. Older Bridges ignore it.
+  factory ClientMessage.interrupt({String? sessionId, bool retract = false}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'interrupt',
+        'sessionId': ?sessionId,
+        if (retract) 'retract': true,
+      });
 
   factory ClientMessage.listProjectHistory() =>
       ClientMessage._({'type': 'list_project_history'});

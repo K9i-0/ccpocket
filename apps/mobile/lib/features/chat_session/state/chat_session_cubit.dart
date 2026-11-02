@@ -486,6 +486,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       _pastHistoryLoaded = true;
     }
 
+    if (msg is InputRetractedMessage) {
+      if (!_retractedInputsController.isClosed) {
+        _retractedInputsController.add(msg.text);
+      }
+      return;
+    }
+
     // Handle rewind preview separately — store in dedicated state field
     if (msg is RewindPreviewMessage) {
       emit(state.copyWith(rewindPreview: msg));
@@ -1730,6 +1737,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Stream of side effects that the UI layer must execute (haptics, etc.).
   Stream<Set<ChatSideEffect>> get sideEffects => _sideEffectsController.stream;
 
+  final _retractedInputsController = StreamController<String>.broadcast();
+
+  /// Prompts the Bridge removed after an interrupt, to put back into the
+  /// composer for editing.
+  Stream<String> get retractedInputs => _retractedInputsController.stream;
+
   void setExplorerCurrentPath(String path) {
     final normalized = path.trim();
     if (normalized == state.explorerCurrentPath) return;
@@ -2207,8 +2220,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   /// Interrupt the current operation.
-  void interrupt() {
-    _bridge.interrupt(sessionId);
+  ///
+  /// With [retract], the Bridge also removes the prompt when the agent has
+  /// shown no output for it yet and returns its text via [retractedInputs].
+  void interrupt({bool retract = false}) {
+    _bridge.interrupt(sessionId, retract: retract);
   }
 
   /// Change permission mode for Claude sessions.
@@ -2944,6 +2960,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _subscription?.cancel();
     _sessionContextSubscription?.cancel();
     _sideEffectsController.close();
+    _retractedInputsController.close();
     return super.close();
   }
 }

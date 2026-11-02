@@ -285,6 +285,10 @@ const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
 ];
 
 const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
+/** Upper bound for waiting on a replaced Codex app-server to exit. */
+const CODEX_SHUTDOWN_WAIT_MS = 5_000;
+/** How long a retract waits for the interrupted turn to end. */
+const RETRACT_IDLE_TIMEOUT_MS = 15_000;
 
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "background_tasks",
@@ -1688,11 +1692,116 @@ export class BridgeWebSocketServer {
     return msg;
   }
 
+  /**
+   * Interrupt the running turn and, when the agent has shown no output for
+   * the latest prompt, remove that prompt from the conversation and hand its
+   * text back to the client (Claude Code's Esc-to-edit). See
+   * docs/interrupt-retract.md.
+   */
+  private async interruptAndRetract(
+    ws: WebSocket,
+    session: SessionInfo,
+  ): Promise<void> {
+    const sessionId = session.id;
+    const wasRunning = session.status !== "idle";
+    const candidate = wasRunning
+      ? this.sessionManager.retractableUserInput(sessionId)
+      : null;
+    session.process.interrupt();
+    if (!candidate) return;
+
+    if (!(await this.waitForSessionIdle(session, RETRACT_IDLE_TIMEOUT_MS))) {
+      return;
+    }
+    // Output may have arrived before the abort landed.
+    const latest = this.sessionManager.retractableUserInput(sessionId);
+    if (!latest || latest.historySeq !== candidate.historySeq) return;
+    if (this.sessionManager.get(sessionId) !== session) return;
+
+    const notifyRetracted = () => {
+      this.send(ws, {
+        type: "input_retracted",
+        sessionId,
+        text: latest.text,
+      });
+    };
+
+    if (session.provider === "codex") {
+      const turns = countCodexUserTurnsInSession(session);
+      await this.rewindCodexConversation(
+        ws,
+        sessionId,
+        `codex:user-turn:${turns}`,
+        "conversation",
+        notifyRetracted,
+      );
+      return;
+    }
+
+    this.flushSessionDeltaBatches(sessionId);
+    this.sessionManager.rewindBeforeLastUserInput(sessionId, (newSessionId) => {
+      notifyRetracted();
+      this.send(ws, {
+        type: "rewind_result",
+        sessionId,
+        success: true,
+        mode: "conversation",
+      });
+      const newSession = this.sessionManager.get(newSessionId);
+      this.send(
+        ws,
+        this.buildSessionCreatedMessage({
+          sessionId: newSessionId,
+          provider: newSession?.provider ?? "claude",
+          projectPath: newSession?.projectPath ?? "",
+          session: newSession,
+          permissionMode:
+            newSession?.process instanceof SdkProcess
+              ? newSession.process.permissionMode
+              : undefined,
+          sourceSessionId: sessionId,
+        }),
+      );
+      this.sendSessionList(ws);
+    });
+  }
+
+  private waitForSessionIdle(
+    session: SessionInfo,
+    timeoutMs: number,
+  ): Promise<boolean> {
+    const isIdle = () =>
+      session.status === "idle" &&
+      (session.process.status ?? "idle") === "idle" &&
+      !(session.process instanceof SdkProcess && session.process.isTurnActive);
+    if (isIdle()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const proc = session.process;
+      const finish = (idle: boolean) => {
+        clearTimeout(timer);
+        proc.off("status", onStatus);
+        proc.off("exit", onExit);
+        resolve(idle);
+      };
+      const onStatus = () => {
+        // The session's own status listener runs first; re-check after it.
+        queueMicrotask(() => {
+          if (isIdle()) finish(true);
+        });
+      };
+      const onExit = () => finish(false);
+      const timer = setTimeout(() => finish(isIdle()), timeoutMs);
+      proc.on("status", onStatus);
+      proc.on("exit", onExit);
+    });
+  }
+
   private async rewindCodexConversation(
     ws: WebSocket,
     sessionId: string,
     targetUuid: string,
     mode: "conversation" | "code" | "both",
+    onRewound?: () => void,
   ): Promise<void> {
     if (mode !== "conversation") {
       this.send(ws, {
@@ -1808,6 +1917,11 @@ export class BridgeWebSocketServer {
       fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
     });
     this.destroySession(sessionId);
+    // The source app-server holds the forked thread's write lock until it
+    // exits; resuming the fork before then fails with "active writer".
+    if (forked) {
+      await codexProcess.waitForShutdown?.(CODEX_SHUTDOWN_WAIT_MS);
+    }
     const newSessionId = this.sessionManager.create(
       projectPath,
       undefined,
@@ -1822,6 +1936,7 @@ export class BridgeWebSocketServer {
     this.attachWorkspaceToRuntimeSession(newSessionId, workspace);
     const newSession = this.sessionManager.get(newSessionId);
 
+    onRewound?.();
     this.send(ws, {
       type: "rewind_result",
       sessionId,
@@ -6446,6 +6561,14 @@ export class BridgeWebSocketServer {
             message: "No active session.",
           });
           return;
+        }
+        if (msg.retract === true) {
+          this.interruptAndRetract(ws, session).catch((err) => {
+            console.warn(
+              `[ws] Failed to retract interrupted prompt: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+          break;
         }
         session.process.interrupt();
         break;

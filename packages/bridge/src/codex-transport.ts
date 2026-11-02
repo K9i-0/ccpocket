@@ -20,6 +20,14 @@ export abstract class CodexTransport extends EventEmitter<CodexTransportEvents> 
   abstract write(envelope: Record<string, unknown>): void;
   abstract stop(): void;
   abstract get isRunning(): boolean;
+
+  /**
+   * Resolves once a stopped transport released its resources. A dedicated
+   * app-server process keeps thread-store write locks until it exits.
+   */
+  whenStopped(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 export function buildCodexSpawnSpec(
@@ -63,6 +71,7 @@ export function buildCodexSpawnSpec(
 
 class StdioCodexTransport extends CodexTransport {
   private child: ChildProcessWithoutNullStreams | null = null;
+  private exited: Promise<void> = Promise.resolve();
 
   constructor(private readonly platform: NodeJS.Platform) {
     super();
@@ -76,6 +85,10 @@ class StdioCodexTransport extends CodexTransport {
     const spawnSpec = buildCodexSpawnSpec(projectPath, this.platform);
     const child = spawn(spawnSpec.command, spawnSpec.args, spawnSpec.options);
     this.child = child;
+    this.exited = new Promise((resolve) => {
+      child.once("exit", () => resolve());
+      child.once("error", () => resolve());
+    });
 
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -110,6 +123,10 @@ class StdioCodexTransport extends CodexTransport {
       this.child.kill("SIGTERM");
       this.child = null;
     }
+  }
+
+  override whenStopped(): Promise<void> {
+    return this.exited;
   }
 }
 

@@ -1518,6 +1518,102 @@ describe("SessionManager rewindConversation", () => {
   });
 });
 
+describe("SessionManager prompt retraction", () => {
+  const setup = () => {
+    const manager = new SessionManager(() => {});
+    const id = manager.create("/tmp/retract");
+    const proc = sdkInstances.at(-1)!;
+    (proc as unknown as { settings: unknown }).settings = {};
+    const session = manager.get(id)!;
+    session.claudeSessionId = "claude-session-1";
+    return { manager, id, proc, session };
+  };
+  const assistant = (uuid: string, content: unknown[]) =>
+    ({
+      type: "assistant",
+      message: { id: uuid, role: "assistant", content, model: "m" },
+      messageUuid: uuid,
+    }) as unknown as ServerMessage;
+
+  it("offers the latest prompt until visible output arrives", () => {
+    const { manager, id, proc } = setup();
+    manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+    expect(manager.retractableUserInput(id)?.text).toBe("typo");
+
+    proc.emit("message", { type: "thinking_delta", text: "hmm" });
+    proc.emit("message", { type: "stream_delta", text: "  " });
+    expect(manager.retractableUserInput(id)?.text).toBe("typo");
+
+    proc.emit("message", { type: "stream_delta", text: "Sure" });
+    expect(manager.retractableUserInput(id)).toBeNull();
+    manager.destroyAll();
+  });
+
+  it("treats tool use as output", () => {
+    const { manager, id, proc } = setup();
+    manager.appendHistory(id, { type: "user_input", text: "go" } as ServerMessage);
+    proc.emit("message", assistant("a1", [{ type: "tool_use", id: "t", name: "Bash", input: {} }]));
+    expect(manager.retractableUserInput(id)).toBeNull();
+    manager.destroyAll();
+  });
+
+  it("does not retract prompts with images or synthetic input", () => {
+    const { manager, id } = setup();
+    manager.appendHistory(id, { type: "user_input", text: "pic", imageCount: 1 } as ServerMessage);
+    expect(manager.retractableUserInput(id)).toBeNull();
+    manager.appendHistory(id, { type: "user_input", text: "x", isSynthetic: true } as ServerMessage);
+    expect(manager.retractableUserInput(id)).toBeNull();
+    manager.destroyAll();
+  });
+
+  it("restarts at the assistant before the latest prompt without needing its uuid", () => {
+    const { manager, id } = setup();
+    manager.appendHistory(id, { type: "user_input", text: "first", userMessageUuid: "u1" } as ServerMessage);
+    manager.appendHistory(id, assistant("a1", [{ type: "text", text: "hi" }]));
+    manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+
+    const onReady = vi.fn();
+    manager.rewindBeforeLastUserInput(id, onReady);
+
+    expect(onReady).toHaveBeenCalledOnce();
+    expect(sdkInstances.at(-1)!.start).toHaveBeenCalledWith(
+      "/tmp/retract",
+      expect.objectContaining({
+        sessionId: "claude-session-1",
+        resumeSessionAt: "a1",
+      }),
+    );
+    manager.destroyAll();
+  });
+
+  it("starts empty when the retracted prompt was the first turn", () => {
+    const { manager, id } = setup();
+    manager.get(id)!.claudeSessionId = undefined;
+    manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+
+    const onReady = vi.fn();
+    manager.rewindBeforeLastUserInput(id, onReady);
+
+    expect(onReady).toHaveBeenCalledOnce();
+    const options = sdkInstances.at(-1)!.start.mock.calls[0][1];
+    expect(options.resumeSessionAt).toBeUndefined();
+    expect(options.sessionId).toBeUndefined();
+    manager.destroyAll();
+  });
+
+  it("refuses to drop earlier turns when no rewind point is known", () => {
+    const { manager, id } = setup();
+    manager.appendHistory(id, { type: "user_input", text: "first" } as ServerMessage);
+    manager.appendHistory(id, { type: "user_input", text: "typo" } as ServerMessage);
+
+    expect(() => manager.rewindBeforeLastUserInput(id, vi.fn())).toThrow(
+      "Cannot locate the turn before the latest prompt",
+    );
+    expect(manager.get(id)).toBeDefined();
+    manager.destroyAll();
+  });
+});
+
 describe("SessionManager idle eviction with background tasks", () => {
   beforeEach(() => {
     vi.useFakeTimers();
