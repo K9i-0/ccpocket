@@ -302,13 +302,43 @@ void main() {
       expect(find.byType(AppBar), findsNothing);
       expect(find.byKey(const ValueKey('duo_slim_header')), findsOneWidget);
       expect(find.text('Session title'), findsOneWidget);
-      for (final key in ['leading', 'action_explore']) {
-        expect(
-          _rectOf(tester, find.byKey(ValueKey(key))).left,
-          greaterThanOrEqualTo(382),
-          reason: key,
-        );
-      }
+      // Back stays in the header; tools go to the top of the strip.
+      final leading = _rectOf(tester, find.byKey(const ValueKey('leading')));
+      expect(leading.right, lessThanOrEqualTo(382));
+      expect(leading.bottom, lessThanOrEqualTo(DuoSlimHeader.height));
+      final action = _rectOf(
+        tester,
+        find.byKey(const ValueKey('action_explore')),
+      );
+      expect(action.left, greaterThanOrEqualTo(382));
+      expect(action.top, greaterThanOrEqualTo(170));
+    });
+
+    testWidgets('puts the primary action at the bottom of the strip', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        FoldTestPose.duoCover.data,
+        DuoAdaptiveScaffold(
+          appBar: _appBar(),
+          leadingInHeader: false,
+          primary: DuoStripPrimaryButton(
+            key: const ValueKey('primary'),
+            tooltip: 'Back',
+            onPressed: () {},
+            icon: const Icon(Icons.arrow_back),
+          ),
+          body: const _Counter(),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('leading')), findsNothing);
+      final primary = _rectOf(tester, find.byKey(const ValueKey('primary')));
+      expect(primary.left, greaterThanOrEqualTo(382));
+      expect(primary.bottom, lessThanOrEqualTo(678 - 34));
+      expect(primary.bottom, greaterThan(678 - 34 - 64));
     });
 
     testWidgets('keeps the app bar on inner portrait and when not compact', (
@@ -359,6 +389,81 @@ void main() {
       await _setPose(tester, FoldTestPose.duoInnerPortrait.data);
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('count 1'), findsOneWidget);
+    });
+  });
+
+  group('DuoStripBottomSlot', () {
+    Widget composer() => Builder(
+      builder: (context) => Row(
+        children: [
+          const Expanded(child: SizedBox(height: 40)),
+          if (DuoStripBottomSlot.isStripMode(context))
+            DuoStripBottomSlot(
+              child: DuoStripPrimaryButton(
+                key: const ValueKey('send'),
+                tooltip: 'Send',
+                onPressed: () {},
+                icon: const Icon(Icons.arrow_upward),
+              ),
+            )
+          else
+            const Icon(Icons.arrow_upward, key: ValueKey('inline_send')),
+        ],
+      ),
+    );
+
+    testWidgets('moves the composer action into the strip', (tester) async {
+      await _pump(
+        tester,
+        FoldTestPose.duoCover.data,
+        DuoAdaptiveScaffold(
+          appBar: _appBar(),
+          reserveBottomSlot: true,
+          body: Align(alignment: Alignment.bottomCenter, child: composer()),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('inline_send')), findsNothing);
+      final send = _rectOf(tester, find.byKey(const ValueKey('send')));
+      expect(send.left, greaterThanOrEqualTo(382));
+      expect(send.bottom, lessThanOrEqualTo(678 - 34));
+    });
+
+    testWidgets('rides above the keyboard', (tester) async {
+      final data = FoldTestPose.duoCover.data.copyWith(
+        viewInsets: const EdgeInsets.only(bottom: 300),
+      );
+      await _pump(
+        tester,
+        data,
+        DuoAdaptiveScaffold(
+          appBar: _appBar(),
+          reserveBottomSlot: true,
+          body: Align(alignment: Alignment.bottomCenter, child: composer()),
+        ),
+      );
+      await tester.pump();
+
+      final send = _rectOf(tester, find.byKey(const ValueKey('send')));
+      expect(send.bottom, lessThanOrEqualTo(678 - 300));
+      expect(send.bottom, greaterThan(678 - 300 - 64));
+    });
+
+    testWidgets('stays inline without a strip', (tester) async {
+      await _pump(
+        tester,
+        _iphonePortrait,
+        DuoAdaptiveScaffold(
+          appBar: _appBar(),
+          reserveBottomSlot: true,
+          body: Align(alignment: Alignment.bottomCenter, child: composer()),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('inline_send')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send')), findsNothing);
     });
   });
 }

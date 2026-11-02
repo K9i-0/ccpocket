@@ -43,10 +43,35 @@ class SessionListSliverAppBar extends StatelessWidget {
       snap: true,
       forceElevated: forceElevated,
       toolbarHeight: toolbarHeight ?? kToolbarHeight,
-      title: GestureDetector(
-        onTap: onTitleTap,
-        child: _SessionListTitle(title: l.appTitle, subtitle: bridgeLabel),
-      ),
+      title: showActions
+          ? GestureDetector(
+              onTap: onTitleTap,
+              child: _SessionListTitle(
+                title: l.appTitle,
+                subtitle: bridgeLabel,
+              ),
+            )
+          : Row(
+              children: [
+                GestureDetector(
+                  onTap: onTitleTap,
+                  child: _SessionListTitle(title: l.appTitle),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: _BridgeMenuButton(
+                    bridgeLabel: bridgeLabel,
+                    onOpenSettings:
+                        onOpenSettings ??
+                        () => context.router.navigate(SettingsRoute()),
+                    onOpenGallery:
+                        onOpenGallery ??
+                        () => context.router.navigate(GalleryRoute()),
+                    onDisconnect: onDisconnect,
+                  ),
+                ),
+              ],
+            ),
       actions: [
         if (showActions) ...[
           IconButton(
@@ -260,6 +285,106 @@ class _PaneHeaderActionButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: tooltip,
       icon: icon,
+    );
+  }
+}
+
+/// The bridge label of the title row, opening the actions that left the app
+/// bar for the iPhone Duo control strip: gallery, settings and disconnect.
+class _BridgeMenuButton extends StatelessWidget {
+  const _BridgeMenuButton({
+    required this.bridgeLabel,
+    required this.onOpenSettings,
+    required this.onOpenGallery,
+    required this.onDisconnect,
+  });
+
+  final String? bridgeLabel;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onOpenGallery;
+  final VoidCallback onDisconnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final hasUpdate = AppUpdateService.instance.cachedUpdate != null;
+    final label = bridgeLabel;
+
+    return PopupMenuButton<VoidCallback>(
+      key: const ValueKey('session_list_bridge_menu'),
+      tooltip: l.settings,
+      onSelected: (action) => action(),
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          key: const ValueKey('gallery_button'),
+          value: onOpenGallery,
+          child: ListTile(
+            leading: const Icon(Icons.collections_outlined),
+            title: Text(l.gallery),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          key: const ValueKey('settings_button'),
+          value: onOpenSettings,
+          child: ListTile(
+            leading: Badge(
+              isLabelVisible: hasUpdate,
+              smallSize: 8,
+              child: const Icon(Icons.settings),
+            ),
+            title: Text(l.settings),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          key: const ValueKey('disconnect_button'),
+          value: onDisconnect,
+          child: ListTile(
+            leading: Icon(Icons.link_off, color: cs.error),
+            title: Text(l.disconnect, style: TextStyle(color: cs.error)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.only(left: 10, right: 4, top: 4, bottom: 4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (label != null && label.isNotEmpty)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            Badge(
+              isLabelVisible: hasUpdate,
+              smallSize: 8,
+              child: Icon(
+                Icons.expand_more,
+                size: 20,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -134,6 +134,16 @@ class WorkspacePaneScope extends InheritedWidget {
   static WorkspacePaneScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<WorkspacePaneScope>();
 
+  /// Whether content may trade its app bar for the iPhone Duo control strip
+  /// (its pane fills the window, or it is not in a pane) and whether it should
+  /// own the strip now (its pane is in front).
+  static ({bool useStrip, bool publish}) duoStripPolicyOf(
+    BuildContext context,
+  ) {
+    final pane = maybeOf(context);
+    return (useStrip: pane?.compact ?? true, publish: pane?.active ?? true);
+  }
+
   @override
   bool updateShouldNotify(WorkspacePaneScope oldWidget) =>
       compact != oldWidget.compact || active != oldWidget.active;

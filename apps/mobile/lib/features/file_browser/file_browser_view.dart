@@ -15,6 +15,8 @@ import '../explore/state/explore_cubit.dart';
 import '../explore/state/explore_state.dart';
 import 'state/file_browser_cubit.dart';
 import 'state/file_browser_state.dart';
+import '../../widgets/duo/duo_control_strip.dart';
+import '../workspace/widgets/workspace_pane_navigator.dart';
 
 /// Shared full-screen and embedded browser. Navigation belongs to the Cubit;
 /// focus, scroll storage and sidebar visibility belong to this presentation.
@@ -229,90 +231,125 @@ class BrowserHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return SizedBox(
-      key: const ValueKey('browser_header'),
-      height: 52,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 360;
-          return Row(
-            children: [
-              IconButton(
-                key: ValueKey(
-                  embedded
-                      ? 'close_explore_pane_button'
-                      : 'file_peek_close_button',
-                ),
-                tooltip: l.browserClose,
-                onPressed: onClose,
-                icon: const Icon(Icons.close),
+    final closeKey = ValueKey(
+      embedded ? 'close_explore_pane_button' : 'file_peek_close_button',
+    );
+    final duoPolicy = WorkspacePaneScope.duoStripPolicyOf(context);
+    final stripMode = duoPolicy.useStrip && DuoStripScope.hasStrip(context);
+
+    Widget backButton({required bool strip}) => IconButton(
+      key: const ValueKey('browser_back_button'),
+      tooltip: l.browserBack,
+      onPressed: onBack,
+      // In the strip the big primary button is the arrow back to the chat.
+      icon: Icon(strip ? Icons.undo : Icons.arrow_back),
+    );
+    Widget parentButton() => IconButton(
+      key: const ValueKey('browser_parent_button'),
+      tooltip: l.browserParent,
+      onPressed: onParent,
+      icon: const Icon(Icons.arrow_upward),
+    );
+    Widget? toggleButton() => showToggle
+        ? IconButton(
+            key: const ValueKey('browser_toggle_list_button'),
+            tooltip: l.browserToggleList,
+            onPressed: onToggle,
+            icon: Icon(
+              showList ? Icons.view_sidebar_outlined : Icons.view_sidebar,
+            ),
+          )
+        : null;
+    Widget? addToChatButton() => onAddToChat != null
+        ? IconButton(
+            key: const ValueKey('browser_add_to_chat_button'),
+            tooltip: l.browserAddToChat,
+            onPressed: onAddToChat,
+            icon: const Icon(Icons.add_comment_outlined),
+          )
+        : null;
+    Widget menuButton({required bool includeParent}) =>
+        PopupMenuButton<VoidCallback>(
+          key: const ValueKey('browser_actions_button'),
+          icon: const Icon(Icons.more_vert),
+          onSelected: (action) => action(),
+          itemBuilder: (_) => [
+            if (includeParent)
+              PopupMenuItem(
+                key: const ValueKey('browser_parent_button'),
+                enabled: onParent != null,
+                value: onParent,
+                child: Text(l.browserParent),
               ),
-              IconButton(
-                key: const ValueKey('browser_back_button'),
-                tooltip: l.browserBack,
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back),
+            PopupMenuItem(
+              key: const ValueKey('explore_recent_files_button'),
+              value: onRecent,
+              child: Text(l.browserRecent),
+            ),
+            if (onUpload != null)
+              PopupMenuItem(
+                key: const ValueKey('explore_upload_button'),
+                value: onUpload,
+                child: Text(l.fileUploadTitle),
               ),
-              if (!compact)
-                IconButton(
-                  key: const ValueKey('browser_parent_button'),
-                  tooltip: l.browserParent,
-                  onPressed: onParent,
-                  icon: const Icon(Icons.arrow_upward),
-                ),
-              Expanded(
-                child: Text(
-                  l.browserTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+          ],
+        );
+
+    return DuoStripActions(
+      enabled: stripMode && duoPolicy.publish,
+      stripMode: stripMode,
+      top: [
+        backButton(strip: true),
+        parentButton(),
+        ?toggleButton(),
+        ?addToChatButton(),
+        menuButton(includeParent: false),
+      ],
+      bottom: [
+        DuoStripPrimaryButton(
+          key: closeKey,
+          tooltip: l.browserClose,
+          onPressed: onClose,
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ],
+      child: stripMode
+          ? KeyedSubtree(
+              key: const ValueKey('browser_header'),
+              child: DuoSlimHeader(title: Text(l.browserTitle)),
+            )
+          : SizedBox(
+              key: const ValueKey('browser_header'),
+              height: 52,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 360;
+                  return Row(
+                    children: [
+                      IconButton(
+                        key: closeKey,
+                        tooltip: l.browserClose,
+                        onPressed: onClose,
+                        icon: const Icon(Icons.close),
+                      ),
+                      backButton(strip: false),
+                      if (!compact) parentButton(),
+                      Expanded(
+                        child: Text(
+                          l.browserTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      ?toggleButton(),
+                      ?addToChatButton(),
+                      menuButton(includeParent: compact),
+                    ],
+                  );
+                },
               ),
-              if (showToggle)
-                IconButton(
-                  key: const ValueKey('browser_toggle_list_button'),
-                  tooltip: l.browserToggleList,
-                  onPressed: onToggle,
-                  icon: Icon(
-                    showList ? Icons.view_sidebar_outlined : Icons.view_sidebar,
-                  ),
-                ),
-              if (onAddToChat != null)
-                IconButton(
-                  key: const ValueKey('browser_add_to_chat_button'),
-                  tooltip: l.browserAddToChat,
-                  onPressed: onAddToChat,
-                  icon: const Icon(Icons.add_comment_outlined),
-                ),
-              PopupMenuButton<VoidCallback>(
-                key: const ValueKey('browser_actions_button'),
-                icon: const Icon(Icons.more_vert),
-                onSelected: (action) => action(),
-                itemBuilder: (_) => [
-                  if (compact)
-                    PopupMenuItem(
-                      key: const ValueKey('browser_parent_button'),
-                      enabled: onParent != null,
-                      value: onParent,
-                      child: Text(l.browserParent),
-                    ),
-                  PopupMenuItem(
-                    key: const ValueKey('explore_recent_files_button'),
-                    value: onRecent,
-                    child: Text(l.browserRecent),
-                  ),
-                  if (onUpload != null)
-                    PopupMenuItem(
-                      key: const ValueKey('explore_upload_button'),
-                      value: onUpload,
-                      child: Text(l.fileUploadTitle),
-                    ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
+            ),
     );
   }
 }

@@ -1091,6 +1091,7 @@ class _CodexChatBody extends HookWidget {
                 useStrip: isSinglePane,
                 publish: pane?.active ?? true,
                 wrapAppBar: chrome.wrapAppBar,
+                reserveBottomSlot: true,
                 appBar: AppBar(
                   toolbarHeight: chrome.toolbarHeight,
                   leading: chrome.wrapLeading(leading),

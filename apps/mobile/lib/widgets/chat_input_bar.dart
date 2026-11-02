@@ -16,6 +16,7 @@ import 'ios_image_paste_context_menu.dart';
 import '../utils/platform_helper.dart';
 import '../utils/diff_parser.dart';
 import 'bubbles/image_preview.dart';
+import 'duo/duo_control_strip.dart';
 
 /// Bottom input bar with slash-command button, text field, and action buttons.
 ///
@@ -130,6 +131,9 @@ class ChatInputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // On iPhone Duo the send / stop / voice action moves to the bottom of the
+    // control strip, next to the composer.
+    final stripMode = DuoStripBottomSlot.isStripMode(context);
     return Container(
       padding: EdgeInsets.only(
         left: 8,
@@ -215,19 +219,36 @@ class ChatInputBar extends StatelessWidget {
                 _HistoryButton(onTap: onShowPromptHistory!),
               ],
               const Spacer(),
-              if (isVoiceAvailable) ...[
-                _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
-                const SizedBox(width: 8),
+              if (stripMode)
+                DuoStripBottomSlot(
+                  child: _StripPrimaryAction(
+                    status: status,
+                    hasInputText: hasInputText,
+                    isVoiceAvailable: isVoiceAvailable,
+                    isRecording: isRecording,
+                    onSend: onSend,
+                    onSendLongPress: onSendLongPress,
+                    busySendDelivery: busySendDelivery,
+                    onStop: onStop,
+                    onInterrupt: onInterrupt,
+                    onToggleVoice: onToggleVoice,
+                  ),
+                )
+              else ...[
+                if (isVoiceAvailable) ...[
+                  _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
+                  const SizedBox(width: 8),
+                ],
+                _ActionButton(
+                  status: status,
+                  hasInputText: hasInputText,
+                  onSend: onSend,
+                  onSendLongPress: onSendLongPress,
+                  busySendDelivery: busySendDelivery,
+                  onStop: onStop,
+                  onInterrupt: onInterrupt,
+                ),
               ],
-              _ActionButton(
-                status: status,
-                hasInputText: hasInputText,
-                onSend: onSend,
-                onSendLongPress: onSendLongPress,
-                busySendDelivery: busySendDelivery,
-                onStop: onStop,
-                onInterrupt: onInterrupt,
-              ),
             ],
           ),
         ],
@@ -1467,6 +1488,91 @@ class _SendButton extends StatelessWidget {
           padding: EdgeInsets.zero,
         ),
       ),
+    );
+  }
+}
+
+/// The single primary action of the composer in the iPhone Duo control strip:
+/// stop while a turn runs and nothing is typed, send when there is text,
+/// otherwise voice input. Keeps the keys of the inline buttons.
+class _StripPrimaryAction extends StatelessWidget {
+  const _StripPrimaryAction({
+    required this.status,
+    required this.hasInputText,
+    required this.isVoiceAvailable,
+    required this.isRecording,
+    required this.onSend,
+    this.onSendLongPress,
+    this.busySendDelivery,
+    required this.onStop,
+    required this.onInterrupt,
+    required this.onToggleVoice,
+  });
+
+  final ProcessStatus status;
+  final bool hasInputText;
+  final bool isVoiceAvailable;
+  final bool isRecording;
+  final VoidCallback onSend;
+  final VoidCallback? onSendLongPress;
+  final InputDelivery? busySendDelivery;
+  final VoidCallback onStop;
+  final VoidCallback onInterrupt;
+  final VoidCallback onToggleVoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final busy = status != ProcessStatus.idle;
+
+    if (isRecording) {
+      return DuoStripPrimaryButton(
+        key: const ValueKey('voice_button'),
+        tooltip: l.tooltipStopRecording,
+        onPressed: onToggleVoice,
+        backgroundColor: cs.error,
+        foregroundColor: cs.onError,
+        icon: const Icon(Icons.stop),
+      );
+    }
+    if (status != ProcessStatus.starting && busy && !hasInputText) {
+      return DuoStripPrimaryButton(
+        key: const ValueKey('stop_button'),
+        tooltip: l.tapInterruptHoldStop,
+        onPressed: onInterrupt,
+        onLongPress: onStop,
+        backgroundColor: cs.error,
+        foregroundColor: cs.onError,
+        icon: const Icon(Icons.stop_rounded),
+      );
+    }
+    if (!hasInputText && isVoiceAvailable && status != ProcessStatus.starting) {
+      return DuoStripPrimaryButton(
+        key: const ValueKey('voice_button'),
+        tooltip: l.tooltipVoiceInput,
+        onPressed: onToggleVoice,
+        backgroundColor: cs.primaryContainer,
+        foregroundColor: cs.onPrimaryContainer,
+        icon: const Icon(Icons.mic),
+      );
+    }
+    final delivery = busy ? busySendDelivery : null;
+    final enabled = hasInputText && status != ProcessStatus.starting;
+    return DuoStripPrimaryButton(
+      key: const ValueKey('send_button'),
+      tooltip: switch (delivery) {
+        InputDelivery.steer => l.sendAsSteer,
+        InputDelivery.queue => l.sendAsQueue,
+        null => l.tooltipSendMessage,
+      },
+      onPressed: enabled ? onSend : null,
+      onLongPress: busy && enabled ? onSendLongPress : null,
+      icon: Icon(switch (delivery) {
+        InputDelivery.steer => Icons.subdirectory_arrow_left,
+        InputDelivery.queue => Icons.schedule_send_outlined,
+        null => Icons.arrow_upward,
+      }),
     );
   }
 }

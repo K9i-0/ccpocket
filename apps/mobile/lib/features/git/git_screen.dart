@@ -33,6 +33,8 @@ import 'widgets/diff_empty_state.dart';
 import 'widgets/diff_error_state.dart';
 import 'widgets/git_project_header.dart';
 import 'widgets/git_file_list_sheet.dart';
+import '../../widgets/duo/duo_control_strip.dart';
+import '../workspace/widgets/workspace_pane_navigator.dart';
 
 /// Dedicated screen for viewing unified diffs.
 ///
@@ -351,73 +353,85 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
           )
         : null;
 
-    return Scaffold(
+    final duoPolicy = WorkspacePaneScope.duoStripPolicyOf(context);
+    final duoStripMode = duoPolicy.useStrip && DuoStripScope.hasStrip(context);
+    return DuoAdaptiveScaffold(
+      useStrip: duoPolicy.useStrip,
+      publish: duoPolicy.publish,
+      leadingInHeader: false,
+      primary: DuoStripPrimaryButton(
+        key: ValueKey(
+          widget.embedded ? 'close_git_pane_button' : 'git_back_button',
+        ),
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        onPressed: widget.embedded
+            ? widget.onClose
+            : () => Navigator.of(context).maybePop(),
+        icon: const Icon(Icons.arrow_back),
+      ),
+      wrapAppBar: chrome.wrapAppBar,
       extendBodyBehindAppBar: focusMode,
-      appBar: chrome.wrapAppBar(
-        AppBar(
-          toolbarHeight: chrome.toolbarHeight,
-          backgroundColor: focusMode ? Colors.transparent : null,
-          elevation: focusMode ? 0 : null,
-          scrolledUnderElevation: focusMode ? 0 : null,
-          surfaceTintColor: focusMode ? Colors.transparent : null,
-          automaticallyImplyLeading: !widget.embedded,
-          leading: chrome.wrapLeading(leading),
-          leadingWidth: chrome.resolveLeadingWidth(
-            hasLeading: leading != null,
-            baseWidth: chrome.useMacOSAdaptiveChrome
-                ? kWorkspaceMacOSToolbarLeadingSlotWidth
-                : kToolbarHeight,
-          ),
-          titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: focusMode
-              ? null
-              : chrome.wrapTitle(
-                  Text(screenTitle, overflow: TextOverflow.ellipsis),
-                ),
-          actions: chrome.padActions(
-            focusMode
-                ? [
-                    _FocusModeButton(
-                      active: true,
-                      onPressed: () => _setFocusMode(false),
+      appBar: AppBar(
+        toolbarHeight: chrome.toolbarHeight,
+        backgroundColor: focusMode ? Colors.transparent : null,
+        elevation: focusMode ? 0 : null,
+        scrolledUnderElevation: focusMode ? 0 : null,
+        surfaceTintColor: focusMode ? Colors.transparent : null,
+        automaticallyImplyLeading: !widget.embedded,
+        leading: chrome.wrapLeading(leading),
+        leadingWidth: chrome.resolveLeadingWidth(
+          hasLeading: leading != null,
+          baseWidth: chrome.useMacOSAdaptiveChrome
+              ? kWorkspaceMacOSToolbarLeadingSlotWidth
+              : kToolbarHeight,
+        ),
+        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
+        title: focusMode
+            ? null
+            : chrome.wrapTitle(
+                Text(screenTitle, overflow: TextOverflow.ellipsis),
+              ),
+        actions: chrome.padActions(
+          focusMode
+              ? [
+                  _FocusModeButton(
+                    active: true,
+                    onPressed: () => _setFocusMode(false),
+                  ),
+                ]
+              : [
+                  if (widget.isProjectMode && !state.loading)
+                    _FileListAppBarButton(
+                      state: state,
+                      onPressed: state.files.isEmpty
+                          ? null
+                          : () async {
+                              final selectedIndex = await showGitFileListSheet(
+                                context,
+                                files: state.files,
+                                viewMode: state.viewMode,
+                              );
+                              if (selectedIndex != null) {
+                                widget.scrollToFileIndex.value = selectedIndex;
+                              }
+                            },
                     ),
-                  ]
-                : [
-                    if (widget.isProjectMode && !state.loading)
-                      _FileListAppBarButton(
-                        state: state,
-                        onPressed: state.files.isEmpty
-                            ? null
-                            : () async {
-                                final selectedIndex =
-                                    await showGitFileListSheet(
-                                      context,
-                                      files: state.files,
-                                      viewMode: state.viewMode,
-                                    );
-                                if (selectedIndex != null) {
-                                  widget.scrollToFileIndex.value =
-                                      selectedIndex;
-                                }
-                              },
-                      ),
-                    // Refresh (projectPath mode only)
-                    if (cubit.canRefresh && !state.loading)
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        tooltip: l.refresh,
-                        style: chrome.useMacOSAdaptiveChrome
-                            ? chrome.compactButtonStyle()
-                            : null,
-                        onPressed: cubit.refresh,
-                      ),
-                    if (!state.loading && state.files.isNotEmpty)
-                      _FocusModeButton(
-                        active: false,
-                        onPressed: () => _setFocusMode(true),
-                      ),
-                  ],
-          ),
+                  // Refresh (projectPath mode only)
+                  if (cubit.canRefresh && !state.loading)
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: l.refresh,
+                      style: chrome.useMacOSAdaptiveChrome
+                          ? chrome.compactButtonStyle()
+                          : null,
+                      onPressed: cubit.refresh,
+                    ),
+                  if (!state.loading && state.files.isNotEmpty)
+                    _FocusModeButton(
+                      active: false,
+                      onPressed: () => _setFocusMode(true),
+                    ),
+                ],
         ),
       ),
       bottomNavigationBar: widget.isProjectMode && !focusMode
@@ -441,11 +455,12 @@ class _GitScreenBodyState extends State<_GitScreenBody> {
                 cubit,
                 interactionMode,
                 padding: EdgeInsets.only(
-                  top:
-                      MediaQuery.paddingOf(context).top +
-                      chrome.topInset +
-                      chrome.toolbarHeight +
-                      8,
+                  top: duoStripMode
+                      ? 8
+                      : MediaQuery.paddingOf(context).top +
+                            chrome.topInset +
+                            chrome.toolbarHeight +
+                            8,
                   bottom: 8,
                 ),
               ),

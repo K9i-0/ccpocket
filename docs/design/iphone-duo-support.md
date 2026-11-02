@@ -95,9 +95,22 @@ deployment target 15.0.
 
 ### Rule
 
-`strip != null` → no AppBar row for the frontmost compact screen; its actions go
-into the strip; the body loses that side's inset. `strip == null` (inner
+`strip != null` → no AppBar row for the frontmost compact screen; its controls
+go into the strip; the body loses that side's inset. `strip == null` (inner
 portrait, every non-Duo device, Android) → current UI unchanged.
+
+The strip has two roles (revised 2026-11-02 after the first build felt like
+"app bar buttons stacked sideways"):
+
+- **Top: tools the screen wants at hand** — Git and Explorer in a chat, search in
+  the session list, file list / refresh in Git.
+- **Bottom: the one primary action under the thumb** — New in the list; send /
+  stop / voice in a chat; back in Git, Explorer and Gallery. It is pinned above
+  the home indicator or the keyboard (the cover keyboard spans the strip).
+
+Back from a chat lives in the slim header (and the swipe), not in the strip.
+Actions that are neither tools nor primary (gallery, settings, disconnect in the
+list) move to a menu in the title row.
 
 ### Implementation (phase 1)
 
@@ -118,11 +131,18 @@ All in [duo_control_strip.dart](../../apps/mobile/lib/widgets/duo/duo_control_st
   not a covered compact layer), and its route is active. The most recently
   activated screen wins (`DuoStripController`). Under a popup route (menu,
   dialog, sheet), the controls stay visible but ignore taps.
-- **`DuoAdaptiveScaffold`** (Claude/Codex chat) takes the screen's `AppBar`. In
-  strip mode it hides the bar, renders `DuoSlimHeader` (40pt: title +
-  `flexibleSpace` status line), and moves `leading` + `actions` to the strip.
-  The body stays at the same tree position, so folding keeps composer and
-  scroll state.
+- **`DuoAdaptiveScaffold`** (chat, Git, Gallery) takes the screen's `AppBar`.
+  In strip mode it hides the bar, renders `DuoSlimHeader` (40pt: leading back +
+  title + `flexibleSpace` status line), moves `actions` to the top of the strip
+  and `primary` to its bottom. The body stays at the same tree position, so
+  folding keeps composer and scroll state.
+- **`DuoStripBottomSlot`** lets a descendant place the primary action: the chat
+  composer uses it for one morphing button (recording → stop recording; running
+  and empty → stop, long-press = hard stop; text → send, long-press = steer /
+  queue; empty → voice). The composer row drops its inline voice and send
+  buttons in strip mode, which widens the cover composer. Chat screens set
+  `reserveBottomSlot` so the tools leave room for it.
+- **`DuoStripPrimaryButton`**: the 56pt round button of the bottom slot.
 - **`WorkspacePaneScope`** (in `WorkspacePaneNavigator`) exposes `compact` /
   `active` to pane content. Chat uses `useStrip: isSinglePane` and
   `publish: pane.active`.
@@ -142,9 +162,14 @@ Top group (from the top AppBar), bottom group (bottom actions / FAB):
 
 | Screen | Strip top | Strip bottom | Stays in content |
 | --- | --- | --- | --- |
-| Session list | settings (update badge), gallery, disconnect | **New** (56pt filled circle, key `new_session_fab`; replaces the extended FAB) | title + bridge label as a 48pt floating sliver app bar without actions (scrolls away) |
-| Claude / Codex chat | back, explore, changes (git badge), the app bar's other actions, overflow menu | — (composer keeps send) | session name + status line in a 40pt slim header |
-| Git / Explore / Gallery / Settings / demo / debug | — (strip empty) | | keep their own AppBar; the host keeps them clear of the strip |
+| Session list (compact) | search (`duo_search_button`) | **New** (`new_session_fab`) | title row: "CC Pocket" + bridge chip ⌄ (`session_list_bridge_menu`: gallery, settings with update badge, disconnect) |
+| Session list (multi-pane, inner landscape) | settings, gallery, disconnect | New | pane header title |
+| Connect form (compact) | settings, disconnect while connecting | — | |
+| Claude / Codex chat | explore, changes (git badge), the app bar's other actions, overflow menu | send / stop / voice (composer) | back + session name + status line in the slim header |
+| Git | file list, refresh, focus mode | back (`close_git_pane_button` / `git_back_button`) | title in the slim header; Revert / Stage bar stays beside the strip |
+| Explorer | history back (undo icon), parent, add to chat, menu | back to the chat (`close_explore_pane_button` / `file_peek_close_button`) | title in the slim header |
+| Gallery | — | back (`gallery_strip_back_button`) | title in the slim header |
+| Settings / demo / debug / mock preview | — (strip empty) | | keep their own AppBar; the host keeps them clear of the strip |
 | Sheets (new session, slash commands) | unchanged | | laid out beside the strip by the host |
 
 Strip items keep the `ValueKey`s of the app bar buttons they replace.
@@ -169,8 +194,9 @@ consider `FoldSplitView` for list | chat when folded like a book. Do not turn on
 ## Phasing
 
 1. **Phase 1 – duo_kit only, no native dependency (done).** Host-level strip
-   reservation, session list and chat actions + New in the strip, slim headers.
-   Android and non-Duo iOS unchanged by construction.
+   reservation, tools-top / primary-bottom strips for the list, chats, Git,
+   Explorer and Gallery, slim headers, bridge menu. Android and non-Duo iOS
+   unchanged by construction.
 2. **Phase 2 – `foldable` bridge.** Exact occlusion clearances, fold awareness,
    dialog anchoring, optional book-mode split.
 3. Duo-specific store screenshots already exist
@@ -195,15 +221,22 @@ consider `FoldSplitView` for list | chat when folded like a book. Do not turn on
 Phase 1 coverage: `test/duo_control_strip_test.dart` (cover, cover
 landscape-left, inner portrait, plain iPhone; strip ownership across routes;
 inert under a dialog; app bar ↔ slim header; body state across fold/unfold).
-Simulator (2026-11-02, iOS 27.2): inner landscape with global actions + New in
-the strip; cover session list; cover chat (mock preview) with back / explore /
-changes / overflow in the strip, the overflow menu opening beside it, and back
-returning to a screen whose strip is empty.
+Simulator (2026-11-02, iOS 27.2), revised rules: cover list with search on top,
+New at the bottom and the bridge menu (gallery / settings / disconnect, used to
+disconnect); cover chat (mock preview) with back in the header, explore /
+changes / menu on top, send at the bottom and the composer without inline send;
+Explorer and Git opened from the strip with their tools on top and back at the
+bottom, returning to the chat; inner landscape unchanged. Widget tests cover the
+primary slot riding above a 300pt keyboard.
 
 ## Decisions and open items
 
 - Chat title/status on the cover: slim header line (decided).
 - Inner landscape: global actions only in the strip (decided).
+- Strip roles: tools on top, one primary action at the bottom; list extras in
+  the bridge menu (decided).
+- Pre-existing, not Duo-specific: the multi-pane list header overflows by 8pt
+  when the bridge label subtitle is shown (56pt header minus vertical padding).
 - Known gaps: empty-state copy still says "New in the left pane"; strip
   clearance uses the 170pt fallback on inner landscape (cluster is 120pt);
   half-open pose not checked (needs the phase 2 bridge for the fold).

@@ -1969,40 +1969,51 @@ class _SessionListScreenState extends State<SessionListScreen>
     final showNewSession =
         showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
 
+    // On a compact iPhone Duo window the strip holds search and New; the
+    // global actions live in the bridge menu of the title row. In the
+    // multi-pane workspace they stay in the strip.
+    final compactConnectedStrip = !widget.embedded && showConnectedUI;
     return DuoStripActions(
       enabled: true,
       top: [
-        IconButton(
-          key: const ValueKey('settings_button'),
-          icon: Badge(
-            isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
-            smallSize: 8,
-            child: const Icon(Icons.settings),
-          ),
-          onPressed: _openSettings,
-          tooltip: l.settings,
-        ),
-        if (showConnectedUI)
+        if (compactConnectedStrip)
           IconButton(
-            key: const ValueKey('gallery_button'),
-            icon: const Icon(Icons.collections_outlined),
-            onPressed: _openGallery,
-            tooltip: l.gallery,
-          ),
-        if (canDisconnect)
+            key: const ValueKey('duo_search_button'),
+            icon: const Icon(Icons.search),
+            onPressed: () => _homeContentKey.currentState?.toggleSearch(),
+            tooltip: l.search,
+          )
+        else ...[
           IconButton(
-            key: const ValueKey('disconnect_button'),
-            icon: const Icon(Icons.link_off),
-            onPressed: _disconnect,
-            tooltip: l.disconnect,
+            key: const ValueKey('settings_button'),
+            icon: Badge(
+              isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
+              smallSize: 8,
+              child: const Icon(Icons.settings),
+            ),
+            onPressed: _openSettings,
+            tooltip: l.settings,
           ),
+          if (showConnectedUI)
+            IconButton(
+              key: const ValueKey('gallery_button'),
+              icon: const Icon(Icons.collections_outlined),
+              onPressed: _openGallery,
+              tooltip: l.gallery,
+            ),
+          if (canDisconnect)
+            IconButton(
+              key: const ValueKey('disconnect_button'),
+              icon: const Icon(Icons.link_off),
+              onPressed: _disconnect,
+              tooltip: l.disconnect,
+            ),
+        ],
       ],
       bottom: [
         if (showNewSession)
-          IconButton.filled(
+          DuoStripPrimaryButton(
             key: const ValueKey('new_session_fab'),
-            iconSize: 28,
-            style: IconButton.styleFrom(fixedSize: const Size(56, 56)),
             onPressed: _showNewSessionDialog,
             icon: const Icon(Icons.add),
             tooltip: l.newSession,

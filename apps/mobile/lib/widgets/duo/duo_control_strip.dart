@@ -64,26 +64,29 @@ class _DuoStripHostState extends State<DuoStripHost> {
       strip: strip,
       bottomInset: mediaQuery.viewPadding.bottom,
       controller: _controller,
-      child: Overlay.wrap(
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: side == FoldStripSide.left ? stripWidth : 0,
-              right: side == FoldStripSide.right ? stripWidth : 0,
-              child: MediaQuery(data: childData, child: widget.child),
-            ),
-            Positioned(
-              key: const ValueKey('duo_control_strip_background'),
-              top: 0,
-              bottom: 0,
-              width: stripWidth,
-              left: side == FoldStripSide.left ? 0 : null,
-              right: side == FoldStripSide.left ? null : 0,
-              child: ColoredBox(color: Theme.of(context).colorScheme.surface),
-            ),
-          ],
+      child: DuoStripKeyboardInset(
+        inset: mediaQuery.viewInsets.bottom,
+        child: Overlay.wrap(
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: side == FoldStripSide.left ? stripWidth : 0,
+                right: side == FoldStripSide.right ? stripWidth : 0,
+                child: MediaQuery(data: childData, child: widget.child),
+              ),
+              Positioned(
+                key: const ValueKey('duo_control_strip_background'),
+                top: 0,
+                bottom: 0,
+                width: stripWidth,
+                left: side == FoldStripSide.left ? 0 : null,
+                right: side == FoldStripSide.left ? null : 0,
+                child: ColoredBox(color: Theme.of(context).colorScheme.surface),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -120,6 +123,52 @@ class DuoStripScope extends InheritedWidget {
       strip != oldWidget.strip ||
       bottomInset != oldWidget.bottomInset ||
       controller != oldWidget.controller;
+}
+
+/// The keyboard height of the window, kept apart from [DuoStripScope] so that
+/// only the strip controls rebuild while the keyboard animates.
+///
+/// On the iPhone Duo cover display the keyboard spans the strip too, so the
+/// bottom controls ride above it.
+class DuoStripKeyboardInset extends InheritedWidget {
+  const DuoStripKeyboardInset({
+    super.key,
+    required this.inset,
+    required super.child,
+  });
+
+  final double inset;
+
+  static double of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<DuoStripKeyboardInset>()
+          ?.inset ??
+      0;
+
+  @override
+  bool updateShouldNotify(DuoStripKeyboardInset oldWidget) =>
+      inset != oldWidget.inset;
+}
+
+/// Vertical metrics of the strip controls.
+abstract final class DuoStripMetrics {
+  /// Height of each control in the top group.
+  static const itemExtent = 52.0;
+
+  /// Height of the slot of the bottom (primary) controls.
+  static const primaryExtent = 64.0;
+
+  static const _bottomGap = 8.0;
+
+  /// Distance from the bottom of the window to the bottom of the controls:
+  /// above the home indicator, an occlusion, or the keyboard.
+  static double bottomEdge({
+    required FoldStrip strip,
+    required double bottomInset,
+    required double keyboardInset,
+  }) =>
+      math.max(math.max(strip.bottomClearance, bottomInset), keyboardInset) +
+      _bottomGap;
 }
 
 /// Decides which [DuoStripActions] owns the strip: the one that became active
@@ -170,9 +219,20 @@ class DuoStripController extends ChangeNotifier {
   }
 }
 
-/// Puts [top] and [bottom] into the control strip while this screen is the
-/// frontmost one, as UIKit does with toolbar items on iPhone Duo: items from
-/// the top bar go to the top of the strip, bottom actions to its bottom.
+/// Puts the controls of a screen into the control strip while the screen is
+/// the frontmost one.
+///
+/// The strip has two roles, top to bottom:
+///
+/// * [top]: tools the screen wants at hand (Git, Explorer, search). They
+///   scroll if they do not fit, since Live Activities can grow the status
+///   cluster and the keyboard can cover the lower part of the strip.
+/// * [bottom]: the one primary action under the thumb (New, back, send). It
+///   is pinned above the home indicator or the keyboard.
+///
+/// A descendant can place its own primary action with [DuoStripBottomSlot]
+/// (the chat composer does this for send / stop / voice); set
+/// [reserveBottomSlot] so that the top group leaves room for it.
 ///
 /// The controls are built in this widget's context, so they can read the
 /// providers of the screen. The screen counts as frontmost while [enabled],
@@ -183,14 +243,23 @@ class DuoStripActions extends StatefulWidget {
   const DuoStripActions({
     super.key,
     required this.enabled,
+    this.stripMode,
     this.top = const [],
     this.bottom = const [],
+    this.reserveBottomSlot = false,
     required this.child,
   });
 
   final bool enabled;
+
+  /// Whether this screen has handed its controls to the strip, for
+  /// [DuoStripBottomSlot.isStripMode]. Defaults to [enabled] when the window
+  /// has a strip.
+  final bool? stripMode;
+
   final List<Widget> top;
   final List<Widget> bottom;
+  final bool reserveBottomSlot;
   final Widget child;
 
   @override
@@ -227,81 +296,246 @@ class _DuoStripActionsState extends State<DuoStripActions> {
     final interactive = route?.isCurrent ?? true;
     controller.setActive(this, active);
 
+    return _DuoStripRegion(
+      owner: this,
+      controller: controller,
+      strip: strip,
+      bottomInset: scope.bottomInset,
+      active: active,
+      interactive: interactive,
+      stripMode: strip != null && (widget.stripMode ?? widget.enabled),
+      child: OverlayPortal(
+        controller: _portal,
+        overlayLocation: OverlayChildLocation.rootOverlay,
+        overlayChildBuilder: (context) => ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            if (!active || !identical(controller.owner, this)) {
+              return const SizedBox.shrink();
+            }
+            return Positioned.fromRect(
+              rect: strip.rect,
+              child: IgnorePointer(
+                ignoring: !interactive,
+                child: DuoStripColumn(
+                  strip: strip,
+                  bottomInset: scope.bottomInset,
+                  keyboardInset: DuoStripKeyboardInset.of(context),
+                  top: widget.top,
+                  bottom: [
+                    ...widget.bottom,
+                    if (widget.reserveBottomSlot) const SizedBox.shrink(),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _DuoStripRegion extends InheritedWidget {
+  const _DuoStripRegion({
+    required this.owner,
+    required this.controller,
+    required this.strip,
+    required this.bottomInset,
+    required this.active,
+    required this.interactive,
+    required this.stripMode,
+    required super.child,
+  });
+
+  final Object owner;
+  final DuoStripController controller;
+  final FoldStrip? strip;
+  final double bottomInset;
+  final bool active;
+  final bool interactive;
+  final bool stripMode;
+
+  static _DuoStripRegion? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DuoStripRegion>();
+
+  @override
+  bool updateShouldNotify(_DuoStripRegion oldWidget) =>
+      !identical(owner, oldWidget.owner) ||
+      controller != oldWidget.controller ||
+      strip != oldWidget.strip ||
+      bottomInset != oldWidget.bottomInset ||
+      active != oldWidget.active ||
+      interactive != oldWidget.interactive ||
+      stripMode != oldWidget.stripMode;
+}
+
+/// Shows [child] as the primary action at the bottom of the strip, on behalf
+/// of the enclosing [DuoStripActions], while that screen owns the strip.
+///
+/// Builds nothing in place. Use [isStripMode] to decide whether to render the
+/// action inline instead.
+class DuoStripBottomSlot extends StatefulWidget {
+  const DuoStripBottomSlot({super.key, required this.child});
+
+  final Widget child;
+
+  /// Whether the enclosing screen has handed its controls to the strip.
+  static bool isStripMode(BuildContext context) =>
+      _DuoStripRegion.maybeOf(context)?.stripMode ?? false;
+
+  @override
+  State<DuoStripBottomSlot> createState() => _DuoStripBottomSlotState();
+}
+
+class _DuoStripBottomSlotState extends State<DuoStripBottomSlot> {
+  final _portal = OverlayPortalController()..show();
+
+  @override
+  Widget build(BuildContext context) {
+    final region = _DuoStripRegion.maybeOf(context);
+    final strip = region?.strip;
+    if (region == null || strip == null) return const SizedBox.shrink();
+
     return OverlayPortal(
       controller: _portal,
       overlayLocation: OverlayChildLocation.rootOverlay,
       overlayChildBuilder: (context) => ListenableBuilder(
-        listenable: controller,
+        listenable: region.controller,
         builder: (context, _) {
-          if (!active || !identical(controller.owner, this)) {
+          if (!region.active ||
+              !identical(region.controller.owner, region.owner)) {
             return const SizedBox.shrink();
           }
-          return Positioned.fromRect(
-            rect: strip.rect,
+          return Positioned(
+            key: const ValueKey('duo_strip_bottom_slot'),
+            left: strip.rect.left,
+            width: strip.width,
+            bottom: DuoStripMetrics.bottomEdge(
+              strip: strip,
+              bottomInset: region.bottomInset,
+              keyboardInset: DuoStripKeyboardInset.of(context),
+            ),
+            height: DuoStripMetrics.primaryExtent,
             child: IgnorePointer(
-              ignoring: !interactive,
-              child: DuoStripColumn(
-                strip: strip,
-                bottomInset: scope.bottomInset,
-                top: widget.top,
-                bottom: widget.bottom,
+              ignoring: !region.interactive,
+              child: Material(
+                type: MaterialType.transparency,
+                child: Center(child: widget.child),
               ),
             ),
           );
         },
       ),
-      child: widget.child,
+      child: const SizedBox.shrink(),
     );
   }
 }
 
-/// Lays out strip controls: [top] below the status cluster, [bottom] above
-/// the home indicator. Scrolls if the controls do not fit, since Live
-/// Activities can grow the status cluster.
+/// Lays out strip controls: [top] below the status cluster, [bottom] pinned
+/// above the home indicator or the keyboard.
 class DuoStripColumn extends StatelessWidget {
   const DuoStripColumn({
     super.key,
     required this.strip,
     required this.bottomInset,
+    this.keyboardInset = 0,
     required this.top,
     required this.bottom,
   });
 
-  /// Height reserved for each control.
-  static const itemExtent = 52.0;
-
   final FoldStrip strip;
   final double bottomInset;
+  final double keyboardInset;
   final List<Widget> top;
   final List<Widget> bottom;
 
   @override
   Widget build(BuildContext context) {
-    Widget item(Widget child) => SizedBox(
-      height: itemExtent,
-      child: Center(child: child),
-    );
-
     return Material(
       key: const ValueKey('duo_control_strip'),
       type: MaterialType.transparency,
       child: Padding(
         padding: EdgeInsets.only(
           top: strip.topClearance,
-          bottom: math.max(strip.bottomClearance, bottomInset) + 8,
+          bottom: DuoStripMetrics.bottomEdge(
+            strip: strip,
+            bottomInset: bottomInset,
+            keyboardInset: keyboardInset,
+          ),
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for (final child in top) item(child),
-                    const Spacer(),
-                    for (final child in bottom) item(child),
+                    for (final child in top)
+                      SizedBox(
+                        height: DuoStripMetrics.itemExtent,
+                        child: Center(child: child),
+                      ),
                   ],
                 ),
+              ),
+            ),
+            for (final child in bottom)
+              SizedBox(
+                height: DuoStripMetrics.primaryExtent,
+                child: Center(child: child),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The large round button of the strip's primary slot.
+class DuoStripPrimaryButton extends StatelessWidget {
+  const DuoStripPrimaryButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.onLongPress,
+    this.backgroundColor,
+    this.foregroundColor,
+  });
+
+  static const size = 56.0;
+
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.4,
+        child: Material(
+          color: backgroundColor ?? cs.primary,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            onLongPress: enabled ? onLongPress : null,
+            child: SizedBox.square(
+              dimension: size,
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  color: foregroundColor ?? cs.onPrimary,
+                  size: 26,
+                ),
+                child: Center(child: icon),
               ),
             ),
           ),
@@ -314,9 +548,11 @@ class DuoStripColumn extends StatelessWidget {
 /// A [Scaffold] whose [appBar] turns into a slim title line plus strip
 /// controls when the window has a control strip and [useStrip] is true.
 ///
-/// The app bar's leading widget and actions move to the top of the strip.
-/// The body keeps its place in the tree in every pose, so switching between
-/// the app bar and the strip does not rebuild the screen's content.
+/// In strip mode the app bar's actions go to the top of the strip, its
+/// leading widget to the slim header (unless [leadingInHeader] is false), and
+/// [primary] to the bottom of the strip. The body keeps its place in the tree
+/// in every pose, so switching between the app bar and the strip does not
+/// rebuild the screen's content.
 class DuoAdaptiveScaffold extends StatelessWidget {
   const DuoAdaptiveScaffold({
     super.key,
@@ -325,6 +561,11 @@ class DuoAdaptiveScaffold extends StatelessWidget {
     this.wrapAppBar,
     this.useStrip = true,
     this.publish = true,
+    this.primary,
+    this.leadingInHeader = true,
+    this.reserveBottomSlot = false,
+    this.extendBodyBehindAppBar = false,
+    this.bottomNavigationBar,
   });
 
   final AppBar appBar;
@@ -340,20 +581,38 @@ class DuoAdaptiveScaffold extends StatelessWidget {
   /// Whether this screen is the frontmost one and should own the strip.
   final bool publish;
 
+  /// The primary action at the bottom of the strip.
+  final Widget? primary;
+
+  /// Whether [AppBar.leading] stays in the slim header in strip mode.
+  final bool leadingInHeader;
+
+  /// See [DuoStripActions.reserveBottomSlot].
+  final bool reserveBottomSlot;
+
+  final bool extendBodyBehindAppBar;
+  final Widget? bottomNavigationBar;
+
   @override
   Widget build(BuildContext context) {
     final stripMode = useStrip && DuoStripScope.hasStrip(context);
-    final leading = appBar.leading;
+    final primary = this.primary;
 
     return DuoStripActions(
       enabled: stripMode && publish,
-      top: [?leading, ...?appBar.actions],
+      stripMode: stripMode,
+      top: [...?appBar.actions],
+      bottom: [?primary],
+      reserveBottomSlot: reserveBottomSlot,
       child: Scaffold(
+        extendBodyBehindAppBar: !stripMode && extendBodyBehindAppBar,
         appBar: stripMode ? null : (wrapAppBar?.call(appBar) ?? appBar),
+        bottomNavigationBar: bottomNavigationBar,
         body: Column(
           children: [
             if (stripMode)
               DuoSlimHeader(
+                leading: leadingInHeader ? appBar.leading : null,
                 title: appBar.title,
                 flexibleSpace: appBar.flexibleSpace,
               )
@@ -369,18 +628,31 @@ class DuoAdaptiveScaffold extends StatelessWidget {
 
 /// The title line that replaces an app bar next to a control strip.
 class DuoSlimHeader extends StatelessWidget {
-  const DuoSlimHeader({super.key, this.title, this.flexibleSpace});
+  const DuoSlimHeader({
+    super.key,
+    this.leading,
+    this.title,
+    this.flexibleSpace,
+    this.trailing,
+  });
 
   static const height = 40.0;
 
+  final Widget? leading;
   final Widget? title;
   final Widget? flexibleSpace;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final leading = this.leading;
     final title = this.title;
     final flexibleSpace = this.flexibleSpace;
+    final trailing = this.trailing;
+    if (leading == null && title == null && trailing == null) {
+      return const SizedBox.shrink();
+    }
     return SafeArea(
       key: const ValueKey('duo_slim_header'),
       bottom: false,
@@ -390,15 +662,35 @@ class DuoSlimHeader extends StatelessWidget {
           children: [
             if (flexibleSpace != null) Positioned.fill(child: flexibleSpace),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: DefaultTextStyle.merge(
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  child: title ?? const SizedBox.shrink(),
-                ),
+              padding: EdgeInsetsDirectional.only(
+                start: leading == null ? 16 : 0,
+                end: 8,
+              ),
+              child: Row(
+                children: [
+                  if (leading != null)
+                    SizedBox.square(
+                      dimension: height,
+                      child: IconButtonTheme(
+                        data: IconButtonThemeData(
+                          style: IconButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size.square(height),
+                          ),
+                        ),
+                        child: Center(child: leading),
+                      ),
+                    ),
+                  Expanded(
+                    child: DefaultTextStyle.merge(
+                      style: theme.textTheme.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      child: title ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                  ?trailing,
+                ],
               ),
             ),
           ],

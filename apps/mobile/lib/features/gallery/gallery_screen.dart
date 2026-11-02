@@ -10,6 +10,8 @@ import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'widgets/gallery_content.dart';
 import 'widgets/gallery_empty_state.dart';
+import '../../widgets/duo/duo_control_strip.dart';
+import '../workspace/widgets/workspace_pane_navigator.dart';
 
 @RoutePage()
 class GalleryScreen extends HookWidget {
@@ -72,40 +74,50 @@ class GalleryScreen extends HookWidget {
           )
         : null;
 
-    return Scaffold(
-      appBar: chrome.wrapAppBar(
-        AppBar(
-          toolbarHeight: chrome.toolbarHeight,
-          automaticallyImplyLeading: !embedded,
-          leading: chrome.wrapLeading(leading),
-          leadingWidth: chrome.resolveLeadingWidth(
-            hasLeading: leading != null,
-            baseWidth: chrome.useMacOSAdaptiveChrome
-                ? kWorkspaceMacOSToolbarLeadingSlotWidth
-                : kToolbarHeight,
-          ),
-          titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: chrome.wrapTitle(
-            Text(
-              images.isEmpty
-                  ? AppLocalizations.of(context).gallery
-                  : AppLocalizations.of(context)
-                        .galleryWithCount(images.length),
-            ),
-          ),
-          actions: chrome.padActions([
-            if (embedded && onClose != null)
-              IconButton(
-                key: const ValueKey('embedded_gallery_close_button'),
-                onPressed: onClose,
-                style: chrome.useMacOSAdaptiveChrome
-                    ? chrome.compactButtonStyle()
-                    : null,
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                icon: const Icon(Icons.close),
-              ),
-          ]),
+    final duoPolicy = WorkspacePaneScope.duoStripPolicyOf(context);
+    final duoStripMode = duoPolicy.useStrip && DuoStripScope.hasStrip(context);
+    final duoBack = onBack ?? onClose;
+    return DuoAdaptiveScaffold(
+      useStrip: duoPolicy.useStrip,
+      publish: duoPolicy.publish,
+      leadingInHeader: false,
+      primary: DuoStripPrimaryButton(
+        key: const ValueKey('gallery_strip_back_button'),
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        onPressed: duoBack ?? () => Navigator.of(context).maybePop(),
+        icon: const Icon(Icons.arrow_back),
+      ),
+      wrapAppBar: chrome.wrapAppBar,
+      appBar: AppBar(
+        toolbarHeight: chrome.toolbarHeight,
+        automaticallyImplyLeading: !embedded,
+        leading: chrome.wrapLeading(leading),
+        leadingWidth: chrome.resolveLeadingWidth(
+          hasLeading: leading != null,
+          baseWidth: chrome.useMacOSAdaptiveChrome
+              ? kWorkspaceMacOSToolbarLeadingSlotWidth
+              : kToolbarHeight,
         ),
+        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
+        title: chrome.wrapTitle(
+          Text(
+            images.isEmpty
+                ? AppLocalizations.of(context).gallery
+                : AppLocalizations.of(context).galleryWithCount(images.length),
+          ),
+        ),
+        actions: chrome.padActions([
+          if (embedded && onClose != null && !duoStripMode)
+            IconButton(
+              key: const ValueKey('embedded_gallery_close_button'),
+              onPressed: onClose,
+              style: chrome.useMacOSAdaptiveChrome
+                  ? chrome.compactButtonStyle()
+                  : null,
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              icon: const Icon(Icons.close),
+            ),
+        ]),
       ),
       body: images.isEmpty
           ? GalleryEmptyState(isSessionMode: isSessionMode)

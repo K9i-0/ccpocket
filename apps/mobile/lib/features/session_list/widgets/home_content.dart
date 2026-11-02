@@ -331,6 +331,9 @@ class HomeContentState extends State<HomeContent> {
     super.dispose();
   }
 
+  /// Opens or closes the search field, e.g. from the iPhone Duo strip.
+  void toggleSearch() => _toggleSearch();
+
   void _toggleSearch() {
     setState(() {
       _isSearching = !_isSearching;
