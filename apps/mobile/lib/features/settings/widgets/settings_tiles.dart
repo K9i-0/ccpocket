@@ -246,19 +246,29 @@ class SettingsControlTile extends StatelessWidget {
   }
 }
 
+/// A one-shot request to reveal and highlight a settings row.
+///
+/// It is consumed by the first matching row, so rebuilding or remounting
+/// that row later (e.g. after toggling a sibling setting) does not flash it
+/// again.
+class SettingsHighlightRequest {
+  SettingsHighlightRequest(this.entryId);
+
+  final String entryId;
+  bool _consumed = false;
+
+  bool get isConsumed => _consumed;
+}
+
 /// Which settings row should be revealed and highlighted.
 class SettingsHighlightScope extends InheritedWidget {
   const SettingsHighlightScope({
     super.key,
-    required this.entryId,
-    required this.requestId,
+    required this.request,
     required super.child,
   });
 
-  final String? entryId;
-
-  /// Changes on every request, so the same row can be highlighted again.
-  final int requestId;
+  final SettingsHighlightRequest? request;
 
   static SettingsHighlightScope? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<SettingsHighlightScope>();
@@ -266,7 +276,7 @@ class SettingsHighlightScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(SettingsHighlightScope oldWidget) =>
-      entryId != oldWidget.entryId || requestId != oldWidget.requestId;
+      !identical(request, oldWidget.request);
 }
 
 /// Wraps one settings row so that search and deep links can reveal it.
@@ -291,20 +301,17 @@ class SettingsItem extends StatefulWidget {
 }
 
 class _SettingsItemState extends State<SettingsItem> {
-  int? _handledRequestId;
   bool _highlighted = false;
   Timer? _timer;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final scope = SettingsHighlightScope.maybeOf(context);
-    if (scope == null ||
-        scope.entryId != widget.id ||
-        scope.requestId == _handledRequestId) {
+    final request = SettingsHighlightScope.maybeOf(context)?.request;
+    if (request == null || request.entryId != widget.id || request._consumed) {
       return;
     }
-    _handledRequestId = scope.requestId;
+    request._consumed = true;
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
   }
 

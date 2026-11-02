@@ -2267,5 +2267,141 @@ void main() {
       machineManagerService.dispose();
       bridge.dispose();
     });
+
+    testWidgets('open category page goes blank when the machine disconnects', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final machineManagerService = _StaticMachineManagerService([
+        MachineWithStatus(
+          machine: Machine(id: 'machine-1', name: 'Remote Mac', host: 'h'),
+          status: MachineStatus.online,
+          versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+        ),
+      ]);
+      final machineManagerCubit = _createMachineManagerCubit(
+        machineManagerService,
+      );
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://h:8765',
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openCategory(tester, SettingsCategory.notifications);
+      expect(
+        find.byKey(const ValueKey('settings_item_push_notifications')),
+        findsOneWidget,
+      );
+
+      settingsCubit.emit(settingsCubit.state.copyWith(activeMachineId: null));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings_item_push_notifications')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('settings_category_unavailable')),
+        findsOneWidget,
+      );
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      machineManagerService.dispose();
+      bridge.dispose();
+    });
+
+    testWidgets('status card fits a 320px screen at 1.5x text', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final machineManagerService = _StaticMachineManagerService([
+        MachineWithStatus(
+          machine: Machine(
+            id: 'machine-1',
+            name: 'A rather long machine name for testing',
+            host: 'h',
+            sshEnabled: true,
+            sshUsername: 'k9i',
+          ),
+          status: MachineStatus.online,
+          versionInfo: BridgeVersionInfo(
+            version: olderThanRecommendedBridgeVersion,
+          ),
+        ),
+      ]);
+      final machineManagerCubit = _createMachineManagerCubit(
+        machineManagerService,
+      );
+      final resetsAt = DateTime.now().add(const Duration(hours: 3));
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://h:8765',
+        cachedUsage: UsageResultMessage(
+          providers: [
+            UsageInfo(
+              provider: 'claude',
+              fiveHour: UsageWindow(
+                utilization: 26,
+                resetsAt: resetsAt.toIso8601String(),
+              ),
+            ),
+            UsageInfo(
+              provider: 'codex',
+              sevenDay: UsageWindow(
+                utilization: 66,
+                resetsAt: resetsAt.toIso8601String(),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings_status_usage')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('settings_status_update_button')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      machineManagerService.dispose();
+      bridge.dispose();
+    });
   });
 }

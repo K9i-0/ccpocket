@@ -17,6 +17,7 @@ import 'models/settings_catalog.dart';
 import 'state/settings_cubit.dart';
 import 'widgets/settings_category_body.dart';
 import 'widgets/settings_home.dart';
+import 'widgets/settings_tiles.dart';
 import 'widgets/settings_visibility_builder.dart';
 
 /// Width at which settings switches to a category list + detail layout.
@@ -58,7 +59,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Selected category in the two-pane layout.
   SettingsCategory? _selectedCategory;
   SettingsHighlightRequest? _highlight;
-  int _highlightCounter = 0;
 
   /// Category page pushed in the single-pane layout.
   Route<void>? _categoryRoute;
@@ -136,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openCategory(SettingsCategory category, {String? entryId}) {
     final highlight = entryId == null
         ? null
-        : SettingsHighlightRequest(entryId, ++_highlightCounter);
+        : SettingsHighlightRequest(entryId);
     if (_isTwoPane) {
       setState(() {
         _selectedCategory = category;

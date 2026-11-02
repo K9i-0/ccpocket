@@ -89,7 +89,7 @@ class ConnectionSettingsSection extends StatelessWidget {
             ),
           ],
         ),
-        if (visibility.promptHistoryAvailable)
+        if (visibility.hasActiveMachine && visibility.promptHistoryAvailable)
           SettingsItem(
             id: SettingsEntryIds.promptHistory,
             framed: true,

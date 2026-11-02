@@ -466,41 +466,53 @@ class _UsageBar extends StatelessWidget {
     final modeLabel = mode == UsageDisplayMode.remaining
         ? l.usageDisplayModeRemaining
         : l.usageDisplayModeUsed;
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 64,
-          child: Text(
-            name,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: shown / 100,
-              minHeight: 7,
-              color: barColor,
-              backgroundColor: cs.surface.withValues(alpha: 0.8),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$modeLabel · $windowLabel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 6),
+            Text(
+              '${shown.round()}%',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Text(
-          '${shown.round()}%',
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '$modeLabel · $windowLabel',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: cs.onSurfaceVariant,
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: shown / 100,
+            minHeight: 7,
+            color: barColor,
+            backgroundColor: cs.surface.withValues(alpha: 0.8),
           ),
         ),
       ],
