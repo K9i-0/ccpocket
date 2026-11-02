@@ -169,6 +169,43 @@ void main() {
     },
   );
 
+  for (final compact in [true, false]) {
+    testWidgets(
+      'empty iOS pane does not tint the pane underneath (compact=$compact)',
+      (tester) async {
+        // The root page is transparent so a stacked sibling pane shows
+        // through; CupertinoPageRoute's barrier must not dim that sibling.
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: Stack(
+              children: [
+                const Positioned.fill(child: ColoredBox(color: Colors.white)),
+                Positioned.fill(
+                  child: WorkspacePaneNavigator(
+                    navigatorKey: GlobalKey<NavigatorState>(),
+                    compact: compact,
+                    active: false,
+                    pages: const [],
+                    onDidRemovePage: (_) {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final tinted = find.byWidgetPredicate(
+          (widget) =>
+              widget is ColoredBox &&
+              widget.color.a > 0 &&
+              widget.color != Colors.white,
+        );
+        expect(tinted, findsNothing);
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final compact in [true, false]) {
       testWidgets(

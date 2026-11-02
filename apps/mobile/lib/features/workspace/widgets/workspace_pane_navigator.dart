@@ -96,6 +96,7 @@ class _WorkspacePaneNavigatorState extends State<WorkspacePaneNavigator> {
                         WorkspacePanePage(
                           key: const ValueKey('pane_root'),
                           compact: widget.compact,
+                          isRoot: true,
                           child: widget.background,
                         ),
                         ...widget.pages,
@@ -118,10 +119,15 @@ class WorkspacePanePage extends Page<Object?> {
     required super.key,
     required this.child,
     required this.compact,
+    this.isRoot = false,
   });
 
   final Widget child;
   final bool compact;
+
+  /// The pane's permanent first page. Its content may be transparent so the
+  /// sibling pane shows through, so it must not paint a route barrier.
+  final bool isRoot;
 
   @override
   Route<Object?> createRoute(BuildContext context) =>
@@ -138,6 +144,12 @@ class _WorkspacePaneRoute extends CupertinoPageRoute<Object?> {
 
   @override
   bool get popGestureEnabled => page.compact && super.popGestureEnabled;
+
+  // CupertinoPageRoute always paints a 9% black barrier under its content.
+  // The root page has nothing below it to dim, and its content is often
+  // transparent, so the barrier would tint the panes stacked underneath.
+  @override
+  Color? get barrierColor => page.isRoot ? null : super.barrierColor;
 
   @override
   Duration get transitionDuration =>
