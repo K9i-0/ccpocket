@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.151.0] - 2026-11-02
+
+### Added
+
+- Edit a sent message like the Codex App: tap the pencil under your message, edit it in place and send. Later turns are removed and the edited message is resent in the same session (Claude and Codex, between turns; requires Bridge 1.96.0).
+- Copy a sent message from the copy button under it; the button briefly turns into a check mark.
+- Tapping stop with an empty composer before the agent answers removes the prompt from the conversation and puts it back into the composer for editing, like Claude Code's Esc.
+- Restore files to a message's checkpoint from the "…" menu under a Claude message.
+
+### Fixed
+
+- Show a stopped Codex turn as "Stopped" instead of "Error: unknown".
+
 ## [1.150.2] - 2026-11-01
 
 ### Changed
