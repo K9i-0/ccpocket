@@ -309,6 +309,72 @@ void main() {
       expect(cardRect.right - pinRect.right, 12);
     });
 
+    testWidgets('extends pin and stop taps to the header edges', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'hit-area',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+      );
+      var toggles = 0;
+      var stops = 0;
+      var opens = 0;
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: session,
+            onTap: () => opens++,
+            onStop: () => stops++,
+            onTogglePinned: () => toggles++,
+          ),
+        ),
+      );
+
+      final cardRect = tester.getRect(find.byType(Card));
+      final pinRect = tester.getRect(
+        find.byKey(const ValueKey('running_session_pin_hit-area_button')),
+      );
+      final stopRect = tester.getRect(
+        find.byKey(const ValueKey('running_session_stop_button')),
+      );
+      // The visible buttons keep their size and spacing.
+      expect(pinRect.size, const Size(28, 18));
+      expect(stopRect.left - pinRect.right, 6);
+      expect(cardRect.right - stopRect.right, 12);
+
+      final pinHit = tester.getRect(
+        find.byKey(const ValueKey('running_session_pin_hit-area_hit')),
+      );
+      final stopHit = tester.getRect(
+        find.byKey(const ValueKey('running_session_stop_hit')),
+      );
+      // The card has a 3px vertical margin outside its surface.
+      expect(pinHit.top, cardRect.top + 3);
+      expect(stopHit.right, cardRect.right);
+      expect(pinHit.right, stopHit.left);
+      expect(pinHit.bottom, stopHit.bottom);
+
+      // Taps just outside the visible buttons and at the header edges.
+      await tester.tapAt(pinRect.topLeft + const Offset(-8, -4));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tapAt(pinRect.bottomRight + const Offset(2, 4));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(toggles, 2);
+      // The card clips its rounded corner, so probe the right and top edges
+      // instead of the exact corner.
+      await tester.tapAt(Offset(stopHit.right - 2, stopHit.center.dy));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tapAt(Offset(stopHit.center.dx, stopHit.top + 2));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tapAt(stopRect.bottomLeft + const Offset(-2, 4));
+      expect(stops, 3);
+      expect(opens, 0);
+    });
+
     test('maps visual status for running plan session', () {
       final visual = sessionVisualStatusFor(
         rawStatus: 'running',
@@ -445,7 +511,17 @@ void main() {
 
       expect(find.text('Working'), findsOneWidget);
       expect(find.text('Ready'), findsNothing);
-      expect(find.text('2 agents'), findsOneWidget);
+      final agents = find.byKey(const ValueKey('session_card_subagent_badge'));
+      expect(
+        find.descendant(of: agents, matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: agents, matching: find.byIcon(Icons.hub_outlined)),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('2 agents'), findsOneWidget);
+      expect(find.text('2 agents'), findsNothing);
       expect(
         find.byKey(const ValueKey('session_card_background_badge')),
         findsNothing,
@@ -465,7 +541,13 @@ void main() {
       );
 
       expect(find.text('Working'), findsOneWidget);
-      expect(find.text('1 agent'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('session_card_subagent_badge')),
+          matching: find.text('1'),
+        ),
+        findsOneWidget,
+      );
       final badge = find.byKey(const ValueKey('session_card_background_badge'));
       expect(badge, findsOneWidget);
       expect(
@@ -524,7 +606,10 @@ void main() {
       );
 
       expect(find.text('Ready'), findsOneWidget);
-      expect(find.text('1 agent'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('session_card_subagent_badge')),
+        findsNothing,
+      );
       final badge = find.byKey(const ValueKey('session_card_background_badge'));
       expect(
         find.descendant(of: badge, matching: find.text('2')),

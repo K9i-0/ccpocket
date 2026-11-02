@@ -107,16 +107,14 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       pendingPermission: session.pendingPermission,
       backgroundWorking: !isCodexSession && session.backgroundTaskCount > 0,
     );
-    // Agents explain why a session is working; shells, monitors and Codex
-    // work left behind by a turn only get a quiet count.
-    final statusDetail =
-        visualStatus.detail ??
-        (visualStatus.primary == SessionPrimaryStatus.working &&
-                !isCodexSession &&
-                session.backgroundAgentCount > 0
-            ? AppLocalizations.of(context)
-                  .sessionCardBackgroundAgents(session.backgroundAgentCount)
-            : null);
+    final statusDetail = visualStatus.detail;
+    // Agents explain why a session is working, so their count takes the
+    // status color; shells, monitors and Codex work left behind by a turn
+    // only get a quiet count.
+    final subagentBadgeCount =
+        visualStatus.primary == SessionPrimaryStatus.working && !isCodexSession
+        ? session.backgroundAgentCount
+        : 0;
     final backgroundBadgeCount = isCodexSession
         ? session.backgroundTaskCount
         : session.backgroundTaskCount - session.backgroundAgentCount;
@@ -178,7 +176,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
             // Status bar with gradient
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -189,67 +186,126 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        _StatusDot(
-                          color: statusColor,
-                          animate: visualStatus.animate,
-                          glow: isReadyUnseen,
-                          inPlanMode:
-                              visualStatus.showPlanBadge &&
-                              visualStatus.animate,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          visualStatus.label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isReadyUnseen
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: statusColor,
-                          ),
-                        ),
-                        if (statusDetail != null) ...[
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              statusDetail,
+              // The header actions own tap regions that reach the header's
+              // edges, so the padding lives on the status side and inside the
+              // regions instead of on the container.
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 0, 6),
+                        child: Row(
+                          children: [
+                            _StatusDot(
+                              color: statusColor,
+                              animate: visualStatus.animate,
+                              glow: isReadyUnseen,
+                              inPlanMode:
+                                  visualStatus.showPlanBadge &&
+                                  visualStatus.animate,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              visualStatus.label,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: statusColor.withValues(alpha: 0.82),
+                                fontWeight: isReadyUnseen
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: statusColor,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
-                        if (backgroundBadgeCount > 0) ...[
-                          const SizedBox(width: 4),
-                          _BackgroundTasksBadge(count: backgroundBadgeCount),
-                        ],
-                      ],
+                            if (statusDetail != null) ...[
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  statusDetail,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: statusColor.withValues(alpha: 0.82),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                            if (subagentBadgeCount > 0) ...[
+                              const SizedBox(width: 6),
+                              _SessionCountBadge(
+                                key: const ValueKey(
+                                  'session_card_subagent_badge',
+                                ),
+                                icon: Icons.hub_outlined,
+                                count: subagentBadgeCount,
+                                label: AppLocalizations.of(context)
+                                    .sessionCardBackgroundAgents(
+                                      subagentBadgeCount,
+                                    ),
+                                color: statusColor,
+                              ),
+                            ],
+                            if (backgroundBadgeCount > 0) ...[
+                              const SizedBox(width: 4),
+                              _SessionCountBadge(
+                                key: const ValueKey(
+                                  'session_card_background_badge',
+                                ),
+                                icon: Icons.layers_outlined,
+                                count: backgroundBadgeCount,
+                                label: AppLocalizations.of(context)
+                                    .sessionCardBackgroundTasks(
+                                      backgroundBadgeCount,
+                                    ),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  if (queuedInput != null) ...[
-                    _QueuedInputBadge(item: queuedInput),
-                    const SizedBox(width: 4),
+                    if (queuedInput != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Center(
+                          child: _QueuedInputBadge(item: queuedInput),
+                        ),
+                      ),
+                    _HeaderActionTapRegion(
+                      key: ValueKey('running_session_pin_${session.id}_hit'),
+                      onTap: widget.onTogglePinned,
+                      // Keep the queue badge's 4px gap; otherwise reach
+                      // into the empty space left of the pin.
+                      padding: EdgeInsets.fromLTRB(
+                        queuedInput != null ? 4 : 10,
+                        6,
+                        widget.onStop != null ? 3 : 12,
+                        6,
+                      ),
+                      child: PinToggleButton(
+                        key: ValueKey(
+                          'running_session_pin_${session.id}_button',
+                        ),
+                        isPinned: widget.isPinned,
+                        onPressed: widget.onTogglePinned,
+                        pinTooltip: AppLocalizations.of(context).pin,
+                        unpinTooltip: AppLocalizations.of(context).unpin,
+                      ),
+                    ),
+                    if (widget.onStop != null)
+                      _HeaderActionTapRegion(
+                        key: const ValueKey('running_session_stop_hit'),
+                        onTap: widget.onStop,
+                        padding: const EdgeInsets.fromLTRB(3, 6, 12, 6),
+                        child: _RunningSessionStopButton(
+                          onPressed: widget.onStop!,
+                        ),
+                      ),
                   ],
-                  PinToggleButton(
-                    key: ValueKey('running_session_pin_${session.id}_button'),
-                    isPinned: widget.isPinned,
-                    onPressed: widget.onTogglePinned,
-                    pinTooltip: AppLocalizations.of(context).pin,
-                    unpinTooltip: AppLocalizations.of(context).unpin,
-                  ),
-                  if (widget.onStop != null) ...[
-                    const SizedBox(width: 6),
-                    _RunningSessionStopButton(onPressed: widget.onStop!),
-                  ],
-                ],
+                ),
               ),
             ),
             // Approval area (shown when waiting for permission)
@@ -563,29 +619,33 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
 
 /// Quiet count of background shells, monitors and terminals. Kept small so
 /// it does not compete with the status label.
-class _BackgroundTasksBadge extends StatelessWidget {
+class _SessionCountBadge extends StatelessWidget {
+  final IconData icon;
   final int count;
+  final String label;
+  final Color color;
 
-  const _BackgroundTasksBadge({required this.count});
+  const _SessionCountBadge({
+    super.key,
+    required this.icon,
+    required this.count,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final label = AppLocalizations.of(context)
-        .sessionCardBackgroundTasks(count);
-    final color = colorScheme.onSurfaceVariant;
     return Semantics(
       label: label,
       excludeSemantics: true,
       child: Tooltip(
         message: label,
         child: Padding(
-          key: const ValueKey('session_card_background_badge'),
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.layers_outlined, size: 13, color: color),
+              Icon(icon, size: 13, color: color),
               const SizedBox(width: 2),
               Text(
                 '$count',
@@ -599,6 +659,35 @@ class _BackgroundTasksBadge extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Extends a header action's tap target to the header's edges while the
+/// visible button keeps its size. The button still handles its own taps and
+/// semantics; this region only catches the surrounding misses.
+class _HeaderActionTapRegion extends StatelessWidget {
+  final VoidCallback? onTap;
+  final EdgeInsets padding;
+  final Widget child;
+
+  const _HeaderActionTapRegion({
+    super.key,
+    required this.onTap,
+    required this.padding,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTap: onTap,
+      child: Padding(
+        padding: padding,
+        child: Center(child: child),
       ),
     );
   }
