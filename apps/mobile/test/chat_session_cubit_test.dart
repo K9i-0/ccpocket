@@ -321,6 +321,94 @@ void main() {
         },
       );
 
+      test('a Codex edit shows the resent prompt and its answer', () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
+          ServerMessage.fromJson({
+            'type': 'history',
+            'messages': [
+              {
+                'type': 'user_input',
+                'text': 'one',
+                'userMessageUuid': 'codex:user-turn:1',
+              },
+              {
+                'type': 'user_input',
+                'text': 'two',
+                'userMessageUuid': 'codex:user-turn:2',
+              },
+            ],
+          }),
+          sessionId: 's1',
+        );
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.idle),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        final two = cubit.state.entries.whereType<UserChatEntry>().last;
+        cubit.editMessage(two, 'THIRD');
+        final cid = cubit.state.entries
+            .whereType<UserChatEntry>()
+            .last
+            .clientMessageId!;
+
+        final echo = {
+          'type': 'user_input',
+          'text': 'THIRD',
+          'userMessageUuid': 'codex:user-turn:2',
+          'clientMessageId': cid,
+        };
+        for (final json in [
+          {'type': 'conversation_rewound'},
+          echo,
+          {'type': 'input_ack', 'clientMessageId': cid, 'acceptedSeq': 44},
+          {'type': 'status', 'status': 'running'},
+          {
+            'type': 'history',
+            'messages': [
+              {
+                'type': 'user_input',
+                'text': 'one',
+                'userMessageUuid': 'codex:user-turn:1',
+              },
+              echo,
+              {'type': 'status', 'status': 'running'},
+            ],
+          },
+          echo,
+          {
+            'type': 'assistant',
+            'message': {
+              'id': 'm3',
+              'role': 'assistant',
+              'content': [
+                {'type': 'text', 'text': 'THIRD'},
+              ],
+              'model': 'x',
+            },
+            'messageUuid': 'm3',
+          },
+          {'type': 'result', 'subtype': 'success'},
+          {'type': 'status', 'status': 'idle'},
+        ]) {
+          mockBridge.emitMessage(ServerMessage.fromJson(json), sessionId: 's1');
+          await pumpEventQueue();
+        }
+
+        final users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users.map((e) => e.text), ['one', 'THIRD']);
+        expect(users.last.status, MessageStatus.sent);
+        expect(
+          cubit.state.entries.whereType<ServerChatEntry>().any(
+            (e) => e.message is AssistantServerMessage,
+          ),
+          isTrue,
+        );
+      });
+
       test('a retract clears the stale prompt', () async {
         final cubit = await seeded();
         addTearDown(cubit.close);
