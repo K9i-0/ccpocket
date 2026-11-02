@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.154.0] - 2026-11-02
+
+### Added
+
+- Support the iPhone Duo control strip. Content no longer runs under the strip on the side of the screen, and each screen puts its controls there: the tools you reach for at the top (search, new session, Explorer, Git, history, menu) and one main action under your thumb at the bottom (New, send or stop, back from Git, Explorer and Gallery). App bars become a slim title line, which leaves more room on the short outer display.
+- On the iPhone Duo, the send button rides above the keyboard, with voice input just above it. Gallery, settings and disconnect move to a menu on the bridge name next to the title. When unfolded, the strip follows the pane you touched last.
+
+### Fixed
+
+- Stop empty workspace panes on iOS from dimming the session list and the center pane.
+
 ## [1.153.0] - 2026-11-02
 
 ### Added
