@@ -1734,6 +1734,7 @@ export class BridgeWebSocketServer {
         `codex:user-turn:${turns}`,
         "conversation",
         notifyRetracted,
+        true,
       );
       return;
     }
@@ -1802,6 +1803,8 @@ export class BridgeWebSocketServer {
     targetUuid: string,
     mode: "conversation" | "code" | "both",
     onRewound?: () => void,
+    /** Hide the source thread: a retract replaces it rather than branching. */
+    archiveSource = false,
   ): Promise<void> {
     if (mode !== "conversation") {
       this.send(ws, {
@@ -1916,6 +1919,23 @@ export class BridgeWebSocketServer {
       expectedUserTurns: targetOrdinal - 1,
       fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
     });
+    if (archiveSource) {
+      // Archive through the process that has the thread loaded.
+      try {
+        await codexProcess.archiveThread(threadId);
+      } catch (err) {
+        console.warn(
+          `[ws] Failed to archive retracted Codex thread ${threadId}: ${codexErrorMessage(err)}`,
+        );
+      }
+      await this.archiveStore
+        .archive(threadId, "codex", projectPath)
+        .catch((err: unknown) => {
+          console.warn(
+            `[ws] Failed to record archive for ${threadId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
     this.destroySession(sessionId);
     // The source app-server holds the forked thread's write lock until it
     // exits; resuming the fork before then fails with "active writer".

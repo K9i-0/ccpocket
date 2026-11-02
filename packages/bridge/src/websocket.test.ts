@@ -10141,16 +10141,24 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       session.status = "idle";
     });
     manager.retractableUserInput.mockReturnValue({ text: "typo", historySeq: 1 });
+    session.process.archiveThread = vi.fn(async () => {});
 
     ws.send.mockClear();
     (bridge as any).handleClientMessage(
       { type: "interrupt", sessionId, retract: true },
       ws,
     );
-    for (let i = 0; i < 10; i++) await Promise.resolve();
-    await new Promise((r) => setTimeout(r, 0));
+    await vi.waitFor(() => {
+      expect(
+        ws.send.mock.calls.some((c: unknown[]) =>
+          String(c[0]).includes('"input_retracted"'),
+        ),
+      ).toBe(true);
+    });
 
     expect(session.process.forkThreadAtUserTurn).toHaveBeenCalledWith(1);
+    // The retracted thread is replaced, not kept as a sibling in history.
+    expect(session.process.archiveThread).toHaveBeenCalledWith("thread-retract");
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const retractedIndex = sends.findIndex((m: any) => m.type === "input_retracted");
     const createdIndex = sends.findIndex(
