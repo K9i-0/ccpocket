@@ -1966,6 +1966,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
 
     final hasStrip = DuoStripScope.hasStrip(context);
+    WorkspaceShellScreen.maybeOf(context)?.newSessionHandler = showConnectedUI
+        ? _showNewSessionDialog
+        : null;
     final showNewSession =
         showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
 

@@ -231,6 +231,13 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   WorkspaceSessionSelection? get _selectedSession => _state.selection;
   WorkspaceCenterOverlay get _centerOverlay => _state.overlay;
   bool get canOpenToolPane => true;
+
+  /// Opens the new-session sheet of the session list, while it can start one
+  /// (connected). Lets a chat offer New when the list is not in reach, as on
+  /// the iPhone Duo control strip.
+  VoidCallback? newSessionHandler;
+  bool get canRequestNewSession => newSessionHandler != null;
+  void requestNewSession() => newSessionHandler?.call();
   bool get isSinglePane => _layoutMode == _WorkspaceLayoutMode.single;
   bool get isLeftPaneVisible =>
       !isSinglePane ||

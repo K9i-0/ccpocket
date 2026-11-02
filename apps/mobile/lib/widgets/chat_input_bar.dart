@@ -1492,9 +1492,10 @@ class _SendButton extends StatelessWidget {
   }
 }
 
-/// The single primary action of the composer in the iPhone Duo control strip:
-/// stop while a turn runs and nothing is typed, send when there is text,
-/// otherwise voice input. Keeps the keys of the inline buttons.
+/// The composer actions in the iPhone Duo control strip: voice input as a
+/// secondary control, and below it the primary one (stop while a turn runs
+/// and nothing is typed, otherwise send, disabled until there is text). Keeps
+/// the keys of the inline buttons.
 class _StripPrimaryAction extends StatelessWidget {
   const _StripPrimaryAction({
     required this.status,
@@ -1524,20 +1525,12 @@ class _StripPrimaryAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final starting = status == ProcessStatus.starting;
     final busy = status != ProcessStatus.idle;
 
-    if (isRecording) {
-      return DuoStripPrimaryButton(
-        key: const ValueKey('voice_button'),
-        tooltip: l.tooltipStopRecording,
-        onPressed: onToggleVoice,
-        backgroundColor: cs.error,
-        foregroundColor: cs.onError,
-        icon: const Icon(Icons.stop),
-      );
-    }
-    if (status != ProcessStatus.starting && busy && !hasInputText) {
-      return DuoStripPrimaryButton(
+    final Widget primary;
+    if (!starting && busy && !hasInputText) {
+      primary = DuoStripPrimaryButton(
         key: const ValueKey('stop_button'),
         tooltip: l.tapInterruptHoldStop,
         onPressed: onInterrupt,
@@ -1546,33 +1539,48 @@ class _StripPrimaryAction extends StatelessWidget {
         foregroundColor: cs.onError,
         icon: const Icon(Icons.stop_rounded),
       );
-    }
-    if (!hasInputText && isVoiceAvailable && status != ProcessStatus.starting) {
-      return DuoStripPrimaryButton(
-        key: const ValueKey('voice_button'),
-        tooltip: l.tooltipVoiceInput,
-        onPressed: onToggleVoice,
-        backgroundColor: cs.primaryContainer,
-        foregroundColor: cs.onPrimaryContainer,
-        icon: const Icon(Icons.mic),
+    } else {
+      final delivery = busy ? busySendDelivery : null;
+      final enabled = hasInputText && !starting;
+      primary = DuoStripPrimaryButton(
+        key: const ValueKey('send_button'),
+        tooltip: switch (delivery) {
+          InputDelivery.steer => l.sendAsSteer,
+          InputDelivery.queue => l.sendAsQueue,
+          null => l.tooltipSendMessage,
+        },
+        onPressed: enabled ? onSend : null,
+        onLongPress: busy && enabled ? onSendLongPress : null,
+        icon: Icon(switch (delivery) {
+          InputDelivery.steer => Icons.subdirectory_arrow_left,
+          InputDelivery.queue => Icons.schedule_send_outlined,
+          null => Icons.arrow_upward,
+        }),
       );
     }
-    final delivery = busy ? busySendDelivery : null;
-    final enabled = hasInputText && status != ProcessStatus.starting;
-    return DuoStripPrimaryButton(
-      key: const ValueKey('send_button'),
-      tooltip: switch (delivery) {
-        InputDelivery.steer => l.sendAsSteer,
-        InputDelivery.queue => l.sendAsQueue,
-        null => l.tooltipSendMessage,
-      },
-      onPressed: enabled ? onSend : null,
-      onLongPress: busy && enabled ? onSendLongPress : null,
-      icon: Icon(switch (delivery) {
-        InputDelivery.steer => Icons.subdirectory_arrow_left,
-        InputDelivery.queue => Icons.schedule_send_outlined,
-        null => Icons.arrow_upward,
-      }),
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isVoiceAvailable)
+          DuoStripSlotItem(
+            child: IconButton.filledTonal(
+              key: const ValueKey('voice_button'),
+              tooltip: isRecording
+                  ? l.tooltipStopRecording
+                  : l.tooltipVoiceInput,
+              onPressed: onToggleVoice,
+              style: isRecording
+                  ? IconButton.styleFrom(
+                      backgroundColor: cs.error,
+                      foregroundColor: cs.onError,
+                    )
+                  : null,
+              icon: Icon(isRecording ? Icons.stop : Icons.mic),
+            ),
+          ),
+        DuoStripSlotItem(primary: true, child: primary),
+      ],
     );
   }
 }

@@ -158,6 +158,10 @@ abstract final class DuoStripMetrics {
   /// Height of the slot of the bottom (primary) controls.
   static const primaryExtent = 64.0;
 
+  /// Room the top group leaves for a [DuoStripBottomSlot]: a secondary
+  /// control above the primary one.
+  static const reservedSlotExtent = primaryExtent + itemExtent;
+
   static const _bottomGap = 8.0;
 
   /// Distance from the bottom of the window to the bottom of the controls:
@@ -377,10 +381,10 @@ class _DuoStripActionsState extends State<DuoStripActions> {
                   bottomInset: scope.bottomInset,
                   keyboardInset: DuoStripKeyboardInset.of(context),
                   top: widget.top,
-                  bottom: [
-                    ...widget.bottom,
-                    if (widget.reserveBottomSlot) const SizedBox.shrink(),
-                  ],
+                  bottom: widget.bottom,
+                  reservedBottomExtent: widget.reserveBottomSlot
+                      ? DuoStripMetrics.reservedSlotExtent
+                      : 0,
                 ),
               ),
             );
@@ -426,8 +430,10 @@ class _DuoStripRegion extends InheritedWidget {
       stripMode != oldWidget.stripMode;
 }
 
-/// Shows [child] as the primary action at the bottom of the strip, on behalf
-/// of the enclosing [DuoStripActions], while that screen owns the strip.
+/// Shows [child] at the bottom of the strip, on behalf of the enclosing
+/// [DuoStripActions], while that screen owns the strip. [child] sizes itself
+/// (up to [DuoStripMetrics.reservedSlotExtent] tall, e.g. a secondary control
+/// above the primary one); use [DuoStripSlotItem] for each control.
 ///
 /// Builds nothing in place. Use [isStripMode] to decide whether to render the
 /// action inline instead.
@@ -472,12 +478,11 @@ class _DuoStripBottomSlotState extends State<DuoStripBottomSlot> {
               bottomInset: region.bottomInset,
               keyboardInset: DuoStripKeyboardInset.of(context),
             ),
-            height: DuoStripMetrics.primaryExtent,
             child: IgnorePointer(
               ignoring: !region.interactive,
               child: Material(
                 type: MaterialType.transparency,
-                child: Center(child: widget.child),
+                child: widget.child,
               ),
             ),
           );
@@ -486,6 +491,27 @@ class _DuoStripBottomSlotState extends State<DuoStripBottomSlot> {
       child: const SizedBox.shrink(),
     );
   }
+}
+
+/// One control of a [DuoStripBottomSlot], centered in the strip at the height
+/// of a primary ([primary]) or a top-group control.
+class DuoStripSlotItem extends StatelessWidget {
+  const DuoStripSlotItem({
+    super.key,
+    this.primary = false,
+    required this.child,
+  });
+
+  final bool primary;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: primary
+        ? DuoStripMetrics.primaryExtent
+        : DuoStripMetrics.itemExtent,
+    child: Center(child: child),
+  );
 }
 
 /// Lays out strip controls: [top] below the status cluster, [bottom] pinned
@@ -498,6 +524,7 @@ class DuoStripColumn extends StatelessWidget {
     this.keyboardInset = 0,
     required this.top,
     required this.bottom,
+    this.reservedBottomExtent = 0,
   });
 
   final FoldStrip strip;
@@ -505,6 +532,9 @@ class DuoStripColumn extends StatelessWidget {
   final double keyboardInset;
   final List<Widget> top;
   final List<Widget> bottom;
+
+  /// Empty room below [top] for controls placed by [DuoStripBottomSlot].
+  final double reservedBottomExtent;
 
   @override
   Widget build(BuildContext context) {
@@ -540,6 +570,7 @@ class DuoStripColumn extends StatelessWidget {
                 height: DuoStripMetrics.primaryExtent,
                 child: Center(child: child),
               ),
+            SizedBox(height: reservedBottomExtent),
           ],
         ),
       ),
@@ -621,9 +652,13 @@ class DuoAdaptiveScaffold extends StatelessWidget {
     this.reserveBottomSlot = false,
     this.extendBodyBehindAppBar = false,
     this.bottomNavigationBar,
+    this.stripTools = const [],
   });
 
   final AppBar appBar;
+
+  /// Tools shown in the strip before the app bar's actions, only in strip
+  /// mode (e.g. New in a chat, which has no app bar counterpart).
   final Widget? body;
 
   /// Applied to [appBar] when it is shown as an app bar.
@@ -647,6 +682,7 @@ class DuoAdaptiveScaffold extends StatelessWidget {
 
   final bool extendBodyBehindAppBar;
   final Widget? bottomNavigationBar;
+  final List<Widget> stripTools;
 
   @override
   Widget build(BuildContext context) {
@@ -656,7 +692,7 @@ class DuoAdaptiveScaffold extends StatelessWidget {
     return DuoStripActions(
       enabled: stripMode && publish,
       stripMode: stripMode,
-      top: [...?appBar.actions],
+      top: [...stripTools, ...?appBar.actions],
       bottom: [?primary],
       reserveBottomSlot: reserveBottomSlot,
       child: Scaffold(

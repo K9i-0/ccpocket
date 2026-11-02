@@ -136,12 +136,13 @@ All in [duo_control_strip.dart](../../apps/mobile/lib/widgets/duo/duo_control_st
   title + `flexibleSpace` status line), moves `actions` to the top of the strip
   and `primary` to its bottom. The body stays at the same tree position, so
   folding keeps composer and scroll state.
-- **`DuoStripBottomSlot`** lets a descendant place the primary action: the chat
-  composer uses it for one morphing button (recording → stop recording; running
-  and empty → stop, long-press = hard stop; text → send, long-press = steer /
-  queue; empty → voice). The composer row drops its inline voice and send
-  buttons in strip mode, which widens the cover composer. Chat screens set
-  `reserveBottomSlot` so the tools leave room for it.
+- **`DuoStripBottomSlot`** lets a descendant place controls at the bottom of
+  the strip: the chat composer puts voice (secondary, red while recording)
+  above the primary button (running and empty → stop, long-press = hard stop;
+  otherwise send, disabled until there is text, long-press = steer / queue).
+  The composer row drops its inline voice and send buttons in strip mode, which
+  widens the cover composer. Chat screens set `reserveBottomSlot` so the tools
+  leave room for both.
 - **`DuoStripPrimaryButton`**: the 56pt round button of the bottom slot.
 - **`WorkspacePaneScope`** (in `WorkspacePaneNavigator`) exposes `compact` /
   `active` to pane content. Chat uses `useStrip: isSinglePane` and
@@ -165,7 +166,7 @@ Top group (from the top AppBar), bottom group (bottom actions / FAB):
 | Session list (compact) | search (`duo_search_button`) | **New** (`new_session_fab`) | title row: "CC Pocket" + bridge chip ⌄ (`session_list_bridge_menu`: gallery, settings with update badge, disconnect) |
 | Session list (multi-pane, inner landscape) | settings, gallery, disconnect | New | pane header title |
 | Connect form (compact) | settings, disconnect while connecting | — | |
-| Claude / Codex chat | explore, changes (git badge), the app bar's other actions, overflow menu | send / stop / voice (composer) | back + session name + status line in the slim header |
+| Claude / Codex chat | **new session** (`duo_new_session_button`, opens the list's New sheet through `WorkspaceShellScreenState.requestNewSession`), explore, changes (git badge), the app bar's other actions, overflow menu | voice above send / stop (composer) | back + session name + status line in the slim header |
 | Git | file list, refresh, focus mode | back (`close_git_pane_button` / `git_back_button`) | title in the slim header; Revert / Stage bar stays beside the strip |
 | Explorer | history back (undo icon), parent, add to chat, menu | back to the chat (`close_explore_pane_button` / `file_peek_close_button`) | title in the slim header |
 | Gallery | — | back (`gallery_strip_back_button`) | title in the slim header |

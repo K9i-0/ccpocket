@@ -990,6 +990,16 @@ class _ChatScreenBody extends HookWidget {
                 publish: pane?.active ?? true,
                 wrapAppBar: chrome.wrapAppBar,
                 reserveBottomSlot: true,
+                // The list's New is out of reach while a chat owns the strip.
+                stripTools: [
+                  if (currentShell?.canRequestNewSession ?? false)
+                    IconButton(
+                      key: const ValueKey('duo_new_session_button'),
+                      icon: const Icon(Icons.edit_square),
+                      tooltip: AppLocalizations.of(context).newSession,
+                      onPressed: currentShell!.requestNewSession,
+                    ),
+                ],
                 appBar: AppBar(
                   toolbarHeight: chrome.toolbarHeight,
                   leading: chrome.wrapLeading(leading),
