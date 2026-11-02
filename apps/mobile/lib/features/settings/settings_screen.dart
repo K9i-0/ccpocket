@@ -4,9 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/app_constants.dart';
@@ -21,21 +19,22 @@ import '../../models/new_session_tab.dart';
 import '../../models/skill_trigger_style.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
-import '../../services/app_update_service.dart';
 import '../../services/bridge_service.dart';
-import '../../services/in_app_review_service.dart';
-import '../../services/machine_manager_service.dart';
 import '../../services/platform_environment_service.dart';
-import '../../services/prompt_history_service.dart';
 import '../../services/revenuecat_service.dart';
-import '../../services/support_banner_service.dart';
 import '../../utils/platform_helper.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'code_font_settings_screen.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
+import 'widgets/about_tiles.dart';
 import 'widgets/app_icon_bottom_sheet.dart';
+import 'widgets/bridge_update_status_tile.dart';
+import 'widgets/notification_tiles.dart';
+import 'widgets/settings_tiles.dart';
+import 'widgets/spread_appeal_message.dart';
+import 'widgets/text_scale_tile.dart';
 import 'widgets/local_url_settings_tile.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
 import 'widgets/support_section.dart';
@@ -321,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return const SizedBox.shrink();
                   },
                 ),
-                _SectionHeader(title: l.sectionConnectionAccounts),
+                SettingsSectionHeader(title: l.sectionConnectionAccounts),
                 KeyedSubtree(
                   key: _connectionSectionKey,
                   child: AnimatedContainer(
@@ -372,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           if (bridge.lastUrl != null)
                             LocalUrlSettingsTile(bridgeUrl: bridge.lastUrl!),
-                          _BridgeUpdateStatusTile(
+                          BridgeUpdateStatusTile(
                             machineWithStatus: machineWithStatus,
                             isUpdating: isUpdating,
                             latestBridgeVersion:
@@ -400,7 +399,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
 
               // ── General ──
-              _SectionHeader(title: l.sectionGeneral),
+              SettingsSectionHeader(title: l.sectionGeneral),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -552,7 +551,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
-                    _TextScaleTile(
+                    TextScaleTile(
                       value: state.textScale,
                       onChanged: (value) =>
                           context.read<SettingsCubit>().setTextScale(value),
@@ -628,7 +627,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
-              _SectionHeader(title: 'AGENTS'),
+              SettingsSectionHeader(title: 'AGENTS'),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -871,12 +870,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
 
               if (state.activeMachineId != null) ...[
-                _SectionHeader(title: l.sectionNotifications),
+                SettingsSectionHeader(title: l.sectionNotifications),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      _PushNotificationTile(
+                      PushNotificationTile(
                         state: state,
                         onChanged: (enabled) =>
                             context.read<SettingsCubit>().toggleFcm(enabled),
@@ -888,7 +887,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           endIndent: 16,
                           color: cs.outlineVariant,
                         ),
-                        _PushPrivacyTile(
+                        PushPrivacyTile(
                           value: state.fcmPrivacy,
                           syncInProgress: state.fcmSyncInProgress,
                           onChanged: (enabled) => context
@@ -901,7 +900,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           endIndent: 16,
                           color: cs.outlineVariant,
                         ),
-                        _UpdateNotificationLanguageTile(
+                        UpdateNotificationLanguageTile(
                           syncInProgress: state.fcmSyncInProgress,
                           onTap: () async {
                             final cubit = context.read<SettingsCubit>();
@@ -932,7 +931,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
 
               // ── Editor ──
-              _SectionHeader(title: l.sectionEditor),
+              SettingsSectionHeader(title: l.sectionEditor),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -1168,7 +1167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               if (isConnected) ...[
                 // ── Prompt History 2.0 ──
-                _PromptHistorySectionSlot(bridgeService: bridge),
+                PromptHistorySectionSlot(bridgeService: bridge),
                 const SizedBox(height: 8),
               ],
 
@@ -1187,7 +1186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _SectionHeader(title: l.sectionSupport),
+                        SettingsSectionHeader(title: l.sectionSupport),
                         SupportSectionCard(
                           highlighted: _highlightSupportSection,
                         ),
@@ -1200,12 +1199,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               if (isConnected) ...[
                 // ── Spread ──
-                _SectionHeader(title: l.sectionSpread),
+                SettingsSectionHeader(title: l.sectionSpread),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      const _SpreadAppealMessage(),
+                      const SpreadAppealMessage(),
                       // Rate on Store (mobile only)
                       if (isMobilePlatform) ...[
                         ListTile(
@@ -1267,14 +1266,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
 
               // ── About ──
-              _SectionHeader(title: l.sectionAbout),
+              SettingsSectionHeader(title: l.sectionAbout),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     // Version
-                    const _VersionTile(),
-                    const _AppUpdateTile(),
+                    const VersionTile(),
+                    const AppUpdateTile(),
                     if (_isIOSAppOnMac) ...[
                       Divider(
                         height: 1,
@@ -1282,7 +1281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         endIndent: 16,
                         color: cs.outlineVariant,
                       ),
-                      const _MacOSNativeAppTile(),
+                      const MacOSNativeAppTile(),
                     ],
                     Divider(
                       height: 1,
@@ -1525,634 +1524,4 @@ String _imagePasteShortcutDescription(
     ImagePasteShortcut.ctrlV => l.imagePasteShortcutCtrlVDescription,
     ImagePasteShortcut.commandV => l.imagePasteShortcutCommandVDescription,
   };
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-          color: cs.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _BridgeUpdateStatusTile extends StatelessWidget {
-  final MachineWithStatus? machineWithStatus;
-  final bool isUpdating;
-  final String? latestBridgeVersion;
-  final bool isCheckingLatestBridgeVersion;
-  final String? latestBridgeVersionError;
-  final VoidCallback? onRefreshLatestVersion;
-  final VoidCallback? onUpdate;
-
-  const _BridgeUpdateStatusTile({
-    required this.machineWithStatus,
-    required this.isUpdating,
-    this.latestBridgeVersion,
-    this.isCheckingLatestBridgeVersion = false,
-    this.latestBridgeVersionError,
-    this.onRefreshLatestVersion,
-    this.onUpdate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final expectedVersion = AppConstants.expectedBridgeVersion;
-    final updateTargetVersion =
-        latestBridgeVersion != null &&
-            compareSemanticVersions(latestBridgeVersion!, expectedVersion) > 0
-        ? latestBridgeVersion!
-        : expectedVersion;
-    final machine = machineWithStatus?.machine;
-    final versionInfo = machineWithStatus?.versionInfo;
-    final hasSshSetup = machine?.canStartRemotely ?? false;
-    final isOnline = machineWithStatus?.status == MachineStatus.online;
-    final latestCheckFailed =
-        latestBridgeVersion == null && latestBridgeVersionError != null;
-    final bridgeNeedsUpdate =
-        isOnline &&
-        versionInfo != null &&
-        versionInfo.needsUpdate(updateTargetVersion);
-    final needsUpdate = bridgeNeedsUpdate && hasSshSetup;
-    final canShowSetupHelp = bridgeNeedsUpdate && !hasSshSetup;
-    final isKnownUpToDate =
-        versionInfo != null &&
-        !bridgeNeedsUpdate &&
-        !isCheckingLatestBridgeVersion &&
-        !latestCheckFailed;
-
-    final title = bridgeNeedsUpdate
-        ? l.bridgeUpdateAvailable
-        : latestCheckFailed
-        ? l.bridgeLatestVersionUnavailable
-        : isKnownUpToDate
-        ? l.bridgeIsUpToDate
-        : l.updateBridge;
-    final subtitle = canShowSetupHelp
-        ? l.bridgeUpdateRequiresSetup
-        : isCheckingLatestBridgeVersion
-        ? l.bridgeLatestVersionChecking
-        : versionInfo == null
-        ? l.bridgeVersionUnknown
-        : latestBridgeVersion != null
-        ? l.bridgeVersionCurrentLatest(versionInfo.version, updateTargetVersion)
-        : l.bridgeVersionCurrentExpected(versionInfo.version, expectedVersion);
-    final icon = bridgeNeedsUpdate
-        ? Icons.system_update
-        : latestCheckFailed
-        ? Icons.warning_amber_outlined
-        : isKnownUpToDate
-        ? Icons.check_circle_outline
-        : Icons.info_outline;
-    final iconColor = bridgeNeedsUpdate
-        ? cs.tertiary
-        : latestCheckFailed
-        ? cs.error
-        : isKnownUpToDate
-        ? cs.primary
-        : cs.onSurfaceVariant;
-
-    return ListTile(
-      key: canShowSetupHelp
-          ? const ValueKey('settings_bridge_update_setup_tile')
-          : null,
-      leading: Icon(icon, color: iconColor),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      onTap: canShowSetupHelp
-          ? () => _showBridgeUpdateSetupSheet(context)
-          : null,
-      trailing: isUpdating
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : isCheckingLatestBridgeVersion
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : needsUpdate
-          ? FilledButton.tonalIcon(
-              key: const ValueKey('settings_update_bridge_button'),
-              onPressed: onUpdate,
-              icon: const Icon(Icons.system_update, size: 18),
-              label: Text(l.update),
-            )
-          : canShowSetupHelp
-          ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant)
-          : latestCheckFailed
-          ? IconButton(
-              key: const ValueKey('settings_bridge_latest_retry_button'),
-              onPressed: onRefreshLatestVersion,
-              icon: const Icon(Icons.refresh),
-              tooltip: l.bridgeLatestVersionRetry,
-            )
-          : null,
-    );
-  }
-
-  void _showBridgeUpdateSetupSheet(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.bridgeUpdateSetupTitle,
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l.bridgeUpdateSetupDescription,
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 20),
-                  _BridgeUpdateSetupStep(
-                    index: 1,
-                    text: l.bridgeUpdateSetupEnableSsh,
-                  ),
-                  const SizedBox(height: 12),
-                  _BridgeUpdateSetupStep(
-                    index: 2,
-                    text: l.bridgeUpdateSetupRunCommand,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SelectableText(
-                      l.bridgeUpdateSetupCommand,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(fontFamily: 'monospace'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BridgeUpdateSetupStep extends StatelessWidget {
-  final int index;
-  final String text;
-
-  const _BridgeUpdateSetupStep({required this.index, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: cs.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            '$index',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: cs.onPrimaryContainer,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Text(text)),
-      ],
-    );
-  }
-}
-
-class _PushNotificationTile extends StatelessWidget {
-  final SettingsState state;
-  final ValueChanged<bool> onChanged;
-
-  const _PushNotificationTile({required this.state, required this.onChanged});
-
-  static String? _resolveFcmStatus(AppLocalizations l, FcmStatusKey? key) {
-    if (key == null) return null;
-    return switch (key) {
-      FcmStatusKey.unavailable => l.pushNotificationsUnavailable,
-      FcmStatusKey.bridgeNotInitialized => l.fcmBridgeNotInitialized,
-      FcmStatusKey.tokenFailed => l.fcmTokenFailed,
-      FcmStatusKey.registrationFailed => l.fcmRegistrationFailed,
-      FcmStatusKey.enabled => l.fcmEnabled,
-      FcmStatusKey.enabledPending => l.fcmEnabledPending,
-      FcmStatusKey.disabled => l.fcmDisabled,
-      FcmStatusKey.disabledPending => l.fcmDisabledPending,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final baseSubtitle = state.fcmAvailable
-        ? l.pushNotificationsSubtitle
-        : l.pushNotificationsUnavailable;
-    final subtitle = _resolveFcmStatus(l, state.fcmStatusKey) ?? baseSubtitle;
-
-    return SwitchListTile(
-      value: state.fcmEnabled,
-      onChanged: state.fcmSyncInProgress ? null : onChanged,
-      title: Text(l.pushNotifications),
-      subtitle: Text(subtitle),
-      secondary: state.fcmSyncInProgress
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.notifications_active_outlined),
-    );
-  }
-}
-
-class _PushPrivacyTile extends StatelessWidget {
-  final bool value;
-  final bool syncInProgress;
-  final ValueChanged<bool> onChanged;
-
-  const _PushPrivacyTile({
-    required this.value,
-    required this.syncInProgress,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return SwitchListTile(
-      value: value,
-      onChanged: syncInProgress ? null : onChanged,
-      title: Text(l.pushPrivacyMode),
-      subtitle: Text(l.pushPrivacyModeSubtitle),
-      secondary: const Icon(Icons.visibility_off_outlined),
-    );
-  }
-}
-
-class _UpdateNotificationLanguageTile extends StatelessWidget {
-  final bool syncInProgress;
-  final VoidCallback onTap;
-
-  const _UpdateNotificationLanguageTile({
-    required this.syncInProgress,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return ListTile(
-      leading: const Icon(Icons.translate_outlined),
-      title: Text(l.updateNotificationLanguage),
-      trailing: syncInProgress
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.chevron_right, size: 20),
-      onTap: syncInProgress ? null : onTap,
-    );
-  }
-}
-
-class _SpreadAppealMessage extends StatefulWidget {
-  const _SpreadAppealMessage();
-
-  @override
-  State<_SpreadAppealMessage> createState() => _SpreadAppealMessageState();
-}
-
-class _SpreadAppealMessageState extends State<_SpreadAppealMessage> {
-  Future<InAppReviewEligibility>? _eligibilityFuture;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_eligibilityFuture != null) return;
-    final reviewService = context.read<InAppReviewService?>();
-    _eligibilityFuture = reviewService?.getSupportBannerEligibility();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final supportBannerService = context.watch<SupportBannerService?>();
-    if (supportBannerService?.shouldForceShowInDebug ?? false) {
-      return const _SpreadAppealMessageContent();
-    }
-
-    final eligibilityFuture = _eligibilityFuture;
-    if (eligibilityFuture == null) return const SizedBox.shrink();
-
-    return FutureBuilder<InAppReviewEligibility>(
-      future: eligibilityFuture,
-      builder: (context, snapshot) {
-        if (!(snapshot.data?.isEligible ?? false)) {
-          return const SizedBox.shrink();
-        }
-
-        return const _SpreadAppealMessageContent();
-      },
-    );
-  }
-}
-
-class _SpreadAppealMessageContent extends StatelessWidget {
-  const _SpreadAppealMessageContent();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final l = AppLocalizations.of(context);
-    return Column(
-      children: [
-        Padding(
-          key: const ValueKey('spread_appeal_message'),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.campaign_outlined, color: cs.primary, size: 22),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  l.spreadAppealMessage,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant),
-      ],
-    );
-  }
-}
-
-class _TextScaleTile extends StatelessWidget {
-  const _TextScaleTile({required this.value, required this.onChanged});
-
-  final double value;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    final percent = _formatPercent(value);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(Icons.format_size, color: cs.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(l.textDensity)),
-                        Text(
-                          percent,
-                          key: const ValueKey('text_scale_value_label'),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l.textDensityDescription,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Slider(
-            key: const ValueKey('text_scale_slider'),
-            value: value,
-            min: SettingsCubit.minTextScale,
-            max: SettingsCubit.maxTextScale,
-            divisions:
-                ((SettingsCubit.maxTextScale - SettingsCubit.minTextScale) *
-                        100)
-                    .round(),
-            label: percent,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatPercent(double scale) => '${(scale * 100).round()}%';
-}
-
-class _VersionTile extends StatefulWidget {
-  const _VersionTile();
-
-  @override
-  State<_VersionTile> createState() => _VersionTileState();
-}
-
-class _VersionTileState extends State<_VersionTile> {
-  String? _versionText;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVersion();
-  }
-
-  Future<void> _loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    final version = '${info.version}+${info.buildNumber}';
-
-    String result = version;
-    try {
-      final updater = ShorebirdUpdater();
-      final patch = await updater.readCurrentPatch();
-      if (patch != null) {
-        result = '$version (patch ${patch.number})';
-      }
-    } catch (_) {
-      // Shorebird not available (e.g. debug builds)
-    }
-
-    if (mounted) {
-      setState(() => _versionText = result);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-
-    return BlocBuilder<SettingsCubit, SettingsState>(
-      builder: (context, settings) {
-        final trackSuffix = settings.shorebirdTrack != 'stable'
-            ? ' [${settings.shorebirdTrack}]'
-            : '';
-        return ListTile(
-          leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
-          title: Text(l.version),
-          subtitle: Text(
-            _versionText != null ? '$_versionText$trackSuffix' : l.loading,
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Shows a download link when a newer macOS version is available.
-///
-/// Only visible on macOS desktop. Reads from [AppUpdateService.cachedUpdate].
-class _AppUpdateTile extends StatelessWidget {
-  const _AppUpdateTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final update = AppUpdateService.instance.cachedUpdate;
-    if (update == null) return const SizedBox.shrink();
-
-    final cs = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    return ListTile(
-      leading: Icon(Icons.upgrade, color: cs.primary),
-      title: Text(
-        l.appUpdateAvailable(update.latestVersion),
-        style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
-      ),
-      trailing: TextButton(
-        onPressed: () async {
-          await AppUpdateService.instance.performUpdate(update);
-        },
-        child: Text(update.canInstallInApp ? l.update : l.download),
-      ),
-    );
-  }
-}
-
-class _MacOSNativeAppTile extends StatelessWidget {
-  const _MacOSNativeAppTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    return ListTile(
-      key: const ValueKey('macos_native_app_settings_tile'),
-      leading: Icon(Icons.desktop_mac_outlined, color: cs.onSurfaceVariant),
-      title: Text(l.macosNativeAppSettingsTitle),
-      subtitle: Text(l.macosNativeAppSettingsSubtitle),
-      trailing: const Icon(Icons.open_in_new, size: 18),
-      onTap: () => launchUrl(
-        Uri.parse(AppConstants.macOSReleasesUrl),
-        mode: LaunchMode.externalApplication,
-      ),
-    );
-  }
-}
-
-class _PromptHistorySectionSlot extends StatelessWidget {
-  const _PromptHistorySectionSlot({required this.bridgeService});
-
-  final BridgeService bridgeService;
-
-  @override
-  Widget build(BuildContext context) {
-    final promptHistoryService = _readOptional<PromptHistoryService>(context);
-    final machineManagerService = _readOptional<MachineManagerService>(context);
-
-    if (promptHistoryService == null || machineManagerService == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      children: [
-        PromptHistorySection(
-          bridgeService: bridgeService,
-          promptHistoryService: promptHistoryService,
-          machineManagerService: machineManagerService,
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  T? _readOptional<T>(BuildContext context) {
-    try {
-      return context.read<T>();
-    } on ProviderNotFoundException {
-      return null;
-    }
-  }
 }

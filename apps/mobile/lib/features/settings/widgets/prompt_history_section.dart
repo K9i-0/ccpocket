@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
@@ -452,4 +453,39 @@ bool _isBridgeIdLike(String value, String bridgeId) {
 String _shortBridgeId(String value) {
   if (value.length <= 16) return value;
   return '${value.substring(0, 8)}...${value.substring(value.length - 4)}';
+}
+
+class PromptHistorySectionSlot extends StatelessWidget {
+  const PromptHistorySectionSlot({super.key, required this.bridgeService});
+
+  final BridgeService bridgeService;
+
+  @override
+  Widget build(BuildContext context) {
+    final promptHistoryService = _readOptional<PromptHistoryService>(context);
+    final machineManagerService = _readOptional<MachineManagerService>(context);
+
+    if (promptHistoryService == null || machineManagerService == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        PromptHistorySection(
+          bridgeService: bridgeService,
+          promptHistoryService: promptHistoryService,
+          machineManagerService: machineManagerService,
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  T? _readOptional<T>(BuildContext context) {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
 }
