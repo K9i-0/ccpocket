@@ -97,12 +97,39 @@ Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
 void main() async {
   if (!kReleaseMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
-    registerStoreScreenshotExtensions();
-    registerMockPreviewExtensions();
-    registerPerformanceProbeExtensions();
+    registerCcpocketDebugExtensions();
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
+  final bootstrap = await bootstrapCcpocket();
+  runApp(bootstrap.wrap(CcpocketApp(fcmService: bootstrap.fcmService)));
+}
+
+/// Registers the debug-only Marionette extensions (store screenshots, mock
+/// previews, performance probes). Call once, after the Marionette binding.
+void registerCcpocketDebugExtensions() {
+  registerStoreScreenshotExtensions();
+  registerMockPreviewExtensions();
+  registerPerformanceProbeExtensions();
+}
+
+/// Services created once per process by [bootstrapCcpocket].
+class CcpocketBootstrap {
+  const CcpocketBootstrap({required this.fcmService, required this.wrap});
+
+  final FcmService fcmService;
+
+  /// Places the app-wide repository and bloc providers above [child].
+  ///
+  /// Call it once: the providers own the services and dispose them.
+  /// `multi_device_preview` uses it as its wrapper, so every previewed
+  /// [CcpocketApp] shares the same services.
+  final Widget Function(Widget child) wrap;
+}
+
+/// Initializes the services shared by the whole app. The binding must be
+/// initialized first.
+Future<CcpocketBootstrap> bootstrapCcpocket() async {
   MediaKit.ensureInitialized();
   try {
     await BackgroundMediaHandler.initialize();
@@ -203,8 +230,9 @@ void main() async {
     gitStatusCubit: gitStatusCubit,
   );
   unawaited(revenueCatService.initialize());
-  runApp(
-    MultiRepositoryProvider(
+  return CcpocketBootstrap(
+    fcmService: fcmService,
+    wrap: (child) => MultiRepositoryProvider(
       providers: [
         RepositoryProvider.value(value: logger),
         RepositoryProvider<BridgeService>(
@@ -308,7 +336,7 @@ void main() async {
             lazy: false,
           ),
         ],
-        child: CcpocketApp(fcmService: fcmService),
+        child: child,
       ),
     ),
   );
@@ -361,7 +389,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
     if (_routerInitialized) return;
     _routerInitialized = true;
     _appRouter = AppRouter();
-    StoreScreenshotState.navigatorKey = _appRouter.navigatorKey;
+    StoreScreenshotState.navigatorKeys.add(_appRouter.navigatorKey);
     // Navigate to session screen when user taps a notification
     NotificationService.instance.onNotificationTap = (payload) {
       _openSessionFromPayload(payload);
@@ -514,6 +542,9 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   @override
   void dispose() {
+    if (_routerInitialized) {
+      StoreScreenshotState.navigatorKeys.remove(_appRouter.navigatorKey);
+    }
     _lifecycleListener.dispose();
     _linkSub?.cancel();
     _fcmOnMessageSub?.cancel();

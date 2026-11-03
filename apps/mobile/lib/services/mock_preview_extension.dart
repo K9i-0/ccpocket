@@ -33,20 +33,21 @@ void registerMockPreviewExtensions() {
         );
       }
 
-      final navState = StoreScreenshotState.navigatorKey?.currentState;
-      final context = StoreScreenshotState.navigatorKey?.currentContext;
-      if (navState == null || context == null) {
+      final navigators = StoreScreenshotState.navigators;
+      if (navigators.isEmpty) {
         return MarionetteExtensionResult.error(2, 'Navigator not available.');
       }
 
-      final route = buildMockScenarioRoute(context, scenario);
-      if (route == null) {
-        return MarionetteExtensionResult.error(
-          3,
-          'Scenario cannot be opened through automation: $scenarioName',
-        );
+      for (final navState in navigators) {
+        final route = buildMockScenarioRoute(navState.context, scenario);
+        if (route == null) {
+          return MarionetteExtensionResult.error(
+            3,
+            'Scenario cannot be opened through automation: $scenarioName',
+          );
+        }
+        navState.push(route);
       }
-      navState.push(route);
       return MarionetteExtensionResult.success({
         'scenario': scenarioName,
         'status': 'navigated',

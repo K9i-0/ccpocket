@@ -50,9 +50,26 @@ import '../widgets/new_session_sheet.dart';
 class StoreScreenshotState {
   StoreScreenshotState._();
 
-  /// Navigator key from auto_route's AppRouter.
-  /// Set in [_CcpocketAppState._initRouter].
-  static GlobalKey<NavigatorState>? navigatorKey;
+  /// Navigator keys of the running apps' AppRouters, oldest first.
+  ///
+  /// Normally there is one. `multi_device_preview` runs one app per previewed
+  /// device in the same process, and the navigation extensions act on all of
+  /// them. Registered in [_CcpocketAppState._initRouter].
+  static final List<GlobalKey<NavigatorState>> navigatorKeys = [];
+
+  /// The navigators that are currently mounted.
+  static List<NavigatorState> get navigators => [
+    for (final key in navigatorKeys)
+      ?key.currentState,
+  ];
+
+  /// A context below the app-wide providers, for reading shared services.
+  static BuildContext? get context {
+    for (final key in navigatorKeys) {
+      if (key.currentContext case final context?) return context;
+    }
+    return null;
+  }
 
   /// DraftService instance for scenarios that need pre-populated input.
   /// Set in [main] after DraftService creation.
@@ -107,8 +124,8 @@ void registerStoreScreenshotExtensions() {
         );
       }
 
-      final navState = StoreScreenshotState.navigatorKey?.currentState;
-      if (navState == null) {
+      final navigators = StoreScreenshotState.navigators;
+      if (navigators.isEmpty) {
         return MarionetteExtensionResult.error(
           1,
           'Navigator not available yet. Is the app fully initialized?',
@@ -117,7 +134,9 @@ void registerStoreScreenshotExtensions() {
 
       try {
         final draftService = StoreScreenshotState.draftService;
-        navState.push(buildStoreScenarioRoute(scenario, draftService));
+        for (final navState in navigators) {
+          navState.push(buildStoreScenarioRoute(scenario, draftService));
+        }
         return MarionetteExtensionResult.success({
           'scenario': scenario,
           'status': 'navigated',
@@ -132,11 +151,13 @@ void registerStoreScreenshotExtensions() {
     name: 'ccpocket.popToRoot',
     description: 'Pop all routes back to the root screen.',
     callback: (params) async {
-      final navState = StoreScreenshotState.navigatorKey?.currentState;
-      if (navState == null) {
+      final navigators = StoreScreenshotState.navigators;
+      if (navigators.isEmpty) {
         return MarionetteExtensionResult.error(1, 'Navigator not available.');
       }
-      navState.popUntil((route) => route.isFirst);
+      for (final navState in navigators) {
+        navState.popUntil((route) => route.isFirst);
+      }
       return MarionetteExtensionResult.success({'status': 'popped'});
     },
   );
@@ -154,7 +175,7 @@ void registerStoreScreenshotExtensions() {
         );
       }
 
-      final ctx = StoreScreenshotState.navigatorKey?.currentContext;
+      final ctx = StoreScreenshotState.context;
       if (ctx == null) {
         return MarionetteExtensionResult.error(1, 'Context not available.');
       }
@@ -189,7 +210,7 @@ void registerStoreScreenshotExtensions() {
         );
       }
 
-      final ctx = StoreScreenshotState.navigatorKey?.currentContext;
+      final ctx = StoreScreenshotState.context;
       if (ctx == null) {
         return MarionetteExtensionResult.error(1, 'Context not available.');
       }
@@ -212,8 +233,8 @@ void registerStoreScreenshotExtensions() {
         );
       }
 
-      final navState = StoreScreenshotState.navigatorKey?.currentState;
-      if (navState == null) {
+      final navigators = StoreScreenshotState.navigators;
+      if (navigators.isEmpty) {
         return MarionetteExtensionResult.error(
           1,
           'Navigator not available yet.',
@@ -229,14 +250,16 @@ void registerStoreScreenshotExtensions() {
       }
 
       try {
-        navState.push(
-          MaterialPageRoute(
-            builder: (_) => _MockScenarioChatRoute(
-              scenario: scenario,
-              projectPath: params['projectPath'] ?? '/mock/preview',
+        for (final navState in navigators) {
+          navState.push(
+            MaterialPageRoute(
+              builder: (_) => _MockScenarioChatRoute(
+                scenario: scenario,
+                projectPath: params['projectPath'] ?? '/mock/preview',
+              ),
             ),
-          ),
-        );
+          );
+        }
         return MarionetteExtensionResult.success({
           'scenario': name,
           'status': 'navigated',
