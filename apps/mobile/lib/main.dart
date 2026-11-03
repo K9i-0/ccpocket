@@ -183,7 +183,7 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
   // Reads the user-selected track from SharedPreferences and checks for patches
   // in the background. The patch is applied on next app restart.
   // Shorebird OTA is only available on mobile platforms (iOS/Android).
-  if (!kIsWeb && isMobilePlatform) {
+  if (isMobileHost) {
     unawaited(_checkShorebirdUpdate(prefs));
   }
 

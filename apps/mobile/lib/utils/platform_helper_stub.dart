@@ -18,5 +18,8 @@ bool get isIOSPlatform => false;
 /// Whether the current platform is Android.
 bool get isAndroidPlatform => false;
 
+/// Whether the host OS is iOS or Android. False on Web.
+bool get isMobileHost => false;
+
 /// Best-effort system locale name. Unavailable on Web.
 String? getSystemLocaleName() => null;
