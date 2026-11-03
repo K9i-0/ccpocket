@@ -1092,20 +1092,18 @@ packages:
   multi_device_preview:
     dependency: "direct main"
     description:
-      path: "packages/multi_device_preview"
-      ref: d9b6407
-      resolved-ref: d9b6407a840084a701a153bc246af0a6612bb7e3
-      url: "https://github.com/K9i-0/multi_device_preview.git"
-    source: git
+      name: multi_device_preview
+      sha256: d1d6d77c1fad897cb45f9c984f88cfc5e42490b0019d331c145f2c3ed9890213
+      url: "https://pub.dev"
+    source: hosted
     version: "1.2.0"
   multi_device_preview_marionette:
     dependency: "direct main"
     description:
-      path: "packages/multi_device_preview_marionette"
-      ref: d9b6407
-      resolved-ref: d9b6407a840084a701a153bc246af0a6612bb7e3
-      url: "https://github.com/K9i-0/multi_device_preview.git"
-    source: git
+      name: multi_device_preview_marionette
+      sha256: "1a7f9b66ede94ed09b399159fffccf83e8f97c681d64a9d142762a358f7a5a3b"
+      url: "https://pub.dev"
+    source: hosted
     version: "1.1.0"
   native_toolchain_c:
     dependency: transitive

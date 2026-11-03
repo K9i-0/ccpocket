@@ -13,20 +13,7 @@ dependencies:
     sdk: flutter
   marionette_flutter: ^0.7.0
   multi_device_preview: ^1.2.0
-  multi_device_preview_marionette:
-    git:
-      url: https://github.com/K9i-0/multi_device_preview.git
-      path: packages/multi_device_preview_marionette
-      ref: d9b6407
-
-# TODO: drop the git references once multi_device_preview 1.2.0 and
-# multi_device_preview_marionette 1.1.0 are on pub.dev.
-dependency_overrides:
-  multi_device_preview:
-    git:
-      url: https://github.com/K9i-0/multi_device_preview.git
-      path: packages/multi_device_preview
-      ref: d9b6407
+  multi_device_preview_marionette: ^1.1.0
 
 dev_dependencies:
   flutter_test:
