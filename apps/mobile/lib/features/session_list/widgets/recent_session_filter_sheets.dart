@@ -207,6 +207,8 @@ class _RecentProjectPickerSheetState extends State<RecentProjectPickerSheet> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: TextField(
                 key: const ValueKey('project_picker_search'),
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search, size: 18),
@@ -221,6 +223,7 @@ class _RecentProjectPickerSheetState extends State<RecentProjectPickerSheet> {
           Flexible(
             child: ListView(
               shrinkWrap: true,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               children: [
                 ListTile(
                   key: const ValueKey('project_option_all'),
@@ -631,14 +634,16 @@ class _RecentAdvancedSearchSheetState extends State<RecentAdvancedSearchSheet> {
             Flexible(
               child: ListView(
                 shrinkWrap: true,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   label(l.recentKeywords),
                   TextField(
                     key: const ValueKey('advanced_search_query'),
                     controller: _queryController,
-                    // Opened from the search button: start typing right away.
-                    autofocus: widget.searchQuery.isEmpty,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _apply(),
                     decoration: InputDecoration(

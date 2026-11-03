@@ -85,4 +85,58 @@ void main() {
     expect(result?.filters.searchContent, isFalse);
     expect(result?.filters.dateFilter, isNull);
   });
+
+  testWidgets('keyboard opens on tap only and closes on scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
+        theme: AppTheme.lightTheme,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showRecentAdvancedSearch(
+                context: context,
+                searchQuery: '',
+                filters: const RecentSessionFilters(),
+                providerFilter: ProviderFilter.all,
+                providerOptions: ProviderFilter.values,
+                namedOnly: false,
+                supportsAdvancedFilters: true,
+                projects: const [(key: '/w/a', name: 'a')],
+                favoriteProjects: const {},
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    EditableText field() => tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const ValueKey('advanced_search_query')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(field().focusNode.hasFocus, isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('advanced_search_query')));
+    await tester.pumpAndSettle();
+    expect(field().focusNode.hasFocus, isTrue);
+
+    await tester.drag(
+      find.byKey(const ValueKey('advanced_search_content')),
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
+    expect(field().focusNode.hasFocus, isFalse);
+  });
 }
