@@ -2,6 +2,23 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.97.0] - 2026-11-03
+
+### Added
+
+- Filter recent sessions by project, date and pinned status, and search project names, branches and transcript content.
+- Defer queued Claude and Codex input until usage limits reset, preserving limit metadata when sessions reopen.
+
+### Changed
+
+- Speed up recent session filtering and content search with indexed lookups, cached Codex rollouts, a background thread snapshot and byte-based transcript scanning.
+
+### Fixed
+
+- List Codex threads split across rollout segments only once and exclude non-interactive Codex exec rollouts.
+- Search both indexed Claude transcript locations and allow content search to continue beyond the per-request file limit.
+- Keep the first recent session request responsive while the Codex thread snapshot loads.
+
 ## [1.96.0] - 2026-11-02
 
 ### Added
