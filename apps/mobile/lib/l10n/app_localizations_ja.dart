@@ -3653,7 +3653,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get recentNamedOnly => '名前付きのみ';
 
   @override
-  String get recentPinnedOnly => 'ピン留めとお気に入りのみ';
+  String get recentPinnedOnly => 'ピン留めのみ';
 
   @override
   String get recentAiTool => 'AI ツール';

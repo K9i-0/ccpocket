@@ -1506,7 +1506,7 @@
   "recentDateFieldModified": "Last updated",
   "recentDateFieldCreated": "Created",
   "recentNamedOnly": "Named only",
-  "recentPinnedOnly": "Pinned and favorites only",
+  "recentPinnedOnly": "Pinned only",
   "recentAiTool": "AI tool",
   "recentRequiresBridgeUpdate": "Update Bridge to use this",
   "recentMatchedIn": "Matched: {field}",

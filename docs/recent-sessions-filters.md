@@ -4,16 +4,19 @@ The recent session list separates three layers:
 
 1. **Display settings** (rarely changed): List / Grouped, first / last prompt /
    summary. Moved behind a settings button in the section header.
-2. **Quick filters** (chip row, most used first): pinned only, projects
-   (multi-select, favorites first), AI tool, period.
-3. **Advanced search** (full-screen sheet): text query, content (transcript)
-   search, custom date range, created vs. modified, named only, plus the quick
-   filters.
+2. **Quick filters** (chip row, most used first): projects (multi-select,
+   favorites first), AI tool, period, pinned only. Unselected chips use short
+   labels ("Project", "AI tool", "Period") to limit horizontal scrolling.
+3. **Search sheet** (opened by the search button in the section header; there
+   is no inline search field): keyword, content (transcript) search, custom
+   date range, created vs. modified, named only, plus the quick filters. While
+   it holds conditions, an "Advanced n" chip appears after the quick filters.
 
 "Favorite projects" are the existing pinned projects
 (`session_list_pinned_project_paths_v1`). A favorite project is pinned to the
 top in grouped mode, shown first (with "select all favorites") in the project
-picker, and included by the pinned-only filter. List mode stays chronological
+picker. It is not part of the pinned-only filter, which shows pinned
+sessions only (the app does not send `pinnedProjects`). List mode stays chronological
 under date headers, so favorite projects are not reordered there; only pinned
 sessions get the top section.
 

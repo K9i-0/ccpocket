@@ -6866,7 +6866,7 @@ abstract class AppLocalizations {
   /// No description provided for @recentPinnedOnly.
   ///
   /// In ja, this message translates to:
-  /// **'ピン留めとお気に入りのみ'**
+  /// **'ピン留めのみ'**
   String get recentPinnedOnly;
 
   /// No description provided for @recentAiTool.

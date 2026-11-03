@@ -3611,7 +3611,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get recentNamedOnly => '仅已命名';
 
   @override
-  String get recentPinnedOnly => '仅置顶和收藏';
+  String get recentPinnedOnly => '仅已置顶';
 
   @override
   String get recentAiTool => 'AI 工具';

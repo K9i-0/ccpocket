@@ -637,6 +637,8 @@ class _RecentAdvancedSearchSheetState extends State<RecentAdvancedSearchSheet> {
                   TextField(
                     key: const ValueKey('advanced_search_query'),
                     controller: _queryController,
+                    // Opened from the search button: start typing right away.
+                    autofocus: widget.searchQuery.isEmpty,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _apply(),
                     decoration: InputDecoration(
@@ -738,7 +740,7 @@ class _RecentAdvancedSearchSheetState extends State<RecentAdvancedSearchSheet> {
                           ButtonSegment(
                             value: option,
                             label: Text(switch (option) {
-                              ProviderFilter.all => l.allAiTools,
+                              ProviderFilter.all => l.all,
                               ProviderFilter.claude => 'Claude',
                               ProviderFilter.codex => 'Codex',
                             }),

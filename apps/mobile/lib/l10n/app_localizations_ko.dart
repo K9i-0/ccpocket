@@ -3681,7 +3681,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get recentNamedOnly => '이름 있는 세션만';
 
   @override
-  String get recentPinnedOnly => '고정 및 즐겨찾기만';
+  String get recentPinnedOnly => '고정된 세션만';
 
   @override
   String get recentAiTool => 'AI 도구';

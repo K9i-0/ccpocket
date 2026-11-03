@@ -56,17 +56,6 @@ class SessionFilterBar extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final chips = <Widget>[
       _ActionChip(
-        key: const ValueKey('recent_pinned_only_chip'),
-        icon: filters.pinnedOnly ? Icons.push_pin : Icons.push_pin_outlined,
-        label: l.recentFilterPinnedOnly,
-        tooltip: l.recentPinnedOnly,
-        isActive: supportsAdvancedFilters && filters.pinnedOnly,
-        isDisabled: !supportsAdvancedFilters,
-        onTap: supportsAdvancedFilters
-            ? onTogglePinnedOnly
-            : () => showRecentBridgeUpdateHint(context),
-      ),
-      _ActionChip(
         key: const ValueKey('project_filter_chip'),
         icon: Icons.folder_outlined,
         label: _projectLabel(l),
@@ -79,7 +68,9 @@ class SessionFilterBar extends StatelessWidget {
         _DropdownChip<ProviderFilter>(
           anchorKey: const ValueKey('provider_filter_chip'),
           icon: Icons.smart_toy_outlined,
-          label: _providerLabel(l, providerFilter),
+          label: providerFilter == ProviderFilter.all
+              ? l.recentAiTool
+              : _providerLabel(l, providerFilter),
           tooltip: l.tooltipProviderFilter,
           items: [
             for (final option in providerOptions)
@@ -118,14 +109,25 @@ class SessionFilterBar extends StatelessWidget {
           onTap: () => showRecentBridgeUpdateHint(context),
         ),
       _ActionChip(
-        key: const ValueKey('advanced_search_chip'),
-        icon: Icons.manage_search,
-        label: advancedCount > 0
-            ? l.recentAdvancedConditions(advancedCount)
-            : l.recentAdvancedSearch,
-        isActive: advancedCount > 0,
-        onTap: onOpenAdvancedSearch,
+        key: const ValueKey('recent_pinned_only_chip'),
+        icon: filters.pinnedOnly ? Icons.push_pin : Icons.push_pin_outlined,
+        label: l.recentFilterPinnedOnly,
+        tooltip: l.recentPinnedOnly,
+        isActive: supportsAdvancedFilters && filters.pinnedOnly,
+        isDisabled: !supportsAdvancedFilters,
+        onTap: supportsAdvancedFilters
+            ? onTogglePinnedOnly
+            : () => showRecentBridgeUpdateHint(context),
       ),
+      // Only shown while the search sheet holds conditions (keyword, …).
+      if (advancedCount > 0)
+        _ActionChip(
+          key: const ValueKey('advanced_search_chip'),
+          icon: Icons.manage_search,
+          label: l.recentAdvancedConditions(advancedCount),
+          isActive: true,
+          onTap: onOpenAdvancedSearch,
+        ),
       if (onClearFilters != null)
         _ActionChip(
           key: const ValueKey('clear_filters_chip'),
@@ -151,7 +153,7 @@ class SessionFilterBar extends StatelessWidget {
 
   String _projectLabel(AppLocalizations l) {
     final keys = filters.projectKeys;
-    if (keys.isEmpty) return l.allProjects;
+    if (keys.isEmpty) return l.recentMatchProject;
     final names = {for (final p in projects) p.key: p.name};
     final sorted = keys.toList()..sort();
     final first = names[sorted.first] ?? pathBasename(sorted.first);

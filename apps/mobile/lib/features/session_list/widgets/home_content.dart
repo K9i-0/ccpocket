@@ -250,11 +250,12 @@ class HomeContentState extends State<HomeContent> {
   static const _groupRecentSessionsPreferenceKey =
       'session_list_group_recent_sessions';
 
-  bool _isSearching = false;
+  /// Project options from the last build, for opening search from outside
+  /// (iPhone Duo strip, keyboard shortcut).
+  List<RecentProjectOption> _projectOptions = const [];
   bool _updateBannerDismissed = false;
   bool _showSupportBanner = false;
   bool _groupRecentSessions = true;
-  final _searchController = TextEditingController();
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
   RevenueCatService? _revenueCatService;
   VoidCallback? _catalogStateListener;
@@ -388,13 +389,8 @@ class HomeContentState extends State<HomeContent> {
       onToggleFavoriteProject: widget.onToggleProjectPinned,
     );
     if (result == null || !mounted) return;
-    final query = result.searchQuery;
-    setState(() {
-      _isSearching = query.isNotEmpty;
-      _searchController.text = query;
-    });
     _maybeCubit()?.applyAdvancedSearch(
-      searchQuery: query,
+      searchQuery: result.searchQuery,
       filters: result.filters,
       providerFilter: result.providerFilter,
       namedOnly: result.namedOnly,
@@ -402,10 +398,6 @@ class HomeContentState extends State<HomeContent> {
   }
 
   void _clearFilters() {
-    setState(() {
-      _isSearching = false;
-      _searchController.clear();
-    });
     final cubit = _maybeCubit();
     if (cubit != null) {
       cubit.clearFilters();
@@ -417,11 +409,6 @@ class HomeContentState extends State<HomeContent> {
   @override
   void didUpdateWidget(covariant HomeContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 外部から searchQuery がクリアされたら検索UIも閉じる
-    if (widget.searchQuery.isEmpty && oldWidget.searchQuery.isNotEmpty) {
-      setState(() => _isSearching = false);
-      _searchController.clear();
-    }
     // Reset dismiss state when reconnected (new bridgeVersion received)
     if (widget.bridgeVersion != oldWidget.bridgeVersion) {
       _updateBannerDismissed = false;
@@ -437,29 +424,14 @@ class HomeContentState extends State<HomeContent> {
     if (_supportBannerService != null && _supportBannerListener != null) {
       _supportBannerService!.removeListener(_supportBannerListener!);
     }
-    _searchController.dispose();
     super.dispose();
   }
 
-  /// Opens or closes the search field, e.g. from the iPhone Duo strip.
-  void toggleSearch() => _toggleSearch();
+  /// Opens the search sheet, e.g. from the iPhone Duo strip.
+  void toggleSearch() => openSearch();
 
-  void _toggleSearch() {
-    setState(() {
-      _isSearching = !_isSearching;
-      if (!_isSearching) {
-        _searchController.clear();
-        context.read<SessionListCubit>().setSearchQuery('');
-      }
-    });
-  }
-
-  /// Open search field programmatically (e.g. from keyboard shortcut).
-  void openSearch() {
-    if (!_isSearching) {
-      _toggleSearch();
-    }
-  }
+  /// Open the search sheet programmatically (e.g. from keyboard shortcut).
+  void openSearch() => _openAdvancedSearch(_projectOptions);
 
   Widget? _buildAppUpdateBanner() {
     if (widget.appUpdateInfo == null) return null;
@@ -811,8 +783,12 @@ class HomeContentState extends State<HomeContent> {
     final unpinnedListSessions =
         filteredSessions.where((s) => !isRecentPinned(s)).toList()
           ..sort((a, b) => _modifiedMillis(b).compareTo(_modifiedMillis(a)));
+    // Conditions only the search sheet edits (keyword, named only, …).
     final advancedCount =
-        widget.filters.advancedOnlyCount + (widget.namedOnly ? 1 : 0);
+        widget.filters.advancedOnlyCount +
+        (widget.namedOnly ? 1 : 0) +
+        (widget.searchQuery.isNotEmpty ? 1 : 0);
+    _projectOptions = projectOptions;
     final highlightQuery = widget.searchQuery.trim().isEmpty
         ? null
         : widget.searchQuery.trim();
@@ -984,11 +960,13 @@ class HomeContentState extends State<HomeContent> {
                 IconButton(
                   key: const ValueKey('search_button'),
                   icon: Icon(
-                    _isSearching ? Icons.close : Icons.search,
+                    Icons.search,
                     size: 18,
-                    color: appColors.subtleText,
+                    color: widget.searchQuery.isNotEmpty
+                        ? Theme.of(context).colorScheme.primary
+                        : appColors.subtleText,
                   ),
-                  onPressed: _toggleSearch,
+                  onPressed: openSearch,
                   tooltip: l.search,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
@@ -1012,53 +990,6 @@ class HomeContentState extends State<HomeContent> {
               ],
             ),
           ),
-          if (_isSearching) ...[
-            const SizedBox(height: 4),
-            TextField(
-              key: const ValueKey('search_field'),
-              controller: _searchController,
-              autofocus: true,
-              onTapOutside: (_) => FocusScope.of(context).unfocus(),
-              decoration: InputDecoration(
-                hintText: l.searchSessions,
-                prefixIcon: Icon(
-                  Icons.search,
-                  size: 18,
-                  color: appColors.subtleText,
-                ),
-                suffixIcon: IconButton(
-                  key: const ValueKey('search_field_advanced_button'),
-                  icon: Icon(
-                    Icons.manage_search,
-                    size: 20,
-                    color: appColors.subtleText,
-                  ),
-                  tooltip: l.recentAdvancedSearch,
-                  onPressed: () => _openAdvancedSearch(projectOptions),
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: appColors.subtleText.withValues(alpha: 0.3),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: appColors.subtleText.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              style: const TextStyle(fontSize: 14),
-              onChanged: (v) =>
-                  context.read<SessionListCubit>().setSearchQuery(v),
-            ),
-          ],
           const SizedBox(height: 8),
           SessionFilterBar(
             filters: widget.filters.projectKeys.isEmpty

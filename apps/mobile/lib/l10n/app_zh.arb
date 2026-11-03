@@ -1560,7 +1560,7 @@
   "recentDateFieldModified": "最后更新",
   "recentDateFieldCreated": "创建",
   "recentNamedOnly": "仅已命名",
-  "recentPinnedOnly": "仅置顶和收藏",
+  "recentPinnedOnly": "仅已置顶",
   "recentAiTool": "AI 工具",
   "recentRequiresBridgeUpdate": "更新 Bridge 后可用",
   "recentMatchedIn": "匹配：{field}",

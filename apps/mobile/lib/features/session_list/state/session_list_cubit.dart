@@ -505,7 +505,6 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedProjectPaths};
     if (!next.remove(projectPath)) next.add(projectPath);
     emit(state.copyWith(pinnedProjectPaths: next));
-    if (state.filters.pinnedOnly) _requestWithCurrentFilters();
     await _persistStringSet(_pinnedProjectPathsKey, next);
   }
 
@@ -593,9 +592,8 @@ class SessionListCubit extends Cubit<SessionListState> {
             ? 'created'
             : null,
         pinnedOnly: filters.pinnedOnly,
-        pinnedProjectKeys: filters.pinnedOnly
-            ? (state.pinnedProjectPaths.toList()..sort())
-            : const [],
+        // Pinned only means pinned sessions; favorite projects are a
+        // shortcut in the project picker, not part of this filter.
         searchContent: filters.searchContent && state.searchQuery.isNotEmpty,
       ),
     );

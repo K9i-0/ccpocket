@@ -903,7 +903,8 @@ void main() {
       cubit.togglePinnedOnly();
       extra = mockBridge.lastExtraFilters;
       expect(extra.pinnedOnly, isTrue);
-      expect(extra.pinnedProjectKeys, ['project:fav']);
+      // Favorite projects are not part of pinned only.
+      expect(extra.pinnedProjectKeys, isEmpty);
 
       // Content search needs a query.
       cubit.applyAdvancedSearch(

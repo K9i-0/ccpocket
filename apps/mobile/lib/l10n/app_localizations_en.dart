@@ -3798,7 +3798,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recentNamedOnly => 'Named only';
 
   @override
-  String get recentPinnedOnly => 'Pinned and favorites only';
+  String get recentPinnedOnly => 'Pinned only';
 
   @override
   String get recentAiTool => 'AI tool';

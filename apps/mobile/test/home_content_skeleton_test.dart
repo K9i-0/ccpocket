@@ -4,6 +4,7 @@ import 'package:ccpocket/features/session_list/state/recent_session_filters.dart
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
+import 'package:ccpocket/features/session_list/widgets/session_filter_bar.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/offline_pending_action.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -1270,8 +1271,12 @@ void main() {
       );
     });
 
-    testWidgets('pinned, project, AI tool and period come first; display '
-        'settings live behind the header button', (tester) async {
+    testWidgets('project, AI tool, period and pinned come in that order with '
+        'short labels; search and display settings live in the header', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1600, 2400);
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         _buildHomeContent(
           recentSessions: [_session(id: 's1')],
@@ -1285,17 +1290,51 @@ void main() {
       await tester.pumpAndSettle();
 
       double x(String key) => tester.getTopLeft(find.byKey(ValueKey(key))).dx;
-      expect(x('recent_pinned_only_chip'), lessThan(x('project_filter_chip')));
       expect(x('project_filter_chip'), lessThan(x('provider_filter_chip')));
       expect(x('provider_filter_chip'), lessThan(x('period_filter_chip')));
+      expect(x('period_filter_chip'), lessThan(x('recent_pinned_only_chip')));
+      expect(find.text('Project'), findsOneWidget);
+      expect(find.text('AI tool'), findsOneWidget);
+      expect(find.text('Period'), findsOneWidget);
+      // No inline search field and no advanced chip without conditions.
+      expect(find.byKey(const ValueKey('search_field')), findsNothing);
+      expect(find.byKey(const ValueKey('advanced_search_chip')), findsNothing);
       expect(
         find.byKey(const ValueKey('recent_grouping_toggle')),
         findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('recent_display_settings_button')),
-        findsOneWidget,
+
+      await tester.tap(find.byKey(const ValueKey('search_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('advanced_search_query')), findsOne);
+    });
+
+    testWidgets('shows the advanced chip while a keyword is set', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          searchQuery: 'needle',
+          supportsAdvancedFilters: true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
       );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('advanced_search_chip')),
+        100,
+        scrollable: find
+            .descendant(
+              of: find.byType(SessionFilterBar),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Advanced 1'), findsOneWidget);
     });
 
     testWidgets('project picker supports multi-select with favorites', (

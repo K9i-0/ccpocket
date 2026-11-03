@@ -1555,7 +1555,7 @@
   "recentDateFieldModified": "最終更新",
   "recentDateFieldCreated": "作成",
   "recentNamedOnly": "名前付きのみ",
-  "recentPinnedOnly": "ピン留めとお気に入りのみ",
+  "recentPinnedOnly": "ピン留めのみ",
   "recentAiTool": "AI ツール",
   "recentRequiresBridgeUpdate": "Bridge を更新すると使えます",
   "recentMatchedIn": "一致: {field}",
