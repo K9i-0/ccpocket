@@ -1,0 +1,280 @@
+PODS:
+  - app_links (6.4.1):
+    - FlutterMacOS
+  - audio_service (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - audio_session (0.0.1):
+    - FlutterMacOS
+  - bonsoir_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - CwlCatchException (2.2.1):
+    - CwlCatchExceptionSupport (~> 2.2.1)
+  - CwlCatchExceptionSupport (2.2.1)
+  - device_info_plus (0.0.1):
+    - FlutterMacOS
+  - file_selector_macos (0.0.1):
+    - FlutterMacOS
+  - Firebase/CoreOnly (12.19.3):
+    - FirebaseCore (~> 12.19.3)
+  - Firebase/Messaging (12.19.3):
+    - Firebase/CoreOnly
+    - FirebaseMessaging (~> 12.19.0)
+  - firebase_core (4.15.2):
+    - Firebase/CoreOnly (~> 12.19.3)
+    - FlutterMacOS
+  - firebase_messaging (16.7.1):
+    - Firebase/CoreOnly (~> 12.19.3)
+    - Firebase/Messaging (~> 12.19.3)
+    - firebase_core
+    - FlutterMacOS
+  - FirebaseCore (12.19.3):
+    - FirebaseCoreInternal (~> 12.19.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Logger (~> 8.1)
+  - FirebaseCoreInternal (12.19.0):
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseInstallations (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - PromisesObjC (~> 2.4)
+  - FirebaseMessaging (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - FirebaseInstallations (~> 12.19.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Reachability (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - nanopb (~> 3.30910.0)
+  - flutter_local_notifications (0.0.1):
+    - FlutterMacOS
+  - flutter_secure_storage_darwin (10.0.0):
+    - Flutter
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - GoogleDataTransport (10.1.1):
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
+  - GoogleUtilities/AppDelegateSwizzler (8.1.5):
+    - GoogleUtilities/Environment
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Network
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Environment (8.1.5):
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Logger (8.1.5):
+    - GoogleUtilities/Environment
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Network (8.1.5):
+    - GoogleUtilities/Logger
+    - "GoogleUtilities/NSData+zlib"
+    - GoogleUtilities/Privacy
+    - GoogleUtilities/Reachability
+  - "GoogleUtilities/NSData+zlib (8.1.5)":
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Privacy (8.1.5)
+  - GoogleUtilities/Reachability (8.1.5):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/UserDefaults (8.1.5):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - in_app_review (2.0.0):
+    - FlutterMacOS
+  - irondash_engine_context (0.0.1):
+    - FlutterMacOS
+  - media_kit_libs_macos_video (1.0.4):
+    - FlutterMacOS
+  - media_kit_video (0.0.1):
+    - FlutterMacOS
+  - mobile_scanner (7.0.0):
+    - Flutter
+    - FlutterMacOS
+  - nanopb (3.30910.0):
+    - nanopb/decode (= 3.30910.0)
+    - nanopb/encode (= 3.30910.0)
+  - nanopb/decode (3.30910.0)
+  - nanopb/encode (3.30910.0)
+  - package_info_plus (0.0.1):
+    - FlutterMacOS
+  - pdfium_flutter (0.4.1):
+    - Flutter
+    - FlutterMacOS
+  - PromisesObjC (2.4.1)
+  - purchases_flutter (10.19.0):
+    - FlutterMacOS
+    - PurchasesHybridCommon (= 19.17.0)
+  - PurchasesHybridCommon (19.17.0):
+    - RevenueCat (= 5.99.0)
+  - RevenueCat (5.99.0)
+  - share_plus (0.0.1):
+    - FlutterMacOS
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - speech_to_text (7.2.0):
+    - CwlCatchException
+    - Flutter
+    - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
+  - super_native_extensions (0.0.1):
+    - FlutterMacOS
+  - url_launcher_macos (0.0.1):
+    - FlutterMacOS
+  - wakelock_plus (0.0.1):
+    - FlutterMacOS
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
+  - audio_service (from `Flutter/ephemeral/.symlinks/plugins/audio_service/darwin`)
+  - audio_session (from `Flutter/ephemeral/.symlinks/plugins/audio_session/macos`)
+  - bonsoir_darwin (from `Flutter/ephemeral/.symlinks/plugins/bonsoir_darwin/darwin`)
+  - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
+  - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
+  - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
+  - firebase_messaging (from `Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos`)
+  - flutter_local_notifications (from `Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos`)
+  - flutter_secure_storage_darwin (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - in_app_review (from `Flutter/ephemeral/.symlinks/plugins/in_app_review/macos`)
+  - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
+  - media_kit_libs_macos_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos`)
+  - media_kit_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos`)
+  - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin`)
+  - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
+  - pdfium_flutter (from `Flutter/ephemeral/.symlinks/plugins/pdfium_flutter/darwin`)
+  - purchases_flutter (from `Flutter/ephemeral/.symlinks/plugins/purchases_flutter/macos`)
+  - share_plus (from `Flutter/ephemeral/.symlinks/plugins/share_plus/macos`)
+  - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - speech_to_text (from `Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin`)
+  - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
+  - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
+  - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+  - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
+  - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
+
+SPEC REPOS:
+  trunk:
+    - CwlCatchException
+    - CwlCatchExceptionSupport
+    - Firebase
+    - FirebaseCore
+    - FirebaseCoreInternal
+    - FirebaseInstallations
+    - FirebaseMessaging
+    - GoogleDataTransport
+    - GoogleUtilities
+    - nanopb
+    - PromisesObjC
+    - PurchasesHybridCommon
+    - RevenueCat
+
+EXTERNAL SOURCES:
+  app_links:
+    :path: Flutter/ephemeral/.symlinks/plugins/app_links/macos
+  audio_service:
+    :path: Flutter/ephemeral/.symlinks/plugins/audio_service/darwin
+  audio_session:
+    :path: Flutter/ephemeral/.symlinks/plugins/audio_session/macos
+  bonsoir_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/bonsoir_darwin/darwin
+  device_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
+  file_selector_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
+  firebase_core:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_core/macos
+  firebase_messaging:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos
+  flutter_local_notifications:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos
+  flutter_secure_storage_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  in_app_review:
+    :path: Flutter/ephemeral/.symlinks/plugins/in_app_review/macos
+  irondash_engine_context:
+    :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
+  media_kit_libs_macos_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos
+  media_kit_video:
+    :path: Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos
+  mobile_scanner:
+    :path: Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin
+  package_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos
+  pdfium_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/pdfium_flutter/darwin
+  purchases_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/purchases_flutter/macos
+  share_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/share_plus/macos
+  shared_preferences_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
+  speech_to_text:
+    :path: Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin
+  sqflite_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin
+  super_native_extensions:
+    :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
+  url_launcher_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+  wakelock_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos
+  webview_flutter_wkwebview:
+    :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
+
+SPEC CHECKSUMS:
+  app_links: 05a6ec2341985eb05e9f97dc63f5837c39895c3f
+  audio_service: aa99a6ba2ae7565996015322b0bb024e1d25c6fd
+  audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
+  bonsoir_darwin: 14bd7429acb51db6a8e51f6574ac3b1ea0037a87
+  CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
+  CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
+  device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
+  file_selector_macos: 3af0fddc391c32a6a3956a7d3898ca3a86057a4f
+  Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
+  firebase_core: 5485e8b7b603b68dc2ea8137f392820ba7550274
+  firebase_messaging: e38ff1fabf0861df7525c56cf43d6780031c86f5
+  FirebaseCore: ab948de5d99e69aeed3cd6f5ace263ce795b2559
+  FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
+  FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
+  FirebaseMessaging: c15f48126adbe8b4d3238a5e1fa24bab3ad3e472
+  flutter_local_notifications: 4bf37a31afde695b56091b4ae3e4d9c7a7e6cda0
+  flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
+  GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
+  in_app_review: 66e7680752b632d83f4f0e88b34d52ed303fbff4
+  irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
+  media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65
+  media_kit_video: fa6564e3799a0a28bff39442334817088b7ca758
+  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
+  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  package_info_plus: f0052d280d17aa382b932f399edf32507174e870
+  pdfium_flutter: 40fe1ba3e38784900c4e1dfc5b2bb391beb7b1e6
+  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
+  purchases_flutter: b218e775bb240617eba131a2a73099ea3b24ba32
+  PurchasesHybridCommon: 46a92170257b674766b5ed5366be53c9d1603bbd
+  RevenueCat: 8e91d216b71708bb2c97be0aa86f47bfdb450655
+  share_plus: 510bf0af1a42cd602274b4629920c9649c52f4cc
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
+  url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
+  wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
+
+PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
+
+COCOAPODS: 1.16.2

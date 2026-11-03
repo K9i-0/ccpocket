@@ -1,0 +1,58 @@
+name: ccpocket_preview
+description: "Runs ccpocket on several devices side by side on macOS (multi_device_preview)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  ccpocket:
+    path: ../mobile
+  flutter:
+    sdk: flutter
+  marionette_flutter: ^0.7.0
+  multi_device_preview: ^1.2.0
+  multi_device_preview_marionette:
+    git:
+      url: https://github.com/K9i-0/multi_device_preview.git
+      path: packages/multi_device_preview_marionette
+      ref: d9b6407
+
+# TODO: drop the git references once multi_device_preview 1.2.0 and
+# multi_device_preview_marionette 1.1.0 are on pub.dev.
+dependency_overrides:
+  multi_device_preview:
+    git:
+      url: https://github.com/K9i-0/multi_device_preview.git
+      path: packages/multi_device_preview
+      ref: d9b6407
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  config:
+    # Same as apps/mobile: speech_to_text needs CocoaPods on macOS.
+    enable-swift-package-manager: false
+  assets:
+    - shorebird.yaml
+    - assets/icon.png
+    - assets/icon_light_outline.png
+    - assets/icon_pro_copper_emerald.png
+    - assets/docs/
+    - assets/store/
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/code/JetBrainsMono-Regular.ttf
+    - family: IoskeleyMono
+      fonts:
+        - asset: assets/fonts/code/IoskeleyMono-Regular.ttf
+    - family: DejaVuSansMono
+      fonts:
+        - asset: assets/fonts/code/DejaVuSansMono.ttf
+  uses-material-design: true
+

@@ -21,7 +21,9 @@ Serve it with `python3 -m http.server 8900 --bind 127.0.0.1 --directory /private
 ## Phone sequence
 
 All raw phone captures live in `en-US/`, at 1206×2622, using the English dark
-UI on iPhone 17 Pro. The frame and headline are localized into English,
+UI on iPhone 17 Pro. They are captured, with the Duo and iPad sets, from
+[`apps/mobile_preview`](../../../mobile_preview/README.md) by
+`scripts/store-preview/capture.mjs` (multi_device_preview on macOS). The frame and headline are localized into English,
 Japanese, Simplified Chinese, and Korean. Final phone cards are 1320×2868.
 
 | File | Actual preview scenario | Source |
@@ -42,8 +44,8 @@ control strip and are composed with the same Mint headlines at the
 
 LP capture instructions and media fixture limitations are in
 [`scripts/landing-preview/README.md`](../../../../scripts/landing-preview/README.md).
-The five existing iPad workspace captures are retained and recomposed with Mint
-headlines; their final size is 2752×2064. They represent iPad, not macOS.
+The five iPad workspace captures (iPad Pro 13" M5 in landscape, light theme)
+are composed with Mint headlines; their final size is 2752×2064. They represent iPad, not macOS.
 
 ## Outputs
 

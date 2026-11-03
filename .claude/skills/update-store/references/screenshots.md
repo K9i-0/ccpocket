@@ -2,9 +2,29 @@
 
 コマンドはリポジトリルート基準。撮影は指定されたデバイスだけを対象とする。構成・見出し文言・出力先の正本は [apps/mobile/fastlane/screenshots/README.md](../../../../apps/mobile/fastlane/screenshots/README.md) と `compose.sh`。この手順と食い違う場合はそちらに合わせて更新する。
 
-2026-11-02 に Xcode 27.2 / iOS 27.2 シミュレーターで全手順（iPhone 8枚・iPad 5枚・compose.sh）を通して確認済み。
+## 既定: macOS のプレビューで一括撮影
 
-## 前提
+[apps/mobile_preview](../../../../apps/mobile_preview/README.md) は [multi_device_preview](https://pub.dev/packages/multi_device_preview) で ccpocket を iPhone 17 Pro・iPhone Duo（閉）・iPad Pro 13-inch (M5)（横）の3台に並べて動かす macOS アプリ。1回の遷移で3台が同じシナリオを表示し、各端末の画面をストアの解像度（1206x2622 / 1398x2034 / 2752x2064、アルファなし、ステータスバー 9:41）で保存する。シミュレーター・言語設定・権限ダイアログ・iPad の回転は不要。2026-11-03 に全29枚と compose.sh を通して確認済み。
+
+```bash
+bash scripts/landing-preview/prepare.sh
+node scripts/landing-preview/serve.mjs &                # LP Video / Audio のメディア。PIDを控える
+cd apps/mobile_preview
+flutter run -d macos --debug --pid-file /tmp/mdp-run.pid > /tmp/mdp-run.log 2>&1 &
+grep "Dart VM Service" /tmp/mdp-run.log                 # 起動を待ち、さらに数秒（初期化）待つ
+cd ../..
+node scripts/store-preview/capture.mjs ws://127.0.0.1:<port>/<token>=/ws   # --only iphone|ipad で絞れる
+```
+
+- `capture.mjs` が下の表の全シナリオを開き、iPhone・Duo はダーク、iPad はライトで `en-US/` に保存し、最後にテーマと言語を system に戻す。
+- プレビューのウィンドウは前面に出しておく（macOS は隠れたウィンドウを描画しないため、保存が失敗する）。
+- hot restart はしない。media_kit（mpv）が破棄中に落ちてアプリごと終了することがある。コードを変えたら `flutter run` からやり直す。
+- 端末内の判定は iOS として振る舞う（`debugDefaultTargetPlatformOverride`）。ネイティブ機能（通知・Keychain など）は macOS のものになるが、ストア用シナリオは使わない。
+- 撮影後は「5. 解像度の確認」以降（compose.sh・目視）に進む。ステータスバーは電池 76%・セルラー表示ありで固定（シミュレーター撮影の 100%・Wi-Fi のみとは異なる）、画面下にホームインジケーターが写る。
+
+以下のシミュレーター手順は、プレビューで再現できない表示（ネイティブUI・キーボードなど）を撮るときの代替。2026-11-02 に Xcode 27.2 / iOS 27.2 で全手順を確認済み。
+
+## 前提（シミュレーター）
 
 - debug ビルド（iOSシミュレーターは profile 不可）。ストア用 `ccpocket.navigateToStoreScenario` と LP 用 `ccpocket.mock.openScenario` は debug でのみ登録される。
 - Marionette MCP の `call_custom_extension` と `tap`。
@@ -208,7 +228,7 @@ bash apps/mobile/fastlane/screenshots/compose.sh
 
 ## 8. 後片付け
 
-自分が起動したものだけを止める。
+自分が起動したものだけを止める。プレビューで撮った場合は `kill $(cat /tmp/mdp-run.pid)` とメディアサーバーの停止だけでよい。
 
 ```bash
 kill $(cat /tmp/ss-run.pid)          # flutter run
