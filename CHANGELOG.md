@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.155.1] - 2026-11-03
+
+### Fixed
+
+- Build the iOS app with the iOS 27 SDK so iPhone Duo uses its control strip instead of compatibility mode.
+
+### Changed
+
+- Refresh the App Store, Google Play and iPhone Duo screenshots.
+
 ## [1.155.0] - 2026-11-03
 
 ### Added
