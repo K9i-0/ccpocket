@@ -115,6 +115,10 @@ export function isAgentBackgroundTask(task: BackgroundTaskInfo): boolean {
 }
 
 export interface QueuedInputItem {
+  clientMessageId?: string;
+  waitingForUsageLimit?: boolean;
+  /** ISO reset time when this input is waiting for a usage limit. */
+  retryAt?: string;
   itemId: string;
   text: string;
   createdAt: string;

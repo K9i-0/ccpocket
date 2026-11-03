@@ -247,6 +247,10 @@ vi.mock("./session.js", () => ({
       return this.sessions.get(id);
     }
 
+    isUsageLimited(id: string) {
+      return (this.sessions.get(id)?.usageLimitUntil ?? 0) > Date.now();
+    }
+
     queueInput(id: string, input: any) {
       const session = this.sessions.get(id);
       if (!session || session.queuedInput) {
@@ -11300,6 +11304,25 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         JSON.parse(c[0] as string),
       );
     }
+
+    it.each(["claude", "codex"])("queues %s input during a usage limit even with steer selected", async (provider) => {
+      const { bridge, ws, sessionId, session } = await startBusyClaude();
+      session.provider = provider;
+      session.process.isTurnActive = false;
+      session.process.isWaitingForInput = true;
+      session.usageLimitUntil = Date.now() + 3600000;
+      session.process.sendInputStructured = vi.fn();
+      session.process.steerInput = vi.fn();
+      await (bridge as any).handleClientMessage({
+        type: "input", sessionId, text: "after limit", clientMessageId: "limit-1", delivery: "steer",
+      }, ws);
+      expect(session.queuedInput).toMatchObject({ text: "after limit", clientMessageId: "limit-1" });
+      expect(session.process.dispatchInput).not.toHaveBeenCalled();
+      expect(session.process.sendInputStructured).not.toHaveBeenCalled();
+      expect(session.process.steerInput).not.toHaveBeenCalled();
+      expect(sent(ws).find((m: any) => m.type === "input_ack")).toMatchObject({ queued: true });
+      bridge.close();
+    });
 
     it("holds queue delivery without interrupting the turn", async () => {
       const { bridge, ws, sessionId, session } = await startBusyClaude();

@@ -1196,6 +1196,128 @@ describe("SessionManager codex path", () => {
     expect(manager.releaseDeferredProcessMessages(sessionId)).toBe(false);
   });
 
+  describe("usage-limit queue", () => {
+    beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-03T00:00:00Z")); });
+    afterEach(() => vi.useRealTimers());
+    function setup(provider: "claude" | "codex") {
+      const forwarded: ServerMessage[] = [];
+      const manager = new SessionManager((_, message) => forwarded.push(message));
+      const id = manager.create("/tmp/limited", undefined, undefined, undefined, provider);
+      const proc = (provider === "codex" ? codexInstances.at(-1) : sdkInstances.at(-1)) as any;
+      proc.isWaitingForInput = true;
+      proc.readUsageLimitResetAt = vi.fn(async () => undefined);
+      const send = provider === "codex" ? proc.sendInputStructured : proc.dispatchInput;
+      const input = { itemId: "queued-limit", text: "continue", clientMessageId: "cm-limit", createdAt: new Date().toISOString() };
+      return { manager, id, proc, send, input, forwarded };
+    }
+
+    it.each(["claude", "codex"] as const)("holds %s input until reset, then sends the edited input exactly once", async (provider) => {
+      const { manager, id, proc, send, input, forwarded } = setup(provider);
+      const reset = Date.now() + 3600000;
+      proc.emit("usage_limit", reset);
+      expect(manager.queueInput(id, input)).toBe(true);
+      proc.emit("input_ready");
+      expect(manager.summary(id)?.queuedInput?.retryAt).toBe(new Date(reset).toISOString());
+      expect(await manager.steerQueuedInput(id, input.itemId)).toMatchObject({ ok: false });
+      manager.updateQueuedInput(id, input.itemId, "edited");
+      await vi.advanceTimersByTimeAsync(3599999);
+      expect(send).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      proc.emit("input_ready");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0][0]).toBe("edited");
+      expect(manager.get(id)?.queuedInput).toBeUndefined();
+      expect(forwarded.filter(m => m.type === "user_input")).toHaveLength(1);
+      manager.destroy(id);
+    });
+
+    it.each(["claude", "codex"] as const)("queues %s steer input and retains a pre-existing queue when the limit arrives", async (provider) => {
+      const { manager, id, proc, send, input } = setup(provider);
+      manager.queueInput(id, input);
+      proc.emit("usage_limit", Date.now() + 60000);
+      proc.emit("input_ready");
+      expect(send).not.toHaveBeenCalled();
+      expect(await manager.steerInput(id, { ...input, itemId: "second" })).toBe("rejected");
+      manager.cancelQueuedInput(id, input.itemId);
+      expect(await manager.steerInput(id, { ...input, itemId: "second" })).toBe("queued");
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(send).toHaveBeenCalledTimes(1);
+      manager.destroy(id);
+    });
+
+    it.each(["cancel", "destroy", "exit"])("does not send after %s", async (action) => {
+      const { manager, id, proc, send, input } = setup("codex");
+      proc.emit("usage_limit", Date.now() + 60000);
+      manager.queueInput(id, input);
+      if (action === "cancel") manager.cancelQueuedInput(id, input.itemId);
+      else if (action === "destroy") manager.destroy(id);
+      else proc.emit("exit");
+      await vi.advanceTimersByTimeAsync(120000);
+      expect(send).not.toHaveBeenCalled();
+      manager.destroy(id);
+    });
+
+    it("waits for input readiness if the reset happens during another turn", async () => {
+      const { manager, id, proc, send, input } = setup("codex");
+      proc.emit("usage_limit", Date.now() + 60000);
+      manager.queueInput(id, input);
+      proc.isWaitingForInput = false;
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(send).not.toHaveBeenCalled();
+      proc.isWaitingForInput = true;
+      proc.emit("input_ready");
+      expect(send).toHaveBeenCalledTimes(1);
+      manager.destroy(id);
+    });
+
+    it("keeps unknown limits queued when usage fails and sends only after confirmation", async () => {
+      const { manager, id, proc, send, input } = setup("claude");
+      proc.readUsageLimitResetAt.mockRejectedValueOnce(new Error("offline"));
+      proc.emit("usage_limit");
+      manager.queueInput(id, input);
+      expect(manager.summary(id)?.queuedInput).toMatchObject({ waitingForUsageLimit: true });
+      expect(manager.summary(id)?.queuedInput?.retryAt).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(send).not.toHaveBeenCalled();
+      expect(manager.get(id)?.queuedInput).toBeDefined();
+      proc.readUsageLimitResetAt.mockResolvedValueOnce(Date.now() + 3600000);
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(send).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(3540000);
+      expect(send).toHaveBeenCalledTimes(1);
+      manager.destroy(id);
+    });
+
+    it("keeps a newer rejection while a reset lookup is in flight", async () => {
+      const { manager, id, proc, send, input } = setup("codex");
+      let resolve!: (value: undefined) => void;
+      proc.readUsageLimitResetAt.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+      proc.emit("usage_limit");
+      manager.queueInput(id, input);
+      await vi.advanceTimersByTimeAsync(60000);
+      proc.emit("usage_limit");
+      resolve(undefined);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(send).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(send).toHaveBeenCalledTimes(1);
+      manager.destroy(id);
+    });
+
+    it("re-arms longer limits without overflowing Node timers", async () => {
+      const { manager, id, proc, send, input } = setup("codex");
+      proc.emit("usage_limit");
+      manager.queueInput(id, input);
+      const day = 86400000;
+      proc.emit("usage_limit", Date.now() + 40 * day);
+      await vi.advanceTimersByTimeAsync(30 * day);
+      expect(send).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(10 * day);
+      expect(send).toHaveBeenCalledTimes(1);
+      manager.destroy(id);
+    });
+  });
+
   it("drains queued codex input when the process becomes ready", () => {
     const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
     const manager = new SessionManager((sessionId, msg) => {

@@ -3139,3 +3139,45 @@ describe("SdkProcess pending permission cleanup", () => {
     expect(proc.getPendingPermissions()).toEqual([]);
   });
 });
+
+
+describe("SdkProcess usage-limit notifications", () => {
+  it("reports rejected resets before input readiness and ignores warnings", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "subscription";
+    internal._status = "running";
+    const events: Array<[string, number?]> = [];
+    const reset = Math.floor(Date.now() / 1000) + 3600;
+    proc.on("usage_limit", (at) => events.push(["limit", at]));
+    proc.on("input_ready", () => events.push(["ready"]));
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield { type: "rate_limit_event", rate_limit_info: { status: "allowed_warning", resetsAt: reset } };
+        yield { type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: reset } };
+        yield { type: "result", subtype: "success", session_id: "test", duration_ms: 1 };
+      },
+    };
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+    expect(events).toEqual([["limit", reset * 1000], ["ready"]]);
+  });
+
+  it("resolves a rate_limit assistant error through the SDK usage control method", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "subscription";
+    const resets: Array<number | undefined> = [];
+    proc.on("usage_limit", (at) => resets.push(at));
+    const reset = new Date(Date.now() + 3600000).toISOString();
+    internal.queryInstance = {
+      usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: vi.fn(async () => ({ rate_limits_available: true, rate_limits: { five_hour: { utilization: 100, resets_at: reset } } })),
+      async *[Symbol.asyncIterator]() {
+        yield { type: "assistant", error: "rate_limit", message: { role: "assistant", content: [{ type: "text", text: "Limit reached" }] } };
+        await Promise.resolve();
+        yield { type: "result", subtype: "success", session_id: "test", duration_ms: 1 };
+      },
+    };
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+    expect(resets).toEqual([undefined, Date.parse(reset)]);
+  });
+});

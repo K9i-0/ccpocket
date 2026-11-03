@@ -2579,6 +2579,18 @@ abstract class AppLocalizations {
   /// **'送信確認中'**
   String get queuedInputPendingDelivery;
 
+  /// No description provided for @queuedInputWaitingForUsageLimit.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用上限の解除待ち · 解除時刻を確認中'**
+  String get queuedInputWaitingForUsageLimit;
+
+  /// No description provided for @queuedInputForUsageLimit.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用上限の解除待ち · {time} に送信予定'**
+  String queuedInputForUsageLimit(String time);
+
   /// No description provided for @queuedInputForNextTurn.
   ///
   /// In ja, this message translates to:

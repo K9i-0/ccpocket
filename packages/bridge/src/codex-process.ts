@@ -1,5 +1,6 @@
 import { readCodexAppServerMode } from "./codex-app-server-config.js";
-import { CodexRecovery } from "./codex-recovery.js";
+import { codexUsageResetAt } from "./usage-limit.js";
+import { CodexRecovery, rateLimitFailure } from "./codex-recovery.js";
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
 import { realpathSync, statSync } from "node:fs";
@@ -68,6 +69,7 @@ export interface CodexProcessEvents {
   status: [ProcessStatus];
   exit: [number | null];
   input_ready: [];
+  usage_limit: [retryAt?: number];
 }
 
 interface PendingInput {
@@ -626,6 +628,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       return resets.length ? Math.max(...resets) : undefined;
     },
   });
+
+  async readUsageLimitResetAt(): Promise<number | undefined> {
+    const response = await this.readRateLimits(3_000);
+    const limits = response.rateLimitsByLimitId?.codex ?? response.rateLimits;
+    if (!limits?.primary && !limits?.secondary) throw new Error("Codex usage is unavailable");
+    return codexUsageResetAt(response);
+  }
+
+  private reportUsageLimit(error: unknown): void {
+    const failure = rateLimitFailure(error);
+    if (!failure) return;
+    this.emit("usage_limit", failure.retryAt);
+    void this.readUsageLimitResetAt().then((reset) => {
+      if (reset && !this.stopped) this.emit("usage_limit", reset);
+    }).catch(() => { /* Keep the error timestamp or conservative retry. */ });
+  }
 
   getRecoveryState() { return this.recovery.state; }
   setRecoveryEnabled(enabled: boolean): void { this.recovery.setEnabled(enabled); }
@@ -2794,6 +2812,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         // Only a confirmed turn/start rejection can replay original attachments.
         if (err instanceof CodexRpcError && !this.inputTurnStarted && !this.pendingTurnId) startFailure = err;
         if (!this.stopped) {
+          this.reportUsageLimit(err);
           const message = err instanceof Error ? err.message : String(err);
           this.emitMessage({ type: "error", message });
           this.emitMessage({
@@ -3428,6 +3447,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           (!this.pendingTurnId || !turn?.id || turn.id === this.pendingTurnId)) {
         this.upstreamWillRetry = false;
         this.recoveryFailure = errorObj;
+        this.reportUsageLimit(errorObj);
       }
       const message =
         typeof errorObj?.message === "string"

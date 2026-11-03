@@ -3935,9 +3935,10 @@ export class BridgeWebSocketServer {
               : isAgentBusySnapshot;
         // Older clients omit `delivery`: Codex queues and Claude keeps the
         // legacy interrupt-and-send path below.
+        const usageLimited = this.sessionManager.isUsageLimited(session.id);
         const holdForDelivery =
-          turnActive &&
-          (delivery !== undefined || session.provider === "codex");
+          usageLimited || (turnActive &&
+          (delivery !== undefined || session.provider === "codex"));
 
         if (holdForDelivery) {
           const pendingInput: QueuedSessionInput = {
@@ -3955,7 +3956,7 @@ export class BridgeWebSocketServer {
           };
 
           let outcome: "steered" | "queued" | "rejected";
-          if (delivery === "steer") {
+          if (delivery === "steer" && !usageLimited) {
             outcome = await this.sessionManager.steerInput(
               session.id,
               pendingInput,

@@ -211,6 +211,104 @@ void main() {
   }
 
   group('ChatSessionCubit', () {
+    test(
+      'Claude SDK-internal queued ack retains its optimistic bubble',
+      () async {
+        mockBridge.inputDelivery = true;
+        final cubit = createCubit('s1', provider: Provider.claude);
+        addTearDown(cubit.close);
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.idle),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        await cubit.sendMessage('Normal SDK input');
+        final payload = jsonDecode(
+          mockBridge.sentMessages.last.toJson(),
+        ) as Map<String, dynamic>;
+        mockBridge.emitMessage(
+          InputAckMessage(
+            sessionId: 's1',
+            clientMessageId: payload['clientMessageId'] as String,
+            queued: true,
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(
+          cubit.state.entries.whereType<UserChatEntry>().single.text,
+          'Normal SDK input',
+        );
+        expect(cubit.state.queuedInput, isNull);
+      },
+    );
+
+    for (final provider in [Provider.claude, Provider.codex]) {
+      test(
+        '$provider idle input moves into usage-limit queue and is echoed once',
+        () async {
+          mockBridge.inputDelivery = true;
+          final cubit = createCubit('s1', provider: provider);
+          addTearDown(cubit.close);
+          await pumpEventQueue();
+          mockBridge.emitMessage(
+            const StatusMessage(status: ProcessStatus.idle),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+          await cubit.sendMessage('After limit', delivery: InputDelivery.steer);
+          final payload = jsonDecode(
+            mockBridge.sentMessages.last.toJson(),
+          ) as Map<String, dynamic>;
+          final clientId = payload['clientMessageId'] as String;
+          expect(cubit.state.entries.whereType<UserChatEntry>(), hasLength(1));
+          mockBridge.emitMessage(
+            ConversationQueueMessage(
+              sessionId: 's1',
+              limit: 1,
+              items: [
+                QueuedInputItem(
+                  itemId: 'limit-1',
+                  clientMessageId: clientId,
+                  waitingForUsageLimit: true,
+                  text: 'After limit',
+                  createdAt: '2026-11-03T00:00:00Z',
+                  retryAt: '2026-11-03T02:40:00Z',
+                ),
+              ],
+            ),
+            sessionId: 's1',
+          );
+          mockBridge.emitMessage(
+            InputAckMessage(
+              sessionId: 's1',
+              clientMessageId: clientId,
+              queued: true,
+            ),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+          expect(cubit.state.entries.whereType<UserChatEntry>(), isEmpty);
+          expect(cubit.state.queuedInput?.retryAt, '2026-11-03T02:40:00Z');
+          mockBridge.emitMessage(
+            const ConversationQueueMessage(
+              sessionId: 's1',
+              limit: 1,
+              items: [],
+            ),
+            sessionId: 's1',
+          );
+          mockBridge.emitMessage(
+            UserInputMessage(text: 'After limit', clientMessageId: clientId),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+          expect(cubit.state.queuedInput, isNull);
+          expect(cubit.state.entries.whereType<UserChatEntry>(), hasLength(1));
+        },
+      );
+    }
+
     test('initial state is default ChatSessionState', () {
       final cubit = createCubit('test-session');
       addTearDown(cubit.close);

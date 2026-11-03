@@ -18,6 +18,23 @@ describe("CodexProcess recovery integration", () => {
     proc.setRecoveryEnabled(true); void internal.runInputLoop();
     return { proc, internal, messages, request, input };
   }
+  it.each(["start", "turn"])("reports %s limits with recovery disabled and resolves the account reset", async (stage) => {
+    const { proc, internal, request } = setup();
+    proc.setRecoveryEnabled(false);
+    const resets: Array<number | undefined> = [];
+    proc.on("usage_limit", (at) => resets.push(at));
+    const reset = Math.floor(Date.now() / 1000) + 3600;
+    vi.mocked(proc.readRateLimits).mockResolvedValue({ rateLimits: { primary: { usedPercent: 100, resetsAt: reset, windowDurationMins: 300 } } });
+    if (stage === "start") request.mockRejectedValueOnce(new CodexRpcError("turn/start", { code: 429, message: "usage limit" }));
+    proc.sendInput("task"); await flush();
+    if (stage === "turn") {
+      internal.handleTurnCompleted({ id: "turn-test", status: "failed", error: { codexErrorInfo: "usageLimitExceeded", message: "limit" } });
+      await flush();
+    }
+    expect(resets).toEqual([undefined, reset * 1000]);
+    expect(proc.getRecoveryState().phase).toBe("off");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("retries a pre-start 429 with all original structured input", async () => {
     const { proc, request, input } = setup();
     request.mockRejectedValueOnce(new CodexRpcError("turn/start", { code: 429, message: "HTTP 429" }));

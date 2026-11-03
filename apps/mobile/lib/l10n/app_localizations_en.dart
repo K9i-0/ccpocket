@@ -1377,6 +1377,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get queuedInputPendingDelivery => 'Pending delivery';
 
   @override
+  String get queuedInputWaitingForUsageLimit =>
+      'Waiting for usage limit · checking reset time';
+
+  @override
+  String queuedInputForUsageLimit(String time) {
+    return 'Usage limit · scheduled for $time';
+  }
+
+  @override
   String get queuedInputForNextTurn => 'Queued for next turn';
 
   @override

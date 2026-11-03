@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
@@ -124,10 +125,15 @@ class QueuedInputPanel extends StatelessWidget {
     final imageLabel = item.imageCount > 0
         ? ' · ${l.queuedInputImageCount(item.imageCount)}'
         : '';
+    final retryAt = DateTime.tryParse(item.retryAt ?? '')?.toLocal();
     final title = isOfflinePending
         ? '${l.queuedInputForReconnect}$imageLabel'
         : isDeliveryPending
         ? '${l.queuedInputPendingDelivery}$imageLabel'
+        : retryAt != null
+        ? '${l.queuedInputForUsageLimit(DateFormat.Md(Localizations.localeOf(context).toString()).add_Hm().format(retryAt))}$imageLabel'
+        : item.waitingForUsageLimit
+        ? '${l.queuedInputWaitingForUsageLimit}$imageLabel'
         : '${l.queuedInputForNextTurn}$imageLabel';
 
     return Material(
@@ -170,7 +176,9 @@ class QueuedInputPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!isDeliveryPending)
+              if (!isDeliveryPending &&
+                  retryAt == null &&
+                  !item.waitingForUsageLimit)
                 IconButton(
                   key: const ValueKey('codex_queue_steer_button'),
                   tooltip: l.tooltipSteerQueuedMessage,

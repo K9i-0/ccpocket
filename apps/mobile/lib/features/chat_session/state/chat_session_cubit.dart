@@ -1037,6 +1037,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     var nextQueuedInput = update.clearQueuedInput
         ? null
         : (update.queuedInput ?? current.queuedInput);
+    // Only a Bridge-owned queue confirms that an optimistic user bubble has
+    // moved into the panel. SDK-internal queued acknowledgements keep it visible.
+    final queuedClientMessageId = update.queuedInput?.clientMessageId;
+    if (usesInputQueue && queuedClientMessageId != null) {
+      nextEntries = nextEntries
+          .where(
+            (entry) =>
+                entry is! UserChatEntry ||
+                entry.clientMessageId != queuedClientMessageId,
+          )
+          .toList();
+    }
     QueuedInputItem? deliveredPendingInput;
     String? deliveredPendingClientMessageId;
     if (originalMsg is InputAckMessage && originalMsg.queued == false) {

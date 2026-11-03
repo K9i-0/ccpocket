@@ -1326,6 +1326,14 @@ class AppLocalizationsKo extends AppLocalizations {
   String get queuedInputPendingDelivery => '전송 확인 중';
 
   @override
+  String get queuedInputWaitingForUsageLimit => '사용 한도 해제 대기 · 해제 시간 확인 중';
+
+  @override
+  String queuedInputForUsageLimit(String time) {
+    return '사용 한도 해제 대기 · $time 전송 예정';
+  }
+
+  @override
   String get queuedInputForNextTurn => '다음 턴 대기열에 추가됨';
 
   @override

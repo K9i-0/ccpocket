@@ -96,7 +96,12 @@ export interface SessionInfo {
   };
   /** Claude sandbox enabled state (for resume). */
   sandboxEnabled?: boolean;
-  /** Codex-only pending input waiting for the next turn. */
+  /** Zero means the reset is unknown; usage must be checked before sending. */
+  usageLimitUntil?: number;
+  usageLimitCheckPending?: boolean;
+  usageLimitRevision?: number;
+  usageLimitTimer?: ReturnType<typeof setTimeout>;
+  /** Pending input waiting for the next turn or a usage-limit reset. */
   queuedInput?: QueuedSessionInput;
   /**
    * True once the agent showed output (text, tool use, permission request)
@@ -322,6 +327,9 @@ function pastMessageText(content: unknown): string {
 function publicQueuedInput(item?: QueuedSessionInput): QueuedInputItem | undefined {
   if (!item) return undefined;
   return {
+    ...(item.clientMessageId ? { clientMessageId: item.clientMessageId } : {}),
+    ...(item.waitingForUsageLimit ? { waitingForUsageLimit: true } : {}),
+    ...(item.retryAt ? { retryAt: item.retryAt } : {}),
     itemId: item.itemId,
     text: item.text,
     createdAt: item.createdAt,
@@ -829,6 +837,20 @@ export class SessionManager {
       }
     });
 
+    proc.on("usage_limit", (retryAt?: number) => {
+      if (this.sessions.get(id) !== session) return;
+      session.usageLimitRevision = (session.usageLimitRevision ?? 0) + 1;
+      if (session.queuedInput && session.process instanceof CodexProcess) {
+        session.process.noteManualInput();
+      }
+      session.usageLimitUntil = Math.max(
+        session.usageLimitUntil ?? 0,
+        typeof retryAt === "number" && Number.isFinite(retryAt) && retryAt > Date.now()
+          ? retryAt : 0,
+      );
+      this.scheduleUsageLimitQueue(session);
+    });
+
     // Drain only after a completed turn has published its idle status, so
     // the delivered prompt's "running" cannot be overtaken by that "idle",
     // and never on stop/exit.
@@ -838,6 +860,9 @@ export class SessionManager {
 
     proc.on("exit", () => {
       session.status = "idle";
+      clearTimeout(session.usageLimitTimer);
+      session.usageLimitTimer = undefined;
+      session.usageLimitUntil = undefined;
       session.queuedInput = undefined;
       // Add status message to history so it stays in sync with session.status
       this.appendHistoryToSession(session, {
@@ -1559,6 +1584,7 @@ export class SessionManager {
       session.process.noteManualInput();
     }
     session.queuedInput = input;
+    this.scheduleUsageLimitQueue(session);
     session.lastActivityAt = new Date();
     this.broadcastQueue(session);
     return true;
@@ -1596,6 +1622,8 @@ export class SessionManager {
       return false;
     }
     session.queuedInput = undefined;
+    clearTimeout(session.usageLimitTimer);
+    session.usageLimitTimer = undefined;
     session.lastActivityAt = new Date();
     this.broadcastQueue(session);
     return true;
@@ -1614,6 +1642,9 @@ export class SessionManager {
       return { ok: false, error: "Queued message not found." };
     }
 
+    if (this.isUsageLimited(id)) {
+      return { ok: false, error: "Message is waiting for the usage limit to reset." };
+    }
     const result = await this.steerIntoTurn(session, queued, () => {
       if (session.queuedInput?.itemId === itemId) {
         session.queuedInput = undefined;
@@ -1634,6 +1665,7 @@ export class SessionManager {
   ): Promise<"steered" | "queued" | "rejected"> {
     const session = this.sessions.get(id);
     if (!session) return "rejected";
+    if (this.isUsageLimited(id)) return this.queueInput(id, input) ? "queued" : "rejected";
     if (session.process instanceof CodexProcess) {
       session.process.noteManualInput();
     }
@@ -1685,6 +1717,70 @@ export class SessionManager {
     return { ok: true };
   }
 
+  isUsageLimited(id: string): boolean {
+    return this.sessions.get(id)?.usageLimitUntil !== undefined;
+  }
+
+  private scheduleUsageLimitQueue(session: SessionInfo): void {
+    clearTimeout(session.usageLimitTimer);
+    session.usageLimitTimer = undefined;
+    if (!session.queuedInput || !this.isUsageLimited(session.id)) return;
+    const retryAt = session.usageLimitUntil!;
+    session.queuedInput = {
+      ...session.queuedInput,
+      waitingForUsageLimit: true,
+      retryAt: retryAt > Date.now() ? new Date(retryAt).toISOString() : undefined,
+    };
+    this.broadcastQueue(session);
+    session.usageLimitTimer = setTimeout(() => {
+      session.usageLimitTimer = undefined;
+      if (this.sessions.get(session.id) !== session) return;
+      if (retryAt > Date.now()) {
+        this.scheduleUsageLimitQueue(session);
+        return;
+      }
+      void this.refreshUsageLimitQueue(session);
+    }, retryAt === 0 ? 60_000 : Math.min(2_147_483_647, Math.max(0, retryAt - Date.now())));
+    session.usageLimitTimer.unref?.();
+  }
+
+  private async refreshUsageLimitQueue(session: SessionInfo): Promise<void> {
+    if (session.usageLimitCheckPending || !session.queuedInput) return;
+    session.usageLimitCheckPending = true;
+    const previousRevision = session.usageLimitRevision;
+    let reset: number | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      reset = await Promise.race([
+        session.process.readUsageLimitResetAt(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Usage lookup timed out")), 10_000);
+          timeout.unref?.();
+        }),
+      ]);
+    } catch {
+      // Failed/unsupported usage reads never discard input or guess a reset time.
+      reset = 0;
+    } finally {
+      clearTimeout(timeout);
+      session.usageLimitCheckPending = false;
+    }
+    if (this.sessions.get(session.id) !== session || !session.queuedInput) return;
+    // A newer provider rejection wins over an in-flight lookup.
+    if (session.usageLimitRevision !== previousRevision) {
+      this.scheduleUsageLimitQueue(session);
+      return;
+    }
+    session.usageLimitUntil = reset;
+    if (reset !== undefined) {
+      this.scheduleUsageLimitQueue(session);
+      return;
+    }
+    session.queuedInput = { ...session.queuedInput, retryAt: undefined, waitingForUsageLimit: undefined };
+    this.broadcastQueue(session);
+    this.drainQueuedInput(session);
+  }
+
   private broadcastQueue(session: SessionInfo): void {
     const item = publicQueuedInput(session.queuedInput);
     this.onMessage(session.id, {
@@ -1697,7 +1793,7 @@ export class SessionManager {
 
   private drainQueuedInput(session: SessionInfo): void {
     const queued = session.queuedInput;
-    if (!queued) return;
+    if (!queued || this.isUsageLimited(session.id)) return;
     if (session.process instanceof CodexProcess) {
       if (!session.process.isWaitingForInput) return;
     } else if (session.process instanceof SdkProcess) {
@@ -1708,6 +1804,8 @@ export class SessionManager {
       return;
     }
 
+    clearTimeout(session.usageLimitTimer);
+    session.usageLimitTimer = undefined;
     session.queuedInput = undefined;
     this.broadcastQueue(session);
 
@@ -2245,6 +2343,7 @@ export class SessionManager {
     // Remove first so synchronous status/exit events from stop() cannot try to
     // evict the same session recursively.
     this.sessions.delete(id);
+    clearTimeout(session.usageLimitTimer);
     session.process.stop();
     session.process.removeAllListeners();
     this.processMessageDelivery.delete(id);

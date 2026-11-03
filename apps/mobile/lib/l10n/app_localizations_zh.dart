@@ -1314,6 +1314,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get queuedInputPendingDelivery => '等待发送确认';
 
   @override
+  String get queuedInputWaitingForUsageLimit => '等待用量限制解除 · 正在确认重置时间';
+
+  @override
+  String queuedInputForUsageLimit(String time) {
+    return '等待用量限制解除 · 计划于 $time 发送';
+  }
+
+  @override
   String get queuedInputForNextTurn => '已排队到下一轮';
 
   @override

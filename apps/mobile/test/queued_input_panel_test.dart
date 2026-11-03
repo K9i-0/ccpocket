@@ -13,6 +13,67 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
+  testWidgets('unknown reset stays queued without promising a send time', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        QueuedInputPanel(
+          item: const QueuedInputItem(
+            itemId: 'unknown',
+            text: 'Wait',
+            createdAt: '',
+            waitingForUsageLimit: true,
+          ),
+          onSteer: null,
+          onEdit: () {},
+          onCancel: () {},
+        ),
+      ),
+    );
+    expect(
+      find.text('Waiting for usage limit · checking reset time'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('codex_queue_steer_button')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('usage-limit queue shows reset time and keeps edit and cancel', (
+    tester,
+  ) async {
+    var edited = false;
+    var canceled = false;
+    final item = QueuedInputItem.fromJson({
+      'itemId': 'limit-queue',
+      'text': 'After the limit',
+      'createdAt': '2026-11-03T01:00:00Z',
+      'retryAt': '2026-11-03T02:40:00Z',
+    });
+    await tester.pumpWidget(
+      _wrap(
+        QueuedInputPanel(
+          item: item,
+          onSteer: () => fail('must not steer during limit'),
+          onEdit: () => edited = true,
+          onCancel: () => canceled = true,
+        ),
+      ),
+    );
+    expect(item.retryAt, '2026-11-03T02:40:00Z');
+    expect(find.textContaining('Usage limit · scheduled for'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('codex_queue_steer_button')),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const ValueKey('codex_queue_edit_button')));
+    await tester.tap(find.byKey(const ValueKey('codex_queue_cancel_button')));
+    expect(edited, isTrue);
+    expect(canceled, isTrue);
+  });
+
   testWidgets('QueuedInputPanel exposes steer edit and cancel actions', (
     tester,
   ) async {

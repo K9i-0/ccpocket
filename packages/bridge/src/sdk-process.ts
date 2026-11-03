@@ -1,3 +1,4 @@
+import { claudeUsageResetAt, futureResetAt } from "./usage-limit.js";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -826,6 +827,7 @@ export interface SdkProcessEvents {
    * the next prompt. Not fired for stop/exit.
    */
   input_ready: [];
+  usage_limit: [retryAt?: number];
 }
 
 interface PendingPermission {
@@ -917,6 +919,16 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this._backgroundTasks;
   }
   private launchStartedAt = 0;
+
+  private usageLimitResetAt?: number;
+
+  async readUsageLimitResetAt(): Promise<number | undefined> {
+    const query = this.queryInstance;
+    if (!query) throw new Error("Claude session is unavailable");
+    const usage = await query.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET?.({ skipBehaviors: true });
+    if (!usage?.rate_limits_available || !usage.rate_limits) throw new Error("Claude usage is unavailable");
+    return claudeUsageResetAt(usage, this._model);
+  }
 
   get status(): ProcessStatus {
     return this._status;
@@ -1721,6 +1733,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           if (subagentMsg) this.emitMessage(subagentMsg);
         }
         continue;
+      }
+
+      if (message.type === "rate_limit_event" && message.rate_limit_info.status === "rejected") {
+        const info = message.rate_limit_info;
+        this.usageLimitResetAt = futureResetAt(info.resetsAt) ?? futureResetAt(info.overageResetsAt);
+        this.emit("usage_limit", this.usageLimitResetAt);
+      }
+      if (message.type === "assistant" && message.error === "rate_limit") {
+        // Install the wait synchronously, before result/input_ready can drain it.
+        this.emit("usage_limit");
+        const query = this.queryInstance;
+        if (!this.usageLimitResetAt || this.usageLimitResetAt <= Date.now()) {
+          void this.readUsageLimitResetAt().then((reset) => {
+            if (reset && !this.stopped && this.queryInstance === query) this.emit("usage_limit", reset);
+          }).catch(() => { /* Unknown reset: keep the queue until usage can be read. */ });
+        }
       }
 
       // Convert SDK message to ServerMessage

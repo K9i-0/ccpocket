@@ -1330,6 +1330,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get queuedInputPendingDelivery => '送信確認中';
 
   @override
+  String get queuedInputWaitingForUsageLimit => '利用上限の解除待ち · 解除時刻を確認中';
+
+  @override
+  String queuedInputForUsageLimit(String time) {
+    return '利用上限の解除待ち · $time に送信予定';
+  }
+
+  @override
   String get queuedInputForNextTurn => '次のターンに送信予定';
 
   @override

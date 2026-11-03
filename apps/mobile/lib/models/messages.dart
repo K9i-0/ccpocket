@@ -684,6 +684,9 @@ class GalleryImage {
 }
 
 class QueuedInputItem {
+  final String? clientMessageId;
+  final bool waitingForUsageLimit;
+  final String? retryAt;
   final String itemId;
   final String text;
   final String createdAt;
@@ -693,6 +696,9 @@ class QueuedInputItem {
   final List<Map<String, String>> mentions;
 
   const QueuedInputItem({
+    this.clientMessageId,
+    this.waitingForUsageLimit = false,
+    this.retryAt,
     required this.itemId,
     required this.text,
     required this.createdAt,
@@ -704,6 +710,9 @@ class QueuedInputItem {
 
   factory QueuedInputItem.fromJson(Map<String, dynamic> json) {
     return QueuedInputItem(
+      clientMessageId: json['clientMessageId'] as String?,
+      waitingForUsageLimit: json['waitingForUsageLimit'] as bool? ?? false,
+      retryAt: json['retryAt'] as String?,
       itemId: json['itemId'] as String? ?? '',
       text: json['text'] as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
