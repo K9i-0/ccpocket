@@ -4535,6 +4535,18 @@ abstract class AppLocalizations {
   /// **'上限に到達しています'**
   String get usagePaceAtLimit;
 
+  /// No description provided for @usageCompactResetIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'{duration}後にリセット'**
+  String usageCompactResetIn(String duration);
+
+  /// No description provided for @usageCompactRunsOutIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'{duration}で上限'**
+  String usageCompactRunsOutIn(String duration);
+
   /// No description provided for @settingsNewSessionTabs.
   ///
   /// In ja, this message translates to:

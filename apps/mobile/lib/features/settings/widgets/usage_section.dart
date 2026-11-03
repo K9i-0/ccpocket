@@ -116,7 +116,7 @@ class _UsageSectionState extends State<UsageSection> {
       children: [
         Padding(
           padding: widget.embedded
-              ? const EdgeInsets.fromLTRB(18, 10, 12, 0)
+              ? const EdgeInsets.fromLTRB(18, 6, 8, 2)
               : const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Row(
             children: [
@@ -160,22 +160,19 @@ class _UsageSectionState extends State<UsageSection> {
         ),
         if (visibleProviders.isNotEmpty)
           for (final (index, info) in visibleProviders.indexed) ...[
-            if (index > 0)
-              widget.embedded
-                  ? Divider(
-                      height: 1,
-                      indent: 18,
-                      endIndent: 18,
-                      color: cs.outlineVariant.withValues(alpha: 0.6),
-                    )
-                  : const SizedBox(height: 8),
+            if (index > 0) SizedBox(height: widget.embedded ? 4 : 8),
             _UsageContainer(
               key: ValueKey('usage_card_${info.provider}'),
               embedded: widget.embedded,
-              child: _ProviderUsageTile(
-                info: info,
-                displayMode: usageDisplayMode,
-              ),
+              child: widget.embedded
+                  ? _CompactProviderUsage(
+                      info: info,
+                      displayMode: usageDisplayMode,
+                    )
+                  : _ProviderUsageTile(
+                      info: info,
+                      displayMode: usageDisplayMode,
+                    ),
             ),
           ]
         else if (_providers == null)
@@ -236,7 +233,7 @@ class _UsageContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     if (embedded) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         child: child,
       );
     }
@@ -632,4 +629,250 @@ IconData _paceIcon(UsagePaceStage stage) {
     UsagePaceStage.behind ||
     UsagePaceStage.farBehind => Icons.trending_down,
   };
+}
+
+/// Dense provider usage for the settings status card: one bar row per window
+/// with a short reset / pace line underneath.
+class _CompactProviderUsage extends StatelessWidget {
+  const _CompactProviderUsage({required this.info, required this.displayMode});
+
+  final UsageInfo info;
+  final UsageDisplayMode displayMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final providerLabel = info.provider == 'claude' ? 'Claude' : 'Codex';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 60,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text(
+              providerLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: info.hasError
+              ? Text(
+                  info.error!,
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (info.fiveHour != null)
+                      _CompactWindowRow(
+                        label: '5h',
+                        window: info.fiveHour!,
+                        windowDuration: const Duration(hours: 5),
+                        displayMode: displayMode,
+                      ),
+                    if (info.sevenDay != null)
+                      _CompactWindowRow(
+                        label: '1w',
+                        window: info.sevenDay!,
+                        windowDuration: const Duration(days: 7),
+                        displayMode: displayMode,
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactWindowRow extends StatelessWidget {
+  const _CompactWindowRow({
+    required this.label,
+    required this.window,
+    required this.windowDuration,
+    required this.displayMode,
+  });
+
+  final String label;
+  final UsageWindow window;
+  final Duration windowDuration;
+  final UsageDisplayMode displayMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final appColors = theme.extension<AppColors>();
+    final used = window.utilization.clamp(0, 100).toDouble();
+    final shown = displayMode == UsageDisplayMode.remaining ? 100 - used : used;
+    final barColor = used >= 90
+        ? cs.error
+        : used >= 70
+        ? Colors.orange
+        : cs.primary;
+    final pace = UsagePace.calculate(
+      window: window,
+      windowDuration: windowDuration,
+    );
+    final reliablePace = (pace?.isReliable ?? false) ? pace : null;
+    // Where linear consumption would put the bar now, in the shown scale.
+    final expectedMarker = reliablePace == null
+        ? null
+        : (displayMode == UsageDisplayMode.remaining
+                  ? 100 - reliablePace.expectedUsedPercent
+                  : reliablePace.expectedUsedPercent)
+              .clamp(0, 100)
+              .toDouble();
+
+    final resetsAt = window.resetsAtDateTime;
+    final untilReset = resetsAt?.difference(DateTime.now());
+    final resetText = untilReset == null
+        ? null
+        : untilReset.isNegative
+        ? l.usageAlreadyReset
+        : l.usageCompactResetIn(_formatCompactDuration(untilReset));
+    final subtle = TextStyle(fontSize: 11, color: cs.onSurfaceVariant);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 22,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _MarkedBar(
+                  value: shown / 100,
+                  marker: expectedMarker == null ? null : expectedMarker / 100,
+                  color: barColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 38,
+                child: Text(
+                  '${shown.round()}%',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: barColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (resetText != null || reliablePace != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 22, top: 2),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    if (resetText != null) TextSpan(text: resetText),
+                    if (resetText != null && reliablePace != null)
+                      const TextSpan(text: ' · '),
+                    if (reliablePace != null) ...[
+                      TextSpan(
+                        text: _paceStageLabel(l, reliablePace.stage),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: _paceColor(cs, appColors, reliablePace.stage),
+                        ),
+                      ),
+                      if (_compactProjection(l, reliablePace)
+                          case final projection?)
+                        TextSpan(text: ' ($projection)'),
+                    ],
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: subtle,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Only the urgent projections are spelled out; "will last" is implied by
+/// the pace label.
+String? _compactProjection(AppLocalizations l, UsagePace pace) {
+  if (pace.actualUsedPercent >= 100) return l.usagePaceAtLimit;
+  if (pace.willLastToReset) return null;
+  final timeUntilLimit = pace.timeUntilLimit;
+  if (timeUntilLimit == null) return null;
+  return l.usageCompactRunsOutIn(_formatCompactDuration(timeUntilLimit));
+}
+
+/// Progress bar with a tick showing where linear usage would be now.
+class _MarkedBar extends StatelessWidget {
+  const _MarkedBar({required this.value, required this.color, this.marker});
+
+  final double value;
+  final double? marker;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 12,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return Stack(
+            alignment: Alignment.centerLeft,
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: value.clamp(0, 1).toDouble(),
+                  minHeight: 6,
+                  color: color,
+                  backgroundColor: cs.onSurface.withValues(alpha: 0.08),
+                ),
+              ),
+              if (marker != null)
+                Positioned(
+                  left: (width * marker!.clamp(0, 1)) - 1,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    key: const ValueKey('usage_expected_marker'),
+                    width: 2,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

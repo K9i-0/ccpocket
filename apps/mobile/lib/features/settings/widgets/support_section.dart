@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' as intl;
 import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../router/app_router.dart';
+import 'settings_tiles.dart';
 
 enum _SupportEntryVariant { inactive, oneTime, active }
 
@@ -16,6 +17,7 @@ class SupportSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highlighted = this.highlighted || SettingsItemHighlight.of(context);
     final revenueCat = context.read<RevenueCatService>();
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;

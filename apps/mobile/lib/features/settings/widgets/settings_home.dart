@@ -61,6 +61,13 @@ class _SettingsHomeState extends State<SettingsHome> {
     super.dispose();
   }
 
+  /// Usage lives in the status card, so the whole card is its search /
+  /// deep-link target.
+  Widget _maybeUsageItem(SettingsVisibility visibility, Widget card) {
+    if (!visibility.bridgeConnected) return card;
+    return SettingsItem(id: SettingsEntryIds.usage, framed: true, child: card);
+  }
+
   void _setQuery(String value) {
     if (value == _query) return;
     setState(() => _query = value);
@@ -86,11 +93,19 @@ class _SettingsHomeState extends State<SettingsHome> {
             bottom: 32 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
-            SettingsStatusCard(
-              state: state,
-              visibility: visibility,
-              onOpenCategory: (category) => widget.onOpenCategory(category),
-              onUpdateBridge: widget.onUpdateBridge,
+            SettingsAccent(
+              color: SettingsCategory.connection.color(
+                Theme.of(context).brightness,
+              ),
+              child: _maybeUsageItem(
+                visibility,
+                SettingsStatusCard(
+                  state: state,
+                  visibility: visibility,
+                  onOpenCategory: (category) => widget.onOpenCategory(category),
+                  onUpdateBridge: widget.onUpdateBridge,
+                ),
+              ),
             ),
             _SettingsSearchField(
               controller: _searchController,

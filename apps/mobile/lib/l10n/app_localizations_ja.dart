@@ -2386,6 +2386,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usagePaceAtLimit => '上限に到達しています';
 
   @override
+  String usageCompactResetIn(String duration) {
+    return '$duration後にリセット';
+  }
+
+  @override
+  String usageCompactRunsOutIn(String duration) {
+    return '$durationで上限';
+  }
+
+  @override
   String get settingsNewSessionTabs => '新規セッションタブ';
 
   @override

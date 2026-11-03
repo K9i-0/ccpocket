@@ -973,6 +973,18 @@
     }
   },
   "usagePaceAtLimit": "上限に到達しています",
+  "usageCompactResetIn": "{duration}後にリセット",
+  "@usageCompactResetIn": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "usageCompactRunsOutIn": "{duration}で上限",
+  "@usageCompactRunsOutIn": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
   "settingsNewSessionTabs": "新規セッションタブ",
   "settingsNewSessionTabsDescription": "新規セッションで表示する AI ツールの選択肢と並び順を変更できます。",
   "showHiddenDirectories": "隠しディレクトリを表示",

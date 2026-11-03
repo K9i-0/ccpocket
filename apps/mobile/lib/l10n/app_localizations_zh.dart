@@ -2359,6 +2359,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get usagePaceAtLimit => '已达到上限';
 
   @override
+  String usageCompactResetIn(String duration) {
+    return '$duration后重置';
+  }
+
+  @override
+  String usageCompactRunsOutIn(String duration) {
+    return '$duration后达到上限';
+  }
+
+  @override
   String get settingsNewSessionTabs => '新建会话标签页';
 
   @override

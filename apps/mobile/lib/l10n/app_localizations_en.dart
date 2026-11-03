@@ -2475,6 +2475,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usagePaceAtLimit => 'Limit reached';
 
   @override
+  String usageCompactResetIn(String duration) {
+    return 'Resets in $duration';
+  }
+
+  @override
+  String usageCompactRunsOutIn(String duration) {
+    return 'limit in $duration';
+  }
+
+  @override
   String get settingsNewSessionTabs => 'New Session Tabs';
 
   @override

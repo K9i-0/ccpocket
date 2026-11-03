@@ -2399,6 +2399,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get usagePaceAtLimit => '한도에 도달했습니다';
 
   @override
+  String usageCompactResetIn(String duration) {
+    return '$duration 후 초기화';
+  }
+
+  @override
+  String usageCompactRunsOutIn(String duration) {
+    return '$duration 후 한도 도달';
+  }
+
+  @override
   String get settingsNewSessionTabs => '새 세션 탭';
 
   @override

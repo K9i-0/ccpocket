@@ -943,6 +943,8 @@
     }
   },
   "usagePaceAtLimit": "Limit reached",
+  "usageCompactResetIn": "Resets in {duration}",
+  "usageCompactRunsOutIn": "limit in {duration}",
   "settingsNewSessionTabs": "New Session Tabs",
   "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
   "showHiddenDirectories": "Show Hidden Directories",

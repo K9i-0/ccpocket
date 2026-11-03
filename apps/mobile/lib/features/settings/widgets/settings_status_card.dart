@@ -35,59 +35,59 @@ class SettingsStatusCard extends StatelessWidget {
     final accent = SettingsCategory.connection.color(theme.brightness);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.alphaBlend(
-                accent.withValues(alpha: 0.16),
-                cs.surfaceContainerLow,
-              ),
-              Color.alphaBlend(
-                cs.primary.withValues(alpha: 0.10),
-                cs.surfaceContainerLow,
-              ),
-            ],
-          ),
-          border: Border.all(color: accent.withValues(alpha: 0.22)),
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (visibility.hasActiveMachine)
-                _ConnectedStatus(
-                  state: state,
-                  visibility: visibility,
-                  accent: accent,
-                  onOpenCategory: onOpenCategory,
-                  onUpdateBridge: onUpdateBridge,
-                )
-              else
-                _DisconnectedStatus(accent: accent),
-              if (visibility.bridgeConnected) ...[
-                Divider(
-                  height: 1,
-                  indent: 18,
-                  endIndent: 18,
-                  color: cs.outlineVariant.withValues(alpha: 0.6),
+      child: SettingsHighlightFrame(
+        borderRadius: BorderRadius.circular(22),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.alphaBlend(
+                  accent.withValues(alpha: 0.16),
+                  cs.surfaceContainerLow,
                 ),
-                // Plan usage lives here instead of on its own page, so the
-                // usage shortcut on the home screen is a single hop back.
-                SettingsItem(
-                  id: SettingsEntryIds.usage,
-                  child: UsageSection(
+                Color.alphaBlend(
+                  cs.primary.withValues(alpha: 0.10),
+                  cs.surfaceContainerLow,
+                ),
+              ],
+            ),
+            border: Border.all(color: accent.withValues(alpha: 0.22)),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (visibility.hasActiveMachine)
+                  _ConnectedStatus(
+                    state: state,
+                    visibility: visibility,
+                    accent: accent,
+                    onOpenCategory: onOpenCategory,
+                    onUpdateBridge: onUpdateBridge,
+                  )
+                else
+                  _DisconnectedStatus(accent: accent),
+                if (visibility.bridgeConnected) ...[
+                  Divider(
+                    height: 1,
+                    indent: 18,
+                    endIndent: 18,
+                    color: cs.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                  // Plan usage lives here instead of on its own page, so the
+                  // usage shortcut on the home screen is a single hop back.
+                  UsageSection(
                     bridgeService: context.read<BridgeService>(),
                     embedded: true,
                   ),
-                ),
-                const SizedBox(height: 6),
+                  const SizedBox(height: 4),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -178,110 +178,132 @@ class _ConnectedStatus extends StatelessWidget {
     );
     final title =
         machine?.displayName ?? bridge.lastUrl ?? l.settingsNotConnected;
-    final subtitle = machine != null ? bridge.lastUrl : null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          key: const ValueKey('settings_status_card'),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          onTap: () => onOpenCategory(SettingsCategory.connection),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    final showUpdateRow =
+        isUpdating ||
+        (updateStatus.needsUpdate && machineWithStatus != null) ||
+        updateStatus.canShowSetupHelp;
+    final success = settingsSuccessColor(theme.brightness);
+
+    return InkWell(
+      key: const ValueKey('settings_status_card'),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      onTap: () => onOpenCategory(SettingsCategory.connection),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    SettingsCategoryBadge(
-                      icon: Icons.computer_rounded,
-                      color: accent,
-                      size: 44,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                SettingsCategoryBadge(
+                  icon: Icons.computer_rounded,
+                  color: accent,
+                  size: 40,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
                         children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
+                          Flexible(
+                            child: Text(
+                              updateStatus.currentVersion == null
+                                  ? 'Bridge'
+                                  : 'Bridge v${updateStatus.currentVersion}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (updateStatus.isKnownUpToDate) ...[
+                            const SizedBox(width: 4),
+                            Tooltip(
+                              message: l.bridgeIsUpToDate,
+                              child: Icon(
+                                Icons.check_circle_rounded,
+                                key: const ValueKey(
+                                  'settings_status_up_to_date',
+                                ),
+                                size: 14,
+                                color: success,
                               ),
                             ),
                           ],
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _StatusPill(
-                      status: machineWithStatus?.status,
-                      connected: visibility.bridgeConnected,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _VersionChip(
-                          version: updateStatus.currentVersion,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (isUpdating)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else if (updateStatus.needsUpdate &&
-                        machineWithStatus != null)
-                      FilledButton.tonalIcon(
-                        key: const ValueKey('settings_status_update_button'),
-                        onPressed: () => onUpdateBridge(machineWithStatus),
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                        ),
-                        icon: const Icon(Icons.system_update_rounded, size: 18),
-                        label: Text(l.update),
-                      )
-                    else if (updateStatus.bridgeNeedsUpdate)
-                      _InlineStatus(
-                        icon: Icons.system_update_rounded,
-                        color: cs.tertiary,
-                        label: l.bridgeUpdateAvailable,
-                      )
-                    else if (updateStatus.isKnownUpToDate)
-                      _InlineStatus(
-                        icon: Icons.check_circle_rounded,
-                        color: settingsSuccessColor(theme.brightness),
-                        label: l.bridgeIsUpToDate,
-                      ),
-                  ],
+                const SizedBox(width: 8),
+                _StatusPill(
+                  status: machineWithStatus?.status,
+                  connected: visibility.bridgeConnected,
                 ),
               ],
             ),
-          ),
+            if (showUpdateRow) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(
+                    Icons.system_update_rounded,
+                    size: 16,
+                    color: cs.tertiary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      updateStatus.canShowSetupHelp
+                          ? l.bridgeUpdateRequiresSetup
+                          : l.bridgeUpdateAvailable,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.tertiary,
+                      ),
+                    ),
+                  ),
+                  if (isUpdating)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (updateStatus.needsUpdate &&
+                      machineWithStatus != null)
+                    FilledButton.tonalIcon(
+                      key: const ValueKey('settings_status_update_button'),
+                      onPressed: () => onUpdateBridge(machineWithStatus),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      icon: const Icon(Icons.system_update_rounded, size: 16),
+                      label: Text(l.update),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -329,69 +351,6 @@ class _StatusPill extends StatelessWidget {
             style: theme.textTheme.labelMedium?.copyWith(
               color: color,
               fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VersionChip extends StatelessWidget {
-  const _VersionChip({required this.version});
-
-  final String? version;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        version == null ? 'Bridge' : 'Bridge v$version',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()],
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineStatus extends StatelessWidget {
-  const _InlineStatus({
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 180),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: color),
             ),
           ),
         ],

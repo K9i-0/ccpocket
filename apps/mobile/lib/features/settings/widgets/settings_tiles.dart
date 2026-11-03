@@ -84,16 +84,84 @@ class SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: cs.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SettingsHighlightFrame(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+        child: Card(
+          margin: EdgeInsets.zero,
+          color: cs.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Glowing outline drawn around a card while its [SettingsItem] is
+/// highlighted, so the effect always follows the card's own shape.
+class SettingsHighlightFrame extends StatelessWidget {
+  const SettingsHighlightFrame({
+    super.key,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = SettingsItemHighlight.of(context);
+    final accent = SettingsAccent.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: highlighted ? 0.38 : 0),
+            blurRadius: highlighted ? 22 : 0,
+            spreadRadius: highlighted ? 1 : 0,
+          ),
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: accent.withValues(alpha: highlighted ? 0.9 : 0),
+          width: 2,
+        ),
       ),
       child: child,
     );
   }
+}
+
+/// Whether the nearest [SettingsItem] is currently highlighted.
+class SettingsItemHighlight extends InheritedWidget {
+  const SettingsItemHighlight({
+    super.key,
+    required this.highlighted,
+    required super.child,
+  });
+
+  final bool highlighted;
+
+  static bool of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<SettingsItemHighlight>()
+          ?.highlighted ??
+      false;
+
+  @override
+  bool updateShouldNotify(SettingsItemHighlight oldWidget) =>
+      highlighted != oldWidget.highlighted;
 }
 
 /// Inset divider between rows of a [SettingsCard].
@@ -291,7 +359,8 @@ class SettingsItem extends StatefulWidget {
   final String id;
   final Widget child;
 
-  /// Draws the highlight as a rounded frame, for rows that are whole cards.
+  /// Lets the card inside draw the highlight (see [SettingsHighlightFrame])
+  /// instead of tinting the row, for items that are whole cards.
   final bool framed;
 
   static Key keyFor(String id) => ValueKey('settings_item_$id');
@@ -317,6 +386,24 @@ class _SettingsItemState extends State<SettingsItem> {
 
   Future<void> _reveal() async {
     if (!mounted) return;
+    // Start once the page has finished sliding in, so the effect is seen.
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation != null && animation.status != AnimationStatus.completed) {
+      final completer = Completer<void>();
+      void listener(AnimationStatus status) {
+        if (status == AnimationStatus.completed && !completer.isCompleted) {
+          completer.complete();
+        }
+      }
+
+      animation.addStatusListener(listener);
+      await completer.future.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
+      animation.removeStatusListener(listener);
+      if (!mounted) return;
+    }
     await Scrollable.ensureVisible(
       context,
       duration: const Duration(milliseconds: 350),
@@ -326,7 +413,7 @@ class _SettingsItemState extends State<SettingsItem> {
     if (!mounted) return;
     setState(() => _highlighted = true);
     _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 1800), () {
+    _timer = Timer(const Duration(milliseconds: 2200), () {
       if (mounted) setState(() => _highlighted = false);
     });
   }
@@ -341,33 +428,12 @@ class _SettingsItemState extends State<SettingsItem> {
   Widget build(BuildContext context) {
     final accent = SettingsAccent.of(context);
     if (widget.framed) {
+      // The card inside draws the highlight via [SettingsHighlightFrame].
       return KeyedSubtree(
         key: SettingsItem.keyFor(widget.id),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            widget.child,
-            Positioned(
-              left: 8,
-              right: 8,
-              top: -6,
-              bottom: -6,
-              child: IgnorePointer(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: _highlighted ? 0.08 : 0),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: accent.withValues(alpha: _highlighted ? 0.7 : 0),
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+        child: SettingsItemHighlight(
+          highlighted: _highlighted,
+          child: widget.child,
         ),
       );
     }

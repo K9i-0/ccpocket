@@ -1177,9 +1177,16 @@ void main() {
 
       expect(find.text(l.settingsUsageSectionTitle), findsOneWidget);
       expect(find.byKey(const ValueKey('usage_card_codex')), findsOneWidget);
-      expect(find.text(l.usageSevenDay), findsOneWidget);
-      expect(find.text(l.usageFiveHour), findsNothing);
-      expect(find.textContaining('(6d13h34m)'), findsOneWidget);
+      final codexCard = find.byKey(const ValueKey('usage_card_codex'));
+      expect(
+        find.descendant(of: codexCard, matching: find.text('1w')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: codexCard, matching: find.text('5h')),
+        findsNothing,
+      );
+      expect(find.textContaining('Resets in 6d 13h'), findsOneWidget);
 
       await settingsCubit.close();
       await machineManagerCubit.close();
@@ -1226,7 +1233,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('usage_card_codex')),
@@ -1249,7 +1255,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: claudeCard, matching: find.text(l.usageFiveHour)),
+        find.descendant(of: claudeCard, matching: find.text('5h')),
         findsOneWidget,
       );
       // Remaining mode applies to both providers.
@@ -1373,6 +1379,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The whole status card glows instead of a rectangular tint.
+      expect(
+        tester
+            .widget<SettingsItem>(
+              find.byWidgetPredicate(
+                (w) => w is SettingsItem && w.id == 'usage',
+              ),
+            )
+            .framed,
+        isTrue,
+      );
       // Usage is on the settings home, so no extra page is pushed and a
       // single back leaves settings.
       expect(find.byType(SettingsHome), findsOneWidget);
@@ -1381,9 +1398,17 @@ void main() {
         isFalse,
       );
       expect(find.byKey(const ValueKey('usage_card_codex')), findsOneWidget);
-      expect(find.text('On pace'), findsOneWidget);
-      expect(find.text('Expected 40% used'), findsOneWidget);
-      expect(find.text('On track to last until reset'), findsOneWidget);
+      // Compact card: pace label inline, expected usage as a bar marker,
+      // and no "will last" sentence.
+      expect(
+        find.textContaining('On pace', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('usage_expected_marker')),
+        findsOneWidget,
+      );
+      expect(find.text('On track to last until reset'), findsNothing);
       final usageRect = tester.getRect(
         find.byKey(const ValueKey('usage_card_codex')),
       );
@@ -1391,6 +1416,48 @@ void main() {
         find.byKey(const PageStorageKey('settings_list')),
       );
       expect(usageRect.overlaps(listRect), isTrue);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('focusUsage glows the status card then fades', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+          focusUsage: true,
+        ),
+      );
+      bool glowing() => tester
+          .widget<SettingsItemHighlight>(
+            find.descendant(
+              of: find.byKey(const ValueKey('settings_item_usage')),
+              matching: find.byType(SettingsItemHighlight),
+            ),
+          )
+          .highlighted;
+
+      expect(glowing(), isFalse);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(glowing(), isTrue);
+      expect(find.byType(SettingsHighlightFrame), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 2500));
+      await tester.pumpAndSettle();
+      expect(glowing(), isFalse);
 
       await settingsCubit.close();
       await machineManagerCubit.close();
