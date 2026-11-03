@@ -38,7 +38,7 @@ asc review doctor --app <app-id> --version-id <version-id> --platform IOS
 
 ## メタデータと課金商品
 
-`upload-metadata.yml` には `ios_version=X.Y.Z` を渡し、別の下書きバージョンへリリースノートを誤反映しない。審査refのiOSメタデータは対象候補タグを基準にする。
+`upload-metadata.yml` には `ios_version=X.Y.Z` を渡し、別の下書きバージョンへリリースノートを誤反映しない。提出refのiOSメタデータ（リリースノート以外）は対象候補タグと一致させる（SKILL.md の手順3）。
 
 英語、日本語、韓国語、簡体字中国語について次を確認する。
 

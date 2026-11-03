@@ -23,7 +23,7 @@ description: 既存の安定ビルドをApp Store / Google Playの審査へ提�
 2. 各プラットフォームの最新リリースタグと成功した release workflow を確認する。
 3. 公開版タグから候補タグまでの累積差分を読む。
 4. 英語、日本語、韓国語、簡体字中国語のリリースノートを作る。
-5. 審査専用refへメタデータだけをコミットしてpushする。
+5. リリースノートをmain（掲載情報が候補と異なる場合だけ審査ブランチ）へコミットしてpushする。
 6. 公開版、候補、リリースノートの要点、公開方式、対象refを報告する。
 7. iOSメタデータ反映と審査提出をdispatchし、完了まで監視する。
 
@@ -107,13 +107,30 @@ apps/mobile/fastlane/metadata/android/ko-KR/changelogs/<N>.txt
 apps/mobile/fastlane/metadata/android/zh-CN/changelogs/<N>.txt
 ```
 
-## 3. 審査refを準備する
+## 3. 提出refを準備する
 
-作業ツリーがdirtyなら直接切り替えず、一時worktreeを使う。審査refは最新の `origin/main` から作り、workflowと安全確認スクリプトを含める。iOSメタデータはiOS候補タグ、AndroidメタデータはAndroid候補タグから復元してから、生成したリリースノートだけを更新する。アプリのソースコードは変更しない。
+提出refは、ストアへ出す掲載情報が候補タグと一致するcommitでなければならない。mainで先に次の機能の説明文やスクリーンショットを更新していると、ビルドに無い内容を審査へ出してしまうため。
 
-ブランチ名は同じ候補なら `store/review-X.Y.Z-N`、異なる候補なら `store/review-<platform>-X.Y.Z-N` とする。既存ブランチをforce pushしない。既存refがある場合は内容と親commitを検査し、安全に再利用できなければ別名を使う。
+最初に、mainの掲載情報が候補タグと同じかを確かめる（リリースノートは比較から除く）。
 
-次を確認して Conventional Commit でコミットし、明示した審査refへpushする。push後の完全な40文字commit SHAを `review_sha` として記録し、`git ls-remote origin refs/heads/<target-ref>` が同じSHAを返すことを確認する。以後はref名だけでなく、このSHAを提出内容の固定・workflow入力・run追跡に使う。
+```bash
+git fetch origin main
+store_paths=(
+  apps/mobile/fastlane/metadata
+  apps/mobile/fastlane/screenshots/store
+  apps/mobile/fastlane/screenshots/store_duo
+)
+git diff --quiet <candidate-tag> origin/main -- "${store_paths[@]}" \
+  ':(exclude)apps/mobile/fastlane/metadata/*/release_notes.txt' \
+  ':(exclude)apps/mobile/fastlane/metadata/android/*/changelogs/*'
+```
+
+- **一致する（通常）**: mainで行う。リリースノートだけを更新し、Conventional Commit でmainへコミット・pushする。提出refは `main`。
+- **一致しない、またはiOSとAndroidで候補が異なる**: 審査ブランチを使う。最新の `origin/main` から一時worktreeで作り、iOSメタデータはiOS候補タグ、AndroidメタデータはAndroid候補タグから復元してから、リリースノートだけを更新する。ブランチ名は同じ候補なら `store/review-X.Y.Z-N`、異なる候補なら `store/review-<platform>-X.Y.Z-N`。既存ブランチをforce pushしない。
+
+どちらでもアプリのソースコードは変更しない。push後の完全な40文字commit SHAを `review_sha` として記録し、`git ls-remote origin refs/heads/<target-ref>` が同じSHAを返すことを確認する。以後はref名だけでなく、このSHAを提出内容の固定・workflow入力・run追跡に使う。
+
+mainは他の変更で進むことがある。dispatch直前に `main` が `review_sha` を指していなければ、新しいHEADで上の比較とpreflightをやり直し、一致すればそのSHAを新しい `review_sha` として続ける。一致しなければ審査ブランチへ切り替える。
 
 ```bash
 scripts/store-review/preflight.sh \
@@ -198,5 +215,10 @@ gh run watch <run-id> --exit-status
 - Google Playに別変更が審査中なら `ERROR_IF_IN_REVIEW` で停止し、既存審査を取り消さない。
 - Android対象versionCodeが既にproductionにある再実行は、APIだけで審査送信済みか断定できないため無変更で停止する。前回runを確認する。
 - Managed publishingは通常変更しない。既定運用はオフ（承認後に自動公開）。有効なら手動公開が必要と報告し、ユーザーが自動公開への変更を依頼した場合はPlay Consoleでオフへ変更して確認する。承認済みの待機分も即時公開されることを事前に伝える。
+
+審査ブランチを使った場合は、提出の完了を確認してから後片付けする。
+
+1. ブランチのリリースノート（`release_notes.txt` と `changelogs/<N>.txt`）だけをmainへ取り込み、pushする。mainのリリースノートを常に最後の提出内容と一致させ、過去の版のノートもmainの履歴に残すため。
+2. `git push origin --delete store/review-...` でブランチを削除する。提出内容は提出runのcommit SHAとmainの履歴で追える。
 
 最後に、公開版、候補、各workflow URL、公開方式、審査状態、残る手動項目をまとめる。
