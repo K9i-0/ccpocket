@@ -1219,8 +1219,11 @@ export async function getAllRecentSessions(
 
             const hydrated = await hydrateClaudeIndexedEntry(dirPath, entry);
             if (hydrated) {
+              // fullPath can be stale (moved projects); keep the directory
+              // copy too. Missing files are a no-match for content search.
               addSessionTranscriptPaths(hydrated, [
-                entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`),
+                join(dirPath, `${entry.sessionId}.jsonl`),
+                ...(entry.fullPath ? [entry.fullPath] : []),
               ]);
               if (name && !hydrated.name) hydrated.name = name;
               result.entries.push(hydrated);

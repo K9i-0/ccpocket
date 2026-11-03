@@ -115,7 +115,10 @@ Implementation notes (Bridge):
   empty without a scan.
 - Path-based project filters compare `projectPath` exactly. Index entries
   carry the repository root; Codex `thread/list` probes carry the raw thread
-  cwd (same as the existing single-project workspace path).
+  cwd (same as the existing single-project workspace path). A single
+  `projectPath` combined with any new filter therefore scans `thread/list`
+  without the `cwd` pre-filter (early stop only for `modifiedAfter` on
+  `modified`).
 - Content search uses the filesystem index for both providers, so Codex page
   entries come in the repository-grouped index shape (as in the `thread/list`
   failure fallback, see `recent-sessions-pinned.md`); pinned extras keep the
