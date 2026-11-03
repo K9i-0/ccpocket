@@ -15,8 +15,12 @@ on:
           - stable
 jobs:
   patch:
-    runs-on: macos-26
+    # iPhone Duo support needs the iOS 27 SDK: apps linked against an older SDK
+    # run in compatibility mode there (no control strip). Pin the release Xcode
+    # so patches are built with the same toolchain as their release.
+    runs-on: xcode-27
     env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
@@ -24,6 +28,10 @@ jobs:
       CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Show Xcode
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
       - name: Read Flutter version from .mise.toml
         id: mise
         run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"

@@ -87,6 +87,12 @@ copying any specific pattern.
   to one side of the fold, Xcode 27.1 Podfile/`ARCHS` workarounds, simulator-only
   testing so far. `duo_kit_ios` (in development) would replace it.
 
+Release builds must link the iOS 27 SDK: a build linked against iOS 26.5
+(Xcode 26.6, the `macos-26` runner default) runs in compatibility mode on the
+Duo cover display, with its window ending before the strip and no strip
+insets. `ios-release.yml` and `ios-patch.yml` therefore run on the `xcode-27`
+image with Xcode 27.1 pinned through `DEVELOPER_DIR`.
+
 Prerequisites already met: Xcode 27.2 SDK, `UIApplicationSceneManifest`
 (UIScene), no `UIRequiresFullScreen`, portrait + landscape allowed on iPhone,
 deployment target 15.0.
