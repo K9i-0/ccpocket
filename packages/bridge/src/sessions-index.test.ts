@@ -3419,6 +3419,395 @@ describe("pinned recent sessions", () => {
   });
 });
 
+describe("recent session search", () => {
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  let tempHome: string;
+  const claudeProject = "/tmp/search-project-alpha";
+
+  beforeEach(() => {
+    tempHome = mkdtempSync(join(tmpdir(), "ccpocket-test-search-home-"));
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    process.env.USERPROFILE = oldUserProfile;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  interface ClaudeFixture {
+    sessionId: string;
+    modified: string;
+    created?: string;
+    firstPrompt?: string;
+    customTitle?: string;
+    summary?: string;
+    gitBranch?: string;
+    transcript?: unknown[];
+  }
+
+  function writeClaude(entries: ClaudeFixture[]): void {
+    const projectDir = join(tempHome, ".claude", "projects", pathToSlug(claudeProject));
+    mkdirSync(projectDir, { recursive: true });
+    for (const entry of entries) {
+      writeFileSync(
+        join(projectDir, `${entry.sessionId}.jsonl`),
+        (entry.transcript ?? []).map((line) => JSON.stringify(line)).join("\n"),
+      );
+    }
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: entries.map((entry) => ({
+          sessionId: entry.sessionId,
+          fullPath: join(projectDir, `${entry.sessionId}.jsonl`),
+          fileMtime: Date.now(),
+          firstPrompt: entry.firstPrompt ?? `${entry.sessionId} prompt`,
+          ...(entry.customTitle ? { customTitle: entry.customTitle } : {}),
+          ...(entry.summary ? { summary: entry.summary } : {}),
+          messageCount: 2,
+          created: entry.created ?? entry.modified,
+          modified: entry.modified,
+          gitBranch: entry.gitBranch ?? "main",
+          projectPath: claudeProject,
+          isSidechain: false,
+        })),
+      }),
+    );
+  }
+
+  function writeCodexRollout(
+    id: string,
+    timestamp: string,
+    lines: unknown[],
+    fileStamp = "2026-02-13T00-00-00",
+  ): void {
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      join(codexDir, `rollout-${fileStamp}-${id}.jsonl`),
+      [
+        { timestamp, type: "session_meta", payload: { id, cwd: "/tmp/codex-proj" } },
+        {
+          timestamp,
+          type: "event_msg",
+          payload: { type: "user_message", message: `${id} prompt` },
+        },
+        ...lines.map((line) => ({ timestamp, ...(line as object) })),
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n"),
+    );
+  }
+
+  const user = (text: string) => ({
+    type: "user",
+    message: { role: "user", content: text },
+  });
+  const assistant = (text: string) => ({
+    type: "assistant",
+    message: { role: "assistant", content: [{ type: "text", text }] },
+  });
+  const toolResult = (text: string) => ({
+    type: "user",
+    message: {
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "t1", content: text }],
+    },
+  });
+
+  it("reports the first matching metadata field in priority order", async () => {
+    writeClaude([
+      {
+        sessionId: "by-name",
+        modified: "2026-02-13T12:00:00.000Z",
+        customTitle: "Kiwi title",
+        firstPrompt: "kiwi prompt",
+      },
+      {
+        sessionId: "by-prompt",
+        modified: "2026-02-13T11:00:00.000Z",
+        firstPrompt: "add kiwi support",
+        summary: "kiwi summary",
+      },
+      {
+        sessionId: "by-summary",
+        modified: "2026-02-13T10:00:00.000Z",
+        summary: "Kiwi refactor",
+      },
+      {
+        sessionId: "by-branch",
+        modified: "2026-02-13T09:00:00.000Z",
+        gitBranch: "feat/kiwi",
+      },
+      { sessionId: "no-match", modified: "2026-02-13T08:00:00.000Z" },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "KIWI",
+    });
+
+    expect(
+      result.sessions.map((s) => [s.sessionId, s.searchMatch?.field]),
+    ).toEqual([
+      ["by-name", "name"],
+      ["by-prompt", "firstPrompt"],
+      ["by-summary", "summary"],
+      ["by-branch", "branch"],
+    ]);
+  });
+
+  it("matches the project folder name and leaves searchMatch off without a query", async () => {
+    writeClaude([{ sessionId: "s1", modified: "2026-02-13T12:00:00.000Z" }]);
+
+    const searched = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "project-alp",
+    });
+    expect(searched.sessions).toEqual([
+      expect.objectContaining({
+        sessionId: "s1",
+        searchMatch: { field: "project" },
+      }),
+    ]);
+
+    const unsearched = await getAllRecentSessions({ provider: "claude" });
+    expect(unsearched.sessions[0]).not.toHaveProperty("searchMatch");
+  });
+
+  it("does not match parent directories of the project path", async () => {
+    writeClaude([{ sessionId: "s1", modified: "2026-02-13T12:00:00.000Z" }]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "tmp",
+    });
+    expect(result.sessions).toEqual([]);
+  });
+
+  it("attaches searchMatch to pinned sessions", async () => {
+    writeClaude([
+      { sessionId: "newest", modified: "2026-02-13T12:00:00.000Z", firstPrompt: "fig a" },
+      { sessionId: "pinned", modified: "2026-02-13T10:00:00.000Z", gitBranch: "fig" },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "fig",
+      limit: 1,
+      pinnedSessionKeys: new Set(["claude:pinned"]),
+    });
+    expect(result.pinnedSessions).toEqual([
+      expect.objectContaining({ sessionId: "pinned", searchMatch: { field: "branch" } }),
+    ]);
+  });
+
+  it("searches transcript text only with searchContent", async () => {
+    writeClaude([
+      {
+        sessionId: "user-hit",
+        modified: "2026-02-13T12:00:00.000Z",
+        transcript: [user("please migrate the Mango schema")],
+      },
+      {
+        sessionId: "tool-only",
+        modified: "2026-02-13T11:00:00.000Z",
+        transcript: [user("run it"), toolResult("mango in tool output")],
+      },
+      {
+        sessionId: "assistant-hit",
+        modified: "2026-02-13T10:00:00.000Z",
+        transcript: [user("hi"), assistant("The mango column is gone")],
+      },
+      {
+        sessionId: "meta-hit",
+        modified: "2026-02-13T09:00:00.000Z",
+        firstPrompt: "mango title",
+      },
+    ]);
+
+    const metadataOnly = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "mango",
+    });
+    expect(metadataOnly.sessions.map((s) => s.sessionId)).toEqual(["meta-hit"]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "mango",
+      searchContent: true,
+    });
+    expect(
+      result.sessions.map((s) => [s.sessionId, s.searchMatch]),
+    ).toEqual([
+      ["user-hit", { field: "content", snippet: "please migrate the Mango schema" }],
+      ["assistant-hit", { field: "content", snippet: "The mango column is gone" }],
+      ["meta-hit", { field: "firstPrompt" }],
+    ]);
+    expect(result.hasMore).toBe(false);
+    expect(result.contentSearchIncomplete).toBeUndefined();
+  });
+
+  it("paginates content matches newest first", async () => {
+    writeClaude(
+      Array.from({ length: 5 }, (_, i) => ({
+        sessionId: `s${i}`,
+        modified: `2026-02-13T1${5 - i}:00:00.000Z`,
+        transcript: [user(i === 2 ? "unrelated" : "needle here")],
+      })),
+    );
+
+    const page = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "needle",
+      searchContent: true,
+      limit: 2,
+      offset: 1,
+    });
+    expect(page.sessions.map((s) => s.sessionId)).toEqual(["s1", "s3"]);
+    expect(page.hasMore).toBe(true);
+  });
+
+  it("returns hasMore when the content search file bound is hit", async () => {
+    writeClaude(
+      Array.from({ length: 4 }, (_, i) => ({
+        sessionId: `s${i}`,
+        modified: `2026-02-13T1${5 - i}:00:00.000Z`,
+        transcript: [user(i === 0 || i === 3 ? "needle" : "miss")],
+      })),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "needle",
+      searchContent: true,
+      limit: 10,
+      contentSearchLimits: { maxFiles: 2 },
+    });
+    expect(result.sessions.map((s) => s.sessionId)).toEqual(["s0"]);
+    expect(result.hasMore).toBe(true);
+    expect(result.contentSearchIncomplete).toBe(true);
+  });
+
+  it("searches every Codex rollout segment of a thread", async () => {
+    const assistantLine = (text: string) => ({
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text }],
+      },
+    });
+    // Whichever segment the listing keeps for a thread, the other segment's
+    // transcript must still be searched: one thread has the hit in its first
+    // segment, the other in its continuation.
+    const first = "019c56c0-d4d8-7b22-9e3c-200664d68aaa";
+    const second = "019c56c0-d4d8-7b22-9e3c-200664d68ccc";
+    writeCodexRollout(first, "2026-02-13T10:00:00.000Z", [
+      assistantLine("papaya in the first segment"),
+      assistantLine("final words"),
+    ]);
+    writeCodexRollout(
+      first,
+      "2026-02-13T12:00:00.000Z",
+      [assistantLine("later")],
+      "2026-02-13T11-00-00",
+    );
+    writeCodexRollout(second, "2026-02-13T09:00:00.000Z", [
+      assistantLine("early"),
+    ]);
+    writeCodexRollout(
+      second,
+      "2026-02-13T09:30:00.000Z",
+      [assistantLine("papaya in the continuation"), assistantLine("bye")],
+      "2026-02-13T09-30-00",
+    );
+    writeCodexRollout("019c56c0-d4d8-7b22-9e3c-200664d68bbb", "2026-02-13T08:00:00.000Z", [
+      {
+        type: "response_item",
+        payload: { type: "function_call_output", output: "papaya from a tool" },
+      },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      searchQuery: "papaya",
+      searchContent: true,
+    });
+    expect(
+      result.sessions
+        .map((s) => [s.sessionId, s.searchMatch] as const)
+        .sort((a, b) => a[0].localeCompare(b[0])),
+    ).toEqual([
+      [first, { field: "content", snippet: "papaya in the first segment" }],
+      [second, { field: "content", snippet: "papaya in the continuation" }],
+    ]);
+  });
+
+  it("content-searches pinned sessions outside the page", async () => {
+    writeClaude([
+      {
+        sessionId: "newest",
+        modified: "2026-02-13T12:00:00.000Z",
+        transcript: [user("guava")],
+      },
+      {
+        sessionId: "pinned",
+        modified: "2026-02-13T10:00:00.000Z",
+        transcript: [assistant("guava again")],
+      },
+      {
+        sessionId: "pinned-miss",
+        modified: "2026-02-13T09:00:00.000Z",
+        transcript: [user("nothing")],
+      },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "guava",
+      searchContent: true,
+      limit: 1,
+      pinnedSessionKeys: new Set(["claude:pinned", "claude:pinned-miss"]),
+    });
+    expect(result.sessions.map((s) => s.sessionId)).toEqual(["newest"]);
+    expect(result.pinnedSessions).toEqual([
+      expect.objectContaining({
+        sessionId: "pinned",
+        searchMatch: { field: "content", snippet: "guava again" },
+      }),
+    ]);
+  });
+
+  it("applies sessionFilter (e.g. a created date range) before content search", async () => {
+    writeClaude([
+      {
+        sessionId: "old-created",
+        created: "2026-01-01T00:00:00.000Z",
+        modified: "2026-02-13T12:00:00.000Z",
+        transcript: [user("lime")],
+      },
+      {
+        sessionId: "new-created",
+        created: "2026-02-13T00:00:00.000Z",
+        modified: "2026-02-13T11:00:00.000Z",
+        transcript: [user("lime")],
+      },
+    ]);
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      searchQuery: "lime",
+      searchContent: true,
+      sessionFilter: (s) => s.created >= "2026-02-01",
+    });
+    expect(result.sessions.map((s) => s.sessionId)).toEqual(["new-created"]);
+  });
+});
 
 describe("claudeAbandonedBranchUuids", () => {
   const entry = (

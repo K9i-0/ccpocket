@@ -7,6 +7,11 @@ import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-ag
 import { isAutoRenamePromptText } from "./auto-rename.js";
 import { normalizeCodexServiceTierForClient } from "./codex-service-tier.js";
 import { createRepositoryRootResolver } from "./repository-root.js";
+import {
+  recentSessionMetadataSearchField,
+  searchRecentSessionContent,
+  type RecentSessionSearchMatch,
+} from "./recent-session-search.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -39,6 +44,11 @@ export interface SessionIndexEntry {
     webSearchMode?: string;
     additionalWritableRoots?: string[];
   };
+  /**
+   * Why the entry matched `searchQuery` (only set when a query was given).
+   * See docs/recent-sessions-filters.md.
+   */
+  searchMatch?: RecentSessionSearchMatch;
 }
 
 interface RawSessionIndexFile {
@@ -73,8 +83,18 @@ export interface GetRecentSessionsOptions {
   provider?: "claude" | "codex";
   /** Show only sessions with a non-empty name. */
   namedOnly?: boolean;
-  /** Free-text search across name, firstPrompt, lastPrompt and summary. */
+  /**
+   * Free-text search across name, firstPrompt, lastPrompt, summary, project
+   * folder name and git branch. Matching entries carry `searchMatch`.
+   */
   searchQuery?: string;
+  /**
+   * Also search transcript text (user / assistant messages) of sessions whose
+   * metadata does not match. Bounded walk, newest first.
+   */
+  searchContent?: boolean;
+  /** Test hook for the content-search bounds. */
+  contentSearchLimits?: { maxFiles?: number; budgetMs?: number };
   /**
    * Bridge-owned filter applied before pagination. This keeps workspace
    * filtering to a single filesystem scan even when matching sessions are
@@ -94,19 +114,53 @@ export interface GetRecentSessionsResult {
   hasMore: boolean;
   /** Present only when [GetRecentSessionsOptions.pinnedSessionKeys] is set. */
   pinnedSessions?: SessionIndexEntry[];
+  /**
+   * Content search stopped at a file/time bound before enough matches were
+   * found; more matches may exist beyond `sessions`.
+   */
+  contentSearchIncomplete?: boolean;
 }
 
-function matchesRecentSessionSearch(
+/**
+ * Copy of [entry] with `searchMatch` when it matches [searchQuery] on
+ * metadata (name → firstPrompt → lastPrompt → summary → project → branch),
+ * otherwise null.
+ */
+export function matchRecentSessionSearch(
   entry: SessionIndexEntry,
   searchQuery: string,
-): boolean {
-  const q = searchQuery.toLowerCase();
-  return Boolean(
-    entry.name?.toLowerCase().includes(q) ||
-      entry.firstPrompt?.toLowerCase().includes(q) ||
-      entry.lastPrompt?.toLowerCase().includes(q) ||
-      entry.summary?.toLowerCase().includes(q),
-  );
+): SessionIndexEntry | null {
+  const field = recentSessionMetadataSearchField(entry, searchQuery);
+  return field ? { ...entry, searchMatch: { field } } : null;
+}
+
+/**
+ * Transcript files backing an index entry (Claude JSONL, Codex rollout
+ * segments). Tracked out of band so they never leak into responses.
+ */
+const sessionTranscriptPaths = new WeakMap<SessionIndexEntry, string[]>();
+
+function addSessionTranscriptPaths(
+  entry: SessionIndexEntry,
+  paths: readonly string[],
+): void {
+  const existing = sessionTranscriptPaths.get(entry) ?? [];
+  const merged = [...existing];
+  for (const path of paths) {
+    if (!merged.includes(path)) merged.push(path);
+  }
+  sessionTranscriptPaths.set(entry, merged);
+}
+
+function transcriptPathsForEntry(entry: SessionIndexEntry): string[] {
+  const tracked = sessionTranscriptPaths.get(entry);
+  if (tracked && tracked.length > 0) return tracked;
+  if (entry.provider !== "claude") return [];
+  const cwd = entry.resumeCwd ?? entry.projectPath;
+  if (!cwd) return [];
+  return [
+    join(homedir(), ".claude", "projects", pathToSlug(cwd), `${entry.sessionId}.jsonl`),
+  ];
 }
 
 /** Provider-qualified session identity used for pinned session lookups. */
@@ -1046,6 +1100,7 @@ export async function scanJsonlDir(
       }
       const entry = await parseClaudeJsonlFileFast(sessionId, filePath);
       if (entry) {
+        addSessionTranscriptPaths(entry, [filePath]);
         scanStats && (scanStats.filesRead += 1);
         scanStats && (scanStats.entriesReturned += 1);
       } else {
@@ -1164,6 +1219,9 @@ export async function getAllRecentSessions(
 
             const hydrated = await hydrateClaudeIndexedEntry(dirPath, entry);
             if (hydrated) {
+              addSessionTranscriptPaths(hydrated, [
+                entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`),
+              ]);
               if (name && !hydrated.name) hydrated.name = name;
               result.entries.push(hydrated);
               result.indexEntries += 1;
@@ -1249,6 +1307,14 @@ export async function getAllRecentSessions(
     if (!existing) {
       seen.set(entry.sessionId, entry);
     } else {
+      // Keep every transcript (worktree copies, Codex rollout segments) so
+      // content search sees the whole session whichever entry wins.
+      const paths = [
+        ...(sessionTranscriptPaths.get(existing) ?? []),
+        ...(sessionTranscriptPaths.get(entry) ?? []),
+      ];
+      addSessionTranscriptPaths(existing, paths);
+      addSessionTranscriptPaths(entry, paths);
       // Pick the entry with more populated fields
       const score = (e: SessionIndexEntry): number =>
         (e.firstPrompt ? 1 : 0) +
@@ -1304,10 +1370,18 @@ export async function getAllRecentSessions(
   }
   perfStats.counts.afterNamedOnly = filtered.length;
 
-  // Filter by search query (name, firstPrompt, lastPrompt, summary)
-  if (options.searchQuery) {
+  const contentSearchQuery =
+    options.searchContent && options.searchQuery?.trim()
+      ? options.searchQuery
+      : undefined;
+
+  // Filter by search query (name, firstPrompt, lastPrompt, summary, project,
+  // branch). Content search matches after sorting (bounded walk below).
+  if (options.searchQuery && !contentSearchQuery) {
     const q = options.searchQuery;
-    filtered = filtered.filter((e) => matchesRecentSessionSearch(e, q));
+    filtered = filtered
+      .map((e) => matchRecentSessionSearch(e, q))
+      .filter((e): e is SessionIndexEntry => e !== null);
   }
   perfStats.counts.afterSearch = filtered.length;
 
@@ -1325,12 +1399,47 @@ export async function getAllRecentSessions(
   markDuration(durations, "sortSessions", sortStartedAt);
 
   const paginateStartedAt = process.hrtime.bigint();
-  const sliced = filtered.slice(offset, offset + limit);
-  const hasMore = offset + limit < filtered.length;
+  let sliced: SessionIndexEntry[];
+  let hasMore: boolean;
+  let pinnedSessions: SessionIndexEntry[] | undefined;
+  let contentSearchIncomplete = false;
+  if (contentSearchQuery) {
+    const contentSearch = (candidates: readonly SessionIndexEntry[], needed: number) =>
+      searchRecentSessionContent(candidates, {
+        query: contentSearchQuery,
+        needed,
+        transcriptPaths: transcriptPathsForEntry,
+        maxFiles: options.contentSearchLimits?.maxFiles,
+        budgetMs: options.contentSearchLimits?.budgetMs,
+      });
+    const [page, pinned] = await Promise.all([
+      contentSearch(filtered, offset + limit + 1),
+      options.pinnedSessionKeys
+        ? contentSearch(
+            selectPinnedRecentSessions(filtered, options.pinnedSessionKeys),
+            Number.POSITIVE_INFINITY,
+          )
+        : undefined,
+    ]);
+    const matched = page.matches.map(({ session, searchMatch }) => ({
+      ...session,
+      searchMatch,
+    }));
+    sliced = matched.slice(offset, offset + limit);
+    contentSearchIncomplete = page.incomplete;
+    hasMore = matched.length > offset + limit || page.incomplete;
+    pinnedSessions = pinned?.matches.map(({ session, searchMatch }) => ({
+      ...session,
+      searchMatch,
+    }));
+  } else {
+    sliced = filtered.slice(offset, offset + limit);
+    hasMore = offset + limit < filtered.length;
+    pinnedSessions = options.pinnedSessionKeys
+      ? selectPinnedRecentSessions(filtered, options.pinnedSessionKeys)
+      : undefined;
+  }
   perfStats.counts.returned = sliced.length;
-  const pinnedSessions = options.pinnedSessionKeys
-    ? selectPinnedRecentSessions(filtered, options.pinnedSessionKeys)
-    : undefined;
   markDuration(durations, "paginate", paginateStartedAt);
 
   // Supplement missing lastPrompt for Claude sessions (sessions-index.json
@@ -1364,6 +1473,7 @@ export async function getAllRecentSessions(
     sessions: sliced,
     hasMore,
     ...(pinnedSessions ? { pinnedSessions } : {}),
+    ...(contentSearchIncomplete ? { contentSearchIncomplete } : {}),
   };
 }
 
@@ -2096,9 +2206,10 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
     },
   );
 
-  for (const parsed of parsedResults) {
+  for (const [index, parsed] of parsedResults.entries()) {
     options.perfStats && (options.perfStats.filesRead += 1);
     if (!parsed) continue;
+    addSessionTranscriptPaths(parsed.entry, [files[index]]);
     attachCodexThreadMetadata(parsed, {
       threadNames,
       threadProfiles,
@@ -2244,14 +2355,12 @@ export async function getPinnedCodexSessions(
       continue;
     }
     if (options.namedOnly && !entry.name) continue;
-    if (
-      options.searchQuery &&
-      !matchesRecentSessionSearch(entry, options.searchQuery)
-    ) {
-      continue;
-    }
-    if (options.sessionFilter && !options.sessionFilter(entry)) continue;
-    entries.push(entry);
+    const searched = options.searchQuery
+      ? matchRecentSessionSearch(entry, options.searchQuery)
+      : entry;
+    if (!searched) continue;
+    if (options.sessionFilter && !options.sessionFilter(searched)) continue;
+    entries.push(searched);
   }
   return entries.sort(
     (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime(),
