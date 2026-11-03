@@ -6,8 +6,7 @@
  * it) so the WebSocket tests can mock the index without losing these helpers.
  * See docs/recent-sessions-filters.md.
  */
-import { createReadStream } from "node:fs";
-import { createInterface } from "node:readline";
+import { open } from "node:fs/promises";
 
 export type RecentSessionSearchField =
   | "name"
@@ -218,6 +217,16 @@ export type TranscriptSearchResult =
  * raw (lowercased) text before JSON parsing. Missing or unreadable files are
  * a `no_match`; passing [deadline] (epoch ms) aborts with `timeout`.
  */
+const PREFILTER_CHUNK_BYTES = 4 * 1024 * 1024;
+
+/** Line head of a Codex rollout line that can hold user / assistant text. */
+const RE_CODEX_MESSAGE_LINE_HEAD =
+  /"type":\s*"(?:user_message|agent_message|message)"/;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function searchTranscriptFile(
   provider: "claude" | "codex",
   filePath: string,
@@ -233,36 +242,86 @@ export async function searchTranscriptFile(
     escapedLower === queryLower ? [queryLower] : [queryLower, escapedLower];
   const now = options.now ?? Date.now;
 
-  const stream = createReadStream(filePath, { encoding: "utf-8" });
-  const lines = createInterface({ input: stream, crlfDelay: Infinity });
+  // Scan raw bytes: lines are split on "\n" in Buffers and tested as latin1
+  // (one char per byte) with a case-insensitive pattern built from the
+  // needles' UTF-8 bytes. Only candidate lines are decoded as UTF-8 and
+  // parsed, instead of decoding and lower-casing whole (often GB-sized)
+  // transcripts. ASCII letters match case-insensitively, other bytes exactly.
+  const needles = [
+    ...new Set([query, queryLower, query.toUpperCase(), ...rawNeedles]),
+  ].filter((needle) => needle.length > 0);
+  const bytePattern = new RegExp(
+    needles
+      .map((needle) =>
+        escapeRegExp(Buffer.from(needle, "utf8").toString("latin1")),
+      )
+      .join("|"),
+    "i",
+  );
+
   let result: TranscriptSearchResult = { status: "no_match" };
-  try {
-    for await (const line of lines) {
-      if (options.deadline !== undefined && now() >= options.deadline) {
-        result = { status: "timeout" };
-        break;
-      }
-      const lower = line.toLowerCase();
-      if (!rawNeedles.some((needle) => lower.includes(needle))) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      const hit = transcriptLineMessageTexts(provider, parsed).find((text) =>
-        text.toLowerCase().includes(queryLower),
-      );
-      if (hit !== undefined) {
-        result = { status: "match", snippet: buildContentSnippet(hit, query) };
-        break;
-      }
+  const checkLine = (line: Buffer): boolean => {
+    if (!bytePattern.test(line.toString("latin1"))) return false;
+    // Codex rollouts carry multi-MB tool output lines; their event type is
+    // in the line head, so skip non-message lines before JSON.parse.
+    if (
+      provider === "codex" &&
+      !RE_CODEX_MESSAGE_LINE_HEAD.test(
+        line.toString("latin1", 0, Math.min(line.length, 400)),
+      )
+    ) {
+      return false;
     }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line.toString("utf8"));
+    } catch {
+      return false;
+    }
+    const hit = transcriptLineMessageTexts(provider, parsed).find((text) =>
+      text.toLowerCase().includes(queryLower),
+    );
+    if (hit === undefined) return false;
+    result = { status: "match", snippet: buildContentSnippet(hit, query) };
+    return true;
+  };
+
+  let fh;
+  try {
+    fh = await open(filePath, "r");
   } catch {
-    // ENOENT / EACCES / decode errors: treat as no match.
+    return result;
+  }
+  try {
+    const chunk = Buffer.alloc(PREFILTER_CHUNK_BYTES);
+    let pending: Buffer[] = [];
+    let position = 0;
+    while (true) {
+      if (options.deadline !== undefined && now() >= options.deadline) {
+        return { status: "timeout" };
+      }
+      const { bytesRead } = await fh.read(chunk, 0, chunk.length, position);
+      if (bytesRead === 0) break;
+      position += bytesRead;
+      const view = chunk.subarray(0, bytesRead);
+      let start = 0;
+      let newline: number;
+      while ((newline = view.indexOf(10, start)) !== -1) {
+        const piece = view.subarray(start, newline);
+        const line =
+          pending.length > 0 ? Buffer.concat([...pending, piece]) : piece;
+        pending = [];
+        if (checkLine(line)) return result;
+        start = newline + 1;
+      }
+      // The chunk buffer is reused, so keep a copy of the partial line.
+      if (start < view.length) pending.push(Buffer.from(view.subarray(start)));
+    }
+    if (pending.length > 0 && checkLine(Buffer.concat(pending))) return result;
+  } catch {
+    // EACCES / read errors: treat as no match.
   } finally {
-    lines.close();
-    stream.destroy();
+    await fh.close();
   }
   return result;
 }

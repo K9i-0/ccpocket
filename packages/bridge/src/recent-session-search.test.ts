@@ -360,3 +360,55 @@ describe("transcript content search", () => {
     expect(result).toEqual({ matches: [], incomplete: false, filesRead: 1 });
   });
 });
+
+describe("searchTranscriptFile byte scan", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "ccpocket-bytescan-"));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const userLine = (text: string) =>
+    JSON.stringify({
+      type: "event_msg",
+      payload: { type: "user_message", message: text },
+    });
+
+  it("matches ASCII case-insensitively and Japanese exactly", async () => {
+    const path = join(dir, "a.jsonl");
+    writeFileSync(path, `${userLine("Fixed the iPhone クラッシュ")}\n`);
+    expect((await searchTranscriptFile("codex", path, "IPHONE")).status).toBe("match");
+    expect((await searchTranscriptFile("codex", path, "クラッシュ")).status).toBe("match");
+    expect((await searchTranscriptFile("codex", path, "android")).status).toBe("no_match");
+  });
+
+  it("finds a match in a line that spans read chunks", async () => {
+    const path = join(dir, "big.jsonl");
+    const filler = "x".repeat(4 * 1024 * 1024 - 20);
+    writeFileSync(
+      path,
+      [
+        JSON.stringify({ type: "event_msg", payload: { type: "token_count", details: filler } }),
+        userLine(`${"y".repeat(4 * 1024 * 1024)} boundary-needle`),
+        "",
+      ].join("\n"),
+    );
+    const result = await searchTranscriptFile("codex", path, "boundary-needle");
+    expect(result.status).toBe("match");
+  });
+
+  it("matches the last line without a trailing newline", async () => {
+    const path = join(dir, "c.jsonl");
+    writeFileSync(path, `${userLine("first")}\n${userLine("tail needle")}`);
+    expect((await searchTranscriptFile("codex", path, "needle")).status).toBe("match");
+  });
+
+  it("treats regex characters in the query literally", async () => {
+    const path = join(dir, "d.jsonl");
+    writeFileSync(path, `${userLine("compute (a+b) now")}\n`);
+    expect((await searchTranscriptFile("codex", path, "(a+b)")).status).toBe("match");
+    expect((await searchTranscriptFile("codex", path, "a.b")).status).toBe("no_match");
+  });
+});

@@ -123,6 +123,13 @@ Notes:
   folder name and branch; content search does not read their transcripts; a
   project filter compares their raw `cwd` (no repository grouping).
 - The coalescing key includes every new field.
+- Content search scans transcripts as raw bytes: lines are split in Buffers
+  and tested as latin1 with a case-insensitive pattern built from the query's
+  UTF-8 bytes; only candidate lines are decoded and parsed, and Codex lines
+  whose head is not a user / agent message are skipped before parsing. This
+  avoids decoding and lower-casing multi-GB transcripts (content searches went
+  from 4–7 s, usually stopped by the time budget, to ~1–1.5 s, usually
+  complete).
 
 Content search is bounded: at most 400 transcript files are read per request
 (newest first, after the metadata filters) and the scan stops after a 4 s
