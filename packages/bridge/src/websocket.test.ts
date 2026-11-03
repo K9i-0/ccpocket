@@ -1284,6 +1284,26 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridge.close();
     });
 
+    it("resolves pinnedOnly from the index without paging thread/list", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const createProcess = vi.fn();
+      (bridge as any).createStandaloneCodexProcess = createProcess;
+
+      const result = await list(bridge, {
+        provider: "codex",
+        pinnedOnly: true,
+        pinnedSessions: [{ provider: "codex", sessionId: "a-new" }],
+      });
+
+      expect(createProcess).not.toHaveBeenCalled();
+      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
+        provider: "codex",
+      });
+      expect(Array.isArray(result.sessions)).toBe(true);
+      bridge.close();
+    });
+
     it("returns nothing for pinnedOnly without pins", async () => {
       mockIndexedListing();
       const bridge = new BridgeWebSocketServer({ server: httpServer });

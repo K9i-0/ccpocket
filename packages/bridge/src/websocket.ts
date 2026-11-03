@@ -9568,9 +9568,11 @@ export class BridgeWebSocketServer {
     let filtered: unknown[];
     let pinnedSessions: unknown[] | undefined;
     let incomplete = false;
-    if (isRecentContentSearch(msg)) {
+    if (isRecentContentSearch(msg) || msg.pinnedOnly === true) {
       // Transcript search uses the filesystem index for both providers
-      // (app-server thread/list cannot search message text).
+      // (app-server thread/list cannot search message text). Pinned-only
+      // results are sparse, so paging the whole thread/list to find them is
+      // much slower than the index that already holds every rollout.
       const indexed = await this.listWorkspaceFilteredIndexedSessions(
         msg,
         matchesWorkspace,
