@@ -1348,6 +1348,32 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridge.close();
     });
 
+    it("continues content search past the previous page's file depth", async () => {
+      getAllRecentSessionsMock.mockReset();
+      getAllRecentSessionsMock.mockResolvedValue({
+        sessions: [],
+        hasMore: false,
+        contentSearchIncomplete: true,
+        contentSearchFilesRead: 400,
+      });
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      (bridge as any).createStandaloneCodexProcess = vi.fn();
+      const query = { searchQuery: "needle", searchContent: true };
+
+      const first = await list(bridge, query);
+      await list(bridge, { ...query, offset: 5 });
+      await list(bridge, { ...query, searchQuery: "other", offset: 5 });
+
+      expect(first.hasMore).toBe(true);
+      const maxFiles = getAllRecentSessionsMock.mock.calls.map(
+        (call) => call[0].contentSearchLimits?.maxFiles,
+      );
+      // First page: base budget; next page of the same query: depth + budget;
+      // a different query never inherits the depth.
+      expect(maxFiles).toEqual([400, 800, 400]);
+      bridge.close();
+    });
+
     it("routes content search through the index for every provider", async () => {
       getAllRecentSessionsMock.mockReset();
       getAllRecentSessionsMock.mockResolvedValue({

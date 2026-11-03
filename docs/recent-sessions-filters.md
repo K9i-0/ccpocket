@@ -97,8 +97,12 @@ Content search is bounded: at most 400 transcript files are read per request
 (newest first, after the metadata filters) and the scan stops after a 4 s
 budget. When a bound is hit before enough matches are found, the response
 returns the matches so far with `hasMore: true`, and the next page continues
-from the requested offset (the scan restarts from the newest session, so
-deeper pages cost more; acceptable for an explicit opt-in search).
+from the requested offset. The scan restarts from the newest session, but the
+Bridge remembers how many files the previous page of the same query read
+(keyed by the request without `offset` / `limit`, 10 min TTL) and allows that
+many plus one more budget, so "load more" reaches further each time even when
+a page found nothing new. Rereads hit the OS page cache; deeper pages still
+cost more, which is acceptable for an explicit opt-in search.
 
 Implementation notes (Bridge):
 

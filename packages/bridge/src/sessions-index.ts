@@ -119,6 +119,8 @@ export interface GetRecentSessionsResult {
    * found; more matches may exist beyond `sessions`.
    */
   contentSearchIncomplete?: boolean;
+  /** Transcript files read by the content search walk (page only). */
+  contentSearchFilesRead?: number;
 }
 
 /**
@@ -1406,6 +1408,7 @@ export async function getAllRecentSessions(
   let hasMore: boolean;
   let pinnedSessions: SessionIndexEntry[] | undefined;
   let contentSearchIncomplete = false;
+  let contentSearchFilesRead: number | undefined;
   if (contentSearchQuery) {
     const contentSearch = (candidates: readonly SessionIndexEntry[], needed: number) =>
       searchRecentSessionContent(candidates, {
@@ -1430,6 +1433,7 @@ export async function getAllRecentSessions(
     }));
     sliced = matched.slice(offset, offset + limit);
     contentSearchIncomplete = page.incomplete;
+    contentSearchFilesRead = page.filesRead;
     hasMore = matched.length > offset + limit || page.incomplete;
     pinnedSessions = pinned?.matches.map(({ session, searchMatch }) => ({
       ...session,
@@ -1477,6 +1481,7 @@ export async function getAllRecentSessions(
     hasMore,
     ...(pinnedSessions ? { pinnedSessions } : {}),
     ...(contentSearchIncomplete ? { contentSearchIncomplete } : {}),
+    ...(contentSearchFilesRead !== undefined ? { contentSearchFilesRead } : {}),
   };
 }
 

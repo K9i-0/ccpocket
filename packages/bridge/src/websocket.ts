@@ -54,7 +54,10 @@ import {
   type RecentProjectFilter,
   type ServerMessage,
 } from "./parser.js";
-import { withRecentSessionMetadataSearchMatch } from "./recent-session-search.js";
+import {
+  CONTENT_SEARCH_MAX_FILES,
+  withRecentSessionMetadataSearchMatch,
+} from "./recent-session-search.js";
 import {
   BRIDGE_PROTOCOL_MAX_VERSION,
   BRIDGE_PROTOCOL_MIN_VERSION,
@@ -1102,6 +1105,13 @@ export class BridgeWebSocketServer {
     string,
     Promise<RecentSessionsListing>
   >();
+  /**
+   * Transcript files the last content search page read, per query (offset
+   * excluded). Later pages read that many plus one more budget, so "load
+   * more" keeps going past the per-request file bound instead of rereading
+   * the same files.
+   */
+  private contentSearchDepth = new Map<string, { files: number; at: number }>();
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
@@ -9574,12 +9584,25 @@ export class BridgeWebSocketServer {
       // (app-server thread/list cannot search message text). Pinned-only
       // results are sparse, so paging the whole thread/list to find them is
       // much slower than the index that already holds every rollout.
+      const depthKey = isRecentContentSearch(msg)
+        ? recentSessionsCoalescingKey({ ...msg, offset: 0, limit: undefined })
+        : undefined;
+      const maxFiles = depthKey
+        ? this.contentSearchMaxFiles(depthKey, offset)
+        : undefined;
       const indexed = await this.listWorkspaceFilteredIndexedSessions(
         msg,
         matchesWorkspace,
         requiredMatches,
         pinnedKeys,
+        maxFiles,
       );
+      if (depthKey && indexed.filesRead !== undefined) {
+        this.contentSearchDepth.set(depthKey, {
+          files: indexed.filesRead,
+          at: Date.now(),
+        });
+      }
       filtered = indexed.sessions;
       pinnedSessions = indexed.pinnedSessions;
       incomplete = indexed.incomplete;
@@ -9670,15 +9693,34 @@ export class BridgeWebSocketServer {
     }
   }
 
+  /**
+   * File bound for a content search page: the base budget for the first
+   * page, and the previous page's depth plus one budget for later pages.
+   */
+  private contentSearchMaxFiles(depthKey: string, offset: number): number {
+    const now = Date.now();
+    for (const [key, value] of this.contentSearchDepth) {
+      if (now - value.at > 10 * 60_000) this.contentSearchDepth.delete(key);
+    }
+    if (offset === 0) {
+      this.contentSearchDepth.delete(depthKey);
+      return CONTENT_SEARCH_MAX_FILES;
+    }
+    const previous = this.contentSearchDepth.get(depthKey)?.files ?? 0;
+    return previous + CONTENT_SEARCH_MAX_FILES;
+  }
+
   private async listWorkspaceFilteredIndexedSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
     matchesWorkspace: (session: unknown) => boolean,
     limit: number,
     pinnedKeys?: ReadonlySet<string>,
+    contentSearchMaxFiles?: number,
   ): Promise<{
     sessions: unknown[];
     pinnedSessions?: unknown[];
     incomplete: boolean;
+    filesRead?: number;
   }> {
     const result = await getAllRecentSessions({
       limit,
@@ -9689,6 +9731,9 @@ export class BridgeWebSocketServer {
       namedOnly: msg.namedOnly,
       searchQuery: msg.searchQuery,
       ...(isRecentContentSearch(msg) ? { searchContent: true } : {}),
+      ...(contentSearchMaxFiles !== undefined
+        ? { contentSearchLimits: { maxFiles: contentSearchMaxFiles } }
+        : {}),
       archivedSessionIds: this.archiveStore.archivedIds(),
       sessionFilter: (session) =>
         matchesWorkspace(this.enrichRecentSessionWorkspace(session)),
@@ -9709,6 +9754,9 @@ export class BridgeWebSocketServer {
           }
         : {}),
       incomplete: result.contentSearchIncomplete === true,
+      ...(result.contentSearchFilesRead !== undefined
+        ? { filesRead: result.contentSearchFilesRead }
+        : {}),
     };
   }
 
