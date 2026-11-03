@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.155.0] - 2026-11-03
+
+### Added
+
+- Search recent sessions from the header with quick filters, advanced project/date/content search and a dedicated pinned section (requires Bridge 1.97.0).
+- Queue Claude and Codex input until usage limits reset (requires Bridge 1.97.0).
+- Find settings through search and grouped categories, with a compact status card showing connection and plan usage.
+
+### Changed
+
+- Show one usage window per provider in a compact session-list summary.
+- Refine settings cards, highlights and prompt history styling.
+
+### Fixed
+
+- Preserve recent session filters across reconnects and day changes.
+- Open the search keyboard on tap and dismiss it when scrolling.
+
 ## [1.154.0] - 2026-11-02
 
 ### Added
