@@ -117,6 +117,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
   StreamSubscription<ServerMessage>? _messageSub;
+  StreamSubscription<void>? _filtersAvailableSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
 
@@ -132,6 +133,11 @@ class SessionListCubit extends Cubit<SessionListState> {
       _onProjectHistoryUpdate,
     );
     _messageSub = _bridge.messages.listen(_onBridgeMessage);
+    // A filtered request built while reconnecting goes out without the
+    // filters; ask again once the Bridge announces them.
+    _filtersAvailableSub = _bridge.recentSessionFiltersAvailable.listen((_) {
+      if (!isClosed && state.filters.isActive) _requestWithCurrentFilters();
+    });
     _preferencesLoaded = _loadPreferences();
   }
 
@@ -562,17 +568,28 @@ class SessionListCubit extends Cubit<SessionListState> {
     final singleProject = projectKeys.length == 1 || !supportsExtra
         ? projectKeys.firstOrNull
         : null;
-    final range = filters.dateFilter?.resolve(DateTime.now());
+    final dateFilter = filters.dateFilter;
     _bridge.switchFilter(
       projectPath: singleProject,
       provider: _providerToString(state.providerFilter),
       namedOnly: state.namedOnly ? true : null,
       searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
       extraFilters: RecentSessionsExtraFilters(
-        projectKeys: singleProject == null ? projectKeys : const [],
-        modifiedAfter: range?.start.toUtc().toIso8601String(),
-        modifiedBefore: range?.end?.toUtc().toIso8601String(),
-        dateField: range != null && filters.dateField == RecentDateField.created
+        // Kept even when only the first project can be sent, so the request
+        // counts as filtered and is repeated once the capability arrives.
+        projectKeys: projectKeys.length > 1 ? projectKeys : const [],
+        // Resolved at send time so "today" stays current on later pages.
+        resolveDateRange: dateFilter == null
+            ? null
+            : () {
+                final range = dateFilter.resolve(DateTime.now());
+                return (
+                  after: range.start.toUtc().toIso8601String(),
+                  before: range.end?.toUtc().toIso8601String(),
+                );
+              },
+        dateField:
+            dateFilter != null && filters.dateField == RecentDateField.created
             ? 'created'
             : null,
         pinnedOnly: filters.pinnedOnly,
@@ -597,6 +614,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
     _messageSub?.cancel();
+    _filtersAvailableSub?.cancel();
     return super.close();
   }
 }

@@ -1177,6 +1177,28 @@ void main() {
       expect(find.text('Today'), findsOneWidget);
     });
 
+    testWidgets('list mode keeps load more on an empty page that has more', (
+      tester,
+    ) async {
+      await useListLayout();
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: const [],
+          accumulatedProjectPaths: const {'/w/a'},
+          searchQuery: 'needle',
+          hasMoreSessions: true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No sessions match the current filters'), findsOne);
+      expect(find.byKey(const ValueKey('load_more_button')), findsOneWidget);
+    });
+
     testWidgets('keeps an empty favorite project group in grouped mode', (
       tester,
     ) async {

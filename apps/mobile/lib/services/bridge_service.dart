@@ -187,6 +187,14 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsRecentSessionFilters =>
       _protocolCapabilities.contains('recent_sessions_filters_v1');
 
+  /// Emits when the Bridge announces `recent_sessions_filters_v1` after a
+  /// filtered list request was built without it (reconnects), so the owner
+  /// of the filters can request the list again.
+  Stream<void> get recentSessionFiltersAvailable =>
+      _recentFiltersAvailableController.stream;
+  final _recentFiltersAvailableController = StreamController<void>.broadcast();
+  bool _recentFiltersPendingCapabilities = false;
+
   void retainSessionHistory(String sessionId) {
     _historyObservers.update(
       sessionId,
@@ -909,6 +917,11 @@ class BridgeService implements BridgeServiceBase {
                 _codexAutoReviewPolicyController.add(codexAutoReviewDisabled);
                 _bridgeVersion = bridgeVersion;
                 _protocolCapabilities = protocolCapabilities;
+                if (_recentFiltersPendingCapabilities &&
+                    supportsRecentSessionFilters) {
+                  _recentFiltersPendingCapabilities = false;
+                  _recentFiltersAvailableController.add(null);
+                }
                 if (!supportsPerformanceMode) {
                   _applyDeliveryMode(supported: false);
                 }
@@ -3245,11 +3258,22 @@ class BridgeService implements BridgeServiceBase {
         ? _pinnedRecentSessionRefs
         : const <RecentSessionRef>[];
     final projectFilters = requestScope != 'project' && projectPath == null
-        ? extra.projectKeys
+        ? extra.projectKeys.take(recentProjectFilterLimit).toList()
         : const <String>[];
     final pinnedProjects = extra.pinnedOnly
-        ? extra.pinnedProjectKeys
+        ? extra.pinnedProjectKeys.take(recentProjectFilterLimit).toList()
         : const <String>[];
+    final dateRange = extra.resolveDateRange?.call();
+    final modifiedAfter = dateRange?.after ?? extra.modifiedAfter;
+    final modifiedBefore = dateRange == null
+        ? extra.modifiedBefore
+        : dateRange.before;
+    if (!supportsRecentSessionFilters &&
+        (extraFilters ?? _currentExtraFilters).isActive) {
+      // Sent before the Bridge announced its capabilities (e.g. while
+      // reconnecting): the filters were dropped, so ask again once known.
+      _recentFiltersPendingCapabilities = true;
+    }
     final queryKey = jsonEncode([
       limit,
       offset,
@@ -3260,8 +3284,8 @@ class BridgeService implements BridgeServiceBase {
       searchQuery,
       [for (final pin in pinnedSessions) '${pin.provider}:${pin.sessionId}'],
       projectFilters,
-      extra.modifiedAfter,
-      extra.modifiedBefore,
+      modifiedAfter,
+      modifiedBefore,
       extra.dateField,
       extra.pinnedOnly,
       pinnedProjects,
@@ -3300,8 +3324,8 @@ class BridgeService implements BridgeServiceBase {
                   RecentProjectFilter.fromKey(key),
               ]
             : null,
-        modifiedAfter: extra.modifiedAfter,
-        modifiedBefore: extra.modifiedBefore,
+        modifiedAfter: modifiedAfter,
+        modifiedBefore: modifiedBefore,
         dateField: extra.dateField,
         pinnedOnly: extra.pinnedOnly ? true : null,
         pinnedProjects: pinnedProjects.isEmpty
@@ -5062,6 +5086,7 @@ class BridgeService implements BridgeServiceBase {
     _projectHistoryController.close();
     _projectsController.close();
     _codexAutoReviewPolicyController.close();
+    _recentFiltersAvailableController.close();
     _diffResultController.close();
     _diffImageResultController.close();
     _worktreeListController.close();
@@ -5110,6 +5135,11 @@ class RecentSessionsExtraFilters {
   final List<String> projectKeys;
   final String? modifiedAfter;
   final String? modifiedBefore;
+
+  /// Resolves the period when a request is sent, so presets such as "today"
+  /// follow the clock on later pages and refreshes. Overrides
+  /// [modifiedAfter] / [modifiedBefore] when set.
+  final ({String? after, String? before}) Function()? resolveDateRange;
   final String? dateField;
   final bool pinnedOnly;
 
@@ -5122,6 +5152,7 @@ class RecentSessionsExtraFilters {
     this.projectKeys = const [],
     this.modifiedAfter,
     this.modifiedBefore,
+    this.resolveDateRange,
     this.dateField,
     this.pinnedOnly = false,
     this.pinnedProjectKeys = const [],
@@ -5129,7 +5160,19 @@ class RecentSessionsExtraFilters {
   });
 
   static const none = RecentSessionsExtraFilters();
+
+  /// Whether any filter here changes the result set.
+  bool get isActive =>
+      projectKeys.isNotEmpty ||
+      modifiedAfter != null ||
+      modifiedBefore != null ||
+      resolveDateRange != null ||
+      pinnedOnly ||
+      searchContent;
 }
+
+/// The Bridge rejects `projectFilters` / `pinnedProjects` over this size.
+const recentProjectFilterLimit = 100;
 
 class _PendingRecentSessionsRequest {
   _PendingRecentSessionsRequest({

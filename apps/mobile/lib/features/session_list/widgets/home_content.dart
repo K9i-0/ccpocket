@@ -1103,7 +1103,9 @@ class HomeContentState extends State<HomeContent> {
               ],
             )
           else ...[
-            if ((!_groupRecentSessions && filteredSessions.isEmpty) ||
+            // An empty page can still have more (content search stops at a
+            // file bound), so list mode keeps its "load more" button below.
+            if (filteredSessions.isEmpty && !widget.hasMoreSessions ||
                 (_groupRecentSessions &&
                     groupedRecentSessions.isEmpty &&
                     !widget.hasMoreSessions))
@@ -1114,6 +1116,13 @@ class HomeContentState extends State<HomeContent> {
                 subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
               )
             else if (!_groupRecentSessions) ...[
+              if (filteredSessions.isEmpty)
+                _RecentSessionsEmptyResult(
+                  title: hasActiveFilter
+                      ? l.noSessionsMatchFilters
+                      : l.noRecentSessions,
+                  subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
+                ),
               if (pinnedListSessions.isNotEmpty) ...[
                 _RecentListSubheader(
                   key: const ValueKey('recent_pinned_section'),

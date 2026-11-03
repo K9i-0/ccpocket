@@ -78,6 +78,17 @@ class _Harness {
     return update.timeout(const Duration(seconds: 1));
   }
 
+  Future<void> announce(List<String> capabilities) async {
+    (await _socket.future).add(
+      jsonEncode({
+        'type': 'session_list',
+        'sessions': <Object>[],
+        'bridgeInstanceId': 'bridge-test',
+        'protocolCapabilities': capabilities,
+      }),
+    );
+  }
+
   Future<void> close() async {
     bridge.disconnect();
     if (_socket.isCompleted) await (await _socket.future).close();
@@ -340,6 +351,71 @@ void main() {
         session.copyWithName(name: 'n').searchMatch?.field,
         RecentSessionSearchField.content,
       );
+    });
+  });
+
+  group('recent filter delivery', () {
+    test('resolves the period when each request is sent', () async {
+      final harness = await _Harness.start(
+        capabilities: const ['recent_sessions_filters_v1'],
+      );
+      var calls = 0;
+      harness.bridge.switchFilter(
+        extraFilters: RecentSessionsExtraFilters(
+          resolveDateRange: () {
+            calls++;
+            return (after: 'after-$calls', before: null);
+          },
+        ),
+      );
+      final first = await harness.nextRequest();
+      expect(first['modifiedAfter'], 'after-1');
+      expect(first.containsKey('modifiedBefore'), isFalse);
+      await harness.respond(first, sessions: [_session('a')]);
+      harness.bridge.loadMoreRecentSessions();
+      final next = await harness.nextRequest();
+      expect(next['modifiedAfter'], 'after-2');
+      await harness.close();
+    });
+
+    test('caps project filters at the Bridge limit', () async {
+      final harness = await _Harness.start(
+        capabilities: const ['recent_sessions_filters_v1'],
+      );
+      harness.bridge.switchFilter(
+        extraFilters: RecentSessionsExtraFilters(
+          projectKeys: [for (var i = 0; i < 150; i++) '/p$i'],
+          pinnedOnly: true,
+          pinnedProjectKeys: [for (var i = 0; i < 150; i++) '/f$i'],
+        ),
+      );
+      final request = await harness.nextRequest();
+      expect(request['projectFilters'], hasLength(recentProjectFilterLimit));
+      expect(request['pinnedProjects'], hasLength(recentProjectFilterLimit));
+      await harness.close();
+    });
+
+    test('announces filters once a reconnecting Bridge reports them', () async {
+      final harness = await _Harness.start();
+      var announced = 0;
+      final sub = harness.bridge.recentSessionFiltersAvailable.listen(
+        (_) => announced++,
+      );
+      harness.bridge.switchFilter(
+        extraFilters: const RecentSessionsExtraFilters(pinnedOnly: true),
+      );
+      final request = await harness.nextRequest();
+      expect(request.containsKey('pinnedOnly'), isFalse);
+
+      await harness.announce(const ['recent_sessions_filters_v1']);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(announced, 1);
+      // Only once per dropped request.
+      await harness.announce(const ['recent_sessions_filters_v1']);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(announced, 1);
+      await sub.cancel();
+      await harness.close();
     });
   });
 }

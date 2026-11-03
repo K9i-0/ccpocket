@@ -142,6 +142,12 @@ class MockBridgeService extends BridgeService {
   }
 
   bool supportsFilters = false;
+  final _filtersAvailable = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get recentSessionFiltersAvailable => _filtersAvailable.stream;
+
+  void announceRecentFilters() => _filtersAvailable.add(null);
 
   Map<String, dynamic> get lastJson =>
       jsonDecode(sentMessages.last.toJson()) as Map<String, dynamic>;
@@ -872,7 +878,9 @@ void main() {
     test('without the capability only one project is sent', () {
       cubit.setProjectFilters({'/b', '/a'});
       expect(mockBridge.lastJson['projectPath'], '/a');
-      expect(mockBridge.lastExtraFilters.projectKeys, isEmpty);
+      // Kept so the request is repeated once the capability arrives;
+      // BridgeService drops it for old Bridges.
+      expect(mockBridge.lastExtraFilters.projectKeys, ['/a', '/b']);
     });
 
     test('period, pinned only and content search are forwarded', () async {
@@ -880,11 +888,13 @@ void main() {
       await cubit.toggleProjectPinned('project:fav');
       cubit.setDateFilter(const RecentDateFilter(RecentDatePreset.yesterday));
       var extra = mockBridge.lastExtraFilters;
-      expect(extra.modifiedAfter, isNotNull);
-      expect(extra.modifiedBefore, isNotNull);
+      // Resolved at send time so presets follow the clock.
+      final range = extra.resolveDateRange!();
+      expect(range.after, isNotNull);
+      expect(range.before, isNotNull);
       expect(
-        DateTime.parse(extra.modifiedBefore!)
-            .difference(DateTime.parse(extra.modifiedAfter!))
+        DateTime.parse(range.before!)
+            .difference(DateTime.parse(range.after!))
             .inHours,
         inInclusiveRange(23, 25),
       );
@@ -933,6 +943,19 @@ void main() {
       final before = mockBridge.sentMessages.length;
       await cubit.toggleRecentSessionPinned(_session(id: 'x'));
       expect(mockBridge.sentMessages.length, before + 1);
+    });
+
+    test('re-requests with filters once the Bridge announces them', () async {
+      cubit.setProjectFilters({'/a', '/b'});
+      // Without the capability only the first project is sent.
+      expect(mockBridge.lastJson['projectPath'], '/a');
+      mockBridge.supportsFilters = true;
+      final before = mockBridge.sentMessages.length;
+      mockBridge.announceRecentFilters();
+      await Future<void>.delayed(Duration.zero);
+      expect(mockBridge.sentMessages.length, before + 1);
+      expect(mockBridge.lastJson['projectPath'], isNull);
+      expect(mockBridge.lastExtraFilters.projectKeys, ['/a', '/b']);
     });
 
     test('resetFilters clears the extra filters', () {
