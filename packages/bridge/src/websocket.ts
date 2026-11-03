@@ -10849,6 +10849,9 @@ export class BridgeWebSocketServer {
       items: item
         ? [
             {
+              ...(item.clientMessageId ? { clientMessageId: item.clientMessageId } : {}),
+              ...(item.waitingForUsageLimit ? { waitingForUsageLimit: true } : {}),
+              ...(item.retryAt ? { retryAt: item.retryAt } : {}),
               itemId: item.itemId,
               text: item.text,
               createdAt: item.createdAt,

@@ -2562,6 +2562,31 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it.each(["2026-11-03T02:40:00.000Z", undefined])("restores usage-limit queue metadata in reconnect snapshots (%s)", async (retryAt) => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    await (bridge as any).handleClientMessage({
+      type: "client_capabilities", supportedServerMessages: ["conversation_queue"],
+    }, ws);
+    ws.send.mockClear();
+    (bridge as any).sendQueueState(ws, "limited-session", {
+      queuedInput: {
+        itemId: "q-limit", clientMessageId: "cm-limit", text: "after reset",
+        createdAt: "2026-11-03T01:00:00.000Z", waitingForUsageLimit: true, retryAt,
+        images: [{ base64: "private-payload", mimeType: "image/png" }],
+      },
+    });
+    const snapshot = JSON.parse(ws.send.mock.calls.at(-1)![0]);
+    expect(snapshot).toEqual({
+      type: "conversation_queue", sessionId: "limited-session", limit: 1,
+      items: [{ itemId: "q-limit", clientMessageId: "cm-limit", text: "after reset",
+        createdAt: "2026-11-03T01:00:00.000Z", waitingForUsageLimit: true,
+        ...(retryAt ? { retryAt } : {}),
+      }],
+    });
+    bridge.close();
+  });
+
   it("suppresses conversation_queue for clients that did not opt in", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
