@@ -1524,6 +1524,16 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         hasMore: false,
       });
 
+      // Before the first load the listing answers from the index alone
+      // without waiting, and starts loading the snapshot.
+      const cold = await list(bridge, {
+        provider: "codex",
+        searchQuery: "needle",
+        modifiedAfter: "2026-11-01T00:00:00.000Z",
+      });
+      expect(ids(cold)).toEqual(["indexed"]);
+      await (bridge as any).codexThreadSnapshot.get();
+
       const result = await list(bridge, {
         provider: "codex",
         searchQuery: "needle",
@@ -12388,6 +12398,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       stop,
     }));
 
+    await (bridge as any).codexThreadSnapshot.get();
     const result = await (bridge as any).listRecentSessions({
       type: "list_recent_sessions",
       provider: "codex",

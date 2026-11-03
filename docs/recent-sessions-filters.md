@@ -102,8 +102,12 @@ predicate path (`buildRecentSessionPredicate`) backed by two sources:
    read. Index entries win when both have a thread.
 
 Plain listings (no filter) keep the app-server `thread/list` fast path until
-the snapshot is ready, then use the same two sources. A filtered request that
-arrives before the first snapshot load finishes waits for it once.
+the snapshot is ready, then use the same two sources. The snapshot starts
+loading when a client connects (and on any non-Claude listing). Filtered
+requests never wait for the first load — it takes 10–20 s on large histories,
+longer than the app's 10 s request timeout — so until it is ready they answer
+from the index alone and omit compressed-only Codex threads; requests after
+the load include them.
 
 Measured on a history with ~400 Claude / Codex sessions plus ~3000 compressed
 Codex rollouts (13 GB): filtered listings went from 1.5–8 s to 30–120 ms, plain

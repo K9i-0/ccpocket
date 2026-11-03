@@ -38,23 +38,22 @@ pinnedSessions?: RecentSession[];
 
 ## Where the entries come from
 
-- Claude and all-provider listings: `getAllRecentSessions` already loads and
-  filters every entry before slicing, so pinned entries are selected from the
-  filtered, unsliced list (`pinnedSessionKeys` option). No extra scan.
-- Codex-only listings backed by app-server `thread/list`: `getPinnedCodexSessions`
-  walks `~/.codex/sessions` once and parses only the rollout files whose names
-  contain a pinned thread ID (the same targeted lookup the page already uses for
-  rollout metadata). Filters are applied locally; search uses the local
-  name / first prompt / last prompt / summary match rather than the app-server
-  `searchTerm`, so results can differ slightly for edge cases.
-- When `thread/list` fails, the rollout fallback listing selects pinned entries
-  from the same `getAllRecentSessions` call.
-- Codex entries are returned in the `thread/list` shape (`projectPath` is the
-  raw thread cwd), because the app pin key includes `projectPath` and page
-  Codex entries normally come from `thread/list`. Known gap: when `thread/list`
-  fails in an all-provider listing, page Codex entries fall back to the
-  repository-grouped shape, so a pinned worktree/subdirectory thread outside
-  the page may show without its pin mark until `thread/list` recovers.
+- Filtered listings (keyword, period, projects, named only, pinned only,
+  content search) and plain listings once the Codex thread snapshot is ready:
+  `getAllRecentSessions` (Claude plus plain `.jsonl` Codex rollouts) selects
+  pinned entries from the filtered, unsliced list (`pinnedSessionKeys`), and
+  compressed-only Codex threads come from the snapshot. See
+  [recent-sessions-filters.md](recent-sessions-filters.md#bridge-routing).
+  Codex entries from the index use the repository-grouped `projectPath` (with
+  `resumeCwd`); this is now the common case, not the fallback.
+- Plain listings before the snapshot is ready (Bridge start): Codex pages come
+  from app-server `thread/list`, and `getPinnedCodexSessions` walks
+  `~/.codex/sessions` once and parses only the rollout files whose names
+  contain a pinned thread ID. Those Codex entries use the `thread/list` shape
+  (`projectPath` is the raw thread cwd).
+- Because the two shapes differ in `projectPath`, the app matches pins by
+  `provider:sessionId`. Older apps that compare the full pin key may show a
+  pinned worktree/subdirectory Codex thread without its pin mark.
 
 ## App behavior
 

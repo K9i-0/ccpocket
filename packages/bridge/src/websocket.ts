@@ -3424,6 +3424,8 @@ export class BridgeWebSocketServer {
     this.lastConnectMetadataRefreshAt = now;
     void this.refreshCodexMetadata();
     void this.refreshClaudeModels();
+    // Load the Codex thread snapshot before the first search / filter.
+    this.codexThreadSnapshot.warm();
   }
 
   /**
@@ -6043,7 +6045,7 @@ export class BridgeWebSocketServer {
 
       case "list_recent_sessions": {
         // Load the Codex thread snapshot ahead of the first search / filter.
-        this.codexThreadSnapshot.warm();
+        if (msg.provider !== "claude") this.codexThreadSnapshot.warm();
         const isProjectScopedRequest = msg.requestScope === "project";
         const currentRequestId = this.recentSessionsRequestIds.get(ws) ?? 0;
         const requestId = isProjectScopedRequest
@@ -9700,6 +9702,13 @@ export class BridgeWebSocketServer {
     pinnedKeys?: ReadonlySet<string>,
   ): Promise<{ sessions: unknown[]; pinnedSessions: unknown[] }> {
     if (msg.provider === "claude") return { sessions: [], pinnedSessions: [] };
+    // Never wait for the first snapshot load (10-20 s on large histories,
+    // longer than the app's request timeout): answer from the index alone
+    // until it is ready.
+    if (!this.codexThreadSnapshot.isReady) {
+      this.codexThreadSnapshot.warm();
+      return { sessions: [], pinnedSessions: [] };
+    }
     const [threads, indexedIds, names] = await Promise.all([
       this.codexThreadSnapshot.get(),
       listIndexedCodexThreadIds(),
