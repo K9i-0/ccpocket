@@ -3175,6 +3175,82 @@ describe("recent sessions grouped by git repository", () => {
     expect(ids).not.toContain(execId);
   });
 
+  it("sorts newest first even when an entry has no modified time", async () => {
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    const writeRollout = (threadId: string, time: string) =>
+      writeFileSync(
+        join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+        [
+          JSON.stringify({
+            timestamp: time,
+            type: "session_meta",
+            payload: { id: threadId, cwd: repo },
+          }),
+          JSON.stringify({
+            timestamp: time,
+            type: "event_msg",
+            payload: { type: "user_message", message: `prompt ${threadId}` },
+          }),
+        ].join("\n"),
+      );
+    const older = "019c56c0-d4d8-7b22-9e3c-2006640000f1";
+    const newer = "019c56c0-d4d8-7b22-9e3c-2006640000f2";
+    writeRollout(older, "2026-02-10T00:00:00.000Z");
+    writeRollout(newer, "2026-02-12T00:00:00.000Z");
+    // A Claude transcript without any timestamp has modified "".
+    const claudeDir = join(tempHome, ".claude", "projects", pathToSlug(repo));
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, "aaaaaaaa-0000-0000-0000-000000000001.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "no timestamp" },
+        cwd: repo,
+      }),
+    );
+
+    const ids = (await getAllRecentSessions({ limit: 50 })).sessions.map(
+      (s) => s.sessionId,
+    );
+    expect(ids.indexOf(newer)).toBeLessThan(ids.indexOf(older));
+    expect(ids.indexOf(older)).toBeLessThan(
+      ids.indexOf("aaaaaaaa-0000-0000-0000-000000000001"),
+    );
+  });
+
+  it("takes activity time and last prompt from the newest rollout segment", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-2006640000a9";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    const line = (time: string, type: string, payload: object) =>
+      JSON.stringify({ timestamp: time, type, payload });
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T10-00-00-${threadId}.jsonl`),
+      [
+        line("2026-02-13T10:00:00.000Z", "session_meta", { id: threadId, cwd: repo, git: { branch: "main" } }),
+        line("2026-02-13T10:00:01.000Z", "event_msg", { type: "user_message", message: "first prompt" }),
+        line("2026-02-13T10:00:02.000Z", "event_msg", { type: "agent_message", message: "early summary" }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(
+        codexDir,
+        `rollout-2026-02-13T12-00-00-${threadId}_019c56c1-0000-7000-8000-0000000000a9.jsonl`,
+      ),
+      [
+        line("2026-02-13T12:00:00.000Z", "session_meta", { id: threadId, cwd: repo }),
+        line("2026-02-13T12:30:00.000Z", "event_msg", { type: "user_message", message: "latest prompt" }),
+      ].join("\n"),
+    );
+
+    const entry = (await getAllRecentSessions({ limit: 50 })).sessions.find(
+      (s) => s.sessionId === threadId,
+    );
+    expect(entry?.modified).toBe("2026-02-13T12:30:00.000Z");
+    expect(entry?.lastPrompt).toBe("latest prompt");
+  });
+
   it("keeps separate repositories that only share a name prefix", async () => {
     const other = join(work, "app-stats");
     mkdirSync(other);

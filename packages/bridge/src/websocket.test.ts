@@ -28,6 +28,7 @@ const {
   loadCodexSessionNamesMock,
   saveCodexSessionProfileMock,
   getPinnedCodexSessionsMock,
+  listIndexedCodexThreadIdsMock,
   generateCommitMessageMock,
   gitCommitMock,
   consumeFinderProofMock,
@@ -43,6 +44,7 @@ const {
   loadCodexSessionNamesMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
   getPinnedCodexSessionsMock: vi.fn(),
+  listIndexedCodexThreadIdsMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
   consumeFinderProofMock: vi.fn(),
@@ -64,6 +66,7 @@ vi.mock("./sessions-index.js", () => ({
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
   getPinnedCodexSessions: getPinnedCodexSessionsMock,
+  listIndexedCodexThreadIds: listIndexedCodexThreadIdsMock,
   codexEntryAsThreadListShape: (entry: { resumeCwd?: string; projectPath: string }) => {
     const { resumeCwd, ...rest } = entry;
     return { ...rest, projectPath: resumeCwd ?? entry.projectPath };
@@ -555,6 +558,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     verifyFinderSocketProofMock.mockReset().mockResolvedValue(true);
     revealInFinderMock.mockReset().mockResolvedValue(undefined);
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
+    listIndexedCodexThreadIdsMock.mockReset().mockResolvedValue(new Set());
+    // Never spawn a real Codex app-server for the thread snapshot.
+    vi.spyOn(
+      BridgeWebSocketServer.prototype as any,
+      "loadAllCodexThreads",
+    ).mockResolvedValue(undefined);
     getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
     getCodexSessionHistoryMock.mockResolvedValue([]);
     codexThreadToSessionHistoryMock.mockReturnValue([]);
@@ -927,7 +936,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((m: any) => m.type === "recent_sessions");
     expect(recent).toMatchObject({
       type: "recent_sessions",
-      hasMore: true,
       limit: 20,
       offset: 40,
       projectPath: "/tmp/project",
@@ -1088,9 +1096,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         limit: 20,
         offset: 0,
         provider: "codex",
-        projectPath: "/tmp/p",
-        namedOnly: true,
-        searchQuery: "fix",
         pinnedSessions: [
           { provider: "codex", sessionId: "old-thread" },
           { provider: "claude", sessionId: "claude-pin" },
@@ -1103,9 +1108,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(getPinnedCodexSessionsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         threadIds: ["old-thread"],
-        projectPath: "/tmp/p",
-        namedOnly: true,
-        searchQuery: "fix",
       }),
     );
     const recent = ws.send.mock.calls
@@ -1226,16 +1228,40 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridge.close();
     });
 
-    it("keeps the fast path when no new filter is present", async () => {
+    it("keeps the fast path for plain listings until the snapshot is ready", async () => {
       mockIndexedListing();
       const bridge = new BridgeWebSocketServer({ server: httpServer });
 
-      await list(bridge, { projectPath: "/tmp/a", dateField: "created" });
+      await list(bridge, { provider: "claude", dateField: "created" });
 
-      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
-        projectPath: "/tmp/a",
-      });
       expect(getAllRecentSessionsMock.mock.calls[0][0].sessionFilter).toBeUndefined();
+      bridge.close();
+    });
+
+    it("switches plain listings to the index once the snapshot is ready", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const threadList = vi.spyOn(bridge as any, "listRecentCodexThreads");
+      await (bridge as any).codexThreadSnapshot.get();
+
+      await list(bridge, {});
+
+      expect(threadList).not.toHaveBeenCalled();
+      expect(getAllRecentSessionsMock.mock.calls[0][0].sessionFilter).toBeTypeOf(
+        "function",
+      );
+      bridge.close();
+    });
+
+    it("routes single-project and named-only listings through the index", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      await list(bridge, { projectPath: "/tmp/a", namedOnly: true });
+
+      expect(getAllRecentSessionsMock.mock.calls[0][0].sessionFilter).toBeTypeOf(
+        "function",
+      );
       bridge.close();
     });
 
@@ -1423,8 +1449,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ).toBe(false);
     });
 
-    it("adds date bounds to the Codex thread/list probe and stops early", async () => {
-      const thread = (id: string, updatedAt: number) => ({
+    it("adds compressed-only Codex threads from the snapshot to filtered listings", async () => {
+      const thread = (id: string, updatedAt: number, branch = "feat/needle") => ({
         id,
         preview: `preview ${id}`,
         createdAt: updatedAt,
@@ -1432,22 +1458,38 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         cwd: "/tmp/a",
         agentNickname: null,
         agentRole: null,
-        gitBranch: "feat/needle",
+        gitBranch: branch,
         name: null,
       });
       const after = Date.parse("2026-11-01T00:00:00.000Z") / 1000;
-      const listThreads = vi.fn(async () => ({
-        data: [thread("new", after + 60), thread("old", after - 60)],
-        nextCursor: "more",
-      }));
       const bridge = new BridgeWebSocketServer({ server: httpServer });
-      (bridge as any).createStandaloneCodexProcess = vi.fn(async () => ({
-        listThreads,
-        stop: vi.fn(),
-      }));
-      getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
-      loadCodexSessionNamesMock.mockResolvedValue(new Map());
-      getPinnedCodexSessionsMock.mockReset();
+      const createProcess = vi.fn();
+      (bridge as any).createStandaloneCodexProcess = createProcess;
+      (bridge as any).loadAllCodexThreads = vi.fn(async (onPage: any) => {
+        onPage({
+          data: [
+            thread("archived-new", after + 120),
+            thread("indexed", after + 90),
+            thread("other-branch", after + 60, "main"),
+            thread("archived-old", after - 60),
+          ],
+          nextCursor: null,
+        });
+      });
+      // "indexed" has a plain rollout, so the index entry wins.
+      listIndexedCodexThreadIdsMock.mockResolvedValue(new Set(["indexed"]));
+      getAllRecentSessionsMock.mockResolvedValue({
+        sessions: [
+          {
+            sessionId: "indexed",
+            provider: "codex",
+            projectPath: "/tmp/a",
+            modified: new Date((after + 90) * 1000).toISOString(),
+            searchMatch: { field: "name" },
+          },
+        ],
+        hasMore: false,
+      });
 
       const result = await list(bridge, {
         provider: "codex",
@@ -1455,11 +1497,29 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         modifiedAfter: "2026-11-01T00:00:00.000Z",
       });
 
-      expect(listThreads).toHaveBeenCalledTimes(1);
-      expect(ids(result)).toEqual(["new"]);
+      expect(createProcess).not.toHaveBeenCalled();
+      expect(ids(result)).toEqual(["archived-new", "indexed"]);
       expect(result.sessions[0]).toMatchObject({
-        modified: new Date((after + 60) * 1000).toISOString(),
+        modified: new Date((after + 120) * 1000).toISOString(),
         searchMatch: { field: "branch" },
+      });
+      // The index entry, not the snapshot copy, represents "indexed".
+      expect(result.sessions[1].searchMatch).toEqual({ field: "name" });
+      bridge.close();
+    });
+
+    it("routes plain keyword searches through the index and snapshot", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const listRecentCodexThreads = vi.spyOn(
+        bridge as any,
+        "listRecentCodexThreads",
+      );
+
+      await list(bridge, { searchQuery: "needle" });
+
+      expect(listRecentCodexThreads).not.toHaveBeenCalled();
+      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
+        searchQuery: "needle",
       });
       bridge.close();
     });
@@ -12249,7 +12309,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("keeps one Codex cursor across sparse Project-scoped history pages", async () => {
+  it("pages every Codex thread once into the snapshot for Project-scoped listings", async () => {
+    // Use the real snapshot loader (spied in beforeEach) with a fake app-server.
+    (BridgeWebSocketServer.prototype as any).loadAllCodexThreads.mockRestore();
     const workspaceStore = {
       resolveRecentWorkspace: vi.fn(
         (_provider: string, sessionId: string) => ({
@@ -12310,11 +12372,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     ]);
     expect(listThreads).toHaveBeenNthCalledWith(1, {
       limit: 500,
-      searchTerm: undefined,
       sourceKinds: ["cli", "vscode", "appServer"],
     });
-    expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith(["target"]);
-    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0]).toMatchObject({ sessionId: "target" });
     expect(result.hasMore).toBe(false);

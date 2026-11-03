@@ -56,8 +56,10 @@ import {
 } from "./parser.js";
 import {
   CONTENT_SEARCH_MAX_FILES,
+  recentSessionMetadataSearchField,
   withRecentSessionMetadataSearchMatch,
 } from "./recent-session-search.js";
+import { CodexThreadSnapshot } from "./codex-thread-snapshot.js";
 import {
   BRIDGE_PROTOCOL_MAX_VERSION,
   BRIDGE_PROTOCOL_MIN_VERSION,
@@ -81,6 +83,7 @@ import {
   getCodexSessionIndexMetadata,
   type CodexSessionIndexMetadata,
   loadCodexSessionNames,
+  listIndexedCodexThreadIds,
   renameClaudeSession,
   renameCodexSession,
   saveCodexSessionProfile,
@@ -900,6 +903,14 @@ export function recentSessionsFiltersRequested(
     msg.modifiedAfter !== undefined ||
     msg.modifiedBefore !== undefined ||
     msg.pinnedOnly === true ||
+    // Keyword searches, single projects and named only too: app-server
+    // `thread/list` paging / searchTerm took seconds, while the index plus the
+    // Codex thread snapshot answers in tens of milliseconds.
+    Boolean(msg.searchQuery?.trim()) ||
+    msg.projectPath !== undefined ||
+    msg.projectId !== undefined ||
+    msg.workspaceKind !== undefined ||
+    msg.namedOnly === true ||
     isRecentContentSearch(msg)
   );
 }
@@ -1112,6 +1123,10 @@ export class BridgeWebSocketServer {
    * the same files.
    */
   private contentSearchDepth = new Map<string, { files: number; at: number }>();
+  /** Every Codex thread, for threads only kept as compressed rollouts. */
+  private codexThreadSnapshot = new CodexThreadSnapshot((onPage) =>
+    this.loadAllCodexThreads(onPage),
+  );
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
@@ -6027,6 +6042,8 @@ export class BridgeWebSocketServer {
       }
 
       case "list_recent_sessions": {
+        // Load the Codex thread snapshot ahead of the first search / filter.
+        this.codexThreadSnapshot.warm();
         const isProjectScopedRequest = msg.requestScope === "project";
         const currentRequestId = this.recentSessionsRequestIds.get(ws) ?? 0;
         const requestId = isProjectScopedRequest
@@ -9533,7 +9550,14 @@ export class BridgeWebSocketServer {
       msg.workspaceKind !== undefined ||
       primaryProjectIds.size > 0;
     const filtersRequested = recentSessionsFiltersRequested(msg);
-    if (!workspaceFilterRequested && !filtersRequested) {
+    // Plain listings switch to the index + thread snapshot once the snapshot
+    // is loaded; until then (first listing after start) app-server thread/list
+    // answers without waiting for the full snapshot.
+    if (
+      !workspaceFilterRequested &&
+      !filtersRequested &&
+      !this.codexThreadSnapshot.isReady
+    ) {
       const rawResult = await this.listRecentSessionsRaw(msg, pinnedKeys);
       const enriched = rawResult.sessions.map((session) =>
         this.enrichRecentSessionWorkspace(session),
@@ -9576,78 +9600,48 @@ export class BridgeWebSocketServer {
     const offset = msg.offset ?? 0;
     const limit = msg.limit ?? 20;
     const requiredMatches = offset + limit + 1;
-    let filtered: unknown[];
-    let pinnedSessions: unknown[] | undefined;
-    let incomplete = false;
-    if (isRecentContentSearch(msg) || msg.pinnedOnly === true) {
-      // Transcript search uses the filesystem index for both providers
-      // (app-server thread/list cannot search message text). Pinned-only
-      // results are sparse, so paging the whole thread/list to find them is
-      // much slower than the index that already holds every rollout.
-      const depthKey = isRecentContentSearch(msg)
-        ? recentSessionsCoalescingKey({ ...msg, offset: 0, limit: undefined })
-        : undefined;
-      const maxFiles = depthKey
-        ? this.contentSearchMaxFiles(depthKey, offset)
-        : undefined;
-      const indexed = await this.listWorkspaceFilteredIndexedSessions(
-        msg,
-        matchesWorkspace,
-        requiredMatches,
-        pinnedKeys,
-        maxFiles,
-      );
-      if (depthKey && indexed.filesRead !== undefined) {
-        this.contentSearchDepth.set(depthKey, {
-          files: indexed.filesRead,
-          at: Date.now(),
-        });
-      }
-      filtered = indexed.sessions;
-      pinnedSessions = indexed.pinnedSessions;
-      incomplete = indexed.incomplete;
-    } else if (msg.provider === "codex") {
-      const [codex, pinned] = await Promise.all([
-        this.listWorkspaceFilteredCodexSessions(
-          msg,
-          matchesWorkspace,
-          requiredMatches,
-        ),
-        pinnedKeys
-          ? this.listPinnedCodexSessions(msg, pinnedKeys, matchesWorkspace)
-          : undefined,
-      ]);
-      filtered = codex;
-      pinnedSessions = pinned;
-    } else if (msg.provider === "claude") {
-      const indexed = await this.listWorkspaceFilteredIndexedSessions(
-        msg,
-        matchesWorkspace,
-        requiredMatches,
-        pinnedKeys,
-      );
-      filtered = indexed.sessions;
-      pinnedSessions = indexed.pinnedSessions;
-    } else {
-      // The filesystem index includes both providers and is also the fallback
-      // for Codex rollouts not returned by app-server. Merge it with one
-      // cursor-preserving app-server scan for the freshest Codex metadata.
-      const [indexed, codex] = await Promise.all([
-        this.listWorkspaceFilteredIndexedSessions(
-          msg,
-          matchesWorkspace,
-          requiredMatches,
-          pinnedKeys,
-        ),
-        this.listWorkspaceFilteredCodexSessions(
-          { ...msg, provider: "codex" },
-          matchesWorkspace,
-          requiredMatches,
-        ),
-      ]);
-      filtered = mergeRecentSessionPages([...codex, ...indexed.sessions]);
-      pinnedSessions = indexed.pinnedSessions;
+    // The filesystem index answers for both providers (parsed rollouts are
+    // cached); threads Codex only kept as compressed rollouts come from the
+    // thread snapshot. Paging app-server thread/list per request took
+    // seconds for searches, sparse results and older date ranges, and it
+    // cannot search transcripts at all.
+    const depthKey = isRecentContentSearch(msg)
+      ? recentSessionsCoalescingKey({ ...msg, offset: 0, limit: undefined })
+      : undefined;
+    const maxFiles = depthKey
+      ? this.contentSearchMaxFiles(depthKey, offset)
+      : undefined;
+    const indexed = await this.listWorkspaceFilteredIndexedSessions(
+      msg,
+      matchesWorkspace,
+      requiredMatches,
+      pinnedKeys,
+      maxFiles,
+    );
+    if (depthKey && indexed.filesRead !== undefined) {
+      this.contentSearchDepth.set(depthKey, {
+        files: indexed.filesRead,
+        at: Date.now(),
+      });
     }
+    const archived = await this.listSnapshotOnlyCodexSessions(
+      msg,
+      matchesWorkspace,
+      requiredMatches,
+      pinnedKeys,
+    );
+    // Index entries come first so they win the dedupe (richer metadata).
+    const filtered = mergeRecentSessionPages([
+      ...indexed.sessions,
+      ...archived.sessions,
+    ]);
+    const pinnedSessions = indexed.pinnedSessions
+      ? mergeRecentSessionPages([
+          ...indexed.pinnedSessions,
+          ...archived.pinnedSessions,
+        ])
+      : undefined;
+    const incomplete = indexed.incomplete;
     return {
       sessions: filtered.slice(offset, offset + limit),
       hasMore: filtered.length > offset + limit || incomplete,
@@ -9690,6 +9684,77 @@ export class BridgeWebSocketServer {
     } catch (err) {
       console.warn(`[ws] Failed to resolve pinned Codex sessions: ${err}`);
       return [];
+    }
+  }
+
+  /**
+   * Codex threads from the app-server snapshot that the index cannot see
+   * (only compressed `.jsonl.zst` rollouts), filtered like index entries.
+   * Their search covers metadata only (name, preview, folder, branch).
+   * `pinnedSessions` lists matching pinned threads regardless of [limit].
+   */
+  private async listSnapshotOnlyCodexSessions(
+    msg: ListRecentSessionsMessage,
+    matchesWorkspace: (session: unknown) => boolean,
+    limit: number,
+    pinnedKeys?: ReadonlySet<string>,
+  ): Promise<{ sessions: unknown[]; pinnedSessions: unknown[] }> {
+    if (msg.provider === "claude") return { sessions: [], pinnedSessions: [] };
+    const [threads, indexedIds, names] = await Promise.all([
+      this.codexThreadSnapshot.get(),
+      listIndexedCodexThreadIds(),
+      loadCodexSessionNames(),
+    ]);
+    const archivedIds = this.archiveStore.archivedIds();
+    const query = msg.searchQuery?.trim() ? msg.searchQuery : undefined;
+    const sessions: unknown[] = [];
+    const pinnedSessions: unknown[] = [];
+    for (const thread of threads) {
+      if (indexedIds.has(thread.id.toLowerCase())) continue;
+      if (archivedIds.has(thread.id)) continue;
+      const name = names.get(thread.id) ?? thread.name ?? undefined;
+      if (msg.namedOnly && !name) continue;
+      let entry: Record<string, unknown> = {
+        ...codexThreadToRecentSession(thread),
+        ...(name ? { name } : {}),
+      };
+      if (query) {
+        const field = recentSessionMetadataSearchField(
+          entry as Parameters<typeof recentSessionMetadataSearchField>[0],
+          query,
+        );
+        if (!field) continue;
+        entry = { ...entry, searchMatch: { field } };
+      }
+      const enriched = this.enrichRecentSessionWorkspace(entry);
+      if (!matchesWorkspace(enriched)) continue;
+      if (pinnedKeys?.has(recentSessionIdentityKey("codex", thread.id))) {
+        pinnedSessions.push(enriched);
+      }
+      if (sessions.length < limit) sessions.push(enriched);
+    }
+    return { sessions, pinnedSessions };
+  }
+
+  /** Page through every Codex thread with one standalone app-server. */
+  private async loadAllCodexThreads(
+    onPage: (page: { data: CodexThreadSummary[]; nextCursor: string | null }) => void,
+  ): Promise<void> {
+    const process = await this.createStandaloneCodexProcess(undefined);
+    try {
+      let cursor: string | null | undefined;
+      do {
+        const request: Parameters<CodexProcess["listThreads"]>[0] = {
+          limit: 500,
+          sourceKinds: CODEX_RECENT_THREAD_SOURCE_KINDS,
+        };
+        if (cursor != null) request.cursor = cursor;
+        const result = await process.listThreads(request);
+        onPage(result);
+        cursor = result.nextCursor;
+      } while (cursor != null);
+    } finally {
+      process.stop();
     }
   }
 
@@ -9758,114 +9823,6 @@ export class BridgeWebSocketServer {
         ? { filesRead: result.contentSearchFilesRead }
         : {}),
     };
-  }
-
-  private async listWorkspaceFilteredCodexSessions(
-    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-    matchesWorkspace: (session: unknown) => boolean,
-    limit: number,
-  ): Promise<unknown[]> {
-    try {
-      return await this.listWorkspaceFilteredCodexThreads(
-        msg,
-        matchesWorkspace,
-        limit,
-      );
-    } catch (err) {
-      console.warn(
-        `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
-      );
-      return (
-        await this.listWorkspaceFilteredIndexedSessions(
-          { ...msg, provider: "codex" },
-          matchesWorkspace,
-          limit,
-        )
-      ).sessions;
-    }
-  }
-
-  private async listWorkspaceFilteredCodexThreads(
-    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
-    matchesWorkspace: (session: unknown) => boolean,
-    limit: number,
-  ): Promise<unknown[]> {
-    // A busy app-server can be blocked on a large thread/read or a running turn.
-    // Discovery must remain independent so one session cannot hide the list.
-    const process = await this.createStandaloneCodexProcess(undefined);
-
-    try {
-      const archivedIds = this.archiveStore.archivedIds();
-      const matchingThreads: CodexThreadSummary[] = [];
-      let cursor: string | null | undefined;
-      // thread/list is sorted by updated_at desc, so a modified lower bound
-      // ends the scan at the first older thread.
-      const modifiedAfter =
-        msg.dateField !== "created" && msg.modifiedAfter !== undefined
-          ? Date.parse(msg.modifiedAfter)
-          : Number.NaN;
-      let reachedModifiedAfter = false;
-
-      do {
-        const request: Parameters<CodexProcess["listThreads"]>[0] = {
-          limit: 500,
-          searchTerm: msg.searchQuery,
-          sourceKinds: CODEX_RECENT_THREAD_SOURCE_KINDS,
-        };
-        if (cursor != null) request.cursor = cursor;
-
-        const result = await process.listThreads(request);
-        for (const thread of result.data) {
-          if (archivedIds.has(thread.id)) continue;
-          const modified = threadTimestampToIso(thread.updatedAt);
-          if (Number.isFinite(modifiedAfter)) {
-            const time = Date.parse(modified);
-            if (!Number.isFinite(time) || time < modifiedAfter) {
-              reachedModifiedAfter = true;
-              break;
-            }
-          }
-          if (msg.namedOnly && !thread.name) continue;
-          const workspaceProbe = this.enrichRecentSessionWorkspace({
-            provider: "codex",
-            sessionId: thread.id,
-            projectPath: thread.cwd,
-            created: threadTimestampToIso(thread.createdAt),
-            modified,
-          });
-          if (!matchesWorkspace(workspaceProbe)) continue;
-          matchingThreads.push(thread);
-          if (matchingThreads.length >= limit) break;
-        }
-        cursor = result.nextCursor;
-      } while (
-        matchingThreads.length < limit &&
-        cursor != null &&
-        !reachedModifiedAfter
-      );
-
-      const [indexedById, threadNames] = await Promise.all([
-        getCodexSessionIndexMetadata(
-          matchingThreads.map((thread) => thread.id),
-        ),
-        loadCodexSessionNames(),
-      ]);
-      return matchingThreads.map((thread) =>
-        this.enrichRecentSessionWorkspace(
-          withRecentSessionMetadataSearchMatch(
-            {
-              ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
-              ...(threadNames.get(thread.id)
-                ? { name: threadNames.get(thread.id) }
-                : {}),
-            },
-            msg.searchQuery,
-          ),
-        ),
-      );
-    } finally {
-      process.stop();
-    }
   }
 
   private async listRecentSessionsRaw(

@@ -87,14 +87,42 @@ search; the rollout index is used for both providers.
 
 ## Bridge routing
 
-`listRecentSessions` already has a predicate-based path for workspace filters
-(`matchesWorkspace`). Any of the new filters routes the request through that
-path with an extended predicate (projects OR, date range, pinned only). The
-Codex `thread/list` probe passed to the predicate includes `modified` / `created`
-converted with `threadTimestampToIso`, and the scan stops early once the
-converted `modified` falls below `modifiedAfter` when `dateField` is
-`modified` (the list is sorted by `updated_at` desc). The coalescing key
-includes every new field.
+Every filtered listing — keyword, period, projects (one or several), Project /
+workspace filters, named only, pinned only, content search — goes through the
+predicate path (`buildRecentSessionPredicate`) backed by two sources:
+
+1. **Filesystem index** (`getAllRecentSessions`): Claude transcripts plus plain
+   `.jsonl` Codex rollouts. Parsed rollout metadata is cached per file and
+   invalidated by mtime / size, so a listing no longer rereads every rollout.
+2. **Codex thread snapshot** (`codex-thread-snapshot.ts`): every app-server
+   `thread/list` thread, loaded once per Bridge (started in the background by
+   the first `list_recent_sessions`) and refreshed in the background after
+   10 minutes. It only contributes threads without a plain `.jsonl` rollout —
+   Codex compresses older rollouts to `.jsonl.zst`, which the index does not
+   read. Index entries win when both have a thread.
+
+Plain listings (no filter) keep the app-server `thread/list` fast path until
+the snapshot is ready, then use the same two sources. A filtered request that
+arrives before the first snapshot load finishes waits for it once.
+
+Measured on a history with ~400 Claude / Codex sessions plus ~3000 compressed
+Codex rollouts (13 GB): filtered listings went from 1.5–8 s to 30–120 ms, plain
+listings from ~1.8 s to ~0.5 s (fast path) and ~50 ms (snapshot ready). The
+first snapshot load takes 10–20 s in the background.
+
+Notes:
+
+- Codex `exec` rollouts (non-interactive runs such as image-generation
+  helpers) are excluded from the index, matching the `thread/list` source kinds
+  (`cli`, `vscode`, `appServer`).
+- When a thread has several rollout segments, the listed entry takes its
+  activity time and latest prompt from the newest segment.
+- Sorting tolerates entries without a parseable `modified` (sorted last);
+  previously one empty value scrambled the whole order.
+- Snapshot-only (compressed) threads: keyword search covers name, preview,
+  folder name and branch; content search does not read their transcripts; a
+  project filter compares their raw `cwd` (no repository grouping).
+- The coalescing key includes every new field.
 
 Content search is bounded: at most 400 transcript files are read per request
 (newest first, after the metadata filters) and the scan stops after a 4 s

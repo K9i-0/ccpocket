@@ -1329,9 +1329,23 @@ export async function getAllRecentSessions(
         (e.name ? 1 : 0) +
         (e.summary ? 1 : 0) +
         (e.lastPrompt ? 1 : 0);
-      if (score(entry) > score(existing)) {
-        seen.set(entry.sessionId, entry);
+      const winner = score(entry) > score(existing) ? entry : existing;
+      // Activity time and latest prompt come from the newest copy: a Codex
+      // continuation segment keeps the same thread ID but holds the recent
+      // turns, while the richer base segment stops at the split.
+      const newer =
+        recentModifiedTime(entry.modified) > recentModifiedTime(existing.modified)
+          ? entry
+          : existing;
+      if (newer !== winner) {
+        winner.modified = newer.modified;
+        // A segment with a single prompt reports it as firstPrompt only.
+        const latestPrompt = newer.lastPrompt || newer.firstPrompt;
+        if (latestPrompt && latestPrompt !== winner.firstPrompt) {
+          winner.lastPrompt = latestPrompt;
+        }
       }
+      seen.set(entry.sessionId, winner);
     }
   }
   entries.push(...seen.values());
@@ -1397,8 +1411,10 @@ export async function getAllRecentSessions(
   // Sort by modified descending
   const sortStartedAt = process.hrtime.bigint();
   filtered.sort((a, b) => {
-    const ta = new Date(a.modified).getTime();
-    const tb = new Date(b.modified).getTime();
+    // Unparseable timestamps (e.g. an empty `modified`) sort last; a NaN
+    // comparator result would scramble the whole order.
+    const ta = recentModifiedTime(a.modified);
+    const tb = recentModifiedTime(b.modified);
     return tb - ta;
   });
   markDuration(durations, "sortSessions", sortStartedAt);
@@ -2447,7 +2463,7 @@ export async function getPinnedCodexSessions(
     entries.push(searched);
   }
   return entries.sort(
-    (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime(),
+    (a, b) => recentModifiedTime(b.modified) - recentModifiedTime(a.modified),
   );
 }
 
@@ -2469,6 +2485,30 @@ function matchingCodexThreadIdFromFilePath(
 }
 
 /** Id a rollout file is addressed by in a later segment's `history_base`. */
+function recentModifiedTime(modified: string | undefined): number {
+  const time = modified ? Date.parse(modified) : Number.NaN;
+  return Number.isFinite(time) ? time : 0;
+}
+
+const CODEX_ROLLOUT_THREAD_ID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Thread IDs that have a plain `.jsonl` rollout, i.e. are covered by the
+ * recent session index. Threads Codex only kept as compressed `.jsonl.zst`
+ * rollouts are missing here and have to come from app-server `thread/list`.
+ * Based on file names (`rollout-<time>-<threadId>[_<segment>].jsonl`), so it
+ * costs one directory walk.
+ */
+export async function listIndexedCodexThreadIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const filePath of await listCodexSessionFiles()) {
+    const match = basename(filePath, ".jsonl").match(CODEX_ROLLOUT_THREAD_ID_RE);
+    if (match) ids.add(match[0].toLowerCase());
+  }
+  return ids;
+}
+
 function codexRolloutSegmentId(filePath: string): string {
   const name = basename(filePath, ".jsonl");
   const underscore = name.lastIndexOf("_");
