@@ -1821,7 +1821,79 @@ function hasCodexUserMessage(raw: string): boolean {
  * The first chunk contains session_meta / first prompt; the tail chunk contains
  * the latest prompt, latest assistant summary, and modified timestamp.
  */
+/**
+ * Parsed rollout metadata keyed by file path and invalidated by mtime / size.
+ * Every recent-sessions listing walks all rollouts, and rereading the head and
+ * tail of each (large) file dominated listing time. Callers mutate entries
+ * (repository grouping, thread names), so cached results are cloned.
+ */
+const codexParseCache = new Map<
+  string,
+  {
+    mtimeMs: number;
+    size: number;
+    fallbackSessionId: string;
+    result: CodexSessionParseResult | null;
+  }
+>();
+const CODEX_PARSE_CACHE_LIMIT = 20_000;
+
+function cloneCodexParseResult(
+  result: CodexSessionParseResult | null,
+): CodexSessionParseResult | null {
+  if (!result) return null;
+  const entry = structuredClone(result.entry);
+  // Side-channel metadata is keyed by the entry object; carry it over.
+  const repositoryUrl = codexRepositoryUrls.get(result.entry);
+  if (repositoryUrl) codexRepositoryUrls.set(entry, repositoryUrl);
+  return { entry, threadId: result.threadId };
+}
+
+/** Test hook. */
+export function clearCodexParseCache(): void {
+  codexParseCache.clear();
+}
+
 async function parseCodexSessionJsonlFast(
+  filePath: string,
+  fallbackSessionId: string,
+): Promise<CodexSessionParseResult | null> {
+  let fileStat;
+  try {
+    fileStat = await stat(filePath);
+  } catch {
+    codexParseCache.delete(filePath);
+    return null;
+  }
+  const cached = codexParseCache.get(filePath);
+  if (
+    cached &&
+    cached.mtimeMs === fileStat.mtimeMs &&
+    cached.size === fileStat.size &&
+    cached.fallbackSessionId === fallbackSessionId
+  ) {
+    return cloneCodexParseResult(cached.result);
+  }
+  const result = await parseCodexSessionJsonlFastUncached(
+    filePath,
+    fallbackSessionId,
+  );
+  codexParseCache.delete(filePath);
+  codexParseCache.set(filePath, {
+    mtimeMs: fileStat.mtimeMs,
+    size: fileStat.size,
+    fallbackSessionId,
+    result: cloneCodexParseResult(result),
+  });
+  while (codexParseCache.size > CODEX_PARSE_CACHE_LIMIT) {
+    const oldest = codexParseCache.keys().next().value;
+    if (oldest === undefined) break;
+    codexParseCache.delete(oldest);
+  }
+  return result;
+}
+
+async function parseCodexSessionJsonlFastUncached(
   filePath: string,
   fallbackSessionId: string,
 ): Promise<CodexSessionParseResult | null> {

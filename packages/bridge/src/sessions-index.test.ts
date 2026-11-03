@@ -3122,6 +3122,31 @@ describe("recent sessions grouped by git repository", () => {
     );
   });
 
+  it("reuses parsed Codex rollouts until the file changes", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-2006640000d1";
+    writeCodexSession(threadId, repo);
+    const find = async () =>
+      (await getAllRecentSessions({ limit: 50 })).sessions.find(
+        (s) => s.sessionId === threadId,
+      );
+
+    const first = await find();
+    expect(first?.firstPrompt).toBe(`prompt in ${repo}`);
+    // Cached results are clones: mutating one listing must not leak.
+    first!.firstPrompt = "mutated";
+    first!.projectPath = "/elsewhere";
+    const second = await find();
+    expect(second?.firstPrompt).toBe(`prompt in ${repo}`);
+    expect(second?.projectPath).toBe(repo);
+
+    // Rewriting the rollout (new size) is picked up.
+    const other = join(work, "other-cwd");
+    mkdirSync(other);
+    writeCodexSession(threadId, other);
+    const third = await find();
+    expect(third?.firstPrompt).toBe(`prompt in ${other}`);
+  });
+
   it("keeps separate repositories that only share a name prefix", async () => {
     const other = join(work, "app-stats");
     mkdirSync(other);
