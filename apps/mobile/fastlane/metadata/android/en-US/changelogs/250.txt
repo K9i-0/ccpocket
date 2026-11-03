@@ -1,0 +1,3 @@
+• Preview GLB 3D models from chat and Explorer with rotation, zoom, and view reset.
+• Open models up to 50 MiB and reopen unchanged models faster with caching. Requires Bridge 1.83.0 or later for the larger limit and caching.
+• Keep the session list visible alongside chat and tools on wider screens, with improved controls in narrow panes.

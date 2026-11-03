@@ -1,0 +1,6 @@
+• Faster chat opening and streaming replies
+• Pinned sessions stay visible across filters and pages (Bridge 1.95.0+)
+• Microphone permission is asked only when voice input is first used
+• Fixed connection links opening a second app instance
+• Fixed stale connection errors and sessions reappearing as unseen
+• Fixed Git diffs, Ctrl+D with emoji, and saved new-session defaults

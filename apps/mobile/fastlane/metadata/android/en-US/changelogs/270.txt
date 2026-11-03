@@ -1,0 +1,4 @@
+• Keep video audio and music playing in the background, with lock-screen playback controls. Closing the preview stops playback.
+• Add instructions to images and timestamped comments to videos, then review and send them from chat.
+• Clearer video controls and more reliable playback speed selection.
+• Playback pauses for audio interruptions, disconnected headphones, and voice input.

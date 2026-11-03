@@ -1,0 +1,4 @@
+- Create and edit sketches with pens, text, and shapes, and attach them to chats.
+- Draw annotations on attached images and restore editable drafts after restarting the app.
+- Choose how local links open for each Bridge connection, including host replacement.
+- Keep optional Codex questions available after a turn ends and when resuming sessions (Bridge 1.81.5 recommended).

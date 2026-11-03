@@ -1,0 +1,4 @@
+• Added named Projects with ordered multi-root workspaces, Project management, and Project filters for Recent Sessions.
+• Project and workspace identity is now preserved when resuming sessions, opening session links, and reusing prompt history.
+• Added App–Bridge compatibility guidance and improved Codex session-conflict recovery and Fast mode synchronization.
+• Requires Bridge 1.81.1 or later.

@@ -1,0 +1,4 @@
+• Add comments to multiple diff lines and send them together for AI review.
+• Improved chat text selection, including while scrolling, and clearer provider-colored titles.
+• Use either / or $ to invoke skills.
+• Improved Claude background-task status and question-answer synchronization between sessions and chat.

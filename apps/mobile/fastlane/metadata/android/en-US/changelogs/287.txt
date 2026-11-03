@@ -1,0 +1,6 @@
+• Edit a sent message in place and resend it (requires Bridge 1.96.0)
+• Copy a sent message from the button under it
+• Stop before the agent answers to take the prompt back for editing
+• Restore files to a Claude message's checkpoint from its "…" menu
+• Compact subagent badge and easier pin/stop taps on session cards
+• Fixed stopped Codex turns showing as an error

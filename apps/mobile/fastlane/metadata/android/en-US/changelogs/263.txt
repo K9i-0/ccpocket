@@ -1,0 +1,3 @@
+• Try CC Pocket offline: tap ‘Try without connecting’ on the connection screen to try a sample request, approval, and code diff. No Bridge or AI account needed.
+• Performance mode keeps long Claude/Codex chats responsive while showing status, elapsed time, and recent activity. Set it globally or per session.
+• Switch back to standard mode to restore full history. Bridge 1.88.0 is recommended for reduced data transfer; older Bridges use local filtering.

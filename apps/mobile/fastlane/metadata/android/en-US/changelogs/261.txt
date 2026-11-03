@@ -1,0 +1,2 @@
+- Added optional Automatic recovery for Codex usage limits, with up to 5 automatic attempts per message and controls to check or cancel waiting. Requires Bridge 1.87.0 or later.
+- Fixed background goal lookup errors appearing in chat with Bridge 1.86.1 or later.

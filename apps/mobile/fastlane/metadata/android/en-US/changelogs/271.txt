@@ -1,0 +1,3 @@
+- Preview PDFs directly in the file browser with scrolling and zooming.
+- Retry PDF previews when loading fails.
+- PDF previews require Bridge 1.89.0 or later. An update hint appears when connected to an older Bridge.
