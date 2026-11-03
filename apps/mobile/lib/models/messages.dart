@@ -2789,6 +2789,37 @@ class SessionListMessage implements ServerMessage {
 /// Provider-qualified identity of a recent (provider) session.
 typedef RecentSessionRef = ({String provider, String sessionId});
 
+/// One project in `list_recent_sessions.projectFilters` / `pinnedProjects`.
+class RecentProjectFilter {
+  final String? projectPath;
+  final String? projectId;
+  final String? workspaceKind;
+
+  const RecentProjectFilter({
+    this.projectPath,
+    this.projectId,
+    this.workspaceKind,
+  });
+
+  /// Decode an app filter key: `project:<id>` or a folder path.
+  factory RecentProjectFilter.fromKey(String key) {
+    const prefix = 'project:';
+    if (key.startsWith(prefix) && key.length > prefix.length) {
+      return RecentProjectFilter(
+        projectId: key.substring(prefix.length),
+        workspaceKind: 'project',
+      );
+    }
+    return RecentProjectFilter(projectPath: key);
+  }
+
+  Map<String, dynamic> toJson() => {
+    'projectPath': ?projectPath,
+    'projectId': ?projectId,
+    'workspaceKind': ?workspaceKind,
+  };
+}
+
 RecentSessionRef recentSessionRefOf(RecentSession session) => (
   provider: session.provider ?? Provider.claude.value,
   sessionId: session.sessionId,
@@ -4331,6 +4362,39 @@ class SessionWorkspaceInfo {
       );
 }
 
+/// Field of a recent session that matched the search query.
+enum RecentSessionSearchField {
+  name,
+  firstPrompt,
+  lastPrompt,
+  summary,
+  project,
+  branch,
+  content,
+}
+
+class RecentSessionSearchMatch {
+  final RecentSessionSearchField field;
+
+  /// Text around the first transcript hit (content matches only).
+  final String? snippet;
+
+  const RecentSessionSearchMatch({required this.field, this.snippet});
+
+  static RecentSessionSearchMatch? tryParse(Object? json) {
+    if (json is! Map) return null;
+    final field = RecentSessionSearchField.values
+        .where((value) => value.name == json['field'])
+        .firstOrNull;
+    if (field == null) return null;
+    final snippet = json['snippet'];
+    return RecentSessionSearchMatch(
+      field: field,
+      snippet: snippet is String && snippet.isNotEmpty ? snippet : null,
+    );
+  }
+}
+
 class RecentSession {
   final String sessionId;
   final String? provider;
@@ -4364,6 +4428,10 @@ class RecentSession {
   final List<String> codexAdditionalWritableRoots;
   final SessionWorkspaceInfo? workspace;
 
+  /// Which field matched the search query (`recent_sessions.searchMatch`).
+  /// Only present on search results from Bridges that report it.
+  final RecentSessionSearchMatch? searchMatch;
+
   const RecentSession({
     required this.sessionId,
     this.provider,
@@ -4394,6 +4462,7 @@ class RecentSession {
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
     this.workspace,
+    this.searchMatch,
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -4468,6 +4537,7 @@ class RecentSession {
         ),
         _ => null,
       },
+      searchMatch: RecentSessionSearchMatch.tryParse(json['searchMatch']),
     );
   }
 
@@ -4526,6 +4596,7 @@ class RecentSession {
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
       workspace: workspace,
+      searchMatch: searchMatch,
     );
   }
 
@@ -4564,6 +4635,7 @@ class RecentSession {
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
       workspace: workspace,
+      searchMatch: searchMatch,
     );
   }
 }
@@ -5304,6 +5376,13 @@ class ClientMessage {
     bool? namedOnly,
     String? searchQuery,
     List<RecentSessionRef>? pinnedSessions,
+    List<RecentProjectFilter>? projectFilters,
+    String? modifiedAfter,
+    String? modifiedBefore,
+    String? dateField,
+    bool? pinnedOnly,
+    List<RecentProjectFilter>? pinnedProjects,
+    bool? searchContent,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'list_recent_sessions',
@@ -5322,6 +5401,15 @@ class ClientMessage {
           for (final pin in pinnedSessions)
             {'provider': pin.provider, 'sessionId': pin.sessionId},
         ],
+      if (projectFilters != null && projectFilters.isNotEmpty)
+        'projectFilters': [for (final f in projectFilters) f.toJson()],
+      'modifiedAfter': ?modifiedAfter,
+      'modifiedBefore': ?modifiedBefore,
+      'dateField': ?dateField,
+      'pinnedOnly': ?pinnedOnly,
+      if (pinnedProjects != null && pinnedProjects.isNotEmpty)
+        'pinnedProjects': [for (final f in pinnedProjects) f.toJson()],
+      'searchContent': ?searchContent,
     });
   }
 

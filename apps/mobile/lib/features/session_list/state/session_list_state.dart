@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../models/messages.dart';
+import 'recent_session_filters.dart';
 
 part 'session_list_state.freezed.dart';
 
@@ -55,5 +56,9 @@ abstract class SessionListState with _$SessionListState {
 
     /// Named-only filter toggle. Applied server-side.
     @Default(false) bool namedOnly,
+
+    /// Projects (multi-select), period, pinned only and content search.
+    /// Applied server-side; see docs/recent-sessions-filters.md.
+    @Default(RecentSessionFilters()) RecentSessionFilters filters,
   }) = _SessionListState;
 }

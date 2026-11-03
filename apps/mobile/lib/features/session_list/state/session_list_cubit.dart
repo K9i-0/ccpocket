@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../services/bridge_service.dart';
+import 'recent_session_filters.dart';
 import 'session_list_state.dart';
 
 const _collapsedProjectPathsKey = 'session_list_collapsed_project_paths';
@@ -47,6 +48,42 @@ RecentSessionRef? recentSessionRefFromPinKey(String key) {
     return null;
   }
   return (provider: provider, sessionId: sessionId);
+}
+
+/// Provider-qualified identity (`provider:sessionId`) of a stored pin key.
+///
+/// Pins are matched by this identity rather than the full key, because the
+/// key also contains a `projectPath` that differs between a running worktree
+/// session, the repository-grouped listing and the Codex `thread/list` shape.
+String? pinIdentityFromKey(String key) {
+  final ref = recentSessionRefFromPinKey(key);
+  return ref == null ? null : '${ref.provider}:${ref.sessionId}';
+}
+
+String recentSessionPinIdentity(RecentSession session) =>
+    '${session.provider ?? Provider.claude.value}:${session.sessionId}';
+
+String? runningSessionPinIdentity(SessionInfo session) {
+  final providerSessionId = session.claudeSessionId;
+  if (providerSessionId == null || providerSessionId.isEmpty) return null;
+  return '${session.provider ?? Provider.claude.value}:$providerSessionId';
+}
+
+/// Identities of every stored pin key.
+Set<String> pinIdentitiesOf(Iterable<String> pinKeys) =>
+    pinKeys.map(pinIdentityFromKey).nonNulls.toSet();
+
+/// Toggle the pin for [key]: removes every stored key sharing its identity,
+/// or adds [key] when none was stored.
+Set<String> togglePinKey(Set<String> pinKeys, String key) {
+  final identity = pinIdentityFromKey(key);
+  final next = {...pinKeys};
+  final removed = identity == null
+      ? next.remove(key)
+      : (next..removeWhere((k) => pinIdentityFromKey(k) == identity)).length !=
+            pinKeys.length;
+  if (!removed) next.add(key);
+  return next;
 }
 
 List<T> prioritizePinned<T>(
@@ -226,17 +263,85 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   // ---- Filter commands (all trigger server re-fetch) ----
 
-  /// Switch project filter. Resets sessions on the server side and fetches
-  /// from offset 0 for the selected project.
+  /// Switch to a single project filter (or none). Resets sessions on the
+  /// server side and fetches from offset 0 for the selected project.
   void selectProject(String? projectPath) {
-    emit(state.copyWith(isInitialLoading: true));
-    _hasRequestedList = true;
-    _bridge.switchFilter(
-      projectPath: projectPath,
-      provider: _providerToString(state.providerFilter),
-      namedOnly: state.namedOnly ? true : null,
-      searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
+    setProjectFilters({?projectPath});
+  }
+
+  /// Select any number of projects. Two or more require
+  /// [BridgeService.supportsRecentSessionFilters].
+  void setProjectFilters(Set<String> projectKeys) {
+    _updateFilters(
+      state.filters.copyWith(
+        projectKeys: projectKeys.where((key) => key.isNotEmpty).toSet(),
+      ),
     );
+  }
+
+  void setDateFilter(RecentDateFilter? dateFilter) {
+    _updateFilters(
+      dateFilter == null
+          ? state.filters.copyWith(clearDateFilter: true)
+          : state.filters.copyWith(dateFilter: dateFilter),
+    );
+  }
+
+  void togglePinnedOnly() {
+    _updateFilters(
+      state.filters.copyWith(pinnedOnly: !state.filters.pinnedOnly),
+    );
+  }
+
+  /// Apply everything the advanced search screen edits in one request.
+  void applyAdvancedSearch({
+    required String searchQuery,
+    required RecentSessionFilters filters,
+    required ProviderFilter providerFilter,
+    required bool namedOnly,
+  }) {
+    _searchDebounce?.cancel();
+    final providerChanged = providerFilter != state.providerFilter;
+    final namedChanged = namedOnly != state.namedOnly;
+    emit(
+      state.copyWith(
+        searchQuery: searchQuery,
+        filters: filters,
+        providerFilter: providerFilter,
+        namedOnly: namedOnly,
+        isInitialLoading: true,
+      ),
+    );
+    _requestWithCurrentFilters();
+    if (providerChanged || namedChanged) {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('session_list_provider', providerFilter.name);
+        prefs.setBool('session_list_named_only', namedOnly);
+      });
+    }
+  }
+
+  /// Clear search text and every filter except the AI tool preference.
+  void clearFilters() {
+    _searchDebounce?.cancel();
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        filters: const RecentSessionFilters(),
+        namedOnly: false,
+        isInitialLoading: true,
+      ),
+    );
+    _requestWithCurrentFilters();
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setBool('session_list_named_only', false),
+    );
+  }
+
+  void _updateFilters(RecentSessionFilters next) {
+    if (next == state.filters) return;
+    emit(state.copyWith(filters: next, isInitialLoading: true));
+    _requestWithCurrentFilters();
   }
 
   /// Set search query with debounce (server-side).
@@ -352,11 +457,13 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   bool isRecentSessionPinned(RecentSession session) =>
-      state.pinnedSessionKeys.contains(recentSessionPinKey(session));
+      pinIdentitiesOf(state.pinnedSessionKeys)
+          .contains(recentSessionPinIdentity(session));
 
   bool isRunningSessionPinned(SessionInfo session) {
-    final key = runningSessionPinKey(session);
-    return key != null && state.pinnedSessionKeys.contains(key);
+    final identity = runningSessionPinIdentity(session);
+    return identity != null &&
+        pinIdentitiesOf(state.pinnedSessionKeys).contains(identity);
   }
 
   bool isProjectPinned(String projectPath) =>
@@ -377,10 +484,11 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   Future<void> _toggleSessionPin(String key) async {
-    final next = {...state.pinnedSessionKeys};
-    if (!next.remove(key)) next.add(key);
+    final next = togglePinKey(state.pinnedSessionKeys, key);
     emit(state.copyWith(pinnedSessionKeys: next));
     _pushPinnedSessionsToBridge();
+    // Pins define the pinned-only result set.
+    if (state.filters.pinnedOnly) _requestWithCurrentFilters();
     await _persistStringSet(_pinnedSessionKeysKey, next);
   }
 
@@ -391,6 +499,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedProjectPaths};
     if (!next.remove(projectPath)) next.add(projectPath);
     emit(state.copyWith(pinnedProjectPaths: next));
+    if (state.filters.pinnedOnly) _requestWithCurrentFilters();
     await _persistStringSet(_pinnedProjectPathsKey, next);
   }
 
@@ -423,6 +532,7 @@ class SessionListCubit extends Cubit<SessionListState> {
         isInitialLoading: true,
         providerFilter: ProviderFilter.all,
         namedOnly: false,
+        filters: const RecentSessionFilters(),
       ),
     );
   }
@@ -445,11 +555,32 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// Send a re-fetch request with all current filters applied.
   void _requestWithCurrentFilters() {
     _hasRequestedList = true;
+    final filters = state.filters;
+    final supportsExtra = _bridge.supportsRecentSessionFilters;
+    final projectKeys = filters.projectKeys.toList()..sort();
+    // Without the capability only one project can be sent.
+    final singleProject = projectKeys.length == 1 || !supportsExtra
+        ? projectKeys.firstOrNull
+        : null;
+    final range = filters.dateFilter?.resolve(DateTime.now());
     _bridge.switchFilter(
-      projectPath: _bridge.currentProjectFilter,
+      projectPath: singleProject,
       provider: _providerToString(state.providerFilter),
       namedOnly: state.namedOnly ? true : null,
       searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
+      extraFilters: RecentSessionsExtraFilters(
+        projectKeys: singleProject == null ? projectKeys : const [],
+        modifiedAfter: range?.start.toUtc().toIso8601String(),
+        modifiedBefore: range?.end?.toUtc().toIso8601String(),
+        dateField: range != null && filters.dateField == RecentDateField.created
+            ? 'created'
+            : null,
+        pinnedOnly: filters.pinnedOnly,
+        pinnedProjectKeys: filters.pinnedOnly
+            ? (state.pinnedProjectPaths.toList()..sort())
+            : const [],
+        searchContent: filters.searchContent && state.searchQuery.isNotEmpty,
+      ),
     );
   }
 

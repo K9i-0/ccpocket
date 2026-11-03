@@ -22,7 +22,7 @@ class _Harness {
   final _socket = Completer<WebSocket>();
   final _requestWaiters = <int, Completer<void>>{};
 
-  static Future<_Harness> start() async {
+  static Future<_Harness> start({List<String> capabilities = const []}) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final harness = _Harness._(server, BridgeService());
     server.transform(WebSocketTransformer()).listen((socket) {
@@ -31,6 +31,7 @@ class _Harness {
           'type': 'session_list',
           'sessions': <Object>[],
           'bridgeInstanceId': 'bridge-test',
+          'protocolCapabilities': capabilities,
         }),
       );
       if (!harness._socket.isCompleted) harness._socket.complete(socket);
@@ -236,5 +237,109 @@ void main() {
       'sessions': [],
     }) as RecentSessionsMessage;
     expect(legacy.pinnedSessions, isNull);
+  });
+
+  group('recent_sessions_filters_v1', () {
+    const extra = RecentSessionsExtraFilters(
+      projectKeys: ['/tmp/a', 'project:p1'],
+      modifiedAfter: '2026-11-01T00:00:00.000Z',
+      modifiedBefore: '2026-11-02T00:00:00.000Z',
+      dateField: 'created',
+      pinnedOnly: true,
+      pinnedProjectKeys: ['project:fav'],
+      searchContent: true,
+    );
+
+    test('sends extra filters when the Bridge advertises them', () async {
+      final harness = await _Harness.start(
+        capabilities: const ['recent_sessions_filters_v1'],
+      );
+      final bridge = harness.bridge;
+      bridge.setPinnedRecentSessions(const [
+        (provider: 'claude', sessionId: 'c1'),
+      ]);
+      bridge.switchFilter(searchQuery: 'q', extraFilters: extra);
+      final first = await harness.nextRequest();
+      expect(first['projectFilters'], [
+        {'projectPath': '/tmp/a'},
+        {'projectId': 'p1', 'workspaceKind': 'project'},
+      ]);
+      expect(first['modifiedAfter'], '2026-11-01T00:00:00.000Z');
+      expect(first['modifiedBefore'], '2026-11-02T00:00:00.000Z');
+      expect(first['dateField'], 'created');
+      expect(first['pinnedOnly'], isTrue);
+      expect(first['pinnedProjects'], [
+        {'projectId': 'fav', 'workspaceKind': 'project'},
+      ]);
+      expect(first['searchContent'], isTrue);
+      await harness.respond(
+        first,
+        sessions: [_session('a'), _session('b')],
+        hasMore: true,
+      );
+
+      // Later pages and project-scoped pages keep the filters; pinned only
+      // keeps sending the pins because they define the result set.
+      bridge.loadMoreRecentSessions();
+      final next = await harness.nextRequest();
+      expect(next['offset'], 2);
+      expect(next['modifiedAfter'], '2026-11-01T00:00:00.000Z');
+      expect(next['pinnedSessions'], [
+        {'provider': 'claude', 'sessionId': 'c1'},
+      ]);
+      expect(next['projectFilters'], isNotNull);
+      await harness.respond(next, sessions: const [], hasMore: false);
+
+      bridge.loadMoreRecentSessions(
+        projectPath: '/tmp/a',
+        offset: 1,
+        requestScope: 'project',
+      );
+      final project = await harness.nextRequest();
+      expect(project['projectPath'], '/tmp/a');
+      expect(project.containsKey('projectFilters'), isFalse);
+      expect(project['dateField'], 'created');
+      expect(project['pinnedOnly'], isTrue);
+      expect(project['searchContent'], isTrue);
+      await harness.close();
+    });
+
+    test('omits extra filters for Bridges without the capability', () async {
+      final harness = await _Harness.start();
+      harness.bridge.switchFilter(extraFilters: extra);
+      final first = await harness.nextRequest();
+      for (final key in [
+        'projectFilters',
+        'modifiedAfter',
+        'modifiedBefore',
+        'dateField',
+        'pinnedOnly',
+        'pinnedProjects',
+        'searchContent',
+      ]) {
+        expect(first.containsKey(key), isFalse, reason: key);
+      }
+      await harness.close();
+    });
+
+    test('parses searchMatch on recent sessions', () {
+      final session = RecentSession.fromJson({
+        ..._session('m1'),
+        'searchMatch': {'field': 'content', 'snippet': 'hello world'},
+      });
+      expect(session.searchMatch?.field, RecentSessionSearchField.content);
+      expect(session.searchMatch?.snippet, 'hello world');
+      expect(
+        RecentSession.fromJson({
+          ..._session('m2'),
+          'searchMatch': {'field': 'unknown'},
+        }).searchMatch,
+        isNull,
+      );
+      expect(
+        session.copyWithName(name: 'n').searchMatch?.field,
+        RecentSessionSearchField.content,
+      );
+    });
   });
 }

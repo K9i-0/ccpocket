@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:ccpocket/features/session_list/state/recent_session_filters.dart';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -139,6 +141,15 @@ class MockBridgeService extends BridgeService {
     _projectFilter = projectPath;
   }
 
+  bool supportsFilters = false;
+
+  Map<String, dynamic> get lastJson =>
+      jsonDecode(sentMessages.last.toJson()) as Map<String, dynamic>;
+  RecentSessionsExtraFilters lastExtraFilters = RecentSessionsExtraFilters.none;
+
+  @override
+  bool get supportsRecentSessionFilters => supportsFilters;
+
   @override
   void switchFilter({
     String? projectPath,
@@ -146,8 +157,10 @@ class MockBridgeService extends BridgeService {
     bool? namedOnly,
     String? searchQuery,
     int pageSize = 20,
+    RecentSessionsExtraFilters extraFilters = RecentSessionsExtraFilters.none,
   }) {
     _projectFilter = projectPath;
+    lastExtraFilters = extraFilters;
     sentMessages.add(
       ClientMessage.listRecentSessions(
         limit: pageSize,
@@ -800,5 +813,174 @@ void main() {
         expect(cubit.state.isInitialLoading, isFalse);
       },
     );
+  });
+
+  group('pin identity', () {
+    test('matches pins across project paths and toggles off cleanly', () async {
+      // Pinned while running in a worktree; listed under the repository root.
+      final worktreeKey = sessionPinKey(
+        provider: 'claude',
+        projectPath: '/repo/.worktrees/feature',
+        sessionId: 'abc',
+      );
+      final listed = _session(id: 'abc', projectPath: '/repo');
+      expect(pinIdentitiesOf({worktreeKey}), {'claude:abc'});
+      expect(
+        pinIdentitiesOf({worktreeKey})
+            .contains(recentSessionPinIdentity(listed)),
+        isTrue,
+      );
+
+      await cubit.toggleRunningSessionPinned(
+        _runningSession(providerSessionId: 'abc'),
+      );
+      expect(cubit.isRecentSessionPinned(listed), isTrue);
+      await cubit.toggleRecentSessionPinned(listed);
+      expect(cubit.state.pinnedSessionKeys, isEmpty);
+      expect(cubit.isRecentSessionPinned(listed), isFalse);
+    });
+
+    test('togglePinKey removes every key with the same identity', () {
+      final a = sessionPinKey(
+        provider: 'codex',
+        projectPath: '/a',
+        sessionId: 't',
+      );
+      final b = sessionPinKey(
+        provider: 'codex',
+        projectPath: '/b',
+        sessionId: 't',
+      );
+      expect(togglePinKey({a, b}, a), isEmpty);
+      expect(togglePinKey({}, a), {a});
+    });
+  });
+
+  group('recent session filters', () {
+    test('multi-project selection is sent as extra project keys', () {
+      mockBridge.supportsFilters = true;
+      cubit.setProjectFilters({'/b', 'project:p1'});
+      final sent = mockBridge.lastJson;
+      expect(sent['projectPath'], isNull);
+      expect(mockBridge.lastExtraFilters.projectKeys, ['/b', 'project:p1']);
+
+      cubit.setProjectFilters({'/b'});
+      expect(mockBridge.lastJson['projectPath'], '/b');
+      expect(mockBridge.lastExtraFilters.projectKeys, isEmpty);
+    });
+
+    test('without the capability only one project is sent', () {
+      cubit.setProjectFilters({'/b', '/a'});
+      expect(mockBridge.lastJson['projectPath'], '/a');
+      expect(mockBridge.lastExtraFilters.projectKeys, isEmpty);
+    });
+
+    test('period, pinned only and content search are forwarded', () async {
+      mockBridge.supportsFilters = true;
+      await cubit.toggleProjectPinned('project:fav');
+      cubit.setDateFilter(const RecentDateFilter(RecentDatePreset.yesterday));
+      var extra = mockBridge.lastExtraFilters;
+      expect(extra.modifiedAfter, isNotNull);
+      expect(extra.modifiedBefore, isNotNull);
+      expect(
+        DateTime.parse(extra.modifiedBefore!)
+            .difference(DateTime.parse(extra.modifiedAfter!))
+            .inHours,
+        inInclusiveRange(23, 25),
+      );
+      expect(extra.dateField, isNull);
+
+      cubit.togglePinnedOnly();
+      extra = mockBridge.lastExtraFilters;
+      expect(extra.pinnedOnly, isTrue);
+      expect(extra.pinnedProjectKeys, ['project:fav']);
+
+      // Content search needs a query.
+      cubit.applyAdvancedSearch(
+        searchQuery: '',
+        filters: cubit.state.filters.copyWith(
+          searchContent: true,
+          dateField: RecentDateField.created,
+        ),
+        providerFilter: ProviderFilter.all,
+        namedOnly: false,
+      );
+      expect(mockBridge.lastExtraFilters.searchContent, isFalse);
+      expect(mockBridge.lastExtraFilters.dateField, 'created');
+      cubit.applyAdvancedSearch(
+        searchQuery: 'needle',
+        filters: cubit.state.filters,
+        providerFilter: ProviderFilter.claude,
+        namedOnly: true,
+      );
+      expect(mockBridge.lastExtraFilters.searchContent, isTrue);
+      final sent = mockBridge.lastJson;
+      expect(sent['searchQuery'], 'needle');
+      expect(sent['provider'], 'claude');
+      expect(sent['namedOnly'], isTrue);
+
+      cubit.clearFilters();
+      expect(cubit.state.filters, const RecentSessionFilters());
+      expect(cubit.state.searchQuery, isEmpty);
+      expect(cubit.state.namedOnly, isFalse);
+      expect(cubit.state.providerFilter, ProviderFilter.claude);
+      expect(mockBridge.lastExtraFilters.pinnedOnly, isFalse);
+    });
+
+    test('pin changes re-request while pinned only is active', () async {
+      mockBridge.supportsFilters = true;
+      cubit.togglePinnedOnly();
+      final before = mockBridge.sentMessages.length;
+      await cubit.toggleRecentSessionPinned(_session(id: 'x'));
+      expect(mockBridge.sentMessages.length, before + 1);
+    });
+
+    test('resetFilters clears the extra filters', () {
+      cubit.togglePinnedOnly();
+      cubit.resetFilters();
+      expect(cubit.state.filters.isActive, isFalse);
+    });
+  });
+
+  group('RecentDateFilter', () {
+    final now = DateTime(2026, 11, 3, 15, 30);
+
+    test('presets resolve to local day ranges', () {
+      expect(const RecentDateFilter(RecentDatePreset.today).resolve(now), (
+        start: DateTime(2026, 11, 3),
+        end: null,
+      ));
+      expect(const RecentDateFilter(RecentDatePreset.yesterday).resolve(now), (
+        start: DateTime(2026, 11, 2),
+        end: DateTime(2026, 11, 3),
+      ));
+      expect(
+        const RecentDateFilter(RecentDatePreset.dayBeforeYesterday)
+            .resolve(now),
+        (start: DateTime(2026, 11, 1), end: DateTime(2026, 11, 2)),
+      );
+      expect(
+        const RecentDateFilter(RecentDatePreset.last7Days).resolve(now).start,
+        DateTime(2026, 10, 28),
+      );
+    });
+
+    test('custom range is inclusive of the end day', () {
+      final filter = RecentDateFilter.custom(
+        start: DateTime(2026, 10, 30, 9),
+        end: DateTime(2026, 10, 31, 22),
+      );
+      expect(filter.resolve(now), (
+        start: DateTime(2026, 10, 30),
+        end: DateTime(2026, 11, 1),
+      ));
+      expect(
+        filter,
+        RecentDateFilter.custom(
+          start: DateTime(2026, 10, 30),
+          end: DateTime(2026, 10, 31),
+        ),
+      );
+    });
   });
 }

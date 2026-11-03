@@ -164,6 +164,7 @@ class _MockBridgeService extends BridgeService {
     bool? namedOnly,
     String? searchQuery,
     int pageSize = 20,
+    RecentSessionsExtraFilters extraFilters = RecentSessionsExtraFilters.none,
   }) {}
 
   @override

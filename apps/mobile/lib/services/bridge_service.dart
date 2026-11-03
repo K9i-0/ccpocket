@@ -182,6 +182,11 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsPerformanceMode =>
       _protocolCapabilities.contains('performance_mode_v1');
 
+  /// Multi-project, period, pinned-only and content search filters for
+  /// `list_recent_sessions` (docs/recent-sessions-filters.md).
+  bool get supportsRecentSessionFilters =>
+      _protocolCapabilities.contains('recent_sessions_filters_v1');
+
   void retainSessionHistory(String sessionId) {
     _historyObservers.update(
       sessionId,
@@ -397,6 +402,8 @@ class BridgeService implements BridgeServiceBase {
   String? _currentProvider;
   bool? _currentNamedOnly;
   String? _currentSearchQuery;
+  RecentSessionsExtraFilters _currentExtraFilters =
+      RecentSessionsExtraFilters.none;
 
   // Auto-reconnect
   String? _lastUrl;
@@ -1597,6 +1604,7 @@ class BridgeService implements BridgeServiceBase {
     _clearRecentSessionsRequestState();
     _clearPendingGalleryRequests();
     _currentProjectFilter = null;
+    _currentExtraFilters = RecentSessionsExtraFilters.none;
     _galleryImages = const [];
     for (final state in _galleryScopeStates.values) {
       state.images = const [];
@@ -3218,16 +3226,30 @@ class BridgeService implements BridgeServiceBase {
     required String? provider,
     required bool? namedOnly,
     required String? searchQuery,
+    RecentSessionsExtraFilters? extraFilters,
   }) {
+    // Old Bridges ignore unknown fields and would return unfiltered results,
+    // so the extra filters are only sent when the capability is advertised.
+    final extra = supportsRecentSessionFilters
+        ? (extraFilters ?? _currentExtraFilters)
+        : RecentSessionsExtraFilters.none;
     final workspaceFilter = _decodeWorkspaceFilter(projectPath);
     final scopeKey = _recentSessionsScopeKey(
       requestScope: requestScope,
       projectPath: projectPath,
     );
-    // Pinned sessions are resolved by the Bridge for first list pages only.
-    final pinnedSessions = requestScope != 'project' && (offset ?? 0) == 0
+    // Pinned sessions are resolved by the Bridge for first list pages only,
+    // unless they define the result set (pinned only).
+    final pinnedSessions =
+        extra.pinnedOnly || (requestScope != 'project' && (offset ?? 0) == 0)
         ? _pinnedRecentSessionRefs
         : const <RecentSessionRef>[];
+    final projectFilters = requestScope != 'project' && projectPath == null
+        ? extra.projectKeys
+        : const <String>[];
+    final pinnedProjects = extra.pinnedOnly
+        ? extra.pinnedProjectKeys
+        : const <String>[];
     final queryKey = jsonEncode([
       limit,
       offset,
@@ -3237,6 +3259,13 @@ class BridgeService implements BridgeServiceBase {
       namedOnly,
       searchQuery,
       [for (final pin in pinnedSessions) '${pin.provider}:${pin.sessionId}'],
+      projectFilters,
+      extra.modifiedAfter,
+      extra.modifiedBefore,
+      extra.dateField,
+      extra.pinnedOnly,
+      pinnedProjects,
+      extra.searchContent,
     ]);
     final existing = _pendingRecentSessionsRequests[scopeKey];
     if (existing?.queryKey == queryKey) return;
@@ -3265,6 +3294,23 @@ class BridgeService implements BridgeServiceBase {
         namedOnly: namedOnly,
         searchQuery: searchQuery,
         pinnedSessions: pinnedSessions,
+        projectFilters: projectFilters.length > 1
+            ? [
+                for (final key in projectFilters)
+                  RecentProjectFilter.fromKey(key),
+              ]
+            : null,
+        modifiedAfter: extra.modifiedAfter,
+        modifiedBefore: extra.modifiedBefore,
+        dateField: extra.dateField,
+        pinnedOnly: extra.pinnedOnly ? true : null,
+        pinnedProjects: pinnedProjects.isEmpty
+            ? null
+            : [
+                for (final key in pinnedProjects)
+                  RecentProjectFilter.fromKey(key),
+              ],
+        searchContent: extra.searchContent ? true : null,
       ),
     );
   }
@@ -3531,17 +3577,23 @@ class BridgeService implements BridgeServiceBase {
   }
 
   /// Switch all filters at once and re-fetch from offset 0.
+  ///
+  /// [extraFilters] carries the filters gated by
+  /// [supportsRecentSessionFilters]; they persist for later pages and
+  /// project-scoped requests until the next switch.
   void switchFilter({
     String? projectPath,
     String? provider,
     bool? namedOnly,
     String? searchQuery,
     int pageSize = 20,
+    RecentSessionsExtraFilters extraFilters = RecentSessionsExtraFilters.none,
   }) {
     _currentProjectFilter = projectPath;
     _currentProvider = provider;
     _currentNamedOnly = namedOnly;
     _currentSearchQuery = searchQuery;
+    _currentExtraFilters = extraFilters;
     _appendMode = false;
     _sendRecentSessionsRequest(
       limit: pageSize,
@@ -5048,6 +5100,35 @@ class _DeliveryPendingInputState {
 
   final QueuedInputItem item;
   bool visible = false;
+}
+
+/// Recent session filters gated by `recent_sessions_filters_v1`.
+@immutable
+class RecentSessionsExtraFilters {
+  /// Project filter keys, sent as `projectFilters` when two or more are
+  /// selected and the request has no single `projectPath`.
+  final List<String> projectKeys;
+  final String? modifiedAfter;
+  final String? modifiedBefore;
+  final String? dateField;
+  final bool pinnedOnly;
+
+  /// Pinned (favorite) project keys, sent as `pinnedProjects` with
+  /// [pinnedOnly].
+  final List<String> pinnedProjectKeys;
+  final bool searchContent;
+
+  const RecentSessionsExtraFilters({
+    this.projectKeys = const [],
+    this.modifiedAfter,
+    this.modifiedBefore,
+    this.dateField,
+    this.pinnedOnly = false,
+    this.pinnedProjectKeys = const [],
+    this.searchContent = false,
+  });
+
+  static const none = RecentSessionsExtraFilters();
 }
 
 class _PendingRecentSessionsRequest {
