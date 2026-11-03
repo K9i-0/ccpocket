@@ -51,8 +51,10 @@ import {
   type DebugTraceEvent,
   type ImageChange,
   type Provider,
+  type RecentProjectFilter,
   type ServerMessage,
 } from "./parser.js";
+import { withRecentSessionMetadataSearchMatch } from "./recent-session-search.js";
 import {
   BRIDGE_PROTOCOL_MAX_VERSION,
   BRIDGE_PROTOCOL_MIN_VERSION,
@@ -798,6 +800,8 @@ interface RecentSessionsListing {
 export function pinnedSessionKeysForRecentRequest(
   msg: ListRecentSessionsMessage,
 ): Set<string> | undefined {
+  // With pinnedOnly the page itself already contains every pinned session.
+  if (msg.pinnedOnly === true) return undefined;
   if (msg.requestScope === "project") return undefined;
   if ((msg.offset ?? 0) !== 0) return undefined;
   const pinned = msg.pinnedSessions;
@@ -807,6 +811,192 @@ export function pinnedSessionKeysForRecentRequest(
       .filter((pin) => !msg.provider || pin.provider === msg.provider)
       .map((pin) => recentSessionIdentityKey(pin.provider, pin.sessionId)),
   );
+}
+
+/**
+ * Keys of `pinnedSessions` that define the result set of a `pinnedOnly`
+ * request (any scope / offset), or undefined when `pinnedOnly` is not set.
+ */
+export function pinnedOnlySessionKeys(
+  msg: ListRecentSessionsMessage,
+): Set<string> | undefined {
+  if (msg.pinnedOnly !== true) return undefined;
+  return new Set(
+    (msg.pinnedSessions ?? [])
+      .filter((pin) => !msg.provider || pin.provider === msg.provider)
+      .map((pin) => recentSessionIdentityKey(pin.provider, pin.sessionId)),
+  );
+}
+
+/**
+ * In-flight coalescing key of a `list_recent_sessions` request. Includes every
+ * field that changes the result (pins only where they are used).
+ */
+export function recentSessionsCoalescingKey(
+  msg: ListRecentSessionsMessage,
+): string {
+  const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
+  const pinnedOnlyKeys = pinnedOnlySessionKeys(msg);
+  const sortedFilters = (filters: RecentProjectFilter[] | undefined) =>
+    filters
+      ? filters
+          .map((filter) =>
+            JSON.stringify([
+              filter.projectPath ?? null,
+              filter.projectId ?? null,
+              filter.workspaceKind ?? null,
+            ]),
+          )
+          .sort()
+      : null;
+  return JSON.stringify({
+    limit: msg.limit ?? null,
+    offset: msg.offset ?? null,
+    projectPath: msg.projectPath ?? null,
+    projectId: msg.projectId ?? null,
+    workspaceKind: msg.workspaceKind ?? null,
+    requestScope: msg.requestScope ?? null,
+    provider: msg.provider ?? null,
+    namedOnly: msg.namedOnly ?? null,
+    searchQuery: msg.searchQuery ?? null,
+    searchContent: msg.searchContent ?? null,
+    pinnedSessions: pinnedKeys ? [...pinnedKeys].sort() : null,
+    projectFilters: sortedFilters(msg.projectFilters),
+    modifiedAfter: msg.modifiedAfter ?? null,
+    modifiedBefore: msg.modifiedBefore ?? null,
+    dateField: msg.dateField ?? null,
+    pinnedOnly: msg.pinnedOnly ?? null,
+    pinnedOnlySessions: pinnedOnlyKeys ? [...pinnedOnlyKeys].sort() : null,
+    pinnedProjects: msg.pinnedOnly ? sortedFilters(msg.pinnedProjects) : null,
+  });
+}
+
+/** Content (transcript) search requested with a non-empty query. */
+export function isRecentContentSearch(msg: ListRecentSessionsMessage): boolean {
+  return msg.searchContent === true && Boolean(msg.searchQuery?.trim());
+}
+
+/** `projectFilters` apply to list requests only (project scope replaces them). */
+function effectiveRecentProjectFilters(
+  msg: ListRecentSessionsMessage,
+): RecentProjectFilter[] | undefined {
+  return msg.requestScope !== "project" && (msg.projectFilters?.length ?? 0) > 0
+    ? msg.projectFilters
+    : undefined;
+}
+
+/**
+ * Whether the request uses any `recent_sessions_filters_v1` filter, which
+ * routes it through the predicate-based listing path.
+ */
+export function recentSessionsFiltersRequested(
+  msg: ListRecentSessionsMessage,
+): boolean {
+  return (
+    effectiveRecentProjectFilters(msg) !== undefined ||
+    msg.modifiedAfter !== undefined ||
+    msg.modifiedBefore !== undefined ||
+    msg.pinnedOnly === true ||
+    isRecentContentSearch(msg)
+  );
+}
+
+function recentDateBound(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : undefined;
+}
+
+/**
+ * Predicate over (workspace-enriched) recent sessions combining, with AND:
+ * the single project fields, `projectFilters` (OR), the date range and
+ * `pinnedOnly` (pinned session keys OR any `pinnedProjects` entry).
+ */
+export function buildRecentSessionPredicate(
+  msg: ListRecentSessionsMessage,
+  listProjects: () => ReadonlyArray<{ id: string; rootPaths: readonly string[] }>,
+  pinnedKeys?: ReadonlySet<string>,
+): (session: unknown) => boolean {
+  type Probe = {
+    provider?: unknown;
+    sessionId?: unknown;
+    projectPath?: unknown;
+    created?: unknown;
+    modified?: unknown;
+    workspace?: Record<string, unknown>;
+  };
+  const projectMatcher = (filter: RecentProjectFilter) => {
+    const primaryProjectIds = new Set(
+      filter.projectPath === undefined
+        ? []
+        : listProjects()
+            .filter((project) => project.rootPaths[0] === filter.projectPath)
+            .map((project) => project.id),
+    );
+    return (value: Probe): boolean => {
+      const workspace = value.workspace;
+      if (filter.projectId && workspace?.projectId !== filter.projectId) {
+        return false;
+      }
+      if (filter.workspaceKind && workspace?.kind !== filter.workspaceKind) {
+        return false;
+      }
+      if (filter.projectPath !== undefined) {
+        const matchesPrimaryProject =
+          typeof workspace?.projectId === "string" &&
+          primaryProjectIds.has(workspace.projectId);
+        if (value.projectPath !== filter.projectPath && !matchesPrimaryProject) {
+          return false;
+        }
+      }
+      return true;
+    };
+  };
+  const matchesScope = projectMatcher({
+    projectPath: msg.projectPath,
+    projectId: msg.projectId,
+    workspaceKind: msg.workspaceKind,
+  });
+  const projectFilterMatchers =
+    effectiveRecentProjectFilters(msg)?.map(projectMatcher);
+  const pinnedProjectMatchers =
+    msg.pinnedOnly === true
+      ? (msg.pinnedProjects ?? []).map(projectMatcher)
+      : undefined;
+  const after = recentDateBound(msg.modifiedAfter);
+  const before = recentDateBound(msg.modifiedBefore);
+  const dateField = msg.dateField === "created" ? "created" : "modified";
+
+  return (session: unknown): boolean => {
+    const value = (session ?? {}) as Probe;
+    if (!matchesScope(value)) return false;
+    if (
+      projectFilterMatchers &&
+      !projectFilterMatchers.some((matches) => matches(value))
+    ) {
+      return false;
+    }
+    if (after !== undefined || before !== undefined) {
+      const raw = value[dateField];
+      const time = typeof raw === "string" ? Date.parse(raw) : Number.NaN;
+      if (!Number.isFinite(time)) return false;
+      if (after !== undefined && time < after) return false;
+      if (before !== undefined && time >= before) return false;
+    }
+    if (pinnedProjectMatchers) {
+      const pinned =
+        typeof value.provider === "string" &&
+        typeof value.sessionId === "string" &&
+        (pinnedKeys?.has(
+          recentSessionIdentityKey(value.provider, value.sessionId),
+        ) ??
+          false);
+      if (!pinned && !pinnedProjectMatchers.some((matches) => matches(value))) {
+        return false;
+      }
+    }
+    return true;
+  };
 }
 
 /**
@@ -9025,6 +9215,7 @@ export class BridgeWebSocketServer {
         "claude_session_settings_v1",
         "claude_fork_v1",
         "message_edit_v1",
+        "recent_sessions_filters_v1",
       ],
     });
   }
@@ -9077,6 +9268,7 @@ export class BridgeWebSocketServer {
         "claude_session_settings_v1",
         "claude_fork_v1",
         "message_edit_v1",
+        "recent_sessions_filters_v1",
       ],
     });
   }
@@ -9317,10 +9509,11 @@ export class BridgeWebSocketServer {
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<RecentSessionsListing> {
     const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
+    const listProjects = () => this.workspaceStore?.listProjects() ?? [];
     const primaryProjectIds = new Set(
       msg.projectPath === undefined
         ? []
-        : (this.workspaceStore?.listProjects() ?? [])
+        : listProjects()
             .filter((project) => project.rootPaths[0] === msg.projectPath)
             .map((project) => project.id),
     );
@@ -9328,7 +9521,8 @@ export class BridgeWebSocketServer {
       msg.projectId !== undefined ||
       msg.workspaceKind !== undefined ||
       primaryProjectIds.size > 0;
-    if (!workspaceFilterRequested) {
+    const filtersRequested = recentSessionsFiltersRequested(msg);
+    if (!workspaceFilterRequested && !filtersRequested) {
       const rawResult = await this.listRecentSessionsRaw(msg, pinnedKeys);
       const enriched = rawResult.sessions.map((session) =>
         this.enrichRecentSessionWorkspace(session),
@@ -9346,33 +9540,47 @@ export class BridgeWebSocketServer {
       };
     }
 
-    const matchesWorkspace = (session: unknown): boolean => {
-      const value = session as {
-        projectPath?: unknown;
-        workspace?: Record<string, unknown>;
-      };
-      const workspace = value.workspace;
-      if (msg.projectId && workspace?.projectId !== msg.projectId) return false;
-      if (msg.workspaceKind && workspace?.kind !== msg.workspaceKind) return false;
-      if (msg.projectPath !== undefined) {
-        const matchesPrimaryProject =
-          typeof workspace?.projectId === "string" &&
-          primaryProjectIds.has(workspace.projectId);
-        if (
-          value.projectPath !== msg.projectPath &&
-          !matchesPrimaryProject
-        ) {
-          return false;
-        }
-      }
-      return true;
-    };
+    // pinnedOnly: the page already contains every pinned session, so a first
+    // list page that sent pins answers with an empty extras list.
+    const pinnedOnlyExtras =
+      msg.pinnedOnly === true &&
+      msg.requestScope !== "project" &&
+      (msg.offset ?? 0) === 0 &&
+      (msg.pinnedSessions?.length ?? 0) > 0
+        ? { pinnedSessions: [] as unknown[] }
+        : {};
+    const pinnedOnlyKeys = pinnedOnlySessionKeys(msg);
+    if (
+      pinnedOnlyKeys &&
+      pinnedOnlyKeys.size === 0 &&
+      (msg.pinnedProjects?.length ?? 0) === 0
+    ) {
+      return { sessions: [], hasMore: false, ...pinnedOnlyExtras };
+    }
+    const matchesWorkspace = buildRecentSessionPredicate(
+      msg,
+      listProjects,
+      pinnedOnlyKeys,
+    );
     const offset = msg.offset ?? 0;
     const limit = msg.limit ?? 20;
     const requiredMatches = offset + limit + 1;
     let filtered: unknown[];
     let pinnedSessions: unknown[] | undefined;
-    if (msg.provider === "codex") {
+    let incomplete = false;
+    if (isRecentContentSearch(msg)) {
+      // Transcript search uses the filesystem index for both providers
+      // (app-server thread/list cannot search message text).
+      const indexed = await this.listWorkspaceFilteredIndexedSessions(
+        msg,
+        matchesWorkspace,
+        requiredMatches,
+        pinnedKeys,
+      );
+      filtered = indexed.sessions;
+      pinnedSessions = indexed.pinnedSessions;
+      incomplete = indexed.incomplete;
+    } else if (msg.provider === "codex") {
       const [codex, pinned] = await Promise.all([
         this.listWorkspaceFilteredCodexSessions(
           msg,
@@ -9416,8 +9624,8 @@ export class BridgeWebSocketServer {
     }
     return {
       sessions: filtered.slice(offset, offset + limit),
-      hasMore: filtered.length > offset + limit,
-      ...(pinnedSessions ? { pinnedSessions } : {}),
+      hasMore: filtered.length > offset + limit || incomplete,
+      ...(pinnedSessions ? { pinnedSessions } : pinnedOnlyExtras),
     };
   }
 
@@ -9464,7 +9672,11 @@ export class BridgeWebSocketServer {
     matchesWorkspace: (session: unknown) => boolean,
     limit: number,
     pinnedKeys?: ReadonlySet<string>,
-  ): Promise<{ sessions: unknown[]; pinnedSessions?: unknown[] }> {
+  ): Promise<{
+    sessions: unknown[];
+    pinnedSessions?: unknown[];
+    incomplete: boolean;
+  }> {
     const result = await getAllRecentSessions({
       limit,
       offset: 0,
@@ -9473,6 +9685,7 @@ export class BridgeWebSocketServer {
       provider: msg.provider,
       namedOnly: msg.namedOnly,
       searchQuery: msg.searchQuery,
+      ...(isRecentContentSearch(msg) ? { searchContent: true } : {}),
       archivedSessionIds: this.archiveStore.archivedIds(),
       sessionFilter: (session) =>
         matchesWorkspace(this.enrichRecentSessionWorkspace(session)),
@@ -9492,6 +9705,7 @@ export class BridgeWebSocketServer {
             ),
           }
         : {}),
+      incomplete: result.contentSearchIncomplete === true,
     };
   }
 
@@ -9533,6 +9747,13 @@ export class BridgeWebSocketServer {
       const archivedIds = this.archiveStore.archivedIds();
       const matchingThreads: CodexThreadSummary[] = [];
       let cursor: string | null | undefined;
+      // thread/list is sorted by updated_at desc, so a modified lower bound
+      // ends the scan at the first older thread.
+      const modifiedAfter =
+        msg.dateField !== "created" && msg.modifiedAfter !== undefined
+          ? Date.parse(msg.modifiedAfter)
+          : Number.NaN;
+      let reachedModifiedAfter = false;
 
       do {
         const request: Parameters<CodexProcess["listThreads"]>[0] = {
@@ -9545,18 +9766,32 @@ export class BridgeWebSocketServer {
         const result = await process.listThreads(request);
         for (const thread of result.data) {
           if (archivedIds.has(thread.id)) continue;
+          const modified = threadTimestampToIso(thread.updatedAt);
+          if (Number.isFinite(modifiedAfter)) {
+            const time = Date.parse(modified);
+            if (!Number.isFinite(time) || time < modifiedAfter) {
+              reachedModifiedAfter = true;
+              break;
+            }
+          }
           if (msg.namedOnly && !thread.name) continue;
           const workspaceProbe = this.enrichRecentSessionWorkspace({
             provider: "codex",
             sessionId: thread.id,
             projectPath: thread.cwd,
+            created: threadTimestampToIso(thread.createdAt),
+            modified,
           });
           if (!matchesWorkspace(workspaceProbe)) continue;
           matchingThreads.push(thread);
           if (matchingThreads.length >= limit) break;
         }
         cursor = result.nextCursor;
-      } while (matchingThreads.length < limit && cursor != null);
+      } while (
+        matchingThreads.length < limit &&
+        cursor != null &&
+        !reachedModifiedAfter
+      );
 
       const [indexedById, threadNames] = await Promise.all([
         getCodexSessionIndexMetadata(
@@ -9565,12 +9800,17 @@ export class BridgeWebSocketServer {
         loadCodexSessionNames(),
       ]);
       return matchingThreads.map((thread) =>
-        this.enrichRecentSessionWorkspace({
-          ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
-          ...(threadNames.get(thread.id)
-            ? { name: threadNames.get(thread.id) }
-            : {}),
-        }),
+        this.enrichRecentSessionWorkspace(
+          withRecentSessionMetadataSearchMatch(
+            {
+              ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+              ...(threadNames.get(thread.id)
+                ? { name: threadNames.get(thread.id) }
+                : {}),
+            },
+            msg.searchQuery,
+          ),
+        ),
       );
     } finally {
       process.stop();
@@ -9723,18 +9963,7 @@ export class BridgeWebSocketServer {
   private listRecentSessionsCoalesced(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<RecentSessionsListing> {
-    const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
-    const key = JSON.stringify({
-      limit: msg.limit ?? null,
-      offset: msg.offset ?? null,
-      projectPath: msg.projectPath ?? null,
-      projectId: msg.projectId ?? null,
-      workspaceKind: msg.workspaceKind ?? null,
-      provider: msg.provider ?? null,
-      namedOnly: msg.namedOnly ?? null,
-      searchQuery: msg.searchQuery ?? null,
-      pinnedSessions: pinnedKeys ? [...pinnedKeys].sort() : null,
-    });
+    const key = recentSessionsCoalescingKey(msg);
     const existing = this.recentSessionsInFlight.get(key);
     if (existing) return existing;
 
@@ -10174,12 +10403,17 @@ export class BridgeWebSocketServer {
         getCodexSessionIndexMetadata(pageThreads.map((thread) => thread.id)),
         loadCodexSessionNames(),
       ]);
-      const sessions = pageThreads.map((thread) => ({
-        ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
-        ...(threadNames.get(thread.id)
-          ? { name: threadNames.get(thread.id) }
-          : {}),
-      }));
+      const sessions = pageThreads.map((thread) =>
+        withRecentSessionMetadataSearchMatch(
+          {
+            ...codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+            ...(threadNames.get(thread.id)
+              ? { name: threadNames.get(thread.id) }
+              : {}),
+          },
+          msg.searchQuery,
+        ),
+      );
       return {
         sessions,
         hasMore: hasServerMore || visibleThreads.length > offset + limit,
