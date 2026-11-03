@@ -1,2 +1,7 @@
-• Fixed reasoning-effort options for GPT-6 Astra. Unsupported None and Minimal options are hidden, and saved selections are moved to Light.
-• Requires Bridge 1.81.2 or later.
+• Search recent sessions from the header, with quick filters, project, date and content search, and a pinned section.
+• Queue messages to Claude and Codex while a usage limit is reached; they are sent when it resets.
+• Search settings and browse them by category, with a status card for connection and plan usage.
+• iPhone Duo: controls move into the control strip, leaving more room on the outer display.
+• Video player controls no longer overlap on short screens.
+• Recent session filters are kept across reconnects.
+• Search and message queueing require Bridge 1.97.0 or later.
