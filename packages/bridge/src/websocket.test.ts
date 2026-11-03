@@ -508,7 +508,12 @@ vi.mock("./session.js", () => ({
   },
 }));
 
-import { BridgeWebSocketServer, downloadMimeType } from "./websocket.js";
+import {
+  BridgeWebSocketServer,
+  downloadMimeType,
+  recentSessionsCoalescingKey,
+  recentSessionsFiltersRequested,
+} from "./websocket.js";
 import { CodexProcess, CodexRpcError } from "./codex-process.js";
 
 describe("downloadMimeType", () => {
@@ -1108,6 +1113,412 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     ]);
 
     bridge.close();
+  });
+
+  describe("recent session filters (recent_sessions_filters_v1)", () => {
+    const fixtureSessions = [
+      {
+        sessionId: "a-new",
+        provider: "claude",
+        projectPath: "/tmp/a",
+        created: "2026-10-01T00:00:00.000Z",
+        modified: "2026-11-02T10:00:00.000Z",
+      },
+      {
+        sessionId: "b-mid",
+        provider: "claude",
+        projectPath: "/tmp/b",
+        created: "2026-11-01T12:00:00.000Z",
+        modified: "2026-11-01T12:00:00.000Z",
+      },
+      {
+        sessionId: "c-old",
+        provider: "claude",
+        projectPath: "/tmp/c",
+        created: "2026-10-30T00:00:00.000Z",
+        modified: "2026-10-30T00:00:00.000Z",
+      },
+      {
+        sessionId: "proj",
+        provider: "claude",
+        projectPath: "/tmp/elsewhere",
+        created: "2026-10-29T00:00:00.000Z",
+        modified: "2026-10-29T00:00:00.000Z",
+      },
+    ];
+    const workspaceStore = {
+      listProjects: vi.fn(() => [
+        { id: "project-b", name: "B", rootPaths: ["/tmp/b"] },
+        { id: "project-x", name: "X", rootPaths: ["/tmp/x"] },
+      ]),
+      resolveRecentWorkspace: vi.fn((_provider: string, sessionId: string) =>
+        sessionId === "proj"
+          ? { kind: "project", projectId: "project-x", rootPaths: ["/tmp/x"] }
+          : undefined,
+      ),
+    };
+
+    function mockIndexedListing(): void {
+      getAllRecentSessionsMock.mockReset();
+      getAllRecentSessionsMock.mockImplementation(async (options: any) => {
+        const filtered = options.sessionFilter
+          ? fixtureSessions.filter(options.sessionFilter)
+          : fixtureSessions;
+        return {
+          sessions: filtered.slice(options.offset, options.offset + options.limit),
+          hasMore: options.offset + options.limit < filtered.length,
+        };
+      });
+    }
+
+    async function list(bridge: any, msg: Record<string, unknown>) {
+      return bridge.listRecentSessions({
+        type: "list_recent_sessions",
+        provider: "claude",
+        limit: 20,
+        offset: 0,
+        ...msg,
+      });
+    }
+
+    function ids(result: { sessions: any[] }): string[] {
+      return result.sessions.map((session) => session.sessionId);
+    }
+
+    it("advertises the capability in session_list", () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).sendSessionList(ws);
+      const catalog = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((message: any) => message.type === "session_list");
+      expect(catalog.protocolCapabilities).toContain(
+        "recent_sessions_filters_v1",
+      );
+      bridge.close();
+    });
+
+    it("ORs projectFilters by path and project id", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({
+        server: httpServer,
+        workspaceStore: workspaceStore as any,
+      });
+
+      const result = await list(bridge, {
+        projectFilters: [
+          { projectPath: "/tmp/a" },
+          { projectId: "project-x" },
+        ],
+      });
+
+      expect(ids(result)).toEqual(["a-new", "proj"]);
+      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
+        offset: 0,
+        limit: 21,
+        sessionFilter: expect.any(Function),
+      });
+      expect(getAllRecentSessionsMock.mock.calls[0][0].projectPath).toBeUndefined();
+      bridge.close();
+    });
+
+    it("keeps the fast path when no new filter is present", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      await list(bridge, { projectPath: "/tmp/a", dateField: "created" });
+
+      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
+        projectPath: "/tmp/a",
+      });
+      expect(getAllRecentSessionsMock.mock.calls[0][0].sessionFilter).toBeUndefined();
+      bridge.close();
+    });
+
+    it("filters by modified date range (after inclusive, before exclusive)", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      const result = await list(bridge, {
+        modifiedAfter: "2026-11-01T12:00:00.000Z",
+        modifiedBefore: "2026-11-02T10:00:00.000Z",
+      });
+
+      expect(ids(result)).toEqual(["b-mid"]);
+      bridge.close();
+    });
+
+    it("filters by created date when dateField is created", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      const result = await list(bridge, {
+        modifiedBefore: "2026-10-31T00:00:00.000Z",
+        dateField: "created",
+      });
+
+      expect(ids(result)).toEqual(["a-new", "c-old", "proj"]);
+      bridge.close();
+    });
+
+    it("lists only pinned sessions and pinned projects with pinnedOnly", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({
+        server: httpServer,
+        workspaceStore: workspaceStore as any,
+      });
+
+      const result = await list(bridge, {
+        pinnedOnly: true,
+        pinnedSessions: [
+          { provider: "claude", sessionId: "c-old" },
+          { provider: "codex", sessionId: "a-new" },
+        ],
+        pinnedProjects: [{ projectPath: "/tmp/b" }, { projectId: "project-x" }],
+      });
+
+      expect(ids(result)).toEqual(["b-mid", "c-old", "proj"]);
+      // The page already contains every pinned session.
+      expect(result.pinnedSessions).toEqual([]);
+      expect(getAllRecentSessionsMock.mock.calls[0][0].pinnedSessionKeys).toBeUndefined();
+      bridge.close();
+    });
+
+    it("returns nothing for pinnedOnly without pins", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      const result = await list(bridge, { pinnedOnly: true });
+
+      expect(result).toEqual({ sessions: [], hasMore: false });
+      expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
+      bridge.close();
+    });
+
+    it("applies filters to project-scoped requests and ignores projectFilters there", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+      const result = await list(bridge, {
+        requestScope: "project",
+        offset: 20,
+        projectPath: "/tmp/c",
+        projectFilters: [{ projectPath: "/tmp/a" }],
+        pinnedOnly: true,
+        pinnedSessions: [{ provider: "claude", sessionId: "c-old" }],
+        modifiedAfter: "2026-10-01T00:00:00.000Z",
+      });
+      const firstPage = await list(bridge, {
+        requestScope: "project",
+        projectPath: "/tmp/c",
+        projectFilters: [{ projectPath: "/tmp/a" }],
+        pinnedOnly: true,
+        pinnedSessions: [{ provider: "claude", sessionId: "c-old" }],
+        modifiedAfter: "2026-10-01T00:00:00.000Z",
+      });
+
+      expect(ids(result)).toEqual([]);
+      expect(getAllRecentSessionsMock.mock.calls[0][0].limit).toBe(41);
+      expect(ids(firstPage)).toEqual(["c-old"]);
+      expect(firstPage.pinnedSessions).toBeUndefined();
+      bridge.close();
+    });
+
+    it("routes content search through the index for every provider", async () => {
+      getAllRecentSessionsMock.mockReset();
+      getAllRecentSessionsMock.mockResolvedValue({
+        sessions: [
+          {
+            sessionId: "hit",
+            provider: "codex",
+            projectPath: "/tmp/a",
+            searchMatch: { field: "content", snippet: "…needle…" },
+          },
+        ],
+        hasMore: false,
+        contentSearchIncomplete: true,
+      });
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const createProcess = vi.fn();
+      (bridge as any).createStandaloneCodexProcess = createProcess;
+
+      const result = await list(bridge, {
+        provider: "codex",
+        searchQuery: "needle",
+        searchContent: true,
+      });
+
+      expect(createProcess).not.toHaveBeenCalled();
+      expect(getAllRecentSessionsMock.mock.calls[0][0]).toMatchObject({
+        provider: "codex",
+        searchQuery: "needle",
+        searchContent: true,
+      });
+      expect(result.sessions[0].searchMatch).toEqual({
+        field: "content",
+        snippet: "…needle…",
+      });
+      // A content-search bound was hit, so more matches may exist.
+      expect(result.hasMore).toBe(true);
+      bridge.close();
+    });
+
+    it("ignores searchContent without a search query", () => {
+      expect(
+        recentSessionsFiltersRequested({
+          type: "list_recent_sessions",
+          searchContent: true,
+          searchQuery: "  ",
+        }),
+      ).toBe(false);
+    });
+
+    it("adds date bounds to the Codex thread/list probe and stops early", async () => {
+      const thread = (id: string, updatedAt: number) => ({
+        id,
+        preview: `preview ${id}`,
+        createdAt: updatedAt,
+        updatedAt,
+        cwd: "/tmp/a",
+        agentNickname: null,
+        agentRole: null,
+        gitBranch: "feat/needle",
+        name: null,
+      });
+      const after = Date.parse("2026-11-01T00:00:00.000Z") / 1000;
+      const listThreads = vi.fn(async () => ({
+        data: [thread("new", after + 60), thread("old", after - 60)],
+        nextCursor: "more",
+      }));
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      (bridge as any).createStandaloneCodexProcess = vi.fn(async () => ({
+        listThreads,
+        stop: vi.fn(),
+      }));
+      getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
+      loadCodexSessionNamesMock.mockResolvedValue(new Map());
+      getPinnedCodexSessionsMock.mockReset();
+
+      const result = await list(bridge, {
+        provider: "codex",
+        searchQuery: "needle",
+        modifiedAfter: "2026-11-01T00:00:00.000Z",
+      });
+
+      expect(listThreads).toHaveBeenCalledTimes(1);
+      expect(ids(result)).toEqual(["new"]);
+      expect(result.sessions[0]).toMatchObject({
+        modified: new Date((after + 60) * 1000).toISOString(),
+        searchMatch: { field: "branch" },
+      });
+      bridge.close();
+    });
+
+    it("computes searchMatch locally for thread/list pages", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      (bridge as any).createStandaloneCodexProcess = vi.fn(async () => ({
+        listThreads: vi.fn(async () => ({
+          data: [
+            {
+              id: "t1",
+              preview: "Fix the Needle bug",
+              createdAt: 1771492643,
+              updatedAt: 1771496243,
+              cwd: "/tmp/a",
+              agentNickname: null,
+              agentRole: null,
+              gitBranch: "main",
+              name: null,
+            },
+            {
+              id: "t2",
+              preview: "server-side match only",
+              createdAt: 1771492643,
+              updatedAt: 1771496243,
+              cwd: "/tmp/a",
+              agentNickname: null,
+              agentRole: null,
+              gitBranch: "main",
+              name: null,
+            },
+          ],
+          nextCursor: null,
+        })),
+        stop: vi.fn(),
+      }));
+      getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
+      loadCodexSessionNamesMock.mockResolvedValue(new Map());
+
+      const page = await (bridge as any).listRecentCodexThreads({
+        type: "list_recent_sessions",
+        provider: "codex",
+        searchQuery: "needle",
+      });
+
+      expect(page.sessions[0].searchMatch).toEqual({ field: "firstPrompt" });
+      expect(page.sessions[1]).not.toHaveProperty("searchMatch");
+      bridge.close();
+    });
+
+    it("distinguishes every filter in the coalescing key", () => {
+      const base = {
+        type: "list_recent_sessions" as const,
+        limit: 20,
+        offset: 0,
+      };
+      const variants: Record<string, unknown>[] = [
+        {},
+        { projectFilters: [{ projectPath: "/tmp/a" }] },
+        { projectFilters: [{ projectPath: "/tmp/b" }] },
+        { modifiedAfter: "2026-11-01T00:00:00.000Z" },
+        { modifiedBefore: "2026-11-01T00:00:00.000Z" },
+        { modifiedBefore: "2026-11-01T00:00:00.000Z", dateField: "created" },
+        { pinnedOnly: true, pinnedSessions: [{ provider: "claude", sessionId: "x" }] },
+        { pinnedOnly: true, pinnedSessions: [{ provider: "claude", sessionId: "y" }] },
+        { pinnedOnly: true, pinnedProjects: [{ projectPath: "/tmp/a" }] },
+        { searchQuery: "q" },
+        { searchQuery: "q", searchContent: true },
+        { requestScope: "project" },
+      ];
+      const keys = variants.map((variant) =>
+        recentSessionsCoalescingKey({ ...base, ...variant } as any),
+      );
+      expect(new Set(keys).size).toBe(variants.length);
+      // Order of project filters does not matter.
+      expect(
+        recentSessionsCoalescingKey({
+          ...base,
+          projectFilters: [{ projectPath: "/tmp/a" }, { projectId: "p" }],
+        }),
+      ).toBe(
+        recentSessionsCoalescingKey({
+          ...base,
+          projectFilters: [{ projectId: "p" }, { projectPath: "/tmp/a" }],
+        }),
+      );
+    });
+
+    it("coalesces identical filtered requests only", async () => {
+      mockIndexedListing();
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const msg = {
+        type: "list_recent_sessions",
+        provider: "claude",
+        modifiedAfter: "2026-11-01T00:00:00.000Z",
+      };
+
+      const first = (bridge as any).listRecentSessionsCoalesced(msg);
+      const same = (bridge as any).listRecentSessionsCoalesced({ ...msg });
+      const other = (bridge as any).listRecentSessionsCoalesced({
+        ...msg,
+        dateField: "created",
+      });
+      expect(same).toBe(first);
+      expect(other).not.toBe(first);
+      await Promise.all([first, other]);
+      expect(getAllRecentSessionsMock).toHaveBeenCalledTimes(2);
+      bridge.close();
+    });
   });
 
   it("echoes gallery request correlation and canonical project path", async () => {

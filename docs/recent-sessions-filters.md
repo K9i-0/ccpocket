@@ -100,6 +100,41 @@ returns the matches so far with `hasMore: true`, and the next page continues
 from the requested offset (the scan restarts from the newest session, so
 deeper pages cost more; acceptable for an explicit opt-in search).
 
+Implementation notes (Bridge):
+
+- Routing: the predicate path is used when `projectFilters` (non-empty, list
+  scope), `modifiedAfter`, `modifiedBefore`, `pinnedOnly`, or `searchContent`
+  with a non-blank `searchQuery` is present. `dateField` alone,
+  `pinnedProjects` without `pinnedOnly`, and `searchContent` without a query
+  keep the previous fast path. `projectFilters` is ignored on project-scoped
+  requests.
+- Dates: a session whose compared field is missing or unparseable is excluded
+  while a date bound is set.
+- `pinnedOnly`: pinned keys come from `pinnedSessions` (filtered by
+  `provider`) on every request. The `pinnedSessions` extras are not resolved;
+  a first list page (offset 0) that sent pins answers `pinnedSessions: []`,
+  other pages omit it. With no pins and no `pinnedProjects` the response is
+  empty without a scan.
+- Path-based project filters compare `projectPath` exactly. Index entries
+  carry the repository root; Codex `thread/list` probes carry the raw thread
+  cwd (same as the existing single-project workspace path). A single
+  `projectPath` combined with any new filter therefore scans `thread/list`
+  without the `cwd` pre-filter (early stop only for `modifiedAfter` on
+  `modified`).
+- Content search uses the filesystem index for both providers, so Codex page
+  entries come in the repository-grouped index shape (as in the `thread/list`
+  failure fallback, see `recent-sessions-pinned.md`); pinned extras keep the
+  `thread/list` shape. Every rollout segment of a Codex thread (and every
+  worktree copy of a Claude transcript) is searched; each file counts toward
+  the 400-file bound. Pinned extras are content-searched separately with the
+  same bounds. Excluded from content search: tool use / tool results,
+  reasoning, Claude `isMeta` and command/system-injected user text, and Codex
+  injected user context (AGENTS.md, environment context, ...).
+- `searchMatch` on `thread/list` results is computed locally from the mapped
+  entry; when only the app-server matched (e.g. on text not exposed in the
+  entry), `searchMatch` is omitted.
+- Search helpers live in `packages/bridge/src/recent-session-search.ts`.
+
 ## Compatibility
 
 - New app + old Bridge: the old validator ignores unknown fields, so a request
