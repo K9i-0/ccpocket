@@ -49,10 +49,12 @@ List<UsageInfo> usageSummaryProviders(List<UsageInfo> providers) {
   ];
 }
 
-/// Compact usage summary. A single provider renders on one line
-/// ("Codex Remaining 5h 68% ▬ 1w 42% ▬"). When several providers have data,
-/// the display mode label is shown once and each provider gets its own smaller
-/// line, stacked vertically and right-aligned so the bars line up.
+/// Compact usage summary on a single line. Each provider shows only its most
+/// immediate window (5h when available, otherwise 1w); tapping opens the
+/// settings card with every window. A single provider renders as
+/// "Codex Remaining 5h 68% ▬"; several providers share one mode label:
+/// "Remaining  Claude 5h 80% ▬  Codex 1w 42% ▬". Screen readers still hear
+/// every window.
 class UsageSummary extends StatelessWidget {
   final List<UsageInfo> providers;
   final UsageDisplayMode displayMode;
@@ -101,23 +103,16 @@ class UsageSummary extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(modeLabel, style: labelStyle),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (final (index, usage) in visible.indexed) ...[
-                    if (index > 0) const SizedBox(height: 2),
-                    _ProviderUsageLine(
-                      key: ValueKey('usage_summary_${usage.provider}'),
-                      usage: usage,
-                      displayMode: displayMode,
-                      label: _providerLabel(usage),
-                      fontSize: 10,
-                    ),
-                  ],
-                ],
-              ),
+              for (final usage in visible) ...[
+                const SizedBox(width: 10),
+                _ProviderUsageLine(
+                  key: ValueKey('usage_summary_${usage.provider}'),
+                  usage: usage,
+                  displayMode: displayMode,
+                  label: _providerLabel(usage),
+                  fontSize: 11,
+                ),
+              ],
             ],
           )
         : _ProviderUsageLine(
@@ -142,12 +137,9 @@ class UsageSummary extends StatelessWidget {
           hint: onTap == null ? null : l.usageOpenSettingsHint,
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            // Keep single-line content aligned with the header's visual row
-            // while the surrounding InkWell fills its 44px tap target. The
-            // stacked layout is centered vertically to use the full height.
-            alignment: stacked
-                ? Alignment.centerRight
-                : const Alignment(1, -0.15),
+            // Keep the line aligned with the header's visual row while the
+            // surrounding InkWell fills its 44px tap target.
+            alignment: const Alignment(1, -0.15),
             child: content,
           ),
         ),
@@ -183,18 +175,16 @@ class _ProviderUsageLine extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        if (usage.fiveHour != null) ...[
-          const SizedBox(width: 8),
+        const SizedBox(width: 6),
+        if (usage.fiveHour != null)
           _UsageMetric(
             key: ValueKey('${usage.provider}_usage_5h_indicator'),
             label: '5h',
             window: usage.fiveHour!,
             displayMode: displayMode,
             fontSize: fontSize,
-          ),
-        ],
-        if (usage.sevenDay != null) ...[
-          const SizedBox(width: 8),
+          )
+        else
           _UsageMetric(
             key: ValueKey('${usage.provider}_usage_1w_indicator'),
             label: '1w',
@@ -202,7 +192,6 @@ class _ProviderUsageLine extends StatelessWidget {
             displayMode: displayMode,
             fontSize: fontSize,
           ),
-        ],
       ],
     );
   }
