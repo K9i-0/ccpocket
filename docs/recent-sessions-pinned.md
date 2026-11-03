@@ -68,6 +68,10 @@ pinnedSessions?: RecentSession[];
 - Unpinning needs no request: the extra is dropped on the next list update
   (not immediately, to avoid replaying the last response, which would reset
   expanded project groups). Pinning a visible session needs no request either.
+- Pins are matched by `provider:sessionId` (see
+  [recent-sessions-filters.md](recent-sessions-filters.md)), which closes the
+  known gap above: a pinned worktree/subdirectory thread is recognized even when
+  its listed `projectPath` differs from the stored key.
 
 ## Compatibility
 

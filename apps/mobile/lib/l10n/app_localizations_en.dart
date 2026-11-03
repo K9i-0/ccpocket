@@ -3680,4 +3680,149 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backgroundTasksStop => 'Stop background tasks';
+
+  @override
+  String get recentFilterPinnedOnly => 'Pinned';
+
+  @override
+  String recentFilterProjectsSummary(String name, int count) {
+    return '$name +$count';
+  }
+
+  @override
+  String get recentFilterPeriod => 'Period';
+
+  @override
+  String get recentDateToday => 'Today';
+
+  @override
+  String get recentDateYesterday => 'Yesterday';
+
+  @override
+  String get recentDateDayBeforeYesterday => '2 days ago';
+
+  @override
+  String get recentDateLast7Days => 'Last 7 days';
+
+  @override
+  String get recentDateLast30Days => 'Last 30 days';
+
+  @override
+  String get recentDateCustom => 'Custom range…';
+
+  @override
+  String get recentDateAnyTime => 'Any time';
+
+  @override
+  String get recentFilterClear => 'Clear';
+
+  @override
+  String get recentAdvancedSearch => 'Advanced search';
+
+  @override
+  String recentAdvancedConditions(int count) {
+    return 'Advanced $count';
+  }
+
+  @override
+  String get recentDisplaySettings => 'Display settings';
+
+  @override
+  String get recentLayout => 'Layout';
+
+  @override
+  String get recentLayoutList => 'List';
+
+  @override
+  String get recentLayoutGrouped => 'By project';
+
+  @override
+  String get recentCardText => 'Card text';
+
+  @override
+  String get recentPinnedSection => 'Pinned';
+
+  @override
+  String get recentFavoriteProjects => 'Favorites';
+
+  @override
+  String get recentOtherProjects => 'Other projects';
+
+  @override
+  String get recentSelectFavorites => 'Select all favorites';
+
+  @override
+  String get recentNoFavoriteProjects => 'Tap ☆ to add a favorite';
+
+  @override
+  String get recentProjectPickerTitle => 'Filter by project';
+
+  @override
+  String get recentApply => 'Apply';
+
+  @override
+  String get recentReset => 'Reset';
+
+  @override
+  String get recentKeywords => 'Keywords';
+
+  @override
+  String get recentKeywordsHint => 'Name, prompts, summary, project, branch';
+
+  @override
+  String get recentSearchContent => 'Search conversation text';
+
+  @override
+  String get recentSearchContentHint =>
+      'Slower. Searches user and assistant messages';
+
+  @override
+  String get recentDateField => 'Compare by';
+
+  @override
+  String get recentDateFieldModified => 'Last updated';
+
+  @override
+  String get recentDateFieldCreated => 'Created';
+
+  @override
+  String get recentNamedOnly => 'Named only';
+
+  @override
+  String get recentPinnedOnly => 'Pinned and favorites only';
+
+  @override
+  String get recentAiTool => 'AI tool';
+
+  @override
+  String get recentRequiresBridgeUpdate => 'Update Bridge to use this';
+
+  @override
+  String recentMatchedIn(String field) {
+    return 'Matched: $field';
+  }
+
+  @override
+  String get recentMatchName => 'Name';
+
+  @override
+  String get recentMatchFirstPrompt => 'First prompt';
+
+  @override
+  String get recentMatchLastPrompt => 'Last prompt';
+
+  @override
+  String get recentMatchSummary => 'Summary';
+
+  @override
+  String get recentMatchProject => 'Project';
+
+  @override
+  String get recentMatchBranch => 'Branch';
+
+  @override
+  String get recentMatchContent => 'Conversation';
+
+  @override
+  String get recentFavoriteTooltip => 'Favorite';
 }

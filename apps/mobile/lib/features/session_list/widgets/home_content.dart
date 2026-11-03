@@ -20,12 +20,17 @@ import '../../../router/app_router.dart';
 import '../../../widgets/pin_toggle_button.dart';
 import '../../../widgets/session_card.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
+
+import 'package:intl/intl.dart';
+
+import '../state/recent_session_filters.dart';
 import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
 import '../workspace_shell_screen.dart';
 import '../../settings/state/settings_state.dart';
 import 'usage_summary.dart';
 import 'section_header.dart';
+import 'recent_session_filter_sheets.dart';
 import 'session_filter_bar.dart';
 import 'session_list_empty_state.dart';
 import 'session_list_loading_view.dart';
@@ -55,6 +60,7 @@ List<_ProjectSessionGroup> _groupSessionsByProject({
   required Iterable<String> projectPaths,
   required List<RecentSession> sessions,
   required Map<String, String> currentProjectNames,
+  Set<String> keepEmpty = const {},
 }) {
   final grouped = <String, List<RecentSession>>{
     for (final path in projectPaths)
@@ -66,7 +72,9 @@ List<_ProjectSessionGroup> _groupSessionsByProject({
   }
   return [
     for (final entry in grouped.entries)
-      if (entry.value.isNotEmpty || !entry.key.contains(':'))
+      if (entry.value.isNotEmpty ||
+          !entry.key.contains(':') ||
+          keepEmpty.contains(entry.key))
         _ProjectSessionGroup(
           groupKey: entry.key,
           projectPath: entry.value.firstOrNull?.projectPath ?? entry.key,
@@ -140,6 +148,15 @@ class HomeContent extends StatefulWidget {
   final ValueChanged<String>? onToggleProjectPinned;
   final ProviderFilter providerFilter;
   final bool namedOnly;
+
+  /// Projects, period, pinned only and content search.
+  final RecentSessionFilters filters;
+
+  /// Whether the Bridge supports `recent_sessions_filters_v1`.
+  final bool supportsAdvancedFilters;
+
+  /// AI tool options allowed by the enabled agents.
+  final List<ProviderFilter> providerFilterOptions;
   final VoidCallback onToggleProvider;
   final VoidCallback onToggleNamed;
   final AppUpdateInfo? appUpdateInfo;
@@ -200,6 +217,13 @@ class HomeContent extends StatefulWidget {
     this.onToggleProjectPinned,
     required this.providerFilter,
     required this.namedOnly,
+    this.filters = const RecentSessionFilters(),
+    this.supportsAdvancedFilters = false,
+    this.providerFilterOptions = const [
+      ProviderFilter.all,
+      ProviderFilter.codex,
+      ProviderFilter.claude,
+    ],
     required this.onToggleProvider,
     required this.onToggleNamed,
     this.appUpdateInfo,
@@ -286,22 +310,108 @@ class HomeContentState extends State<HomeContent> {
     }
   }
 
-  void _toggleDisplayMode() async {
-    final next = switch (_displayMode) {
-      SessionDisplayMode.first => SessionDisplayMode.last,
-      SessionDisplayMode.last => SessionDisplayMode.summary,
-      SessionDisplayMode.summary => SessionDisplayMode.first,
-    };
+  Future<void> _setDisplayMode(SessionDisplayMode next) async {
+    if (!mounted) return;
     setState(() => _displayMode = next);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_displayModePreferenceKey, next.name);
   }
 
-  void _toggleRecentGrouping() async {
-    final next = !_groupRecentSessions;
+  Future<void> _setRecentGrouping(bool next) async {
+    if (!mounted) return;
     setState(() => _groupRecentSessions = next);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_groupRecentSessionsPreferenceKey, next);
+  }
+
+  void _openDisplaySettings() {
+    showRecentDisplaySettings(
+      context: context,
+      grouped: _groupRecentSessions,
+      displayMode: _displayMode,
+      onGroupedChanged: _setRecentGrouping,
+      onDisplayModeChanged: _setDisplayMode,
+    );
+  }
+
+  SessionListCubit? _maybeCubit() {
+    try {
+      return context.read<SessionListCubit>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openProjectPicker(List<RecentProjectOption> projects) async {
+    final result = await showRecentProjectPicker(
+      context: context,
+      projects: projects,
+      selected: widget.filters.projectKeys.isNotEmpty
+          ? widget.filters.projectKeys
+          : {?widget.currentProjectFilter},
+      favorites: widget.pinnedProjectPaths,
+      multiSelect: widget.supportsAdvancedFilters,
+      onToggleFavorite: widget.onToggleProjectPinned,
+    );
+    if (result == null || !mounted) return;
+    if (result.length <= 1) {
+      widget.onSelectProject(result.firstOrNull);
+    } else {
+      _maybeCubit()?.setProjectFilters(result);
+    }
+  }
+
+  Future<void> _pickCustomDateRange() async {
+    final picked = await pickCustomRecentDateRange(
+      context,
+      initial: widget.filters.dateFilter,
+    );
+    if (picked == null || !mounted) return;
+    _maybeCubit()?.setDateFilter(picked);
+  }
+
+  Future<void> _openAdvancedSearch(List<RecentProjectOption> projects) async {
+    final result = await showRecentAdvancedSearch(
+      context: context,
+      searchQuery: widget.searchQuery,
+      filters:
+          widget.filters.projectKeys.isEmpty &&
+              widget.currentProjectFilter != null
+          ? widget.filters.copyWith(projectKeys: {widget.currentProjectFilter!})
+          : widget.filters,
+      providerFilter: widget.providerFilter,
+      providerOptions: widget.providerFilterOptions,
+      namedOnly: widget.namedOnly,
+      supportsAdvancedFilters: widget.supportsAdvancedFilters,
+      projects: projects,
+      favoriteProjects: widget.pinnedProjectPaths,
+      onToggleFavoriteProject: widget.onToggleProjectPinned,
+    );
+    if (result == null || !mounted) return;
+    final query = result.searchQuery;
+    setState(() {
+      _isSearching = query.isNotEmpty;
+      _searchController.text = query;
+    });
+    _maybeCubit()?.applyAdvancedSearch(
+      searchQuery: query,
+      filters: result.filters,
+      providerFilter: result.providerFilter,
+      namedOnly: result.namedOnly,
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _isSearching = false;
+      _searchController.clear();
+    });
+    final cubit = _maybeCubit();
+    if (cubit != null) {
+      cubit.clearFilters();
+    } else {
+      widget.onSelectProject(null);
+    }
   }
 
   @override
@@ -566,12 +676,21 @@ class HomeContentState extends State<HomeContent> {
       return false;
     }
 
-    // All filtering (project, provider, namedOnly, searchQuery) is applied
-    // server-side. Only deduplicate running sessions here.
+    // Pins are matched by provider:sessionId; the stored key also holds a
+    // projectPath that differs between running, grouped and Codex shapes.
+    final pinnedIdentities = pinIdentitiesOf(widget.pinnedSessionKeys);
+    bool isRecentPinned(RecentSession session) =>
+        pinnedIdentities.contains(recentSessionPinIdentity(session));
+    bool isRunningPinned(SessionInfo session) {
+      final identity = runningSessionPinIdentity(session);
+      return identity != null && pinnedIdentities.contains(identity);
+    }
+
+    // All filtering (project, provider, namedOnly, searchQuery, period,
+    // pinned only) is applied server-side. Only deduplicate running sessions.
     final filteredSessions = prioritizePinned(
       widget.recentSessions.where((session) => !isDuplicate(session)),
-      isPinned: (session) =>
-          widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
+      isPinned: isRecentPinned,
       isProjectPinned: (session) =>
           widget.pinnedProjectPaths.contains(session.workspaceGroupKey),
     );
@@ -636,43 +755,67 @@ class HomeContentState extends State<HomeContent> {
         'project:${project.id}': project.name,
     };
     final projectPathsWithPinnedSessions = filteredSessions
-        .where(
-          (session) =>
-              widget.pinnedSessionKeys.contains(recentSessionPinKey(session)),
-        )
+        .where(isRecentPinned)
         .map((session) => session.workspaceGroupKey)
         .toSet();
+    final selectedProjectKeys = widget.filters.projectKeys.isNotEmpty
+        ? widget.filters.projectKeys
+        : {?widget.currentProjectFilter};
+    final hasActiveFilter =
+        selectedProjectKeys.isNotEmpty ||
+        widget.providerFilter != ProviderFilter.all ||
+        widget.namedOnly ||
+        widget.searchQuery.isNotEmpty ||
+        widget.filters.isActive;
+    // Favorite projects stay visible in grouped mode even when the loaded
+    // pages hold none of their sessions; "show more" loads them.
+    final keepEmptyGroups = hasActiveFilter
+        ? const <String>{}
+        : widget.pinnedProjectPaths;
     final allProjectPaths = prioritizePinned(
       <String>{
-        if (widget.currentProjectFilter != null) widget.currentProjectFilter!,
-        if (widget.currentProjectFilter == null)
-          ...widget.accumulatedProjectPaths,
-        if (widget.currentProjectFilter == null)
+        ...selectedProjectKeys,
+        if (selectedProjectKeys.isEmpty) ...widget.accumulatedProjectPaths,
+        if (selectedProjectKeys.isEmpty) ...keepEmptyGroups,
+        if (selectedProjectKeys.isEmpty)
           ...filteredSessions.map((session) => session.workspaceGroupKey),
       }.where((path) => path.isNotEmpty),
       isPinned: projectPathsWithPinnedSessions.contains,
       isProjectPinned: widget.pinnedProjectPaths.contains,
     );
-    final groupedRecentSessions = _groupSessionsByProject(
-      projectPaths: allProjectPaths,
-      sessions: filteredSessions,
-      currentProjectNames: currentProjectNames,
-    ).where((group) => group.sessions.isNotEmpty).toList();
+    final groupedRecentSessions =
+        _groupSessionsByProject(
+              projectPaths: allProjectPaths,
+              sessions: filteredSessions,
+              currentProjectNames: currentProjectNames,
+              keepEmpty: keepEmptyGroups,
+            )
+            .where(
+              (group) =>
+                  group.sessions.isNotEmpty ||
+                  keepEmptyGroups.contains(group.groupKey),
+            )
+            .toList();
     final runningSessions = prioritizePinned(
       widget.sessions,
-      isPinned: (session) {
-        final key = runningSessionPinKey(session);
-        return key != null && widget.pinnedSessionKeys.contains(key);
-      },
+      isPinned: isRunningPinned,
       isProjectPinned: (session) =>
           widget.pinnedProjectPaths.contains(session.workspaceGroupKey),
     );
-
-    final hasActiveFilter =
-        widget.currentProjectFilter != null ||
-        widget.providerFilter != ProviderFilter.all ||
-        widget.namedOnly ||
-        widget.searchQuery.isNotEmpty;
+    final projectOptions = prioritizePinned(
+      projectFilterNames.entries,
+      isPinned: (entry) => widget.pinnedProjectPaths.contains(entry.key),
+    ).map((entry) => (key: entry.key, name: entry.value)).toList();
+    // List mode: pinned sessions first, then everything else by date.
+    final pinnedListSessions = filteredSessions.where(isRecentPinned).toList();
+    final unpinnedListSessions =
+        filteredSessions.where((s) => !isRecentPinned(s)).toList()
+          ..sort((a, b) => _modifiedMillis(b).compareTo(_modifiedMillis(a)));
+    final advancedCount =
+        widget.filters.advancedOnlyCount + (widget.namedOnly ? 1 : 0);
+    final highlightQuery = widget.searchQuery.trim().isEmpty
+        ? null
+        : widget.searchQuery.trim();
 
     if (!hasRunningSessions &&
         !hasRecentSessions &&
@@ -779,10 +922,7 @@ class HomeContentState extends State<HomeContent> {
                 session: session,
                 projectNameOverride:
                     currentProjectNames[session.workspaceGroupKey],
-                isPinned: switch (runningSessionPinKey(session)) {
-                  final key? => widget.pinnedSessionKeys.contains(key),
-                  null => false,
-                },
+                isPinned: isRunningPinned(session),
                 onTogglePinned:
                     runningSessionPinKey(session) == null ||
                         widget.onToggleRunningSessionPinned == null
@@ -838,18 +978,38 @@ class HomeContentState extends State<HomeContent> {
             icon: Icons.history,
             label: l.recentSessions,
             color: appColors.subtleText,
-            trailing: IconButton(
-              key: const ValueKey('search_button'),
-              icon: Icon(
-                _isSearching ? Icons.close : Icons.search,
-                size: 18,
-                color: appColors.subtleText,
-              ),
-              onPressed: _toggleSearch,
-              tooltip: l.search,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              visualDensity: VisualDensity.compact,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  key: const ValueKey('search_button'),
+                  icon: Icon(
+                    _isSearching ? Icons.close : Icons.search,
+                    size: 18,
+                    color: appColors.subtleText,
+                  ),
+                  onPressed: _toggleSearch,
+                  tooltip: l.search,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  key: const ValueKey('recent_display_settings_button'),
+                  icon: Icon(Icons.tune, size: 18, color: appColors.subtleText),
+                  onPressed: _openDisplaySettings,
+                  tooltip: l.recentDisplaySettings,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
           ),
           if (_isSearching) ...[
@@ -865,6 +1025,16 @@ class HomeContentState extends State<HomeContent> {
                   Icons.search,
                   size: 18,
                   color: appColors.subtleText,
+                ),
+                suffixIcon: IconButton(
+                  key: const ValueKey('search_field_advanced_button'),
+                  icon: Icon(
+                    Icons.manage_search,
+                    size: 20,
+                    color: appColors.subtleText,
+                  ),
+                  tooltip: l.recentAdvancedSearch,
+                  onPressed: () => _openAdvancedSearch(projectOptions),
                 ),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
@@ -891,24 +1061,36 @@ class HomeContentState extends State<HomeContent> {
           ],
           const SizedBox(height: 8),
           SessionFilterBar(
-            displayMode: _displayMode,
-            onToggleDisplayMode: _toggleDisplayMode,
-            groupRecentSessions: _groupRecentSessions,
-            onToggleRecentGrouping: _toggleRecentGrouping,
+            filters: widget.filters.projectKeys.isEmpty
+                ? widget.filters.copyWith(projectKeys: selectedProjectKeys)
+                : widget.filters,
+            supportsAdvancedFilters: widget.supportsAdvancedFilters,
             providerFilter: widget.providerFilter,
-            onToggleProviderFilter: widget.onToggleProvider,
-            projects:
-                prioritizePinned(
-                  projectFilterNames.entries,
-                  isPinned: (entry) =>
-                      widget.pinnedProjectPaths.contains(entry.key),
-                ).map((entry) {
-                  return (key: entry.key, name: entry.value);
-                }).toList(),
-            currentProjectFilter: widget.currentProjectFilter,
-            onProjectFilterChanged: widget.onSelectProject,
-            namedOnly: widget.namedOnly,
-            onToggleNamed: widget.onToggleNamed,
+            providerOptions: widget.providerFilterOptions,
+            onProviderSelected: (next) {
+              final cubit = _maybeCubit();
+              if (cubit != null) {
+                cubit.setProviderFilter(next);
+              } else {
+                widget.onToggleProvider();
+              }
+            },
+            projects: projectOptions,
+            onOpenProjectPicker: () => _openProjectPicker(projectOptions),
+            onTogglePinnedOnly: () => _maybeCubit()?.togglePinnedOnly(),
+            onDateFilterChanged: (filter) =>
+                _maybeCubit()?.setDateFilter(filter),
+            onPickCustomDateRange: _pickCustomDateRange,
+            advancedCount: advancedCount,
+            onOpenAdvancedSearch: () => _openAdvancedSearch(projectOptions),
+            onClearFilters:
+                hasActiveFilter &&
+                    (selectedProjectKeys.isNotEmpty ||
+                        widget.namedOnly ||
+                        widget.searchQuery.isNotEmpty ||
+                        widget.filters.isActive)
+                ? _clearFilters
+                : null,
           ),
           const SizedBox(height: 8),
           if (widget.isInitialLoading)
@@ -932,15 +1114,45 @@ class HomeContentState extends State<HomeContent> {
                 subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
               )
             else if (!_groupRecentSessions) ...[
-              for (final session in filteredSessions)
+              if (pinnedListSessions.isNotEmpty) ...[
+                _RecentListSubheader(
+                  key: const ValueKey('recent_pinned_section'),
+                  icon: Icons.push_pin,
+                  label: l.recentPinnedSection,
+                ),
+                for (final session in pinnedListSessions)
+                  _RecentSessionSlidable(
+                    session: session,
+                    projectNameOverride:
+                        currentProjectNames[session.workspaceGroupKey],
+                    isPinned: true,
+                    displayMode: _displayMode,
+                    highlightQuery: highlightQuery,
+                    archivingSessionIds: widget.archivingSessionIds,
+                    onArchiveSession: widget.onArchiveSession,
+                    onResumeSession: widget.onResumeSession,
+                    onTogglePinned: widget.onToggleRecentSessionPinned == null
+                        ? null
+                        : () => widget.onToggleRecentSessionPinned!(session),
+                    onLongPressRecentSession: widget.onLongPressRecentSession,
+                  ),
+              ],
+              for (final (index, session) in unpinnedListSessions.indexed) ...[
+                if (index == 0 ||
+                    _localDay(session) !=
+                        _localDay(unpinnedListSessions[index - 1]))
+                  _RecentListSubheader(
+                    key: ValueKey('recent_date_header_${_localDay(session)}'),
+                    icon: Icons.calendar_today_outlined,
+                    label: _dayLabel(context, session),
+                  ),
                 _RecentSessionSlidable(
                   session: session,
                   projectNameOverride:
                       currentProjectNames[session.workspaceGroupKey],
-                  isPinned: widget.pinnedSessionKeys.contains(
-                    recentSessionPinKey(session),
-                  ),
+                  isPinned: false,
                   displayMode: _displayMode,
+                  highlightQuery: highlightQuery,
                   archivingSessionIds: widget.archivingSessionIds,
                   onArchiveSession: widget.onArchiveSession,
                   onResumeSession: widget.onResumeSession,
@@ -949,6 +1161,7 @@ class HomeContentState extends State<HomeContent> {
                       : () => widget.onToggleRecentSessionPinned!(session),
                   onLongPressRecentSession: widget.onLongPressRecentSession,
                 ),
+              ],
               if (widget.hasMoreSessions) ...[
                 const SizedBox(height: 8),
                 _LoadMoreRecentSessionsButton(
@@ -974,7 +1187,8 @@ class HomeContentState extends State<HomeContent> {
                       widget.currentProjectFilter == null &&
                       !widget.exhaustedProjectPaths.contains(group.groupKey),
                   archivingSessionIds: widget.archivingSessionIds,
-                  pinnedSessionKeys: widget.pinnedSessionKeys,
+                  isSessionPinned: isRecentPinned,
+                  highlightQuery: highlightQuery,
                   isPinned: widget.pinnedProjectPaths.contains(group.groupKey),
                   onToggleCollapsed: () =>
                       widget.onToggleProjectCollapsed?.call(group.groupKey),
@@ -1112,6 +1326,7 @@ class _RecentSessionSlidable extends StatelessWidget {
   final String? projectNameOverride;
   final bool isPinned;
   final SessionDisplayMode displayMode;
+  final String? highlightQuery;
   final Set<String> archivingSessionIds;
   final ValueChanged<RecentSession> onArchiveSession;
   final ValueChanged<RecentSession> onResumeSession;
@@ -1124,6 +1339,7 @@ class _RecentSessionSlidable extends StatelessWidget {
     this.projectNameOverride,
     required this.isPinned,
     required this.displayMode,
+    this.highlightQuery,
     required this.archivingSessionIds,
     required this.onArchiveSession,
     required this.onResumeSession,
@@ -1164,6 +1380,7 @@ class _RecentSessionSlidable extends StatelessWidget {
         projectNameOverride: projectNameOverride,
         isPinned: isPinned,
         displayMode: displayMode,
+        highlightQuery: highlightQuery,
         isSelected: false,
         draftText: context.read<DraftService>().getDraft(session.sessionId),
         isProcessing: archivingSessionIds.contains(session.sessionId),
@@ -1229,7 +1446,8 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
   final int displayLimit;
   final bool canLoadFromBridge;
   final Set<String> archivingSessionIds;
-  final Set<String> pinnedSessionKeys;
+  final bool Function(RecentSession session) isSessionPinned;
+  final String? highlightQuery;
   final bool isPinned;
   final VoidCallback onToggleCollapsed;
   final VoidCallback? onTogglePinned;
@@ -1248,7 +1466,8 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
     required this.displayLimit,
     required this.canLoadFromBridge,
     required this.archivingSessionIds,
-    required this.pinnedSessionKeys,
+    required this.isSessionPinned,
+    this.highlightQuery,
     required this.isPinned,
     required this.onToggleCollapsed,
     required this.onTogglePinned,
@@ -1283,10 +1502,9 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
               _RecentSessionSlidable(
                 session: session,
                 projectNameOverride: group.projectName,
-                isPinned: pinnedSessionKeys.contains(
-                  recentSessionPinKey(session),
-                ),
+                isPinned: isSessionPinned(session),
                 displayMode: displayMode,
+                highlightQuery: highlightQuery,
                 archivingSessionIds: archivingSessionIds,
                 onArchiveSession: onArchiveSession,
                 onResumeSession: onResumeSession,
@@ -1601,6 +1819,67 @@ class OfflinePendingSessionCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+int _modifiedMillis(RecentSession session) =>
+    DateTime.tryParse(session.modified)?.millisecondsSinceEpoch ?? 0;
+
+/// Local calendar day (yyyy-mm-dd) of the session's last update.
+String _localDay(RecentSession session) {
+  final modified = DateTime.tryParse(session.modified)?.toLocal();
+  if (modified == null) return '';
+  return '${modified.year}-${modified.month}-${modified.day}';
+}
+
+String _dayLabel(BuildContext context, RecentSession session) {
+  final l = AppLocalizations.of(context);
+  final modified = DateTime.tryParse(session.modified)?.toLocal();
+  if (modified == null) return '-';
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(modified.year, modified.month, modified.day);
+  final diff = today.difference(day).inDays;
+  if (diff == 0) return l.recentDateToday;
+  if (diff == 1) return l.recentDateYesterday;
+  if (diff == 2) return l.recentDateDayBeforeYesterday;
+  final locale = Localizations.localeOf(context).toLanguageTag();
+  final format = day.year == today.year
+      ? DateFormat.MMMEd(locale)
+      : DateFormat.yMMMEd(locale);
+  return format.format(day);
+}
+
+class _RecentListSubheader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _RecentListSubheader({
+    super.key,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 10, bottom: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: appColors.subtleText),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: appColors.subtleText,
             ),
           ),
         ],

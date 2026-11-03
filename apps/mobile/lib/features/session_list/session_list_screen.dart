@@ -2251,6 +2251,9 @@ class _SessionListScreenState extends State<SessionListScreen>
                   context.read<SessionListCubit>().toggleProjectPinned(path),
               providerFilter: effectiveProviderFilter,
               namedOnly: slState.namedOnly,
+              filters: slState.filters,
+              supportsAdvancedFilters: bridge.supportsRecentSessionFilters,
+              providerFilterOptions: allowedProviderFilters,
               onToggleProvider: () => context
                   .read<SessionListCubit>()
                   .toggleProviderFilter(allowedFilters: allowedProviderFilters),

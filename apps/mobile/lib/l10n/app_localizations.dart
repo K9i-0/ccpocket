@@ -6646,6 +6646,282 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'バックグラウンドタスクを停止'**
   String get backgroundTasksStop;
+
+  /// No description provided for @recentFilterPinnedOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'ピン留め'**
+  String get recentFilterPinnedOnly;
+
+  /// No description provided for @recentFilterProjectsSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'{name} +{count}'**
+  String recentFilterProjectsSummary(String name, int count);
+
+  /// No description provided for @recentFilterPeriod.
+  ///
+  /// In ja, this message translates to:
+  /// **'期間'**
+  String get recentFilterPeriod;
+
+  /// No description provided for @recentDateToday.
+  ///
+  /// In ja, this message translates to:
+  /// **'今日'**
+  String get recentDateToday;
+
+  /// No description provided for @recentDateYesterday.
+  ///
+  /// In ja, this message translates to:
+  /// **'昨日'**
+  String get recentDateYesterday;
+
+  /// No description provided for @recentDateDayBeforeYesterday.
+  ///
+  /// In ja, this message translates to:
+  /// **'一昨日'**
+  String get recentDateDayBeforeYesterday;
+
+  /// No description provided for @recentDateLast7Days.
+  ///
+  /// In ja, this message translates to:
+  /// **'過去7日'**
+  String get recentDateLast7Days;
+
+  /// No description provided for @recentDateLast30Days.
+  ///
+  /// In ja, this message translates to:
+  /// **'過去30日'**
+  String get recentDateLast30Days;
+
+  /// No description provided for @recentDateCustom.
+  ///
+  /// In ja, this message translates to:
+  /// **'期間を指定…'**
+  String get recentDateCustom;
+
+  /// No description provided for @recentDateAnyTime.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべての期間'**
+  String get recentDateAnyTime;
+
+  /// No description provided for @recentFilterClear.
+  ///
+  /// In ja, this message translates to:
+  /// **'クリア'**
+  String get recentFilterClear;
+
+  /// No description provided for @recentAdvancedSearch.
+  ///
+  /// In ja, this message translates to:
+  /// **'高度な検索'**
+  String get recentAdvancedSearch;
+
+  /// No description provided for @recentAdvancedConditions.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳細条件 {count}'**
+  String recentAdvancedConditions(int count);
+
+  /// No description provided for @recentDisplaySettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示設定'**
+  String get recentDisplaySettings;
+
+  /// No description provided for @recentLayout.
+  ///
+  /// In ja, this message translates to:
+  /// **'レイアウト'**
+  String get recentLayout;
+
+  /// No description provided for @recentLayoutList.
+  ///
+  /// In ja, this message translates to:
+  /// **'リスト'**
+  String get recentLayoutList;
+
+  /// No description provided for @recentLayoutGrouped.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトごと'**
+  String get recentLayoutGrouped;
+
+  /// No description provided for @recentCardText.
+  ///
+  /// In ja, this message translates to:
+  /// **'カードに表示する発言'**
+  String get recentCardText;
+
+  /// No description provided for @recentPinnedSection.
+  ///
+  /// In ja, this message translates to:
+  /// **'ピン留め'**
+  String get recentPinnedSection;
+
+  /// No description provided for @recentFavoriteProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'お気に入り'**
+  String get recentFavoriteProjects;
+
+  /// No description provided for @recentOtherProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'その他のプロジェクト'**
+  String get recentOtherProjects;
+
+  /// No description provided for @recentSelectFavorites.
+  ///
+  /// In ja, this message translates to:
+  /// **'お気に入りをすべて選択'**
+  String get recentSelectFavorites;
+
+  /// No description provided for @recentNoFavoriteProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'☆ をタップするとお気に入りに追加できます'**
+  String get recentNoFavoriteProjects;
+
+  /// No description provided for @recentProjectPickerTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトで絞り込み'**
+  String get recentProjectPickerTitle;
+
+  /// No description provided for @recentApply.
+  ///
+  /// In ja, this message translates to:
+  /// **'適用'**
+  String get recentApply;
+
+  /// No description provided for @recentReset.
+  ///
+  /// In ja, this message translates to:
+  /// **'リセット'**
+  String get recentReset;
+
+  /// No description provided for @recentKeywords.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーワード'**
+  String get recentKeywords;
+
+  /// No description provided for @recentKeywordsHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前・発言・要約・プロジェクト・ブランチ'**
+  String get recentKeywordsHint;
+
+  /// No description provided for @recentSearchContent.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話の本文も検索'**
+  String get recentSearchContent;
+
+  /// No description provided for @recentSearchContentHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'時間がかかります。ユーザーとAIのメッセージが対象です'**
+  String get recentSearchContentHint;
+
+  /// No description provided for @recentDateField.
+  ///
+  /// In ja, this message translates to:
+  /// **'基準にする日時'**
+  String get recentDateField;
+
+  /// No description provided for @recentDateFieldModified.
+  ///
+  /// In ja, this message translates to:
+  /// **'最終更新'**
+  String get recentDateFieldModified;
+
+  /// No description provided for @recentDateFieldCreated.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成'**
+  String get recentDateFieldCreated;
+
+  /// No description provided for @recentNamedOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前付きのみ'**
+  String get recentNamedOnly;
+
+  /// No description provided for @recentPinnedOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'ピン留めとお気に入りのみ'**
+  String get recentPinnedOnly;
+
+  /// No description provided for @recentAiTool.
+  ///
+  /// In ja, this message translates to:
+  /// **'AI ツール'**
+  String get recentAiTool;
+
+  /// No description provided for @recentRequiresBridgeUpdate.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge を更新すると使えます'**
+  String get recentRequiresBridgeUpdate;
+
+  /// No description provided for @recentMatchedIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'一致: {field}'**
+  String recentMatchedIn(String field);
+
+  /// No description provided for @recentMatchName.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前'**
+  String get recentMatchName;
+
+  /// No description provided for @recentMatchFirstPrompt.
+  ///
+  /// In ja, this message translates to:
+  /// **'最初の発言'**
+  String get recentMatchFirstPrompt;
+
+  /// No description provided for @recentMatchLastPrompt.
+  ///
+  /// In ja, this message translates to:
+  /// **'最後の発言'**
+  String get recentMatchLastPrompt;
+
+  /// No description provided for @recentMatchSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'要約'**
+  String get recentMatchSummary;
+
+  /// No description provided for @recentMatchProject.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクト'**
+  String get recentMatchProject;
+
+  /// No description provided for @recentMatchBranch.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブランチ'**
+  String get recentMatchBranch;
+
+  /// No description provided for @recentMatchContent.
+  ///
+  /// In ja, this message translates to:
+  /// **'本文'**
+  String get recentMatchContent;
+
+  /// No description provided for @recentFavoriteTooltip.
+  ///
+  /// In ja, this message translates to:
+  /// **'お気に入り'**
+  String get recentFavoriteTooltip;
 }
 
 class _AppLocalizationsDelegate

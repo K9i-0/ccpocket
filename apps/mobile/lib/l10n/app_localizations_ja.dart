@@ -3537,4 +3537,148 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get backgroundTasksStop => 'バックグラウンドタスクを停止';
+
+  @override
+  String get recentFilterPinnedOnly => 'ピン留め';
+
+  @override
+  String recentFilterProjectsSummary(String name, int count) {
+    return '$name +$count';
+  }
+
+  @override
+  String get recentFilterPeriod => '期間';
+
+  @override
+  String get recentDateToday => '今日';
+
+  @override
+  String get recentDateYesterday => '昨日';
+
+  @override
+  String get recentDateDayBeforeYesterday => '一昨日';
+
+  @override
+  String get recentDateLast7Days => '過去7日';
+
+  @override
+  String get recentDateLast30Days => '過去30日';
+
+  @override
+  String get recentDateCustom => '期間を指定…';
+
+  @override
+  String get recentDateAnyTime => 'すべての期間';
+
+  @override
+  String get recentFilterClear => 'クリア';
+
+  @override
+  String get recentAdvancedSearch => '高度な検索';
+
+  @override
+  String recentAdvancedConditions(int count) {
+    return '詳細条件 $count';
+  }
+
+  @override
+  String get recentDisplaySettings => '表示設定';
+
+  @override
+  String get recentLayout => 'レイアウト';
+
+  @override
+  String get recentLayoutList => 'リスト';
+
+  @override
+  String get recentLayoutGrouped => 'プロジェクトごと';
+
+  @override
+  String get recentCardText => 'カードに表示する発言';
+
+  @override
+  String get recentPinnedSection => 'ピン留め';
+
+  @override
+  String get recentFavoriteProjects => 'お気に入り';
+
+  @override
+  String get recentOtherProjects => 'その他のプロジェクト';
+
+  @override
+  String get recentSelectFavorites => 'お気に入りをすべて選択';
+
+  @override
+  String get recentNoFavoriteProjects => '☆ をタップするとお気に入りに追加できます';
+
+  @override
+  String get recentProjectPickerTitle => 'プロジェクトで絞り込み';
+
+  @override
+  String get recentApply => '適用';
+
+  @override
+  String get recentReset => 'リセット';
+
+  @override
+  String get recentKeywords => 'キーワード';
+
+  @override
+  String get recentKeywordsHint => '名前・発言・要約・プロジェクト・ブランチ';
+
+  @override
+  String get recentSearchContent => '会話の本文も検索';
+
+  @override
+  String get recentSearchContentHint => '時間がかかります。ユーザーとAIのメッセージが対象です';
+
+  @override
+  String get recentDateField => '基準にする日時';
+
+  @override
+  String get recentDateFieldModified => '最終更新';
+
+  @override
+  String get recentDateFieldCreated => '作成';
+
+  @override
+  String get recentNamedOnly => '名前付きのみ';
+
+  @override
+  String get recentPinnedOnly => 'ピン留めとお気に入りのみ';
+
+  @override
+  String get recentAiTool => 'AI ツール';
+
+  @override
+  String get recentRequiresBridgeUpdate => 'Bridge を更新すると使えます';
+
+  @override
+  String recentMatchedIn(String field) {
+    return '一致: $field';
+  }
+
+  @override
+  String get recentMatchName => '名前';
+
+  @override
+  String get recentMatchFirstPrompt => '最初の発言';
+
+  @override
+  String get recentMatchLastPrompt => '最後の発言';
+
+  @override
+  String get recentMatchSummary => '要約';
+
+  @override
+  String get recentMatchProject => 'プロジェクト';
+
+  @override
+  String get recentMatchBranch => 'ブランチ';
+
+  @override
+  String get recentMatchContent => '本文';
+
+  @override
+  String get recentFavoriteTooltip => 'お気に入り';
 }

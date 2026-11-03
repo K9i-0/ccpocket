@@ -3495,4 +3495,148 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backgroundTasksStop => '停止后台任务';
+
+  @override
+  String get recentFilterPinnedOnly => '已置顶';
+
+  @override
+  String recentFilterProjectsSummary(String name, int count) {
+    return '$name +$count';
+  }
+
+  @override
+  String get recentFilterPeriod => '时间';
+
+  @override
+  String get recentDateToday => '今天';
+
+  @override
+  String get recentDateYesterday => '昨天';
+
+  @override
+  String get recentDateDayBeforeYesterday => '前天';
+
+  @override
+  String get recentDateLast7Days => '最近 7 天';
+
+  @override
+  String get recentDateLast30Days => '最近 30 天';
+
+  @override
+  String get recentDateCustom => '自定义范围…';
+
+  @override
+  String get recentDateAnyTime => '全部时间';
+
+  @override
+  String get recentFilterClear => '清除';
+
+  @override
+  String get recentAdvancedSearch => '高级搜索';
+
+  @override
+  String recentAdvancedConditions(int count) {
+    return '高级条件 $count';
+  }
+
+  @override
+  String get recentDisplaySettings => '显示设置';
+
+  @override
+  String get recentLayout => '布局';
+
+  @override
+  String get recentLayoutList => '列表';
+
+  @override
+  String get recentLayoutGrouped => '按项目';
+
+  @override
+  String get recentCardText => '卡片显示内容';
+
+  @override
+  String get recentPinnedSection => '已置顶';
+
+  @override
+  String get recentFavoriteProjects => '收藏';
+
+  @override
+  String get recentOtherProjects => '其他项目';
+
+  @override
+  String get recentSelectFavorites => '全选收藏';
+
+  @override
+  String get recentNoFavoriteProjects => '点按 ☆ 添加收藏';
+
+  @override
+  String get recentProjectPickerTitle => '按项目筛选';
+
+  @override
+  String get recentApply => '应用';
+
+  @override
+  String get recentReset => '重置';
+
+  @override
+  String get recentKeywords => '关键词';
+
+  @override
+  String get recentKeywordsHint => '名称、提示、摘要、项目、分支';
+
+  @override
+  String get recentSearchContent => '同时搜索对话正文';
+
+  @override
+  String get recentSearchContentHint => '较慢。搜索用户与 AI 的消息';
+
+  @override
+  String get recentDateField => '比较时间';
+
+  @override
+  String get recentDateFieldModified => '最后更新';
+
+  @override
+  String get recentDateFieldCreated => '创建';
+
+  @override
+  String get recentNamedOnly => '仅已命名';
+
+  @override
+  String get recentPinnedOnly => '仅置顶和收藏';
+
+  @override
+  String get recentAiTool => 'AI 工具';
+
+  @override
+  String get recentRequiresBridgeUpdate => '更新 Bridge 后可用';
+
+  @override
+  String recentMatchedIn(String field) {
+    return '匹配：$field';
+  }
+
+  @override
+  String get recentMatchName => '名称';
+
+  @override
+  String get recentMatchFirstPrompt => '首条提示';
+
+  @override
+  String get recentMatchLastPrompt => '最后提示';
+
+  @override
+  String get recentMatchSummary => '摘要';
+
+  @override
+  String get recentMatchProject => '项目';
+
+  @override
+  String get recentMatchBranch => '分支';
+
+  @override
+  String get recentMatchContent => '正文';
+
+  @override
+  String get recentFavoriteTooltip => '收藏';
 }

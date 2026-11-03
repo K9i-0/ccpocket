@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ccpocket/features/session_list/state/recent_session_filters.dart';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
@@ -65,16 +66,21 @@ RecentSession _session({
   required String id,
   String projectPath = '/home/user/project-a',
   SessionWorkspaceInfo? workspace,
+  String modified = '2025-01-01T00:00:00Z',
+  String? lastPrompt,
+  RecentSessionSearchMatch? searchMatch,
 }) {
   return RecentSession(
     sessionId: id,
     firstPrompt: 'test prompt for $id',
+    lastPrompt: lastPrompt,
     created: '2025-01-01T00:00:00Z',
-    modified: '2025-01-01T00:00:00Z',
+    modified: modified,
     gitBranch: 'main',
     projectPath: projectPath,
     workspace: workspace,
     isSidechain: false,
+    searchMatch: searchMatch,
   );
 }
 
@@ -110,6 +116,10 @@ Widget _buildHomeContent({
   List<WorkspaceProject> workspaceProjects = const [],
   Set<String> accumulatedProjectPaths = const {},
   Set<String> pinnedProjectPaths = const {},
+  Set<String> pinnedSessionKeys = const {},
+  String searchQuery = '',
+  RecentSessionFilters filters = const RecentSessionFilters(),
+  bool supportsAdvancedFilters = false,
   Set<String> exhaustedProjectPaths = const {},
   Map<String, int> projectSessionDisplayLimits = const {},
   String? currentProjectFilter,
@@ -150,9 +160,12 @@ Widget _buildHomeContent({
             workspaceProjects: workspaceProjects,
             accumulatedProjectPaths: accumulatedProjectPaths,
             pinnedProjectPaths: pinnedProjectPaths,
+            pinnedSessionKeys: pinnedSessionKeys,
+            filters: filters,
+            supportsAdvancedFilters: supportsAdvancedFilters,
             exhaustedProjectPaths: exhaustedProjectPaths,
             projectSessionDisplayLimits: projectSessionDisplayLimits,
-            searchQuery: '',
+            searchQuery: searchQuery,
             isLoadingMore: false,
             isInitialLoading: isInitialLoading,
             hasMoreSessions: hasMoreSessions,
@@ -313,13 +326,17 @@ void main() {
         lessThan(tester.getTopLeft(find.text('flutter-primary')).dy),
       );
 
-      await tester.tap(find.text('flutter-primary'));
+      await tester.tap(
+        find.byKey(const ValueKey('project_option_/workspace/flutter-primary')),
+      );
       await tester.pumpAndSettle();
       expect(selectedProject, '/workspace/flutter-primary');
 
       await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Flutter apps').first);
+      await tester.tap(
+        find.byKey(const ValueKey('project_option_project:flutter-apps')),
+      );
       await tester.pumpAndSettle();
       expect(selectedProject, 'project:flutter-apps');
     });
@@ -358,10 +375,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Removed Project'), findsWidgets);
         expect(
-          find.ancestor(
-            of: find.text('shared'),
-            matching: find.byType(MenuItemButton),
-          ),
+          find.byKey(const ValueKey('project_option_/workspace/shared')),
           findsOneWidget,
         );
       },
@@ -828,7 +842,13 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const ValueKey('recent_grouping_toggle')));
+      await tester.tap(
+        find.byKey(const ValueKey('recent_display_settings_button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('recent_layout_list')));
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(SegmentedButton<bool>))).pop();
       await tester.pumpAndSettle();
 
       expect(
@@ -839,7 +859,6 @@ void main() {
         find.byKey(const ValueKey('project_show_more_/home/user/project-a')),
         findsNothing,
       );
-      expect(find.text('List'), findsOneWidget);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('session_list_group_recent_sessions'), isFalse);
@@ -861,7 +880,13 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byKey(const ValueKey('recent_grouping_toggle')));
+      await tester.tap(
+        find.byKey(const ValueKey('recent_display_settings_button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('recent_layout_list')));
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(SegmentedButton<bool>))).pop();
       await tester.pumpAndSettle();
 
       expect(
@@ -1105,6 +1130,181 @@ void main() {
       );
 
       expect(dismissed, isTrue);
+    });
+  });
+
+  group('HomeContent recent filters', () {
+    Future<void> useListLayout() async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('session_list_group_recent_sessions', false);
+    }
+
+    testWidgets('list mode shows pinned sessions first even when the pin '
+        'was stored with another project path', (tester) async {
+      await useListLayout();
+      final now = DateTime.now().toUtc();
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [
+            _session(id: 'recent', modified: now.toIso8601String()),
+            _session(
+              id: 'old-pinned',
+              projectPath: '/repo',
+              modified: '2024-01-01T00:00:00Z',
+            ),
+          ],
+          pinnedSessionKeys: {
+            sessionPinKey(
+              provider: 'claude',
+              projectPath: '/repo/.worktrees/feature',
+              sessionId: 'old-pinned',
+            ),
+          },
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('recent_pinned_section')), findsOne);
+      expect(
+        tester.getTopLeft(find.text('test prompt for old-pinned')).dy,
+        lessThan(tester.getTopLeft(find.text('test prompt for recent')).dy),
+      );
+      // The unpinned session sits under a "Today" date header.
+      expect(find.text('Today'), findsOneWidget);
+    });
+
+    testWidgets('keeps an empty favorite project group in grouped mode', (
+      tester,
+    ) async {
+      String? requested;
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          workspaceProjects: const [
+            WorkspaceProject(
+              id: 'fav',
+              name: 'Favorite Project',
+              rootPaths: ['/workspace/fav'],
+              createdAt: '2026-09-01T00:00:00Z',
+              updatedAt: '2026-09-01T00:00:00Z',
+            ),
+          ],
+          pinnedProjectPaths: const {'project:fav'},
+          onLoadMoreProject: (value) => requested = value,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final showMore = find.byKey(
+        const ValueKey('project_show_more_project:fav'),
+      );
+      expect(showMore, findsOneWidget);
+      expect(
+        tester.getTopLeft(showMore).dy,
+        lessThan(tester.getTopLeft(find.text('test prompt for s1')).dy),
+      );
+      tester.widget<InkWell>(showMore).onTap!();
+      expect(requested, 'project:fav');
+    });
+
+    testWidgets('shows where a search matched and highlights the query', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [
+            _session(
+              id: 'hit',
+              searchMatch: const RecentSessionSearchMatch(
+                field: RecentSessionSearchField.content,
+                snippet: 'fixed the needle crash',
+              ),
+            ),
+          ],
+          searchQuery: 'needle',
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('recent_session_match_hit')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Matched: Conversation', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('pinned, project, AI tool and period come first; display '
+        'settings live behind the header button', (tester) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          supportsAdvancedFilters: true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      double x(String key) => tester.getTopLeft(find.byKey(ValueKey(key))).dx;
+      expect(x('recent_pinned_only_chip'), lessThan(x('project_filter_chip')));
+      expect(x('project_filter_chip'), lessThan(x('provider_filter_chip')));
+      expect(x('provider_filter_chip'), lessThan(x('period_filter_chip')));
+      expect(
+        find.byKey(const ValueKey('recent_grouping_toggle')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('recent_display_settings_button')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('project picker supports multi-select with favorites', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          accumulatedProjectPaths: const {'/w/a', '/w/b', '/w/c'},
+          pinnedProjectPaths: const {'/w/a', '/w/b'},
+          supportsAdvancedFilters: true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('project_filter_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('project_picker_select_favorites')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('project_picker_apply')));
+      await tester.pumpAndSettle();
+
+      expect(cubit.state.filters.projectKeys, {'/w/a', '/w/b'});
     });
   });
 }

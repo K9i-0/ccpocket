@@ -3565,4 +3565,148 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get backgroundTasksStop => '백그라운드 작업 중지';
+
+  @override
+  String get recentFilterPinnedOnly => '고정됨';
+
+  @override
+  String recentFilterProjectsSummary(String name, int count) {
+    return '$name +$count';
+  }
+
+  @override
+  String get recentFilterPeriod => '기간';
+
+  @override
+  String get recentDateToday => '오늘';
+
+  @override
+  String get recentDateYesterday => '어제';
+
+  @override
+  String get recentDateDayBeforeYesterday => '그저께';
+
+  @override
+  String get recentDateLast7Days => '최근 7일';
+
+  @override
+  String get recentDateLast30Days => '최근 30일';
+
+  @override
+  String get recentDateCustom => '기간 지정…';
+
+  @override
+  String get recentDateAnyTime => '전체 기간';
+
+  @override
+  String get recentFilterClear => '지우기';
+
+  @override
+  String get recentAdvancedSearch => '고급 검색';
+
+  @override
+  String recentAdvancedConditions(int count) {
+    return '상세 조건 $count';
+  }
+
+  @override
+  String get recentDisplaySettings => '표시 설정';
+
+  @override
+  String get recentLayout => '레이아웃';
+
+  @override
+  String get recentLayoutList => '목록';
+
+  @override
+  String get recentLayoutGrouped => '프로젝트별';
+
+  @override
+  String get recentCardText => '카드에 표시할 내용';
+
+  @override
+  String get recentPinnedSection => '고정됨';
+
+  @override
+  String get recentFavoriteProjects => '즐겨찾기';
+
+  @override
+  String get recentOtherProjects => '기타 프로젝트';
+
+  @override
+  String get recentSelectFavorites => '즐겨찾기 모두 선택';
+
+  @override
+  String get recentNoFavoriteProjects => '☆을 눌러 즐겨찾기에 추가';
+
+  @override
+  String get recentProjectPickerTitle => '프로젝트로 필터';
+
+  @override
+  String get recentApply => '적용';
+
+  @override
+  String get recentReset => '초기화';
+
+  @override
+  String get recentKeywords => '키워드';
+
+  @override
+  String get recentKeywordsHint => '이름·프롬프트·요약·프로젝트·브랜치';
+
+  @override
+  String get recentSearchContent => '대화 본문도 검색';
+
+  @override
+  String get recentSearchContentHint => '시간이 걸립니다. 사용자와 AI 메시지가 대상입니다';
+
+  @override
+  String get recentDateField => '기준 일시';
+
+  @override
+  String get recentDateFieldModified => '마지막 업데이트';
+
+  @override
+  String get recentDateFieldCreated => '생성';
+
+  @override
+  String get recentNamedOnly => '이름 있는 세션만';
+
+  @override
+  String get recentPinnedOnly => '고정 및 즐겨찾기만';
+
+  @override
+  String get recentAiTool => 'AI 도구';
+
+  @override
+  String get recentRequiresBridgeUpdate => 'Bridge를 업데이트하면 사용할 수 있습니다';
+
+  @override
+  String recentMatchedIn(String field) {
+    return '일치: $field';
+  }
+
+  @override
+  String get recentMatchName => '이름';
+
+  @override
+  String get recentMatchFirstPrompt => '첫 프롬프트';
+
+  @override
+  String get recentMatchLastPrompt => '마지막 프롬프트';
+
+  @override
+  String get recentMatchSummary => '요약';
+
+  @override
+  String get recentMatchProject => '프로젝트';
+
+  @override
+  String get recentMatchBranch => '브랜치';
+
+  @override
+  String get recentMatchContent => '본문';
+
+  @override
+  String get recentFavoriteTooltip => '즐겨찾기';
 }

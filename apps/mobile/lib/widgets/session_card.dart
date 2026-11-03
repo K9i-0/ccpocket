@@ -2797,6 +2797,10 @@ class RecentSessionCard extends StatelessWidget {
   final bool isPinned;
   final VoidCallback? onTogglePinned;
 
+  /// Search text to highlight; also enables the "matched in" row for
+  /// [RecentSession.searchMatch] fields the card does not otherwise show.
+  final String? highlightQuery;
+
   const RecentSessionCard({
     super.key,
     required this.session,
@@ -2811,6 +2815,7 @@ class RecentSessionCard extends StatelessWidget {
     this.isSelected = false,
     this.isPinned = false,
     this.onTogglePinned,
+    this.highlightQuery,
   });
 
   @override
@@ -2826,6 +2831,14 @@ class RecentSessionCard extends StatelessWidget {
       session.agentRole,
     );
     final dateStr = _formatDateRange(session.created, session.modified);
+    final query = highlightQuery?.trim() ?? '';
+    final highlightStyle = TextStyle(
+      backgroundColor: colorScheme.tertiaryContainer,
+      color: colorScheme.onTertiaryContainer,
+    );
+    final matchRow = query.isEmpty
+        ? null
+        : _searchMatchRow(context, query, highlightStyle);
 
     final card = Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
@@ -2966,8 +2979,14 @@ class RecentSessionCard extends StatelessWidget {
                       ],
                     ),
                   ] else
-                    Text(
-                      _displayTextForMode(session, displayMode),
+                    Text.rich(
+                      TextSpan(
+                        children: highlightSearchSpans(
+                          _displayTextForMode(session, displayMode),
+                          query,
+                          highlightStyle,
+                        ),
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurface,
                         height: 1.4,
@@ -2975,6 +2994,10 @@ class RecentSessionCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if (matchRow != null) ...[
+                    const SizedBox(height: 6),
+                    matchRow,
+                  ],
 
                   if (isCodex) ...[
                     const SizedBox(height: 6),
@@ -3056,6 +3079,72 @@ class RecentSessionCard extends StatelessWidget {
 
     if (isProcessing || onShowActions == null) return card;
     return AdaptiveContextMenuRegion(onOpen: onShowActions!, child: card);
+  }
+
+  /// "Matched: `field`" row for a search hit the card does not show.
+  Widget? _searchMatchRow(
+    BuildContext context,
+    String query,
+    TextStyle highlightStyle,
+  ) {
+    final match = session.searchMatch;
+    if (match == null) return null;
+    final l = AppLocalizations.of(context);
+    final (label, text) = switch (match.field) {
+      RecentSessionSearchField.content => (l.recentMatchContent, match.snippet),
+      RecentSessionSearchField.firstPrompt
+          when displayMode != SessionDisplayMode.first =>
+        (l.recentMatchFirstPrompt, session.firstPrompt),
+      RecentSessionSearchField.lastPrompt
+          when displayMode != SessionDisplayMode.last =>
+        (l.recentMatchLastPrompt, session.lastPrompt),
+      RecentSessionSearchField.summary
+          when displayMode != SessionDisplayMode.summary =>
+        (l.recentMatchSummary, session.summary),
+      RecentSessionSearchField.project when hideProjectBadge => (
+        l.recentMatchProject,
+        session.projectPath,
+      ),
+      _ => (null, null),
+    };
+    if (label == null) return null;
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final snippet = text == null ? '' : _snippetAround(text, query);
+    return Row(
+      key: ValueKey('recent_session_match_${session.sessionId}'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1, right: 4),
+          child: Icon(Icons.search, size: 13, color: appColors.subtleText),
+        ),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: snippet.isEmpty
+                      ? l.recentMatchedIn(label)
+                      : '${l.recentMatchedIn(label)}  ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                ...highlightSearchSpans(snippet, query, highlightStyle),
+              ],
+            ),
+            style: TextStyle(fontSize: 12, color: appColors.subtleText),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _snippetAround(String text, String query) {
+    final flat = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final index = flat.toLowerCase().indexOf(query.toLowerCase());
+    if (index <= 30) return flat;
+    return '…${flat.substring(index - 30)}';
   }
 
   static String _displayTextForMode(
@@ -3170,4 +3259,35 @@ String _buildSettingsSummary({
     return '$model  ${parts.join("  ")}';
   }
   return parts.join('  ');
+}
+
+/// Split [text] into spans, applying [highlightStyle] to case-insensitive
+/// occurrences of [query].
+List<TextSpan> highlightSearchSpans(
+  String text,
+  String query,
+  TextStyle highlightStyle,
+) {
+  if (query.isEmpty || text.isEmpty) return [TextSpan(text: text)];
+  final lowerText = text.toLowerCase();
+  final lowerQuery = query.toLowerCase();
+  // Lower-casing can change length for some scripts; fall back to no
+  // highlight rather than misaligned ranges.
+  if (lowerText.length != text.length) return [TextSpan(text: text)];
+  final spans = <TextSpan>[];
+  var start = 0;
+  while (true) {
+    final index = lowerText.indexOf(lowerQuery, start);
+    if (index < 0) break;
+    if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
+    spans.add(
+      TextSpan(
+        text: text.substring(index, index + query.length),
+        style: highlightStyle,
+      ),
+    );
+    start = index + query.length;
+  }
+  if (start < text.length) spans.add(TextSpan(text: text.substring(start)));
+  return spans;
 }

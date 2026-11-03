@@ -12,8 +12,10 @@ The recent session list separates three layers:
 
 "Favorite projects" are the existing pinned projects
 (`session_list_pinned_project_paths_v1`). A favorite project is pinned to the
-top in grouped mode, its sessions are prioritized in list mode, and it is shown
-first in the project picker.
+top in grouped mode, shown first (with "select all favorites") in the project
+picker, and included by the pinned-only filter. List mode stays chronological
+under date headers, so favorite projects are not reordered there; only pinned
+sessions get the top section.
 
 ## Protocol (additive, capability `recent_sessions_filters_v1`)
 
