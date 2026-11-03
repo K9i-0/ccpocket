@@ -35,6 +35,17 @@ describe("CodexThreadSnapshot", () => {
     expect(snapshot.isReady).toBe(true);
   });
 
+  it("keeps the newest entry of a thread listed twice", async () => {
+    const snapshot = new CodexThreadSnapshot(
+      pagedLoader([[thread("a", 3), thread("b", 2)], [thread("a", 1)]]),
+    );
+    const threads = await snapshot.get();
+    expect(threads.map((t) => [t.id, t.updatedAt])).toEqual([
+      ["a", 3],
+      ["b", 2],
+    ]);
+  });
+
   it("shares one load between concurrent callers", async () => {
     const loader = vi.fn(pagedLoader([[thread("a", 1)]]));
     const snapshot = new CodexThreadSnapshot(loader);

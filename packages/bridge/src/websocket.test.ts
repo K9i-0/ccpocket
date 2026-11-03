@@ -710,6 +710,39 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it("lists a thread split into rollout segments once", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const thread = (id: string, updatedAt: number) => ({
+      id,
+      preview: id,
+      createdAt: updatedAt,
+      updatedAt,
+      cwd: "/tmp/p",
+      agentNickname: null,
+      agentRole: null,
+      gitBranch: null,
+      name: null,
+    });
+    const listThreads = vi.fn().mockResolvedValue({
+      data: [thread("a", 300), thread("b", 200), thread("a", 100)],
+      nextCursor: null,
+    });
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue({
+      listThreads,
+      stop: vi.fn(),
+    });
+    try {
+      const page = await (bridge as any).listRecentCodexThreads({
+        type: "list_recent_sessions",
+        provider: "codex",
+      });
+      expect(page.sessions.map((s: any) => s.sessionId)).toEqual(["a", "b"]);
+      expect(page.sessions[0].modified).toBe(new Date(300 * 1000).toISOString());
+    } finally {
+      bridge.close();
+    }
+  });
+
   it("stops dedicated discovery after a list failure", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const stop = vi.fn();

@@ -10383,6 +10383,7 @@ export class BridgeWebSocketServer {
     try {
       const archivedIds = this.archiveStore.archivedIds();
       const visibleThreads: CodexThreadSummary[] = [];
+      const seenThreadIds = new Set<string>();
       let cursor: string | null | undefined;
       let hasServerMore = false;
       const targetCount = offset + limit;
@@ -10400,6 +10401,10 @@ export class BridgeWebSocketServer {
         for (const thread of result.data) {
           if (archivedIds.has(thread.id)) continue;
           if (msg.namedOnly && !thread.name) continue;
+          // A thread split into rollout segments can be listed more than
+          // once; keep the first (newest) entry.
+          if (seenThreadIds.has(thread.id)) continue;
+          seenThreadIds.add(thread.id);
           visibleThreads.push(thread);
         }
         cursor = result.nextCursor;

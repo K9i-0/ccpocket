@@ -97,7 +97,11 @@ export class CodexThreadSnapshot {
     if (this.inFlight) return this.inFlight;
     const collected = new Map<string, CodexThreadSummary>();
     const request = this.loader((page) => {
-      for (const thread of page.data) collected.set(thread.id, thread);
+      // Pages are newest first; a thread listed again (rollout segments)
+      // keeps its newest entry.
+      for (const thread of page.data) {
+        if (!collected.has(thread.id)) collected.set(thread.id, thread);
+      }
     }).then(
       () => {
         const threads = [...collected.values()].sort(
