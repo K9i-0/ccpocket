@@ -3147,6 +3147,34 @@ describe("recent sessions grouped by git repository", () => {
     expect(third?.firstPrompt).toBe(`prompt in ${other}`);
   });
 
+  it("excludes non-interactive codex exec rollouts like thread/list", async () => {
+    const execId = "019c56c0-d4d8-7b22-9e3c-2006640000e1";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${execId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: execId, cwd: repo, source: "exec" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "image helper" },
+        }),
+      ].join("\n"),
+    );
+    writeCodexSession("019c56c0-d4d8-7b22-9e3c-2006640000e2", repo);
+
+    const ids = (await getAllRecentSessions({ limit: 50 })).sessions.map(
+      (s) => s.sessionId,
+    );
+    expect(ids).toContain("019c56c0-d4d8-7b22-9e3c-2006640000e2");
+    expect(ids).not.toContain(execId);
+  });
+
   it("keeps separate repositories that only share a name prefix", async () => {
     const other = join(work, "app-stats");
     mkdirSync(other);

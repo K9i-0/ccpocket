@@ -1941,6 +1941,10 @@ async function parseCodexSessionJsonlFastUncached(
 }
 
 function isCodexInternalSessionSource(source: unknown): boolean {
+  // Non-interactive `codex exec` runs (e.g. image generation helpers in temp
+  // dirs) are excluded like app-server thread/list does with its source kinds
+  // (cli / vscode / appServer), so index-backed listings match.
+  if (source === "exec") return true;
   const sourceObj = asObject(source);
   return sourceObj?.subagent !== undefined;
 }
