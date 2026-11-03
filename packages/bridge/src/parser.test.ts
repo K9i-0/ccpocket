@@ -821,6 +821,108 @@ describe("parseClientMessage", () => {
     }
   });
 
+  it("parses list_recent_sessions filter fields", () => {
+    const fields = {
+      projectFilters: [
+        { projectPath: "/tmp/a" },
+        { projectId: "p1", workspaceKind: "project" },
+        { projectPath: "/tmp/b", workspaceKind: "unassigned" },
+      ],
+      modifiedAfter: "2026-11-01T00:00:00.000Z",
+      modifiedBefore: "2026-11-02T00:00:00+09:00",
+      dateField: "created",
+      pinnedOnly: true,
+      pinnedProjects: [{ projectPath: "/tmp/fav" }],
+      searchContent: false,
+    };
+    expect(
+      parseClientMessage(
+        JSON.stringify({ type: "list_recent_sessions", ...fields }),
+      ),
+    ).toEqual({ type: "list_recent_sessions", ...fields });
+  });
+
+  it("accepts both dateField values and 100 project filters", () => {
+    for (const dateField of ["modified", "created"]) {
+      expect(
+        parseClientMessage(
+          JSON.stringify({ type: "list_recent_sessions", dateField }),
+        ),
+      ).toMatchObject({ dateField });
+    }
+    const hundred = Array.from({ length: 100 }, (_, i) => ({
+      projectPath: `/tmp/p${i}`,
+    }));
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "list_recent_sessions",
+          projectFilters: hundred,
+          pinnedProjects: hundred,
+        }),
+      ),
+    ).not.toBeNull();
+  });
+
+  it("rejects malformed list_recent_sessions project filters", () => {
+    const malformed: unknown[] = [
+      "/tmp/a",
+      { projectPath: "/tmp/a" },
+      [null],
+      ["/tmp/a"],
+      [[{ projectPath: "/tmp/a" }]],
+      [{}],
+      [{ workspaceKind: "project" }],
+      [{ projectPath: "" }],
+      [{ projectId: "" }],
+      [{ projectPath: "", projectId: "" }],
+      [{ projectPath: 1 }],
+      [{ projectPath: "/tmp/a", projectId: 2 }],
+      [{ projectPath: "/tmp/a", workspaceKind: "other" }],
+      Array.from({ length: 101 }, (_, i) => ({ projectPath: `/tmp/p${i}` })),
+    ];
+    for (const value of malformed) {
+      for (const field of ["projectFilters", "pinnedProjects"]) {
+        expect(
+          parseClientMessage(
+            JSON.stringify({ type: "list_recent_sessions", [field]: value }),
+          ),
+        ).toBeNull();
+      }
+    }
+  });
+
+  it("rejects malformed list_recent_sessions dates", () => {
+    for (const value of [123, "", "   ", "not a date", "2026-13-45", true, {}]) {
+      for (const field of ["modifiedAfter", "modifiedBefore"]) {
+        expect(
+          parseClientMessage(
+            JSON.stringify({ type: "list_recent_sessions", [field]: value }),
+          ),
+        ).toBeNull();
+      }
+    }
+  });
+
+  it("rejects malformed list_recent_sessions dateField and flags", () => {
+    for (const dateField of ["updated", "", 1, true]) {
+      expect(
+        parseClientMessage(
+          JSON.stringify({ type: "list_recent_sessions", dateField }),
+        ),
+      ).toBeNull();
+    }
+    for (const value of ["true", 1, null, {}]) {
+      for (const field of ["pinnedOnly", "searchContent"]) {
+        expect(
+          parseClientMessage(
+            JSON.stringify({ type: "list_recent_sessions", [field]: value }),
+          ),
+        ).toBeNull();
+      }
+    }
+  });
+
   it("ignores unknown list_recent_sessions fields", () => {
     // Older Bridges must not reject newer optional fields from the app.
     expect(

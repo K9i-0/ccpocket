@@ -127,6 +127,13 @@ export interface QueuedInputItem {
 export type InputDelivery = "steer" | "queue";
 
 
+/** A project selector used by recent-session filters. */
+export type RecentProjectFilter = {
+  projectPath?: string;
+  projectId?: string;
+  workspaceKind?: "project" | "unassigned";
+};
+
 export type ClientMessage =
   | {
       type: "client_capabilities";
@@ -301,6 +308,17 @@ export type ClientMessage =
        * Bridges ignore it.
        */
       pinnedSessions?: Array<{ provider: "claude" | "codex"; sessionId: string }>;
+      /**
+       * Recent-session filters (capability `recent_sessions_filters_v1`).
+       * See docs/recent-sessions-filters.md.
+       */
+      projectFilters?: RecentProjectFilter[];
+      modifiedAfter?: string;
+      modifiedBefore?: string;
+      dateField?: "modified" | "created";
+      pinnedOnly?: boolean;
+      pinnedProjects?: RecentProjectFilter[];
+      searchContent?: boolean;
     }
   | {
       type: "resume_session";
@@ -1384,6 +1402,38 @@ const RECENT_SESSIONS_MAX_LIMIT = 500;
 const RECENT_SESSIONS_MAX_OFFSET = 100_000;
 const RECENT_SESSIONS_MAX_REQUEST_ID_LENGTH = 128;
 const RECENT_SESSIONS_MAX_PINNED_SESSIONS = 1000;
+const RECENT_SESSIONS_MAX_PROJECT_FILTERS = 100;
+
+function isValidRecentProjectFilters(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length > RECENT_SESSIONS_MAX_PROJECT_FILTERS) return false;
+  return value.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry))
+      return false;
+    const { projectPath, projectId, workspaceKind } = entry as Record<
+      string,
+      unknown
+    >;
+    if (projectPath !== undefined && typeof projectPath !== "string")
+      return false;
+    if (projectId !== undefined && typeof projectId !== "string") return false;
+    if (
+      workspaceKind !== undefined &&
+      workspaceKind !== "project" &&
+      workspaceKind !== "unassigned"
+    )
+      return false;
+    return isNonEmptyString(projectPath) || isNonEmptyString(projectId);
+  });
+}
+
+function isValidRecentDate(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    Number.isFinite(Date.parse(value))
+  );
+}
 
 function isValidRecentPinnedSessions(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
@@ -1826,6 +1876,42 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.pinnedSessions !== undefined &&
           !isValidRecentPinnedSessions(msg.pinnedSessions)
+        )
+          return null;
+        if (
+          msg.projectFilters !== undefined &&
+          !isValidRecentProjectFilters(msg.projectFilters)
+        )
+          return null;
+        if (
+          msg.pinnedProjects !== undefined &&
+          !isValidRecentProjectFilters(msg.pinnedProjects)
+        )
+          return null;
+        if (
+          msg.modifiedAfter !== undefined &&
+          !isValidRecentDate(msg.modifiedAfter)
+        )
+          return null;
+        if (
+          msg.modifiedBefore !== undefined &&
+          !isValidRecentDate(msg.modifiedBefore)
+        )
+          return null;
+        if (
+          msg.dateField !== undefined &&
+          msg.dateField !== "modified" &&
+          msg.dateField !== "created"
+        )
+          return null;
+        if (
+          msg.pinnedOnly !== undefined &&
+          typeof msg.pinnedOnly !== "boolean"
+        )
+          return null;
+        if (
+          msg.searchContent !== undefined &&
+          typeof msg.searchContent !== "boolean"
         )
           return null;
         break;
