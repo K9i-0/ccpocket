@@ -38,6 +38,13 @@ updates:
           - "patch"
         exclude-patterns:
           - "@anthropic-ai/claude-agent-sdk"
+    ignore:
+      # Bridge is a CLI run on the user's Node. Keep @types/node on the minimum
+      # supported Node major (engines.node) so newer-only APIs fail type checks.
+      # Bump it manually together with engines.node.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
     open-pull-requests-limit: 5
 
   - package-ecosystem: "npm"
