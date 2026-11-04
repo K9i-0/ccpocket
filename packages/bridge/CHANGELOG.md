@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.98.0] - 2026-11-05
+
+### Changed
+
+- **Requires Node.js 22.19.0 or newer** (Node.js 20 is end-of-life). `npx @ccpocket/bridge@1` on an older Node.js keeps resolving to 1.97.0, the last release that supports it; upgrade Node.js to receive new releases. `ccpocket-bridge doctor` reports the new minimum.
+- Update undici to v8 and ws to 8.22.1.
+
 ## [1.97.0] - 2026-11-03
 
 ### Added
