@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.155.2] - 2026-11-05
+
+### Changed
+
+- Build with Flutter 3.47.9.
+- Update the SSH library to dartssh2 4, which no longer offers legacy SHA-1 key exchange, `ssh-rsa` host key signatures or CBC ciphers by default.
+- Bridge setup now requires Node.js 22.19.0 or newer, and the app expects Bridge 1.98.0.
+
+### Fixed
+
+- Keep the loading skeleton shimmer in line with the app's light/dark theme instead of the system setting.
+
 ## [1.155.1] - 2026-11-03
 
 ### Fixed
