@@ -122,12 +122,17 @@ class SessionListSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
-      child: Skeletonizer(
-        child: Column(
-          children: [
-            for (final session in _dummySessions)
-              RecentSessionCard(session: session, onTap: () {}),
-          ],
+      // skeletonizer 3 resolves the shimmer from the platform brightness by
+      // default; follow the app theme so a manual light/dark choice wins.
+      child: SkeletonizerConfig(
+        data: SkeletonizerConfigData(brightness: Theme.of(context).brightness),
+        child: Skeletonizer(
+          child: Column(
+            children: [
+              for (final session in _dummySessions)
+                RecentSessionCard(session: session, onTap: () {}),
+            ],
+          ),
         ),
       ),
     );

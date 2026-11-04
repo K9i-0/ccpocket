@@ -63,7 +63,7 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   url_launcher: ^6.3.3
-  dartssh2: ^2.10.0
+  dartssh2: ^4.1.0
   flutter_secure_storage: ^10.0.0
   uuid: ^4.5.1
   super_clipboard: ^0.9.1
@@ -82,7 +82,7 @@ dependencies:
   talker_flutter: ^5.1.13
   talker_bloc_logger: ^5.2.0
   scroll_to_index: ^3.0.1
-  skeletonizer: ^2.1.3
+  skeletonizer: ^3.0.0
   expandable_page_view: ^1.2.1
   highlight: ^0.7.0
   syntax_highlight: ^0.5.0
