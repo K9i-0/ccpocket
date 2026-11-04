@@ -73,24 +73,22 @@ function execQuiet(cmd: string): string {
 // Individual checks
 // ---------------------------------------------------------------------------
 
-export async function checkNodeVersion(): Promise<CheckResult> {
-  const version = process.version; // e.g. "v22.5.0"
-  const [major, minor, patch] = version
+export async function checkNodeVersion(
+  version: string = process.version, // e.g. "v22.19.0"
+): Promise<CheckResult> {
+  const [major, minor] = version
     .slice(1)
     .split(".")
     .map((part) => parseInt(part, 10));
-  const supported =
-    major > 20 ||
-    (major === 20 &&
-      (minor > 18 || (minor === 18 && patch >= 1)));
+  const supported = major > 22 || (major === 22 && minor >= 19);
   if (supported) {
     return { name: "Node.js", status: "pass", message: version };
   }
   return {
     name: "Node.js",
     status: "fail",
-    message: `${version} (requires >=20.18.1)`,
-    remediation: "Install Node.js >=20.18.1: https://nodejs.org/",
+    message: `${version} (requires >=22.19.0)`,
+    remediation: "Install Node.js >=22.19.0: https://nodejs.org/",
   };
 }
 

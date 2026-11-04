@@ -298,7 +298,7 @@ future.
 
 ## Requirements
 
-- Node.js v20.18.1+
+- Node.js v22.19.0+
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
 
 Current Codex CLI docs recommend the standalone installer for macOS/Linux:

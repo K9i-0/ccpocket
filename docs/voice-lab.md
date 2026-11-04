@@ -2,7 +2,7 @@
 
 ## 起動
 
-リポジトリで `npm install` 済み、Node.js 20.18.1 以上、`codex` が PATH 上にあること。
+リポジトリで `npm install` 済み、Node.js 22.19.0 以上、`codex` が PATH 上にあること。
 通常の `codex login` で ChatGPT にログインした状態で実行する。
 
 ```sh

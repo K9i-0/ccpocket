@@ -17,7 +17,7 @@ CodexとClaudeを、スマホのチャット感覚で。指示を出し、次の
 
 1. セッションを実行するマシンに、少なくとも1つのエージェント CLI を入れます:
    [Codex](https://github.com/openai/codex) または [Claude](https://docs.anthropic.com/en/docs/claude-code)。
-2. 同じマシンに [Node.js](https://nodejs.org/) 20.18.1 以上を入れます。
+2. 同じマシンに [Node.js](https://nodejs.org/) 22.19.0 以上を入れます。
 3. CC Pocket Bridge Server を起動します。
 
 ```bash

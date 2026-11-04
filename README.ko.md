@@ -17,7 +17,7 @@
 
 1. 세션을 실행할 머신에 에이전트 CLI를 하나 이상 설치합니다:
    [Codex](https://github.com/openai/codex) 또는 [Claude](https://docs.anthropic.com/en/docs/claude-code).
-2. 같은 머신에 [Node.js](https://nodejs.org/) 20.18.1 이상을 설치합니다.
+2. 같은 머신에 [Node.js](https://nodejs.org/) 22.19.0 이상을 설치합니다.
 3. CC Pocket Bridge Server를 시작합니다.
 
 ```bash

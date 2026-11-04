@@ -41,7 +41,7 @@ Location: `packages/bridge/`
 
 Core stack:
 
-- Runtime: Node.js 20.18.1+
+- Runtime: Node.js 22.19.0+
 - Language: TypeScript, ESM, strict mode
 - Module resolution: NodeNext
 - WebSocket server: `ws`

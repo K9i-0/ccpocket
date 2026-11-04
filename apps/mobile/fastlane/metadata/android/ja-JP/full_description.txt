@@ -21,7 +21,7 @@ CodexのImagegenで画像を生成し、チャットで確認。動画や音声�
 Mac・Linux・Windows上でBridge Serverを実行。QRコードや保存済みホストで接続し、外出先からはTailscaleを利用できます。SSHからBridgeを管理することもできます。
 
 はじめかた
-1. PCにNode.js 20.18.1以上と、CodexまたはClaudeを用意
+1. PCにNode.js 22.19.0以上と、CodexまたはClaudeを用意
 2. npx @ccpocket/bridge@latest を実行
 3. CC PocketでQRコードを読み取り、プロジェクトを選択
 

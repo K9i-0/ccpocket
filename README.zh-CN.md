@@ -17,7 +17,7 @@
 
 1. 在运行会话的主机上安装至少一个代理 CLI：
    [Codex](https://github.com/openai/codex) 或 [Claude](https://docs.anthropic.com/en/docs/claude-code)。
-2. 在同一台主机上安装 [Node.js](https://nodejs.org/) 20.18.1 或更高版本。
+2. 在同一台主机上安装 [Node.js](https://nodejs.org/) 22.19.0 或更高版本。
 3. 启动 CC Pocket Bridge Server：
 
 ```bash

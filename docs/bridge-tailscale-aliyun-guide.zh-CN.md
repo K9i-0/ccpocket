@@ -12,7 +12,7 @@ iPhone / iPad（Tailscale + CC Pocket）
         ▼
 用户的个人电脑（默认 Bridge 主机；Windows / macOS / Linux）
   ├─ Tailscale
-  ├─ Node.js 20.18.1+
+  ├─ Node.js 22.19.0+
   ├─ Codex CLI 和/或 Claude Code
   └─ CC Pocket Bridge（只允许访问用户批准的目录）
 
@@ -215,7 +215,7 @@ userspace 模式没有常规 `tailscale0` 网卡。必须通过真实 TCP/WebSoc
 
 ### Node.js
 
-Bridge 当前需要 Node.js `20.18.1+`。优先安装当前受支持的 Node LTS。个人电脑使用 Node.js 官方安装包或用户现有版本管理器；远程 Linux 无 sudo 时，将官方二进制包解压到 `<HOME>/.local/node-<VERSION>`，服务使用绝对路径。
+Bridge 当前需要 Node.js `22.19.0+`。优先安装当前受支持的 Node LTS。个人电脑使用 Node.js 官方安装包或用户现有版本管理器；远程 Linux 无 sudo 时，将官方二进制包解压到 `<HOME>/.local/node-<VERSION>`，服务使用绝对路径。
 
 ```bash
 bash -lc 'command -v node; node --version; command -v npm; npm --version'

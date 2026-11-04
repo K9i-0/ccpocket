@@ -21,7 +21,7 @@
 在Mac、Linux或Windows上运行Bridge Server。用二维码或已保存主机连接，通过Tailscale从外部网络访问，也可通过SSH管理Bridge。
 
 开始使用
-1. 在电脑上安装Node.js 20.18.1或更高版本，以及Codex或Claude
+1. 在电脑上安装Node.js 22.19.0或更高版本，以及Codex或Claude
 2. 运行：npx @ccpocket/bridge@latest
 3. 在CC Pocket中扫描二维码并选择项目
 

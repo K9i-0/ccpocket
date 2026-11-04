@@ -17,7 +17,7 @@ step, and review the result. Pick up the same work on your tablet or Mac.
 
 1. Install at least one agent CLI on the machine that will run your sessions:
    [Codex](https://github.com/openai/codex) or [Claude](https://docs.anthropic.com/en/docs/claude-code).
-2. Install [Node.js](https://nodejs.org/) 20.18.1 or newer on that same machine.
+2. Install [Node.js](https://nodejs.org/) 22.19.0 or newer on that same machine.
 3. Start the CC Pocket Bridge Server:
 
 ```bash

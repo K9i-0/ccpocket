@@ -48,11 +48,28 @@ describe("doctor checks", () => {
   });
 
   describe("checkNodeVersion", () => {
-    it("passes on current Node.js version (>=20.18.1)", async () => {
+    it("passes on current Node.js version (>=22.19.0)", async () => {
       const result = await checkNodeVersion();
       expect(result.status).toBe("pass");
       expect(result.message).toMatch(/^v\d+/);
     });
+
+    it.each(["v22.19.0", "v22.20.1", "v24.0.0", "v26.1.0"])(
+      "passes on %s",
+      async (version) => {
+        const result = await checkNodeVersion(version);
+        expect(result.status).toBe("pass");
+      },
+    );
+
+    it.each(["v20.18.1", "v21.7.3", "v22.18.0"])(
+      "fails on %s",
+      async (version) => {
+        const result = await checkNodeVersion(version);
+        expect(result.status).toBe("fail");
+        expect(result.message).toBe(`${version} (requires >=22.19.0)`);
+      },
+    );
   });
 
   describe("persistent service versioning", () => {
