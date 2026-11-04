@@ -48,7 +48,7 @@ dependencies:
   markdown: ^7.3.0
   google_fonts: ^8.0.0
   bonsoir: ^6.0.1
-  mobile_scanner: ^7.1.4
+  mobile_scanner: ^7.5.0
   app_links: ^7.2.2
   speech_to_text: ^7.5.0
   http: ^1.6.0
@@ -76,7 +76,7 @@ dependencies:
   auto_route: ^11.2.0
   collection: ^1.19.1
   extended_image: ^10.0.1
-  flutter_svg: ^2.0.17
+  flutter_svg: ^2.3.2
   smooth_page_indicator: ^3.0.0
   talker: ^5.2.0
   talker_flutter: ^5.1.13
@@ -98,7 +98,7 @@ dependencies:
   vector_math: ^2.4.4
   audio_service: ^0.18.19
   audio_session: ^0.2.4
-  pdfrx: ^2.6.6
+  pdfrx: ^2.11.0
   duo_kit: ^0.1.2
 
 dependency_overrides:
