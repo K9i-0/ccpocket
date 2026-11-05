@@ -29,9 +29,11 @@ import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
 import 'core/logger.dart';
+import 'core/reflex/reflex_registry.dart';
 import 'l10n/app_localizations.dart';
 import 'features/file_peek/playback/background_media_handler.dart';
 import 'features/session_list/state/session_list_cubit.dart';
+import 'features/session_list/state/session_list_reflex.dart';
 import 'features/git/state/git_status_cubit.dart';
 import 'features/git/state/git_view_cache_service.dart';
 import 'features/settings/state/settings_cubit.dart';
@@ -57,6 +59,7 @@ import 'services/mock_preview_extension.dart';
 import 'services/notification_service.dart';
 import 'services/performance_probe_extension.dart';
 import 'services/prompt_history_service.dart';
+import 'services/reflex_extension.dart';
 import 'services/revenuecat_service.dart';
 import 'services/ssh_bridge_tunnel_service.dart';
 import 'services/ssh_startup_service.dart';
@@ -111,6 +114,7 @@ void registerCcpocketDebugExtensions() {
   registerStoreScreenshotExtensions();
   registerMockPreviewExtensions();
   registerPerformanceProbeExtensions();
+  registerReflexExtensions();
 }
 
 /// Services created once per process by [bootstrapCcpocket].
@@ -321,8 +325,13 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
           ),
           BlocProvider(create: (_) => ServerDiscoveryCubit()),
           BlocProvider(
-            create: (ctx) =>
-                SessionListCubit(bridge: ctx.read<BridgeService>()),
+            create: (ctx) {
+              final cubit = SessionListCubit(bridge: ctx.read<BridgeService>());
+              if (!kReleaseMode) {
+                ReflexRegistry.register(SessionListReflexNode(cubit));
+              }
+              return cubit;
+            },
           ),
           BlocProvider(
             create: (_) => MachineManagerCubit(
