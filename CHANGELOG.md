@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.157.1] - 2026-11-06
+
+### Changed
+
+- The app expects Bridge 1.100.0, which reads Claude usage through a running session and keeps the last good usage when a refresh fails.
+
+### Fixed
+
+- The usage summary in the session list switches to the weekly window once it is running low and tighter than the 5-hour window, so an exhausted weekly quota no longer reads as "5h 100%".
+
 ## [1.157.0] - 2026-11-05
 
 ### Added
