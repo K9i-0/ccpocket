@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.99.0] - 2026-11-05
+
+### Added
+
+- Support Claude Code ultracode as a Claude session setting: turn it on at start, toggle it during a session with `set_claude_settings`, and restore it on resume. It stays on across effort and model changes, and Bridge reports it in `claude_settings`. Claude Code rejects it for models or accounts that cannot run dynamic workflows.
+
 ## [1.98.0] - 2026-11-05
 
 ### Changed
