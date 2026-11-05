@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.156.0] - 2026-11-05
+
+### Added
+
+- Turn Claude Code ultracode on or off for Claude sessions, next to the effort slider. It works at any effort level, shows on the model chip and session cards, and comes back when the session is resumed. Requires Bridge 1.99.0.
+
+### Changed
+
+- The app expects Bridge 1.99.0.
+
+### Fixed
+
+- Zoomed images in File Peek and the image viewers now use the whole preview area instead of being clipped to the image's initial size.
+
 ## [1.155.2] - 2026-11-05
 
 ### Changed
