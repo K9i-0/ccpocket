@@ -249,6 +249,43 @@ void main() {
       expect(find.text('Codex'), findsNothing);
     });
 
+    testWidgets('switches to an exhausted weekly window', (tester) async {
+      await tester.pumpWidget(
+        _buildSummary(
+          UsageDisplayMode.remaining,
+          providers: const [
+            UsageInfo(
+              provider: 'codex',
+              fiveHour: UsageWindow(utilization: 0, resetsAt: ''),
+              sevenDay: UsageWindow(utilization: 100, resetsAt: ''),
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('1w 0%'), findsOneWidget);
+      expect(find.text('5h 100%'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('codex_usage_5h_indicator')),
+        findsNothing,
+      );
+      final indicator = _indicator(tester, 'codex_usage_1w_indicator');
+      expect(indicator.value, 0);
+      final context = tester.element(find.text('1w 0%'));
+      expect(
+        (indicator.valueColor! as AlwaysStoppedAnimation<Color?>).value,
+        Theme.of(context).colorScheme.error,
+      );
+      // Screen readers still hear both windows.
+      expect(
+        tester.getSemantics(find.byKey(const ValueKey('usage_summary'))),
+        matchesSemantics(
+          label: 'Codex 残量, 5h 100%, 1w 0%',
+          textDirection: TextDirection.ltr,
+        ),
+      );
+    });
+
     for (final (width, scale) in [(320.0, 1.0), (320.0, 1.6), (200.0, 2.0)]) {
       testWidgets('fits both providers at width $width, scale $scale', (
         tester,
@@ -272,5 +309,42 @@ void main() {
         }
       });
     }
+  });
+
+  group('usageSummaryWindow', () {
+    String pick(double fiveHourUsed, double weeklyUsed) => usageSummaryWindow(
+      UsageInfo(
+        provider: 'claude',
+        fiveHour: UsageWindow(utilization: fiveHourUsed, resetsAt: ''),
+        sevenDay: UsageWindow(utilization: weeklyUsed, resetsAt: ''),
+      ),
+    ).label;
+
+    test('keeps 5h while the weekly quota is healthy', () {
+      // Weekly usage is cumulative and usually ahead of 5h.
+      expect(pick(10, 12), '5h');
+      expect(pick(20, 69), '5h');
+    });
+
+    test('switches to 1w at the warning band when it is tighter', () {
+      expect(pick(20, 70), '1w');
+      expect(pick(0, 100), '1w');
+    });
+
+    test('keeps 5h when it is tighter than a low weekly quota', () {
+      expect(pick(90, 80), '5h');
+    });
+
+    test('uses 1w when 5h is unavailable', () {
+      expect(
+        usageSummaryWindow(
+          const UsageInfo(
+            provider: 'codex',
+            sevenDay: UsageWindow(utilization: 5, resetsAt: ''),
+          ),
+        ).label,
+        '1w',
+      );
+    });
   });
 }
