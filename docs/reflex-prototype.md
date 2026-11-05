@@ -41,14 +41,15 @@ call_custom_extension ccpocket.reflex.dispatch {"node": "session_list",
 
 `dispatch` returns the state immediately after the action; Bridge-backed
 results arrive later, so poll `tree` until `isInitialLoading` is false.
-Actions change real state (for example the provider filter is persisted), so
+Nodes register when their Cubit is created (`BlocProvider.create` is lazy), so
+`tree` lists only screens that have been built. Actions change real state (for example the provider filter is persisted), so
 restore anything you change on a user's device.
 
 ## Measurements (this machine, 2026-11-06)
 
 - Behavior tests: tens of ms per case once warm; 200–550 ms for cases that wait
-  for the 300 ms search debounce or ran under load. The first case pays ~0.5 s
-  of one-time warm-up.
+  for the 300 ms search debounce or ran under load. The first case in a run
+  took 1.5–4 s because it includes compile/warm-up.
 - `flutter test` process startup dominates on this machine (~75 s wall-clock
   for any single file, including the existing `session_list_cubit_test.dart`),
   so batching Reflex tests into one invocation matters more than per-case cost.
@@ -56,7 +57,9 @@ restore anything you change on a user's device.
   `reflex.tree` returned the session list state (20 sessions, roughly 5 KB of
   JSON including the action list) while `get_interactive_elements` returned 52
   layout-level elements for only the visible part of the screen, and
-  `setProviderFilter` → Codex-only state matched the screenshot.
+  `setProviderFilter` → Codex-only state matched the screenshot. This compares
+  payload shape only; Marionette tap-then-poll latency was not timed against
+  `reflex.dispatch`.
 
 ## Lessons
 
