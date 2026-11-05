@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - When a macOS app update is pending, the settings badge opens About directly and highlights the update card, which now has its own card.
 
+### Fixed
+
+- The Claude default model is labeled "Default" instead of "Default (recommended)", so the effort value is no longer pushed out of the compact settings chip.
+
 ## [1.156.0] - 2026-11-05
 
 ### Added
