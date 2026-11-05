@@ -11,6 +11,7 @@ import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/bubbles/image_preview.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../../widgets/zoomable_image_viewer.dart';
 
 /// Screen that loads and displays images attached to a specific message.
 ///
@@ -248,12 +249,8 @@ class _SingleImageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: InteractiveViewer(
-        minScale: 0.5,
-        maxScale: 4.0,
-        child: Center(child: _NetworkImage(url: url, failedIconSize: 48)),
-      ),
+    return ZoomableImageViewer(
+      child: _NetworkImage(url: url, failedIconSize: 48),
     );
   }
 }

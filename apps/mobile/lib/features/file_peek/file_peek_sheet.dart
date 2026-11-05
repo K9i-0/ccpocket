@@ -36,6 +36,7 @@ import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
 import 'widgets/finder_reveal_button.dart';
 import '../../widgets/link_hover_underline.dart';
+import '../../widgets/zoomable_image_viewer.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -867,26 +868,18 @@ class _FilePeekImagePreview extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: ColoredBox(
         color: Colors.black,
-        // The viewer fills the preview area so a zoomed image can use all of
-        // it instead of being clipped to the image's initial bounds.
-        child: SizedBox.expand(
-          child: InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: Center(
-              child: isSvg
-                  ? SvgPicture.memory(bytes, fit: BoxFit.contain)
-                  : Image.memory(
-                      bytes,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.broken_image,
-                        color: Colors.white54,
-                        size: 48,
-                      ),
-                    ),
-            ),
-          ),
+        child: ZoomableImageViewer(
+          child: isSvg
+              ? SvgPicture.memory(bytes, fit: BoxFit.contain)
+              : Image.memory(
+                  bytes,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
         ),
       ),
     );

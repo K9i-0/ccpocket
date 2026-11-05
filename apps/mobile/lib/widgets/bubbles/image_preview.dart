@@ -9,6 +9,7 @@ import '../../features/media_feedback/media_feedback_scope.dart';
 import '../../features/media_feedback/state/media_feedback_state.dart';
 import '../../features/media_feedback/widgets/media_feedback_editor.dart';
 import '../../l10n/app_localizations.dart';
+import '../zoomable_image_viewer.dart';
 import '../../models/messages.dart';
 import '../workspace_pane_chrome.dart';
 import '../media_export_actions.dart';
@@ -259,43 +260,35 @@ class FullScreenImageViewer extends StatelessWidget {
                 media: feedbackMedia!,
               ),
             ),
-      body: SizedBox.expand(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: Center(
-            child: bytes != null
-                ? isSvg
-                      ? SvgPicture.memory(bytes!, fit: BoxFit.contain)
-                      : Image.memory(bytes!, fit: BoxFit.contain)
-                : ExtendedImage.network(
-                    url!,
-                    fit: BoxFit.contain,
-                    cache: true,
-                    cacheMaxAge: _kCacheMaxAge,
-                    loadStateChanged: (state) {
-                      switch (state.extendedImageLoadState) {
-                        case LoadState.loading:
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          );
-                        case LoadState.completed:
-                          return state.completedWidget;
-                        case LoadState.failed:
-                          return const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: Colors.white54,
-                              size: 48,
-                            ),
-                          );
-                      }
-                    },
-                  ),
-          ),
-        ),
+      body: ZoomableImageViewer(
+        child: bytes != null
+            ? isSvg
+                  ? SvgPicture.memory(bytes!, fit: BoxFit.contain)
+                  : Image.memory(bytes!, fit: BoxFit.contain)
+            : ExtendedImage.network(
+                url!,
+                fit: BoxFit.contain,
+                cache: true,
+                cacheMaxAge: _kCacheMaxAge,
+                loadStateChanged: (state) {
+                  switch (state.extendedImageLoadState) {
+                    case LoadState.loading:
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      );
+                    case LoadState.completed:
+                      return state.completedWidget;
+                    case LoadState.failed:
+                      return const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
+                      );
+                  }
+                },
+              ),
       ),
     );
   }
