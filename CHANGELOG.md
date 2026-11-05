@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.157.0] - 2026-11-05
+
+### Added
+
+- Double tap to zoom in File Peek, the full-screen image viewer and single message images, matching generated images: double tap zooms to the tapped point and back, and a drag at fit size springs back.
+
+### Changed
+
+- When a macOS app update is pending, the settings badge opens About directly and highlights the update card, which now has its own card.
+
 ## [1.156.0] - 2026-11-05
 
 ### Added
