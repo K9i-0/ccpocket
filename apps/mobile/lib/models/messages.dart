@@ -2718,10 +2718,17 @@ class ClaudeModelOption {
     this.supportsFastMode = false,
   });
 
+  /// The SDK labels the default model "Default (recommended)"; the suffix
+  /// pushes the effort label out of the compact settings chips, so drop it.
   String get label {
-    final name = displayName?.trim();
+    final name = displayName?.replaceFirst(_recommendedSuffix, '').trim();
     return name == null || name.isEmpty ? value : name;
   }
+
+  static final _recommendedSuffix = RegExp(
+    r'\s*\(recommended\)\s*$',
+    caseSensitive: false,
+  );
 
   static ClaudeModelOption? fromJson(Object? json) {
     if (json is! Map) return null;

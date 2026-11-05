@@ -1133,10 +1133,7 @@ void main() {
         const ValueKey('dialog_claude_settings'),
       );
       expect(
-        find.descendant(
-          of: settingsPanel,
-          matching: find.text('Default (recommended)'),
-        ),
+        find.descendant(of: settingsPanel, matching: find.text('Default')),
         findsOneWidget,
       );
 

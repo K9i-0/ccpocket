@@ -2516,7 +2516,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sessionList.claudeModels).toEqual(["default", "opus", "sonnet", "haiku"]);
     expect(sessionList.claudeModelOptions[0]).toEqual({
       value: "default",
-      displayName: "Default (recommended)",
+      displayName: "Default",
     });
     for (const model of sessionList.claudeModels) {
       expect(model).not.toMatch(/\d-\d/);

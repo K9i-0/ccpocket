@@ -894,7 +894,7 @@ void main() {
         'default',
         'claude-fable-5-1[1m]',
       ]);
-      expect(msg.claudeModelOptions.first.label, 'Default (recommended)');
+      expect(msg.claudeModelOptions.first.label, 'Default');
       expect(
         msg.claudeModelOptions.first.description,
         'Use the default model (currently Opus 5.5)',

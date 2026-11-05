@@ -8,7 +8,7 @@ import 'codex_effort_slider.dart';
 /// Fallback Claude models when the Bridge has not delivered a list yet.
 /// Claude Code aliases always resolve to the current model of each family.
 const defaultClaudeModelOptions = <ClaudeModelOption>[
-  ClaudeModelOption(value: 'default', displayName: 'Default (recommended)'),
+  ClaudeModelOption(value: 'default', displayName: 'Default'),
   ClaudeModelOption(value: 'opus', displayName: 'Opus'),
   ClaudeModelOption(value: 'sonnet', displayName: 'Sonnet'),
   ClaudeModelOption(value: 'haiku', displayName: 'Haiku'),

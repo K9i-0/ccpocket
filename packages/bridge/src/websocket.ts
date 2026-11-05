@@ -218,7 +218,7 @@ type ClaudePermissionMode =
 // Claude Code aliases, which always resolve to the current model of each
 // family, so the fallback never needs version-specific updates.
 const FALLBACK_CLAUDE_MODEL_OPTIONS: ClaudeModelOption[] = [
-  { value: "default", displayName: "Default (recommended)" },
+  { value: "default", displayName: "Default" },
   { value: "opus", displayName: "Opus" },
   { value: "sonnet", displayName: "Sonnet" },
   { value: "haiku", displayName: "Haiku" },
