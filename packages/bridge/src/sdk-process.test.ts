@@ -290,6 +290,32 @@ describe("sdkMessageToServerMessage", () => {
 
       expect(sdkMessageToServerMessage(sdkMsg as any)).toBeNull();
     });
+
+    it("delivers narration thinking as visible text", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "" },
+            { type: "thinking", thinking: "Tag is missing; releasing now.\n\n" },
+            { type: "tool_use", id: "tu-1", name: "Bash", input: {} },
+          ],
+        },
+        narration_block_indexes: [1],
+        session_id: "test-session",
+      };
+
+      expect(sdkMessageToServerMessage(sdkMsg as any)).toMatchObject({
+        type: "assistant",
+        message: {
+          content: [
+            { type: "text", text: "Tag is missing; releasing now." },
+            { type: "tool_use", id: "tu-1" },
+          ],
+        },
+      });
+    });
   });
 
   describe("tool_use_summary handling", () => {

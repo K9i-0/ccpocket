@@ -13,6 +13,7 @@ import {
   type ModelInfo,
 } from "@anthropic-ai/claude-agent-sdk";
 import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
+import { projectNarrationBlocks } from "./claude-narration.js";
 import {
   normalizeToolResultContent,
   type ServerMessage,
@@ -672,10 +673,16 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
     }
 
     case "assistant": {
-      const ast = msg as unknown as { message: Record<string, unknown>; uuid?: string };
+      const ast = msg as unknown as {
+        message: Record<string, unknown>;
+        uuid?: string;
+        narration_block_indexes?: unknown;
+      };
       const rawContent = ast.message.content;
+      // Narration must be projected before filtering: indexes refer to the raw
+      // content positions.
       const content = Array.isArray(rawContent)
-        ? rawContent.filter((block) => {
+        ? projectNarrationBlocks(rawContent, ast.narration_block_indexes).filter((block) => {
             if (!block || typeof block !== "object") return false;
             const candidate = block as Record<string, unknown>;
             // Server-side tool blocks (advisor, web search, ...) and redacted

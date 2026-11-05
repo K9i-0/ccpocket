@@ -3313,6 +3313,34 @@ describe("getSessionHistory non-prompt user entries", () => {
     expect(prompts).toEqual(["Investigate the bridge", "Follow up"]);
     expect(history.filter((message) => message.isMeta)).toHaveLength(3);
   });
+
+  it("restores narration thinking as assistant text", async () => {
+    // Signature headers captured from a real Claude Code transcript.
+    const NARRATION_SIGNATURE = "CAQSmAgKEQgTGAI4AUIJbmFycmF0aW9uEgwuh3SmO2yKTiIVkQgaDANm";
+    const THINKING_SIGNATURE = "CAQSpwYKEAgTGAI4AUIIdGhpbmtpbmcSDKet1CC8vZtTRUUgdxoMm2MU";
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "session-2.jsonl"),
+      JSON.stringify({
+        type: "assistant",
+        uuid: "a-1",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "hidden", signature: THINKING_SIGNATURE },
+            { type: "thinking", thinking: "Running checks now.\n", signature: NARRATION_SIGNATURE },
+          ],
+        },
+      }),
+    );
+
+    const history = await getSessionHistory("session-2");
+    expect(history).toHaveLength(1);
+    expect(history[0].content).toEqual([
+      { type: "text", text: "Running checks now." },
+    ]);
+  });
 });
 
 describe("selectPinnedRecentSessions", () => {

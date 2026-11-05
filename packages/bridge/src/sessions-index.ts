@@ -7,6 +7,7 @@ import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-ag
 import { isAutoRenamePromptText } from "./auto-rename.js";
 import { normalizeCodexServiceTierForClient } from "./codex-service-tier.js";
 import { createRepositoryRootResolver } from "./repository-root.js";
+import { isNarrationSignature } from "./claude-narration.js";
 import {
   recentSessionMetadataSearchField,
   searchRecentSessionContent,
@@ -3693,6 +3694,14 @@ export async function getSessionHistory(
 
       if (contentType === "text" && item.text) {
         content.push({ type: "text", text: item.text as string });
+      } else if (
+        contentType === "thinking" &&
+        typeof item.thinking === "string" &&
+        item.thinking.trim() &&
+        isNarrationSignature(item.signature)
+      ) {
+        // Narration is shown as assistant text in Claude Code's terminal.
+        content.push({ type: "text", text: item.thinking.trim() });
       } else if (contentType === "tool_use") {
         content.push({
           type: "tool_use",
