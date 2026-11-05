@@ -1,6 +1,9 @@
 # Reflex prototype: state/action introspection for the session list
 
-Status: prototype (2026-11). One screen only. Based on Shopify's
+Status: prototype (2026-11). One screen only. **Wider adoption deferred**
+(2026-11-06): converting the ~740 Bridge-mocked tests would cut CI from about
+6 to about 5 minutes (shards are dominated by per-file compile time), which does
+not justify maintaining Bridge-accurate fixtures for all of them. Based on Shopify's
 [Reflex](https://shopify.engineering/reflex) write-up.
 
 ## Idea
