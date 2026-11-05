@@ -207,6 +207,7 @@ export interface SessionSummary {
     model?: string;
     effort?: string;
     fastMode?: boolean;
+    ultracode?: boolean;
   };
   agentNickname?: string;
   agentRole?: string;
@@ -2084,7 +2085,7 @@ export class SessionManager {
 
   private claudeCarriedOptions(session: SessionInfo): StartOptions {
     const sdkProcess = session.process as SdkProcess;
-    const { model, effort, fastMode } = sdkProcess.settings;
+    const { model, effort, fastMode, ultracode } = sdkProcess.settings;
     return {
       permissionMode: sdkProcess.permissionMode,
       ...(session.sandboxEnabled != null
@@ -2093,6 +2094,7 @@ export class SessionManager {
       ...(model ? { model } : {}),
       ...(effort ? { effort } : {}),
       ...(fastMode ? { fastMode } : {}),
+      ...(ultracode ? { ultracode } : {}),
     };
   }
 

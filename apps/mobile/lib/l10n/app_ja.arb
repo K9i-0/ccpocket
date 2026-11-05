@@ -449,6 +449,9 @@
   "claudeEffortHighDesc": "より丁寧な分析",
   "claudeEffortXHighDesc": "複雑な作業向けの拡張推論",
   "claudeEffortMaxDesc": "最も丁寧、最も遅い",
+  "claudeUltracodeDesc": "すべてのタスクをマルチエージェントのワークフローで進める。トークン消費が大幅に増える",
+  "claudeUltracodeOn": "オン",
+  "claudeUltracodeOff": "オフ",
 
   "reasoningEffortNoneDesc": "推論なし",
   "reasoningEffortMinimalDesc": "最速、分析は最小限",

@@ -922,6 +922,53 @@ describe("SdkProcess settings", () => {
     expect(applyFlagSettings).not.toHaveBeenCalled();
   });
 
+  it("toggles ultracode and keeps it on across effort and model changes", async () => {
+    const proc = new SdkProcess();
+    const setModel = vi.fn(async () => {});
+    const applyFlagSettings = vi.fn(async () => {});
+    (proc as any).queryInstance = { setModel, applyFlagSettings };
+    (proc as any)._settings = { model: "opus", effort: "high" };
+
+    await proc.updateSettings({ ultracode: true });
+    expect(applyFlagSettings).toHaveBeenCalledWith({ ultracode: true });
+    expect(proc.settings.ultracode).toBe(true);
+
+    // An effort change alone would turn ultracode off in Claude Code.
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ effort: "max" });
+    expect(applyFlagSettings).toHaveBeenCalledWith({
+      effortLevel: "max",
+      ultracode: true,
+    });
+
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ model: "sonnet" });
+    expect(applyFlagSettings).toHaveBeenCalledWith({ ultracode: true });
+
+    applyFlagSettings.mockClear();
+    await proc.updateSettings({ effort: "max", ultracode: true });
+    expect(applyFlagSettings).not.toHaveBeenCalled();
+
+    await proc.updateSettings({ ultracode: false });
+    expect(applyFlagSettings).toHaveBeenCalledWith({ ultracode: false });
+    expect(proc.settings.ultracode).toBe(false);
+  });
+
+  it("keeps ultracode off when Claude Code rejects it", async () => {
+    const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      setModel: vi.fn(),
+      applyFlagSettings: vi.fn(async () => {
+        throw new Error("ultracode is not available for this session");
+      }),
+    };
+    (proc as any)._settings = { model: "haiku" };
+    await expect(proc.updateSettings({ ultracode: true })).rejects.toThrow(
+      "ultracode is not available",
+    );
+    expect(proc.settings).toEqual({ model: "haiku" });
+  });
+
   it("maps the default model to the SDK default", async () => {
     const proc = new SdkProcess();
     const setModel = vi.fn(async () => {});

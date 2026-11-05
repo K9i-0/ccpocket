@@ -167,6 +167,8 @@ export type ClientMessage =
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
       /** Claude Code fast mode (supported models only). */
       claudeFastMode?: boolean;
+      /** Claude Code ultracode (standing workflow orchestration). */
+      claudeUltracode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -253,6 +255,7 @@ export type ClientMessage =
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
       fastMode?: boolean;
+      ultracode?: boolean;
     }
   | { type: "set_codex_recovery"; sessionId: string; enabled: boolean }
   | { type: "cancel_codex_recovery"; sessionId: string }
@@ -340,6 +343,8 @@ export type ClientMessage =
       effort?: "low" | "medium" | "high" | "xhigh" | "max";
       /** Claude Code fast mode (supported models only). */
       claudeFastMode?: boolean;
+      /** Claude Code ultracode (standing workflow orchestration). */
+      claudeUltracode?: boolean;
       maxTurns?: number;
       maxBudgetUsd?: number;
       fallbackModel?: string;
@@ -1361,6 +1366,7 @@ function hasValidSessionOptions(msg: Record<string, unknown>): boolean {
     isOptionalString(msg.model) &&
     isOptionalEnum(msg.effort, CLAUDE_EFFORTS) &&
     isOptionalBoolean(msg.claudeFastMode) &&
+    isOptionalBoolean(msg.claudeUltracode) &&
     (msg.maxTurns === undefined ||
       (Number.isInteger(msg.maxTurns) && Number(msg.maxTurns) >= 1)) &&
     (msg.maxBudgetUsd === undefined ||
@@ -1709,10 +1715,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (!isOptionalNonEmptyString(msg.model)) return null;
         if (!isOptionalEnum(msg.effort, CLAUDE_EFFORTS)) return null;
         if (!isOptionalBoolean(msg.fastMode)) return null;
+        if (!isOptionalBoolean(msg.ultracode)) return null;
         if (
           msg.model === undefined &&
           msg.effort === undefined &&
-          msg.fastMode === undefined
+          msg.fastMode === undefined &&
+          msg.ultracode === undefined
         )
           return null;
         break;

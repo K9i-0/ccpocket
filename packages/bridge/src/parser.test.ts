@@ -521,6 +521,16 @@ describe("parseClientMessage", () => {
         '{"type":"set_claude_settings","sessionId":"s1","fastMode":"yes"}',
       ),
     ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_claude_settings","sessionId":"s1","ultracode":true}',
+      ),
+    ).toEqual({ type: "set_claude_settings", sessionId: "s1", ultracode: true });
+    expect(
+      parseClientMessage(
+        '{"type":"set_claude_settings","sessionId":"s1","ultracode":"on"}',
+      ),
+    ).toBeNull();
   });
 
   it("parses input delivery and rejects unknown values", () => {

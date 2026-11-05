@@ -2345,6 +2345,24 @@ abstract class AppLocalizations {
   /// **'最も丁寧、最も遅い'**
   String get claudeEffortMaxDesc;
 
+  /// No description provided for @claudeUltracodeDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのタスクをマルチエージェントのワークフローで進める。トークン消費が大幅に増える'**
+  String get claudeUltracodeDesc;
+
+  /// No description provided for @claudeUltracodeOn.
+  ///
+  /// In ja, this message translates to:
+  /// **'オン'**
+  String get claudeUltracodeOn;
+
+  /// No description provided for @claudeUltracodeOff.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフ'**
+  String get claudeUltracodeOff;
+
   /// No description provided for @reasoningEffortNoneDesc.
   ///
   /// In ja, this message translates to:

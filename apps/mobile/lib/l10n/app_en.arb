@@ -442,6 +442,9 @@
   "claudeEffortHighDesc": "More thorough analysis",
   "claudeEffortXHighDesc": "Extended reasoning for complex work",
   "claudeEffortMaxDesc": "Most thorough, slowest",
+  "claudeUltracodeDesc": "Standing multi-agent workflows for every task. Uses many more tokens.",
+  "claudeUltracodeOn": "On",
+  "claudeUltracodeOff": "Off",
 
   "reasoningEffortNoneDesc": "No reasoning",
   "reasoningEffortMinimalDesc": "Fastest, least analysis",

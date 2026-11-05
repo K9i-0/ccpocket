@@ -198,6 +198,9 @@ class SessionResumeCoordinator {
     final claudeFastMode =
         sessionSettings?['claudeFastMode'] as bool? ??
         claudeDefaults?.claudeFastMode;
+    // Ultracode is session-scoped: restore it only for the session that had
+    // it, never from the new-session defaults.
+    final claudeUltracode = sessionSettings?['claudeUltracode'] as bool?;
     final claudeFallbackModel =
         sessionSettings?['claudeFallbackModel'] as String? ??
         claudeDefaults?.claudeFallbackModel;
@@ -229,6 +232,7 @@ class SessionResumeCoordinator {
           : planMode,
       effort: !isCodex ? claudeEffort : null,
       claudeFastMode: !isCodex ? claudeFastMode : null,
+      claudeUltracode: !isCodex ? claudeUltracode : null,
       maxTurns: !isCodex ? claudeDefaults?.claudeMaxTurns : null,
       maxBudgetUsd: !isCodex ? claudeDefaults?.claudeMaxBudgetUsd : null,
       fallbackModel: !isCodex ? claudeFallbackModel : null,
@@ -276,6 +280,7 @@ class SessionResumeCoordinator {
           'sandboxMode': ?claudeSandboxMode,
           'claudeEffort': ?claudeEffort,
           'claudeFastMode': ?claudeFastMode,
+          'claudeUltracode': ?claudeUltracode,
           'claudeModel': ?claudeModel,
           'claudeFallbackModel': ?claudeFallbackModel,
           'claudeForkSession': ?claudeForkSession,

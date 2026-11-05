@@ -446,6 +446,70 @@ void main() {
         'fastMode': false,
       });
     });
+
+    Switch ultracodeSwitch(WidgetTester tester) => tester.widget<Switch>(
+      find.descendant(
+        of: find.byKey(const ValueKey('claude_settings_ultracode_switch')),
+        matching: find.byType(Switch),
+      ),
+    );
+
+    testWidgets('ultracode toggle sends the current effort with it', (
+      tester,
+    ) async {
+      await pumpWithSettings(tester);
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_ultracode_switch')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeUltracode, isTrue);
+      expect(_decode(bridge.sentMessages.last), {
+        'type': 'set_claude_settings',
+        'sessionId': 'claude-settings',
+        'effort': 'high',
+        'ultracode': true,
+      });
+      expect(ultracodeSwitch(tester).value, isTrue);
+      expect(
+        find.byKey(const ValueKey('claude_ultracode_indicator')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the open sheet follows a snapshot that rejects ultracode', (
+      tester,
+    ) async {
+      await pumpWithSettings(tester);
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_ultracode_switch')),
+      );
+      await tester.pumpAndSettle();
+      expect(ultracodeSwitch(tester).value, isTrue);
+
+      // A Bridge without ultracode support (or a rejection) replies with a
+      // snapshot that has no ultracode.
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'claude_settings',
+          provider: 'claude',
+          model: 'opus',
+          effort: 'high',
+          fastMode: false,
+        ),
+        sessionId: 'claude-settings',
+      );
+      // The cubit's stream was created outside the fake-async test zone.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeUltracode, isFalse);
+      expect(ultracodeSwitch(tester).value, isFalse);
+    });
   });
 
   testWidgets('claude auto permission mode is shown as Auto', (tester) async {

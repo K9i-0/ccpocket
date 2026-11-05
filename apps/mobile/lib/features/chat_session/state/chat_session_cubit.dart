@@ -1154,6 +1154,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         claudeFastMode: update.replaceClaudeSettings
             ? (update.claudeFastMode ?? false)
             : (update.claudeFastMode ?? current.claudeFastMode),
+        // Bridges without ultracode support omit the field; their snapshot
+        // turns a requested ultracode back off.
+        claudeUltracode: update.replaceClaudeSettings
+            ? (update.claudeUltracode ?? false)
+            : (update.claudeUltracode ?? current.claudeUltracode),
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -1176,6 +1181,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           'claudeModel': update.claudeModel,
           'claudeEffort': update.claudeEffort?.value,
           'claudeFastMode': update.claudeFastMode ?? false,
+          'claudeUltracode': update.claudeUltracode ?? false,
         }),
       );
     }
@@ -2603,11 +2609,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
-  /// Change Claude model, effort or fast mode for subsequent turns.
+  /// Change Claude model, effort, fast mode or ultracode for subsequent
+  /// turns.
   void setClaudeSettings({
     String? model,
     ClaudeEffort? effort,
     bool? fastMode,
+    bool? ultracode,
   }) {
     if (!supportsClaudeSessionSettings) return;
     final nextModel = model != null && model != state.claudeModel
@@ -2619,16 +2627,26 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final nextFast = fastMode != null && fastMode != state.claudeFastMode
         ? fastMode
         : null;
-    if (nextModel == null && nextEffort == null && nextFast == null) return;
+    final nextUltracode =
+        ultracode != null && ultracode != state.claudeUltracode
+        ? ultracode
+        : null;
+    if (nextModel == null &&
+        nextEffort == null &&
+        nextFast == null &&
+        nextUltracode == null) {
+      return;
+    }
     logger.info(
       '[session:$sessionId] setClaudeSettings model=$nextModel '
-      'effort=${nextEffort?.value} fast=$nextFast',
+      'effort=${nextEffort?.value} fast=$nextFast ultracode=$nextUltracode',
     );
     emit(
       state.copyWith(
         claudeModel: nextModel ?? state.claudeModel,
         claudeEffort: nextEffort ?? state.claudeEffort,
         claudeFastMode: nextFast ?? state.claudeFastMode,
+        claudeUltracode: nextUltracode ?? state.claudeUltracode,
       ),
     );
     final claudeSessionId = state.claudeSessionId;
@@ -2638,6 +2656,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           'claudeModel': ?state.claudeModel,
           'claudeEffort': ?state.claudeEffort?.value,
           'claudeFastMode': state.claudeFastMode,
+          'claudeUltracode': state.claudeUltracode,
         }),
       );
     }
@@ -2645,9 +2664,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       ClientMessage.setClaudeSettings(
         sessionId: sessionId,
         model: nextModel,
-        // Re-send the effort with a model switch so the new model keeps it.
-        effort: nextEffort ?? (nextModel != null ? state.claudeEffort : null),
+        // Re-send the effort with a model switch so the new model keeps it,
+        // and with an ultracode-only change so Bridges that predate
+        // ultracode still accept the request and reply with their settings.
+        effort:
+            nextEffort ??
+            (nextModel != null || nextUltracode != null
+                ? state.claudeEffort
+                : null),
         fastMode: nextFast,
+        ultracode: nextUltracode,
       ),
     );
   }

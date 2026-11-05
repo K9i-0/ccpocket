@@ -2299,6 +2299,7 @@ export class BridgeWebSocketServer {
         ...(settings.model ? { model: settings.model } : {}),
         ...(settings.effort ? { effort: settings.effort } : {}),
         ...(settings.fastMode ? { fastMode: true } : {}),
+        ...(settings.ultracode ? { ultracode: true } : {}),
         ...(session.sandboxEnabled !== undefined
           ? { sandboxEnabled: session.sandboxEnabled }
           : {}),
@@ -2834,6 +2835,7 @@ export class BridgeWebSocketServer {
       ...(settings.model ? { model: settings.model } : {}),
       ...(settings.effort ? { effort: settings.effort } : {}),
       fastMode: settings.fastMode === true,
+      ultracode: settings.ultracode === true,
     } as ServerMessage;
   }
 
@@ -3666,6 +3668,7 @@ export class BridgeWebSocketServer {
                     model: msg.model,
                     effort: msg.effort,
                     fastMode: msg.claudeFastMode,
+                    ultracode: msg.claudeUltracode,
                     maxTurns: msg.maxTurns,
                     maxBudgetUsd: msg.maxBudgetUsd,
                     fallbackModel: msg.fallbackModel,
@@ -4981,6 +4984,9 @@ export class BridgeWebSocketServer {
             ...(msg.model !== undefined ? { model: msg.model.trim() } : {}),
             ...(msg.effort !== undefined ? { effort: msg.effort } : {}),
             ...(msg.fastMode !== undefined ? { fastMode: msg.fastMode } : {}),
+            ...(msg.ultracode !== undefined
+              ? { ultracode: msg.ultracode }
+              : {}),
           });
         } catch (err) {
           this.send(ws, {
@@ -5001,7 +5007,7 @@ export class BridgeWebSocketServer {
         this.broadcastSessionList();
         const settings = claudeProcess.settings;
         console.log(
-          `[ws] set_claude_settings: model=${settings.model ?? "default"} effort=${settings.effort ?? ""} fast=${settings.fastMode === true}`,
+          `[ws] set_claude_settings: model=${settings.model ?? "default"} effort=${settings.effort ?? ""} fast=${settings.fastMode === true} ultracode=${settings.ultracode === true}`,
         );
         break;
       }
@@ -5176,6 +5182,7 @@ export class BridgeWebSocketServer {
               ...(settings.model ? { model: settings.model } : {}),
               ...(settings.effort ? { effort: settings.effort } : {}),
               ...(settings.fastMode ? { fastMode: true } : {}),
+              ...(settings.ultracode ? { ultracode: true } : {}),
               sandboxEnabled: newEnabled,
               additionalDirectories: workspace?.rootPaths.slice(1),
             },
@@ -5512,6 +5519,7 @@ export class BridgeWebSocketServer {
               ...(settings.model ? { model: settings.model } : {}),
               ...(settings.effort ? { effort: settings.effort } : {}),
               ...(settings.fastMode ? { fastMode: true } : {}),
+              ...(settings.ultracode ? { ultracode: true } : {}),
               ...(sandboxEnabled !== undefined ? { sandboxEnabled } : {}),
               initialInput: planText || undefined,
               additionalDirectories: workspace?.rootPaths.slice(1),
@@ -6666,6 +6674,7 @@ export class BridgeWebSocketServer {
                 model: msg.model,
                 effort: msg.effort,
                 fastMode: msg.claudeFastMode,
+                ultracode: msg.claudeUltracode,
                 maxTurns: msg.maxTurns,
                 maxBudgetUsd: msg.maxBudgetUsd,
                 fallbackModel: msg.fallbackModel,
@@ -8794,6 +8803,7 @@ export class BridgeWebSocketServer {
       model: msg.model,
       effort: msg.effort,
       fastMode: msg.claudeFastMode,
+      ultracode: msg.claudeUltracode,
       maxTurns: msg.maxTurns,
       maxBudgetUsd: msg.maxBudgetUsd,
       fallbackModel: msg.fallbackModel,

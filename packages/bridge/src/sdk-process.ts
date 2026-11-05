@@ -105,6 +105,11 @@ export interface ClaudeSessionSettings {
   model?: string;
   effort?: ClaudeEffortLevel;
   fastMode?: boolean;
+  /**
+   * Claude Code ultracode: standing dynamic-workflow orchestration at any
+   * effort level. Session-scoped; Claude Code never persists it.
+   */
+  ultracode?: boolean;
 }
 
 const CLAUDE_EFFORT_LEVELS = new Set<ClaudeEffortLevel>([
@@ -398,6 +403,8 @@ export interface StartOptions {
   effort?: ClaudeEffortLevel;
   /** Start in Claude Code fast mode (supported models only). */
   fastMode?: boolean;
+  /** Start with Claude Code ultracode on. */
+  ultracode?: boolean;
   maxTurns?: number;
   maxBudgetUsd?: number;
   fallbackModel?: string;
@@ -1121,6 +1128,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       ...(options?.model ? { model: options.model } : {}),
       ...(options?.effort ? { effort: options.effort } : {}),
       ...(options?.fastMode ? { fastMode: true } : {}),
+      ...(options?.ultracode ? { ultracode: true } : {}),
     };
     if (options?.fastMode) {
       this.queryInstance
@@ -1128,6 +1136,16 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         .catch((err) => {
           console.warn(`[sdk-process] Failed to enable fast mode: ${err}`);
           this._settings = { ...this._settings, fastMode: false };
+        });
+    }
+    if (options?.ultracode) {
+      // Claude Code rejects ultracode when the model or account cannot use
+      // dynamic workflows; the session then continues without it.
+      this.queryInstance
+        .applyFlagSettings({ ultracode: true })
+        .catch((err) => {
+          console.warn(`[sdk-process] Failed to enable ultracode: ${err}`);
+          this._settings = { ...this._settings, ultracode: false };
         });
     }
 
@@ -1448,9 +1466,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   /**
-   * Change model, effort or fast mode for subsequent responses. Values that
-   * are undefined are left unchanged. Takes effect from the next request; a
-   * running turn keeps its current model.
+   * Change model, effort, fast mode or ultracode for subsequent responses.
+   * Values that are undefined are left unchanged. Takes effect from the next
+   * request; a running turn keeps its current model.
    */
   async updateSettings(next: ClaudeSessionSettings): Promise<ClaudeSessionSettings> {
     const queryInstance = this.queryInstance;
@@ -1462,12 +1480,25 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       // The model is in effect even if a later flag update fails.
       this._settings = { ...this._settings, model: next.model };
     }
-    const flags: { effortLevel?: ClaudeEffortLevel; fastMode?: boolean } = {};
+    const flags: {
+      effortLevel?: ClaudeEffortLevel;
+      fastMode?: boolean;
+      ultracode?: boolean;
+    } = {};
     if (next.effort !== undefined && (modelChanged || next.effort !== this._settings.effort)) {
       flags.effortLevel = next.effort;
     }
     if (next.fastMode !== undefined && next.fastMode !== (this._settings.fastMode ?? false)) {
       flags.fastMode = next.fastMode;
+    }
+    const ultracode = next.ultracode ?? this._settings.ultracode ?? false;
+    // An effortLevel sent without an ultracode key turns ultracode off, so
+    // keep it on explicitly whenever the model or effort changes.
+    if (
+      ultracode !== (this._settings.ultracode ?? false) ||
+      (ultracode && (modelChanged || flags.effortLevel !== undefined))
+    ) {
+      flags.ultracode = ultracode;
     }
     if (Object.keys(flags).length > 0) {
       await queryInstance.applyFlagSettings(flags);
@@ -1477,6 +1508,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       ...(next.model !== undefined ? { model: next.model } : {}),
       ...(next.effort !== undefined ? { effort: next.effort } : {}),
       ...(next.fastMode !== undefined ? { fastMode: next.fastMode } : {}),
+      ...(next.ultracode !== undefined ? { ultracode: next.ultracode } : {}),
     };
     return this.settings;
   }

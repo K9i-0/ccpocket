@@ -57,6 +57,7 @@ class NewSessionParams {
   final String? claudeModel;
   final ClaudeEffort? claudeEffort;
   final bool? claudeFastMode;
+  final bool? claudeUltracode;
   final int? claudeMaxTurns;
   final double? claudeMaxBudgetUsd;
   final String? claudeFallbackModel;
@@ -98,6 +99,7 @@ class NewSessionParams {
     this.claudeModel,
     this.claudeEffort,
     this.claudeFastMode,
+    this.claudeUltracode,
     this.claudeMaxTurns,
     this.claudeMaxBudgetUsd,
     this.claudeFallbackModel,
@@ -179,6 +181,7 @@ class NewSessionParams {
     String? claudeModel,
     ClaudeEffort? claudeEffort,
     bool? claudeFastMode,
+    bool? claudeUltracode,
     int? claudeMaxTurns,
     double? claudeMaxBudgetUsd,
     String? claudeFallbackModel,
@@ -231,6 +234,7 @@ class NewSessionParams {
       claudeModel: claudeModel ?? this.claudeModel,
       claudeEffort: claudeEffort ?? this.claudeEffort,
       claudeFastMode: claudeFastMode ?? this.claudeFastMode,
+      claudeUltracode: claudeUltracode ?? this.claudeUltracode,
       claudeMaxTurns: claudeMaxTurns ?? this.claudeMaxTurns,
       claudeMaxBudgetUsd: claudeMaxBudgetUsd ?? this.claudeMaxBudgetUsd,
       claudeFallbackModel: claudeFallbackModel ?? this.claudeFallbackModel,
@@ -605,6 +609,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   String? _selectedClaudeFallbackModel;
   ClaudeEffort _claudeEffort = ClaudeEffort.medium;
   bool _claudeFastMode = false;
+  bool _claudeUltracode = false;
   bool _claudeForkSession = false;
   bool _claudePersistSession = true;
 
@@ -1181,6 +1186,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _resolveClaudeModels(p);
     _claudeEffort = p.claudeEffort ?? _claudeEffort;
     _claudeFastMode = p.claudeFastMode ?? false;
+    _claudeUltracode = p.claudeUltracode ?? false;
     _normalizeSelectedClaudeEffort();
     _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
     _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
@@ -1571,6 +1577,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       claudeModel: !isCodex ? _selectedClaudeModel : null,
       claudeEffort: !isCodex ? _claudeEffort : null,
       claudeFastMode: !isCodex ? _claudeFastMode : null,
+      claudeUltracode: !isCodex ? _claudeUltracode : null,
       claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
       claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
       claudeFallbackModel: !isCodex ? _selectedClaudeFallbackModel : null,
@@ -1769,6 +1776,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             claudeFastMode: _claudeFastMode,
             onClaudeFastModeChanged: (value) {
               setState(() => _claudeFastMode = value);
+            },
+            claudeUltracode: _claudeUltracode,
+            onClaudeUltracodeChanged: (value) {
+              setState(() => _claudeUltracode = value);
             },
             claudeMaxTurnsController: _claudeMaxTurnsController,
             maxTurnsError: _maxTurnsError,
@@ -2707,7 +2718,9 @@ class _OptionsSection extends StatelessWidget {
   final ClaudeEffort claudeEffort;
   final ValueChanged<ClaudeEffort> onClaudeEffortChanged;
   final bool claudeFastMode;
+  final bool claudeUltracode;
   final ValueChanged<bool> onClaudeFastModeChanged;
+  final ValueChanged<bool> onClaudeUltracodeChanged;
   final TextEditingController claudeMaxTurnsController;
   final String? maxTurnsError;
   final VoidCallback onMaxTurnsChanged;
@@ -2771,7 +2784,9 @@ class _OptionsSection extends StatelessWidget {
     required this.claudeEffort,
     required this.onClaudeEffortChanged,
     required this.claudeFastMode,
+    required this.claudeUltracode,
     required this.onClaudeFastModeChanged,
+    required this.onClaudeUltracodeChanged,
     required this.claudeMaxTurnsController,
     required this.maxTurnsError,
     required this.onMaxTurnsChanged,
@@ -3207,9 +3222,11 @@ class _OptionsSection extends StatelessWidget {
               model: selectedClaudeModel ?? claudeModels.firstOrNull,
               effort: claudeEffort,
               fastMode: claudeFastMode,
+              ultracode: claudeUltracode,
               onModelChanged: onClaudeModelChanged,
               onEffortChanged: onClaudeEffortChanged,
               onFastModeChanged: onClaudeFastModeChanged,
+              onUltracodeChanged: onClaudeUltracodeChanged,
             ),
           if (provider == Provider.codex && codexReasoningEfforts.isNotEmpty)
             _CodexSettingsSwitcher(

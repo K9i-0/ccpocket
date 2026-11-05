@@ -836,6 +836,7 @@ sealed class ServerMessage {
         serviceTier: json['serviceTier'] as String?,
         effort: json['effort'] as String?,
         fastMode: json['fastMode'] as bool?,
+        ultracode: json['ultracode'] as bool?,
         networkAccessEnabled: json['networkAccessEnabled'] as bool?,
         webSearchMode: json['webSearchMode'] as String?,
         slashCommands:
@@ -1749,6 +1750,7 @@ class SystemMessage implements ServerMessage {
 
   /// Claude fast mode (claude_settings).
   final bool? fastMode;
+  final bool? ultracode;
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String> slashCommands;
@@ -1788,6 +1790,7 @@ class SystemMessage implements ServerMessage {
     this.serviceTier,
     this.effort,
     this.fastMode,
+    this.ultracode,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.slashCommands = const [],
@@ -4676,6 +4679,7 @@ class SessionInfo {
   /// Claude effort / fast mode selected for this session (claudeSettings).
   final String? claudeEffort;
   final bool claudeFastMode;
+  final bool claudeUltracode;
   final String? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
   final String? codexPermissionsMode;
@@ -4721,6 +4725,7 @@ class SessionInfo {
     this.model,
     this.claudeEffort,
     this.claudeFastMode = false,
+    this.claudeUltracode = false,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
     this.codexPermissionsMode,
@@ -4783,6 +4788,7 @@ class SessionInfo {
     String? model,
     String? claudeEffort,
     bool? claudeFastMode,
+    bool? claudeUltracode,
     String? codexApprovalPolicy,
     String? codexApprovalsReviewer,
     String? codexPermissionsMode,
@@ -4822,6 +4828,7 @@ class SessionInfo {
       model: model ?? this.model,
       claudeEffort: claudeEffort ?? this.claudeEffort,
       claudeFastMode: claudeFastMode ?? this.claudeFastMode,
+      claudeUltracode: claudeUltracode ?? this.claudeUltracode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexApprovalsReviewer:
           codexApprovalsReviewer ?? this.codexApprovalsReviewer,
@@ -4883,6 +4890,7 @@ class SessionInfo {
       model: json['model'] as String?,
       claudeEffort: claudeSettings?['effort'] as String?,
       claudeFastMode: claudeSettings?['fastMode'] == true,
+      claudeUltracode: claudeSettings?['ultracode'] == true,
       codexApprovalPolicy: resolveCodexApprovalPolicy(
         approvalPolicy: codexSettings?['approvalPolicy'] as String?,
         executionMode: json['executionMode'] as String?,
@@ -4995,6 +5003,7 @@ class ClientMessage {
     bool? planMode,
     String? effort,
     bool? claudeFastMode,
+    bool? claudeUltracode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -5032,6 +5041,7 @@ class ClientMessage {
       'planMode': ?planMode,
       'effort': ?effort,
       'claudeFastMode': ?claudeFastMode,
+      'claudeUltracode': ?claudeUltracode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,
@@ -5189,6 +5199,7 @@ class ClientMessage {
     String? model,
     ClaudeEffort? effort,
     bool? fastMode,
+    bool? ultracode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'set_claude_settings',
@@ -5196,6 +5207,7 @@ class ClientMessage {
       'model': ?model,
       'effort': ?effort?.value,
       'fastMode': ?fastMode,
+      'ultracode': ?ultracode,
     });
   }
 
@@ -5433,6 +5445,7 @@ class ClientMessage {
     bool? planMode,
     String? effort,
     bool? claudeFastMode,
+    bool? claudeUltracode,
     int? maxTurns,
     double? maxBudgetUsd,
     String? fallbackModel,
@@ -5464,6 +5477,7 @@ class ClientMessage {
       'planMode': ?planMode,
       'effort': ?effort,
       'claudeFastMode': ?claudeFastMode,
+      'claudeUltracode': ?claudeUltracode,
       'maxTurns': ?maxTurns,
       'maxBudgetUsd': ?maxBudgetUsd,
       'fallbackModel': ?fallbackModel,

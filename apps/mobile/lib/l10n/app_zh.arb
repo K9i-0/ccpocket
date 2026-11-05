@@ -435,6 +435,9 @@
   "claudeEffortHighDesc": "更深入的分析",
   "claudeEffortXHighDesc": "复杂工作的扩展推理",
   "claudeEffortMaxDesc": "最深入，最慢",
+  "claudeUltracodeDesc": "所有任务都以多代理工作流执行，令牌用量会大幅增加",
+  "claudeUltracodeOn": "开启",
+  "claudeUltracodeOff": "关闭",
 
   "reasoningEffortNoneDesc": "无推理",
   "reasoningEffortMinimalDesc": "最快，分析最少",

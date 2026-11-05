@@ -524,6 +524,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         model: session.model,
                         effort: session.claudeEffort,
                         fastMode: session.claudeFastMode,
+                        ultracode: session.claudeUltracode,
                         permissionMode: session.effectivePermissionMode,
                         executionMode: session.resolvedExecutionMode.value,
                         planMode: session.resolvedPlanMode,
@@ -3232,6 +3233,7 @@ String _buildSettingsSummary({
   String? model,
   String? effort,
   bool fastMode = false,
+  bool ultracode = false,
   String? permissionMode,
   String? executionMode,
   bool planMode = false,
@@ -3242,6 +3244,7 @@ String _buildSettingsSummary({
     if (model != null && model.isNotEmpty) model,
     ?effortLabel,
     if (fastMode) 'Fast',
+    if (ultracode) 'Ultracode',
   ];
   if (modelParts.isNotEmpty) model = modelParts.join(' · ');
   final parts = <String>[

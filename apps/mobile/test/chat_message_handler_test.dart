@@ -743,8 +743,10 @@ void main() {
         model: 'opus',
         effort: 'xhigh',
         fastMode: true,
+        ultracode: true,
       );
       final live = handler.handle(message, isBackground: false);
+      expect(live.claudeUltracode, isTrue);
       expect(live.entriesToAdd, isEmpty);
       expect(live.claudeModel, 'opus');
       expect(live.claudeEffort, ClaudeEffort.xhigh);

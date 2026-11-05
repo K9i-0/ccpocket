@@ -1197,6 +1197,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get claudeEffortMaxDesc => '가장 철저하지만 가장 느림';
 
   @override
+  String get claudeUltracodeDesc =>
+      '모든 작업을 멀티 에이전트 워크플로로 진행합니다. 토큰 사용량이 크게 늘어납니다';
+
+  @override
+  String get claudeUltracodeOn => '켜짐';
+
+  @override
+  String get claudeUltracodeOff => '꺼짐';
+
+  @override
   String get reasoningEffortNoneDesc => '추론 없음';
 
   @override

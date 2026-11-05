@@ -89,8 +89,8 @@ String claudeEffortDescription(ClaudeEffort effort, AppLocalizations l) =>
       ClaudeEffort.max => l.claudeEffortMaxDesc,
     };
 
-/// Claude model / effort / fast mode controls with the same quick (slider)
-/// and advanced (rows) layout as the Codex settings.
+/// Claude model / effort / fast mode / ultracode controls with the same
+/// quick (slider) and advanced (rows) layout as the Codex settings.
 class ClaudeSettingsPanel extends StatefulWidget {
   final List<ClaudeModelOption> models;
   final Map<String, List<ClaudeEffort>> modelEfforts;
@@ -100,6 +100,12 @@ class ClaudeSettingsPanel extends StatefulWidget {
   final ValueChanged<String> onModelChanged;
   final ValueChanged<ClaudeEffort> onEffortChanged;
   final ValueChanged<bool> onFastModeChanged;
+
+  /// Claude Code ultracode. It is independent of the effort level, and no
+  /// model metadata tells which models support it: Claude Code rejects it
+  /// where unavailable.
+  final bool ultracode;
+  final ValueChanged<bool> onUltracodeChanged;
 
   /// Prefix for widget keys (e.g. `claude_settings` / `dialog_claude`).
   final String keyPrefix;
@@ -114,6 +120,8 @@ class ClaudeSettingsPanel extends StatefulWidget {
     required this.onModelChanged,
     required this.onEffortChanged,
     required this.onFastModeChanged,
+    required this.ultracode,
+    required this.onUltracodeChanged,
     this.keyPrefix = 'claude_settings',
   });
 
@@ -157,82 +165,130 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
       advancedPanelKey: '${prefix}_advanced_panel',
       modelLabelKey: '${prefix}_model_label',
       effortLabelKey: '${prefix}_effort_label',
-      quickChild: efforts.isEmpty || effort == null
-          ? Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  claudeModelDescription(widget.models, _model),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            )
-          : SettingsLevelSlider<ClaudeEffort>(
-              levels: efforts,
-              value: effort,
-              labelOf: (e) => e.label,
-              onChanged: widget.onEffortChanged,
-              sliderKey: '${prefix}_effort_slider',
-            ),
+      quickChild: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildQuickEffort(context, prefix, efforts, effort),
+          _UltracodeSwitch(
+            key: ValueKey('${prefix}_ultracode_switch'),
+            value: widget.ultracode,
+            onChanged: widget.onUltracodeChanged,
+          ),
+        ],
+      ),
       advancedChild: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ..._buildAdvancedRows(context, prefix, efforts, effort),
           _SettingsRow(
-            key: ValueKey('${prefix}_model_row'),
-            label: l.model,
-            value: claudeModelLabel(widget.models, _model),
-            onTap: () => _showPicker<String>(
-              title: l.model,
-              values: [for (final option in widget.models) option.value],
-              selected: _model,
-              label: (m) => claudeModelLabel(widget.models, m),
-              subtitle: (m) {
-                final description = claudeModelDescription(widget.models, m);
-                return description.isEmpty ? null : description;
-              },
-              optionKey: (m) => '${prefix}_model_${m}_option',
-              onSelected: widget.onModelChanged,
+            key: ValueKey('${prefix}_ultracode_row'),
+            label: 'Ultracode',
+            value: widget.ultracode
+                ? l.claudeUltracodeOn
+                : l.claudeUltracodeOff,
+            onTap: () => _showPicker<bool>(
+              title: 'Ultracode',
+              values: const [false, true],
+              selected: widget.ultracode,
+              label: (on) => on ? l.claudeUltracodeOn : l.claudeUltracodeOff,
+              subtitle: (on) => on ? l.claudeUltracodeDesc : null,
+              optionKey: (on) =>
+                  '${prefix}_ultracode_${on ? 'on' : 'off'}_option',
+              onSelected: widget.onUltracodeChanged,
             ),
           ),
-          if (efforts.isNotEmpty && effort != null)
-            _SettingsRow(
-              key: ValueKey('${prefix}_effort_row'),
-              label: l.effort,
-              value: effort.label,
-              onTap: () => _showPicker<ClaudeEffort>(
-                title: l.effort,
-                values: efforts,
-                selected: effort,
-                label: (e) => e.label,
-                subtitle: (e) => claudeEffortDescription(e, l),
-                optionKey: (e) => '${prefix}_effort_${e.value}_option',
-                onSelected: widget.onEffortChanged,
-              ),
-            ),
-          if (_supportsFast)
-            _SettingsRow(
-              key: ValueKey('${prefix}_speed_row'),
-              label: 'Speed',
-              value: widget.fastMode ? 'Fast' : 'Standard',
-              onTap: () => _showPicker<bool>(
-                title: 'Speed',
-                values: const [false, true],
-                selected: widget.fastMode,
-                label: (fast) => fast ? 'Fast' : 'Standard',
-                subtitle: (fast) =>
-                    fast ? 'Faster output, more usage' : 'Default speed',
-                optionKey: (fast) =>
-                    '${prefix}_speed_${fast ? 'fast' : 'standard'}_option',
-                onSelected: widget.onFastModeChanged,
-              ),
-            ),
         ],
       ),
     );
+  }
+
+  Widget _buildQuickEffort(
+    BuildContext context,
+    String prefix,
+    List<ClaudeEffort> efforts,
+    ClaudeEffort? effort,
+  ) {
+    return efforts.isEmpty || effort == null
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                claudeModelDescription(widget.models, _model),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          )
+        : SettingsLevelSlider<ClaudeEffort>(
+            levels: efforts,
+            value: effort,
+            labelOf: (e) => e.label,
+            onChanged: widget.onEffortChanged,
+            sliderKey: '${prefix}_effort_slider',
+          );
+  }
+
+  List<Widget> _buildAdvancedRows(
+    BuildContext context,
+    String prefix,
+    List<ClaudeEffort> efforts,
+    ClaudeEffort? effort,
+  ) {
+    final l = AppLocalizations.of(context);
+    return [
+      _SettingsRow(
+        key: ValueKey('${prefix}_model_row'),
+        label: l.model,
+        value: claudeModelLabel(widget.models, _model),
+        onTap: () => _showPicker<String>(
+          title: l.model,
+          values: [for (final option in widget.models) option.value],
+          selected: _model,
+          label: (m) => claudeModelLabel(widget.models, m),
+          subtitle: (m) {
+            final description = claudeModelDescription(widget.models, m);
+            return description.isEmpty ? null : description;
+          },
+          optionKey: (m) => '${prefix}_model_${m}_option',
+          onSelected: widget.onModelChanged,
+        ),
+      ),
+      if (efforts.isNotEmpty && effort != null)
+        _SettingsRow(
+          key: ValueKey('${prefix}_effort_row'),
+          label: l.effort,
+          value: effort.label,
+          onTap: () => _showPicker<ClaudeEffort>(
+            title: l.effort,
+            values: efforts,
+            selected: effort,
+            label: (e) => e.label,
+            subtitle: (e) => claudeEffortDescription(e, l),
+            optionKey: (e) => '${prefix}_effort_${e.value}_option',
+            onSelected: widget.onEffortChanged,
+          ),
+        ),
+      if (_supportsFast)
+        _SettingsRow(
+          key: ValueKey('${prefix}_speed_row'),
+          label: 'Speed',
+          value: widget.fastMode ? 'Fast' : 'Standard',
+          onTap: () => _showPicker<bool>(
+            title: 'Speed',
+            values: const [false, true],
+            selected: widget.fastMode,
+            label: (fast) => fast ? 'Fast' : 'Standard',
+            subtitle: (fast) =>
+                fast ? 'Faster output, more usage' : 'Default speed',
+            optionKey: (fast) =>
+                '${prefix}_speed_${fast ? 'fast' : 'standard'}_option',
+            onSelected: widget.onFastModeChanged,
+          ),
+        ),
+    ];
   }
 
   void _showPicker<T>({
@@ -299,6 +355,39 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
   }
 }
 
+class _UltracodeSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _UltracodeSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return SwitchListTile.adaptive(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: const Text('Ultracode'),
+      subtitle: Text(
+        l.claudeUltracodeDesc,
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      value: value,
+      onChanged: (next) {
+        HapticFeedback.selectionClick();
+        onChanged(next);
+      },
+    );
+  }
+}
+
 class _SettingsRow extends StatelessWidget {
   final String label;
   final String value;
@@ -346,7 +435,13 @@ class ClaudeSettingsSheet extends StatefulWidget {
   final String? initialModel;
   final ClaudeEffort? initialEffort;
   final bool initialFastMode;
-  final void Function({String? model, ClaudeEffort? effort, bool? fastMode})
+  final bool initialUltracode;
+  final void Function({
+    String? model,
+    ClaudeEffort? effort,
+    bool? fastMode,
+    bool? ultracode,
+  })
   onChanged;
 
   const ClaudeSettingsSheet({
@@ -356,6 +451,7 @@ class ClaudeSettingsSheet extends StatefulWidget {
     required this.initialModel,
     required this.initialEffort,
     required this.initialFastMode,
+    this.initialUltracode = false,
     required this.onChanged,
   });
 
@@ -367,6 +463,25 @@ class _ClaudeSettingsSheetState extends State<ClaudeSettingsSheet> {
   late String? _model = widget.initialModel;
   late ClaudeEffort? _effort = widget.initialEffort;
   late bool _fastMode = widget.initialFastMode;
+  late bool _ultracode = widget.initialUltracode;
+
+  @override
+  void didUpdateWidget(ClaudeSettingsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Follow the Bridge's confirmed settings, e.g. when it rejects a change.
+    if (widget.initialModel != oldWidget.initialModel) {
+      _model = widget.initialModel;
+    }
+    if (widget.initialEffort != oldWidget.initialEffort) {
+      _effort = widget.initialEffort;
+    }
+    if (widget.initialFastMode != oldWidget.initialFastMode) {
+      _fastMode = widget.initialFastMode;
+    }
+    if (widget.initialUltracode != oldWidget.initialUltracode) {
+      _ultracode = widget.initialUltracode;
+    }
+  }
 
   void _selectModel(String model) {
     final efforts = claudeEffortsForModel(model, widget.modelEfforts);
@@ -403,6 +518,11 @@ class _ClaudeSettingsSheetState extends State<ClaudeSettingsSheet> {
           onFastModeChanged: (fast) {
             setState(() => _fastMode = fast);
             widget.onChanged(fastMode: fast);
+          },
+          ultracode: _ultracode,
+          onUltracodeChanged: (on) {
+            setState(() => _ultracode = on);
+            widget.onChanged(ultracode: on);
           },
         ),
       ),

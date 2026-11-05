@@ -1238,6 +1238,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get claudeEffortMaxDesc => 'Most thorough, slowest';
 
   @override
+  String get claudeUltracodeDesc =>
+      'Standing multi-agent workflows for every task. Uses many more tokens.';
+
+  @override
+  String get claudeUltracodeOn => 'On';
+
+  @override
+  String get claudeUltracodeOff => 'Off';
+
+  @override
   String get reasoningEffortNoneDesc => 'No reasoning';
 
   @override

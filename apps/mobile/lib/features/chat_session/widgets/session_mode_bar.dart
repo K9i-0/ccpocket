@@ -131,6 +131,7 @@ class SessionModeBar extends StatelessWidget {
                       ),
                       effort: chatCubit.state.claudeEffort,
                       fastMode: chatCubit.state.claudeFastMode,
+                      ultracode: chatCubit.state.claudeUltracode,
                       onTap: () => showClaudeSettingsMenu(context, chatCubit),
                     ),
                     Padding(
@@ -464,16 +465,29 @@ void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => ClaudeSettingsSheet(
-      models: options,
-      modelEfforts: normalizeClaudeModelEfforts(chatCubit.claudeModelEfforts),
-      initialModel: chatCubit.state.claudeModel,
-      initialEffort: chatCubit.state.claudeEffort,
-      initialFastMode: chatCubit.state.claudeFastMode,
-      onChanged: ({model, effort, fastMode}) => chatCubit.setClaudeSettings(
-        model: model,
-        effort: effort,
-        fastMode: fastMode,
+    // Rebuild with the Bridge's confirmed settings so a rejected change
+    // (e.g. ultracode on an unsupported model) shows its real state.
+    builder: (_) => BlocBuilder<ChatSessionCubit, ChatSessionState>(
+      bloc: chatCubit,
+      buildWhen: (prev, next) =>
+          prev.claudeModel != next.claudeModel ||
+          prev.claudeEffort != next.claudeEffort ||
+          prev.claudeFastMode != next.claudeFastMode ||
+          prev.claudeUltracode != next.claudeUltracode,
+      builder: (context, state) => ClaudeSettingsSheet(
+        models: options,
+        modelEfforts: normalizeClaudeModelEfforts(chatCubit.claudeModelEfforts),
+        initialModel: state.claudeModel,
+        initialEffort: state.claudeEffort,
+        initialFastMode: state.claudeFastMode,
+        initialUltracode: state.claudeUltracode,
+        onChanged: ({model, effort, fastMode, ultracode}) =>
+            chatCubit.setClaudeSettings(
+              model: model,
+              effort: effort,
+              fastMode: fastMode,
+              ultracode: ultracode,
+            ),
       ),
     ),
   );
@@ -1207,6 +1221,7 @@ class ClaudeModelChip extends StatelessWidget {
   final String label;
   final ClaudeEffort? effort;
   final bool fastMode;
+  final bool ultracode;
   final VoidCallback onTap;
 
   const ClaudeModelChip({
@@ -1214,6 +1229,7 @@ class ClaudeModelChip extends StatelessWidget {
     required this.label,
     required this.effort,
     required this.fastMode,
+    this.ultracode = false,
     required this.onTap,
   });
 
@@ -1235,6 +1251,15 @@ class ClaudeModelChip extends StatelessWidget {
             children: [
               if (fastMode) ...[
                 Icon(Icons.bolt, size: 13, color: cs.primary),
+                const SizedBox(width: 2),
+              ],
+              if (ultracode) ...[
+                Icon(
+                  Icons.account_tree_outlined,
+                  key: const ValueKey('claude_ultracode_indicator'),
+                  size: 13,
+                  color: cs.primary,
+                ),
                 const SizedBox(width: 2),
               ],
               ConstrainedBox(

@@ -1200,6 +1200,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get claudeEffortMaxDesc => '最も丁寧、最も遅い';
 
   @override
+  String get claudeUltracodeDesc =>
+      'すべてのタスクをマルチエージェントのワークフローで進める。トークン消費が大幅に増える';
+
+  @override
+  String get claudeUltracodeOn => 'オン';
+
+  @override
+  String get claudeUltracodeOff => 'オフ';
+
+  @override
   String get reasoningEffortNoneDesc => '推論なし';
 
   @override

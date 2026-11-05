@@ -55,6 +55,7 @@ class ChatStateUpdate {
   final String? claudeModel;
   final ClaudeEffort? claudeEffort;
   final bool? claudeFastMode;
+  final bool? claudeUltracode;
 
   /// The Claude settings fields are a full snapshot (null = default), not a
   /// partial update.
@@ -122,6 +123,7 @@ class ChatStateUpdate {
     this.claudeModel,
     this.claudeEffort,
     this.claudeFastMode,
+    this.claudeUltracode,
     this.replaceClaudeSettings = false,
     this.planMode,
     this.entriesToAdd = const [],
@@ -649,6 +651,7 @@ class ChatMessageHandler {
     String? claudeModel;
     ClaudeEffort? claudeEffort;
     bool? claudeFastMode;
+    bool? claudeUltracode;
     var sawClaudeSettings = false;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
@@ -746,6 +749,7 @@ class ChatMessageHandler {
           claudeModel = m.model?.trim().isNotEmpty == true ? m.model : null;
           claudeEffort = claudeEffortByValue(m.effort);
           claudeFastMode = m.fastMode;
+          claudeUltracode = m.ultracode;
         } else if (m is SystemMessage) {
           if (m.model?.trim().isNotEmpty == true) {
             codexModel = m.model;
@@ -780,6 +784,7 @@ class ChatMessageHandler {
       claudeModel: claudeModel,
       claudeEffort: claudeEffort,
       claudeFastMode: claudeFastMode,
+      claudeUltracode: claudeUltracode,
       replaceClaudeSettings: sawClaudeSettings,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
@@ -905,10 +910,12 @@ class ChatMessageHandler {
     String? claudeModel;
     ClaudeEffort? claudeEffort;
     bool? claudeFastMode;
+    bool? claudeUltracode;
     if (msg is SystemMessage && subtype == 'claude_settings') {
       claudeModel = msg.model?.trim().isNotEmpty == true ? msg.model : null;
       claudeEffort = claudeEffortByValue(msg.effort);
       claudeFastMode = msg.fastMode;
+      claudeUltracode = msg.ultracode;
     }
     if (msg is SystemMessage && msg.provider == Provider.codex.value) {
       codexModel = sanitizeCodexModelName(msg.model);
@@ -951,6 +958,7 @@ class ChatMessageHandler {
       claudeModel: claudeModel,
       claudeEffort: claudeEffort,
       claudeFastMode: claudeFastMode,
+      claudeUltracode: claudeUltracode,
       replaceClaudeSettings: subtype == 'claude_settings',
       planMode: planMode,
       inPlanMode: inPlanMode,

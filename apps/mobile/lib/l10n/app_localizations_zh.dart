@@ -1187,6 +1187,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get claudeEffortMaxDesc => '最深入，最慢';
 
   @override
+  String get claudeUltracodeDesc => '所有任务都以多代理工作流执行，令牌用量会大幅增加';
+
+  @override
+  String get claudeUltracodeOn => '开启';
+
+  @override
+  String get claudeUltracodeOff => '关闭';
+
+  @override
   String get reasoningEffortNoneDesc => '无推理';
 
   @override
