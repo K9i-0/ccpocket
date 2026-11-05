@@ -14,6 +14,7 @@ import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
+import 'package:ccpocket/services/app_update_service.dart';
 import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/database_service.dart';
@@ -321,6 +322,7 @@ Future<Widget> _buildScreen({
   bool focusConnection = false,
   bool focusSupport = false,
   bool focusUsage = false,
+  bool focusAppUpdate = false,
   bool embedded = false,
 }) async {
   final prefs = await SharedPreferences.getInstance();
@@ -348,6 +350,7 @@ Future<Widget> _buildScreen({
           focusConnection: focusConnection,
           focusSupport: focusSupport,
           focusUsage: focusUsage,
+          focusAppUpdate: focusAppUpdate,
           embedded: embedded,
         ),
       ),
@@ -1762,6 +1765,80 @@ void main() {
       expect(supportDy, greaterThanOrEqualTo(0));
       expect(supportDy, lessThan(560));
 
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+  });
+
+  group('Settings app update focus', () {
+    Future<(_SeededSettingsCubit, MachineManagerCubit, _FakeBridgeService)>
+    pumpSettings(WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+          focusAppUpdate: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      return (settingsCubit, machineManagerCubit, bridge);
+    }
+
+    final appUpdateItem = find.byWidgetPredicate(
+      (w) => w is SettingsItem && w.id == SettingsEntryIds.appUpdate,
+    );
+
+    testWidgets('opens about and highlights the update card', (tester) async {
+      AppUpdateService.instance.debugCachedUpdate = const AppUpdateInfo(
+        latestVersion: '9.9.9',
+        currentVersion: '1.0.0',
+        downloadUrl: 'https://example.com/app.dmg',
+        releaseUrl: 'https://example.com/release',
+        installMode: AppUpdateInstallMode.nativeUpdater,
+      );
+      addTearDown(() => AppUpdateService.instance.debugCachedUpdate = null);
+
+      final (settingsCubit, machineManagerCubit, bridge) = await pumpSettings(
+        tester,
+      );
+
+      expect(appUpdateItem, findsOneWidget);
+      expect(tester.widget<SettingsItem>(appUpdateItem).framed, isTrue);
+      final frame = find.descendant(
+        of: appUpdateItem,
+        matching: find.byType(SettingsHighlightFrame),
+      );
+      expect(SettingsItemHighlight.of(tester.element(frame)), isTrue);
+      expect(find.text('Update'), findsOneWidget);
+
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('stays on the home without a pending update', (tester) async {
+      final (settingsCubit, machineManagerCubit, bridge) = await pumpSettings(
+        tester,
+      );
+
+      expect(find.byType(SettingsHome), findsOneWidget);
+      expect(appUpdateItem, findsNothing);
+      expect(
+        tester.state<NavigatorState>(find.byType(Navigator).first).canPop(),
+        isFalse,
+      );
+
+      await tester.pumpAndSettle();
       await settingsCubit.close();
       await machineManagerCubit.close();
       bridge.dispose();

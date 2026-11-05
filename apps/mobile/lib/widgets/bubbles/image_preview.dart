@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../features/media_feedback/media_feedback_scope.dart';
@@ -204,7 +204,7 @@ Uint8List? _decodeDataImageUrl(String url) {
   }
 }
 
-class FullScreenImageViewer extends StatelessWidget {
+class FullScreenImageViewer extends StatefulWidget {
   final String? url;
   final Uint8List? bytes;
   final bool isSvg;
@@ -222,33 +222,66 @@ class FullScreenImageViewer extends StatelessWidget {
   }) : assert(url != null || bytes != null);
 
   @override
+  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+  bool _chromeVisible = true;
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  /// Tap the image to hide the app bar and system UI, like the generated
+  /// image preview.
+  void _toggleChrome() {
+    setState(() => _chromeVisible = !_chromeVisible);
+    SystemChrome.setEnabledSystemUIMode(
+      _chromeVisible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final url = widget.url;
+    final bytes = widget.bytes;
+    final isSvg = widget.isSvg;
+    final feedback = widget.feedback;
+    final feedbackMedia = widget.feedbackMedia;
     final chrome = resolveStandalonePaneChrome(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: chrome.wrapAppBar(
-        AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            MediaExportActions(
-              url: url,
-              bytes: bytes,
-              mimeType: isSvg ? 'image/svg+xml' : null,
-              allowSave: !isSvg,
-            ),
-            if (allowDrawing)
-              TextButton.icon(
-                key: const ValueKey('annotate_image_button'),
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
-                icon: const Icon(Icons.draw_outlined),
-                label: Text(AppLocalizations.of(context).annotateImage),
+      extendBodyBehindAppBar: true,
+      appBar: !_chromeVisible
+          ? null
+          : chrome.wrapAppBar(
+              AppBar(
+                key: const ValueKey('full_screen_image_app_bar'),
+                backgroundColor: Colors.black45,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                actions: [
+                  MediaExportActions(
+                    url: url,
+                    bytes: bytes,
+                    mimeType: isSvg ? 'image/svg+xml' : null,
+                    allowSave: !isSvg,
+                  ),
+                  if (widget.allowDrawing)
+                    TextButton.icon(
+                      key: const ValueKey('annotate_image_button'),
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.draw_outlined),
+                      label: Text(AppLocalizations.of(context).annotateImage),
+                    ),
+                ],
               ),
-          ],
-        ),
-      ),
+            ),
       bottomNavigationBar: feedback == null || feedbackMedia == null
           ? null
           : Padding(
@@ -256,15 +289,17 @@ class FullScreenImageViewer extends StatelessWidget {
                 bottom: MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: MediaFeedbackEditor(
-                binding: feedback!,
-                media: feedbackMedia!,
+                binding: feedback,
+                media: feedbackMedia,
               ),
             ),
       body: ZoomableImageViewer(
+        key: const ValueKey('full_screen_image_viewer'),
+        onTap: _toggleChrome,
         child: bytes != null
             ? isSvg
-                  ? SvgPicture.memory(bytes!, fit: BoxFit.contain)
-                  : Image.memory(bytes!, fit: BoxFit.contain)
+                  ? SvgPicture.memory(bytes, fit: BoxFit.contain)
+                  : Image.memory(bytes, fit: BoxFit.contain)
             : ExtendedImage.network(
                 url!,
                 fit: BoxFit.contain,

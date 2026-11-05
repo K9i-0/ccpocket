@@ -23,6 +23,7 @@ abstract class WorkspaceNavigationState with _$WorkspaceNavigationState {
     @Default(false) bool settingsFocusSupport,
     @Default(false) bool settingsFocusConnection,
     @Default(false) bool settingsFocusUsage,
+    @Default(false) bool settingsFocusAppUpdate,
     @Default(false) bool centerInFront,
   }) = _WorkspaceNavigationState;
 }

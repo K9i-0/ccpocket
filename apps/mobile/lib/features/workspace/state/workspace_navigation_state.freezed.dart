@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$WorkspaceNavigationState {
 
- WorkspaceSessionSelection? get selection; String? get liveSessionId; int get sessionEntry; WorkspaceToolPaneData? get tool; int get toolEntry; WorkspaceCenterOverlay get overlay; int get overlayEntry; bool get settingsFocusSupport; bool get settingsFocusConnection; bool get settingsFocusUsage; bool get centerInFront;
+ WorkspaceSessionSelection? get selection; String? get liveSessionId; int get sessionEntry; WorkspaceToolPaneData? get tool; int get toolEntry; WorkspaceCenterOverlay get overlay; int get overlayEntry; bool get settingsFocusSupport; bool get settingsFocusConnection; bool get settingsFocusUsage; bool get settingsFocusAppUpdate; bool get centerInFront;
 /// Create a copy of WorkspaceNavigationState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -26,16 +26,21 @@ $WorkspaceNavigationStateCopyWith<WorkspaceNavigationState> get copyWith => _$Wo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkspaceNavigationState&&(identical(other.selection, selection) || other.selection == selection)&&(identical(other.liveSessionId, liveSessionId) || other.liveSessionId == liveSessionId)&&(identical(other.sessionEntry, sessionEntry) || other.sessionEntry == sessionEntry)&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.toolEntry, toolEntry) || other.toolEntry == toolEntry)&&(identical(other.overlay, overlay) || other.overlay == overlay)&&(identical(other.overlayEntry, overlayEntry) || other.overlayEntry == overlayEntry)&&(identical(other.settingsFocusSupport, settingsFocusSupport) || other.settingsFocusSupport == settingsFocusSupport)&&(identical(other.settingsFocusConnection, settingsFocusConnection) || other.settingsFocusConnection == settingsFocusConnection)&&(identical(other.settingsFocusUsage, settingsFocusUsage) || other.settingsFocusUsage == settingsFocusUsage)&&(identical(other.centerInFront, centerInFront) || other.centerInFront == centerInFront));
+  final _this = this as WorkspaceNavigationState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkspaceNavigationState&&(identical(other.selection, _this.selection) || other.selection == _this.selection)&&(identical(other.liveSessionId, _this.liveSessionId) || other.liveSessionId == _this.liveSessionId)&&(identical(other.sessionEntry, _this.sessionEntry) || other.sessionEntry == _this.sessionEntry)&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.toolEntry, _this.toolEntry) || other.toolEntry == _this.toolEntry)&&(identical(other.overlay, _this.overlay) || other.overlay == _this.overlay)&&(identical(other.overlayEntry, _this.overlayEntry) || other.overlayEntry == _this.overlayEntry)&&(identical(other.settingsFocusSupport, _this.settingsFocusSupport) || other.settingsFocusSupport == _this.settingsFocusSupport)&&(identical(other.settingsFocusConnection, _this.settingsFocusConnection) || other.settingsFocusConnection == _this.settingsFocusConnection)&&(identical(other.settingsFocusUsage, _this.settingsFocusUsage) || other.settingsFocusUsage == _this.settingsFocusUsage)&&(identical(other.settingsFocusAppUpdate, _this.settingsFocusAppUpdate) || other.settingsFocusAppUpdate == _this.settingsFocusAppUpdate)&&(identical(other.centerInFront, _this.centerInFront) || other.centerInFront == _this.centerInFront));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,selection,liveSessionId,sessionEntry,tool,toolEntry,overlay,overlayEntry,settingsFocusSupport,settingsFocusConnection,settingsFocusUsage,centerInFront);
+int get hashCode {
+  final _this = this as WorkspaceNavigationState;
+  return Object.hash(runtimeType,_this.selection,_this.liveSessionId,_this.sessionEntry,_this.tool,_this.toolEntry,_this.overlay,_this.overlayEntry,_this.settingsFocusSupport,_this.settingsFocusConnection,_this.settingsFocusUsage,_this.settingsFocusAppUpdate,_this.centerInFront);
+}
 
 @override
 String toString() {
-  return 'WorkspaceNavigationState(selection: $selection, liveSessionId: $liveSessionId, sessionEntry: $sessionEntry, tool: $tool, toolEntry: $toolEntry, overlay: $overlay, overlayEntry: $overlayEntry, settingsFocusSupport: $settingsFocusSupport, settingsFocusConnection: $settingsFocusConnection, settingsFocusUsage: $settingsFocusUsage, centerInFront: $centerInFront)';
+  final _this = this as WorkspaceNavigationState;
+  return 'WorkspaceNavigationState(selection: ${_this.selection}, liveSessionId: ${_this.liveSessionId}, sessionEntry: ${_this.sessionEntry}, tool: ${_this.tool}, toolEntry: ${_this.toolEntry}, overlay: ${_this.overlay}, overlayEntry: ${_this.overlayEntry}, settingsFocusSupport: ${_this.settingsFocusSupport}, settingsFocusConnection: ${_this.settingsFocusConnection}, settingsFocusUsage: ${_this.settingsFocusUsage}, settingsFocusAppUpdate: ${_this.settingsFocusAppUpdate}, centerInFront: ${_this.centerInFront})';
 }
 
 
@@ -46,7 +51,7 @@ abstract mixin class $WorkspaceNavigationStateCopyWith<$Res>  {
   factory $WorkspaceNavigationStateCopyWith(WorkspaceNavigationState value, $Res Function(WorkspaceNavigationState) _then) = _$WorkspaceNavigationStateCopyWithImpl;
 @useResult
 $Res call({
- WorkspaceSessionSelection? selection, String? liveSessionId, int sessionEntry, WorkspaceToolPaneData? tool, int toolEntry, WorkspaceCenterOverlay overlay, int overlayEntry, bool settingsFocusSupport, bool settingsFocusConnection, bool settingsFocusUsage, bool centerInFront
+ WorkspaceSessionSelection? selection, String? liveSessionId, int sessionEntry, WorkspaceToolPaneData? tool, int toolEntry, WorkspaceCenterOverlay overlay, int overlayEntry, bool settingsFocusSupport, bool settingsFocusConnection, bool settingsFocusUsage, bool settingsFocusAppUpdate, bool centerInFront
 });
 
 
@@ -63,7 +68,7 @@ class _$WorkspaceNavigationStateCopyWithImpl<$Res>
 
 /// Create a copy of WorkspaceNavigationState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? selection = freezed,Object? liveSessionId = freezed,Object? sessionEntry = null,Object? tool = freezed,Object? toolEntry = null,Object? overlay = null,Object? overlayEntry = null,Object? settingsFocusSupport = null,Object? settingsFocusConnection = null,Object? settingsFocusUsage = null,Object? centerInFront = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? selection = freezed,Object? liveSessionId = freezed,Object? sessionEntry = null,Object? tool = freezed,Object? toolEntry = null,Object? overlay = null,Object? overlayEntry = null,Object? settingsFocusSupport = null,Object? settingsFocusConnection = null,Object? settingsFocusUsage = null,Object? settingsFocusAppUpdate = null,Object? centerInFront = null,}) {
   return _then(WorkspaceNavigationState(
 selection: freezed == selection ? _self.selection : selection // ignore: cast_nullable_to_non_nullable
 as WorkspaceSessionSelection?,liveSessionId: freezed == liveSessionId ? _self.liveSessionId : liveSessionId // ignore: cast_nullable_to_non_nullable
@@ -75,6 +80,7 @@ as WorkspaceCenterOverlay,overlayEntry: null == overlayEntry ? _self.overlayEntr
 as int,settingsFocusSupport: null == settingsFocusSupport ? _self.settingsFocusSupport : settingsFocusSupport // ignore: cast_nullable_to_non_nullable
 as bool,settingsFocusConnection: null == settingsFocusConnection ? _self.settingsFocusConnection : settingsFocusConnection // ignore: cast_nullable_to_non_nullable
 as bool,settingsFocusUsage: null == settingsFocusUsage ? _self.settingsFocusUsage : settingsFocusUsage // ignore: cast_nullable_to_non_nullable
+as bool,settingsFocusAppUpdate: null == settingsFocusAppUpdate ? _self.settingsFocusAppUpdate : settingsFocusAppUpdate // ignore: cast_nullable_to_non_nullable
 as bool,centerInFront: null == centerInFront ? _self.centerInFront : centerInFront // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -161,10 +167,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool centerInFront)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool settingsFocusAppUpdate,  bool centerInFront)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkspaceNavigationState() when $default != null:
-return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.centerInFront);case _:
+return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.settingsFocusAppUpdate,_that.centerInFront);case _:
   return orElse();
 
 }
@@ -182,10 +188,10 @@ return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.too
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool centerInFront)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool settingsFocusAppUpdate,  bool centerInFront)  $default,) {final _that = this;
 switch (_that) {
 case _WorkspaceNavigationState():
-return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.centerInFront);case _:
+return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.settingsFocusAppUpdate,_that.centerInFront);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +208,10 @@ return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.too
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool centerInFront)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WorkspaceSessionSelection? selection,  String? liveSessionId,  int sessionEntry,  WorkspaceToolPaneData? tool,  int toolEntry,  WorkspaceCenterOverlay overlay,  int overlayEntry,  bool settingsFocusSupport,  bool settingsFocusConnection,  bool settingsFocusUsage,  bool settingsFocusAppUpdate,  bool centerInFront)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkspaceNavigationState() when $default != null:
-return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.centerInFront);case _:
+return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.tool,_that.toolEntry,_that.overlay,_that.overlayEntry,_that.settingsFocusSupport,_that.settingsFocusConnection,_that.settingsFocusUsage,_that.settingsFocusAppUpdate,_that.centerInFront);case _:
   return null;
 
 }
@@ -217,7 +223,7 @@ return $default(_that.selection,_that.liveSessionId,_that.sessionEntry,_that.too
 
 
 class _WorkspaceNavigationState implements WorkspaceNavigationState {
-  const _WorkspaceNavigationState({this.selection, this.liveSessionId, this.sessionEntry = 0, this.tool, this.toolEntry = 0, this.overlay = WorkspaceCenterOverlay.none, this.overlayEntry = 0, this.settingsFocusSupport = false, this.settingsFocusConnection = false, this.settingsFocusUsage = false, this.centerInFront = false});
+  const _WorkspaceNavigationState({this.selection, this.liveSessionId, this.sessionEntry = 0, this.tool, this.toolEntry = 0, this.overlay = WorkspaceCenterOverlay.none, this.overlayEntry = 0, this.settingsFocusSupport = false, this.settingsFocusConnection = false, this.settingsFocusUsage = false, this.settingsFocusAppUpdate = false, this.centerInFront = false});
   
 
 @override final  WorkspaceSessionSelection? selection;
@@ -230,6 +236,7 @@ class _WorkspaceNavigationState implements WorkspaceNavigationState {
 @override@JsonKey() final  bool settingsFocusSupport;
 @override@JsonKey() final  bool settingsFocusConnection;
 @override@JsonKey() final  bool settingsFocusUsage;
+@override@JsonKey() final  bool settingsFocusAppUpdate;
 @override@JsonKey() final  bool centerInFront;
 
 /// Create a copy of WorkspaceNavigationState
@@ -242,16 +249,18 @@ _$WorkspaceNavigationStateCopyWith<_WorkspaceNavigationState> get copyWith => __
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkspaceNavigationState&&(identical(other.selection, selection) || other.selection == selection)&&(identical(other.liveSessionId, liveSessionId) || other.liveSessionId == liveSessionId)&&(identical(other.sessionEntry, sessionEntry) || other.sessionEntry == sessionEntry)&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.toolEntry, toolEntry) || other.toolEntry == toolEntry)&&(identical(other.overlay, overlay) || other.overlay == overlay)&&(identical(other.overlayEntry, overlayEntry) || other.overlayEntry == overlayEntry)&&(identical(other.settingsFocusSupport, settingsFocusSupport) || other.settingsFocusSupport == settingsFocusSupport)&&(identical(other.settingsFocusConnection, settingsFocusConnection) || other.settingsFocusConnection == settingsFocusConnection)&&(identical(other.settingsFocusUsage, settingsFocusUsage) || other.settingsFocusUsage == settingsFocusUsage)&&(identical(other.centerInFront, centerInFront) || other.centerInFront == centerInFront));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkspaceNavigationState&&(identical(other.selection, selection) || other.selection == selection)&&(identical(other.liveSessionId, liveSessionId) || other.liveSessionId == liveSessionId)&&(identical(other.sessionEntry, sessionEntry) || other.sessionEntry == sessionEntry)&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.toolEntry, toolEntry) || other.toolEntry == toolEntry)&&(identical(other.overlay, overlay) || other.overlay == overlay)&&(identical(other.overlayEntry, overlayEntry) || other.overlayEntry == overlayEntry)&&(identical(other.settingsFocusSupport, settingsFocusSupport) || other.settingsFocusSupport == settingsFocusSupport)&&(identical(other.settingsFocusConnection, settingsFocusConnection) || other.settingsFocusConnection == settingsFocusConnection)&&(identical(other.settingsFocusUsage, settingsFocusUsage) || other.settingsFocusUsage == settingsFocusUsage)&&(identical(other.settingsFocusAppUpdate, settingsFocusAppUpdate) || other.settingsFocusAppUpdate == settingsFocusAppUpdate)&&(identical(other.centerInFront, centerInFront) || other.centerInFront == centerInFront));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,selection,liveSessionId,sessionEntry,tool,toolEntry,overlay,overlayEntry,settingsFocusSupport,settingsFocusConnection,settingsFocusUsage,centerInFront);
+int get hashCode {
+    return Object.hash(runtimeType,selection,liveSessionId,sessionEntry,tool,toolEntry,overlay,overlayEntry,settingsFocusSupport,settingsFocusConnection,settingsFocusUsage,settingsFocusAppUpdate,centerInFront);
+}
 
 @override
 String toString() {
-  return 'WorkspaceNavigationState(selection: $selection, liveSessionId: $liveSessionId, sessionEntry: $sessionEntry, tool: $tool, toolEntry: $toolEntry, overlay: $overlay, overlayEntry: $overlayEntry, settingsFocusSupport: $settingsFocusSupport, settingsFocusConnection: $settingsFocusConnection, settingsFocusUsage: $settingsFocusUsage, centerInFront: $centerInFront)';
+    return 'WorkspaceNavigationState(selection: $selection, liveSessionId: $liveSessionId, sessionEntry: $sessionEntry, tool: $tool, toolEntry: $toolEntry, overlay: $overlay, overlayEntry: $overlayEntry, settingsFocusSupport: $settingsFocusSupport, settingsFocusConnection: $settingsFocusConnection, settingsFocusUsage: $settingsFocusUsage, settingsFocusAppUpdate: $settingsFocusAppUpdate, centerInFront: $centerInFront)';
 }
 
 
@@ -262,7 +271,7 @@ abstract mixin class _$WorkspaceNavigationStateCopyWith<$Res> implements $Worksp
   factory _$WorkspaceNavigationStateCopyWith(_WorkspaceNavigationState value, $Res Function(_WorkspaceNavigationState) _then) = __$WorkspaceNavigationStateCopyWithImpl;
 @override @useResult
 $Res call({
- WorkspaceSessionSelection? selection, String? liveSessionId, int sessionEntry, WorkspaceToolPaneData? tool, int toolEntry, WorkspaceCenterOverlay overlay, int overlayEntry, bool settingsFocusSupport, bool settingsFocusConnection, bool settingsFocusUsage, bool centerInFront
+ WorkspaceSessionSelection? selection, String? liveSessionId, int sessionEntry, WorkspaceToolPaneData? tool, int toolEntry, WorkspaceCenterOverlay overlay, int overlayEntry, bool settingsFocusSupport, bool settingsFocusConnection, bool settingsFocusUsage, bool settingsFocusAppUpdate, bool centerInFront
 });
 
 
@@ -279,7 +288,7 @@ class __$WorkspaceNavigationStateCopyWithImpl<$Res>
 
 /// Create a copy of WorkspaceNavigationState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? selection = freezed,Object? liveSessionId = freezed,Object? sessionEntry = null,Object? tool = freezed,Object? toolEntry = null,Object? overlay = null,Object? overlayEntry = null,Object? settingsFocusSupport = null,Object? settingsFocusConnection = null,Object? settingsFocusUsage = null,Object? centerInFront = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? selection = freezed,Object? liveSessionId = freezed,Object? sessionEntry = null,Object? tool = freezed,Object? toolEntry = null,Object? overlay = null,Object? overlayEntry = null,Object? settingsFocusSupport = null,Object? settingsFocusConnection = null,Object? settingsFocusUsage = null,Object? settingsFocusAppUpdate = null,Object? centerInFront = null,}) {
   return _then(_WorkspaceNavigationState(
 selection: freezed == selection ? _self.selection : selection // ignore: cast_nullable_to_non_nullable
 as WorkspaceSessionSelection?,liveSessionId: freezed == liveSessionId ? _self.liveSessionId : liveSessionId // ignore: cast_nullable_to_non_nullable
@@ -291,6 +300,7 @@ as WorkspaceCenterOverlay,overlayEntry: null == overlayEntry ? _self.overlayEntr
 as int,settingsFocusSupport: null == settingsFocusSupport ? _self.settingsFocusSupport : settingsFocusSupport // ignore: cast_nullable_to_non_nullable
 as bool,settingsFocusConnection: null == settingsFocusConnection ? _self.settingsFocusConnection : settingsFocusConnection // ignore: cast_nullable_to_non_nullable
 as bool,settingsFocusUsage: null == settingsFocusUsage ? _self.settingsFocusUsage : settingsFocusUsage // ignore: cast_nullable_to_non_nullable
+as bool,settingsFocusAppUpdate: null == settingsFocusAppUpdate ? _self.settingsFocusAppUpdate : settingsFocusAppUpdate // ignore: cast_nullable_to_non_nullable
 as bool,centerInFront: null == centerInFront ? _self.centerInFront : centerInFront // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

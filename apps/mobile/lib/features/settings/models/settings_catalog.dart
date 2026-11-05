@@ -125,6 +125,7 @@ abstract final class SettingsEntryIds {
   static const shareApp = 'share_app';
   static const starOnGithub = 'star_on_github';
   static const version = 'version';
+  static const appUpdate = 'app_update';
   static const macosNativeApp = 'macos_native_app';
   static const changelog = 'changelog';
   static const setupGuide = 'setup_guide';

@@ -417,7 +417,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     bool focusSupport = false,
     bool focusConnection = false,
     bool focusUsage = false,
+    bool focusAppUpdate = false,
   }) {
+    // The update focus follows the settings badge, so the settings button
+    // still toggles the overlay closed when settings is already open.
     if (_centerOverlay == WorkspaceCenterOverlay.settings &&
         !focusSupport &&
         !focusConnection &&
@@ -430,6 +433,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       focusSupport: focusSupport,
       focusConnection: focusConnection,
       focusUsage: focusUsage,
+      focusAppUpdate: focusAppUpdate,
     );
   }
 
@@ -748,6 +752,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                         settingsFocusSupport: false,
                         settingsFocusConnection: false,
                         settingsFocusUsage: false,
+                        settingsFocusAppUpdate: false,
                         settingsPresentationVersion: 0,
                       ),
                 pages: [
@@ -764,6 +769,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                         settingsFocusSupport: false,
                         settingsFocusConnection: false,
                         settingsFocusUsage: false,
+                        settingsFocusAppUpdate: false,
                         settingsPresentationVersion: 0,
                       ),
                     ),
@@ -780,6 +786,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                         settingsFocusSupport: _state.settingsFocusSupport,
                         settingsFocusConnection: _state.settingsFocusConnection,
                         settingsFocusUsage: _state.settingsFocusUsage,
+                        settingsFocusAppUpdate: _state.settingsFocusAppUpdate,
                         settingsPresentationVersion: _state.overlayEntry,
                       ),
                     ),
@@ -1108,6 +1115,7 @@ class _WorkspaceContentHost extends StatelessWidget {
   final bool settingsFocusSupport;
   final bool settingsFocusConnection;
   final bool settingsFocusUsage;
+  final bool settingsFocusAppUpdate;
   final int settingsPresentationVersion;
   final int? sessionEntry;
   final int? overlayEntry;
@@ -1120,6 +1128,7 @@ class _WorkspaceContentHost extends StatelessWidget {
     required this.settingsFocusSupport,
     required this.settingsFocusConnection,
     required this.settingsFocusUsage,
+    required this.settingsFocusAppUpdate,
     required this.settingsPresentationVersion,
     this.sessionEntry,
     this.overlayEntry,
@@ -1140,11 +1149,13 @@ class _WorkspaceContentHost extends StatelessWidget {
             'workspace_settings_$settingsPresentationVersion'
             '_$settingsFocusSupport'
             '_$settingsFocusConnection'
-            '_$settingsFocusUsage',
+            '_$settingsFocusUsage'
+            '_$settingsFocusAppUpdate',
           ),
           focusSupport: settingsFocusSupport,
           focusConnection: settingsFocusConnection,
           focusUsage: settingsFocusUsage,
+          focusAppUpdate: settingsFocusAppUpdate,
           embedded: true,
           onBack: () => shell?.popCenterOverlay(entry: overlayEntry),
         );

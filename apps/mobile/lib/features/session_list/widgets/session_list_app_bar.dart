@@ -63,7 +63,12 @@ class SessionListSliverAppBar extends StatelessWidget {
                     bridgeLabel: bridgeLabel,
                     onOpenSettings:
                         onOpenSettings ??
-                        () => context.router.navigate(SettingsRoute()),
+                        () => context.router.navigate(
+                          SettingsRoute(
+                            focusAppUpdate:
+                                AppUpdateService.instance.cachedUpdate != null,
+                          ),
+                        ),
                     onOpenGallery:
                         onOpenGallery ??
                         () => context.router.navigate(GalleryRoute()),
@@ -83,7 +88,12 @@ class SessionListSliverAppBar extends StatelessWidget {
             ),
             onPressed:
                 onOpenSettings ??
-                () => context.router.navigate(SettingsRoute()),
+                () => context.router.navigate(
+                  SettingsRoute(
+                    focusAppUpdate:
+                        AppUpdateService.instance.cachedUpdate != null,
+                  ),
+                ),
             tooltip: l.settings,
           ),
           IconButton(

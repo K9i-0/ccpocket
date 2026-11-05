@@ -24,13 +24,18 @@ class AboutSettingsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (hasAppUpdate)
+          const SettingsItem(
+            id: SettingsEntryIds.appUpdate,
+            framed: true,
+            child: SettingsGroup(children: [AppUpdateTile()]),
+          ),
         SettingsGroup(
           children: [
             const SettingsItem(
               id: SettingsEntryIds.version,
               child: VersionTile(),
             ),
-            if (hasAppUpdate) const AppUpdateTile(),
             if (visibility.isIOSAppOnMac)
               const SettingsItem(
                 id: SettingsEntryIds.macosNativeApp,

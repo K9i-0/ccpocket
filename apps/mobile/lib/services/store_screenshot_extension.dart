@@ -59,8 +59,7 @@ class StoreScreenshotState {
 
   /// The navigators that are currently mounted.
   static List<NavigatorState> get navigators => [
-    for (final key in navigatorKeys)
-      ?key.currentState,
+    for (final key in navigatorKeys) ?key.currentState,
   ];
 
   /// A context below the app-wide providers, for reading shared services.

@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/machine.dart';
 import '../../providers/machine_manager_cubit.dart';
+import '../../services/app_update_service.dart';
 import '../../services/bridge_service.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/revenuecat_service.dart';
@@ -30,6 +31,7 @@ class SettingsScreen extends StatefulWidget {
     this.focusConnection = false,
     this.focusSupport = false,
     this.focusUsage = false,
+    this.focusAppUpdate = false,
     this.embedded = false,
     this.onBack,
   });
@@ -42,6 +44,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Opens the usage category.
   final bool focusUsage;
+
+  /// Opens the about category and highlights the app update card.
+  final bool focusAppUpdate;
   final bool embedded;
   final VoidCallback? onBack;
 
@@ -120,7 +125,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _applyInitialFocus() {
     if (!mounted) return;
     final visibility = _currentVisibility();
-    final (category, entryId) = widget.focusConnection
+    final (category, entryId) = widget.focusAppUpdate
+        ? (SettingsCategory.about, SettingsEntryIds.appUpdate)
+        : widget.focusConnection
         ? (SettingsCategory.connection, SettingsEntryIds.bridgeUpdate)
         : widget.focusUsage
         ? (SettingsCategory.usage, SettingsEntryIds.usage)
@@ -131,6 +138,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Support can appear once the store catalog loads, so it is always opened.
     final canOpen =
         category == SettingsCategory.support ||
+        (entryId == SettingsEntryIds.appUpdate &&
+            AppUpdateService.instance.cachedUpdate != null) ||
         (settingsEntryById(entryId!)?.isVisible(visibility) ?? false);
     if (!canOpen) return;
     _openCategory(category, entryId: entryId);

@@ -819,13 +819,16 @@ class _SessionListScreenState extends State<SessionListScreen>
     context.read<SessionListCubit>().resetFilters();
   }
 
+  /// Opens settings. While the badge shows a pending app update, it jumps
+  /// straight to the update card so the badge's meaning is obvious.
   Future<void> _openSettings() async {
+    final hasAppUpdate = AppUpdateService.instance.cachedUpdate != null;
     final shell = WorkspaceShellScreen.maybeOf(context);
     if (shell != null) {
-      shell.openSettingsCenter();
+      shell.openSettingsCenter(focusAppUpdate: hasAppUpdate);
       return;
     }
-    await context.router.push(SettingsRoute());
+    await context.router.push(SettingsRoute(focusAppUpdate: hasAppUpdate));
   }
 
   void _openSupportSettings() {

@@ -586,6 +586,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
     bool focusConnection = false,
     bool focusSupport = false,
     bool focusUsage = false,
+    bool focusAppUpdate = false,
     bool embedded = false,
     VoidCallback? onBack,
     List<PageRouteInfo>? children,
@@ -596,6 +597,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
            focusConnection: focusConnection,
            focusSupport: focusSupport,
            focusUsage: focusUsage,
+           focusAppUpdate: focusAppUpdate,
            embedded: embedded,
            onBack: onBack,
          ),
@@ -615,6 +617,7 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
         focusConnection: args.focusConnection,
         focusSupport: args.focusSupport,
         focusUsage: args.focusUsage,
+        focusAppUpdate: args.focusAppUpdate,
         embedded: args.embedded,
         onBack: args.onBack,
       );
@@ -628,6 +631,7 @@ class SettingsRouteArgs {
     this.focusConnection = false,
     this.focusSupport = false,
     this.focusUsage = false,
+    this.focusAppUpdate = false,
     this.embedded = false,
     this.onBack,
   });
@@ -640,13 +644,15 @@ class SettingsRouteArgs {
 
   final bool focusUsage;
 
+  final bool focusAppUpdate;
+
   final bool embedded;
 
   final VoidCallback? onBack;
 
   @override
   String toString() {
-    return 'SettingsRouteArgs{key: $key, focusConnection: $focusConnection, focusSupport: $focusSupport, focusUsage: $focusUsage, embedded: $embedded, onBack: $onBack}';
+    return 'SettingsRouteArgs{key: $key, focusConnection: $focusConnection, focusSupport: $focusSupport, focusUsage: $focusUsage, focusAppUpdate: $focusAppUpdate, embedded: $embedded, onBack: $onBack}';
   }
 
   @override
@@ -657,6 +663,7 @@ class SettingsRouteArgs {
         focusConnection == other.focusConnection &&
         focusSupport == other.focusSupport &&
         focusUsage == other.focusUsage &&
+        focusAppUpdate == other.focusAppUpdate &&
         embedded == other.embedded &&
         onBack == other.onBack;
   }
@@ -667,6 +674,7 @@ class SettingsRouteArgs {
       focusConnection.hashCode ^
       focusSupport.hashCode ^
       focusUsage.hashCode ^
+      focusAppUpdate.hashCode ^
       embedded.hashCode ^
       onBack.hashCode;
 }

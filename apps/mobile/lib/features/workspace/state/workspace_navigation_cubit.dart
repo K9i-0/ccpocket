@@ -76,6 +76,7 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
     bool focusSupport = false,
     bool focusConnection = false,
     bool focusUsage = false,
+    bool focusAppUpdate = false,
   }) => emit(
     state.copyWith(
       overlay: overlay,
@@ -83,6 +84,7 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
       settingsFocusSupport: focusSupport,
       settingsFocusConnection: focusConnection,
       settingsFocusUsage: focusUsage,
+      settingsFocusAppUpdate: focusAppUpdate,
       centerInFront: true,
     ),
   );

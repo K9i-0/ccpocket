@@ -122,6 +122,9 @@ class AppUpdateService {
   /// Returns cached update info (if any), without making a network request.
   AppUpdateInfo? get cachedUpdate => _cachedUpdate;
 
+  @visibleForTesting
+  set debugCachedUpdate(AppUpdateInfo? update) => _cachedUpdate = update;
+
   /// Whether the user has dismissed the banner for the current latest version.
   bool _isDismissed = false;
   bool get isDismissedByUser => _isDismissed;
