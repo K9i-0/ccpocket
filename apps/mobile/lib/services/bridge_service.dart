@@ -621,7 +621,8 @@ class BridgeService implements BridgeServiceBase {
     this.recentSessionsRequestTimeout = const Duration(seconds: 10),
     this.galleryRequestTimeout = const Duration(seconds: 10),
     this.legacyWorktreeRemoveRequestTimeout = const Duration(seconds: 10),
-  }) {
+    WebSocketChannel Function(Uri uri)? channelFactory,
+  }) : _channelFactory = channelFactory ?? WebSocketChannel.connect {
     unawaited(_ensureOfflineQueueRestored());
   }
 
@@ -764,6 +765,11 @@ class BridgeService implements BridgeServiceBase {
   final Duration galleryRequestTimeout;
   final Duration legacyWorktreeRemoveRequestTimeout;
 
+  /// Opens the Bridge socket. Tests inject an in-memory channel here so the
+  /// real service logic runs against a fixture Bridge (see
+  /// docs/reflex-prototype.md).
+  final WebSocketChannel Function(Uri uri) _channelFactory;
+
   Future<void>? _offlineQueueRestore;
   Future<void> _offlinePendingPersistence = Future<void>.value();
   int _offlineQueueGeneration = 0;
@@ -810,7 +816,7 @@ class BridgeService implements BridgeServiceBase {
 
     _setBridgeConnectionState(BridgeConnectionState.connecting);
     try {
-      final channel = WebSocketChannel.connect(Uri.parse(url));
+      final channel = _channelFactory(Uri.parse(url));
       _channel = channel;
       _channelSub = channel.stream.listen(
         (data) {

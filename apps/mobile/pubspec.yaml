@@ -132,6 +132,7 @@ dev_dependencies:
   shared_preferences_platform_interface: ^2.4.2
   json_serializable: ^6.15.2
   auto_route_generator: ^10.4.0
+  web_socket: ^1.0.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
