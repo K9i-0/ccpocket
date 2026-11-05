@@ -13,10 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Changed
 
 - When a macOS app update is pending, the settings badge opens About directly and highlights the update card, which now has its own card.
+- The app expects Bridge 1.99.1.
 
 ### Fixed
 
 - The Claude default model is labeled "Default" instead of "Default (recommended)", so the effort value is no longer pushed out of the compact settings chip.
+- Claude's short notes between tool calls show up in performance mode and in restored history, as in the Claude Code terminal, and are no longer repeated as a thinking bubble. Requires Bridge 1.99.1.
 
 ## [1.156.0] - 2026-11-05
 
