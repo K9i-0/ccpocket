@@ -237,6 +237,30 @@ void main() {
       expect(handler.currentThinkingText, isEmpty);
     });
 
+    test('does not duplicate streamed narration delivered as text', () {
+      handler.handle(
+        const ThinkingDeltaMessage(text: 'Running checks now.\n\n'),
+        isBackground: false,
+      );
+
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-narration',
+            role: 'assistant',
+            content: [const TextContent(text: 'Running checks now.')],
+            model: 'test',
+          ),
+        ),
+        isBackground: false,
+      );
+
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      final assistant = entry.message as AssistantServerMessage;
+      expect(assistant.message.content.whereType<ThinkingContent>(), isEmpty);
+      expect(handler.currentThinkingText, isEmpty);
+    });
+
     test('detects AskUserQuestion tool use', () {
       final update = handler.handle(
         AssistantServerMessage(

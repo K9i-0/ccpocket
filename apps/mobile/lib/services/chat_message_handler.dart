@@ -487,11 +487,19 @@ class ChatMessageHandler {
           );
 
     // Inject accumulated thinking text.
-    if (currentThinkingText.trim().isNotEmpty) {
+    final accumulatedThinking = currentThinkingText.trim();
+    if (accumulatedThinking.isNotEmpty) {
       final hasThinking = displayMessage.content.any(
         (content) => content is ThinkingContent,
       );
-      if (!hasThinking) {
+      // Claude narration streams as thinking deltas, but the Bridge delivers
+      // the final block as text; don't show it twice.
+      final streamedNarration = displayMessage.content.any(
+        (content) =>
+            content is TextContent &&
+            content.text.trim() == accumulatedThinking,
+      );
+      if (!hasThinking && !streamedNarration) {
         displayMessage = AssistantMessage(
           id: displayMessage.id,
           role: displayMessage.role,
