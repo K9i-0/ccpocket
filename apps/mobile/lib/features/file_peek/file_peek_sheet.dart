@@ -865,23 +865,28 @@ class _FilePeekImagePreview extends StatelessWidget {
     return GestureDetector(
       key: const ValueKey('file_peek_image_preview'),
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: ColoredBox(
         color: Colors.black,
-        alignment: Alignment.center,
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: isSvg
-              ? SvgPicture.memory(bytes, fit: BoxFit.contain)
-              : Image.memory(
-                  bytes,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 48,
-                  ),
-                ),
+        // The viewer fills the preview area so a zoomed image can use all of
+        // it instead of being clipped to the image's initial bounds.
+        child: SizedBox.expand(
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Center(
+              child: isSvg
+                  ? SvgPicture.memory(bytes, fit: BoxFit.contain)
+                  : Image.memory(
+                      bytes,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.broken_image,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
+                    ),
+            ),
+          ),
         ),
       ),
     );

@@ -248,11 +248,11 @@ class _SingleImageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SizedBox.expand(
       child: InteractiveViewer(
         minScale: 0.5,
         maxScale: 4.0,
-        child: _NetworkImage(url: url, failedIconSize: 48),
+        child: Center(child: _NetworkImage(url: url, failedIconSize: 48)),
       ),
     );
   }

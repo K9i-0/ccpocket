@@ -259,38 +259,42 @@ class FullScreenImageViewer extends StatelessWidget {
                 media: feedbackMedia!,
               ),
             ),
-      body: Center(
+      body: SizedBox.expand(
         child: InteractiveViewer(
           minScale: 0.5,
           maxScale: 4.0,
-          child: bytes != null
-              ? isSvg
-                    ? SvgPicture.memory(bytes!, fit: BoxFit.contain)
-                    : Image.memory(bytes!, fit: BoxFit.contain)
-              : ExtendedImage.network(
-                  url!,
-                  fit: BoxFit.contain,
-                  cache: true,
-                  cacheMaxAge: _kCacheMaxAge,
-                  loadStateChanged: (state) {
-                    switch (state.extendedImageLoadState) {
-                      case LoadState.loading:
-                        return const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        );
-                      case LoadState.completed:
-                        return state.completedWidget;
-                      case LoadState.failed:
-                        return const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: Colors.white54,
-                            size: 48,
-                          ),
-                        );
-                    }
-                  },
-                ),
+          child: Center(
+            child: bytes != null
+                ? isSvg
+                      ? SvgPicture.memory(bytes!, fit: BoxFit.contain)
+                      : Image.memory(bytes!, fit: BoxFit.contain)
+                : ExtendedImage.network(
+                    url!,
+                    fit: BoxFit.contain,
+                    cache: true,
+                    cacheMaxAge: _kCacheMaxAge,
+                    loadStateChanged: (state) {
+                      switch (state.extendedImageLoadState) {
+                        case LoadState.loading:
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          );
+                        case LoadState.completed:
+                          return state.completedWidget;
+                        case LoadState.failed:
+                          return const Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              color: Colors.white54,
+                              size: 48,
+                            ),
+                          );
+                      }
+                    },
+                  ),
+          ),
         ),
       ),
     );
