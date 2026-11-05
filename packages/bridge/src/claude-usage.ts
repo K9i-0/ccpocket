@@ -12,6 +12,18 @@ import type { UsageInfo, UsageWindow } from "./usage.js";
 // credentials or call claude.ai endpoints directly; the SDK resolves auth.
 
 const CLAUDE_USAGE_TIMEOUT_MS = 15_000;
+// A live session answers the control request in well under a second even
+// mid-turn; fall back to a standalone query quickly when it does not.
+const CLAUDE_LIVE_USAGE_TIMEOUT_MS = 5_000;
+// After a failed refresh, keep showing the last successful windows (with the
+// error attached) for this long, dropping any window whose reset has passed.
+const CLAUDE_USAGE_RETAIN_MS = 60 * 60 * 1000;
+
+/**
+ * Reads the raw experimental usage response through an already running Claude
+ * session. Resolves to undefined when no session can answer.
+ */
+export type ClaudeLiveUsageReader = () => Promise<unknown>;
 
 /**
  * Minimal structural view of the experimental Query method. Kept local so a
@@ -77,11 +89,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function readClaudeUsage(): Promise<UsageInfo | null> {
+async function readClaudeUsage(
+  readLive?: ClaudeLiveUsageReader,
+): Promise<UsageInfo | null> {
   // Same preflight as Claude sessions: without an explicit credential,
   // Bedrock, or the OAuth opt-in, Claude is simply not configured here.
   if (!canStartClaudeSdk()) return null;
 
+  // Prefer a running session: it avoids spawning a Claude Code process just
+  // to read usage. Sessions already enforce the OAuth opt-in at startup.
+  if (readLive) {
+    try {
+      const live = await withTimeout(readLive(), CLAUDE_LIVE_USAGE_TIMEOUT_MS);
+      const mapped = live === undefined ? null : mapClaudeUsageResponse(live);
+      if (mapped) return mapped;
+    } catch (err) {
+      console.warn(
+        `[claude-usage] Live session usage failed, using a standalone query: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return readStandaloneClaudeUsage();
+}
+
+async function readStandaloneClaudeUsage(): Promise<UsageInfo | null> {
   const queryInstance = query({
     prompt: createIdleUserMessageStream(),
     options: {
@@ -142,22 +173,59 @@ async function readClaudeUsage(): Promise<UsageInfo | null> {
 // Share concurrent reads (launch/resume/refresh can overlap), but never cache
 // a completed snapshot so a manual refresh always queries fresh data.
 let pendingClaudeUsage: Promise<UsageInfo | null> | null = null;
+let lastClaudeUsage: { usage: UsageInfo; fetchedAt: number } | null = null;
+
+/** Attach a failure to the last good windows that are still current. */
+function retainLastClaudeUsage(failed: UsageInfo): UsageInfo {
+  const now = Date.now();
+  if (!lastClaudeUsage || now - lastClaudeUsage.fetchedAt > CLAUDE_USAGE_RETAIN_MS) {
+    return failed;
+  }
+  const current = (window: UsageWindow | null | undefined) =>
+    window && Date.parse(window.resetsAt) > now ? window : null;
+  const fiveHour = current(lastClaudeUsage.usage.fiveHour);
+  const sevenDay = current(lastClaudeUsage.usage.sevenDay);
+  if (!fiveHour && !sevenDay) return failed;
+  // Clients render windows when present, so the error does not hide them.
+  return { ...failed, fiveHour, sevenDay };
+}
+
+function recordClaudeUsage(result: UsageInfo | null): UsageInfo | null {
+  if (!result) {
+    lastClaudeUsage = null;
+    return null;
+  }
+  if (result.error) return retainLastClaudeUsage(result);
+  lastClaudeUsage = { usage: result, fetchedAt: Date.now() };
+  return result;
+}
 
 /**
  * Fetch Claude plan usage. Resolves to null when Claude plan limits are not
  * applicable (not configured, API key/Bedrock/Vertex auth, OAuth not opted in,
  * or an SDK without the experimental API). Never rejects.
+ *
+ * `readLive` lets the caller answer from a running Claude session first; a
+ * standalone SDK query is used when it is absent, empty, or fails.
  */
-export function fetchClaudeUsage(): Promise<UsageInfo | null> {
-  pendingClaudeUsage ??= readClaudeUsage()
+export function fetchClaudeUsage(
+  readLive?: ClaudeLiveUsageReader,
+): Promise<UsageInfo | null> {
+  pendingClaudeUsage ??= readClaudeUsage(readLive)
     .catch((err: unknown): UsageInfo => ({
       provider: "claude",
       fiveHour: null,
       sevenDay: null,
       error: `Failed to fetch Claude usage: ${err instanceof Error ? err.message : String(err)}`,
     }))
+    .then(recordClaudeUsage)
     .finally(() => {
       pendingClaudeUsage = null;
     });
   return pendingClaudeUsage;
+}
+
+/** Test-only: forget the retained last successful usage. */
+export function resetClaudeUsageCacheForTest(): void {
+  lastClaudeUsage = null;
 }

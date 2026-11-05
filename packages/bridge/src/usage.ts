@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { fetchClaudeUsage } from "./claude-usage.js";
+import { fetchClaudeUsage, type ClaudeLiveUsageReader } from "./claude-usage.js";
 import { CodexProcess } from "./codex-process.js";
 
 // ── Types ──
@@ -131,9 +131,11 @@ async function readCodexUsage(): Promise<UsageInfo> {
  * Fetch usage for every provider with plan limits. Claude is omitted when its
  * plan limits do not apply; a Claude failure never blocks Codex usage.
  */
-export async function fetchAllUsage(): Promise<UsageInfo[]> {
+export async function fetchAllUsage(options: {
+  readClaudeLive?: ClaudeLiveUsageReader;
+} = {}): Promise<UsageInfo[]> {
   const [claude, codex] = await Promise.all([
-    fetchClaudeUsage().catch(() => null),
+    fetchClaudeUsage(options.readClaudeLive).catch(() => null),
     fetchCodexUsage(),
   ]);
   return claude ? [claude, codex] : [codex];

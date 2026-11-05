@@ -3345,6 +3345,11 @@ export class BridgeWebSocketServer {
   }
 
   /** Return connected WebSocket client count. */
+  /** Claude plan usage through a running session, if any. */
+  readClaudePlanUsage(): Promise<unknown> {
+    return this.sessionManager.readClaudePlanUsage();
+  }
+
   get clientCount(): number {
     return this.wss.clients.size;
   }
@@ -6035,7 +6040,7 @@ export class BridgeWebSocketServer {
       }
 
       case "get_usage": {
-        fetchAllUsage()
+        fetchAllUsage({ readClaudeLive: () => this.readClaudePlanUsage() })
           .then((providers) => {
             this.send(ws, { type: "usage_result", providers } as Record<
               string,

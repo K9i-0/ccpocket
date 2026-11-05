@@ -1196,6 +1196,28 @@ describe("SessionManager codex path", () => {
     expect(manager.releaseDeferredProcessMessages(sessionId)).toBe(false);
   });
 
+  describe("readClaudePlanUsage", () => {
+    it("reads from the first Claude session that answers", async () => {
+      const manager = new SessionManager(() => {});
+      manager.create("/tmp/codex-usage", undefined, undefined, undefined, "codex");
+      manager.create("/tmp/claude-a");
+      const first = sdkInstances.at(-1) as any;
+      first.readPlanUsage = vi.fn(async () => { throw new Error("closed"); });
+      manager.create("/tmp/claude-b");
+      const second = sdkInstances.at(-1) as any;
+      second.readPlanUsage = vi.fn(async () => ({ rate_limits_available: true }));
+
+      await expect(manager.readClaudePlanUsage()).resolves.toEqual({ rate_limits_available: true });
+      expect(first.readPlanUsage).toHaveBeenCalledOnce();
+    });
+
+    it("resolves undefined without a Claude session", async () => {
+      const manager = new SessionManager(() => {});
+      manager.create("/tmp/codex-only", undefined, undefined, undefined, "codex");
+      await expect(manager.readClaudePlanUsage()).resolves.toBeUndefined();
+    });
+  });
+
   describe("usage-limit queue", () => {
     beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-03T00:00:00Z")); });
     afterEach(() => vi.useRealTimers());

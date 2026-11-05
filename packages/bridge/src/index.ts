@@ -214,7 +214,10 @@ export async function startServer() {
 
     // Usage endpoint
     if (req.url === "/usage" && req.method === "GET") {
-      fetchAllUsage()
+      const server = wsServer;
+      fetchAllUsage(
+        server ? { readClaudeLive: () => server.readClaudePlanUsage() } : {},
+      )
         .then((providers) => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ providers }));

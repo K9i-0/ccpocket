@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchClaudeUsage, mapClaudeUsageResponse } from "./claude-usage.js";
+import {
+  fetchClaudeUsage,
+  mapClaudeUsageResponse,
+  resetClaudeUsageCacheForTest,
+} from "./claude-usage.js";
 
 const { mockSdkQuery } = vi.hoisted(() => ({
   mockSdkQuery: vi.fn(),
@@ -112,6 +116,7 @@ describe("mapClaudeUsageResponse", () => {
 describe("fetchClaudeUsage", () => {
   beforeEach(() => {
     mockSdkQuery.mockReset();
+    resetClaudeUsageCacheForTest();
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
     vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
@@ -218,5 +223,132 @@ describe("fetchClaudeUsage", () => {
     mockQuery();
     await fetchClaudeUsage();
     expect(mockSdkQuery).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("fetchClaudeUsage with a running session", () => {
+  beforeEach(() => {
+    mockSdkQuery.mockReset();
+    resetClaudeUsageCacheForTest();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it("answers from the session without spawning a query", async () => {
+    const readLive = vi.fn().mockResolvedValue(subscriptionUsage);
+    await expect(fetchClaudeUsage(readLive)).resolves.toMatchObject({
+      fiveHour: { utilization: 42 },
+    });
+    expect(readLive).toHaveBeenCalledOnce();
+    expect(mockSdkQuery).not.toHaveBeenCalled();
+  });
+
+  it("still respects the Claude preflight", async () => {
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
+    const readLive = vi.fn().mockResolvedValue(subscriptionUsage);
+    await expect(fetchClaudeUsage(readLive)).resolves.toBeNull();
+    expect(readLive).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no session can answer", vi.fn().mockResolvedValue(undefined)],
+    ["the session fails", vi.fn().mockRejectedValue(new Error("closed"))],
+    [
+      "the session has no plan limits",
+      vi.fn().mockResolvedValue({ rate_limits_available: false }),
+    ],
+  ])("falls back to a standalone query when %s", async (_, readLive) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { usage } = mockQuery();
+    await expect(fetchClaudeUsage(readLive)).resolves.toMatchObject({
+      sevenDay: { utilization: 53.5 },
+    });
+    expect(usage).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  it("falls back when the session does not answer in time", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { usage } = mockQuery();
+    const result = fetchClaudeUsage(() => new Promise(() => {}));
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(result).resolves.toMatchObject({ fiveHour: { utilization: 42 } });
+    expect(usage).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+});
+
+describe("fetchClaudeUsage retention", () => {
+  const future = {
+    rate_limits_available: true,
+    rate_limits: {
+      five_hour: { utilization: 42, resets_at: "2026-11-06T07:30:00Z" },
+      seven_day: { utilization: 60, resets_at: "2026-11-10T00:00:00Z" },
+    },
+  };
+
+  beforeEach(() => {
+    mockSdkQuery.mockReset();
+    resetClaudeUsageCacheForTest();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-06T07:00:00Z"));
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+    vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+    vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "1");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  const fail = () =>
+    fetchClaudeUsage(vi.fn().mockRejectedValue(new Error("live down")));
+
+  async function succeed() {
+    await fetchClaudeUsage(vi.fn().mockResolvedValue(future));
+  }
+
+  function failStandalone() {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockQuery({ usage: vi.fn().mockRejectedValue(new Error("timed out")) });
+  }
+
+  it("keeps the last good windows with the error after a failure", async () => {
+    await succeed();
+    failStandalone();
+    await expect(fail()).resolves.toEqual({
+      provider: "claude",
+      fiveHour: { utilization: 42, resetsAt: "2026-11-06T07:30:00.000Z" },
+      sevenDay: { utilization: 60, resetsAt: "2026-11-10T00:00:00.000Z" },
+      error: "Failed to fetch Claude usage: timed out",
+    });
+  });
+
+  it("drops windows whose reset has passed", async () => {
+    await succeed();
+    vi.setSystemTime(new Date("2026-11-06T07:45:00Z"));
+    failStandalone();
+    const result = await fail();
+    expect(result?.fiveHour).toBeNull();
+    expect(result?.sevenDay?.utilization).toBe(60);
+  });
+
+  it("stops retaining after an hour", async () => {
+    await succeed();
+    vi.setSystemTime(new Date("2026-11-06T08:00:01Z"));
+    failStandalone();
+    const result = await fail();
+    expect(result).toMatchObject({ fiveHour: null, sevenDay: null });
+    expect(result?.error).toContain("timed out");
   });
 });

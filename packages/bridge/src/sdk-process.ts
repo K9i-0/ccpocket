@@ -936,6 +936,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private usageLimitResetAt?: number;
 
+  /**
+   * Raw plan usage through this session's control channel. Works mid-turn.
+   * Resolves to undefined when the session has no live query or the SDK no
+   * longer exposes the experimental API.
+   */
+  async readPlanUsage(): Promise<unknown> {
+    const query = this.queryInstance;
+    if (!query || this.stopped) return undefined;
+    const read = query.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
+    if (typeof read !== "function") return undefined;
+    return read.call(query, { skipBehaviors: true });
+  }
+
   async readUsageLimitResetAt(): Promise<number | undefined> {
     const query = this.queryInstance;
     if (!query) throw new Error("Claude session is unavailable");

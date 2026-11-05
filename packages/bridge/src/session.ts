@@ -1718,6 +1718,24 @@ export class SessionManager {
     return { ok: true };
   }
 
+  /**
+   * Raw Claude plan usage from the first running Claude session that answers,
+   * so usage refreshes avoid spawning a separate Claude Code process.
+   * Resolves to undefined when no Claude session can answer.
+   */
+  async readClaudePlanUsage(): Promise<unknown> {
+    for (const session of this.sessions.values()) {
+      if (!(session.process instanceof SdkProcess)) continue;
+      try {
+        const usage = await session.process.readPlanUsage();
+        if (usage !== undefined) return usage;
+      } catch {
+        // Try the next session; the caller falls back to a standalone query.
+      }
+    }
+    return undefined;
+  }
+
   isUsageLimited(id: string): boolean {
     return this.sessions.get(id)?.usageLimitUntil !== undefined;
   }
