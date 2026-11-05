@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.99.1] - 2026-11-05
+
+### Fixed
+
+- Claude's short notes between tool calls (narration) are delivered as assistant text, as in the Claude Code terminal. They were sent as thinking, so performance mode dropped them and restored history skipped them.
+
 ## [1.99.0] - 2026-11-05
 
 ### Added
