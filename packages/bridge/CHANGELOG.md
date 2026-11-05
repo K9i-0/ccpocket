@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.100.0] - 2026-11-06
+
+### Changed
+
+- Claude plan usage is read through a running Claude session when one exists (it works mid-turn), instead of starting a separate Claude Code process for every refresh. Without a session, or if the session does not answer within 5 seconds, Bridge falls back to the standalone query.
+- If a Claude usage refresh fails, Bridge keeps reporting the last successful windows with the error attached, for up to an hour and only while each window has not reset. Previously the usage card showed only the error.
+
 ## [1.99.1] - 2026-11-05
 
 ### Fixed
