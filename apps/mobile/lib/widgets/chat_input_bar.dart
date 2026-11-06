@@ -17,6 +17,7 @@ import '../utils/platform_helper.dart';
 import '../utils/diff_parser.dart';
 import 'bubbles/image_preview.dart';
 import 'duo/duo_control_strip.dart';
+import 'soft_keyboard_dismissal.dart';
 
 /// Bottom input bar with slash-command button, text field, and action buttons.
 ///
@@ -893,13 +894,12 @@ class _InputTextFieldState extends State<_InputTextField>
     }
   }
 
-  bool get _hasAndroidImeInset =>
-      (View.maybeOf(context)?.viewInsets.bottom ?? 0) > 0;
+  bool get _hasAndroidImeInset => isSoftKeyboardVisible(context);
 
   void _resetAndroidIme() {
     _focusNode.unfocus();
     if (identical(_androidImeOwner, this)) _androidImeOwner = null;
-    unawaited(_hideAndroidIme());
+    unawaited(hideSoftKeyboard());
   }
 
   void _handleFocusChanged() {
@@ -915,14 +915,6 @@ class _InputTextFieldState extends State<_InputTextField>
         when primaryFocus is! FocusScopeNode &&
             identical(_androidImeOwner, this)) {
       _androidImeOwner = null;
-    }
-  }
-
-  Future<void> _hideAndroidIme() async {
-    try {
-      await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-    } catch (_) {
-      // The text input channel may already be disconnected.
     }
   }
 

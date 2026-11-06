@@ -32,6 +32,7 @@ import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
+import '../../widgets/soft_keyboard_dismissal.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
 import '../../widgets/duo/duo_control_strip.dart';
@@ -1903,20 +1904,22 @@ class _SessionListScreenState extends State<SessionListScreen>
                   },
                   child: Focus(
                     autofocus: true,
-                    child: _buildScaffoldBody(
-                      context: context,
-                      l: l,
-                      showConnectedUI: showConnectedUI,
-                      connectionState: connectionState,
-                      sessions: sessions,
-                      recentSessionsList: recentSessionsList,
-                      workspaceProjects: workspaceProjects,
-                      slState: slState,
-                      unseenSessionIds: unseenSessionIds,
-                      discoveredServers: discoveredServers,
-                      machineState: machineState,
-                      machineManagerCubit: machineManagerCubit,
-                      connectedBridgeLabel: connectedBridgeLabel,
+                    child: DismissKeyboardOnUserScroll(
+                      child: _buildScaffoldBody(
+                        context: context,
+                        l: l,
+                        showConnectedUI: showConnectedUI,
+                        connectionState: connectionState,
+                        sessions: sessions,
+                        recentSessionsList: recentSessionsList,
+                        workspaceProjects: workspaceProjects,
+                        slState: slState,
+                        unseenSessionIds: unseenSessionIds,
+                        discoveredServers: discoveredServers,
+                        machineState: machineState,
+                        machineManagerCubit: machineManagerCubit,
+                        connectedBridgeLabel: connectedBridgeLabel,
+                      ),
                     ),
                   ),
                 ),

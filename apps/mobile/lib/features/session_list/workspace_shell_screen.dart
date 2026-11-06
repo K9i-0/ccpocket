@@ -28,6 +28,7 @@ import '../workspace/state/workspace_navigation_state.dart';
 import '../workspace/state/workspace_destination.dart';
 import '../workspace/widgets/workspace_pane_navigator.dart';
 import '../../widgets/duo/duo_control_strip.dart';
+import '../../widgets/soft_keyboard_dismissal.dart';
 
 export '../workspace/state/workspace_destination.dart'
     show WorkspaceSessionSelection;
@@ -186,6 +187,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   GlobalKey<NavigatorState> _browserNavigatorKey = GlobalKey<NavigatorState>();
   WidgetBuilder? _browserBuilder;
   VoidCallback? _browserBack;
+  bool _listWasCovered = false;
   Completer<void>? _browserCompletion;
 
   Future<void> showFileBrowser({
@@ -656,6 +658,18 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     }
   }
 
+  /// A keyboard still up when a compact covering pane closes was left behind
+  /// by that pane, unless a text field (e.g. in a sheet) still owns it.
+  void _dismissKeyboardLeftOnList() {
+    if (!mounted || !isSinglePane || !isSoftKeyboardVisible(context)) return;
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return;
+    }
+    focus?.unfocus();
+    unawaited(hideSoftKeyboard());
+  }
+
   void _handlePaneGestureChanged() {
     if (mounted) setState(() {});
   }
@@ -703,6 +717,12 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           // During an interactive back swipe the list is being revealed, so
           // it is kept live (fresh data, running tickers) for the drag.
           final listObscured = listCovered && !_paneBackGestureInProgress;
+          if (_listWasCovered && !listCovered) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _dismissKeyboardLeftOnList(),
+            );
+          }
+          _listWasCovered = listCovered;
           final centerActive =
               !compact ||
               (hasCenter && (!showRightPane || _state.centerInFront));

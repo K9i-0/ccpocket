@@ -3026,6 +3026,30 @@ void main() {
       },
     );
 
+    testWidgets('hides a keyboard left up when the chat closes', (
+      tester,
+    ) async {
+      final (bridge: _, :shellKey, machines: _) = await pumpShell(
+        tester,
+        const Size(390, 844),
+      );
+      shellKey.currentState!.selectSession(selection);
+      await _pumpUi(tester);
+
+      // The chat's text field is gone, but the on-screen keyboard stays up.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      tester.testTextInput.log.clear();
+
+      shellKey.currentState!.clearSelectedSession();
+      await _pumpUi(tester);
+
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isTrue,
+      );
+    });
+
     testWidgets('keeps the list live while a back swipe reveals it', (
       tester,
     ) async {
