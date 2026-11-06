@@ -800,7 +800,6 @@ class HomeContentState extends State<HomeContent> {
       // Show skeleton while initial data is loading
       if (widget.isInitialLoading) {
         return ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(12),
           children: [
@@ -826,7 +825,6 @@ class HomeContentState extends State<HomeContent> {
       }
 
       return ListView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
@@ -846,7 +844,6 @@ class HomeContentState extends State<HomeContent> {
 
     return ListView(
       key: const ValueKey('session_list'),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       children: [

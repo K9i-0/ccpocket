@@ -3050,6 +3050,46 @@ void main() {
       );
     });
 
+    testWidgets('wide list scroll keeps the center pane keyboard', (
+      tester,
+    ) async {
+      final (:bridge, :shellKey, machines: _) = await pumpShell(
+        tester,
+        const Size(1200, 900),
+      );
+      bridge.emitRecentSessions([
+        for (var i = 0; i < 30; i++) _recentSession('recent-$i'),
+      ]);
+      shellKey.currentState!.openSettingsCenter();
+      await _pumpUi(tester);
+
+      await tester.tap(find.byKey(const ValueKey('settings_search_field')));
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pump();
+      final field = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const ValueKey('settings_search_field')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(field.focusNode.hasFocus, isTrue);
+      tester.testTextInput.log.clear();
+
+      await tester.drag(
+        find.byKey(const ValueKey('session_list')),
+        const Offset(0, -200),
+      );
+      await _pumpUi(tester);
+
+      expect(field.focusNode.hasFocus, isTrue);
+      expect(
+        tester.testTextInput.log.any((call) => call.method == 'TextInput.hide'),
+        isFalse,
+      );
+    });
+
     testWidgets('keeps the list live while a back swipe reveals it', (
       tester,
     ) async {

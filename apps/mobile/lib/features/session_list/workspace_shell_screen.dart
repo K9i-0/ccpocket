@@ -663,9 +663,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   void _dismissKeyboardLeftOnList() {
     if (!mounted || !isSinglePane || !isSoftKeyboardVisible(context)) return;
     final focus = FocusManager.instance.primaryFocus;
-    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
-      return;
-    }
+    if (isTextInputFocus(focus)) return;
     focus?.unfocus();
     unawaited(hideSoftKeyboard());
   }

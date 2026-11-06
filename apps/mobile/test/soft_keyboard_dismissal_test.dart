@@ -109,4 +109,51 @@ void main() {
 
     expect(hideRequested(tester), isFalse);
   });
+
+  testWidgets('keeps the keyboard of a field in a sibling pane', (
+    tester,
+  ) async {
+    final chatFocus = FocusNode();
+    addTearDown(chatFocus.dispose);
+    showKeyboardInset(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              Expanded(
+                child: DismissKeyboardOnUserScroll(
+                  child: ListView(
+                    key: const ValueKey('list'),
+                    children: [
+                      for (var i = 0; i < 40; i++)
+                        SizedBox(height: 60, child: Text('row $i')),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('chat'),
+                  focusNode: chatFocus,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('chat')));
+    await tester.pump();
+    tester.testTextInput.log.clear();
+
+    await tester.drag(
+      find.byKey(const ValueKey('list')),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+
+    expect(chatFocus.hasFocus, isTrue);
+    expect(hideRequested(tester), isFalse);
+  });
 }
