@@ -1,7 +1,9 @@
-• Search recent sessions from the header, with quick filters, project, date and content search, and a pinned section.
-• Queue messages to Claude and Codex while a usage limit is reached; they are sent when it resets.
-• Search settings and browse them by category, with a status card for connection and plan usage.
-• iPhone Duo: controls move into the control strip, leaving more room on the outer display.
-• Video player controls no longer overlap on short screens.
-• Recent session filters are kept across reconnects.
-• Search and message queueing require Bridge 1.97.0 or later.
+• Turn Claude Code ultracode on or off for Claude sessions, next to the effort slider. It is restored when you resume a session.
+• On iPad, the chat composer floats above a floating or split keyboard instead of hiding behind it.
+• The chat composer has a frosted glass look, and the chat scrolls behind it.
+• A Claude session shows Ready once its main turn ends, even while background tasks remain; their counts appear next to the status. Leftover shells such as a dev server no longer hold back the completion notification.
+• Double tap to zoom images in File Peek and the image viewers.
+• The usage summary switches to the weekly window when it is the tighter limit.
+• Claude's short notes between tool calls appear in performance mode and restored history.
+• Fixed the keyboard staying open on the session list, and zoomed images being clipped.
+• Requires Bridge 1.101.0 (Node.js 22.19.0 or newer) for the new features.

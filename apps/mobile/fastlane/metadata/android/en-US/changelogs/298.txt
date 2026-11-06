@@ -1,0 +1,7 @@
+• Toggle Claude Code ultracode next to the effort slider.
+• Frosted glass chat composer; the chat scrolls behind it.
+• Claude sessions show Ready once the main turn ends, even with background tasks left, and shells like dev servers no longer hold back the done notification.
+• Double tap to zoom images.
+• Usage summary shows the weekly limit when tighter.
+• Fixed a stuck keyboard on the session list and clipped zoomed images.
+• Requires Bridge 1.101.0 (Node.js 22.19+).
