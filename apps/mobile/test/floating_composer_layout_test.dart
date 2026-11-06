@@ -158,11 +158,12 @@ void main() {
       expect(composer.bottom, 300 - floatingComposerKeyboardGap);
       expect(rectOf(tester, _barsKey).bottom, 600);
       expect(rectOf(tester, _contentKey).bottom, 560);
+      // The newest message can scroll up above the floating composer.
       expect(
         FloatingComposerStatus.obscuredBottomOf(
           tester.element(find.byKey(_contentKey)),
         ),
-        0,
+        560 - composer.top,
       );
       // Same full width as the docked composer.
       expect(composer.left, 0);
@@ -174,6 +175,13 @@ void main() {
       expect(
         rectOf(tester, _composerKey).bottom,
         450 - floatingComposerKeyboardGap,
+      );
+      await tester.pump();
+      expect(
+        FloatingComposerStatus.obscuredBottomOf(
+          tester.element(find.byKey(_contentKey)),
+        ),
+        560 - rectOf(tester, _composerKey).top,
       );
 
       // Back to the column when the keyboard docks.

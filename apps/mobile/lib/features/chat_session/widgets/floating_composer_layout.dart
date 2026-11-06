@@ -343,7 +343,11 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
       contentHeight = barsTop;
     }
     contentHeight = math.max(0, contentHeight);
-    onObscuredBottomChanged(math.max(0, contentHeight - barsTop));
+    // Everything from the composer's (or, without one, the bars') top down
+    // covers the content. While floating this lets the newest message scroll
+    // up above the composer, with older ones passing below it (ChatGPT-like).
+    final coveredFrom = hasComposer ? math.min(composerTop, barsTop) : barsTop;
+    onObscuredBottomChanged(math.max(0, contentHeight - coveredFrom));
 
     layoutChild(
       _Slot.content,
