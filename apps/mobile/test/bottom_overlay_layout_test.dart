@@ -1,9 +1,33 @@
 import 'package:ccpocket/features/chat_session/widgets/bottom_overlay_layout.dart';
+import 'package:ccpocket/features/chat_session/widgets/floating_composer_layout.dart';
 import 'package:ccpocket/features/chat_session/widgets/maintain_reading_position_physics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('floating button clears the frosted composer', (tester) async {
+    double? obstruction;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FloatingComposerStatus(
+            isFloating: false,
+            obscuredBottom: 120,
+            child: BottomOverlayLayout(
+              content: const SizedBox.expand(),
+              floatingButtonBuilder: (value) {
+                obstruction = value;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(obstruction, 120);
+  });
+
   testWidgets('keyboard inset does not rebuild chat content', (tester) async {
     addTearDown(tester.view.resetViewInsets);
     var contentBuilds = 0;

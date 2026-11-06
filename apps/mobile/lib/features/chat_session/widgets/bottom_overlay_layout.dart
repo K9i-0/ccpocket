@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'floating_composer_layout.dart';
+
 class BottomOverlayLayout extends StatefulWidget {
   final Widget content;
   final Widget? overlay;
@@ -72,7 +74,10 @@ class _BottomOverlayLayoutState extends State<BottomOverlayLayout> {
             ),
             if (widget.topOverlay != null) widget.topOverlay!,
             if (widget.floatingButtonBuilder != null)
-              widget.floatingButtonBuilder!(bottomObstruction),
+              widget.floatingButtonBuilder!(
+                bottomObstruction +
+                    FloatingComposerStatus.obscuredBottomOf(context),
+              ),
             if (widget.overlay != null)
               Align(
                 alignment: Alignment.bottomCenter,

@@ -660,7 +660,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 physics: MaintainReadingPositionOnResizePhysics(
                   shouldMaintain: () => widget.isReadingHistory,
                 ),
-                padding: EdgeInsets.only(top: 36, bottom: widget.bottomPadding),
+                // Reach the newest message above the frosted composer while
+                // older ones scroll behind it.
+                padding: EdgeInsets.only(
+                  top: 36,
+                  bottom:
+                      widget.bottomPadding +
+                      FloatingComposerStatus.obscuredBottomOf(context),
+                ),
                 itemCount: totalCount,
                 findChildIndexCallback: (key) {
                   if (key is! ValueKey<String>) return null;

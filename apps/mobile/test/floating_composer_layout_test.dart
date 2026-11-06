@@ -118,13 +118,23 @@ void main() {
     Rect rectOf(WidgetTester tester, Key key) =>
         tester.getRect(find.byKey(key));
 
-    testWidgets('stacks content, bars and composer without a floating '
-        'keyboard', (tester) async {
+    testWidgets('docks bars and composer over full-height content', (
+      tester,
+    ) async {
       await pumpLayout(tester);
+      await tester.pump();
 
       expect(rectOf(tester, _composerKey).bottom, 600);
       expect(rectOf(tester, _barsKey).bottom, rectOf(tester, _composerKey).top);
-      expect(rectOf(tester, _contentKey).bottom, rectOf(tester, _barsKey).top);
+      // Content extends behind the frosted composer and is told how much of
+      // it is covered.
+      expect(rectOf(tester, _contentKey).bottom, 600);
+      expect(
+        FloatingComposerStatus.obscuredBottomOf(
+          tester.element(find.byKey(_contentKey)),
+        ),
+        140,
+      );
     });
 
     testWidgets('ignores a floating keyboard while the composer is not '
@@ -148,6 +158,12 @@ void main() {
       expect(composer.bottom, 300 - floatingComposerKeyboardGap);
       expect(rectOf(tester, _barsKey).bottom, 600);
       expect(rectOf(tester, _contentKey).bottom, 560);
+      expect(
+        FloatingComposerStatus.obscuredBottomOf(
+          tester.element(find.byKey(_contentKey)),
+        ),
+        0,
+      );
       // Same full width as the docked composer.
       expect(composer.left, 0);
       expect(composer.width, _viewSize.width);
@@ -265,24 +281,38 @@ void main() {
       expect(rectOf(tester, _composerKey).bottom, 600);
     });
 
-    testWidgets('frosts the composer only while floating', (tester) async {
+    testWidgets('frosts the composer in both modes with a clipped blur', (
+      tester,
+    ) async {
       bool frosted() => tester
           .element(find.byKey(_fieldKey))
           .getInheritedWidgetOfExactType<FrostedComposer>()!
           .enabled;
+      void expectClippedBlur() {
+        expect(
+          tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
+          isTrue,
+        );
+        // An unclipped BackdropFilter would blur the whole screen.
+        final clip = tester.widget<ClipRRect>(
+          find.ancestor(
+            of: find.byType(BackdropFilter),
+            matching: find.byType(ClipRRect),
+          ),
+        );
+        expect(clip.clipBehavior, isNot(Clip.none));
+      }
 
       await pumpLayout(tester);
       await tester.showKeyboard(find.byKey(_fieldKey));
-      expect(frosted(), isFalse);
+      expect(frosted(), isTrue);
+      expectClippedBlur();
 
       keyboard.value = _floatingAt(300);
       await tester.pump();
       await tester.pump();
       expect(frosted(), isTrue);
-      expect(
-        tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
-        isTrue,
-      );
+      expectClippedBlur();
     });
 
     testWidgets('lays out without a composer', (tester) async {
@@ -292,6 +322,12 @@ void main() {
 
       expect(rectOf(tester, _barsKey).bottom, 600);
       expect(rectOf(tester, _contentKey).bottom, 560);
+      expect(
+        FloatingComposerStatus.obscuredBottomOf(
+          tester.element(find.byKey(_contentKey)),
+        ),
+        0,
+      );
     });
   });
 

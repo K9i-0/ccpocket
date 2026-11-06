@@ -58,16 +58,30 @@ class FloatingComposerScope extends InheritedWidget {
   bool updateShouldNotify(FloatingComposerScope oldWidget) => false;
 }
 
-/// Exposes whether the composer currently floats above an iPad floating
-/// keyboard, so descendants can switch keyboard-dismiss gestures.
+/// Exposes the composer state to the chat content: whether it floats above
+/// an iPad floating keyboard (to switch keyboard-dismiss gestures) and how
+/// much of the content's bottom it covers.
 class FloatingComposerStatus extends InheritedWidget {
   const FloatingComposerStatus({
     super.key,
     required this.isFloating,
+    this.obscuredBottom = 0,
     required super.child,
   });
 
   final bool isFloating;
+
+  /// Height at the bottom of the content covered by the bars and the frosted
+  /// composer. Scrollables pad by it so their last item stays reachable while
+  /// the rest scrolls behind the glass.
+  final double obscuredBottom;
+
+  /// [obscuredBottom] of the nearest status, registering a dependency.
+  static double obscuredBottomOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<FloatingComposerStatus>()
+          ?.obscuredBottom ??
+      0;
 
   /// Reads the current value without registering a dependency (for gesture
   /// and notification callbacks).
@@ -79,15 +93,19 @@ class FloatingComposerStatus extends InheritedWidget {
 
   @override
   bool updateShouldNotify(FloatingComposerStatus oldWidget) =>
-      oldWidget.isFloating != isFloating;
+      oldWidget.isFloating != isFloating ||
+      oldWidget.obscuredBottom != obscuredBottom;
 }
 
 /// Chat body + bottom bars + composer.
 ///
-/// Normally a column: [content], [bars], [composer]. While the composer has
-/// focus and an iPad floating keyboard is shown, [content] extends behind the
-/// composer (down to [bars]) and the composer floats just above the keyboard,
-/// so messages stay visible above and below it.
+/// Normally [bars] and the frosted [composer] sit at the bottom over
+/// [content], which extends behind them and gets
+/// [FloatingComposerStatus.obscuredBottom] to pad its scrollables. While the
+/// composer has focus and an iPad floating keyboard is shown, [bars] stay at
+/// the bottom and the composer floats just above the keyboard, so messages
+/// stay visible above and below it. Without a composer (approval UI), the
+/// content simply ends above the bars.
 ///
 /// While floating, the keyboard follows ChatGPT's behavior: scrolling the
 /// chat keeps it open (see [FloatingComposerStatus]); tapping the chat area
@@ -120,6 +138,16 @@ class _FloatingComposerLayoutState extends State<FloatingComposerLayout> {
   bool _composerFocused = false;
   bool _completionVisible = false;
   Offset _origin = Offset.zero;
+  double _obscuredBottom = 0;
+
+  /// Reported by the layout delegate; applied on the next frame.
+  void _onObscuredBottomChanged(double value) {
+    if ((value - _obscuredBottom).abs() <= 0.5) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || (value - _obscuredBottom).abs() <= 0.5) return;
+      setState(() => _obscuredBottom = value);
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -217,12 +245,14 @@ class _FloatingComposerLayoutState extends State<FloatingComposerLayout> {
         completionReserve: _completionVisible
             ? floatingComposerCompletionReserve
             : 0,
+        onObscuredBottomChanged: _onObscuredBottomChanged,
       ),
       children: [
         LayoutId(
           id: _Slot.content,
           child: FloatingComposerStatus(
             isFloating: floating,
+            obscuredBottom: _obscuredBottom,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               // Inner taps (buttons, links) win the arena; plain chat area
@@ -271,11 +301,13 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
   _FloatingComposerLayoutDelegate({
     required this.keyboardTop,
     required this.completionReserve,
+    required this.onObscuredBottomChanged,
   });
 
   /// Floating keyboard top in local coordinates; null when not floating.
   final double? keyboardTop;
   final double completionReserve;
+  final ValueChanged<double> onObscuredBottomChanged;
 
   @override
   void performLayout(Size size) {
@@ -289,12 +321,17 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
         ? layoutChild(_Slot.composer, childConstraints).height
         : 0.0;
 
+    final hasComposer = hasChild(_Slot.composer);
     final double barsTop;
     final double composerTop;
+    var contentHeight = size.height;
     final keyboardTop = this.keyboardTop;
     if (keyboardTop == null) {
       composerTop = size.height - composerHeight;
       barsTop = composerTop - barsHeight;
+      // The frosted composer (and the bars above it) cover the content.
+      // Without a composer, the content ends above the bars as before.
+      if (!hasComposer) contentHeight = barsTop;
     } else {
       barsTop = size.height - barsHeight;
       composerTop = floatingComposerTop(
@@ -303,11 +340,14 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
         availableHeight: barsTop,
         completionReserve: completionReserve,
       );
+      contentHeight = barsTop;
     }
+    contentHeight = math.max(0, contentHeight);
+    onObscuredBottomChanged(math.max(0, contentHeight - barsTop));
 
     layoutChild(
       _Slot.content,
-      BoxConstraints.tightFor(width: size.width, height: math.max(0, barsTop)),
+      BoxConstraints.tightFor(width: size.width, height: contentHeight),
     );
     positionChild(_Slot.content, Offset.zero);
     positionChild(_Slot.bars, Offset(0, barsTop));
@@ -322,8 +362,9 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
       oldDelegate.completionReserve != completionReserve;
 }
 
-/// Rounds, lifts and frosts the composer while floating. It keeps the pane's full
-/// width in both modes (multi-pane layouts stay consistent).
+/// Frosts the composer so the chat shows through, and rounds and lifts it
+/// while floating. It keeps the pane's full width in both modes (multi-pane
+/// layouts stay consistent).
 /// The widget types never change between modes, so the composer subtree keeps
 /// its state.
 class _FloatingComposerFrame extends StatelessWidget {
@@ -338,6 +379,7 @@ class _FloatingComposerFrame extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
+    final edgeColor = Colors.white.withValues(alpha: isDark ? 0.14 : 0.55);
     // Frosted glass matching ScrollToBottomButton.
     final glass = BoxDecoration(
       borderRadius: radius,
@@ -351,9 +393,10 @@ class _FloatingComposerFrame extends StatelessWidget {
           ),
         ],
       ),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: isDark ? 0.14 : 0.55),
-      ),
+      // A full border would draw lines down the pane edges when docked.
+      border: floating
+          ? Border.all(color: edgeColor)
+          : Border(top: BorderSide(color: edgeColor)),
     );
     return MediaQuery.removePadding(
       context: context,
@@ -362,25 +405,30 @@ class _FloatingComposerFrame extends StatelessWidget {
         key: const ValueKey('floating_composer_frame'),
         decoration: BoxDecoration(
           borderRadius: radius,
-          boxShadow: floating
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.08),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            if (floating)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              )
+            else
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: radius,
-          clipBehavior: floating ? Clip.antiAlias : Clip.none,
+          // Always clip: an unclipped BackdropFilter blurs the whole screen.
+          clipBehavior: floating ? Clip.antiAlias : Clip.hardEdge,
           child: BackdropFilter(
-            enabled: floating,
             filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
             child: DecoratedBox(
-              decoration: floating ? glass : const BoxDecoration(),
-              child: FrostedComposer(enabled: floating, child: child),
+              decoration: glass,
+              child: FrostedComposer(enabled: true, child: child),
             ),
           ),
         ),
