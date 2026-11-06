@@ -18,6 +18,7 @@ import '../utils/diff_parser.dart';
 import 'bubbles/image_preview.dart';
 import 'duo/duo_control_strip.dart';
 import 'soft_keyboard_dismissal.dart';
+import 'frosted_composer.dart';
 
 /// Bottom input bar with slash-command button, text field, and action buttons.
 ///
@@ -135,6 +136,7 @@ class ChatInputBar extends StatelessWidget {
     // On iPhone Duo the send / stop / voice action moves to the bottom of the
     // control strip, next to the composer.
     final stripMode = DuoStripBottomSlot.isStripMode(context);
+    final frosted = FrostedComposer.of(context);
     return Container(
       padding: EdgeInsets.only(
         left: 8,
@@ -142,16 +144,21 @@ class ChatInputBar extends StatelessWidget {
         top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      // On frosted glass the composer frame paints the background. Keep a
+      // decoration either way: a null one changes Container's subtree and
+      // would rebuild the text field, dropping focus and the keyboard.
+      decoration: frosted
+          ? const BoxDecoration()
+          : BoxDecoration(
+              color: cs.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -269,7 +276,7 @@ class _IndentButton extends StatelessWidget {
     return Tooltip(
       message: l.tooltipIndent,
       child: Material(
-        color: cs.surfaceContainerHigh,
+        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const ValueKey('indent_button'),
@@ -305,7 +312,7 @@ class _DedentButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1.0 : 0.4,
         child: Material(
-          color: cs.surfaceContainerHigh,
+          color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
@@ -338,7 +345,7 @@ class _SlashCommandButton extends StatelessWidget {
     return Tooltip(
       message: l.tooltipSlashCommand,
       child: Material(
-        color: cs.surfaceContainerHigh,
+        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -376,7 +383,7 @@ class _MentionButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1.0 : 0.4,
         child: Material(
-          color: cs.surfaceContainerHigh,
+          color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             key: const ValueKey('mention_button'),
@@ -413,7 +420,7 @@ class _DollarButton extends StatelessWidget {
     return Tooltip(
       message: l.tooltipDollarMention,
       child: Material(
-        color: cs.surfaceContainerHigh,
+        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const ValueKey('dollar_button'),
@@ -459,7 +466,10 @@ class _AttachButton extends StatelessWidget {
           ? l.tooltipAttachImage
           : '${l.tooltipAttachImage}\n${l.tooltipAttachmentOptions}',
       child: Material(
-        color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
+        color: FrostedComposer.fill(
+          context,
+          hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
+        ),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const ValueKey('attach_image_button'),
@@ -519,7 +529,7 @@ class _HistoryButton extends StatelessWidget {
     return Tooltip(
       message: l.tooltipPromptHistory,
       child: Material(
-        color: cs.surfaceContainerHigh,
+        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const ValueKey('prompt_history_button'),
@@ -1296,7 +1306,7 @@ class _InputTextFieldState extends State<_InputTextField>
         decoration: InputDecoration(
           hintText: widget.hintText ?? l.messagePlaceholder,
           filled: true,
-          fillColor: cs.surfaceContainerLow,
+          fillColor: FrostedComposer.fill(context, cs.surfaceContainerLow),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
@@ -1408,7 +1418,9 @@ class _VoiceButton extends StatelessWidget {
     return Tooltip(
       message: isRecording ? l.tooltipStopRecording : l.tooltipVoiceInput,
       child: Material(
-        color: isRecording ? cs.error : cs.surfaceContainerHigh,
+        color: isRecording
+            ? cs.error
+            : FrostedComposer.fill(context, cs.surfaceContainerHigh),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           key: const ValueKey('voice_button'),

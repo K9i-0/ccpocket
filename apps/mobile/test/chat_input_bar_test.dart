@@ -11,6 +11,7 @@ import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
+import 'package:ccpocket/widgets/frosted_composer.dart';
 import 'package:ccpocket/widgets/ios_image_paste_context_menu.dart';
 
 void main() {
@@ -72,6 +73,7 @@ void main() {
     bool supportsShowingSystemContextMenu = false,
     ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
     KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
+    bool frosted = false,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -82,38 +84,41 @@ void main() {
           supportsShowingSystemContextMenu: supportsShowingSystemContextMenu,
         ),
         child: Scaffold(
-          body: ChatInputBar(
-            inputController: inputController,
-            status: status,
-            hasInputText: hasInputText,
-            isInputEmpty: isInputEmpty,
-            isVoiceAvailable: isVoiceAvailable,
-            isRecording: isRecording,
-            onSend: onSend ?? () {},
-            onStop: onStop ?? () {},
-            onInterrupt: onInterrupt ?? () {},
-            onToggleVoice: onToggleVoice ?? () {},
-            onAttachImage: onAttachImage,
-            onShowAttachmentOptions: onShowAttachmentOptions,
-            attachedImages: attachedImages,
-            editableSketchIndices: editableSketchIndices,
-            onEditSketch: onEditSketch,
-            onAnnotateImage: onAnnotateImage,
-            onIndent: onIndent ?? () {},
-            onDedent: onDedent ?? () {},
-            canDedent: canDedent,
-            onSlashCommand: onSlashCommand ?? () {},
-            onMention: onMention ?? () {},
-            onDollarMention: onDollarMention,
-            isInMentionContext: isInMentionContext,
-            showDollarButton: showDollarButton,
-            attachedDiffSelection: attachedDiffSelection,
-            onPasteImage: onPasteImage,
-            onPasteImageFromContextMenu: onPasteImageFromContextMenu,
-            onNativePasteImage: onNativePasteImage,
-            hasImageInClipboard: hasImageInClipboard,
-            imagePasteShortcut: imagePasteShortcut,
-            onCompletionKeyEvent: onCompletionKeyEvent,
+          body: FrostedComposer(
+            enabled: frosted,
+            child: ChatInputBar(
+              inputController: inputController,
+              status: status,
+              hasInputText: hasInputText,
+              isInputEmpty: isInputEmpty,
+              isVoiceAvailable: isVoiceAvailable,
+              isRecording: isRecording,
+              onSend: onSend ?? () {},
+              onStop: onStop ?? () {},
+              onInterrupt: onInterrupt ?? () {},
+              onToggleVoice: onToggleVoice ?? () {},
+              onAttachImage: onAttachImage,
+              onShowAttachmentOptions: onShowAttachmentOptions,
+              attachedImages: attachedImages,
+              editableSketchIndices: editableSketchIndices,
+              onEditSketch: onEditSketch,
+              onAnnotateImage: onAnnotateImage,
+              onIndent: onIndent ?? () {},
+              onDedent: onDedent ?? () {},
+              canDedent: canDedent,
+              onSlashCommand: onSlashCommand ?? () {},
+              onMention: onMention ?? () {},
+              onDollarMention: onDollarMention,
+              isInMentionContext: isInMentionContext,
+              showDollarButton: showDollarButton,
+              attachedDiffSelection: attachedDiffSelection,
+              onPasteImage: onPasteImage,
+              onPasteImageFromContextMenu: onPasteImageFromContextMenu,
+              onNativePasteImage: onNativePasteImage,
+              hasImageInClipboard: hasImageInClipboard,
+              imagePasteShortcut: imagePasteShortcut,
+              onCompletionKeyEvent: onCompletionKeyEvent,
+            ),
           ),
         ),
       ),
@@ -129,6 +134,27 @@ void main() {
   }
 
   group('ChatInputBar', () {
+    testWidgets('switching to frosted glass keeps the text field and focus', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.showKeyboard(find.byType(TextField));
+      final editable = tester.state(find.byType(EditableText));
+
+      await tester.pumpWidget(buildSubject(frosted: true));
+      expect(tester.state(find.byType(EditableText)), same(editable));
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      await tester.pumpWidget(buildSubject());
+      expect(tester.state(find.byType(EditableText)), same(editable));
+    });
+
     testWidgets('photo preview offers drawing without replacing zoom or text', (
       tester,
     ) async {

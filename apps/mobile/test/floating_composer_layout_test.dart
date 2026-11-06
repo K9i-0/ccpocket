@@ -1,5 +1,6 @@
 import 'package:ccpocket/features/chat_session/widgets/floating_composer_layout.dart';
 import 'package:ccpocket/services/floating_keyboard_service.dart';
+import 'package:ccpocket/widgets/frosted_composer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -262,6 +263,26 @@ void main() {
       expect(fieldFocused(tester), isFalse);
 
       expect(rectOf(tester, _composerKey).bottom, 600);
+    });
+
+    testWidgets('frosts the composer only while floating', (tester) async {
+      bool frosted() => tester
+          .element(find.byKey(_fieldKey))
+          .getInheritedWidgetOfExactType<FrostedComposer>()!
+          .enabled;
+
+      await pumpLayout(tester);
+      await tester.showKeyboard(find.byKey(_fieldKey));
+      expect(frosted(), isFalse);
+
+      keyboard.value = _floatingAt(300);
+      await tester.pump();
+      await tester.pump();
+      expect(frosted(), isTrue);
+      expect(
+        tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
+        isTrue,
+      );
     });
 
     testWidgets('lays out without a composer', (tester) async {

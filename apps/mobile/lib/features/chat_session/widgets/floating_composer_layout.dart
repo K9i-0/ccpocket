@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/floating_keyboard_service.dart';
+import '../../../widgets/frosted_composer.dart';
 import '../../../widgets/soft_keyboard_dismissal.dart';
 
 /// Height reserved above the composer while a completion overlay is shown.
@@ -320,7 +322,7 @@ class _FloatingComposerLayoutDelegate extends MultiChildLayoutDelegate {
       oldDelegate.completionReserve != completionReserve;
 }
 
-/// Rounds and lifts the composer while floating. It keeps the pane's full
+/// Rounds, lifts and frosts the composer while floating. It keeps the pane's full
 /// width in both modes (multi-pane layouts stay consistent).
 /// The widget types never change between modes, so the composer subtree keeps
 /// its state.
@@ -333,6 +335,26 @@ class _FloatingComposerFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(floating ? 20 : 0);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cs = theme.colorScheme;
+    // Frosted glass matching ScrollToBottomButton.
+    final glass = BoxDecoration(
+      borderRadius: radius,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: isDark ? 0.14 : 0.65),
+          (isDark ? cs.surfaceContainerHigh : cs.surface).withValues(
+            alpha: isDark ? 0.48 : 0.72,
+          ),
+        ],
+      ),
+      border: Border.all(
+        color: Colors.white.withValues(alpha: isDark ? 0.14 : 0.55),
+      ),
+    );
     return MediaQuery.removePadding(
       context: context,
       removeBottom: floating,
@@ -341,11 +363,11 @@ class _FloatingComposerFrame extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: radius,
           boxShadow: floating
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x40000000),
-                    blurRadius: 16,
-                    offset: Offset(0, 4),
+                    color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
                 ]
               : null,
@@ -353,7 +375,14 @@ class _FloatingComposerFrame extends StatelessWidget {
         child: ClipRRect(
           borderRadius: radius,
           clipBehavior: floating ? Clip.antiAlias : Clip.none,
-          child: child,
+          child: BackdropFilter(
+            enabled: floating,
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: DecoratedBox(
+              decoration: floating ? glass : const BoxDecoration(),
+              child: FrostedComposer(enabled: floating, child: child),
+            ),
+          ),
         ),
       ),
     );
