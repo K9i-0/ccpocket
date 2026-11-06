@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.157.2] - 2026-11-06
+
+### Fixed
+
+- A keyboard left open by another screen no longer stays stuck on the session list: scrolling the list closes it, and returning to the list from a chat closes it too.
+
 ## [1.157.1] - 2026-11-06
 
 ### Changed
