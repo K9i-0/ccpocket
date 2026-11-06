@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.101.0] - 2026-11-06
+
+### Changed
+
+- The completion push for a Claude session is held only while background agents (subagents, remote agents, workflows) are running, since their reports start a follow-up turn. Background shells and monitors, such as a dev server, no longer suppress the push.
+
 ## [1.100.0] - 2026-11-06
 
 ### Changed
