@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.158.0] - 2026-11-06
+
+### Added
+
+- On iPad, the chat composer floats just above a floating (undocked or split) keyboard instead of staying hidden behind it. While it floats, scrolling the chat keeps the keyboard open; tapping the chat or swiping the composer down closes it. This needs the store build; a patched older build keeps the docked layout.
+
+### Changed
+
+- The chat composer is drawn as frosted glass in every mode, and the chat scrolls behind it while the newest message stays reachable.
+- A Claude session whose main turn has ended shows Ready even while background tasks remain, with agent and shell counts shown next to the status in the running color. Previously it stayed Working until every task ended, so a leftover dev server kept it busy forever.
+- The completion notification is held only while background agents run. Background shells and monitors no longer suppress it.
+- The app expects Bridge 1.101.0, which applies the same notification rule to completion pushes.
+
 ## [1.157.3] - 2026-11-06
 
 ### Fixed
