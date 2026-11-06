@@ -375,21 +375,24 @@ class _FloatingComposerFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const style = ComposerGlassStyle();
     final radius = BorderRadius.circular(floating ? 20 : 0);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cs = theme.colorScheme;
     final edgeColor = Colors.white.withValues(alpha: isDark ? 0.14 : 0.55);
-    // Frosted glass matching ScrollToBottomButton.
+    // Frosted glass in the style of ScrollToBottomButton, more see-through.
     final glass = BoxDecoration(
       borderRadius: radius,
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withValues(alpha: isDark ? 0.14 : 0.65),
+          Colors.white.withValues(
+            alpha: isDark ? style.darkTopAlpha : style.lightTopAlpha,
+          ),
           (isDark ? cs.surfaceContainerHigh : cs.surface).withValues(
-            alpha: isDark ? 0.48 : 0.72,
+            alpha: isDark ? style.darkBottomAlpha : style.lightBottomAlpha,
           ),
         ],
       ),
@@ -425,10 +428,17 @@ class _FloatingComposerFrame extends StatelessWidget {
           // Always clip: an unclipped BackdropFilter blurs the whole screen.
           clipBehavior: floating ? Clip.antiAlias : Clip.hardEdge,
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            filter: ImageFilter.blur(
+              sigmaX: style.blurSigma,
+              sigmaY: style.blurSigma,
+            ),
             child: DecoratedBox(
               decoration: glass,
-              child: FrostedComposer(enabled: true, child: child),
+              child: FrostedComposer(
+                enabled: true,
+                fillOpacity: style.fillOpacity,
+                child: child,
+              ),
             ),
           ),
         ),
