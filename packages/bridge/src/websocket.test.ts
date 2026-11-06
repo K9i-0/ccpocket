@@ -9875,7 +9875,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("holds Claude completion pushes until background work settles", async () => {
+  it("holds Claude completion pushes until background agents settle", async () => {
     vi.useFakeTimers();
     try {
       const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
@@ -9889,7 +9889,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         id: "s-1",
         provider: "claude",
         status: "running",
-        backgroundTasks: [{ taskId: "a1", taskType: "local_agent" }],
+        backgroundTasks: [
+          { taskId: "a1", taskType: "local_agent" },
+          { taskId: "b1", taskType: "local_bash" },
+        ],
       };
       vi.spyOn((bridge as any).sessionManager, "get").mockImplementation(
         (id: unknown) => (id === "s-1" ? session : undefined),
@@ -9908,8 +9911,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       await vi.advanceTimersByTimeAsync(10_000);
       expect(fetchMock).not.toHaveBeenCalled();
 
-      session.backgroundTasks = [];
-      send({ type: "background_tasks", tasks: [] });
+      // The agent finished; a long-lived shell (dev server) keeps running.
+      const shellOnly = [{ taskId: "b1", taskType: "local_bash" }];
+      session.backgroundTasks = shellOnly;
+      send({ type: "background_tasks", tasks: shellOnly });
       await vi.advanceTimersByTimeAsync(2_000);
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -9922,6 +9927,36 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("does not hold Claude completion pushes for background shells", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: {
+      uid: "bridge-test", getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    } as any });
+    (bridge as any).tokenLocales.set("token-1", "en");
+    vi.spyOn((bridge as any).sessionManager, "get").mockImplementation(
+      (id: unknown) => id === "s-1"
+        ? {
+          id: "s-1",
+          provider: "claude",
+          status: "idle",
+          backgroundTasks: [
+            { taskId: "b1", taskType: "local_bash" },
+            { taskId: "m1", taskType: "monitor" },
+          ],
+        }
+        : undefined,
+    );
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "success",
+      result: "done",
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    bridge.close();
   });
 
   it("does not hold Codex completion pushes for background terminals", async () => {

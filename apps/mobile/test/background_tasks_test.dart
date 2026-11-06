@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/chat_session/state/background_completion_gate.dart';
+import 'package:ccpocket/features/chat_session/state/chat_session_state.dart';
 import 'package:ccpocket/features/chat_session/widgets/background_tasks_bar.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -113,6 +114,27 @@ void main() {
     expect(
       const BackgroundTaskInfo(taskId: 'm', taskType: 'monitor').isAgent,
       isFalse,
+    );
+  });
+
+  test('only background agents defer the Claude completion', () {
+    const shells = ChatSessionState(
+      backgroundTasks: [
+        BackgroundTaskInfo(taskId: 'b1', taskType: 'local_bash'),
+        BackgroundTaskInfo(taskId: 'm1', taskType: 'monitor'),
+      ],
+    );
+    expect(shells.hasBackgroundAgents, isFalse);
+    expect(
+      shells
+          .copyWith(
+            backgroundTasks: [
+              ...shells.backgroundTasks,
+              const BackgroundTaskInfo(taskId: 'a1', taskType: 'local_agent'),
+            ],
+          )
+          .hasBackgroundAgents,
+      isTrue,
     );
   });
 

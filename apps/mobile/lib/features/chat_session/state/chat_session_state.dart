@@ -85,6 +85,13 @@ abstract class ChatSessionState with _$ChatSessionState {
   }) = _ChatSessionState;
 }
 
+extension ChatSessionStateBackground on ChatSessionState {
+  /// Claude starts a follow-up turn when a background agent reports back, so
+  /// a result is not final while one is live. Shells and monitors may run
+  /// indefinitely and do not count.
+  bool get hasBackgroundAgents => backgroundTasks.any((task) => task.isAgent);
+}
+
 /// Represents the current approval/question state.
 ///
 /// Uses sealed union so the UI can pattern-match exhaustively.

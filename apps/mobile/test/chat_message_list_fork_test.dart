@@ -15,10 +15,10 @@ void main() {
         ServerChatEntry(_result()),
       ];
 
-      expect(intermediateResultEntryIndices(entries, backgroundActive: false), {
-        2,
-        4,
-      });
+      expect(
+        intermediateResultEntryIndices(entries, backgroundAgentsActive: false),
+        {2, 4},
+      );
     });
 
     test('keeps results that end a user turn', () {
@@ -30,7 +30,7 @@ void main() {
       ];
 
       expect(
-        intermediateResultEntryIndices(entries, backgroundActive: false),
+        intermediateResultEntryIndices(entries, backgroundAgentsActive: false),
         isEmpty,
       );
     });
@@ -41,14 +41,15 @@ void main() {
         ServerChatEntry(_result()),
       ];
 
-      expect(intermediateResultEntryIndices(entries, backgroundActive: true), {
-        1,
-      });
+      expect(
+        intermediateResultEntryIndices(entries, backgroundAgentsActive: true),
+        {1},
+      );
       expect(
         intermediateResultEntryIndices([
           ...entries,
           UserChatEntry('next'),
-        ], backgroundActive: true),
+        ], backgroundAgentsActive: true),
         isEmpty,
       );
     });
@@ -61,7 +62,7 @@ void main() {
       ];
 
       expect(
-        intermediateResultEntryIndices(entries, backgroundActive: false),
+        intermediateResultEntryIndices(entries, backgroundAgentsActive: false),
         isEmpty,
       );
     });

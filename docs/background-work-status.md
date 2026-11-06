@@ -35,23 +35,27 @@ background subagent that runs `sleep 25` in a background shell):
 
 ### Decisions
 
-- **Display.** The app shows a Claude session as Working when its raw status is
-  idle and `backgroundTaskCount > 0`. Shells and monitors count as well as
-  agents, as decided with the user. A long-lived dev server therefore keeps the
-  session Working, without a completion push, until it is stopped. The user
-  accepted this.
+- **Display.** The status follows the main turn only. A Claude session whose
+  raw status is idle shows Ready even while background tasks run; the card
+  shows their counts next to the status in the running color (blue), agents
+  (`hub`) and shells/monitors (`layers`) separately. This replaced an earlier
+  rule that kept the session Working while any task was live: a session with
+  only a leftover shell (a dev server, a forgotten `sleep`) looked busy
+  forever, and the user could not tell that the main agent had finished.
 - **Completion push.** The Bridge (`BackgroundCompletionGate`) holds a
-  successful Claude `result` while background tasks are live. Once the session
-  stays idle without background tasks for 2 s, it pushes the latest held
-  result. A later result with no background work replaces the held one and is
-  pushed directly. Error results are pushed immediately. Stopped results
-  discard the held one.
+  successful Claude `result` only while background *agents* (`local_agent`,
+  `remote_agent`, `local_workflow`) are live, because an agent's report starts
+  a follow-up turn that would push again. Shells and monitors do not hold it,
+  so a long-lived dev server no longer suppresses the push. Once the session
+  stays idle without agents for 2 s, it pushes the latest held result. A later
+  result with no agents replaces the held one and is pushed directly. Error
+  results are pushed immediately. Stopped results discard the held one.
 - **Local notification fallback.** The app's `ChatSessionCubit` applies the
   same rule to `notifySessionComplete`.
 - **Chat completion chips.** In Claude chats, a successful result chip is
   hidden when a later result follows without user input in between (a
   follow-up turn Claude started itself), or when it is the latest result and
-  background tasks are still live. A result whose text is shown nowhere else
+  background agents are still live. A result whose text is shown nowhere else
   stays visible. Codex chats are unchanged, because goal mode runs
   consecutive turns on purpose.
 - **Stop.** Between turns, `interrupt` on a Claude session with background
@@ -93,8 +97,7 @@ list in the chat screen's background bar. Completion pushes are not held.
 
 ## Card display
 
-- Agents explain why the session is Working, so they go in the status row:
-  `Working · 2 agents`.
-- Shells, monitors and Codex work get a small icon with a count instead of the
-  former `Background N` pill. The pill was wide enough to overlap the status
-  label.
+- Status label: Working / Needs You / Ready, from the main turn only.
+- Agents and shells/monitors/Codex work each get a small icon with a count in
+  the running color, so a Ready session still shows that work is live. The
+  former `Background N` pill was wide enough to overlap the status label.

@@ -497,7 +497,7 @@ void main() {
       backgroundAgentCount: agents,
     );
 
-    testWidgets('keeps an idle Claude session Working while agents run', (
+    testWidgets('shows an idle Claude session as Ready with an agent count', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -509,9 +509,23 @@ void main() {
         ),
       );
 
-      expect(find.text('Working'), findsOneWidget);
-      expect(find.text('Ready'), findsNothing);
+      expect(find.text('Ready'), findsOneWidget);
+      expect(find.text('Working'), findsNothing);
       final agents = find.byKey(const ValueKey('session_card_subagent_badge'));
+      final running = Theme.of(tester.element(agents))
+          .extension<AppColors>()!
+          .statusRunning;
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: agents,
+                matching: find.byIcon(Icons.hub_outlined),
+              ),
+            )
+            .color,
+        running,
+      );
       expect(
         find.descendant(of: agents, matching: find.text('2')),
         findsOneWidget,
@@ -528,7 +542,7 @@ void main() {
       );
     });
 
-    testWidgets('shows a quiet count for background shells and monitors', (
+    testWidgets('shows counts for background shells and monitors', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -540,7 +554,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Working'), findsOneWidget);
+      expect(find.text('Ready'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('session_card_subagent_badge')),
@@ -555,6 +569,20 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Background 2'), findsNothing);
+      final running = Theme.of(tester.element(badge))
+          .extension<AppColors>()!
+          .statusRunning;
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: badge,
+                matching: find.byIcon(Icons.layers_outlined),
+              ),
+            )
+            .color,
+        running,
+      );
     });
 
     testWidgets('places the background badge by the status, not the actions', (

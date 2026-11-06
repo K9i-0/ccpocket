@@ -23,10 +23,6 @@ SessionVisualStatus sessionVisualStatusFor({
   String? permissionMode,
   bool planMode = false,
   PermissionRequestMessage? pendingPermission,
-
-  /// Claude keeps working between turns while background tasks run: it starts
-  /// a follow-up turn when they report back.
-  bool backgroundWorking = false,
 }) {
   final showPlanBadge = planMode || permissionMode == PermissionMode.plan.value;
 
@@ -72,12 +68,6 @@ SessionVisualStatus sessionVisualStatusFor({
     'waiting_approval' => SessionVisualStatus(
       primary: SessionPrimaryStatus.needsYou,
       label: 'Needs You',
-      showPlanBadge: showPlanBadge,
-      animate: true,
-    ),
-    _ when backgroundWorking => SessionVisualStatus(
-      primary: SessionPrimaryStatus.working,
-      label: 'Working',
       showPlanBadge: showPlanBadge,
       animate: true,
     ),

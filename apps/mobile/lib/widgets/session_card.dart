@@ -105,19 +105,18 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       permissionMode: session.effectivePermissionMode,
       planMode: session.resolvedPlanMode,
       pendingPermission: session.pendingPermission,
-      backgroundWorking: !isCodexSession && session.backgroundTaskCount > 0,
     );
     final statusDetail = visualStatus.detail;
-    // Agents explain why a session is working, so their count takes the
-    // status color; shells, monitors and Codex work left behind by a turn
-    // only get a quiet count.
-    final subagentBadgeCount =
-        visualStatus.primary == SessionPrimaryStatus.working && !isCodexSession
-        ? session.backgroundAgentCount
-        : 0;
+    // The status follows the main turn only; work left running after it
+    // (agents, shells, monitors, Codex terminals) gets its own counts, drawn
+    // in the running color so a Ready session still shows live work.
+    final subagentBadgeCount = isCodexSession
+        ? 0
+        : session.backgroundAgentCount;
     final backgroundBadgeCount = isCodexSession
         ? session.backgroundTaskCount
         : session.backgroundTaskCount - session.backgroundAgentCount;
+    final backgroundWorkColor = appColors.statusRunning;
     final isReadyUnseen =
         visualStatus.primary == SessionPrimaryStatus.ready && widget.isUnseen;
     final statusColor = switch (visualStatus.primary) {
@@ -243,7 +242,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                     .sessionCardBackgroundAgents(
                                       subagentBadgeCount,
                                     ),
-                                color: statusColor,
+                                color: backgroundWorkColor,
                               ),
                             ],
                             if (backgroundBadgeCount > 0) ...[
@@ -258,9 +257,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                     .sessionCardBackgroundTasks(
                                       backgroundBadgeCount,
                                     ),
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: backgroundWorkColor,
                               ),
                             ],
                           ],
@@ -618,8 +615,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
   }
 }
 
-/// Quiet count of background shells, monitors and terminals. Kept small so
-/// it does not compete with the status label.
+/// Count of work left running after the turn (agents, shells, monitors,
+/// terminals). Kept small so it does not compete with the status label.
 class _SessionCountBadge extends StatelessWidget {
   final IconData icon;
   final int count;

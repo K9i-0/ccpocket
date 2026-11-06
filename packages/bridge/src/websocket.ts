@@ -45,6 +45,7 @@ import {
 } from "./codex-service-tier.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
 import {
+  isAgentBackgroundTask,
   parseClientMessage,
   type AssistantContent,
   type ClientMessage,
@@ -1245,7 +1246,7 @@ export class BridgeWebSocketServer {
         return (
           !!session &&
           session.status === "idle" &&
-          !session.backgroundTasks?.length
+          !session.backgroundTasks?.some(isAgentBackgroundTask)
         );
       },
       release: (sessionId, completion) =>
@@ -10687,13 +10688,17 @@ export class BridgeWebSocketServer {
   }
 
   /**
-   * Claude keeps working after a result while background tasks are live: it
-   * starts a follow-up turn when they report back. Codex does not, so its
-   * background terminals and child agents never delay completion.
+   * Claude keeps working after a result while background agents are live: it
+   * starts a follow-up turn when they report back. Shells and monitors may
+   * run indefinitely (dev servers), so they do not delay completion. Codex
+   * never starts a follow-up turn, so its background work is ignored too.
    */
   private keepsWorkingInBackground(sessionId: string): boolean {
     const session = this.sessionManager.get(sessionId);
-    return session?.provider === "claude" && !!session.backgroundTasks?.length;
+    return (
+      session?.provider === "claude" &&
+      !!session.backgroundTasks?.some(isAgentBackgroundTask)
+    );
   }
 
   private sendCompletionPush(sessionId: string, msg: ResultServerMessage): void {

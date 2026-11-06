@@ -81,12 +81,13 @@ Set<int> forkableAssistantEntryIndices(List<ChatEntry> entries) {
 
 /// Claude results that do not end the work: a later result follows without
 /// user input in between (Claude started a follow-up turn when a background
-/// task reported back), or background tasks are still running after the
+/// task reported back), or background agents are still running after the
 /// latest one. Their completion chips would announce a finish too early.
+/// Shells and monitors may run indefinitely, so they do not hide the chip.
 @visibleForTesting
 Set<int> intermediateResultEntryIndices(
   List<ChatEntry> entries, {
-  required bool backgroundActive,
+  required bool backgroundAgentsActive,
 }) {
   final hidden = <int>{};
   int? lastResult;
@@ -102,7 +103,7 @@ Set<int> intermediateResultEntryIndices(
     if (lastResult != null) hidden.add(lastResult);
     lastResult = message.subtype == 'success' ? index : null;
   }
-  if (backgroundActive && lastResult != null) hidden.add(lastResult);
+  if (backgroundAgentsActive && lastResult != null) hidden.add(lastResult);
   return hidden;
 }
 
@@ -263,7 +264,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   List<ChatEntry>? _derivedSourceEntries;
   String? _derivedForHttpBaseUrl;
   ProcessStatus? _derivedForProcessStatus;
-  bool? _derivedForBackgroundActive;
+  bool? _derivedForBackgroundAgentsActive;
   String? _derivedForActivePermissionId;
   _ChatListDerivedData? _derivedData;
   _VisibleAnchor? _pendingAnchor;
@@ -830,7 +831,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           listEquals(previousEntries, entries) &&
           listEquals(_derivedSourceEntries, chatState.entries) &&
           _derivedForProcessStatus == chatState.status &&
-          _derivedForBackgroundActive == chatState.backgroundTasks.isNotEmpty &&
+          _derivedForBackgroundAgentsActive == chatState.hasBackgroundAgents &&
           _derivedForActivePermissionId == activePermissionId) {
         _derivedForState = chatState;
         return cached;
@@ -864,7 +865,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           ? const <int>{}
           : intermediateResultEntryIndices(
               entries,
-              backgroundActive: chatState.backgroundTasks.isNotEmpty,
+              backgroundAgentsActive: chatState.hasBackgroundAgents,
             ),
       permissionTranscriptStatuses: derivePermissionTranscriptStatuses(
         chatState.entries,
@@ -878,7 +879,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _derivedSourceEntries = chatState.entries;
     _derivedForHttpBaseUrl = widget.httpBaseUrl;
     _derivedForProcessStatus = chatState.status;
-    _derivedForBackgroundActive = chatState.backgroundTasks.isNotEmpty;
+    _derivedForBackgroundAgentsActive = chatState.hasBackgroundAgents;
     _derivedForActivePermissionId = activePermissionId;
     _derivedData = next;
     stopwatch?.stop();

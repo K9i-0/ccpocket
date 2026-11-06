@@ -1,13 +1,15 @@
 /**
- * Holds a session's "completed" notification while background work is still
- * running, and releases the latest held completion once the session settles.
+ * Holds a session's "completed" notification while background agents are
+ * still running, and releases the latest held completion once the session
+ * settles.
  *
- * Claude ends a turn with a result even when background agents, shells or
- * monitors are still live, and starts a follow-up turn on its own when they
- * report back. Notifying on each of those results tells the user the session
- * is done while it is not. The background task set can also empty for a
- * moment before a task resumes or a follow-up turn starts, so the release
- * waits for the session to stay settled for `settleMs`.
+ * Claude ends a turn with a result even when background agents are still
+ * live, and starts a follow-up turn on its own when they report back.
+ * Notifying on each of those results repeats the push for one piece of work.
+ * Shells and monitors do not hold the push: they may run indefinitely. The
+ * agent set can also empty for a moment before an agent resumes or a
+ * follow-up turn starts, so the release waits for the session to stay
+ * settled for `settleMs`.
  */
 export interface BackgroundCompletionGateOptions<T> {
   settleMs: number;

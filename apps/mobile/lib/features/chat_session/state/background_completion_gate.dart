@@ -1,13 +1,14 @@
 import 'dart:async';
 
-/// Defers a Claude "session complete" notification while background tasks are
-/// live, then fires it once the session stays idle without them.
+/// Defers a Claude "session complete" notification while background agents
+/// are live, then fires it once the session stays idle without them.
 ///
-/// Claude ends a turn with a result even while background agents, shells or
-/// monitors run, and starts a follow-up turn when they report back. The task
-/// set can also empty for a moment before a task resumes, so the release waits
-/// for the session to stay settled for [settle]. Mirrors the Bridge's push
-/// gate for the local-notification fallback.
+/// Claude ends a turn with a result even while background agents run, and
+/// starts a follow-up turn when they report back. Shells and monitors do not
+/// defer it, since they may run indefinitely. The agent set can also empty
+/// for a moment before an agent resumes, so the release waits for the session
+/// to stay settled for [settle]. Mirrors the Bridge's push gate for the
+/// local-notification fallback.
 class BackgroundCompletionGate {
   BackgroundCompletionGate({
     required this.isSettled,

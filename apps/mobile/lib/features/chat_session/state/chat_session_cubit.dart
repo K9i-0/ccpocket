@@ -43,7 +43,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   late final BackgroundCompletionGate _completionGate =
       BackgroundCompletionGate(
         isSettled: () =>
-            state.status == ProcessStatus.idle && state.backgroundTasks.isEmpty,
+            state.status == ProcessStatus.idle && !state.hasBackgroundAgents,
         onRelease: () {
           if (!isClosed) {
             _sideEffectsController.add({ChatSideEffect.notifySessionComplete});
@@ -1209,8 +1209,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _completionGate.update();
   }
 
-  /// A Claude result while background tasks are live is not the end of the
-  /// session: Claude starts a follow-up turn when they report back.
+  /// A Claude result while background agents are live is not the end of the
+  /// session: Claude starts a follow-up turn when they report back. Shells
+  /// and monitors may run indefinitely, so they do not defer it.
   Set<ChatSideEffect> _deferCompletionWhileBackgroundRuns(
     Set<ChatSideEffect> effects,
     ServerMessage msg,
@@ -1221,7 +1222,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return effects;
     }
     final held = _completionGate.hold(
-      hasBackgroundWork: state.backgroundTasks.isNotEmpty,
+      hasBackgroundWork: state.hasBackgroundAgents,
     );
     if (!held) return effects;
     return {...effects}..remove(ChatSideEffect.notifySessionComplete);
