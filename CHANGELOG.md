@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.157.3] - 2026-11-06
+
+### Fixed
+
+- On iPad and other wide layouts, scrolling the session list no longer closes the keyboard of a text field in the chat or settings pane; it only closes a keyboard used by the list itself or left behind by another screen.
+
 ## [1.157.2] - 2026-11-06
 
 ### Fixed
