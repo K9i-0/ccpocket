@@ -47,6 +47,7 @@ import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/background_tasks_bar.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
+import '../chat_session/widgets/floating_composer_layout.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/fork_confirmation.dart';
 import '../chat_session/widgets/queued_input_panel.dart';
@@ -1411,217 +1412,238 @@ class _CodexChatBody extends HookWidget {
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
                 Expanded(
-                  child: BottomOverlayLayout(
-                    overlay:
-                        askToolUseId == null &&
-                            askInput == null &&
-                            pendingToolUseId == null
-                        ? null
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification is UserScrollNotification) {
-                                FocusScope.of(context).unfocus();
-                              }
-                              return false;
-                            },
-                            child: SingleChildScrollView(
-                              reverse: true,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (askToolUseId case final askId?
-                                      when askInput != null)
-                                    AskUserQuestionWidget(
-                                      toolUseId: askId,
-                                      input: askInput,
-                                      agentName: 'Codex',
-                                      onAnswer: answerQuestion,
-                                    ),
-                                  if (pendingToolUseId != null &&
-                                      isToolSuggestion &&
-                                      pendingPermission != null)
-                                    ToolSuggestionCard(
-                                      key: ValueKey(
-                                        'tool_suggestion_$pendingToolUseId',
+                  child: FloatingComposerLayout(
+                    content: BottomOverlayLayout(
+                      overlay:
+                          askToolUseId == null &&
+                              askInput == null &&
+                              pendingToolUseId == null
+                          ? null
+                          : NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                if (notification is UserScrollNotification) {
+                                  FocusScope.of(context).unfocus();
+                                }
+                                return false;
+                              },
+                              child: SingleChildScrollView(
+                                reverse: true,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (askToolUseId case final askId?
+                                        when askInput != null)
+                                      AskUserQuestionWidget(
+                                        toolUseId: askId,
+                                        input: askInput,
+                                        agentName: 'Codex',
+                                        onAnswer: answerQuestion,
                                       ),
-                                      appColors: appColors,
-                                      permission: pendingPermission,
-                                      onInstall: installSuggestedTool,
-                                      onComplete: approveToolUse,
-                                      onReject: rejectToolUse,
-                                      onOpenUrl: (url) =>
-                                          unawaited(openToolSuggestionUrl(url)),
-                                    ),
-                                  if (pendingToolUseId != null &&
-                                      !isToolSuggestion)
-                                    ApprovalBar(
-                                      key: ValueKey(
-                                        'approval_$pendingToolUseId',
+                                    if (pendingToolUseId != null &&
+                                        isToolSuggestion &&
+                                        pendingPermission != null)
+                                      ToolSuggestionCard(
+                                        key: ValueKey(
+                                          'tool_suggestion_$pendingToolUseId',
+                                        ),
+                                        appColors: appColors,
+                                        permission: pendingPermission,
+                                        onInstall: installSuggestedTool,
+                                        onComplete: approveToolUse,
+                                        onReject: rejectToolUse,
+                                        onOpenUrl: (url) => unawaited(
+                                          openToolSuggestionUrl(url),
+                                        ),
                                       ),
-                                      appColors: appColors,
-                                      pendingPermission: pendingPermission,
-                                      isPlanApproval: isPlanApproval,
-                                      planApprovalUiMode:
-                                          PlanApprovalUiMode.codex,
-                                      planFeedbackController:
-                                          planFeedbackController,
-                                      onApprove: approveToolUse,
-                                      onReject: rejectToolUse,
-                                      onApproveAlways: approveAlwaysToolUse,
-                                      onApproveClearContext: isPlanApproval
-                                          ? approveWithClearContext
-                                          : null,
-                                      onViewPlan: isPlanApproval
-                                          ? () {
-                                              final originalText =
-                                                  _extractPlanText(
-                                                    pendingPermission,
-                                                    sessionState.entries,
-                                                  );
-                                              if (originalText == null) return;
-                                              showPlanDetailSheet(
-                                                context,
-                                                originalText,
-                                              );
-                                            }
-                                          : null,
-                                    ),
-                                ],
+                                    if (pendingToolUseId != null &&
+                                        !isToolSuggestion)
+                                      ApprovalBar(
+                                        key: ValueKey(
+                                          'approval_$pendingToolUseId',
+                                        ),
+                                        appColors: appColors,
+                                        pendingPermission: pendingPermission,
+                                        isPlanApproval: isPlanApproval,
+                                        planApprovalUiMode:
+                                            PlanApprovalUiMode.codex,
+                                        planFeedbackController:
+                                            planFeedbackController,
+                                        onApprove: approveToolUse,
+                                        onReject: rejectToolUse,
+                                        onApproveAlways: approveAlwaysToolUse,
+                                        onApproveClearContext: isPlanApproval
+                                            ? approveWithClearContext
+                                            : null,
+                                        onViewPlan: isPlanApproval
+                                            ? () {
+                                                final originalText =
+                                                    _extractPlanText(
+                                                      pendingPermission,
+                                                      sessionState.entries,
+                                                    );
+                                                if (originalText == null)
+                                                  return;
+                                                showPlanDetailSheet(
+                                                  context,
+                                                  originalText,
+                                                );
+                                              }
+                                            : null,
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
+                      topOverlay: sessionState.sessionContextLoaded
+                          ? Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: SessionModeBar(
+                                  showExtendedCodexEfforts: context
+                                      .watch<SettingsCubit>()
+                                      .state
+                                      .showExtendedCodexEfforts,
+                                  onBeforeRestart: () async {
+                                    draftService.saveDraft(
+                                      sessionId,
+                                      chatInputController.text,
+                                    );
+                                  },
+                                ),
+                              ),
+                            )
+                          : null,
+                      floatingButtonBuilder: (overlayHeight) {
+                        if (!scroll.showScrollToLatest) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          right: 12,
+                          bottom: overlayHeight + 12,
+                          child: ScrollToBottomButton(
+                            onPressed: scroll.goToLatest,
                           ),
-                    topOverlay: sessionState.sessionContextLoaded
-                        ? Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: SessionModeBar(
-                                showExtendedCodexEfforts: context
-                                    .watch<SettingsCubit>()
-                                    .state
-                                    .showExtendedCodexEfforts,
-                                onBeforeRestart: () async {
-                                  draftService.saveDraft(
-                                    sessionId,
-                                    chatInputController.text,
-                                  );
-                                },
+                        );
+                      },
+                      content: ChatMessageList(
+                        liteMode: context.select<SettingsCubit, bool>(
+                          (cubit) => cubit.state.liteModeForSession(sessionId),
+                        ),
+                        sessionId: sessionId,
+                        scrollController: scroll.controller,
+                        httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
+                        projectPath: effectiveProjectPath,
+                        onRetryMessage: null,
+                        onRewindMessage: supportsMessageEdit
+                            ? null
+                            : (entry) {
+                                _showCodexRewindDialog(
+                                  context,
+                                  entry,
+                                  sessionId: sessionId,
+                                  inputController: chatInputController,
+                                  draftService: draftService,
+                                );
+                              },
+                        onEditMessage:
+                            supportsMessageEdit && status == ProcessStatus.idle
+                            ? (entry, text) => context
+                                  .read<ChatSessionCubit>()
+                                  .editMessage(entry, text)
+                            : null,
+                        onForkMessage: (message) {
+                          unawaited(_forkCodexFromAssistant(context, message));
+                        },
+                        scrollToUserEntry: scrollToUserEntry,
+                        collapseToolResults: collapseToolResults,
+                        bottomPadding: 8,
+                        isCodex: true,
+                        isReadingHistory: scroll.isReadingHistory,
+                        onScrollMetricsChanged: scroll.onScrollMetricsChanged,
+                        onFilePeekOpened: context
+                            .read<ChatSessionCubit>()
+                            .recordPeekedFile,
+                      ),
+                    ),
+                    bars: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (sessionState.recovery case final recovery?
+                            when recovery.enabled &&
+                                [
+                                  'waiting',
+                                  'blocked',
+                                  'exhausted',
+                                ].contains(recovery.phase))
+                          CodexRecoveryStatus(
+                            recovery: recovery,
+                            onCancel: () => context
+                                .read<ChatSessionCubit>()
+                                .cancelCodexRecovery(),
+                            onSettings: () => showCodexRecoverySheet(context),
+                          ),
+                        LiteModeActivityBar(sessionId: sessionId),
+                        const SessionBackgroundTasksBar(),
+                        if (approval is ApprovalNone)
+                          if (currentGoal != null)
+                            CodexGoalCard(
+                              goal: currentGoal,
+                              onEdit: () => unawaited(
+                                _showCodexGoalEditor(
+                                  context,
+                                  sessionState.goal?.objective ??
+                                      currentGoal.objective,
+                                ),
                               ),
+                              onTogglePaused: () => context
+                                  .read<ChatSessionCubit>()
+                                  .toggleGoalPaused(),
+                              onClear: () =>
+                                  unawaited(_confirmCodexGoalClear(context)),
                             ),
+                      ],
+                    ),
+                    composer: approval is ApprovalNone
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (queuedInput != null)
+                                SessionQueuedInputPanel(
+                                  item: queuedInput,
+                                  inputController: chatInputController,
+                                ),
+                              ChatInputWithOverlays(
+                                sessionId: sessionId,
+                                workspace: workspace,
+                                status: status,
+                                onGoToLatest: scroll.goToLatest,
+                                inputController: chatInputController,
+                                hintText: l.codexMessagePlaceholder,
+                                inputBlocked: queuedInput != null,
+                                initialDiffSelection:
+                                    diffSelectionFromNav.value,
+                                onDiffSelectionConsumed: () {},
+                                onDiffSelectionCleared: () =>
+                                    diffSelectionFromNav.value = null,
+                                onOpenGitScreen: effectiveProjectPath != null
+                                    ? (_) => _openGitScreen(
+                                        context,
+                                        effectiveWorktreePath ??
+                                            effectiveProjectPath,
+                                        diffSelectionFromNav,
+                                        sessionId: sessionId,
+                                        worktreePath: effectiveWorktreePath,
+                                        onFilePeekOpened: handleFilePeekOpened,
+                                      )
+                                    : null,
+                              ),
+                            ],
                           )
                         : null,
-                    floatingButtonBuilder: (overlayHeight) {
-                      if (!scroll.showScrollToLatest) {
-                        return const SizedBox.shrink();
-                      }
-                      return Positioned(
-                        right: 12,
-                        bottom: overlayHeight + 12,
-                        child: ScrollToBottomButton(
-                          onPressed: scroll.goToLatest,
-                        ),
-                      );
-                    },
-                    content: ChatMessageList(
-                      liteMode: context.select<SettingsCubit, bool>(
-                        (cubit) => cubit.state.liteModeForSession(sessionId),
-                      ),
-                      sessionId: sessionId,
-                      scrollController: scroll.controller,
-                      httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
-                      projectPath: effectiveProjectPath,
-                      onRetryMessage: null,
-                      onRewindMessage: supportsMessageEdit
-                          ? null
-                          : (entry) {
-                              _showCodexRewindDialog(
-                                context,
-                                entry,
-                                sessionId: sessionId,
-                                inputController: chatInputController,
-                                draftService: draftService,
-                              );
-                            },
-                      onEditMessage:
-                          supportsMessageEdit && status == ProcessStatus.idle
-                          ? (entry, text) => context
-                                .read<ChatSessionCubit>()
-                                .editMessage(entry, text)
-                          : null,
-                      onForkMessage: (message) {
-                        unawaited(_forkCodexFromAssistant(context, message));
-                      },
-                      scrollToUserEntry: scrollToUserEntry,
-                      collapseToolResults: collapseToolResults,
-                      bottomPadding: 8,
-                      isCodex: true,
-                      isReadingHistory: scroll.isReadingHistory,
-                      onScrollMetricsChanged: scroll.onScrollMetricsChanged,
-                      onFilePeekOpened: context
-                          .read<ChatSessionCubit>()
-                          .recordPeekedFile,
-                    ),
                   ),
                 ),
-                if (sessionState.recovery case final recovery?
-                    when recovery.enabled &&
-                        [
-                          'waiting',
-                          'blocked',
-                          'exhausted',
-                        ].contains(recovery.phase))
-                  CodexRecoveryStatus(
-                    recovery: recovery,
-                    onCancel: () =>
-                        context.read<ChatSessionCubit>().cancelCodexRecovery(),
-                    onSettings: () => showCodexRecoverySheet(context),
-                  ),
-                LiteModeActivityBar(sessionId: sessionId),
-                const SessionBackgroundTasksBar(),
-                if (approval is ApprovalNone)
-                  if (currentGoal != null)
-                    CodexGoalCard(
-                      goal: currentGoal,
-                      onEdit: () => unawaited(
-                        _showCodexGoalEditor(
-                          context,
-                          sessionState.goal?.objective ?? currentGoal.objective,
-                        ),
-                      ),
-                      onTogglePaused: () =>
-                          context.read<ChatSessionCubit>().toggleGoalPaused(),
-                      onClear: () => unawaited(_confirmCodexGoalClear(context)),
-                    ),
-                if (approval is ApprovalNone && queuedInput != null)
-                  SessionQueuedInputPanel(
-                    item: queuedInput,
-                    inputController: chatInputController,
-                  ),
-                if (approval is ApprovalNone)
-                  ChatInputWithOverlays(
-                    sessionId: sessionId,
-                    workspace: workspace,
-                    status: status,
-                    onGoToLatest: scroll.goToLatest,
-                    inputController: chatInputController,
-                    hintText: l.codexMessagePlaceholder,
-                    inputBlocked: queuedInput != null,
-                    initialDiffSelection: diffSelectionFromNav.value,
-                    onDiffSelectionConsumed: () {},
-                    onDiffSelectionCleared: () =>
-                        diffSelectionFromNav.value = null,
-                    onOpenGitScreen: effectiveProjectPath != null
-                        ? (_) => _openGitScreen(
-                            context,
-                            effectiveWorktreePath ?? effectiveProjectPath,
-                            diffSelectionFromNav,
-                            sessionId: sessionId,
-                            worktreePath: effectiveWorktreePath,
-                            onFilePeekOpened: handleFilePeekOpened,
-                          )
-                        : null,
-                  ),
               ],
             ),
           ),

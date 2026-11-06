@@ -52,6 +52,7 @@ import 'services/connection_url_parser.dart';
 import 'services/database_service.dart';
 import 'services/deep_link_dispatcher.dart';
 import 'services/draft_service.dart';
+import 'services/floating_keyboard_service.dart';
 import 'services/fcm_service.dart';
 import 'services/in_app_review_service.dart';
 import 'services/machine_manager_service.dart';
@@ -258,6 +259,10 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
           dispose: (service) => unawaited(service.close()),
         ),
         RepositoryProvider<DraftService>.value(value: draftService),
+        RepositoryProvider<FloatingKeyboardService>(
+          create: (_) => FloatingKeyboardService()..start(),
+          dispose: (service) => service.dispose(),
+        ),
         RepositoryProvider<InAppReviewService>(
           create: (_) => inAppReviewService,
           lazy: false,

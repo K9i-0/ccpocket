@@ -45,6 +45,7 @@ import '../../../widgets/slash_command_sheet.dart'
         fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
 import 'queued_input_panel.dart';
+import 'floating_composer_layout.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
 
@@ -142,6 +143,14 @@ class ChatInputWithOverlays extends HookWidget {
     final filteredFiles = useState<List<String>>(const []);
     final activeCompletion = useState<_CompletionOverlay?>(null);
     final selectedCompletionIndex = useState(0);
+
+    // Let a floating composer keep room for the completion options.
+    final composerScope = FloatingComposerScope.maybeOf(context);
+    final completionVisible = activeCompletion.value != null;
+    useEffect(() {
+      composerScope?.onCompletionVisibilityChanged(completionVisible);
+      return null;
+    }, [composerScope, completionVisible]);
 
     // Image attachment state (multiple images)
     final attachedImages = useState<List<({Uint8List bytes, String mimeType})>>(

@@ -35,6 +35,9 @@ import Photos
       )
       channel.setMethodCallHandler(handlePlatformEnvironmentMethodCall)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FloatingKeyboardChannel") {
+      FloatingKeyboardTracker.register(with: registrar)
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ClipboardChannel") {
       let channel = FlutterMethodChannel(
         name: clipboardChannelName,
@@ -206,5 +209,93 @@ import Photos
         result(nil)
       }
     }
+  }
+}
+
+/// Streams the keyboard frame from `keyboardLayoutGuide` with
+/// `followsUndockedKeyboard = true`, so Dart can follow iPad floating and
+/// undocked keyboards. Flutter's own `viewInsets` stay 0 for those keyboards.
+/// Event: {x, y, w, h, viewW, viewH} in the Flutter view's logical points.
+final class FloatingKeyboardTracker: NSObject, FlutterStreamHandler {
+  private weak var registrar: FlutterPluginRegistrar?
+  private var sink: FlutterEventSink?
+  private var trackerView: KeyboardGuideTrackerView?
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let instance = FloatingKeyboardTracker()
+    instance.registrar = registrar
+    FlutterEventChannel(
+      name: "ccpocket/floating_keyboard",
+      binaryMessenger: registrar.messenger()
+    ).setStreamHandler(instance)
+  }
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink)
+    -> FlutterError?
+  {
+    sink = events
+    attach()
+    if let view = trackerView { send(view.frame) }
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    sink = nil
+    return nil
+  }
+
+  private func attach(retries: Int = 50) {
+    guard trackerView == nil else { return }
+    guard let host = registrar?.viewController?.view else {
+      if retries > 0 {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+          self?.attach(retries: retries - 1)
+        }
+      }
+      return
+    }
+    let view = KeyboardGuideTrackerView()
+    view.isUserInteractionEnabled = false
+    view.backgroundColor = .clear
+    view.translatesAutoresizingMaskIntoConstraints = false
+    host.addSubview(view)
+    let guide = host.keyboardLayoutGuide
+    guide.followsUndockedKeyboard = true
+    NSLayoutConstraint.activate([
+      view.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
+      view.trailingAnchor.constraint(equalTo: guide.trailingAnchor),
+      view.topAnchor.constraint(equalTo: guide.topAnchor),
+      view.bottomAnchor.constraint(equalTo: guide.bottomAnchor),
+    ])
+    view.onFrameChange = { [weak self] frame in self?.send(frame) }
+    trackerView = view
+    host.layoutIfNeeded()
+  }
+
+  private func send(_ frame: CGRect) {
+    guard let sink, let host = trackerView?.superview else { return }
+    sink([
+      "x": frame.origin.x, "y": frame.origin.y,
+      "w": frame.size.width, "h": frame.size.height,
+      "viewW": host.bounds.width, "viewH": host.bounds.height,
+    ])
+  }
+}
+
+/// Invisible view pinned to the keyboard layout guide; reports frame changes,
+/// which UIKit applies every frame while a floating keyboard is dragged.
+final class KeyboardGuideTrackerView: UIView {
+  var onFrameChange: ((CGRect) -> Void)?
+  private var lastFrame: CGRect = .null
+
+  override var center: CGPoint { didSet { notifyIfChanged() } }
+  override var bounds: CGRect { didSet { notifyIfChanged() } }
+  override var frame: CGRect { didSet { notifyIfChanged() } }
+
+  private func notifyIfChanged() {
+    let current = frame
+    guard !current.equalTo(lastFrame) else { return }
+    lastFrame = current
+    onFrameChange?(current)
   }
 }

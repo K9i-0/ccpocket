@@ -47,6 +47,7 @@ import '../chat_session/state/chat_session_state.dart';
 import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/background_tasks_bar.dart';
 import '../chat_session/widgets/bottom_overlay_layout.dart';
+import '../chat_session/widgets/floating_composer_layout.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/fork_confirmation.dart';
@@ -1289,185 +1290,202 @@ class _ChatScreenBody extends HookWidget {
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
                 Expanded(
-                  child: BottomOverlayLayout(
-                    overlay:
-                        askToolUseId == null &&
-                            askInput == null &&
-                            pendingToolUseId == null
-                        ? null
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification is UserScrollNotification) {
-                                FocusScope.of(context).unfocus();
-                              }
-                              return false;
-                            },
-                            child: SingleChildScrollView(
-                              reverse: true,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (askToolUseId != null && askInput != null)
-                                    AskUserQuestionWidget(
-                                      toolUseId: askToolUseId,
-                                      input: askInput,
-                                      agentName: 'Claude',
-                                      onAnswer: answerQuestion,
-                                    ),
-                                  if (pendingToolUseId != null)
-                                    ApprovalBar(
-                                      key: ValueKey(
-                                        'approval_$pendingToolUseId',
-                                      ),
-                                      appColors: appColors,
-                                      pendingPermission: pendingPermission,
-                                      isPlanApproval: isPlanApproval,
-                                      planFeedbackController:
-                                          planFeedbackController,
-                                      onApprove: approveToolUse,
-                                      onReject: rejectToolUse,
-                                      onApproveAlways: approveAlwaysToolUse,
-                                      onApproveClearContext: isPlanApproval
-                                          ? approveWithClearContext
-                                          : null,
-                                      onViewPlan: isPlanApproval
-                                          ? () {
-                                              final originalText =
-                                                  _extractPlanText(
-                                                    sessionState.entries,
-                                                  );
-                                              if (originalText == null) return;
-                                              showPlanDetailSheet(
-                                                context,
-                                                originalText,
-                                              );
-                                            }
-                                          : null,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                    topOverlay: sessionState.sessionContextLoaded
-                        ? Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: SessionModeBar(
-                                onBeforeRestart: () async {
-                                  draftService.saveDraft(
-                                    sessionId,
-                                    chatInputController.text,
-                                  );
-                                },
-                              ),
-                            ),
-                          )
-                        : null,
-                    floatingButtonBuilder: (overlayHeight) {
-                      if (!scroll.showScrollToLatest) {
-                        return const SizedBox.shrink();
-                      }
-                      return Positioned(
-                        right: 12,
-                        bottom: overlayHeight + 12,
-                        child: ScrollToBottomButton(
-                          onPressed: scroll.goToLatest,
-                        ),
-                      );
-                    },
-                    content: ChatMessageList(
-                      liteMode: context.select<SettingsCubit, bool>(
-                        (cubit) => cubit.state.liteModeForSession(sessionId),
-                      ),
-                      sessionId: sessionId,
-                      scrollController: scroll.controller,
-                      httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
-                      projectPath: effectiveProjectPath,
-                      onRetryMessage: (entry) {
-                        context.read<ChatSessionCubit>().retryMessage(entry);
-                      },
-                      // In-place edit replaces the legacy conversation
-                      // rewind; file restore stays as its own action.
-                      onRewindMessage: supportsMessageEdit
+                  child: FloatingComposerLayout(
+                    content: BottomOverlayLayout(
+                      overlay:
+                          askToolUseId == null &&
+                              askInput == null &&
+                              pendingToolUseId == null
                           ? null
-                          : (entry) {
-                              _showRewindActionSheet(
+                          : NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                if (notification is UserScrollNotification) {
+                                  FocusScope.of(context).unfocus();
+                                }
+                                return false;
+                              },
+                              child: SingleChildScrollView(
+                                reverse: true,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (askToolUseId != null &&
+                                        askInput != null)
+                                      AskUserQuestionWidget(
+                                        toolUseId: askToolUseId,
+                                        input: askInput,
+                                        agentName: 'Claude',
+                                        onAnswer: answerQuestion,
+                                      ),
+                                    if (pendingToolUseId != null)
+                                      ApprovalBar(
+                                        key: ValueKey(
+                                          'approval_$pendingToolUseId',
+                                        ),
+                                        appColors: appColors,
+                                        pendingPermission: pendingPermission,
+                                        isPlanApproval: isPlanApproval,
+                                        planFeedbackController:
+                                            planFeedbackController,
+                                        onApprove: approveToolUse,
+                                        onReject: rejectToolUse,
+                                        onApproveAlways: approveAlwaysToolUse,
+                                        onApproveClearContext: isPlanApproval
+                                            ? approveWithClearContext
+                                            : null,
+                                        onViewPlan: isPlanApproval
+                                            ? () {
+                                                final originalText =
+                                                    _extractPlanText(
+                                                      sessionState.entries,
+                                                    );
+                                                if (originalText == null)
+                                                  return;
+                                                showPlanDetailSheet(
+                                                  context,
+                                                  originalText,
+                                                );
+                                              }
+                                            : null,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                      topOverlay: sessionState.sessionContextLoaded
+                          ? Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: SessionModeBar(
+                                  onBeforeRestart: () async {
+                                    draftService.saveDraft(
+                                      sessionId,
+                                      chatInputController.text,
+                                    );
+                                  },
+                                ),
+                              ),
+                            )
+                          : null,
+                      floatingButtonBuilder: (overlayHeight) {
+                        if (!scroll.showScrollToLatest) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          right: 12,
+                          bottom: overlayHeight + 12,
+                          child: ScrollToBottomButton(
+                            onPressed: scroll.goToLatest,
+                          ),
+                        );
+                      },
+                      content: ChatMessageList(
+                        liteMode: context.select<SettingsCubit, bool>(
+                          (cubit) => cubit.state.liteModeForSession(sessionId),
+                        ),
+                        sessionId: sessionId,
+                        scrollController: scroll.controller,
+                        httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
+                        projectPath: effectiveProjectPath,
+                        onRetryMessage: (entry) {
+                          context.read<ChatSessionCubit>().retryMessage(entry);
+                        },
+                        // In-place edit replaces the legacy conversation
+                        // rewind; file restore stays as its own action.
+                        onRewindMessage: supportsMessageEdit
+                            ? null
+                            : (entry) {
+                                _showRewindActionSheet(
+                                  context,
+                                  entry,
+                                  sessionId: sessionId,
+                                  inputController: chatInputController,
+                                  draftService: draftService,
+                                );
+                              },
+                        onEditMessage:
+                            supportsMessageEdit && status == ProcessStatus.idle
+                            ? (entry, text) => context
+                                  .read<ChatSessionCubit>()
+                                  .editMessage(entry, text)
+                            : null,
+                        onRestoreFilesMessage: supportsMessageEdit
+                            ? (entry) => _showRewindActionSheet(
                                 context,
                                 entry,
                                 sessionId: sessionId,
                                 inputController: chatInputController,
                                 draftService: draftService,
-                              );
-                            },
-                      onEditMessage:
-                          supportsMessageEdit && status == ProcessStatus.idle
-                          ? (entry, text) => context
-                                .read<ChatSessionCubit>()
-                                .editMessage(entry, text)
-                          : null,
-                      onRestoreFilesMessage: supportsMessageEdit
-                          ? (entry) => _showRewindActionSheet(
-                              context,
-                              entry,
-                              sessionId: sessionId,
-                              inputController: chatInputController,
-                              draftService: draftService,
-                              availableModes: const [RewindMode.code],
-                            )
-                          : null,
-                      onForkMessage:
-                          context.read<BridgeService>().supportsClaudeFork
-                          ? (message) => unawaited(
-                              _forkClaudeFromAssistant(context, message),
-                            )
-                          : null,
-                      collapseToolResults: collapseToolResults,
-                      scrollToUserEntry: scrollToUserEntry,
-                      bottomPadding: 8,
-                      isCodex: false,
-                      isReadingHistory: scroll.isReadingHistory,
-                      onScrollMetricsChanged: scroll.onScrollMetricsChanged,
-                      onFilePeekOpened: context
-                          .read<ChatSessionCubit>()
-                          .recordPeekedFile,
+                                availableModes: const [RewindMode.code],
+                              )
+                            : null,
+                        onForkMessage:
+                            context.read<BridgeService>().supportsClaudeFork
+                            ? (message) => unawaited(
+                                _forkClaudeFromAssistant(context, message),
+                              )
+                            : null,
+                        collapseToolResults: collapseToolResults,
+                        scrollToUserEntry: scrollToUserEntry,
+                        bottomPadding: 8,
+                        isCodex: false,
+                        isReadingHistory: scroll.isReadingHistory,
+                        onScrollMetricsChanged: scroll.onScrollMetricsChanged,
+                        onFilePeekOpened: context
+                            .read<ChatSessionCubit>()
+                            .recordPeekedFile,
+                      ),
                     ),
-                  ),
-                ),
-                LiteModeActivityBar(sessionId: sessionId),
-                const SessionBackgroundTasksBar(),
-                if (approval is ApprovalNone && queuedInput != null)
-                  SessionQueuedInputPanel(
-                    item: queuedInput,
-                    inputController: chatInputController,
-                  ),
-                if (approval is ApprovalNone)
-                  ChatInputWithOverlays(
-                    sessionId: sessionId,
-                    workspace: workspace,
-                    status: status,
-                    onGoToLatest: scroll.goToLatest,
-                    inputController: chatInputController,
-                    inputBlocked: queuedInput != null,
-                    initialDiffSelection: diffSelectionFromNav.value,
-                    onDiffSelectionConsumed: () {
-                      // Don't null — keep for AppBar navigation.
-                      // The value is cleared via onDiffSelectionCleared.
-                    },
-                    onDiffSelectionCleared: () =>
-                        diffSelectionFromNav.value = null,
-                    onOpenGitScreen: effectiveProjectPath != null
-                        ? (_) => _openGitScreen(
-                            context,
-                            effectiveWorktreePath ?? effectiveProjectPath,
-                            diffSelectionFromNav,
-                            sessionId: sessionId,
-                            worktreePath: effectiveWorktreePath,
-                            onFilePeekOpened: handleFilePeekOpened,
+                    bars: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        LiteModeActivityBar(sessionId: sessionId),
+                        const SessionBackgroundTasksBar(),
+                      ],
+                    ),
+                    composer: approval is ApprovalNone
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (queuedInput != null)
+                                SessionQueuedInputPanel(
+                                  item: queuedInput,
+                                  inputController: chatInputController,
+                                ),
+                              ChatInputWithOverlays(
+                                sessionId: sessionId,
+                                workspace: workspace,
+                                status: status,
+                                onGoToLatest: scroll.goToLatest,
+                                inputController: chatInputController,
+                                inputBlocked: queuedInput != null,
+                                initialDiffSelection:
+                                    diffSelectionFromNav.value,
+                                onDiffSelectionConsumed: () {
+                                  // Don't null — keep for AppBar navigation.
+                                  // The value is cleared via onDiffSelectionCleared.
+                                },
+                                onDiffSelectionCleared: () =>
+                                    diffSelectionFromNav.value = null,
+                                onOpenGitScreen: effectiveProjectPath != null
+                                    ? (_) => _openGitScreen(
+                                        context,
+                                        effectiveWorktreePath ??
+                                            effectiveProjectPath,
+                                        diffSelectionFromNav,
+                                        sessionId: sessionId,
+                                        worktreePath: effectiveWorktreePath,
+                                        onFilePeekOpened: handleFilePeekOpened,
+                                      )
+                                    : null,
+                              ),
+                            ],
                           )
                         : null,
                   ),
+                ),
               ],
             ),
           ),

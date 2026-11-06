@@ -33,6 +33,7 @@ import '../state/streaming_state.dart';
 import '../state/streaming_state_cubit.dart';
 import 'anchor_maintaining_auto_scroll_controller.dart';
 import 'maintain_reading_position_physics.dart';
+import 'floating_composer_layout.dart';
 
 @visibleForTesting
 bool shouldShowForkForAssistant(List<ChatEntry> entries, int entryIndex) {
@@ -637,9 +638,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
             // Only unfocus when user drags the list (not programmatic scroll),
             // and only to dismiss the keyboard: a message's text selection
             // also holds focus, and unfocusing it would clear the selection.
+            // A composer floating above an iPad floating keyboard keeps
+            // the keyboard while the chat scrolls (closed by tapping the
+            // chat or swiping the composer down instead).
             if (notification is UserScrollNotification &&
                 notification.direction != ScrollDirection.idle &&
-                isEditableTextFocused()) {
+                isEditableTextFocused() &&
+                !FloatingComposerStatus.isFloatingOf(context)) {
               FocusScope.of(context).unfocus();
             }
             return false;
