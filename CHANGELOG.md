@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.159.0] - 2026-11-07
+
+### Added
+
+- After the context is compacted, the chat shows only the latest compaction and the messages after it, in both normal and performance mode. The compaction card shows the trigger, token counts and, for Claude, the summary, and opens a read-only transcript of the earlier messages. While compaction runs, a "Compacting context…" row appears at the end of the chat.
+- When earlier messages fall outside the loaded history, an earlier-messages card opens the same transcript.
+- Settings has a Split view width slider (640–1200pt, default 862). It shows the current window width and whether it splits, and one tap sets the width so the current window splits. This lets narrower windows such as iPad mini in landscape Split View show the session list and conversation side by side. Below the three-pane width, an open tool pane covers the list instead of squeezing it.
+
+### Changed
+
+- The app expects Bridge 1.102.0, which reports context compaction and serves session transcripts. With an older Bridge, the transcript screen asks you to update Bridge.
+
 ## [1.158.1] - 2026-11-07
 
 ### Fixed
