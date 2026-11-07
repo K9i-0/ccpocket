@@ -109,7 +109,7 @@ class _TranscriptList extends StatelessWidget {
     return ListView.builder(
       key: const ValueKey('session_transcript_list'),
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: count,
       itemBuilder: (context, index) {
         final entryIndex = count - 1 - index - headerCount;

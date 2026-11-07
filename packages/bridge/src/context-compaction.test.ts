@@ -46,6 +46,14 @@ describe("cleanClaudeCompactSummary", () => {
     );
   });
 
+  it("drops the resume instructions appended for the model", () => {
+    const raw =
+      "Summary:\n9. Next step:\n   - None.\n\n" +
+      "If you need specific details from before compaction (like exact code snippets), read the full transcript at: /tmp/x.jsonl\n" +
+      "Continue the conversation from where it left off without asking the user any further questions.";
+    expect(cleanClaudeCompactSummary(raw)).toBe("9. Next step:\n   - None.");
+  });
+
   it("returns the trimmed text when there is no heading", () => {
     expect(cleanClaudeCompactSummary("  plain summary \n")).toBe(
       "plain summary",

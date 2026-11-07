@@ -38,6 +38,15 @@ export function normalizeClaudeCompactMetadata(
 const SUMMARY_HEADING = /(?:^|\n)Summary:\n/;
 
 /**
+ * Instructions Claude Code appends for the model after the summary (where to
+ * find the transcript, how to resume). Not part of the summary itself.
+ */
+const MODEL_TRAILERS = [
+  /\n\s*If you need specific details from before compaction\b/,
+  /\n\s*Continue the conversation from where it left off\b/,
+];
+
+/**
  * Extracts the readable part of a Claude compaction summary prompt: drops the
  * continuation preamble and injected system reminders.
  */
@@ -45,6 +54,10 @@ export function cleanClaudeCompactSummary(raw: string): string {
   let text = raw.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "");
   const heading = SUMMARY_HEADING.exec(text);
   if (heading) text = text.slice(heading.index + heading[0].length);
+  for (const trailer of MODEL_TRAILERS) {
+    const match = trailer.exec(text);
+    if (match) text = text.slice(0, match.index);
+  }
   return text.trim();
 }
 

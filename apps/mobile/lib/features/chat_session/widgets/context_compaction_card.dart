@@ -147,7 +147,7 @@ class _BoundaryFrame extends StatelessWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final accent = appColors.statusCompacting;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.06),
