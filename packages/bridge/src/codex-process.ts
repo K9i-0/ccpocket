@@ -3601,6 +3601,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     const itemType = normalizeItemType(item.type);
 
     switch (itemType) {
+      case "contextcompaction": {
+        this.setStatus("compacting");
+        break;
+      }
+
       case "commandexecution": {
         this.emitMessage({
           type: "assistant",
@@ -3734,6 +3739,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     const itemType = normalizeItemType(item.type);
 
     switch (itemType) {
+      case "contextcompaction": {
+        this.emitMessage({
+          type: "context_compaction",
+          id: itemId,
+          provider: "codex",
+          timestamp: new Date().toISOString(),
+        });
+        if (this._status === "compacting") {
+          this.setStatus(this.pendingTurnId ? "running" : "idle");
+        }
+        break;
+      }
+
       case "agentmessage": {
         const completedText = extractAgentText(item);
         const hasCompletedText = completedText?.trim().length > 0;

@@ -1,3 +1,8 @@
+import {
+  cleanClaudeCompactSummary,
+  normalizeClaudeCompactMetadata,
+  type SessionHistoryCompaction,
+} from "./context-compaction.js";
 import { readdir, readFile, writeFile, appendFile, stat, open } from "node:fs/promises";
 import { createReadStream, type Dirent } from "node:fs";
 import { createInterface } from "node:readline";
@@ -2699,7 +2704,12 @@ type SessionHistoryContentItem = {
 };
 
 export interface SessionHistoryMessage {
-  role: "user" | "assistant" | "tool_result";
+  /**
+   * `compaction` marks a context compaction boundary. Consumers that count or
+   * index user turns must keep checking `role` explicitly.
+   */
+  role: "user" | "assistant" | "tool_result" | "compaction";
+  compaction?: SessionHistoryCompaction;
   uuid?: string;
   /** Raw provider item id, when it differs from the display-safe UUID. */
   rawItemId?: string;
@@ -3052,6 +3062,17 @@ export function codexThreadToSessionHistory(
         }
 
         case "enteredReviewMode":
+        case "contextCompaction": {
+          messages.push({
+            role: "compaction",
+            content: [],
+            ...(rawItemId ? { uuid: rawItemId } : {}),
+            ...(itemTimestamp ? { timestamp: itemTimestamp } : {}),
+            compaction: {},
+          });
+          break;
+        }
+
         case "exitedReviewMode": {
           appendTextMessage(
             messages,
@@ -3615,6 +3636,43 @@ function isClaudePromptEntry(entry: Record<string, unknown>): boolean {
   return !isClaudeNonPromptUserEntry(entry, content);
 }
 
+function claudeCompactionHistoryMessage(
+  entry: Record<string, unknown>,
+): SessionHistoryMessage {
+  const uuid = typeof entry.uuid === "string" ? entry.uuid : undefined;
+  const ts = typeof entry.timestamp === "string" ? entry.timestamp : undefined;
+  return {
+    role: "compaction",
+    content: [],
+    ...(uuid ? { uuid } : {}),
+    ...(ts ? { timestamp: ts } : {}),
+    compaction: normalizeClaudeCompactMetadata(
+      entry.compactMetadata ?? entry.compact_metadata,
+    ),
+  };
+}
+
+function attachClaudeCompactionSummary(
+  messages: SessionHistoryMessage[],
+  entry: Record<string, unknown>,
+): void {
+  const last = messages[messages.length - 1];
+  if (last?.role !== "compaction" || last.compaction?.summary) return;
+  const message = asObject(entry.message);
+  const content = message?.content;
+  const raw =
+    typeof content === "string"
+      ? content
+      : arrayValue(content)
+          .map((block) => {
+            const value = asObject(block);
+            return value?.type === "text" ? stringValue(value.text) ?? "" : "";
+          })
+          .join("\n");
+  const summary = cleanClaudeCompactSummary(raw);
+  if (summary) last.compaction = { ...last.compaction, summary };
+}
+
 export async function getSessionHistory(
   sessionId: string,
 ): Promise<SessionHistoryMessage[]> {
@@ -3643,6 +3701,11 @@ export async function getSessionHistory(
     }
 
     const type = entry.type as string;
+    if (type === "system" && entry.subtype === "compact_boundary") {
+      if (entry.isSidechain === true) continue;
+      messages.push(claudeCompactionHistoryMessage(entry));
+      continue;
+    }
     if (type !== "user" && type !== "assistant") continue;
     if (typeof entry.uuid === "string" && abandonedBranch?.has(entry.uuid)) {
       continue;
@@ -3650,7 +3713,11 @@ export async function getSessionHistory(
 
     // Skip context compaction and transcript-only messages (not real user input)
     if (type === "user") {
-      if (entry.isCompactSummary === true || entry.isVisibleInTranscriptOnly === true) {
+      if (entry.isCompactSummary === true) {
+        attachClaudeCompactionSummary(messages, entry);
+        continue;
+      }
+      if (entry.isVisibleInTranscriptOnly === true) {
         continue;
       }
     }
@@ -4306,6 +4373,16 @@ export async function getCodexSessionHistory(
 
       if (payload.type === "agent_message" && typeof payload.message === "string") {
         appendTextMessage(messages, "assistant", payload.message, entryTimestamp);
+      }
+
+      if (payload.type === "context_compacted") {
+        messages.push({
+          role: "compaction",
+          content: [],
+          ...(entryTimestamp ? { timestamp: entryTimestamp } : {}),
+          compaction: {},
+        });
+        continue;
       }
 
       if (payload.type === "image_generation_end") {

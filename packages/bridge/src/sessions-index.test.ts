@@ -57,6 +57,33 @@ describe("pathToSlug", () => {
 });
 
 describe("codexThreadToSessionHistory", () => {
+  it("keeps context compaction items as markers", () => {
+    const history = codexThreadToSessionHistory({
+      turns: [
+        {
+          startedAt: 1700000000,
+          completedAt: 1700000001,
+          items: [
+            { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello" }] },
+            { type: "contextCompaction", id: "c1" },
+            { type: "agentMessage", id: "a1", text: "hi" },
+          ],
+        },
+      ],
+    });
+    expect(history.map((message) => message.role)).toEqual([
+      "user",
+      "compaction",
+      "assistant",
+    ]);
+    expect(history[1]).toMatchObject({
+      role: "compaction",
+      uuid: "c1",
+      content: [],
+      compaction: {},
+    });
+  });
+
   it("converts official thread turns into display history", () => {
     const history = codexThreadToSessionHistory({
       turns: [
@@ -3312,6 +3339,58 @@ describe("getSessionHistory non-prompt user entries", () => {
 
     expect(prompts).toEqual(["Investigate the bridge", "Follow up"]);
     expect(history.filter((message) => message.isMeta)).toHaveLength(3);
+  });
+
+  it("keeps compaction boundaries with their summary", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project");
+    mkdirSync(projectDir, { recursive: true });
+    // Shape cut from a real `/compact` transcript.
+    writeFileSync(
+      join(projectDir, "session-compact.jsonl"),
+      [
+        { type: "user", uuid: "u1", parentUuid: null, message: { role: "user", content: "Reply with just: ok" } },
+        { type: "assistant", uuid: "a1", parentUuid: "u1", message: { role: "assistant", content: [{ type: "text", text: "ok" }] } },
+        {
+          type: "system",
+          subtype: "compact_boundary",
+          uuid: "b1",
+          parentUuid: null,
+          logicalParentUuid: "a1",
+          isMeta: false,
+          timestamp: "2026-11-07T02:36:23.000Z",
+          compactMetadata: { trigger: "manual", preTokens: 21935, postTokens: 7722, durationMs: 5995 },
+        },
+        {
+          type: "user",
+          uuid: "s1",
+          parentUuid: "b1",
+          isCompactSummary: true,
+          isVisibleInTranscriptOnly: true,
+          message: { role: "user", content: "This session is being continued.\n\nSummary:\n1. Reply with ok." },
+        },
+        { type: "user", uuid: "u2", parentUuid: "s1", message: { role: "user", content: "Next question" } },
+      ].map((entry) => JSON.stringify(entry)).join("\n"),
+    );
+
+    const history = await getSessionHistory("session-compact");
+    expect(history.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "compaction",
+      "user",
+    ]);
+    expect(history[2]).toEqual({
+      role: "compaction",
+      uuid: "b1",
+      timestamp: "2026-11-07T02:36:23.000Z",
+      content: [],
+      compaction: {
+        trigger: "manual",
+        preTokens: 21935,
+        postTokens: 7722,
+        summary: "1. Reply with ok.",
+      },
+    });
   });
 
   it("restores narration thinking as assistant text", async () => {

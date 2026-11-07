@@ -290,6 +290,17 @@ export type ClientMessage =
     }
   | { type: "get_history"; sessionId: string }
   | { type: "get_history_delta"; sessionId: string; sinceSeq: number }
+  | {
+      /** Read-only full conversation transcript, paged from the end. */
+      type: "get_session_transcript";
+      sessionId: string;
+      requestId: string;
+      /** Exclusive end index of the requested page. */
+      beforeIndex?: number;
+      /** First page only: end the page at the latest compaction boundary. */
+      untilLatestCompaction?: boolean;
+      limit?: number;
+    }
   | { type: "get_session_context"; sessionId: string }
   | {
       type: "resolve_session_link";
@@ -668,6 +679,24 @@ export interface CodexCliJoinTarget {
   command: string;
 }
 
+/**
+ * A context compaction boundary. Messages before it are summarized in the
+ * model context. Opt-in: only sent to clients that list it in
+ * `supportedServerMessages`.
+ */
+export type ContextCompactionMessage = {
+  type: "context_compaction";
+  /** Provider boundary id (Claude boundary uuid / Codex item id). */
+  id?: string;
+  provider: "claude" | "codex";
+  trigger?: "manual" | "auto";
+  preTokens?: number;
+  postTokens?: number;
+  /** Claude only. Codex summaries are not readable. */
+  summary?: string;
+  timestamp?: string;
+};
+
 export type ServerMessage =
   | {
       type: "system";
@@ -819,7 +848,26 @@ export type ServerMessage =
   | { type: "session_activity"; sessionId?: string; at: string; historySeq?: number }
   | { type: "performance_mode_state"; deliveryRevision: number }
   | { type: "status"; status: ProcessStatus }
-  | { type: "history"; messages: ServerMessage[] }
+  | {
+      type: "history";
+      messages: ServerMessage[];
+      /** Older messages were dropped from the in-memory history window. */
+      olderHistoryAvailable?: boolean;
+    }
+  | ContextCompactionMessage
+  | {
+      type: "session_transcript";
+      sessionId: string;
+      requestId: string;
+      provider: "claude" | "codex";
+      /** Index of messages[0] within the full transcript. */
+      startIndex: number;
+      /** Exclusive end index of this page. */
+      endIndex: number;
+      total: number;
+      /** Past-history format, including `role: "compaction"` markers. */
+      messages: unknown[];
+    }
   | {
       type: "history_delta";
       filtered?: boolean;
@@ -838,6 +886,7 @@ export type ServerMessage =
       messages: Array<{ seq: number; message: ServerMessage }>;
       status?: ProcessStatus;
       reason: "compacted" | "reset";
+      olderHistoryAvailable?: boolean;
     }
   | {
       type: "conversation_queue";
@@ -2239,6 +2288,29 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_recording":
         if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "get_session_transcript":
+        if (typeof msg.sessionId !== "string") return null;
+        if (typeof msg.requestId !== "string") return null;
+        if (
+          msg.beforeIndex !== undefined &&
+          (typeof msg.beforeIndex !== "number" ||
+            !Number.isInteger(msg.beforeIndex) ||
+            msg.beforeIndex < 0)
+        )
+          return null;
+        if (
+          msg.limit !== undefined &&
+          (typeof msg.limit !== "number" ||
+            !Number.isInteger(msg.limit) ||
+            msg.limit <= 0)
+        )
+          return null;
+        if (
+          msg.untilLatestCompaction !== undefined &&
+          typeof msg.untilLatestCompaction !== "boolean"
+        )
+          return null;
         break;
       case "get_message_images":
         if (

@@ -1,6 +1,7 @@
 import { currentGitBranch, hasGitHead } from "./git-project-state.js";
 import { bootstrapProject } from "./project-bootstrap.js";
 import { performanceMessage } from "./performance-mode.js";
+import { transcriptPageRange } from "./context-compaction.js";
 import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
@@ -301,8 +302,26 @@ const RETRACT_START_TIMEOUT_MS = 3_000;
 /** How long a retract waits for the interrupted turn to end. */
 const RETRACT_IDLE_TIMEOUT_MS = 15_000;
 
+const BRIDGE_PROTOCOL_CAPABILITIES = [
+  "performance_mode_v1",
+  "project_request_correlation_v1",
+  "session_context_v1",
+  "codex_service_tiers_v1",
+  "input_delivery_v1",
+  "claude_session_settings_v1",
+  "claude_fork_v1",
+  "message_edit_v1",
+  "recent_sessions_filters_v1",
+  "context_compaction_v1",
+];
+
+/** Default and maximum page size for `get_session_transcript`. */
+const TRANSCRIPT_PAGE_DEFAULT = 200;
+const TRANSCRIPT_PAGE_MAX = 1000;
+
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "background_tasks",
+  "context_compaction",
   "conversation_queue",
   "goal_state",
   "codex_recovery_state",
@@ -2472,7 +2491,14 @@ export class BridgeWebSocketServer {
   private async splitPastHistoryMessages(
     session: SessionInfo,
   ): Promise<{ pastMessages: unknown[]; historyMessages: ServerMessage[] }> {
-    const messages = session.pastMessages ?? [];
+    return this.preparePastHistoryMessages(session, session.pastMessages ?? []);
+  }
+
+  /** Registers past-history images so clients can fetch them by URL. */
+  private async preparePastHistoryMessages(
+    session: SessionInfo,
+    messages: readonly unknown[],
+  ): Promise<{ pastMessages: unknown[]; historyMessages: ServerMessage[] }> {
     const pastMessages: unknown[] = [];
     const historyMessages: ServerMessage[] = [];
 
@@ -2516,6 +2542,29 @@ export class BridgeWebSocketServer {
     }
 
     return { pastMessages, historyMessages };
+  }
+
+  /**
+   * Full provider transcript for the read-only transcript screen. Unlike the
+   * live history window it is not trimmed, and it keeps compaction markers.
+   */
+  private async sessionTranscriptMessages(
+    session: SessionInfo,
+  ): Promise<SessionHistoryMessage[]> {
+    if (session.provider === "codex") {
+      const threadId = this.codexThreadIdForSession(session);
+      if (!threadId) return [];
+      if (session.codexInitialHistoryPending) {
+        return (session.pastMessages ?? []) as SessionHistoryMessage[];
+      }
+      return this.getCodexThreadHistoryFromRpc(
+        threadId,
+        session.projectPath,
+        session.process instanceof CodexProcess ? session.process : undefined,
+      );
+    }
+    if (!session.claudeSessionId) return [];
+    return getSessionHistory(session.claudeSessionId);
   }
 
   private codexThreadIdForSession(session: SessionInfo): string | undefined {
@@ -2790,6 +2839,9 @@ export class BridgeWebSocketServer {
   }
 
   private codexHistoryMessageIdentityKeys(message: ServerMessage): string[] {
+    if (message.type === "context_compaction") {
+      return message.id ? [`compaction:${message.id}`] : [];
+    }
     if (message.type === "user_input") {
       return message.userMessageUuid ? [`user:${message.userMessageUuid}`] : [];
     }
@@ -2980,6 +3032,15 @@ export class BridgeWebSocketServer {
     session: SessionInfo,
     item: SessionHistoryMessage,
   ): Promise<ServerMessage | null> {
+    if (item.role === "compaction") {
+      return {
+        type: "context_compaction",
+        provider: "codex",
+        ...(item.uuid ? { id: item.uuid } : {}),
+        ...item.compaction,
+        ...(item.timestamp ? { timestamp: item.timestamp } : {}),
+      };
+    }
     if (item.role === "user") {
       const images = await this.registerPastUserMessageImages(
         session,
@@ -5755,6 +5816,9 @@ export class BridgeWebSocketServer {
             type: "history",
             messages: [...splitPastHistory.historyMessages, ...session.history],
             sessionId: msg.sessionId,
+            ...(session.olderHistoryDropped
+              ? { olderHistoryAvailable: true }
+              : {}),
           } as Record<string, unknown>);
           if (session.provider === "codex") {
             this.sendCodexCurrentSettings(ws, msg.sessionId, session);
@@ -5779,6 +5843,54 @@ export class BridgeWebSocketServer {
             message: `Session ${msg.sessionId} not found`,
             errorCode: "session_not_found",
             sessionId: msg.sessionId,
+          });
+        }
+        break;
+      }
+
+      case "get_session_transcript": {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (!session) {
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+            errorCode: "session_not_found",
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+          });
+          break;
+        }
+        try {
+          const transcript = await this.sessionTranscriptMessages(session);
+          const { start, end } = transcriptPageRange(
+            transcript.map((message) => message.role),
+            msg,
+            TRANSCRIPT_PAGE_DEFAULT,
+            TRANSCRIPT_PAGE_MAX,
+          );
+          const { pastMessages } = await this.preparePastHistoryMessages(
+            session,
+            transcript.slice(start, end),
+          );
+          this.send(ws, {
+            type: "session_transcript",
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
+            provider: session.provider === "codex" ? "codex" : "claude",
+            startIndex: start,
+            endIndex: end,
+            total: transcript.length,
+            messages: pastMessages,
+          });
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            message: `Failed to read session transcript: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+            errorCode: "session_transcript_failed",
+            sessionId: msg.sessionId,
+            requestId: msg.requestId,
           });
         }
         break;
@@ -5938,6 +6050,9 @@ export class BridgeWebSocketServer {
             messages: result.entries,
             status: session.status,
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
+            ...(result.kind === "snapshot" && session.olderHistoryDropped
+              ? { olderHistoryAvailable: true }
+              : {}),
           } as ServerMessage);
           this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
@@ -9252,17 +9367,7 @@ export class BridgeWebSocketServer {
       bridgeInstanceId: this.promptHistoryStore?.bridgeInstanceId,
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
-      protocolCapabilities: [
-        "performance_mode_v1",
-        "project_request_correlation_v1",
-        "session_context_v1",
-        "codex_service_tiers_v1",
-        "input_delivery_v1",
-        "claude_session_settings_v1",
-        "claude_fork_v1",
-        "message_edit_v1",
-        "recent_sessions_filters_v1",
-      ],
+      protocolCapabilities: BRIDGE_PROTOCOL_CAPABILITIES,
     });
   }
 
@@ -9305,17 +9410,7 @@ export class BridgeWebSocketServer {
       bridgeInstanceId: this.promptHistoryStore?.bridgeInstanceId,
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
-      protocolCapabilities: [
-        "performance_mode_v1",
-        "project_request_correlation_v1",
-        "session_context_v1",
-        "codex_service_tiers_v1",
-        "input_delivery_v1",
-        "claude_session_settings_v1",
-        "claude_fork_v1",
-        "message_edit_v1",
-        "recent_sessions_filters_v1",
-      ],
+      protocolCapabilities: BRIDGE_PROTOCOL_CAPABILITIES,
     });
   }
 
@@ -10811,6 +10906,18 @@ export class BridgeWebSocketServer {
     }
     if (!("messages" in msg) || !Array.isArray(msg.messages)) return msg;
     const messages = msg.messages as unknown[];
+
+    if (msg.type === "past_history") {
+      if (this.clientSupportedServerMessages.get(ws)?.has("context_compaction")) {
+        return msg;
+      }
+      return {
+        ...(msg as unknown as Record<string, unknown>),
+        messages: messages.filter(
+          (message) => !isRecord(message) || message.role !== "compaction",
+        ),
+      };
+    }
 
     if (msg.type === "history") {
       return {

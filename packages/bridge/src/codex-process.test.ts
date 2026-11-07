@@ -524,6 +524,43 @@ describe("CodexProcess (app-server)", () => {
     ).toBe("invalid thread id");
   });
 
+  it("reports context compaction as status and a marker", () => {
+    const proc = new CodexProcess("linux");
+    const messages: Array<Record<string, unknown>> = [];
+    const statuses: string[] = [];
+    proc.on("message", (message) =>
+      messages.push(message as Record<string, unknown>),
+    );
+    proc.on("status", (status) => statuses.push(status));
+    (proc as any)._threadId = "thread-1";
+
+    (proc as any).handleNotification("turn/started", {
+      threadId: "thread-1",
+      turn: { id: "turn-1" },
+    });
+    (proc as any).handleNotification("item/started", {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      item: { type: "contextCompaction", id: "compact-1" },
+    });
+    expect(proc.status).toBe("compacting");
+    (proc as any).handleNotification("item/completed", {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      item: { type: "contextCompaction", id: "compact-1" },
+    });
+
+    expect(proc.status).toBe("running");
+    expect(statuses.slice(-3)).toEqual(["running", "compacting", "running"]);
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "context_compaction",
+        id: "compact-1",
+        provider: "codex",
+      }),
+    );
+  });
+
   it("reports terminals and child agents that outlive the turn", () => {
     const proc = new CodexProcess("linux");
     const messages: Array<Record<string, unknown>> = [];

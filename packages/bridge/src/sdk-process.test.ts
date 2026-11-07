@@ -2139,6 +2139,113 @@ describe("SdkProcess Claude authentication", () => {
     ]);
   });
 
+  it("emits one compaction marker carrying the following summary", async () => {
+    const init = {
+      type: "system",
+      subtype: "init",
+      session_id: "compact-session",
+      model: "claude-haiku-5-5",
+      apiKeySource: "api_key",
+    };
+    // Frame order captured from a real `/compact` run.
+    const { messages } = await runSdkMessages([
+      init,
+      { type: "system", subtype: "status", status: "compacting", session_id: "compact-session" },
+      {
+        type: "system",
+        subtype: "status",
+        status: null,
+        compact_result: "success",
+        session_id: "compact-session",
+      },
+      init,
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        session_id: "compact-session",
+        uuid: "boundary-1",
+        compact_metadata: {
+          trigger: "manual",
+          pre_tokens: 21935,
+          post_tokens: 7722,
+          duration_ms: 5995,
+        },
+      },
+      {
+        type: "user",
+        isSynthetic: true,
+        session_id: "compact-session",
+        parent_tool_use_id: null,
+        message: {
+          role: "user",
+          content:
+            "This session is being continued from a previous conversation.\n\nSummary:\n1. Reply with ok.",
+        },
+      },
+      {
+        type: "user",
+        isReplay: true,
+        session_id: "compact-session",
+        parent_tool_use_id: null,
+        message: { role: "user", content: "<local-command-stdout>Compacted </local-command-stdout>" },
+      },
+    ]);
+
+    const markers = messages.filter((m) => m.type === "context_compaction");
+    expect(markers).toEqual([
+      expect.objectContaining({
+        type: "context_compaction",
+        provider: "claude",
+        id: "boundary-1",
+        trigger: "manual",
+        preTokens: 21935,
+        postTokens: 7722,
+        summary: "1. Reply with ok.",
+      }),
+    ]);
+    // The boundary no longer re-broadcasts a stale "compacting" status.
+    const statusMessages = messages
+      .filter((m) => m.type === "status")
+      .map((m) => (m as { status: string }).status);
+    expect(statusMessages.lastIndexOf("compacting")).toBeLessThan(
+      messages.findIndex((m) => m.type === "context_compaction"),
+    );
+  });
+
+  it("emits a compaction marker without summary when none follows", async () => {
+    const { messages } = await runSdkMessages([
+      {
+        type: "system",
+        subtype: "init",
+        session_id: "compact-session-2",
+        model: "claude-haiku-5-5",
+        apiKeySource: "api_key",
+      },
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        session_id: "compact-session-2",
+        uuid: "boundary-2",
+        compact_metadata: { trigger: "auto", pre_tokens: 1000 },
+      },
+      {
+        type: "result",
+        subtype: "success",
+        result: "",
+        session_id: "compact-session-2",
+        total_cost_usd: 0,
+        duration_ms: 1,
+      },
+    ]);
+
+    const markerIndex = messages.findIndex((m) => m.type === "context_compaction");
+    expect(messages[markerIndex]).toEqual(
+      expect.objectContaining({ id: "boundary-2", trigger: "auto", preTokens: 1000 }),
+    );
+    expect(messages[markerIndex]).not.toHaveProperty("summary");
+    expect(markerIndex).toBeLessThan(messages.findIndex((m) => m.type === "result"));
+  });
+
   it("preserves partial assistant text and surfaces its typed error once", async () => {
     const { messages } = await runSdkMessages([
       {

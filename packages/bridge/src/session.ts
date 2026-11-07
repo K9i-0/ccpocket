@@ -113,6 +113,8 @@ export interface SessionInfo {
    * hold removed entries and must take a full snapshot.
    */
   historyResetSeq?: number;
+  /** Set once [trimHistory] has dropped messages from the live window. */
+  olderHistoryDropped?: boolean;
   /** Latest Codex goal state. Kept out of chat history. */
   codexGoal?: CodexGoal | null;
   /** Live Claude background tasks. Kept out of chat history. */
@@ -1449,6 +1451,7 @@ export class SessionManager {
       // a run of user bubbles after compaction.
       session.history.shift();
       session.historyEntries.shift();
+      session.olderHistoryDropped = true;
     }
 
     session.historyLowWatermark =

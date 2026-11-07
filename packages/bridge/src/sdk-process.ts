@@ -15,7 +15,12 @@ import {
 import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
 import { projectNarrationBlocks } from "./claude-narration.js";
 import {
+  cleanClaudeCompactSummary,
+  normalizeClaudeCompactMetadata,
+} from "./context-compaction.js";
+import {
   normalizeToolResultContent,
+  type ContextCompactionMessage,
   type ServerMessage,
   type ProcessStatus,
   type PermissionMode,
@@ -630,6 +635,18 @@ function subagentMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
   return null;
 }
 
+export function claudeCompactSummaryFromSdkMessage(
+  msg: SDKMessage,
+): string | undefined {
+  if (msg.type !== "user") return undefined;
+  const usr = msg as { isSynthetic?: boolean; message?: { content?: unknown } };
+  if (usr.isSynthetic !== true) return undefined;
+  const content = usr.message?.content;
+  if (typeof content !== "string") return undefined;
+  const summary = cleanClaudeCompactSummary(content);
+  return summary || undefined;
+}
+
 /**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
@@ -656,7 +673,16 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
         };
       }
       if (sys.subtype === "compact_boundary") {
-        return { type: "status", status: "compacting" as ProcessStatus };
+        // Arrives after compaction finished (`status: null`); the compacting
+        // state itself comes from `status: "compacting"` frames.
+        const compaction = normalizeClaudeCompactMetadata(sys.compact_metadata);
+        return {
+          type: "context_compaction",
+          provider: "claude",
+          ...(typeof sys.uuid === "string" ? { id: sys.uuid } : {}),
+          ...compaction,
+          timestamp: new Date().toISOString(),
+        };
       }
       if (sys.subtype === "status" && sys.compact_result === "failed") {
         const compactError =
@@ -920,6 +946,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
   private pendingAssistantError: ServerMessage | null = null;
+  private pendingCompaction: ContextCompactionMessage | null = null;
   /**
    * Tool use ids that already received a tool_result. Frames from a subagent
    * whose Agent/Task call has returned belong to a background agent.
@@ -1787,6 +1814,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         continue;
       }
 
+      this.flushPendingCompaction(message);
+
       if (message.type === "rate_limit_event" && message.rate_limit_info.status === "rejected") {
         const info = message.rate_limit_info;
         this.usageLimitResetAt = futureResetAt(info.resetsAt) ?? futureResetAt(info.overageResetsAt);
@@ -1805,6 +1834,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
       // Convert SDK message to ServerMessage
       let serverMsg = sdkMessageToServerMessage(message);
+      if (serverMsg?.type === "context_compaction") {
+        // Held until the following summary frame so it is emitted once.
+        this.pendingCompaction = serverMsg;
+        serverMsg = null;
+      }
       if (message.type === "assistant" && this.pendingAssistantError === null) {
         this.pendingAssistantError = claudeAssistantErrorMessage(
           (message as Record<string, unknown>).error,
@@ -1903,6 +1937,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.updateStatusFromMessage(message);
     }
 
+    this.flushPendingCompaction();
     await authResolution;
     if (this.stopped || authGeneration !== this.authGeneration) return;
 
@@ -2215,6 +2250,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     if (this.sessionEndEmitted) return;
     this.sessionEndEmitted = true;
     this.emit("session_end");
+  }
+
+  /**
+   * Emits a held compaction boundary. Claude follows `compact_boundary` with
+   * a synthetic user frame whose string content is the summary prompt; that
+   * frame supplies [ContextCompactionMessage.summary].
+   */
+  private flushPendingCompaction(next?: SDKMessage): void {
+    const pending = this.pendingCompaction;
+    if (!pending) return;
+    this.pendingCompaction = null;
+    const summary = next ? claudeCompactSummaryFromSdkMessage(next) : undefined;
+    this.emitMessage(summary ? { ...pending, summary } : pending);
   }
 
   private emitMessage(msg: ServerMessage): void {

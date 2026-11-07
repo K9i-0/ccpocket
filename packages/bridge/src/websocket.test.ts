@@ -3824,6 +3824,189 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  describe("context compaction (context_compaction_v1)", () => {
+    const compactedHistory = [
+      { role: "user", uuid: "u1", content: [{ type: "text", text: "first" }] },
+      { role: "assistant", uuid: "a1", content: [{ type: "text", text: "answer" }] },
+      {
+        role: "compaction",
+        uuid: "b1",
+        content: [],
+        compaction: { trigger: "auto", preTokens: 180000, summary: "Earlier work" },
+      },
+      { role: "user", uuid: "u2", content: [{ type: "text", text: "second" }] },
+      { role: "assistant", uuid: "a2", content: [{ type: "text", text: "reply" }] },
+    ];
+
+    async function resumeClaude(bridge: any, ws: any): Promise<string> {
+      await bridge.handleClientMessage(
+        {
+          type: "resume_session",
+          sessionId: "claude-session-compact",
+          projectPath: "/tmp/project-a",
+          provider: "claude",
+        },
+        ws,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      const created = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find((m: any) => m.type === "system" && m.subtype === "session_created");
+      ws.send.mockClear();
+      return created.sessionId as string;
+    }
+
+    function sent(ws: any): any[] {
+      return ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    }
+
+    it("advertises the capability", () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).sendSessionList(ws);
+      const catalog = sent(ws).find((m) => m.type === "session_list");
+      expect(catalog.protocolCapabilities).toContain("context_compaction_v1");
+      bridge.close();
+    });
+
+    it("strips compaction markers from past_history for older clients", async () => {
+      getSessionHistoryMock.mockResolvedValue(compactedHistory);
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const sessionId = await resumeClaude(bridge, ws);
+
+      await (bridge as any).handleClientMessage({ type: "get_history", sessionId }, ws);
+      const past = sent(ws).find((m) => m.type === "past_history");
+      expect(past.messages.map((m: any) => m.role)).toEqual([
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+      ]);
+      bridge.close();
+    });
+
+    it("keeps compaction markers for clients that support them", async () => {
+      getSessionHistoryMock.mockResolvedValue(compactedHistory);
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).clientSupportedServerMessages.set(
+        ws,
+        new Set(["context_compaction"]),
+      );
+      const sessionId = await resumeClaude(bridge, ws);
+
+      await (bridge as any).handleClientMessage({ type: "get_history", sessionId }, ws);
+      const past = sent(ws).find((m) => m.type === "past_history");
+      expect(past.messages[2]).toMatchObject({
+        role: "compaction",
+        compaction: { trigger: "auto", summary: "Earlier work" },
+      });
+      bridge.close();
+    });
+
+    it("filters live context_compaction for older clients only", () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const oldWs = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      const newWs = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).clientSupportedServerMessages.set(
+        newWs,
+        new Set(["context_compaction"]),
+      );
+      const marker = { type: "context_compaction", provider: "claude", id: "b1" };
+      const history = {
+        type: "history_delta",
+        sessionId: "s1",
+        fromSeq: 1,
+        toSeq: 1,
+        messages: [{ seq: 1, message: marker }],
+      };
+      expect((bridge as any).prepareServerMessageForClient(oldWs, marker)).toBeNull();
+      expect((bridge as any).prepareServerMessageForClient(newWs, marker)).toEqual(marker);
+      expect(
+        (bridge as any).prepareServerMessageForClient(oldWs, history).messages,
+      ).toEqual([]);
+      expect(
+        (bridge as any).prepareServerMessageForClient(newWs, history).messages,
+      ).toHaveLength(1);
+      bridge.close();
+    });
+
+    it("pages the transcript from the latest compaction", async () => {
+      getSessionHistoryMock.mockResolvedValue(compactedHistory);
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      (bridge as any).clientSupportedServerMessages.set(
+        ws,
+        new Set(["context_compaction"]),
+      );
+      const sessionId = await resumeClaude(bridge, ws);
+
+      await (bridge as any).handleClientMessage(
+        {
+          type: "get_session_transcript",
+          sessionId,
+          requestId: "t1",
+          untilLatestCompaction: true,
+          limit: 2,
+        },
+        ws,
+      );
+      const first = sent(ws).find((m) => m.type === "session_transcript");
+      expect(first).toMatchObject({
+        requestId: "t1",
+        sessionId,
+        provider: "claude",
+        startIndex: 1,
+        endIndex: 3,
+        total: 5,
+      });
+      expect(first.messages.map((m: any) => m.uuid)).toEqual(["a1", "b1"]);
+      expect(getSessionHistoryMock).toHaveBeenLastCalledWith("claude-session-compact");
+
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(
+        { type: "get_session_transcript", sessionId, requestId: "t2", beforeIndex: 1 },
+        ws,
+      );
+      const older = sent(ws).find((m) => m.type === "session_transcript");
+      expect(older).toMatchObject({ requestId: "t2", startIndex: 0, endIndex: 1 });
+      expect(older.messages.map((m: any) => m.uuid)).toEqual(["u1"]);
+      bridge.close();
+    });
+
+    it("converts Codex compaction history into a deduplicable marker", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const marker = await (bridge as any).codexHistoryMessageToServerMessage(
+        { id: "s1", provider: "codex" },
+        { role: "compaction", uuid: "c1", content: [], compaction: {} },
+      );
+      expect(marker).toEqual({ type: "context_compaction", provider: "codex", id: "c1" });
+      expect((bridge as any).codexHistoryMessageIdentityKeys(marker)).toEqual([
+        "compaction:c1",
+      ]);
+      bridge.close();
+    });
+
+    it("reports a missing session to the transcript request", async () => {
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+      await (bridge as any).handleClientMessage(
+        { type: "get_session_transcript", sessionId: "missing", requestId: "t3" },
+        ws,
+      );
+      expect(sent(ws)).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          errorCode: "session_not_found",
+          requestId: "t3",
+        }),
+      );
+      bridge.close();
+    });
+  });
+
   it("queues input addressed to a Claude session while resume history loads", async () => {
     let resolveHistory!: (messages: unknown[]) => void;
     getSessionHistoryMock.mockReturnValue(
