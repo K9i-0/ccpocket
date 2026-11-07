@@ -1,9 +1,7 @@
-• Turn Claude Code ultracode on or off for Claude sessions, next to the effort slider. It is restored when you resume a session.
-• On iPad, the chat composer floats above a floating or split keyboard instead of hiding behind it.
-• The chat composer has a frosted glass look, and the chat scrolls behind it.
-• A Claude session shows Ready once its main turn ends, even while background tasks remain; their counts appear next to the status. Leftover shells such as a dev server no longer hold back the completion notification.
-• Double tap to zoom images in File Peek and the image viewers.
-• The usage summary switches to the weekly window when it is the tighter limit.
-• Claude's short notes between tool calls appear in performance mode and restored history.
-• Fixed the keyboard staying open on the session list, and zoomed images being clipped.
-• Requires Bridge 1.101.0 (Node.js 22.19.0 or newer) for the new features.
+• After the context is compacted, the chat shows only the latest compaction and the messages after it. The compaction card shows the trigger, token counts and Claude's summary, and opens a read-only view of the earlier messages. While compaction runs, "Compacting context…" appears at the end of the chat.
+• When earlier messages fall outside the loaded history, the same view opens them.
+• Settings has a Split view width slider, so narrower windows such as iPad mini in landscape Split View can show the session list and conversation side by side.
+• On iPad with a floating keyboard, the newest message scrolls up to just above the composer.
+• When a Bridge rejects your API key, the app stops retrying and shows how to display the Bridge's QR code again, with Scan QR Code and Enter API key actions. This prepares for a future Bridge release that requires an API key.
+• The machine list marks Bridges that require an API key.
+• Requires Bridge 1.103.0 for the new features.

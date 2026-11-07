@@ -1,0 +1,5 @@
+• After context compaction, the chat shows only the latest compaction onward; open earlier messages from the compaction card.
+• Settings has a Split view width slider.
+• When a Bridge rejects your API key, the app stops retrying and shows how to display the Bridge QR code again or enter the key. This prepares for API keys becoming required.
+• The machine list marks Bridges that need an API key.
+• Requires Bridge 1.103.0.
