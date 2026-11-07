@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.160.0] - 2026-11-07
+
+### Added
+
+- When a Bridge rejects the app's API key, the app stops retrying and shows a "Bridge authentication required" card. It shows the command that prints the Bridge's pairing QR code (`npx --yes @ccpocket/bridge@1 qr`) and offers Scan QR Code (mobile) and Enter API key. This prepares for a future Bridge release that requires an API key by default.
+- The machine list marks Bridges that require an API key the app does not have.
+
+### Changed
+
+- Gallery upload and delete send the API key in an `Authorization` header.
+- The app expects Bridge 1.103.0, which adds `ccpocket-bridge qr` and reports whether an API key is required.
+
 ## [1.159.0] - 2026-11-07
 
 ### Added
