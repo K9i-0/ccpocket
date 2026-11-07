@@ -2,6 +2,19 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.103.0] - 2026-11-07
+
+### Added
+
+- `ccpocket-bridge qr [--port <port>]` prints the pairing QR code of the Bridge running on this machine, so devices can be re-paired with a background (launchd/systemd) service. It reads a new local-only `/pairing` endpoint that requires a per-start secret in `~/.ccpocket/pairing-secret-<port>` (mode `0600`) and rejects non-loopback and browser requests.
+- `/health` reports `auth: "required"` or `"none"`, so clients can tell before connecting whether an API key is needed.
+- Starting without an API key prints a warning. A future 1.x release will require an API key by default; see `docs/bridge-auth-required.md`.
+
+### Changed
+
+- API key comparison is constant-time.
+- CORS allows the `Authorization` header, used by upcoming authenticated HTTP endpoints.
+
 ## [1.102.0] - 2026-11-07
 
 ### Added
