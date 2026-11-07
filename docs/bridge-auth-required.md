@@ -47,11 +47,14 @@ Backward compatible with every existing Bridge.
   and an Enter API key button that opens the matching machine's edit sheet. Rescanning updates the
   existing machine's stored key, because `recordConnection` matches the
   machine by host and port.
-- HTTP calls that will become authenticated (gallery upload and delete) add
-  `?token=<key>` when a key is known. A query parameter is used instead of an
-  `Authorization` header so Flutter Web does not trigger a CORS preflight that
-  older Bridges, which only allow `Content-Type, Content-Length, Range`, would
-  reject. Older Bridges ignore the parameter.
+- HTTP calls that will become authenticated (gallery upload and delete) send
+  `Authorization: Bearer <key>` when a key is known. A `?token=` query cannot
+  be used: older Bridges match these routes on the raw `req.url`
+  (`/api/gallery/upload` by equality, `/api/gallery/:id` with an anchored
+  regex), so an added query string turns them into 404s. Native clients work
+  against every Bridge because unknown headers are ignored. Known gap: Flutter
+  Web against a Bridge older than Step 2 fails the CORS preflight for these two
+  calls, because `Authorization` is only allowed from Step 2 on.
 - When `/health` reports `auth: "required"` and the machine has no stored
   key, the machine entry shows that a QR rescan is needed.
 
@@ -65,8 +68,12 @@ Nothing is rejected that was previously accepted.
 - `/health` includes `auth: "required" | "none"`, with the same meaning as the
   mDNS TXT `auth` field.
 - The token comparison uses `crypto.timingSafeEqual`.
+- `Access-Control-Allow-Headers` includes `Authorization`.
 - `GET /pairing` returns pairing information (connection URLs, deep link and
-  token) and is served only to loopback clients. The request must come from a
+  token). It requires the per-start secret the Bridge writes to
+  `~/.ccpocket/pairing-secret-<port>` (mode `0600`), sent in the
+  `X-CCPocket-Pairing-Secret` header, so other local users on shared hosts
+  cannot read the key. It is also served only to loopback clients. The request must come from a
   loopback address, carry a loopback `Host` header (to block DNS rebinding)
   and have no `Origin` header (so web pages cannot use it). The response has
   no CORS headers. The future desktop app can reuse this endpoint to show
@@ -82,7 +89,7 @@ Nothing is rejected that was previously accepted.
   starts. This covers plain `npx` users as well as `setup` users.
 - `--insecure-no-auth` (or `BRIDGE_INSECURE_NO_AUTH=1`) opts out explicitly.
 - `/usage`, `/doctor`, `POST /api/gallery/upload` and `DELETE /api/gallery/:id`
-  require the token. `/health` and `/version` stay public; app probing and
+  require the token as `Authorization: Bearer <key>`. `/health` and `/version` stay public; app probing and
   update checks depend on them. Image, media and upload-store URLs remain
   capability URLs (unguessable IDs or short-lived tokens).
 - Open question: ship this in `1.x` or `2.x`. `setup` pins

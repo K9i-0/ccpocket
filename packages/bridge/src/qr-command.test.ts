@@ -12,11 +12,13 @@ describe("fetchLocalPairing", () => {
     };
     const fetchImpl = vi.fn(async () => Response.json(pairing));
 
-    const result = await fetchLocalPairing(9000, fetchImpl as typeof fetch);
+    const result = await fetchLocalPairing(9000, fetchImpl as typeof fetch, async () => "s");
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "http://127.0.0.1:9000/pairing",
-      expect.any(Object),
+      expect.objectContaining({
+        headers: { "x-ccpocket-pairing-secret": "s" },
+      }),
     );
     expect(result).toEqual({ ok: true, pairing });
   });
@@ -26,7 +28,7 @@ describe("fetchLocalPairing", () => {
       throw new TypeError("fetch failed");
     });
 
-    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch);
+    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch, async () => "s");
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.message).toContain("port 8765");
@@ -35,7 +37,7 @@ describe("fetchLocalPairing", () => {
   it("asks to update an old Bridge without the endpoint", async () => {
     const fetchImpl = vi.fn(async () => new Response("Not Found", { status: 404 }));
 
-    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch);
+    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch, async () => "s");
 
     expect(!result.ok && result.message).toContain("too old");
   });
@@ -43,8 +45,21 @@ describe("fetchLocalPairing", () => {
   it("reports refused requests", async () => {
     const fetchImpl = vi.fn(async () => new Response("Forbidden", { status: 403 }));
 
-    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch);
+    const result = await fetchLocalPairing(8765, fetchImpl as typeof fetch, async () => "s");
 
-    expect(!result.ok && result.message).toContain("HTTP 403");
+    expect(!result.ok && result.message).toContain("pairing secret");
+  });
+
+  it("explains a missing secret without calling the Bridge", async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await fetchLocalPairing(
+      8765,
+      fetchImpl as unknown as typeof fetch,
+      async () => null,
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(!result.ok && result.message).toContain("No pairing secret");
   });
 });

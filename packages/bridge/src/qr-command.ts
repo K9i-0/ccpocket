@@ -1,3 +1,8 @@
+import {
+  PAIRING_SECRET_HEADER,
+  pairingSecretPath,
+  readPairingSecret,
+} from "./bridge-auth.js";
 import { printPairingInfo, type PairingConnection } from "./startup-info.js";
 
 export interface PairingResponse {
@@ -16,10 +21,22 @@ export type FetchPairingResult =
 export async function fetchLocalPairing(
   port: number,
   fetchImpl: typeof fetch = fetch,
+  readSecret: () => Promise<string | null> = () =>
+    readPairingSecret(pairingSecretPath(port)),
 ): Promise<FetchPairingResult> {
+  const secret = await readSecret();
+  if (!secret) {
+    return {
+      ok: false,
+      message:
+        "No pairing secret found in ~/.ccpocket. Run this command as the user that runs the Bridge, after restarting it with the latest version.",
+    };
+  }
+
   let response: Response;
   try {
     response = await fetchImpl(`http://127.0.0.1:${port}/pairing`, {
+      headers: { [PAIRING_SECRET_HEADER]: secret },
       signal: AbortSignal.timeout(5000),
     });
   } catch {
@@ -35,6 +52,13 @@ export async function fetchLocalPairing(
       ok: false,
       message:
         "The running Bridge is too old to report pairing info. Restart it with the latest version and try again.",
+    };
+  }
+  if (response.status === 403) {
+    return {
+      ok: false,
+      message:
+        "The running Bridge rejected the pairing secret. Run this command as the user that runs the Bridge, or restart the Bridge if another Bridge was started since.",
     };
   }
   if (!response.ok) {

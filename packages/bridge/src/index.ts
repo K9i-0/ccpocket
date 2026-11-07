@@ -8,7 +8,11 @@ import { MediaStore } from "./media-store.js";
 import { UploadStore } from "./upload-store.js";
 import { GalleryStore } from "./gallery-store.js";
 import { buildPairingInfo, printStartupInfo } from "./startup-info.js";
-import { isLocalPairingRequest } from "./bridge-auth.js";
+import {
+  isLocalPairingRequest,
+  pairingSecretPath,
+  writePairingSecret,
+} from "./bridge-auth.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
 import { WorkspaceStore } from "./workspace-store.js";
@@ -165,6 +169,15 @@ export async function startServer() {
     console.error("[bridge] Failed to initialize prompt history store:", err);
   });
 
+  let pairingSecret: string | null = null;
+  try {
+    pairingSecret = await writePairingSecret(pairingSecretPath(PORT));
+  } catch (err) {
+    console.warn(
+      `[bridge] Could not write the pairing secret; \`ccpocket-bridge qr\` is unavailable: ${String(err)}`,
+    );
+  }
+
   const startedAt = Date.now();
   let wsServer: BridgeWebSocketServer | null = null;
 
@@ -183,7 +196,7 @@ export async function startServer() {
     // Pairing info (token included) for this machine only. Served before the
     // CORS headers are attached so browsers can never read it cross-origin.
     if (req.url === "/pairing" && req.method === "GET") {
-      if (!isLocalPairingRequest(req)) {
+      if (!isLocalPairingRequest(req, pairingSecret)) {
         res.writeHead(403, { "Content-Type": "text/plain" });
         res.end("Forbidden");
         return;
@@ -209,7 +222,10 @@ export async function startServer() {
       "Access-Control-Allow-Methods",
       "GET, HEAD, POST, PUT, DELETE, OPTIONS",
     );
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Content-Length, Range");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Content-Length, Range, Authorization",
+    );
     res.setHeader(
       "Access-Control-Expose-Headers",
       "Accept-Ranges, Content-Length, Content-Range, X-File-SHA256, X-Received-Bytes",

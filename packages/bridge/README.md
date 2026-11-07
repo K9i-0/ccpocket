@@ -268,10 +268,12 @@ npx @ccpocket/bridge@1 qr            # default port 8765
 npx @ccpocket/bridge@1 qr --port 9000
 ```
 
-The QR code includes the API key, so only show it to devices you trust. The
-command reads the local-only `/pairing` endpoint. That endpoint accepts only
-loopback requests without an `Origin` header and is never readable from
-other machines or web pages.
+The QR code includes the API key, so only show it to devices you trust. Run
+the command as the same OS user as the Bridge: it reads the local-only
+`/pairing` endpoint with a per-start secret stored in
+`~/.ccpocket/pairing-secret-<port>` (mode `0600`). The endpoint also rejects
+non-loopback requests and browser requests (`Origin` header), so other
+machines, other local users and web pages cannot read the key.
 
 ### Security
 
