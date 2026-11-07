@@ -112,6 +112,14 @@ advertises `context_compaction_v1`.
 - App tests: parsing, fold/older-history/compacting projection with
   performance mode, handler restoration, runtime-store flag, transcript
   cubit paging/errors/old Bridge, card widget.
-- Runtime: test Bridge on 8766 with a real Claude `/compact`, normal and
-  performance mode, transcript screen. The Codex path was checked with the
-  `Codex Compacting` mock scenario and unit tests, not a live compaction.
+- Runtime (iOS simulator, test Bridge on 8766): real Claude `/compact` in a
+  live session (compacting row, live fold, summary, transcript), the same
+  session restored from JSONL, and a second live compaction in performance
+  mode (transcript shows both boundaries).
+- Not exercised at runtime: Codex compaction (unit tests only; the
+  `Context Compaction` / `Codex Compacting` mock scenarios exist for manual
+  checks) and the older-history card, which needs more than 100 live
+  messages.
+- Known gap: on restore, Claude Code's `/compact` command echo is written
+  after the boundary in the JSONL, so it renders below the card instead of
+  being folded as in the live view.
