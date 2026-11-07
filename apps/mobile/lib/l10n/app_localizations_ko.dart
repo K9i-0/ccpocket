@@ -3727,4 +3727,51 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get recentFavoriteTooltip => '즐겨찾기';
+
+  @override
+  String get contextCompactionTitle => '컨텍스트를 압축했습니다';
+
+  @override
+  String get contextCompactionManual => '수동';
+
+  @override
+  String get contextCompactionAuto => '자동';
+
+  @override
+  String contextCompactionTokens(String before, String after) {
+    return '$before → $after tokens';
+  }
+
+  @override
+  String get contextCompactionShowSummary => '요약 보기';
+
+  @override
+  String get contextCompactionHideSummary => '요약 숨기기';
+
+  @override
+  String get contextCompactionOpenTranscript => '이전 대화 보기';
+
+  @override
+  String get contextCompactionInProgress => '컨텍스트 압축 중…';
+
+  @override
+  String get olderHistoryTitle => '이전 대화';
+
+  @override
+  String get olderHistoryDescription => '오래된 메시지는 여기에 표시되지 않습니다';
+
+  @override
+  String get transcriptTitle => '이전 대화';
+
+  @override
+  String get transcriptLoadOlder => '이전 메시지 더 불러오기';
+
+  @override
+  String get transcriptEmpty => '표시할 메시지가 없습니다';
+
+  @override
+  String get transcriptLoadFailed => '메시지를 불러오지 못했습니다';
+
+  @override
+  String get transcriptBridgeUpdate => '이전 대화를 보려면 Bridge를 업데이트해야 합니다.';
 }

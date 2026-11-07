@@ -1570,5 +1570,30 @@
   "recentMatchProject": "プロジェクト",
   "recentMatchBranch": "ブランチ",
   "recentMatchContent": "本文",
-  "recentFavoriteTooltip": "お気に入り"
+  "recentFavoriteTooltip": "お気に入り",
+  "contextCompactionTitle": "コンテキストを圧縮しました",
+  "contextCompactionManual": "手動",
+  "contextCompactionAuto": "自動",
+  "contextCompactionTokens": "{before} → {after} tokens",
+  "@contextCompactionTokens": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "contextCompactionShowSummary": "要約を表示",
+  "contextCompactionHideSummary": "要約を隠す",
+  "contextCompactionOpenTranscript": "以前のやり取りを見る",
+  "contextCompactionInProgress": "コンテキストを圧縮中…",
+  "olderHistoryTitle": "以前のやり取り",
+  "olderHistoryDescription": "古いメッセージはここでは省略しています",
+  "transcriptTitle": "以前のやり取り",
+  "transcriptLoadOlder": "さらに古いメッセージを読み込む",
+  "transcriptEmpty": "表示できるメッセージがありません",
+  "transcriptLoadFailed": "メッセージを読み込めませんでした",
+  "transcriptBridgeUpdate": "以前のやり取りを表示するにはBridgeの更新が必要です。"
 }

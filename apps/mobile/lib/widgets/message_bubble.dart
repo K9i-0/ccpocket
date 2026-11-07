@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/chat_session/widgets/context_compaction_card.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../features/chat_session/permission_transcript.dart';
@@ -51,6 +52,9 @@ class ChatEntryWidget extends StatelessWidget {
   final VoidCallback? onBeforeStreamingTextUpdate;
   final bool isCodex;
 
+  /// Opens the full transcript from a compaction or older-history card.
+  final VoidCallback? onOpenTranscript;
+
   const ChatEntryWidget({
     super.key,
     required this.entry,
@@ -70,6 +74,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.onFileTap,
     this.onBeforeStreamingTextUpdate,
     this.isCodex = false,
+    this.onOpenTranscript,
   });
 
   @override
@@ -90,6 +95,7 @@ class ChatEntryWidget extends StatelessWidget {
             onFileTap: onFileTap,
             onForkMessage: onForkMessage,
             isCodex: isCodex,
+            onOpenTranscript: onOpenTranscript,
           ),
           QuestionAnswerChatEntry(:final transcript) =>
             QuestionAnswerTranscriptBubble(transcript: transcript),
@@ -202,6 +208,7 @@ class ServerMessageWidget extends StatelessWidget {
   final FilePathTapCallback? onFileTap;
   final void Function(AssistantServerMessage)? onForkMessage;
   final bool isCodex;
+  final VoidCallback? onOpenTranscript;
 
   const ServerMessageWidget({
     super.key,
@@ -215,6 +222,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.onFileTap,
     this.onForkMessage,
     this.isCodex = false,
+    this.onOpenTranscript,
   });
 
   /// Whether [build] renders anything for [message]. Keep in sync with the
@@ -229,6 +237,9 @@ class ServerMessageWidget extends StatelessWidget {
       ResultMessage() ||
       GuardianApprovalMessage() ||
       ErrorMessage() ||
+      ContextCompactionMessage() ||
+      OlderHistoryMarkerMessage() ||
+      ContextCompactingMessage() ||
       ToolUseSummaryMessage() => true,
       ToolResultMessage(:final toolUseId) => !hiddenToolUseIds.contains(
         toolUseId,
@@ -278,6 +289,15 @@ class ServerMessageWidget extends StatelessWidget {
       HistoryMessage() => const SizedBox.shrink(),
       HistoryDeltaMessage() => const SizedBox.shrink(),
       HistorySnapshotMessage() => const SizedBox.shrink(),
+      final ContextCompactionMessage msg => ContextCompactionCard(
+        message: msg,
+        onOpenTranscript: onOpenTranscript,
+      ),
+      OlderHistoryMarkerMessage() => OlderHistoryCard(
+        onOpenTranscript: onOpenTranscript,
+      ),
+      ContextCompactingMessage() => const CompactingIndicatorRow(),
+      SessionTranscriptMessage() => const SizedBox.shrink(),
       final PermissionRequestMessage msg =>
         msg.toolName == 'ExitPlanMode' ||
                 msg.toolName == 'AskUserQuestion' ||

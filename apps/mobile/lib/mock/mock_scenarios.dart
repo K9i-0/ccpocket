@@ -82,6 +82,7 @@ final List<MockScenario> mockScenarios = [
   _heavyMarkdownHistory,
   _heavyToolResultHistory,
   _heavyDiffHistory,
+  _contextCompaction,
   // Chat session scenarios — Codex
   _codexPlanApproval,
   _codexBashApprovalTwoChoices,
@@ -94,6 +95,7 @@ final List<MockScenario> mockScenarios = [
   _codexFullConversation,
   codexGoalPreviewScenario,
   _codexQueuedInput,
+  _codexCompacting,
   // Session list scenarios — Claude
   _sessionListAllStatuses,
   _sessionListAllApprovals,
@@ -2799,6 +2801,153 @@ final _longHistory = MockScenario(
     ),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Context Compaction
+// ---------------------------------------------------------------------------
+
+AssistantServerMessage _compactionAssistant(String id, String text) =>
+    AssistantServerMessage(
+      messageUuid: id,
+      message: AssistantMessage(
+        id: id,
+        role: 'assistant',
+        content: [TextContent(text: text)],
+        model: 'claude-opus-5-5',
+      ),
+    );
+
+const _mockCompactionSummary = '''
+1. **Primary request**: Move the Bridge history window to a paged transcript.
+2. **Done so far**: Added `context_compaction` to the protocol and Bridge tests.
+3. **Next step**: Render the compaction card in the Flutter chat.''';
+
+final _contextCompaction = MockScenario(
+  name: 'Context Compaction',
+  icon: Icons.compress,
+  description: 'Auto compaction folds earlier messages into a boundary card with summary',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(
+        messages: [
+          const UserInputMessage(text: 'Refactor the Bridge history window'),
+          _compactionAssistant(
+            'mock-compaction-a1',
+            'I read `session.ts` and `websocket.ts`. The live window keeps the '
+                'latest 100 messages.',
+          ),
+          const UserInputMessage(text: 'Add a transcript request as well'),
+          _compactionAssistant(
+            'mock-compaction-a2',
+            'Added `get_session_transcript` with tail paging.',
+          ),
+        ],
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 600),
+      message: StatusMessage(status: ProcessStatus.compacting),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 1500),
+      message: ContextCompactionMessage(
+        id: 'mock-compaction-boundary',
+        provider: 'claude',
+        trigger: 'auto',
+        preTokens: 182340,
+        postTokens: 9120,
+        summary: _mockCompactionSummary,
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 100),
+      message: StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 400),
+      message: _compactionAssistant(
+        'mock-compaction-a3',
+        'Continuing from the summary: rendering the compaction card next.',
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 200),
+      message: StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+final _codexCompacting = MockScenario(
+  name: 'Codex Compacting',
+  icon: Icons.compress,
+  description: 'Codex session after an earlier compaction, compacting again',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(
+        messages: [
+          const UserInputMessage(text: 'Investigate the flaky test'),
+          _compactionAssistant('mock-codex-compaction-a1', 'Reproduced it.'),
+          const ContextCompactionMessage(
+            id: 'mock-codex-compaction-1',
+            provider: 'codex',
+          ),
+          _compactionAssistant(
+            'mock-codex-compaction-a2',
+            'The race is in the reconnect timer. Fixing it now.',
+          ),
+        ],
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 400),
+      message: StatusMessage(status: ProcessStatus.compacting),
+    ),
+  ],
+);
+
+/// Transcript page served by the mock Bridge for `get_session_transcript`.
+SessionTranscriptMessage mockSessionTranscript({
+  required String sessionId,
+  required String requestId,
+}) {
+  PastMessage text(String role, String text) => PastMessage(
+    role: role,
+    content: [TextContent(text: text)],
+  );
+  return SessionTranscriptMessage(
+    sessionId: sessionId,
+    requestId: requestId,
+    provider: 'claude',
+    startIndex: 0,
+    endIndex: 5,
+    total: 7,
+    messages: [
+      text('user', 'Refactor the Bridge history window'),
+      text(
+        'assistant',
+        'I read `session.ts` and `websocket.ts`. The live window keeps the '
+            'latest 100 messages.',
+      ),
+      text('user', 'Add a transcript request as well'),
+      text('assistant', 'Added `get_session_transcript` with tail paging.'),
+      const PastMessage(
+        role: 'compaction',
+        content: [],
+        compaction: ContextCompactionMessage(
+          id: 'mock-compaction-boundary',
+          provider: 'claude',
+          trigger: 'auto',
+          preTokens: 182340,
+          postTokens: 9120,
+          summary: _mockCompactionSummary,
+        ),
+      ),
+    ],
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Heavy History Performance Scenarios

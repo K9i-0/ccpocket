@@ -152,6 +152,14 @@ class MockBridgeService extends BridgeService {
     final type = json['type'] as String;
 
     switch (type) {
+      case 'get_session_transcript':
+        _scheduleMessage(
+          const Duration(milliseconds: 300),
+          mockSessionTranscript(
+            sessionId: json['sessionId'] as String? ?? '',
+            requestId: json['requestId'] as String? ?? '',
+          ),
+        );
       case 'get_goal':
         _scheduleMessage(
           Duration.zero,

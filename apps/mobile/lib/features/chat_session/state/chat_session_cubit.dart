@@ -300,7 +300,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final cachedMessages = _bridge.cachedSessionMessages(sessionId);
     if (cachedMessages.isEmpty) return;
     try {
-      final history = HistoryMessage(messages: cachedMessages);
+      final history = HistoryMessage(
+        messages: cachedMessages,
+        olderHistoryAvailable: _bridge.cachedSessionOlderHistoryAvailable(
+          sessionId,
+        ),
+      );
       final update = _handler.handle(
         history,
         isBackground: true,
@@ -1128,6 +1133,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       current.copyWith(
         status: update.status ?? current.status,
         entries: nextEntries,
+        olderHistoryAvailable: originalMsg is HistoryMessage
+            ? originalMsg.olderHistoryAvailable
+            : current.olderHistoryAvailable,
         approval: approval,
         totalCost: usage.totalCost,
         totalDuration: usage.totalDuration,

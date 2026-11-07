@@ -1433,5 +1433,20 @@
   "recentMatchProject": "프로젝트",
   "recentMatchBranch": "브랜치",
   "recentMatchContent": "본문",
-  "recentFavoriteTooltip": "즐겨찾기"
+  "recentFavoriteTooltip": "즐겨찾기",
+  "contextCompactionTitle": "컨텍스트를 압축했습니다",
+  "contextCompactionManual": "수동",
+  "contextCompactionAuto": "자동",
+  "contextCompactionTokens": "{before} → {after} tokens",
+  "contextCompactionShowSummary": "요약 보기",
+  "contextCompactionHideSummary": "요약 숨기기",
+  "contextCompactionOpenTranscript": "이전 대화 보기",
+  "contextCompactionInProgress": "컨텍스트 압축 중…",
+  "olderHistoryTitle": "이전 대화",
+  "olderHistoryDescription": "오래된 메시지는 여기에 표시되지 않습니다",
+  "transcriptTitle": "이전 대화",
+  "transcriptLoadOlder": "이전 메시지 더 불러오기",
+  "transcriptEmpty": "표시할 메시지가 없습니다",
+  "transcriptLoadFailed": "메시지를 불러오지 못했습니다",
+  "transcriptBridgeUpdate": "이전 대화를 보려면 Bridge를 업데이트해야 합니다."
 }

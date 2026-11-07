@@ -6952,6 +6952,96 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'お気に入り'**
   String get recentFavoriteTooltip;
+
+  /// No description provided for @contextCompactionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'コンテキストを圧縮しました'**
+  String get contextCompactionTitle;
+
+  /// No description provided for @contextCompactionManual.
+  ///
+  /// In ja, this message translates to:
+  /// **'手動'**
+  String get contextCompactionManual;
+
+  /// No description provided for @contextCompactionAuto.
+  ///
+  /// In ja, this message translates to:
+  /// **'自動'**
+  String get contextCompactionAuto;
+
+  /// No description provided for @contextCompactionTokens.
+  ///
+  /// In ja, this message translates to:
+  /// **'{before} → {after} tokens'**
+  String contextCompactionTokens(String before, String after);
+
+  /// No description provided for @contextCompactionShowSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'要約を表示'**
+  String get contextCompactionShowSummary;
+
+  /// No description provided for @contextCompactionHideSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'要約を隠す'**
+  String get contextCompactionHideSummary;
+
+  /// No description provided for @contextCompactionOpenTranscript.
+  ///
+  /// In ja, this message translates to:
+  /// **'以前のやり取りを見る'**
+  String get contextCompactionOpenTranscript;
+
+  /// No description provided for @contextCompactionInProgress.
+  ///
+  /// In ja, this message translates to:
+  /// **'コンテキストを圧縮中…'**
+  String get contextCompactionInProgress;
+
+  /// No description provided for @olderHistoryTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'以前のやり取り'**
+  String get olderHistoryTitle;
+
+  /// No description provided for @olderHistoryDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'古いメッセージはここでは省略しています'**
+  String get olderHistoryDescription;
+
+  /// No description provided for @transcriptTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'以前のやり取り'**
+  String get transcriptTitle;
+
+  /// No description provided for @transcriptLoadOlder.
+  ///
+  /// In ja, this message translates to:
+  /// **'さらに古いメッセージを読み込む'**
+  String get transcriptLoadOlder;
+
+  /// No description provided for @transcriptEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示できるメッセージがありません'**
+  String get transcriptEmpty;
+
+  /// No description provided for @transcriptLoadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージを読み込めませんでした'**
+  String get transcriptLoadFailed;
+
+  /// No description provided for @transcriptBridgeUpdate.
+  ///
+  /// In ja, this message translates to:
+  /// **'以前のやり取りを表示するにはBridgeの更新が必要です。'**
+  String get transcriptBridgeUpdate;
 }
 
 class _AppLocalizationsDelegate

@@ -236,6 +236,11 @@ class ChatMessageHandler {
           isBackground: isBackground,
           isCodex: isCodex,
         );
+      case ContextCompactionMessage():
+        return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
+      case SessionTranscriptMessage():
+        // Consumed by the transcript screen; not part of the chat.
+        return const ChatStateUpdate();
       case PastHistoryMessage(:final claudeSessionId, :final messages):
         return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
       case HistoryMessage(:final messages):
@@ -370,6 +375,10 @@ class ChatMessageHandler {
       case ErrorMessage(:final message, :final errorCode):
         // Directory probes and listing failures belong to the file browser.
         if (msg.requestId?.startsWith('browser-directory-') ?? false) {
+          return const ChatStateUpdate();
+        }
+        // Transcript failures are shown by the transcript screen.
+        if (isSessionTranscriptRequestId(msg.requestId)) {
           return const ChatStateUpdate();
         }
         if (errorCode == 'goal_get_failed') {
@@ -579,7 +588,9 @@ class ChatMessageHandler {
       final ts = m.timestamp != null
           ? DateTime.tryParse(m.timestamp!)?.toLocal()
           : null;
-      if (m.role == 'tool_result') {
+      if (m.compaction case final compaction?) {
+        entries.add(ServerChatEntry(compaction, timestamp: ts));
+      } else if (m.role == 'tool_result') {
         entries.add(
           ServerChatEntry(
             ToolResultMessage(

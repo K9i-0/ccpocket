@@ -3656,4 +3656,51 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get recentFavoriteTooltip => '收藏';
+
+  @override
+  String get contextCompactionTitle => '上下文已压缩';
+
+  @override
+  String get contextCompactionManual => '手动';
+
+  @override
+  String get contextCompactionAuto => '自动';
+
+  @override
+  String contextCompactionTokens(String before, String after) {
+    return '$before → $after tokens';
+  }
+
+  @override
+  String get contextCompactionShowSummary => '显示摘要';
+
+  @override
+  String get contextCompactionHideSummary => '隐藏摘要';
+
+  @override
+  String get contextCompactionOpenTranscript => '查看之前的消息';
+
+  @override
+  String get contextCompactionInProgress => '正在压缩上下文…';
+
+  @override
+  String get olderHistoryTitle => '之前的消息';
+
+  @override
+  String get olderHistoryDescription => '较早的消息未在此显示';
+
+  @override
+  String get transcriptTitle => '之前的消息';
+
+  @override
+  String get transcriptLoadOlder => '加载更早的消息';
+
+  @override
+  String get transcriptEmpty => '没有可显示的消息';
+
+  @override
+  String get transcriptLoadFailed => '无法加载消息';
+
+  @override
+  String get transcriptBridgeUpdate => '需要更新 Bridge 才能查看之前的消息。';
 }

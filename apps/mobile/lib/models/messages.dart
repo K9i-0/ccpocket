@@ -978,7 +978,10 @@ sealed class ServerMessage {
         messages: (json['messages'] as List)
             .map((m) => ServerMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
+        olderHistoryAvailable: json['olderHistoryAvailable'] == true,
       ),
+      'context_compaction' => ContextCompactionMessage.fromJson(json),
+      'session_transcript' => SessionTranscriptMessage.fromJson(json),
       'history_delta' => HistoryDeltaMessage(
         filtered: json['filtered'] == true,
         sessionId: json['sessionId'] as String?,
@@ -1002,6 +1005,7 @@ sealed class ServerMessage {
             ? ProcessStatus.fromString(json['status'] as String)
             : null,
         reason: json['reason'] as String? ?? 'compacted',
+        olderHistoryAvailable: json['olderHistoryAvailable'] == true,
       ),
       'background_tasks' => BackgroundTasksMessage(
         sessionId: json['sessionId'] as String?,
@@ -1993,7 +1997,115 @@ class StatusMessage implements ServerMessage {
 
 class HistoryMessage implements ServerMessage {
   final List<ServerMessage> messages;
-  const HistoryMessage({required this.messages});
+
+  /// The Bridge or app cache dropped older messages from this window. The
+  /// full conversation is available through `get_session_transcript`.
+  final bool olderHistoryAvailable;
+  const HistoryMessage({
+    required this.messages,
+    this.olderHistoryAvailable = false,
+  });
+}
+
+/// A context compaction boundary. Messages before it are summarized in the
+/// model context. See docs/context-compaction.md.
+class ContextCompactionMessage implements ServerMessage {
+  final String? id;
+  final String provider;
+
+  /// `manual` (/compact) or `auto`.
+  final String? trigger;
+  final int? preTokens;
+  final int? postTokens;
+
+  /// Claude only. Codex summaries are not readable.
+  final String? summary;
+  final String? timestamp;
+
+  const ContextCompactionMessage({
+    this.id,
+    required this.provider,
+    this.trigger,
+    this.preTokens,
+    this.postTokens,
+    this.summary,
+    this.timestamp,
+  });
+
+  factory ContextCompactionMessage.fromJson(
+    Map<String, dynamic> json, {
+    String? fallbackProvider,
+  }) {
+    final summary = json['summary'];
+    return ContextCompactionMessage(
+      id: json['id'] as String?,
+      provider: json['provider'] as String? ?? fallbackProvider ?? 'claude',
+      trigger: json['trigger'] as String?,
+      preTokens: (json['preTokens'] as num?)?.toInt(),
+      postTokens: (json['postTokens'] as num?)?.toInt(),
+      summary: summary is String && summary.trim().isNotEmpty ? summary : null,
+      timestamp: json['timestamp'] as String?,
+    );
+  }
+
+  bool get isManual => trigger == 'manual';
+  bool get isAuto => trigger == 'auto';
+}
+
+/// Local marker for messages dropped from the live history window; never
+/// received from the wire.
+class OlderHistoryMarkerMessage implements ServerMessage {
+  const OlderHistoryMarkerMessage();
+}
+
+/// Local trailing row while the session status is `compacting`; never
+/// received from the wire.
+class ContextCompactingMessage implements ServerMessage {
+  const ContextCompactingMessage();
+}
+
+/// Request id prefix of `get_session_transcript`; responses and errors with
+/// it belong to the transcript screen, not the chat.
+const sessionTranscriptRequestIdPrefix = 'transcript-';
+
+bool isSessionTranscriptRequestId(String? requestId) =>
+    requestId?.startsWith(sessionTranscriptRequestIdPrefix) ?? false;
+
+/// One page of the full read-only session transcript.
+class SessionTranscriptMessage implements ServerMessage {
+  final String sessionId;
+  final String requestId;
+  final String provider;
+  final int startIndex;
+  final int endIndex;
+  final int total;
+  final List<PastMessage> messages;
+
+  const SessionTranscriptMessage({
+    required this.sessionId,
+    required this.requestId,
+    required this.provider,
+    required this.startIndex,
+    required this.endIndex,
+    required this.total,
+    required this.messages,
+  });
+
+  factory SessionTranscriptMessage.fromJson(Map<String, dynamic> json) =>
+      SessionTranscriptMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        requestId: json['requestId'] as String? ?? '',
+        provider: json['provider'] as String? ?? 'claude',
+        startIndex: (json['startIndex'] as num?)?.toInt() ?? 0,
+        endIndex: (json['endIndex'] as num?)?.toInt() ?? 0,
+        total: (json['total'] as num?)?.toInt() ?? 0,
+        messages: (json['messages'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(PastMessage.fromJson)
+            .toList(),
+      );
+
+  bool get hasOlder => startIndex > 0;
 }
 
 class HistoryEntry {
@@ -2043,6 +2155,7 @@ class HistorySnapshotMessage implements ServerMessage {
   final List<HistoryEntry> entries;
   final ProcessStatus? status;
   final String reason;
+  final bool olderHistoryAvailable;
 
   const HistorySnapshotMessage({
     this.sessionId,
@@ -2051,6 +2164,7 @@ class HistorySnapshotMessage implements ServerMessage {
     required this.entries,
     this.status,
     required this.reason,
+    this.olderHistoryAvailable = false,
   });
 }
 
@@ -4294,6 +4408,9 @@ class PastMessage {
   final List<ImageRef> images;
   final String? toolResultContent;
   final List<AssistantContent> content;
+
+  /// Set when [role] is `compaction`.
+  final ContextCompactionMessage? compaction;
   const PastMessage({
     required this.role,
     this.uuid,
@@ -4305,6 +4422,7 @@ class PastMessage {
     this.images = const [],
     this.toolResultContent,
     required this.content,
+    this.compaction,
   });
 
   factory PastMessage.fromJson(Map<String, dynamic> json) {
@@ -4335,6 +4453,13 @@ class PastMessage {
           const [],
       toolResultContent: rawContent is String ? rawContent : null,
       content: contentList,
+      compaction: json['role'] == 'compaction'
+          ? ContextCompactionMessage.fromJson({
+              ...?(json['compaction'] as Map<String, dynamic>?),
+              'id': json['uuid'],
+              'timestamp': json['timestamp'],
+            }, fallbackProvider: json['provider'] as String?)
+          : null,
     );
   }
 }
@@ -4970,6 +5095,7 @@ class ClientMessage {
     int minimumProtocolVersion = appProtocolMinVersion,
     List<String> supportedServerMessages = const [
       'background_tasks',
+      'context_compaction',
       'conversation_queue',
       'goal_state',
       'codex_recovery_state',
@@ -5329,6 +5455,23 @@ class ClientMessage {
 
   factory ClientMessage.getHistory(String sessionId) =>
       ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
+
+  /// Requires `context_compaction_v1`; older Bridges answer
+  /// `unsupported_message`.
+  factory ClientMessage.getSessionTranscript({
+    required String sessionId,
+    required String requestId,
+    int? beforeIndex,
+    bool untilLatestCompaction = false,
+    int? limit,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_session_transcript',
+    'sessionId': sessionId,
+    'requestId': requestId,
+    'beforeIndex': ?beforeIndex,
+    if (untilLatestCompaction) 'untilLatestCompaction': true,
+    'limit': ?limit,
+  });
 
   factory ClientMessage.getHistoryDelta(
     String sessionId, {

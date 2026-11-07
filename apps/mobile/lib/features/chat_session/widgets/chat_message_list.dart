@@ -13,6 +13,8 @@ import 'package:flutter/rendering.dart'
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
+import '../compaction_projection.dart';
+import '../../session_transcript/session_transcript_screen.dart';
 import '../../media_feedback/media_feedback_scope.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
@@ -249,15 +251,42 @@ class _ChatMessageListState extends State<ChatMessageList> {
   final _generatedImageItemCache =
       <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
   List<ChatEntry>? _projectionSource;
-  List<ChatEntry>? _liteEntries;
+  bool? _projectionOlderHistory;
+  bool? _projectionCompacting;
+  bool? _projectionLiteMode;
+  List<ChatEntry>? _projectedEntries;
 
-  List<ChatEntry> _displayEntries(List<ChatEntry> entries) {
-    if (!widget.liteMode) return entries;
-    if (!listEquals(_projectionSource, entries)) {
+  /// Rows to display: compaction folding first, then performance mode.
+  List<ChatEntry> _displayEntries(ChatSessionState state) {
+    final entries = state.entries;
+    final compacting = state.status == ProcessStatus.compacting;
+    if (_projectedEntries == null ||
+        !listEquals(_projectionSource, entries) ||
+        _projectionOlderHistory != state.olderHistoryAvailable ||
+        _projectionCompacting != compacting ||
+        _projectionLiteMode != widget.liteMode) {
       _projectionSource = entries;
-      _liteEntries = liteModeEntries(entries);
+      _projectionOlderHistory = state.olderHistoryAvailable;
+      _projectionCompacting = compacting;
+      _projectionLiteMode = widget.liteMode;
+      final folded = compactionVisibleEntries(
+        entries,
+        olderHistoryAvailable: state.olderHistoryAvailable,
+        compacting: compacting,
+      );
+      _projectedEntries = widget.liteMode ? liteModeEntries(folded) : folded;
     }
-    return _liteEntries!;
+    return _projectedEntries!;
+  }
+
+  void _openTranscript() {
+    openSessionTranscript(
+      context,
+      sessionId: widget.sessionId,
+      httpBaseUrl: widget.httpBaseUrl,
+      isCodex: widget.isCodex,
+      liteMode: widget.liteMode,
+    );
   }
 
   ChatSessionState? _derivedForState;
@@ -351,9 +380,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
   /// Uses [AutoScrollController.scrollToIndex] which handles both on-screen
   /// and off-screen items correctly with variable-height widgets.
   void _scrollToUserEntry(UserChatEntry entry) {
-    final entries = _displayEntries(
-      context.read<ChatSessionCubit>().state.entries,
-    );
+    final entries = _displayEntries(context.read<ChatSessionCubit>().state);
     final idx = entries.indexOf(entry);
     if (idx < 0) return;
     widget.scrollController.scrollToIndex(
@@ -589,7 +616,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     _notifyScrollMetricsAfterLayout();
     final chatState = context.watch<ChatSessionCubit>().state;
     final hiddenToolUseIds = chatState.hiddenToolUseIds;
-    final allEntries = _displayEntries(chatState.entries);
+    final allEntries = _displayEntries(chatState);
     final activePermissionId = switch (chatState.approval) {
       ApprovalPermission(:final toolUseId) => toolUseId,
       _ => null,
@@ -773,6 +800,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                           .contains(entryIndex),
                       permissionTranscriptStatus: permissionTranscriptStatus,
                       hiddenToolUseIds: effectiveHiddenToolUseIds,
+                      onOpenTranscript: _openTranscript,
                       onFileTap: (filePath) {
                         final projectPath = widget.projectPath;
                         if (projectPath == null || projectPath.isEmpty) return;

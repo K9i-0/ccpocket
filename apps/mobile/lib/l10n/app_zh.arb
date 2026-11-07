@@ -1574,5 +1574,20 @@
   "recentMatchProject": "项目",
   "recentMatchBranch": "分支",
   "recentMatchContent": "正文",
-  "recentFavoriteTooltip": "收藏"
+  "recentFavoriteTooltip": "收藏",
+  "contextCompactionTitle": "上下文已压缩",
+  "contextCompactionManual": "手动",
+  "contextCompactionAuto": "自动",
+  "contextCompactionTokens": "{before} → {after} tokens",
+  "contextCompactionShowSummary": "显示摘要",
+  "contextCompactionHideSummary": "隐藏摘要",
+  "contextCompactionOpenTranscript": "查看之前的消息",
+  "contextCompactionInProgress": "正在压缩上下文…",
+  "olderHistoryTitle": "之前的消息",
+  "olderHistoryDescription": "较早的消息未在此显示",
+  "transcriptTitle": "之前的消息",
+  "transcriptLoadOlder": "加载更早的消息",
+  "transcriptEmpty": "没有可显示的消息",
+  "transcriptLoadFailed": "无法加载消息",
+  "transcriptBridgeUpdate": "需要更新 Bridge 才能查看之前的消息。"
 }

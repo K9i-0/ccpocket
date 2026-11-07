@@ -15,6 +15,10 @@ abstract class ChatSessionState with _$ChatSessionState {
     // Messages
     @Default([]) List<ChatEntry> entries,
 
+    // Older messages were dropped from the live history window; the full
+    // transcript is available from the Bridge.
+    @Default(false) bool olderHistoryAvailable,
+
     // Approval / AskUserQuestion
     @Default(ApprovalState.none()) ApprovalState approval,
 

@@ -1520,5 +1520,20 @@
   "recentMatchProject": "Project",
   "recentMatchBranch": "Branch",
   "recentMatchContent": "Conversation",
-  "recentFavoriteTooltip": "Favorite"
+  "recentFavoriteTooltip": "Favorite",
+  "contextCompactionTitle": "Context compacted",
+  "contextCompactionManual": "Manual",
+  "contextCompactionAuto": "Auto",
+  "contextCompactionTokens": "{before} → {after} tokens",
+  "contextCompactionShowSummary": "Show summary",
+  "contextCompactionHideSummary": "Hide summary",
+  "contextCompactionOpenTranscript": "View earlier messages",
+  "contextCompactionInProgress": "Compacting context…",
+  "olderHistoryTitle": "Earlier messages",
+  "olderHistoryDescription": "Older messages are not shown here",
+  "transcriptTitle": "Earlier messages",
+  "transcriptLoadOlder": "Load older messages",
+  "transcriptEmpty": "No messages to show",
+  "transcriptLoadFailed": "Couldn't load messages",
+  "transcriptBridgeUpdate": "Update Bridge to view earlier messages."
 }

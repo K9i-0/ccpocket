@@ -3844,4 +3844,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recentFavoriteTooltip => 'Favorite';
+
+  @override
+  String get contextCompactionTitle => 'Context compacted';
+
+  @override
+  String get contextCompactionManual => 'Manual';
+
+  @override
+  String get contextCompactionAuto => 'Auto';
+
+  @override
+  String contextCompactionTokens(String before, String after) {
+    return '$before → $after tokens';
+  }
+
+  @override
+  String get contextCompactionShowSummary => 'Show summary';
+
+  @override
+  String get contextCompactionHideSummary => 'Hide summary';
+
+  @override
+  String get contextCompactionOpenTranscript => 'View earlier messages';
+
+  @override
+  String get contextCompactionInProgress => 'Compacting context…';
+
+  @override
+  String get olderHistoryTitle => 'Earlier messages';
+
+  @override
+  String get olderHistoryDescription => 'Older messages are not shown here';
+
+  @override
+  String get transcriptTitle => 'Earlier messages';
+
+  @override
+  String get transcriptLoadOlder => 'Load older messages';
+
+  @override
+  String get transcriptEmpty => 'No messages to show';
+
+  @override
+  String get transcriptLoadFailed => 'Couldn\'t load messages';
+
+  @override
+  String get transcriptBridgeUpdate =>
+      'Update Bridge to view earlier messages.';
 }

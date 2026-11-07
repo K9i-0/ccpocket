@@ -16,6 +16,7 @@ class SessionRuntimeSnapshot {
     this.messages = const [],
     this.historySeq = 0,
     this.cachedHistorySeq = 0,
+    this.olderHistoryAvailable = false,
     this.projectPath,
     this.sessionContext,
     this.explorerHistory = const ExplorerHistorySnapshot(),
@@ -33,6 +34,10 @@ class SessionRuntimeSnapshot {
   /// (for example an input_ack advances acceptedSeq before the corresponding
   /// user_input is cached).
   final int cachedHistorySeq;
+
+  /// Older messages are missing from [messages]: the Bridge sent a trimmed
+  /// window, or this cache trimmed to [SessionRuntimeStore.maxMessagesPerSession].
+  final bool olderHistoryAvailable;
   final String? projectPath;
   final SessionInfo? sessionContext;
   final ExplorerHistorySnapshot explorerHistory;
@@ -46,6 +51,7 @@ class SessionRuntimeState {
   final List<int?> _messageSeqs = [];
   int historySeq = 0;
   int cachedHistorySeq = 0;
+  bool olderHistoryAvailable = false;
   String? projectPath;
   SessionInfo? sessionContext;
   ExplorerHistorySnapshot explorerHistory = const ExplorerHistorySnapshot();
@@ -67,6 +73,7 @@ class SessionRuntimeStore {
     _clearMessages(state);
     state.historySeq = 0;
     state.cachedHistorySeq = 0;
+    state.olderHistoryAvailable = false;
   }
 
   SessionRuntimeSnapshot snapshot(String sessionId) {
@@ -79,6 +86,7 @@ class SessionRuntimeStore {
       messages: state.messages,
       historySeq: state.historySeq,
       cachedHistorySeq: state.cachedHistorySeq,
+      olderHistoryAvailable: state.olderHistoryAvailable,
       projectPath: state.projectPath,
       sessionContext: state.sessionContext,
       explorerHistory: state.explorerHistory,
@@ -105,6 +113,7 @@ class SessionRuntimeStore {
       return;
     }
     if (message is HistoryMessage) {
+      state.olderHistoryAvailable = message.olderHistoryAvailable;
       state._messages
         ..clear()
         ..addAll(message.messages.where((m) => !_shouldIgnore(m)));
@@ -117,6 +126,7 @@ class SessionRuntimeStore {
       return;
     }
     if (message is HistorySnapshotMessage) {
+      state.olderHistoryAvailable = message.olderHistoryAvailable;
       state._messages
         ..clear()
         ..addAll(
@@ -254,6 +264,9 @@ class SessionRuntimeStore {
         message is InputAckMessage ||
         message is InputRejectedMessage ||
         message is GoalStateMessage ||
+        message is SessionTranscriptMessage ||
+        (message is ErrorMessage &&
+            isSessionTranscriptRequestId(message.requestId)) ||
         (message is SystemMessage && message.subtype == 'codex_settings');
   }
 
@@ -385,6 +398,7 @@ class SessionRuntimeStore {
     if (overflow > 0) {
       state._messages.removeRange(0, overflow);
       state._messageSeqs.removeRange(0, overflow);
+      state.olderHistoryAvailable = true;
     }
   }
 

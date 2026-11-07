@@ -3699,4 +3699,51 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get recentFavoriteTooltip => 'お気に入り';
+
+  @override
+  String get contextCompactionTitle => 'コンテキストを圧縮しました';
+
+  @override
+  String get contextCompactionManual => '手動';
+
+  @override
+  String get contextCompactionAuto => '自動';
+
+  @override
+  String contextCompactionTokens(String before, String after) {
+    return '$before → $after tokens';
+  }
+
+  @override
+  String get contextCompactionShowSummary => '要約を表示';
+
+  @override
+  String get contextCompactionHideSummary => '要約を隠す';
+
+  @override
+  String get contextCompactionOpenTranscript => '以前のやり取りを見る';
+
+  @override
+  String get contextCompactionInProgress => 'コンテキストを圧縮中…';
+
+  @override
+  String get olderHistoryTitle => '以前のやり取り';
+
+  @override
+  String get olderHistoryDescription => '古いメッセージはここでは省略しています';
+
+  @override
+  String get transcriptTitle => '以前のやり取り';
+
+  @override
+  String get transcriptLoadOlder => 'さらに古いメッセージを読み込む';
+
+  @override
+  String get transcriptEmpty => '表示できるメッセージがありません';
+
+  @override
+  String get transcriptLoadFailed => 'メッセージを読み込めませんでした';
+
+  @override
+  String get transcriptBridgeUpdate => '以前のやり取りを表示するにはBridgeの更新が必要です。';
 }

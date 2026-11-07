@@ -1789,6 +1789,7 @@ class BridgeService implements BridgeServiceBase {
     if (shouldReplace) {
       final history = HistoryMessage(
         messages: _runtimeStore.messages(sessionId),
+        olderHistoryAvailable: cachedSessionOlderHistoryAvailable(sessionId),
       );
       _taggedMessageController.add((history, sessionId));
       _messageController.add(history);
@@ -1817,6 +1818,7 @@ class BridgeService implements BridgeServiceBase {
 
     final history = HistoryMessage(
       messages: msg.entries.map((entry) => entry.message).toList(),
+      olderHistoryAvailable: cachedSessionOlderHistoryAvailable(sessionId),
     );
     _taggedMessageController.add((history, sessionId));
     _messageController.add(history);
@@ -3820,6 +3822,11 @@ class BridgeService implements BridgeServiceBase {
 
   List<ServerMessage> cachedSessionMessages(String sessionId) {
     return _runtimeStore.messages(sessionId);
+  }
+
+  /// Whether the cached window lacks older messages (Bridge or app trim).
+  bool cachedSessionOlderHistoryAvailable(String sessionId) {
+    return _runtimeStore.snapshot(sessionId).olderHistoryAvailable;
   }
 
   String? cachedSessionProjectPath(String sessionId) {
