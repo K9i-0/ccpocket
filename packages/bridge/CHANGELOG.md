@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.102.0] - 2026-11-07
+
+### Added
+
+- Context compaction is reported as a `context_compaction` message for Claude (`compact_boundary`, with trigger, token counts and the compaction summary) and Codex (`contextCompaction` item), both live and in restored history. Clients opt in through `supportedServerMessages`; others receive neither the message nor the `compaction` history entries. Advertised as the `context_compaction_v1` protocol capability.
+- Codex sessions report a `compacting` status while the context is being compacted.
+- `get_session_transcript` returns the full provider transcript (Claude JSONL, Codex thread) in pages, so clients can show messages hidden by compaction or dropped from the live history window. `history` and `history_snapshot` carry `olderHistoryAvailable` when earlier messages exist outside the window.
+
+### Fixed
+
+- The compaction summary no longer includes Claude's resume instructions, and a finished Claude compaction no longer re-broadcasts a stale `compacting` status.
+
 ## [1.101.0] - 2026-11-06
 
 ### Changed
