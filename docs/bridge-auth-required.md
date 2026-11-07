@@ -84,6 +84,10 @@ Nothing is rejected that was previously accepted.
 
 ### Step 3: Bridge release (enforcement, after app N has been out)
 
+Gate: start only after app N has passed App Store and Google Play review and
+is publicly available on both stores. Until then, Step 3 must not land on
+`main`, because any Bridge release from `main` would ship it.
+
 - When `BRIDGE_API_KEY` is not set, the Bridge generates a random key,
   persists it to `~/.ccpocket/` with mode `0600`, and reuses it on later
   starts. This covers plain `npx` users as well as `setup` users.
@@ -92,9 +96,11 @@ Nothing is rejected that was previously accepted.
   require the token as `Authorization: Bearer <key>`. `/health` and `/version` stay public; app probing and
   update checks depend on them. Image, media and upload-store URLs remain
   capability URLs (unguessable IDs or short-lived tokens).
-- Open question: ship this in `1.x` or `2.x`. `setup` pins
-  `@ccpocket/bridge@1`, so a `1.x` release reaches launchd users on their next
-  restart, while `2.x` never reaches pinned installs.
+- Ships in `1.x` (decided 2026-11-07). `setup` pins `@ccpocket/bridge@1`, so
+  launchd/systemd users receive enforcement on their next restart. That is
+  intended: the auto-generated key, `ccpocket-bridge qr` and the app's
+  re-pairing card make the switch recoverable. A `2.x` release would never
+  reach pinned installs.
 
 ## Clients on older app versions
 
