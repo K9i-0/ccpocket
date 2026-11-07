@@ -63,6 +63,18 @@ widths are 260 for the list, 360 for the center, and 240 for the tool, plus divi
 The user's preferred tool width is retained when temporary window constraints
 clamp its displayed width.
 
+The split threshold is a user setting (Settings → Appearance → Split view width,
+`settings_multi_pane_breakpoint`), 640–1200 in steps of 2. The default stays at
+862, the width where list, center and tool fit together; resetting removes the
+stored override. A lower threshold exists for narrow windows such as iPad mini
+(A20 Pro, 1158×756pt) landscape Split View, which leaves 773pt for the app.
+Between the threshold and 862, list and center are shown side by side, and an
+open tool pane covers the list (center and tool remain, center ≥ 360). The
+list stays mounted underneath without input, like a covered compact list, and
+`isLeftPaneVisible` reports false so the center owns the window controls. Closing
+the tool reveals the list again. The slider commits on drag end so the layout
+does not switch under the finger while crossing the current window width.
+
 Horizontal safe-area insets are excluded from the breakpoint calculation and
 allocated only to panes touching the physical window edge. Interior panes remove
 those insets. Compact routes keep the full-window surface and native edge gesture.

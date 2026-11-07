@@ -27,24 +27,25 @@ import '../workspace/state/workspace_navigation_cubit.dart';
 import '../workspace/state/workspace_navigation_state.dart';
 import '../workspace/state/workspace_destination.dart';
 import '../workspace/widgets/workspace_pane_navigator.dart';
+import '../workspace/workspace_layout_metrics.dart';
+import '../settings/state/settings_cubit.dart';
 import '../../widgets/duo/duo_control_strip.dart';
 import '../../widgets/soft_keyboard_dismissal.dart';
 
 export '../workspace/state/workspace_destination.dart'
     show WorkspaceSessionSelection;
 
-const workspaceMultiPaneBreakpoint = 862.0;
-const _twoPaneDividerWidth = 1.0;
+const _twoPaneDividerWidth = kWorkspacePaneDividerWidth;
 const _paneResizeHandleWidth = _twoPaneDividerWidth;
 const _paneResizePointerHandleWidth = 12.0;
 const _paneResizeTouchHandleWidth = 44.0;
-const _minCenterPaneWidth = 360.0;
-const _minRightPaneWidth = 240.0;
+const _minCenterPaneWidth = kWorkspaceMinCenterPaneWidth;
+const _minRightPaneWidth = kWorkspaceMinToolPaneWidth;
 
 enum _WorkspaceLayoutMode { single, multiPane }
 
 double _leftPaneWidth(double width) {
-  if (width < 1024) return 260;
+  if (width < 1024) return kWorkspaceMinListPaneWidth;
   return width >= 1280 ? 360 : 320;
 }
 
@@ -55,9 +56,17 @@ double _rightPaneWidth(double width) {
   return width >= 1360 ? 380 : 320;
 }
 
-double _maxRightPaneWidth({required double totalWidth}) {
-  final leftWidth = _leftPaneWidth(totalWidth);
-  const dividerCount = 2;
+/// Whether an open tool pane must cover the session list because list,
+/// center and tool cannot all fit (only below a lowered split threshold).
+bool _toolCoversListAtWidth(double width) =>
+    width < kWorkspaceThreePaneMinWidth;
+
+double _maxRightPaneWidth({
+  required double totalWidth,
+  required bool listVisible,
+}) {
+  final leftWidth = listVisible ? _leftPaneWidth(totalWidth) : 0.0;
+  final dividerCount = listVisible ? 2 : 1;
   final reservedWidth =
       leftWidth + (dividerCount * _paneResizeHandleWidth) + _minCenterPaneWidth;
   final availableWidth = totalWidth - reservedWidth;
@@ -78,8 +87,8 @@ double _resizeHandleHitWidth(TargetPlatform platform) {
   return _paneResizeTouchHandleWidth;
 }
 
-_WorkspaceLayoutMode _layoutModeForWidth(double width) {
-  return width >= workspaceMultiPaneBreakpoint
+_WorkspaceLayoutMode _layoutModeForWidth(double width, double breakpoint) {
+  return width >= breakpoint
       ? _WorkspaceLayoutMode.multiPane
       : _WorkspaceLayoutMode.single;
 }
@@ -223,6 +232,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
+  bool _toolCoversList = false;
   StreamSubscription<String>? _stoppedSessionSub;
   StreamSubscription<WorkspaceNavigationState>? _navigationSub;
   double? _rightPaneUserWidth;
@@ -242,7 +252,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   void requestNewSession() => newSessionHandler?.call();
   bool get isSinglePane => _layoutMode == _WorkspaceLayoutMode.single;
   bool get isLeftPaneVisible =>
-      !isSinglePane ||
+      (!isSinglePane && !_toolCoversList) ||
       (_selectedSession == null &&
           _centerOverlay == WorkspaceCenterOverlay.none &&
           _toolPane == null);
@@ -520,7 +530,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   void resizeRightPane(double nextWidth, double totalWidth) {
     if (_toolPane == null) return;
-    final maxWidth = _maxRightPaneWidth(totalWidth: totalWidth);
+    final maxWidth = _maxRightPaneWidth(
+      totalWidth: totalWidth,
+      listVisible: !_toolCoversListAtWidth(totalWidth),
+    );
     final minWidth = _minAllowedRightPaneWidth(maxWidth);
     setState(() {
       _rightPaneUserWidth = nextWidth.clamp(minWidth, maxWidth).toDouble();
@@ -611,9 +624,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     clearSelectedSession();
   }
 
-  void _syncLayoutState(_WorkspaceLayoutMode nextMode) {
-    if (nextMode == _layoutMode) return;
+  void _syncLayoutState(_WorkspaceLayoutMode nextMode, bool toolCoversList) {
+    if (nextMode == _layoutMode && toolCoversList == _toolCoversList) return;
     _layoutMode = nextMode;
+    _toolCoversList = toolCoversList;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _notifyPresentationChanged();
     });
@@ -674,6 +688,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final breakpoint = context.select(
+      (SettingsCubit cubit) => cubit.state.multiPaneBreakpoint,
+    );
     return BlocListener<ConnectionCubit, BridgeConnectionState>(
       listener: (context, state) {
         if (state != BridgeConnectionState.disconnected) return;
@@ -699,8 +716,15 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             0.0,
             double.infinity,
           );
-          final layoutMode = _layoutModeForWidth(usableWidth);
-          _syncLayoutState(layoutMode);
+          final layoutMode = _layoutModeForWidth(usableWidth, breakpoint);
+          final showRightPane = _toolPane != null;
+          // Below the three-pane width (only reachable with a lowered split
+          // threshold), an open tool pane takes the list's place.
+          final toolCoversList =
+              layoutMode == _WorkspaceLayoutMode.multiPane &&
+              showRightPane &&
+              _toolCoversListAtWidth(usableWidth);
+          _syncLayoutState(layoutMode, toolCoversList);
           final compact = isSinglePane;
           final sessionEntry = _state.sessionEntry;
           final toolEntry = _state.toolEntry;
@@ -708,10 +732,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           final hasCenter =
               _selectedSession != null ||
               _centerOverlay != WorkspaceCenterOverlay.none;
-          final showRightPane = _toolPane != null;
           // On compact layouts the list stays mounted underneath a covering
           // chat/tool pane so its state survives; it must not rebuild there.
-          final listCovered = compact && (hasCenter || showRightPane);
+          final listCovered =
+              (compact && (hasCenter || showRightPane)) || toolCoversList;
           // During an interactive back swipe the list is being revealed, so
           // it is kept live (fresh data, running tickers) for the drag.
           final listObscured = listCovered && !_paneBackGestureInProgress;
@@ -730,7 +754,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           final leftWidth = compact
               ? constraints.maxWidth
               : padding.left + _leftPaneWidth(usableWidth);
-          final maxRightWidth = _maxRightPaneWidth(totalWidth: usableWidth);
+          final maxRightWidth = _maxRightPaneWidth(
+            totalWidth: usableWidth,
+            listVisible: !toolCoversList,
+          );
           final rightWidth = compact
               ? constraints.maxWidth
               : padding.right +
@@ -740,7 +767,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                           maxRightWidth,
                         )
                         .toDouble();
-          final centerLeft = compact ? 0.0 : leftWidth + _twoPaneDividerWidth;
+          final centerLeft = compact || toolCoversList
+              ? 0.0
+              : leftWidth + _twoPaneDividerWidth;
           final centerRight = !compact && showRightPane
               ? rightWidth + _twoPaneDividerWidth
               : 0.0;
@@ -752,7 +781,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
             right: centerRight,
             child: MediaQuery.removePadding(
               context: context,
-              removeLeft: !compact,
+              removeLeft: !compact && !toolCoversList,
               removeRight: !compact && showRightPane,
               child: WorkspacePaneNavigator(
                 navigatorKey: _centerNavigatorKey,
@@ -921,7 +950,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                     ),
                   ),
                 ),
-                if (!compact)
+                if (!compact && !toolCoversList)
                   Positioned(
                     top: 0,
                     bottom: 0,

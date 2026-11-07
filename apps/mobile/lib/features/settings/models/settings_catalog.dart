@@ -96,6 +96,7 @@ abstract final class SettingsEntryIds {
   static const language = 'language';
   static const appIcon = 'app_icon';
   static const textDensity = 'text_density';
+  static const multiPaneBreakpoint = 'multi_pane_breakpoint';
   static const codeFont = 'code_font';
   static const indentSize = 'indent_size';
   static const voiceInput = 'voice_input';
@@ -224,6 +225,12 @@ final List<SettingsEntry> settingsEntries = [
     category: SettingsCategory.appearance,
     title: (l) => l.textDensity,
     keywords: 'text scale font size 文字 サイズ 拡大',
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.multiPaneBreakpoint,
+    category: SettingsCategory.appearance,
+    title: (l) => l.multiPaneBreakpoint,
+    keywords: 'split pane layout width ipad 分割 ペイン 画面 幅 レイアウト',
   ),
   SettingsEntry(
     id: SettingsEntryIds.codeFont,

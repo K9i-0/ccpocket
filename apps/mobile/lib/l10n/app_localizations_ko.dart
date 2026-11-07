@@ -2147,6 +2147,29 @@ class AppLocalizationsKo extends AppLocalizations {
       '시스템 텍스트 크기에 앱 배율을 곱합니다. 100%는 OS 설정을 그대로 유지합니다.';
 
   @override
+  String get multiPaneBreakpoint => '분할 보기 너비';
+
+  @override
+  String multiPaneBreakpointDescription(int threePaneWidth) {
+    return '창 너비가 이 값 이상이면 세션 목록과 대화를 나란히 표시합니다. ${threePaneWidth}pt 미만에서 도구를 열면 목록 자리에 표시됩니다.';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSplit(int width) {
+    return '현재 너비 ${width}pt · 분할 보기';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSingle(int width) {
+    return '현재 너비 ${width}pt · 단일 보기';
+  }
+
+  @override
+  String multiPaneBreakpointReset(int width) {
+    return '기본값(${width}pt)으로 재설정';
+  }
+
+  @override
   String get codeFontSize => '코드 글꼴 크기';
 
   @override

@@ -2106,6 +2106,29 @@ class AppLocalizationsZh extends AppLocalizations {
   String get textDensityDescription => '在系统文字大小的基础上再应用此应用倍率。100% 保持系统设置不变。';
 
   @override
+  String get multiPaneBreakpoint => '分栏显示宽度';
+
+  @override
+  String multiPaneBreakpointDescription(int threePaneWidth) {
+    return '窗口宽度不小于此值时，会话列表与对话并排显示。宽度小于 ${threePaneWidth}pt 时打开工具，会显示在列表的位置。';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSplit(int width) {
+    return '当前宽度 ${width}pt · 分栏显示';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSingle(int width) {
+    return '当前宽度 ${width}pt · 单栏显示';
+  }
+
+  @override
+  String multiPaneBreakpointReset(int width) {
+    return '恢复默认（${width}pt）';
+  }
+
+  @override
   String get codeFontSize => '代码字体大小';
 
   @override

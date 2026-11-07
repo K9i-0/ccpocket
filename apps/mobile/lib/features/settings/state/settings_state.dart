@@ -9,6 +9,7 @@ import '../../../models/input_delivery.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/skill_trigger_style.dart';
 import '../../../models/terminal_app.dart';
+import '../../workspace/workspace_layout_metrics.dart';
 
 part 'settings_state.freezed.dart';
 
@@ -74,6 +75,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// App-specific multiplier applied on top of the system text scale.
     @Default(1.0) double textScale,
+
+    /// Usable window width at which the workspace splits into panes.
+    @Default(kWorkspaceDefaultMultiPaneBreakpoint) double multiPaneBreakpoint,
 
     /// Font size used only for code-oriented surfaces.
     @Default(12.0) double codeFontSize,

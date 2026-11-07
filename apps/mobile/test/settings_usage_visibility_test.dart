@@ -2090,6 +2090,7 @@ void main() {
         'language',
         'app_icon',
         'text_density',
+        'multi_pane_breakpoint',
         'code_font',
         'indent_size',
         'voice_input',

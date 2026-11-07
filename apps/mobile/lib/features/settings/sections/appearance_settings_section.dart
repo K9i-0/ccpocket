@@ -14,6 +14,7 @@ import '../widgets/app_icon_bottom_sheet.dart';
 import '../widgets/app_locale_bottom_sheet.dart';
 import '../widgets/settings_tiles.dart';
 import '../widgets/settings_visibility_builder.dart';
+import '../widgets/multi_pane_breakpoint_tile.dart';
 import '../widgets/text_scale_tile.dart';
 
 String themeModeLabel(AppLocalizations l, ThemeMode mode) => switch (mode) {
@@ -106,6 +107,13 @@ class AppearanceSettingsSection extends StatelessWidget {
               child: TextScaleTile(
                 value: state.textScale,
                 onChanged: cubit.setTextScale,
+              ),
+            ),
+            SettingsItem(
+              id: SettingsEntryIds.multiPaneBreakpoint,
+              child: MultiPaneBreakpointTile(
+                value: state.multiPaneBreakpoint,
+                onChanged: cubit.setMultiPaneBreakpoint,
               ),
             ),
           ],

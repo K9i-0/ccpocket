@@ -2217,6 +2217,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'Multiplies the system text size by this app scale. 100% keeps the OS setting unchanged.';
 
   @override
+  String get multiPaneBreakpoint => 'Split view width';
+
+  @override
+  String multiPaneBreakpointDescription(int threePaneWidth) {
+    return 'When the window is at least this wide, the session list and conversation appear side by side. Below ${threePaneWidth}pt, an opened tool takes the list\'s place.';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSplit(int width) {
+    return 'Current width ${width}pt · Split view';
+  }
+
+  @override
+  String multiPaneBreakpointCurrentSingle(int width) {
+    return 'Current width ${width}pt · Single view';
+  }
+
+  @override
+  String multiPaneBreakpointReset(int width) {
+    return 'Reset to default (${width}pt)';
+  }
+
+  @override
   String get codeFontSize => 'Code font size';
 
   @override

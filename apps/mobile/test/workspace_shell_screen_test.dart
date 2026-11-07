@@ -9,6 +9,7 @@ import 'package:ccpocket/features/session_list/session_list_screen.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/features/workspace/workspace_layout_metrics.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/router/app_router.dart';
@@ -2130,6 +2131,80 @@ void main() {
     expect(find.byType(RecentSessionCard), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'lowered split threshold splits 773px and lets tools cover list',
+    (tester) async {
+      // iPad mini (A20 Pro) landscape Split View leaves 773pt for the app.
+      await tester.binding.setSurfaceSize(const Size(773, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          debugRecentSessions: [_recentSession('one')],
+          shellKey: shellKey,
+          platform: TargetPlatform.macOS,
+        ),
+      );
+      await _pumpUi(tester);
+      final shell = shellKey.currentState!;
+      final list = find.byType(SessionListScreen);
+      final center = find.byKey(const ValueKey('workspace_center_slot'));
+      final tool = find.byKey(const ValueKey('workspace_tool_slot'));
+      expect(shell.isSinglePane, isTrue);
+      expect(tester.getSize(list).width, 773);
+
+      settingsCubit.setMultiPaneBreakpoint(768);
+      await _pumpUi(tester);
+      expect(shell.isSinglePane, isFalse);
+      expect(shell.isLeftPaneVisible, isTrue);
+      expect(tester.getSize(list).width, 260);
+      expect(tester.getRect(center).left, 261);
+
+      shell.openGitPane(projectPath: '/tmp/project');
+      await _pumpUi(tester);
+      expect(shell.isLeftPaneVisible, isFalse);
+      expect(tester.getRect(center), const Rect.fromLTRB(0, 0, 532, 900));
+      expect(tester.getSize(tool).width, 240);
+      expect(
+        tester
+            .widgetList<IgnorePointer>(
+              find.ancestor(of: list, matching: find.byType(IgnorePointer)),
+            )
+            .any((widget) => widget.ignoring),
+        isTrue,
+      );
+
+      // Without the list, the tool can grow until the center reaches 360.
+      shell.resizeRightPane(600, 773);
+      await _pumpUi(tester);
+      expect(tester.getSize(tool).width, 412);
+      expect(tester.getSize(center).width, 360);
+
+      shell.closeToolPane();
+      await _pumpUi(tester);
+      expect(shell.isLeftPaneVisible, isTrue);
+      expect(tester.getRect(center).left, 261);
+      expect(find.byType(RecentSessionCard), findsWidgets);
+
+      settingsCubit.setMultiPaneBreakpoint(
+        kWorkspaceDefaultMultiPaneBreakpoint,
+      );
+      await _pumpUi(tester);
+      expect(shell.isSinglePane, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('opens session gallery in right pane', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));

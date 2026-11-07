@@ -4049,6 +4049,36 @@ abstract class AppLocalizations {
   /// **'OSの文字サイズ設定に、このアプリ倍率をさらに掛けます。100%はOS設定のままです。'**
   String get textDensityDescription;
 
+  /// No description provided for @multiPaneBreakpoint.
+  ///
+  /// In ja, this message translates to:
+  /// **'分割表示の幅'**
+  String get multiPaneBreakpoint;
+
+  /// No description provided for @multiPaneBreakpointDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ウィンドウの幅がこの値以上のとき、セッション一覧と会話を並べて表示します。{threePaneWidth}pt未満でツールを開くと、一覧の位置に表示されます。'**
+  String multiPaneBreakpointDescription(int threePaneWidth);
+
+  /// No description provided for @multiPaneBreakpointCurrentSplit.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在の幅 {width}pt · 分割表示'**
+  String multiPaneBreakpointCurrentSplit(int width);
+
+  /// No description provided for @multiPaneBreakpointCurrentSingle.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在の幅 {width}pt · 1画面表示'**
+  String multiPaneBreakpointCurrentSingle(int width);
+
+  /// No description provided for @multiPaneBreakpointReset.
+  ///
+  /// In ja, this message translates to:
+  /// **'デフォルト（{width}pt）に戻す'**
+  String multiPaneBreakpointReset(int width);
+
   /// No description provided for @codeFontSize.
   ///
   /// In ja, this message translates to:

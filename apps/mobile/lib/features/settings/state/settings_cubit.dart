@@ -23,6 +23,7 @@ import '../../../services/machine_manager_service.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../theme/code_text_style.dart';
 import '../../../utils/platform_helper.dart';
+import '../../workspace/workspace_layout_metrics.dart';
 import 'settings_state.dart';
 
 /// Manages user settings with SharedPreferences persistence.
@@ -73,6 +74,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyDefaultInputDelivery = 'settings_default_input_delivery';
   static const _keySkillTriggerStyle = 'settings_skill_trigger_style';
   static const _keyTextScale = 'settings_text_scale';
+  static const _keyMultiPaneBreakpoint = 'settings_multi_pane_breakpoint';
   static const _keyCodeFontSize = 'settings_code_font_size';
   static const _keyCodeFontFamily = 'settings_code_font_family';
   static const minTextScale = 0.8;
@@ -206,6 +208,10 @@ class SettingsCubit extends Cubit<SettingsState> {
     final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
     final indentSize = prefs.getInt(_keyIndentSize) ?? 2;
     final textScale = prefs.getDouble(_keyTextScale) ?? 1.0;
+    final multiPaneBreakpoint = normalizeWorkspaceMultiPaneBreakpoint(
+      prefs.getDouble(_keyMultiPaneBreakpoint) ??
+          kWorkspaceDefaultMultiPaneBreakpoint,
+    );
     final codeFontSize =
         prefs.getDouble(_keyCodeFontSize) ?? defaultCodeFontSize;
     final codeFontFamily = codeFontFamilyFromRaw(
@@ -293,6 +299,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       shorebirdTrack: shorebirdTrack,
       indentSize: indentSize.clamp(1, 4),
       textScale: textScale.clamp(minTextScale, maxTextScale),
+      multiPaneBreakpoint: multiPaneBreakpoint,
       codeFontSize: codeFontSize.clamp(minCodeFontSize, maxCodeFontSize),
       codeFontFamily: codeFontFamily,
       hideVoiceInput: hideVoiceInput,
@@ -424,6 +431,16 @@ class SettingsCubit extends Cubit<SettingsState> {
     final clamped = scale.clamp(minTextScale, maxTextScale);
     _prefs.setDouble(_keyTextScale, clamped);
     emit(state.copyWith(textScale: clamped));
+  }
+
+  void setMultiPaneBreakpoint(double width) {
+    final normalized = normalizeWorkspaceMultiPaneBreakpoint(width);
+    if (normalized == kWorkspaceDefaultMultiPaneBreakpoint) {
+      _prefs.remove(_keyMultiPaneBreakpoint);
+    } else {
+      _prefs.setDouble(_keyMultiPaneBreakpoint, normalized);
+    }
+    emit(state.copyWith(multiPaneBreakpoint: normalized));
   }
 
   void setCodeFontSize(double size) {
