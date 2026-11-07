@@ -318,6 +318,30 @@ abstract class AppLocalizations {
   /// **'CC Pocket をインストール元から更新してから、もう一度接続してください。'**
   String get protocolUpdateAppBody;
 
+  /// No description provided for @bridgeAuthRequiredTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge の認証が必要です'**
+  String get bridgeAuthRequiredTitle;
+
+  /// No description provided for @bridgeAuthRequiredBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{host} の Bridge が API キーを必要としています。Bridge を動かしている PC で次のコマンドを実行し、表示された QR コードを読み取るか、API キーを入力してください。'**
+  String bridgeAuthRequiredBody(String host);
+
+  /// No description provided for @machineApiKeyRequired.
+  ///
+  /// In ja, this message translates to:
+  /// **'API キーが必要です。QR コードを読み直してください'**
+  String get machineApiKeyRequired;
+
+  /// No description provided for @bridgeAuthEnterApiKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'API キーを入力'**
+  String get bridgeAuthEnterApiKey;
+
   /// No description provided for @protocolUpdateBridgeBody.
   ///
   /// In ja, this message translates to:

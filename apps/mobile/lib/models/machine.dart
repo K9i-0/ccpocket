@@ -210,7 +210,14 @@ abstract class MachineWithStatus with _$MachineWithStatus {
 
     /// Bridge version info (fetched during health check)
     BridgeVersionInfo? versionInfo,
+
+    /// `/health` reported `auth: "required"` (Bridge requires an API key).
+    @Default(false) bool authRequired,
   }) = _MachineWithStatus;
+
+  /// The Bridge requires an API key but none is stored for this machine, so
+  /// connecting will be rejected until the user re-pairs.
+  bool get needsApiKey => authRequired && !machine.hasApiKey;
 
   /// Check if the machine needs a Bridge update
   bool needsUpdate(String expectedVersion) {

@@ -4,6 +4,10 @@ import 'stream_cubit.dart';
 /// Connection state stream as a Cubit.
 typedef ConnectionCubit = StreamCubit<BridgeConnectionState>;
 
+/// Non-null while the Bridge rejects the app's API key; see
+/// [BridgeAuthRejection].
+typedef BridgeAuthRejectionCubit = StreamCubit<BridgeAuthRejection?>;
+
 /// Currently running sessions stream as a Cubit.
 typedef ActiveSessionsCubit = StreamCubit<List<SessionInfo>>;
 

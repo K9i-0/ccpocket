@@ -120,6 +120,20 @@ class AppLocalizationsKo extends AppLocalizations {
   String get protocolUpdateAppBody => 'CC Pocket을 설치한 곳에서 업데이트한 후 다시 연결하세요.';
 
   @override
+  String get bridgeAuthRequiredTitle => 'Bridge 인증이 필요합니다';
+
+  @override
+  String bridgeAuthRequiredBody(String host) {
+    return '$host의 Bridge에 API 키가 필요합니다. Bridge를 실행 중인 컴퓨터에서 아래 명령을 실행한 뒤 표시된 QR 코드를 스캔하거나 API 키를 입력하세요.';
+  }
+
+  @override
+  String get machineApiKeyRequired => 'API 키가 필요합니다. QR 코드를 다시 스캔하세요';
+
+  @override
+  String get bridgeAuthEnterApiKey => 'API 키 입력';
+
+  @override
   String get protocolUpdateBridgeBody => 'Bridge를 호환되는 릴리스로 업데이트한 후 다시 연결하세요.';
 
   @override

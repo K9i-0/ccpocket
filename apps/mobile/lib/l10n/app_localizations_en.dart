@@ -122,6 +122,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Update CC Pocket from the source where you installed it, then reconnect.';
 
   @override
+  String get bridgeAuthRequiredTitle => 'Bridge authentication required';
+
+  @override
+  String bridgeAuthRequiredBody(String host) {
+    return 'The Bridge at $host requires an API key. On the computer running the Bridge, run the command below, then scan the QR code it shows or enter the API key.';
+  }
+
+  @override
+  String get machineApiKeyRequired =>
+      'API key required. Scan the Bridge QR code again';
+
+  @override
+  String get bridgeAuthEnterApiKey => 'Enter API key';
+
+  @override
   String get protocolUpdateBridgeBody =>
       'Update the Bridge to a compatible release, then reconnect.';
 

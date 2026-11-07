@@ -48,6 +48,8 @@ class BridgeService implements BridgeServiceBase {
       StreamController<(ServerMessage, String?)>.broadcast();
   final _connectionController =
       StreamController<BridgeConnectionState>.broadcast();
+  final _authRejectionController =
+      StreamController<BridgeAuthRejection?>.broadcast();
   final _sessionListController =
       StreamController<List<SessionInfo>>.broadcast();
   final _sessionStoppedController = StreamController<String>.broadcast();
@@ -420,6 +422,7 @@ class BridgeService implements BridgeServiceBase {
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
   bool _intentionalDisconnect = false;
+  BridgeAuthRejection? _authRejection;
   bool _disposed = false;
   DateTime? _legacyFileDownloadResponseDeadline;
   DateTime? _legacyFileUploadResponseDeadline;
@@ -429,6 +432,19 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<BridgeConnectionState> get connectionStatus =>
       _connectionController.stream;
+
+  /// Non-null while the Bridge rejects this app's API key (close code 4001).
+  /// Automatic reconnects stay paused until a new [connect] call.
+  BridgeAuthRejection? get authRejection => _authRejection;
+  Stream<BridgeAuthRejection?> get authRejectionStream =>
+      _authRejectionController.stream;
+
+  void _setAuthRejection(BridgeAuthRejection? rejection) {
+    if (_authRejection == rejection) return;
+    _authRejection = rejection;
+    _authRejectionController.add(rejection);
+  }
+
   @override
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
   @override
@@ -755,6 +771,25 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
+  /// Adds the API key of the current connection as `?token=` to a Bridge HTTP
+  /// URL. A query parameter (not a header) keeps Flutter Web requests free of
+  /// a CORS preflight that older Bridges would reject; older Bridges ignore it.
+  Uri bridgeHttpUri(String path) {
+    final uri = Uri.parse('${httpBaseUrl ?? ''}$path');
+    final token = _currentApiToken;
+    if (token == null) return uri;
+    return uri.replace(
+      queryParameters: {...uri.queryParameters, 'token': token},
+    );
+  }
+
+  String? get _currentApiToken {
+    final url = _lastUrl;
+    if (url == null) return null;
+    final token = Uri.tryParse(url)?.queryParameters['token'];
+    return token == null || token.isEmpty ? null : token;
+  }
+
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
   static const _prefKeyOfflinePendingMessages =
@@ -791,6 +826,7 @@ class BridgeService implements BridgeServiceBase {
     _legacyWorktreeRemoveFamilyQuarantined = false;
     final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
+    _setAuthRejection(null);
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     if (isReplacingSocket) {
@@ -1270,7 +1306,18 @@ class BridgeService implements BridgeServiceBase {
           _channel = null;
           _protocolCapabilities = const {};
           _clearTransportScopedRequestState();
-          if (!_intentionalDisconnect) {
+          if (!_intentionalDisconnect &&
+              channel.closeCode == bridgeUnauthorizedCloseCode) {
+            // Retrying with the same key cannot succeed. Stop the reconnect
+            // loop and let the UI ask the user to re-pair.
+            logger.info('Bridge rejected the API key (close code 4001)');
+            _reconnectTimer?.cancel();
+            _reconnectTimer = null;
+            _setAuthRejection(BridgeAuthRejection.fromUrl(url));
+            _setBridgeConnectionState(BridgeConnectionState.disconnected);
+            _requeueInFlightInputMessages();
+            _requeueInFlightPendingMessages();
+          } else if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
             _requeueInFlightInputMessages();
             _requeueInFlightPendingMessages();
@@ -1857,6 +1904,7 @@ class BridgeService implements BridgeServiceBase {
 
   void _scheduleReconnect() {
     if (_intentionalDisconnect || _lastUrl == null) return;
+    if (_authRejection != null) return;
     if (_reconnectTimer?.isActive ?? false) {
       _setBridgeConnectionState(BridgeConnectionState.reconnecting);
       return;
@@ -4935,7 +4983,7 @@ class BridgeService implements BridgeServiceBase {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/api/gallery/upload'),
+            bridgeHttpUri('/api/gallery/upload'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'base64': base64Data,
@@ -4967,7 +5015,7 @@ class BridgeService implements BridgeServiceBase {
 
     try {
       final response = await http
-          .delete(Uri.parse('$baseUrl/api/gallery/$id'))
+          .delete(bridgeHttpUri('/api/gallery/$id'))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -4995,6 +5043,8 @@ class BridgeService implements BridgeServiceBase {
   /// background WebSocket connections without triggering [onDone]/[onError].
   void ensureConnected() {
     if (_intentionalDisconnect || _lastUrl == null) return;
+    // Waiting for the user to re-pair; resuming must not retry the old key.
+    if (_authRejection != null) return;
     if (_connectionState == BridgeConnectionState.connected) {
       // The channel may appear "connected" but the underlying socket is dead.
       // A non-null closeCode means the socket has already been closed.
@@ -5010,6 +5060,7 @@ class BridgeService implements BridgeServiceBase {
   void disconnect() {
     _connectionEpoch++;
     _intentionalDisconnect = true;
+    _setAuthRejection(null);
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _requeueInFlightInputMessages();
@@ -5084,6 +5135,7 @@ class BridgeService implements BridgeServiceBase {
     _messageController.close();
     _taggedMessageController.close();
     _connectionController.close();
+    _authRejectionController.close();
     _sessionListController.close();
     _sessionStoppedController.close();
     _recentSessionsController.close();

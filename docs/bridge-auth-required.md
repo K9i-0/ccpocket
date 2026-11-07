@@ -35,12 +35,16 @@ after an app release that understands it has been available for a while.
 
 Backward compatible with every existing Bridge.
 
-- Close code `4001` puts `BridgeService` into a new
-  `BridgeConnectionState.unauthorized`. The service stops reconnecting, and
-  `ensureConnected()` on foreground resume does not restart the loop. Only a
-  new `connect()` (QR rescan, machine tap, manual entry) leaves the state.
-- The home screen shows an "authentication required" banner with a Scan QR
-  button and the hint `npx @ccpocket/bridge@1 qr`. Rescanning updates the
+- Close code `4001` records a `BridgeAuthRejection` (host and port) on
+  `BridgeService`, exposed through `BridgeAuthRejectionCubit`. The connection
+  state stays `disconnected` rather than gaining a new enum value, because many
+  widgets treat "anything but disconnected" as connected. The service stops
+  reconnecting, and `ensureConnected()` on foreground resume does not restart
+  the loop. A new `connect()` (QR rescan, machine tap, manual entry) or
+  `disconnect()` clears the rejection.
+- The connect screen shows an "authentication required" card with the
+  command `npx --yes @ccpocket/bridge@1 qr`, a Scan QR button (mobile only),
+  and an Enter API key button that opens the matching machine's edit sheet. Rescanning updates the
   existing machine's stored key, because `recordConnection` matches the
   machine by host and port.
 - HTTP calls that will become authenticated (gallery upload and delete) add
@@ -51,7 +55,10 @@ Backward compatible with every existing Bridge.
 - When `/health` reports `auth: "required"` and the machine has no stored
   key, the machine entry shows that a QR rescan is needed.
 
-### Step 2: Bridge release (additive, can ship any time)
+### Step 2: Bridge release (additive, ship before or together with app N)
+
+The card in app N tells users to run `ccpocket-bridge qr`, so this release
+should be on npm by the time app N reaches users.
 
 Nothing is rejected that was previously accepted.
 

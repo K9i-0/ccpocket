@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
+import '../../../models/messages.dart';
 import '../../../models/protocol_version.dart';
 import '../../../services/server_discovery_service.dart';
 import '../../../utils/platform_helper.dart';
 import '../../demo/demo_screen.dart';
+import 'bridge_auth_required_card.dart';
 import 'discovered_servers_list.dart';
 import 'machine_list.dart';
 import 'protocol_incompatibility_card.dart';
@@ -33,6 +35,9 @@ class ConnectForm extends StatelessWidget {
   final VoidCallback? onRefreshMachines;
   final ProtocolCompatibility? protocolCompatibility;
 
+  /// Set when the last Bridge rejected this app's API key.
+  final BridgeAuthRejection? authRejection;
+
   const ConnectForm({
     super.key,
     required this.discoveredServers,
@@ -54,7 +59,19 @@ class ConnectForm extends StatelessWidget {
     this.onAddMachine,
     this.onRefreshMachines,
     this.protocolCompatibility,
+    this.authRejection,
   });
+
+  /// The saved machine the rejected connection belongs to, if any.
+  MachineWithStatus? _machineFor(BridgeAuthRejection rejection) {
+    for (final entry in machines) {
+      if (entry.machine.host == rejection.host &&
+          (rejection.port == null || entry.machine.port == rejection.port)) {
+        return entry;
+      }
+    }
+    return null;
+  }
 
   bool get _hasMachineHandlers =>
       onConnectToMachine != null &&
@@ -113,6 +130,18 @@ class ConnectForm extends StatelessWidget {
             label: Text(l.demoTry),
           ),
           const SizedBox(height: 24),
+
+          if (authRejection case final rejection?) ...[
+            BridgeAuthRequiredCard(
+              rejection: rejection,
+              onScanQrCode: !kIsWeb && !isDesktopPlatform ? onScanQrCode : null,
+              onEnterApiKey: switch ((_machineFor(rejection), onEditMachine)) {
+                (final machine?, final onEdit?) => () => onEdit(machine),
+                _ => null,
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
 
           if (protocolCompatibility case final compatibility?
               when !compatibility.isCompatible) ...[

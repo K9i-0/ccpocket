@@ -83,6 +83,37 @@ class AssistantMessage {
 
 enum BridgeConnectionState { disconnected, connecting, connected, reconnecting }
 
+/// WebSocket close code the Bridge uses when the API key is missing or wrong.
+const bridgeUnauthorizedCloseCode = 4001;
+
+/// The Bridge rejected the connection because it requires an API key that the
+/// app does not have (or has an outdated one). Reconnecting cannot succeed
+/// until the user re-pairs, e.g. by scanning the Bridge's QR code again.
+class BridgeAuthRejection {
+  final String host;
+  final int? port;
+
+  const BridgeAuthRejection({required this.host, this.port});
+
+  factory BridgeAuthRejection.fromUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return BridgeAuthRejection(
+      host: uri?.host ?? url,
+      port: uri != null && uri.hasPort ? uri.port : null,
+    );
+  }
+
+  /// `host:port` for display.
+  String get label => port == null ? host : '$host:$port';
+
+  @override
+  bool operator ==(Object other) =>
+      other is BridgeAuthRejection && other.host == host && other.port == port;
+
+  @override
+  int get hashCode => Object.hash(host, port);
+}
+
 // ---- Message status (for user messages) ----
 
 enum MessageStatus { sending, sent, queued, failed }

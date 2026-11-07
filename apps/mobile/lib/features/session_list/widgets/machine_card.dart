@@ -126,6 +126,25 @@ class MachineCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (machineWithStatus.needsApiKey) ...[
+                const SizedBox(height: 6),
+                Row(
+                  key: const ValueKey('machine_api_key_required'),
+                  children: [
+                    const SizedBox(width: 24),
+                    Icon(Icons.key, size: 14, color: colorScheme.error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context).machineApiKeyRequired,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

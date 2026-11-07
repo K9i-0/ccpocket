@@ -39,6 +39,15 @@
   "connect": "接続",
   "protocolIncompatibleTitle": "App と Bridge のバージョンに互換性がありません",
   "protocolUpdateAppBody": "CC Pocket をインストール元から更新してから、もう一度接続してください。",
+  "bridgeAuthRequiredTitle": "Bridge の認証が必要です",
+  "bridgeAuthRequiredBody": "{host} の Bridge が API キーを必要としています。Bridge を動かしている PC で次のコマンドを実行し、表示された QR コードを読み取るか、API キーを入力してください。",
+  "@bridgeAuthRequiredBody": {
+    "placeholders": {
+      "host": { "type": "String" }
+    }
+  },
+  "machineApiKeyRequired": "API キーが必要です。QR コードを読み直してください",
+  "bridgeAuthEnterApiKey": "API キーを入力",
   "protocolUpdateBridgeBody": "Bridge を互換性のあるリリースへ更新してから、もう一度接続してください。",
   "protocolUpdateBothBody": "プロトコル情報が不正または不足しています。CC Pocket と Bridge の両方を更新してから再接続してください。",
   "protocolRangeDetails": "App プロトコル {appMin}–{appMax}、Bridge プロトコル {bridgeMin}–{bridgeMax}",

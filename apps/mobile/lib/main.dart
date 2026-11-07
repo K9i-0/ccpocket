@@ -303,6 +303,12 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
               bridge.connectionStatus,
             ),
           ),
+          BlocProvider(
+            create: (_) => BridgeAuthRejectionCubit(
+              bridge.authRejection,
+              bridge.authRejectionStream,
+            ),
+          ),
           BlocProvider<GitStatusCubit>(
             create: (_) => gitStatusCubit,
             lazy: false,

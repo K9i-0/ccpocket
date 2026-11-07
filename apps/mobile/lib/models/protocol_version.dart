@@ -2,6 +2,7 @@ const appProtocolMinVersion = 1;
 const appProtocolMaxVersion = 1;
 const legacyBridgeProtocolVersion = 1;
 const bridgeStableMajorSetupCommand = 'npx --yes @ccpocket/bridge@1 setup';
+const bridgeStableMajorQrCommand = 'npx --yes @ccpocket/bridge@1 qr';
 
 enum ProtocolUpdateTarget { app, bridge, both }
 

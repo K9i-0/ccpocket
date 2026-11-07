@@ -2326,6 +2326,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       protocolCompatibility: context
           .read<BridgeService>()
           .protocolCompatibility,
+      authRejection: context.watch<BridgeAuthRejectionCubit?>()?.state,
       discoveredServers: discoveredServers,
       machines: machineState?.machines ?? [],
       startingMachineId: machineState?.startingMachineId,
@@ -2901,6 +2902,7 @@ class _SetupStep extends StatelessWidget {
 
 class _ConnectFormWidget extends StatelessWidget {
   final ProtocolCompatibility? protocolCompatibility;
+  final BridgeAuthRejection? authRejection;
   final List<DiscoveredServer> discoveredServers;
   final List<MachineWithStatus> machines;
   final String? startingMachineId;
@@ -2921,6 +2923,7 @@ class _ConnectFormWidget extends StatelessWidget {
 
   const _ConnectFormWidget({
     this.protocolCompatibility,
+    this.authRejection,
     required this.discoveredServers,
     required this.machines,
     this.startingMachineId,
@@ -2944,6 +2947,7 @@ class _ConnectFormWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ConnectForm(
       protocolCompatibility: protocolCompatibility,
+      authRejection: authRejection,
       discoveredServers: discoveredServers,
       onScanQrCode: onScanQrCode,
       onViewSetupGuide: onViewSetupGuide,

@@ -58,6 +58,7 @@ class MachineManagerService {
   final Map<String, int> _connectionEpochs = {};
   final Map<String, String> _lastErrors = {};
   final Map<String, BridgeVersionInfo> _versionCache = {};
+  final Set<String> _authRequiredIds = {};
   BridgeWsUrlResolver? _bridgeWsUrlResolver;
   BridgeHttpBaseUrlResolver? _bridgeHttpBaseUrlResolver;
   Timer? _healthCheckTimer;
@@ -91,6 +92,7 @@ class MachineManagerService {
         lastChecked: _lastChecked[m.id],
         lastError: _lastErrors[m.id],
         versionInfo: _versionCache[m.id],
+        authRequired: _authRequiredIds.contains(m.id),
       );
     }).toList();
   }
@@ -681,6 +683,7 @@ class MachineManagerService {
     _lastChecked.remove(id);
     _lastErrors.remove(id);
     _versionCache.remove(id);
+    _authRequiredIds.remove(id);
     await _saveToPrefs();
     _notifyListeners();
   }
@@ -749,6 +752,7 @@ class MachineManagerService {
               ? machineErrorSecureConnectionUnavailable
               : machineErrorBridgeNotFound;
           _versionCache.remove(machineId);
+          _authRequiredIds.remove(machineId);
           return _finishHealthCheck(machineId, connectionEpoch);
         }
 
@@ -801,6 +805,11 @@ class MachineManagerService {
       if (response.statusCode == 200) {
         _statusCache[machineId] = MachineStatus.online;
         _lastErrors.remove(machineId);
+        if (_healthRequiresAuth(response.body)) {
+          _authRequiredIds.add(machineId);
+        } else {
+          _authRequiredIds.remove(machineId);
+        }
 
         // Fetch version info for online machines
         await _fetchVersionInfo(
@@ -815,6 +824,7 @@ class MachineManagerService {
             ? machineErrorSecureConnectionUnavailable
             : 'HTTP ${response.statusCode}';
         _versionCache.remove(machineId);
+        _authRequiredIds.remove(machineId);
       }
     } on http.ClientException catch (e) {
       // Connection refused = server not running (offline), not network issue
@@ -824,6 +834,7 @@ class MachineManagerService {
           ? machineErrorSecureConnectionUnavailable
           : e.message;
       _versionCache.remove(machineId);
+      _authRequiredIds.remove(machineId);
     } on TimeoutException {
       _statusCache[machineId] = MachineStatus.unreachable;
       _lastErrors[machineId] =
@@ -831,6 +842,7 @@ class MachineManagerService {
           ? machineErrorSecureConnectionUnavailable
           : 'Connection timeout';
       _versionCache.remove(machineId);
+      _authRequiredIds.remove(machineId);
     } catch (e) {
       _statusCache[machineId] = MachineStatus.offline;
       _lastErrors[machineId] =
@@ -838,9 +850,19 @@ class MachineManagerService {
           ? machineErrorSecureConnectionUnavailable
           : e.toString();
       _versionCache.remove(machineId);
+      _authRequiredIds.remove(machineId);
     }
 
     return _finishHealthCheck(machineId, connectionEpoch);
+  }
+
+  static bool _healthRequiresAuth(String body) {
+    try {
+      final json = jsonDecode(body);
+      return json is Map<String, dynamic> && json['auth'] == 'required';
+    } catch (_) {
+      return false;
+    }
   }
 
   bool _hasSameProbeTarget(Machine before, Machine after) =>

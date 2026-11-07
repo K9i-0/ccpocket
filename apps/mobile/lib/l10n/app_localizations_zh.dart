@@ -120,6 +120,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get protocolUpdateAppBody => '请从原安装来源更新 CC Pocket，然后重新连接。';
 
   @override
+  String get bridgeAuthRequiredTitle => 'Bridge 需要身份验证';
+
+  @override
+  String bridgeAuthRequiredBody(String host) {
+    return '$host 上的 Bridge 需要 API 密钥。请在运行 Bridge 的电脑上执行下面的命令，然后扫描显示的二维码或输入 API 密钥。';
+  }
+
+  @override
+  String get machineApiKeyRequired => '需要 API 密钥。请重新扫描 Bridge 二维码';
+
+  @override
+  String get bridgeAuthEnterApiKey => '输入 API 密钥';
+
+  @override
   String get protocolUpdateBridgeBody => '请将 Bridge 更新到兼容版本，然后重新连接。';
 
   @override

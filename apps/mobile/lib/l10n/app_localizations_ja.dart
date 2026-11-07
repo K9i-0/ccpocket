@@ -121,6 +121,20 @@ class AppLocalizationsJa extends AppLocalizations {
       'CC Pocket をインストール元から更新してから、もう一度接続してください。';
 
   @override
+  String get bridgeAuthRequiredTitle => 'Bridge の認証が必要です';
+
+  @override
+  String bridgeAuthRequiredBody(String host) {
+    return '$host の Bridge が API キーを必要としています。Bridge を動かしている PC で次のコマンドを実行し、表示された QR コードを読み取るか、API キーを入力してください。';
+  }
+
+  @override
+  String get machineApiKeyRequired => 'API キーが必要です。QR コードを読み直してください';
+
+  @override
+  String get bridgeAuthEnterApiKey => 'API キーを入力';
+
+  @override
   String get protocolUpdateBridgeBody =>
       'Bridge を互換性のあるリリースへ更新してから、もう一度接続してください。';
 
