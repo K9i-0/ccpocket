@@ -48,7 +48,7 @@ dependencies:
   markdown: ^7.3.0
   google_fonts: ^8.0.0
   bonsoir: ^6.0.1
-  mobile_scanner: ^7.1.4
+  mobile_scanner: ^7.5.0
   app_links: ^7.2.2
   speech_to_text: ^7.5.0
   http: ^1.6.0
