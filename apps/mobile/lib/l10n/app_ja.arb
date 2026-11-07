@@ -881,6 +881,8 @@
   "@multiPaneBreakpointCurrentSplit": {"placeholders": {"width": {"type": "int"}}},
   "multiPaneBreakpointCurrentSingle": "現在の幅 {width}pt · 1画面表示",
   "@multiPaneBreakpointCurrentSingle": {"placeholders": {"width": {"type": "int"}}},
+  "multiPaneBreakpointMatchCurrent": "現在の幅で分割（{width}pt）",
+  "@multiPaneBreakpointMatchCurrent": {"placeholders": {"width": {"type": "int"}}},
   "multiPaneBreakpointReset": "デフォルト（{width}pt）に戻す",
   "@multiPaneBreakpointReset": {"placeholders": {"width": {"type": "int"}}},
   "codeFontSize": "コード文字サイズ",

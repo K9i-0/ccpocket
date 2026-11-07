@@ -49,6 +49,13 @@ void main() {
     });
   });
 
+  test('fitting threshold is the highest step that still splits', () {
+    expect(workspaceMultiPaneBreakpointFittingWidth(773), 772);
+    expect(workspaceMultiPaneBreakpointFittingWidth(862), 862);
+    expect(workspaceMultiPaneBreakpointFittingWidth(1400), 1200);
+    expect(workspaceMultiPaneBreakpointFittingWidth(639), isNull);
+  });
+
   group('MultiPaneBreakpointTile', () {
     Future<List<double>> pumpTile(
       WidgetTester tester, {
@@ -114,6 +121,38 @@ void main() {
       await tester.pump();
       expect(changes.last, kWorkspaceDefaultMultiPaneBreakpoint);
       expect(find.text('862pt'), findsOneWidget);
+    });
+
+    testWidgets('matches the threshold to the current window width', (
+      tester,
+    ) async {
+      final changes = await pumpTile(tester, value: 862);
+      expect(
+        find.byKey(const ValueKey('multi_pane_breakpoint_guide_legend')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('現在の幅で分割（772pt）'));
+      await tester.pump();
+      expect(changes, [772]);
+      expect(find.text('現在の幅 773pt · 分割表示'), findsOneWidget);
+      final match = tester.widget<TextButton>(
+        find.byKey(const ValueKey('multi_pane_breakpoint_match_current')),
+      );
+      expect(match.onPressed, isNull);
+    });
+
+    testWidgets('hides the guide when no threshold can split the window', (
+      tester,
+    ) async {
+      await pumpTile(tester, value: 862, surface: const Size(600, 900));
+      expect(
+        find.byKey(const ValueKey('multi_pane_breakpoint_match_current')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('multi_pane_breakpoint_guide_legend')),
+        findsNothing,
+      );
     });
   });
 }

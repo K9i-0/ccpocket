@@ -50,3 +50,18 @@ double normalizeWorkspaceMultiPaneBreakpoint(double value) {
   return kWorkspaceMinMultiPaneBreakpoint +
       steps * kWorkspaceMultiPaneBreakpointStep;
 }
+
+/// Highest selectable split threshold that still splits a window whose usable
+/// width is [width], or null when no selectable threshold does.
+double? workspaceMultiPaneBreakpointFittingWidth(double width) {
+  if (!width.isFinite || width < kWorkspaceMinMultiPaneBreakpoint) return null;
+  final capped = width > kWorkspaceMaxMultiPaneBreakpoint
+      ? kWorkspaceMaxMultiPaneBreakpoint
+      : width;
+  final steps =
+      ((capped - kWorkspaceMinMultiPaneBreakpoint) /
+              kWorkspaceMultiPaneBreakpointStep)
+          .floor();
+  return kWorkspaceMinMultiPaneBreakpoint +
+      steps * kWorkspaceMultiPaneBreakpointStep;
+}

@@ -790,6 +790,7 @@
   "multiPaneBreakpointDescription": "창 너비가 이 값 이상이면 세션 목록과 대화를 나란히 표시합니다. {threePaneWidth}pt 미만에서 도구를 열면 목록 자리에 표시됩니다.",
   "multiPaneBreakpointCurrentSplit": "현재 너비 {width}pt · 분할 보기",
   "multiPaneBreakpointCurrentSingle": "현재 너비 {width}pt · 단일 보기",
+  "multiPaneBreakpointMatchCurrent": "현재 너비에서 분할({width}pt)",
   "multiPaneBreakpointReset": "기본값({width}pt)으로 재설정",
   "codeFontSize": "코드 글꼴 크기",
   "codeFontFamily": "코드 글꼴",

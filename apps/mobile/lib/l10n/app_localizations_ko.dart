@@ -2165,6 +2165,11 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String multiPaneBreakpointMatchCurrent(int width) {
+    return '현재 너비에서 분할(${width}pt)';
+  }
+
+  @override
   String multiPaneBreakpointReset(int width) {
     return '기본값(${width}pt)으로 재설정';
   }

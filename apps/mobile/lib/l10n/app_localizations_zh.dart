@@ -2124,6 +2124,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String multiPaneBreakpointMatchCurrent(int width) {
+    return '按当前宽度分栏（${width}pt）';
+  }
+
+  @override
   String multiPaneBreakpointReset(int width) {
     return '恢复默认（${width}pt）';
   }

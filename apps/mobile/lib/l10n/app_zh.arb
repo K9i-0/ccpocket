@@ -890,6 +890,7 @@
   "multiPaneBreakpointDescription": "窗口宽度不小于此值时，会话列表与对话并排显示。宽度小于 {threePaneWidth}pt 时打开工具，会显示在列表的位置。",
   "multiPaneBreakpointCurrentSplit": "当前宽度 {width}pt · 分栏显示",
   "multiPaneBreakpointCurrentSingle": "当前宽度 {width}pt · 单栏显示",
+  "multiPaneBreakpointMatchCurrent": "按当前宽度分栏（{width}pt）",
   "multiPaneBreakpointReset": "恢复默认（{width}pt）",
   "codeFontSize": "代码字体大小",
   "codeFontFamily": "代码字体",

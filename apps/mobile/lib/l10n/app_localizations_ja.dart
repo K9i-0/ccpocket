@@ -2152,6 +2152,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String multiPaneBreakpointMatchCurrent(int width) {
+    return '現在の幅で分割（${width}pt）';
+  }
+
+  @override
   String multiPaneBreakpointReset(int width) {
     return 'デフォルト（${width}pt）に戻す';
   }

@@ -74,6 +74,11 @@ list stays mounted underneath without input, like a covered compact list, and
 `isLeftPaneVisible` reports false so the center owns the window controls. Closing
 the tool reveals the list again. The slider commits on drag end so the layout
 does not switch under the finger while crossing the current window width.
+The track marks the highest selectable threshold that still splits the current
+window (the current usable width rounded down to a step), and a button sets the
+value to it. The mark uses the discrete thumb position formula, so the thumb
+covers it exactly when matched. Both are hidden when the window is narrower
+than 640.
 
 Horizontal safe-area insets are excluded from the breakpoint calculation and
 allocated only to panes touching the physical window edge. Interior panes remove

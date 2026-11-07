@@ -848,6 +848,7 @@
   "multiPaneBreakpointDescription": "When the window is at least this wide, the session list and conversation appear side by side. Below {threePaneWidth}pt, an opened tool takes the list's place.",
   "multiPaneBreakpointCurrentSplit": "Current width {width}pt · Split view",
   "multiPaneBreakpointCurrentSingle": "Current width {width}pt · Single view",
+  "multiPaneBreakpointMatchCurrent": "Split at current width ({width}pt)",
   "multiPaneBreakpointReset": "Reset to default ({width}pt)",
   "codeFontSize": "Code font size",
   "codeFontFamily": "Code font",

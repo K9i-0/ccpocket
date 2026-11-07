@@ -4073,6 +4073,12 @@ abstract class AppLocalizations {
   /// **'現在の幅 {width}pt · 1画面表示'**
   String multiPaneBreakpointCurrentSingle(int width);
 
+  /// No description provided for @multiPaneBreakpointMatchCurrent.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在の幅で分割（{width}pt）'**
+  String multiPaneBreakpointMatchCurrent(int width);
+
   /// No description provided for @multiPaneBreakpointReset.
   ///
   /// In ja, this message translates to:
