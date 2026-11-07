@@ -98,23 +98,19 @@ void main() {
     expect(harness.service.authRejection, isNull);
   });
 
-  group('bridgeHttpUri', () {
-    test('adds the current API key as a token query parameter', () {
+  group('bridgeAuthHeaders', () {
+    test('carries the current API key as a bearer token', () {
       harness.service.connect('ws://192.168.1.20:8765?token=k%2B1');
 
-      expect(
-        harness.service.bridgeHttpUri('/api/gallery/abc').toString(),
-        'http://192.168.1.20:8765/api/gallery/abc?token=k%2B1',
-      );
+      expect(harness.service.bridgeAuthHeaders, {
+        'Authorization': 'Bearer k+1',
+      });
     });
 
-    test('leaves the URL untouched without an API key', () {
+    test('is empty without an API key', () {
       harness.service.connect('wss://bridge.example.com');
 
-      expect(
-        harness.service.bridgeHttpUri('/api/gallery/upload').toString(),
-        'https://bridge.example.com/api/gallery/upload',
-      );
+      expect(harness.service.bridgeAuthHeaders, isEmpty);
     });
   });
 }

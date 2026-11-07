@@ -771,16 +771,13 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
-  /// Adds the API key of the current connection as `?token=` to a Bridge HTTP
-  /// URL. A query parameter (not a header) keeps Flutter Web requests free of
-  /// a CORS preflight that older Bridges would reject; older Bridges ignore it.
-  Uri bridgeHttpUri(String path) {
-    final uri = Uri.parse('${httpBaseUrl ?? ''}$path');
+  /// `Authorization` header carrying the API key of the current connection,
+  /// for Bridge HTTP endpoints that will require it. A header (not a `?token=`
+  /// query) is used because older Bridges match these routes on the raw URL
+  /// and would 404 on an added query; they ignore unknown headers.
+  Map<String, String> get bridgeAuthHeaders {
     final token = _currentApiToken;
-    if (token == null) return uri;
-    return uri.replace(
-      queryParameters: {...uri.queryParameters, 'token': token},
-    );
+    return token == null ? const {} : {'Authorization': 'Bearer $token'};
   }
 
   String? get _currentApiToken {
@@ -4983,8 +4980,8 @@ class BridgeService implements BridgeServiceBase {
     try {
       final response = await http
           .post(
-            bridgeHttpUri('/api/gallery/upload'),
-            headers: {'Content-Type': 'application/json'},
+            Uri.parse('$baseUrl/api/gallery/upload'),
+            headers: {'Content-Type': 'application/json', ...bridgeAuthHeaders},
             body: jsonEncode({
               'base64': base64Data,
               'mimeType': mimeType,
@@ -5015,7 +5012,10 @@ class BridgeService implements BridgeServiceBase {
 
     try {
       final response = await http
-          .delete(bridgeHttpUri('/api/gallery/$id'))
+          .delete(
+            Uri.parse('$baseUrl/api/gallery/$id'),
+            headers: bridgeAuthHeaders,
+          )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
