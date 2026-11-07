@@ -60,68 +60,95 @@ export function buildConnectionUrl(
   return `ccpocket://connect?${params.toString()}`;
 }
 
-export async function printStartupInfo(
-  port: number,
-  _host: string,
-  apiKey?: string,
-): Promise<void> {
-  const addresses = getReachableAddresses();
+export interface PairingConnection {
+  label: string;
+  wsUrl: string;
+}
+
+export interface PairingInfo {
+  auth: "required" | "none";
+  connections: PairingConnection[];
+  /** Preferred URL encoded in the QR code. */
+  wsUrl?: string;
+  /** `ccpocket://connect` deep link for [wsUrl], including the token. */
+  deepLink?: string;
+  demoMode: boolean;
+  /** Raw BRIDGE_PUBLIC_WS_URL value when it was rejected as invalid. */
+  invalidPublicWsUrl?: string;
+}
+
+/**
+ * Collect everything a client needs to pair with this Bridge.
+ *
+ * Used for the startup banner, `ccpocket-bridge qr`, and the loopback-only
+ * `/pairing` endpoint. Demo mode hides Tailscale addresses and the token.
+ */
+export function buildPairingInfo(port: number, apiKey?: string): PairingInfo {
   const demoMode = !!process.env.BRIDGE_DEMO_MODE;
   const rawPublicWsUrl = process.env.BRIDGE_PUBLIC_WS_URL;
   const publicWsUrl = validatePublicWsUrl(rawPublicWsUrl);
-
-  if (rawPublicWsUrl && !publicWsUrl) {
-    console.warn(
-      `[bridge] Warning: ignoring invalid BRIDGE_PUBLIC_WS_URL: ${rawPublicWsUrl}`,
-    );
-  }
-
-  // Demo mode: exclude Tailscale addresses for video recording
+  const addresses = getReachableAddresses();
   const displayAddresses = demoMode
     ? addresses.filter((a) => a.label !== "Tailscale")
     : addresses;
 
-  if (displayAddresses.length === 0 && !publicWsUrl) return;
-
-  const lines: string[] = [];
-  lines.push("");
-  if (demoMode) {
-    lines.push("[bridge] ─── Connection Info [DEMO MODE] ────────────────");
-  } else {
-    lines.push("[bridge] ─── Connection Info ───────────────────────────");
-  }
-
-  // Group by label
-  const grouped = new Map<string, string[]>();
-  for (const addr of displayAddresses) {
-    const list = grouped.get(addr.label) ?? [];
-    list.push(addr.ip);
-    grouped.set(addr.label, list);
-  }
-
-  for (const [label, ips] of grouped) {
-    for (const ip of ips) {
-      const padded = `${label}:`.padEnd(12);
-      lines.push(`[bridge]   ${padded} ws://${ip}:${port}`);
-    }
-  }
-
+  const connections: PairingConnection[] = displayAddresses.map((addr) => ({
+    label: addr.label,
+    wsUrl: `ws://${addr.ip}:${port}`,
+  }));
   if (publicWsUrl) {
-    lines.push(`[bridge]   ${"Public:".padEnd(12)} ${publicWsUrl}`);
+    connections.push({ label: "Public", wsUrl: publicWsUrl });
   }
 
   const fallbackWsUrl = displayAddresses.length > 0
     ? `ws://${displayAddresses.find((a) => a.label === "LAN")?.ip ?? displayAddresses[0].ip}:${port}`
     : undefined;
+  const wsUrl = publicWsUrl ?? fallbackWsUrl;
 
-  const connectWsUrl = publicWsUrl ?? fallbackWsUrl;
-  if (!connectWsUrl) return;
+  return {
+    auth: apiKey ? "required" : "none",
+    connections,
+    wsUrl,
+    deepLink: wsUrl
+      ? buildConnectionUrl(wsUrl, demoMode ? undefined : apiKey)
+      : undefined,
+    demoMode,
+    invalidPublicWsUrl: rawPublicWsUrl && !publicWsUrl ? rawPublicWsUrl : undefined,
+  };
+}
 
-  // Demo mode: omit API key from deep link
-  const deepLink = buildConnectionUrl(connectWsUrl, demoMode ? undefined : apiKey);
+/** Print connection URLs, the deep link and a terminal QR code. */
+export async function printPairingInfo(info: PairingInfo): Promise<void> {
+  if (info.invalidPublicWsUrl) {
+    console.warn(
+      `[bridge] Warning: ignoring invalid BRIDGE_PUBLIC_WS_URL: ${info.invalidPublicWsUrl}`,
+    );
+  }
+  if (info.connections.length === 0 || !info.deepLink) return;
+
+  const lines: string[] = [];
+  lines.push("");
+  if (info.demoMode) {
+    lines.push("[bridge] ─── Connection Info [DEMO MODE] ────────────────");
+  } else {
+    lines.push("[bridge] ─── Connection Info ───────────────────────────");
+  }
+
+  // Group by label, keeping Public last.
+  const grouped = new Map<string, string[]>();
+  for (const connection of info.connections) {
+    const list = grouped.get(connection.label) ?? [];
+    list.push(connection.wsUrl);
+    grouped.set(connection.label, list);
+  }
+  for (const [label, urls] of grouped) {
+    for (const url of urls) {
+      lines.push(`[bridge]   ${`${label}:`.padEnd(12)} ${url}`);
+    }
+  }
 
   lines.push("");
-  lines.push(`[bridge]   Deep Link: ${deepLink}`);
+  lines.push(`[bridge]   Deep Link: ${info.deepLink}`);
   lines.push("");
   lines.push("[bridge]   Scan QR code with ccpocket app:");
 
@@ -130,7 +157,7 @@ export async function printStartupInfo(
 
   // Generate and print QR code
   try {
-    const qrText = await QRCode.toString(deepLink, {
+    const qrText = await QRCode.toString(info.deepLink, {
       type: "terminal",
       small: true,
     });
@@ -147,4 +174,12 @@ export async function printStartupInfo(
   console.log(
     "[bridge] ───────────────────────────────────────────────",
   );
+}
+
+export async function printStartupInfo(
+  port: number,
+  _host: string,
+  apiKey?: string,
+): Promise<void> {
+  await printPairingInfo(buildPairingInfo(port, apiKey));
 }

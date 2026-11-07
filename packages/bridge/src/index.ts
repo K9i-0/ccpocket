@@ -7,7 +7,8 @@ import { ImageStore } from "./image-store.js";
 import { MediaStore } from "./media-store.js";
 import { UploadStore } from "./upload-store.js";
 import { GalleryStore } from "./gallery-store.js";
-import { printStartupInfo } from "./startup-info.js";
+import { buildPairingInfo, printStartupInfo } from "./startup-info.js";
+import { isLocalPairingRequest } from "./bridge-auth.js";
 import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
 import { WorkspaceStore } from "./workspace-store.js";
@@ -55,6 +56,12 @@ export async function startServer() {
 
   if (API_KEY) {
     console.log("[bridge] API key authentication enabled");
+  } else {
+    console.warn(
+      "[bridge] WARNING: no API key configured. Anyone who can reach this port can control your agents.\n" +
+        "[bridge]          A future Bridge release will require an API key by default.\n" +
+        "[bridge]          Set BRIDGE_API_KEY (or --api-key) now, or restrict access with Tailscale.",
+    );
   }
 
   if (!MDNS_ENABLED) {
@@ -173,6 +180,29 @@ export async function startServer() {
     req.once("end", clearDefaultBodyDeadline);
     req.once("close", clearDefaultBodyDeadline);
 
+    // Pairing info (token included) for this machine only. Served before the
+    // CORS headers are attached so browsers can never read it cross-origin.
+    if (req.url === "/pairing" && req.method === "GET") {
+      if (!isLocalPairingRequest(req)) {
+        res.writeHead(403, { "Content-Type": "text/plain" });
+        res.end("Forbidden");
+        return;
+      }
+      const info = buildPairingInfo(PORT, API_KEY);
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify({
+        auth: info.auth,
+        connections: info.connections,
+        wsUrl: info.wsUrl ?? null,
+        deepLink: info.deepLink ?? null,
+        token: info.demoMode ? null : API_KEY ?? null,
+      }));
+      return;
+    }
+
     // CORS headers for Flutter Web clients
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader(
@@ -195,6 +225,7 @@ export async function startServer() {
     if (req.url === "/health" && req.method === "GET") {
       const body = JSON.stringify({
         status: "ok",
+        auth: API_KEY ? "required" : "none",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
         sessions: wsServer?.sessionCount ?? 0,
         clients: wsServer?.clientCount ?? 0,

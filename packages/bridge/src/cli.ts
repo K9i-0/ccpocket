@@ -23,6 +23,7 @@ Commands:
   help                  Show this help
   version               Show the installed Bridge version
   doctor [--json]       Check the local Bridge environment
+  qr [--port <port>]    Show the pairing QR code of the Bridge running on this machine
   setup [options]       Register Bridge as a macOS launchd or Linux systemd service
 
 Options:
@@ -77,6 +78,19 @@ if (parsed.helpRequested) {
     )
     .catch((err) => {
       console.error("Doctor failed:", err);
+      process.exit(1);
+    });
+} else if (parsed.command === "qr") {
+  // Pairing QR for a running (often headless launchd/systemd) Bridge.
+  // No proxy setup: this only talks to 127.0.0.1.
+  Promise.all([import("./qr-command.js"), import("./bridge-port.js")])
+    .then(([{ runQrCommand }, { parseBridgePort }]) => {
+      const port = parseBridgePort(parseFlag(parsed, "port"));
+      return runQrCommand(port);
+    })
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`ERROR: ${startupErrorMessage(err)}`);
       process.exit(1);
     });
 } else if (parsed.command === "setup") {

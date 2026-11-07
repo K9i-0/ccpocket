@@ -145,6 +145,7 @@ import { fetchAllUsage } from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 import type { PromptHistoryStore } from "./prompt-history-store.js";
 import { getPackageVersion } from "./version.js";
+import { tokensMatch } from "./bridge-auth.js";
 import { BackgroundCompletionGate } from "./background-completion-gate.js";
 import {
   catalogFromCachedCommands,
@@ -1370,7 +1371,7 @@ export class BridgeWebSocketServer {
       if (this.apiKey) {
         const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
         const token = url.searchParams.get("token");
-        if (token !== this.apiKey) {
+        if (!tokensMatch(token, this.apiKey)) {
           console.log("[ws] Client rejected: invalid token");
           ws.close(4001, "Unauthorized");
           return;

@@ -258,6 +258,29 @@ BRIDGE_CODEX_ASSIST_REASONING_EFFORT=none \
 npx @ccpocket/bridge@1 setup
 ```
 
+### Showing the pairing QR code again
+
+A background service writes its startup output to a log file. To pair another
+device, print the QR code of the Bridge running on this machine:
+
+```bash
+npx @ccpocket/bridge@1 qr            # default port 8765
+npx @ccpocket/bridge@1 qr --port 9000
+```
+
+The QR code includes the API key, so only show it to devices you trust. The
+command reads the local-only `/pairing` endpoint. That endpoint accepts only
+loopback requests without an `Origin` header and is never readable from
+other machines or web pages.
+
+### Security
+
+Without `BRIDGE_API_KEY`, anyone who can reach the port can control your
+agents. Set an API key, especially on shared networks such as café Wi-Fi. A
+future release will require an API key by default; see
+[docs/bridge-auth-required.md](../../docs/bridge-auth-required.md). Plain
+`ws://` is not encrypted, so on untrusted networks prefer Tailscale or `wss://`.
+
 On Linux, setup gives standalone Codex installs priority by including
 `$HOME/.local/bin` before npm-managed Node paths in the service `PATH`.
 

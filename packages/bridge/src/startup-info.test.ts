@@ -17,6 +17,7 @@ vi.mock("qrcode", () => ({
 
 const {
   buildConnectionUrl,
+  buildPairingInfo,
   printStartupInfo,
   validatePublicWsUrl,
 } = await import("./startup-info.js");
@@ -147,6 +148,39 @@ describe("startup-info", () => {
         expect.stringContaining("Public:      wss://example.com"),
       );
       expect(mockQrToString).toHaveBeenCalled();
+    });
+  });
+
+  describe("buildPairingInfo", () => {
+    it("lists every address and prefers LAN for the deep link", () => {
+      const info = buildPairingInfo(8765, "test-token");
+
+      expect(info.auth).toBe("required");
+      expect(info.connections).toEqual([
+        { label: "LAN", wsUrl: "ws://192.168.1.20:8765" },
+        { label: "Tailscale", wsUrl: "ws://100.64.0.2:8765" },
+      ]);
+      expect(info.deepLink).toBe(
+        "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+      );
+    });
+
+    it("reports auth none without a key", () => {
+      const info = buildPairingInfo(8765);
+
+      expect(info.auth).toBe("none");
+      expect(info.deepLink).toBe(
+        "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765",
+      );
+    });
+
+    it("hides Tailscale and the token in demo mode", () => {
+      process.env.BRIDGE_DEMO_MODE = "1";
+
+      const info = buildPairingInfo(8765, "test-token");
+
+      expect(info.connections.map((c) => c.label)).toEqual(["LAN"]);
+      expect(info.deepLink).not.toContain("token=");
     });
   });
 });
