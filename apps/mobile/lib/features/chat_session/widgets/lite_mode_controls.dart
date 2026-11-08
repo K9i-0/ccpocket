@@ -143,42 +143,60 @@ class _ActivityStatusState extends State<_ActivityStatus> {
         ),
       if (active && cubit.latestActivityTool != null) cubit.latestActivityTool!,
     ].join(' · ');
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       key: const ValueKey('lite_mode_activity_indicator'),
       padding: EdgeInsets.fromLTRB(
-        16,
-        6,
-        16,
-        6 +
+        10,
+        4,
+        10,
+        4 +
             (cubit.state.approval is ApprovalNone
                 ? 0
                 : MediaQuery.paddingOf(context).bottom),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.bolt_outlined, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodySmall!,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Tooltip(
-                    message: summary,
-                    child: Text(
-                      summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        // The chat scrolls behind the bars; a translucent pill behind the
+        // text keeps it readable without covering the whole width.
+        child: DecoratedBox(
+          key: const ValueKey('lite_mode_activity_pill'),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bolt_outlined, size: 16),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: DefaultTextStyle(
+                    style: Theme.of(context).textTheme.bodySmall!,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Tooltip(
+                          message: summary,
+                          child: Text(
+                            summary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!cubit.supportsPerformanceMode)
+                          Text(l.performanceModeBridgeUpdate),
+                      ],
                     ),
                   ),
-                  if (!cubit.supportsPerformanceMode)
-                    Text(l.performanceModeBridgeUpdate),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

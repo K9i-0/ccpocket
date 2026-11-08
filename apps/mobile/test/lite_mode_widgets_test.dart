@@ -258,7 +258,7 @@ void main() {
                   )
                   .padding
               as EdgeInsets;
-      expect(padding.bottom, 40);
+      expect(padding.bottom, 38);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
