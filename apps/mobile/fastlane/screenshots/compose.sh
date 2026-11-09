@@ -381,34 +381,30 @@ compose_duo_screenshot() {
   local input="${SCRIPT_DIR}/en-US/duo_${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/duo_${key}_framed.png"
 
-  local src_w src_h
-  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
-
-  local bezel=14
+  # The frame is the closed iPhone Duo preset of multi_device_preview
+  # (MultiDevicePresets.iPhoneDuo): a 500x712 pt body with the 466x678 pt
+  # outer display at +17+17. The hinge side (left) is almost square, the free
+  # side (right) is rounded, and the camera pill is cut out of the top. Both
+  # SVGs are rendered at 3x, so the 1398x2034 capture maps 1:1 onto the screen.
+  local frame_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-frame.svg"
+  local screen_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-screen.svg"
+  local screen_offset=51
   local ss_y=440
-  local max_h=$((DUO_CANVAS_H - ss_y - 64 - bezel * 2))
-  local screen_h=$max_h
-  local screen_w
-  screen_w=$(echo "$src_w * $screen_h / $src_h" | bc)
-  local device_w=$((screen_w + bezel * 2))
-  local device_h=$((screen_h + bezel * 2))
-  local ss_x=$(( (DUO_CANVAS_W - device_w) / 2 ))
-  local inner_radius=$((screen_w * 70 / 1000))
-  local outer_radius=$((inner_radius + bezel))
+  local device_h=$((DUO_CANVAS_H - ss_y - 64))
 
   echo "Composing iPhone Duo: duo_$key ($lang_dir)"
 
-  magick -size "${screen_w}x${screen_h}" xc:black \
-    -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
-    /tmp/duo_mask_$$.png
-  magick "$input" -resize "${screen_w}x${screen_h}!" \
-    \( /tmp/duo_mask_$$.png -alpha off \) -compose CopyOpacity -composite \
+  # msvg: forces ImageMagick's own renderer instead of an external delegate.
+  magick -background black "msvg:${screen_svg}" -alpha off /tmp/duo_mask_$$.png
+  magick "$input" \( /tmp/duo_mask_$$.png -alpha off \) -compose CopyOpacity -composite \
     /tmp/duo_ss_$$.png
-  magick -size "${device_w}x${device_h}" xc:none \
-    -fill '#252828' -stroke '#525957' -strokewidth 3 \
-    -draw "roundrectangle 2,2 $((device_w-3)),$((device_h-3)) ${outer_radius},${outer_radius}" \
-    /tmp/duo_ss_$$.png -geometry "+${bezel}+${bezel}" -composite \
-    /tmp/duo_framed_$$.png
+  magick -background none "msvg:${frame_svg}" PNG32:/tmp/duo_body_$$.png
+  magick /tmp/duo_body_$$.png /tmp/duo_ss_$$.png \
+    -geometry "+${screen_offset}+${screen_offset}" -compose over -composite \
+    -resize "x${device_h}" /tmp/duo_framed_$$.png
+  local device_w
+  device_w=$(magick identify -format '%w' /tmp/duo_framed_$$.png)
+  local ss_x=$(( (DUO_CANVAS_W - device_w) / 2 ))
 
   magick -background none -size "1200x240" -gravity west \
     -font "$font_bold" -pointsize 92 -fill "$MINT" \
@@ -423,7 +419,7 @@ compose_duo_screenshot() {
     /tmp/duo_title_$$.png -geometry "+100+290" -composite \
     -alpha off -depth 8 $PNG_STRIP "$output"
 
-  rm -f /tmp/duo_mask_$$.png /tmp/duo_ss_$$.png /tmp/duo_framed_$$.png \
+  rm -f /tmp/duo_mask_$$.png /tmp/duo_ss_$$.png /tmp/duo_body_$$.png /tmp/duo_framed_$$.png \
     /tmp/duo_keyword_$$.png /tmp/duo_title_$$.png
   echo "  -> $output"
 }

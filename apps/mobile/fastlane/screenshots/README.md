@@ -41,6 +41,11 @@ The same eight scenarios are also captured on the iPhone Duo cover display as
 `en-US/duo_<key>.png` (1398×2034, portrait, dark, English). They show the Duo
 control strip and are composed with the same Mint headlines at the
 `APP_IPHONE_DUO` cover size.
+Their frame is the closed iPhone Duo preset of multi_device_preview
+(`MultiDevicePresets.iPhoneDuo`), kept as `assets/iphone-duo-closed-frame.svg`
+and `assets/iphone-duo-closed-screen.svg` (screen outline with the camera
+cutout): square on the hinge (left) side, rounded on the right. Update both
+SVGs from the package's `presets.dart` if the preset changes.
 
 LP capture instructions and media fixture limitations are in
 [`scripts/landing-preview/README.md`](../../../../scripts/landing-preview/README.md).
