@@ -384,8 +384,10 @@ compose_duo_screenshot() {
   # The frame is the closed iPhone Duo preset of multi_device_preview
   # (MultiDevicePresets.iPhoneDuo): a 500x712 pt body with the 466x678 pt
   # outer display at +17+17. The hinge side (left) is almost square, the free
-  # side (right) is rounded, and the camera pill is cut out of the top. Both
-  # SVGs are rendered at 3x, so the 1398x2034 capture maps 1:1 onto the screen.
+  # side (right) is rounded. The camera hole follows the iOS 27.2 simulator
+  # mask (`simctl io --display=1 --mask=black`): a 37 pt circle at the top of
+  # the right control strip, not the top-center pill of the package preset.
+  # Both SVGs are rendered at 3x, so the 1398x2034 capture maps 1:1.
   local frame_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-frame.svg"
   local screen_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-screen.svg"
   local screen_offset=51

@@ -43,9 +43,11 @@ control strip and are composed with the same Mint headlines at the
 `APP_IPHONE_DUO` cover size.
 Their frame is the closed iPhone Duo preset of multi_device_preview
 (`MultiDevicePresets.iPhoneDuo`), kept as `assets/iphone-duo-closed-frame.svg`
-and `assets/iphone-duo-closed-screen.svg` (screen outline with the camera
-cutout): square on the hinge (left) side, rounded on the right. Update both
-SVGs from the package's `presets.dart` if the preset changes.
+and `assets/iphone-duo-closed-screen.svg` (screen outline): square on the
+hinge (left) side, rounded on the right. The camera hole is taken from the
+simulator mask instead of the preset: a 37 pt circle centered at (418, 47.7) pt,
+above the time in the control strip. The preset's top-center pill does not
+match the simulator.
 
 LP capture instructions and media fixture limitations are in
 [`scripts/landing-preview/README.md`](../../../../scripts/landing-preview/README.md).
