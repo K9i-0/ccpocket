@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.160.2] - 2026-11-10
+
+### Changed
+
+- The usage summary in the Running header shows the weekly (1w) window only once it is used up, since sessions then stop even with 5h remaining. Otherwise it shows the 5h window, even when the weekly quota is running low.
+
 ## [1.160.1] - 2026-11-08
 
 ### Fixed
