@@ -1,7 +1,2 @@
-• After the context is compacted, the chat shows only the latest compaction and the messages after it. The compaction card shows the trigger, token counts and Claude's summary, and opens a read-only view of the earlier messages. While compaction runs, "Compacting context…" appears at the end of the chat.
-• When earlier messages fall outside the loaded history, the same view opens them.
-• Settings has a Split view width slider, so narrower windows such as iPad mini in landscape Split View can show the session list and conversation side by side.
-• On iPad with a floating keyboard, the newest message scrolls up to just above the composer.
-• When a Bridge rejects your API key, the app stops retrying and shows how to display the Bridge's QR code again, with Scan QR Code and Enter API key actions. This prepares for a future Bridge release that requires an API key.
-• The machine list marks Bridges that require an API key.
-• Requires Bridge 1.103.0 for the new features.
+• In performance mode, the status text above the composer has a translucent background, so it stays readable while messages scroll behind it.
+• The usage summary on the session list shows the weekly (1w) limit only once it is used up, since sessions stop then even with 5h left. Otherwise it shows the 5h limit.

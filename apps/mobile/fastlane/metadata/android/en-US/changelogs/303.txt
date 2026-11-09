@@ -1,0 +1,2 @@
+• In performance mode, the status text above the composer has a translucent background, so it stays readable while messages scroll behind it.
+• The usage summary on the session list shows the weekly (1w) limit only once it is used up, since sessions stop then even with 5h left. Otherwise it shows the 5h limit.
