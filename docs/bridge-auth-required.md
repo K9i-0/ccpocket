@@ -102,6 +102,11 @@ on both stores on 2026-11-09, and Step 3 was implemented then.
 - The token-bearing QR code is printed at startup only when stdout is a TTY.
   Background services log to files other local users may read, so they print
   a pointer to `ccpocket-bridge qr` instead. `setup` prints the same pointer.
+- The startup banner and `ccpocket-bridge qr` print one QR code per route
+  (Public, LAN, Tailscale; the first address of each), so a phone can pair
+  over Tailscale as well as the local network. Link-local `169.254.x.x`
+  addresses are no longer listed. `/pairing` returns a deep link per
+  connection.
 - `ccpocket-bridge qr` also prints the API key on its own line, because the
   desktop apps cannot scan QR codes and take the key in the machine editor.
 - Ships in `1.x`. `setup` pins `@ccpocket/bridge@1`, so background services

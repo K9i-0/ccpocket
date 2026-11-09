@@ -3,11 +3,17 @@ import {
   pairingSecretPath,
   readPairingSecret,
 } from "./bridge-auth.js";
-import { printPairingInfo, type PairingConnection } from "./startup-info.js";
+import {
+  buildConnectionUrl,
+  printPairingInfo,
+  type PairingConnection,
+} from "./startup-info.js";
 
 export interface PairingResponse {
   auth: "required" | "none";
-  connections: PairingConnection[];
+  connections: (Omit<PairingConnection, "deepLink"> & {
+    deepLink?: string;
+  })[];
   wsUrl: string | null;
   deepLink: string | null;
   token: string | null;
@@ -92,7 +98,13 @@ export async function runQrCommand(port: number): Promise<number> {
 
   await printPairingInfo({
     auth: pairing.auth,
-    connections: pairing.connections,
+    // Bridges before 1.104.0 return no per-connection deep link.
+    connections: pairing.connections.map((connection) => ({
+      ...connection,
+      deepLink:
+        connection.deepLink ??
+        buildConnectionUrl(connection.wsUrl, pairing.token ?? undefined),
+    })),
     wsUrl: pairing.wsUrl ?? undefined,
     deepLink: pairing.deepLink,
     demoMode: false,

@@ -157,8 +157,18 @@ describe("startup-info", () => {
 
       expect(info.auth).toBe("required");
       expect(info.connections).toEqual([
-        { label: "LAN", wsUrl: "ws://192.168.1.20:8765" },
-        { label: "Tailscale", wsUrl: "ws://100.64.0.2:8765" },
+        {
+          label: "LAN",
+          wsUrl: "ws://192.168.1.20:8765",
+          deepLink:
+            "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+        },
+        {
+          label: "Tailscale",
+          wsUrl: "ws://100.64.0.2:8765",
+          deepLink:
+            "ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
+        },
       ]);
       expect(info.deepLink).toBe(
         "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
@@ -181,6 +191,50 @@ describe("startup-info", () => {
 
       expect(info.connections.map((c) => c.label)).toEqual(["LAN"]);
       expect(info.deepLink).not.toContain("token=");
+    });
+  });
+
+  describe("QR codes per route", () => {
+    it("prints one QR code for LAN and one for Tailscale", async () => {
+      await printStartupInfo(8765, "0.0.0.0", "test-token");
+
+      const qrInputs = mockQrToString.mock.calls.map((call) => call[0]);
+      expect(qrInputs).toEqual([
+        "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+        "ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
+      ]);
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("(Tailscale: ws://100.64.0.2:8765)"),
+      );
+    });
+
+    it("puts the public URL first and still offers LAN and Tailscale", async () => {
+      process.env.BRIDGE_PUBLIC_WS_URL = "wss://example.com";
+
+      await printStartupInfo(8765, "0.0.0.0", "k");
+
+      const qrInputs = mockQrToString.mock.calls.map((call) =>
+        decodeURIComponent(String(call[0])),
+      );
+      expect(qrInputs).toHaveLength(3);
+      expect(qrInputs[0]).toContain("wss://example.com");
+    });
+
+    it("skips link-local addresses and extra addresses of the same route", async () => {
+      mockNetworkInterfaces.mockReturnValue({
+        en0: [{ family: "IPv4", internal: false, address: "192.168.1.20" }],
+        en1: [{ family: "IPv4", internal: false, address: "10.0.0.5" }],
+        bridge0: [{ family: "IPv4", internal: false, address: "169.254.10.1" }],
+      });
+
+      const info = buildPairingInfo(8765, "k");
+      expect(info.connections.map((c) => c.wsUrl)).toEqual([
+        "ws://192.168.1.20:8765",
+        "ws://10.0.0.5:8765",
+      ]);
+
+      await printStartupInfo(8765, "0.0.0.0", "k");
+      expect(mockQrToString).toHaveBeenCalledTimes(1);
     });
   });
 });

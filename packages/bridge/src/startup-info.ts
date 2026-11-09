@@ -32,6 +32,8 @@ export function getReachableAddresses(): NetworkAddress[] {
     if (!ifaces) continue;
     for (const iface of ifaces) {
       if (iface.family !== "IPv4" || iface.internal) continue;
+      // Link-local (APIPA) addresses are not reachable from other devices.
+      if (iface.address.startsWith("169.254.")) continue;
 
       let label = "LAN";
       if (
@@ -63,6 +65,8 @@ export function buildConnectionUrl(
 export interface PairingConnection {
   label: string;
   wsUrl: string;
+  /** `ccpocket://connect` deep link for [wsUrl], including the token. */
+  deepLink: string;
 }
 
 export interface PairingInfo {
@@ -92,12 +96,21 @@ export function buildPairingInfo(port: number, apiKey?: string): PairingInfo {
     ? addresses.filter((a) => a.label !== "Tailscale")
     : addresses;
 
-  const connections: PairingConnection[] = displayAddresses.map((addr) => ({
-    label: addr.label,
-    wsUrl: `ws://${addr.ip}:${port}`,
-  }));
+  const token = demoMode ? undefined : apiKey;
+  const connections: PairingConnection[] = displayAddresses.map((addr) => {
+    const wsUrl = `ws://${addr.ip}:${port}`;
+    return {
+      label: addr.label,
+      wsUrl,
+      deepLink: buildConnectionUrl(wsUrl, token),
+    };
+  });
   if (publicWsUrl) {
-    connections.push({ label: "Public", wsUrl: publicWsUrl });
+    connections.push({
+      label: "Public",
+      wsUrl: publicWsUrl,
+      deepLink: buildConnectionUrl(publicWsUrl, token),
+    });
   }
 
   const fallbackWsUrl = displayAddresses.length > 0
@@ -109,15 +122,29 @@ export function buildPairingInfo(port: number, apiKey?: string): PairingInfo {
     auth: apiKey ? "required" : "none",
     connections,
     wsUrl,
-    deepLink: wsUrl
-      ? buildConnectionUrl(wsUrl, demoMode ? undefined : apiKey)
-      : undefined,
+    deepLink: wsUrl ? buildConnectionUrl(wsUrl, token) : undefined,
     demoMode,
     invalidPublicWsUrl: rawPublicWsUrl && !publicWsUrl ? rawPublicWsUrl : undefined,
   };
 }
 
-/** Print connection URLs, the deep link and a terminal QR code. */
+/**
+ * One QR target per kind of route (LAN, Tailscale, Public): the first address
+ * of each label, with the preferred URL's label first.
+ */
+export function pairingQrTargets(info: PairingInfo): PairingConnection[] {
+  const targets = new Map<string, PairingConnection>();
+  const preferred = info.connections.find((c) => c.wsUrl === info.wsUrl);
+  if (preferred) targets.set(preferred.label, preferred);
+  for (const connection of info.connections) {
+    if (!targets.has(connection.label)) {
+      targets.set(connection.label, connection);
+    }
+  }
+  return [...targets.values()];
+}
+
+/** Print connection URLs and a terminal QR code per route. */
 export async function printPairingInfo(info: PairingInfo): Promise<void> {
   if (info.invalidPublicWsUrl) {
     console.warn(
@@ -147,28 +174,32 @@ export async function printPairingInfo(info: PairingInfo): Promise<void> {
     }
   }
 
-  lines.push("");
-  lines.push(`[bridge]   Deep Link: ${info.deepLink}`);
-  lines.push("");
-  lines.push("[bridge]   Scan QR code with ccpocket app:");
-
   // Print all non-QR lines
   console.log(lines.join("\n"));
 
-  // Generate and print QR code
-  try {
-    const qrText = await QRCode.toString(info.deepLink, {
-      type: "terminal",
-      small: true,
-    });
-    // Indent QR code lines
-    const indented = qrText
-      .split("\n")
-      .map((line) => `           ${line}`)
-      .join("\n");
-    console.log(indented);
-  } catch {
-    console.log("[bridge]   (QR code generation failed)");
+  for (const target of pairingQrTargets(info)) {
+    console.log(
+      [
+        "",
+        `[bridge]   Scan with the ccpocket app (${target.label}: ${target.wsUrl}):`,
+        `[bridge]   Deep Link: ${target.deepLink}`,
+      ].join("\n"),
+    );
+    try {
+      const qrText = await QRCode.toString(target.deepLink, {
+        type: "terminal",
+        small: true,
+      });
+      // Indent QR code lines
+      console.log(
+        qrText
+          .split("\n")
+          .map((line) => `           ${line}`)
+          .join("\n"),
+      );
+    } catch {
+      console.log("[bridge]   (QR code generation failed)");
+    }
   }
 
   console.log(
