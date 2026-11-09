@@ -144,6 +144,128 @@ export function pairingQrTargets(info: PairingInfo): PairingConnection[] {
   return [...targets.values()];
 }
 
+const ROUTE_STYLE: Record<string, { hint: string; color: string }> = {
+  LAN: { hint: "Same Wi-Fi or local network", color: "\x1b[32m" },
+  Tailscale: { hint: "Anywhere on your tailnet", color: "\x1b[36m" },
+  Public: { hint: "Public URL", color: "\x1b[33m" },
+};
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const RESET = "\x1b[0m";
+const COLUMN_GAP = 6;
+const INDENT = "  ";
+
+export interface PairingRenderOptions {
+  /** Use ANSI colors (TTY without NO_COLOR). */
+  color: boolean;
+  /** Terminal width; QR codes sit side by side when they fit. */
+  columns: number;
+}
+
+function visibleLength(text: string): number {
+  return text.replace(/\x1b\[[0-9;]*m/g, "").length;
+}
+
+function padVisible(text: string, width: number): string {
+  return text + " ".repeat(Math.max(0, width - visibleLength(text)));
+}
+
+/**
+ * Render the connection block shown when the Bridge starts and by
+ * `ccpocket-bridge qr`: one column per route (LAN, Tailscale, Public) with a
+ * colored heading, a short hint, its URL and its QR code.
+ */
+export function renderPairingInfo(
+  info: PairingInfo,
+  qrCodes: ReadonlyMap<string, string | null>,
+  options: PairingRenderOptions,
+): string {
+  const paint = (code: string, text: string) =>
+    options.color ? `${code}${text}${RESET}` : text;
+  const targets = pairingQrTargets(info);
+
+  const columns = targets.map((target) => {
+    const style = ROUTE_STYLE[target.label] ?? {
+      hint: "",
+      color: "",
+    };
+    const qr = qrCodes.get(target.deepLink);
+    const qrLines = qr
+      ? qr.replace(/\n+$/, "").split("\n")
+      : ["(QR code generation failed)"];
+    return [
+      paint(BOLD + style.color, `● ${target.label}`),
+      paint(DIM, style.hint),
+      target.wsUrl,
+      "",
+      ...qrLines,
+    ];
+  });
+
+  const widths = columns.map((lines) =>
+    Math.max(...lines.map(visibleLength)),
+  );
+  const sideBySide =
+    INDENT.length +
+      widths.reduce((sum, w) => sum + w, 0) +
+      COLUMN_GAP * Math.max(0, columns.length - 1) <=
+    options.columns;
+
+  const title = info.demoMode
+    ? "Connect from your phone [DEMO MODE]"
+    : "Connect from your phone";
+  const ruleWidth = Math.max(
+    40,
+    Math.min(
+      options.columns - INDENT.length,
+      sideBySide
+        ? widths.reduce((sum, w) => sum + w, 0) +
+            COLUMN_GAP * Math.max(0, columns.length - 1)
+        : Math.max(...widths, 40),
+    ),
+  );
+  const out: string[] = [
+    "",
+    INDENT + paint(BOLD, `━━ ${title} `) + paint(DIM, "━".repeat(Math.max(0, ruleWidth - title.length - 4))),
+    INDENT + "Scan a QR code with the CC Pocket app.",
+    "",
+  ];
+
+  if (sideBySide) {
+    const height = Math.max(...columns.map((lines) => lines.length));
+    for (let row = 0; row < height; row += 1) {
+      const cells = columns.map((lines, index) => {
+        const cell = lines[row] ?? "";
+        return index === columns.length - 1
+          ? cell
+          : padVisible(cell, widths[index] + COLUMN_GAP);
+      });
+      out.push((INDENT + cells.join("")).trimEnd());
+    }
+  } else {
+    columns.forEach((lines, index) => {
+      if (index > 0) out.push("");
+      for (const line of lines) out.push((INDENT + line).trimEnd());
+    });
+  }
+
+  const shown = new Set(targets.map((target) => target.wsUrl));
+  const others = info.connections.filter((c) => !shown.has(c.wsUrl));
+  out.push("");
+  if (others.length > 0) {
+    out.push(INDENT + paint(DIM, "Other addresses:"));
+    for (const other of others) {
+      out.push(INDENT + `  ${`${other.label}`.padEnd(10)} ${other.wsUrl}`);
+    }
+  }
+  out.push(INDENT + paint(DIM, "Deep links (open on this device or share):"));
+  for (const target of targets) {
+    out.push(INDENT + `  ${target.label.padEnd(10)} ${target.deepLink}`);
+  }
+  out.push(INDENT + paint(DIM, "━".repeat(ruleWidth)));
+  return out.join("\n");
+}
+
 /** Print connection URLs and a terminal QR code per route. */
 export async function printPairingInfo(info: PairingInfo): Promise<void> {
   if (info.invalidPublicWsUrl) {
@@ -153,57 +275,23 @@ export async function printPairingInfo(info: PairingInfo): Promise<void> {
   }
   if (info.connections.length === 0 || !info.deepLink) return;
 
-  const lines: string[] = [];
-  lines.push("");
-  if (info.demoMode) {
-    lines.push("[bridge] ─── Connection Info [DEMO MODE] ────────────────");
-  } else {
-    lines.push("[bridge] ─── Connection Info ───────────────────────────");
-  }
-
-  // Group by label, keeping Public last.
-  const grouped = new Map<string, string[]>();
-  for (const connection of info.connections) {
-    const list = grouped.get(connection.label) ?? [];
-    list.push(connection.wsUrl);
-    grouped.set(connection.label, list);
-  }
-  for (const [label, urls] of grouped) {
-    for (const url of urls) {
-      lines.push(`[bridge]   ${`${label}:`.padEnd(12)} ${url}`);
-    }
-  }
-
-  // Print all non-QR lines
-  console.log(lines.join("\n"));
-
+  const qrCodes = new Map<string, string | null>();
   for (const target of pairingQrTargets(info)) {
-    console.log(
-      [
-        "",
-        `[bridge]   Scan with the ccpocket app (${target.label}: ${target.wsUrl}):`,
-        `[bridge]   Deep Link: ${target.deepLink}`,
-      ].join("\n"),
-    );
     try {
-      const qrText = await QRCode.toString(target.deepLink, {
-        type: "terminal",
-        small: true,
-      });
-      // Indent QR code lines
-      console.log(
-        qrText
-          .split("\n")
-          .map((line) => `           ${line}`)
-          .join("\n"),
+      qrCodes.set(
+        target.deepLink,
+        await QRCode.toString(target.deepLink, { type: "terminal", small: true }),
       );
     } catch {
-      console.log("[bridge]   (QR code generation failed)");
+      qrCodes.set(target.deepLink, null);
     }
   }
 
   console.log(
-    "[bridge] ───────────────────────────────────────────────",
+    renderPairingInfo(info, qrCodes, {
+      color: !!process.stdout.isTTY && !process.env.NO_COLOR,
+      columns: process.stdout.columns ?? 80,
+    }),
   );
 }
 

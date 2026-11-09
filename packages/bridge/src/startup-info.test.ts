@@ -19,6 +19,7 @@ const {
   buildConnectionUrl,
   buildPairingInfo,
   printStartupInfo,
+  renderPairingInfo,
   validatePublicWsUrl,
 } = await import("./startup-info.js");
 
@@ -26,6 +27,7 @@ describe("startup-info", () => {
   const originalEnv = process.env;
   const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const printed = () => logSpy.mock.calls.map((call) => String(call[0])).join("\n");
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,13 +76,10 @@ describe("startup-info", () => {
     it("uses LAN address for deep link by default", async () => {
       await printStartupInfo(8765, "0.0.0.0", "test-token");
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("LAN:         ws://192.168.1.20:8765"),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Deep Link: ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
-        ),
+      expect(printed()).toContain("● LAN");
+      expect(printed()).toContain("ws://192.168.1.20:8765");
+      expect(printed()).toContain(
+        "LAN        ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
       );
       expect(mockQrToString).toHaveBeenCalledWith(
         "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
@@ -93,13 +92,10 @@ describe("startup-info", () => {
 
       await printStartupInfo(8765, "0.0.0.0", "test-token");
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Public:      wss://example.ngrok-free.app/ws"),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Deep Link: ccpocket://connect?url=wss%3A%2F%2Fexample.ngrok-free.app%2Fws&token=test-token",
-        ),
+      expect(printed()).toContain("● Public");
+      expect(printed()).toContain("wss://example.ngrok-free.app/ws");
+      expect(printed()).toContain(
+        "Public     ccpocket://connect?url=wss%3A%2F%2Fexample.ngrok-free.app%2Fws&token=test-token",
       );
       expect(mockQrToString).toHaveBeenCalledWith(
         "ccpocket://connect?url=wss%3A%2F%2Fexample.ngrok-free.app%2Fws&token=test-token",
@@ -113,15 +109,12 @@ describe("startup-info", () => {
 
       await printStartupInfo(8765, "0.0.0.0", "test-token");
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Deep Link: ccpocket://connect?url=wss%3A%2F%2Fexample.ngrok-free.app",
-        ),
+      expect(printed()).toContain("[DEMO MODE]");
+      expect(printed()).toContain(
+        "ccpocket://connect?url=wss%3A%2F%2Fexample.ngrok-free.app",
       );
-      expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining("token=test-token"));
-      expect(logSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("Tailscale:   ws://100.64.0.2:8765"),
-      );
+      expect(printed()).not.toContain("token=test-token");
+      expect(printed()).not.toContain("100.64.0.2");
     });
 
     it("warns and falls back when public url is invalid", async () => {
@@ -144,9 +137,7 @@ describe("startup-info", () => {
 
       await printStartupInfo(8765, "0.0.0.0", "test-token");
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Public:      wss://example.com"),
-      );
+      expect(printed()).toContain("wss://example.com");
       expect(mockQrToString).toHaveBeenCalled();
     });
   });
@@ -203,9 +194,8 @@ describe("startup-info", () => {
         "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
         "ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
       ]);
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining("(Tailscale: ws://100.64.0.2:8765)"),
-      );
+      expect(printed()).toContain("● Tailscale");
+      expect(printed()).toContain("Anywhere on your tailnet");
     });
 
     it("puts the public URL first and still offers LAN and Tailscale", async () => {
@@ -235,6 +225,46 @@ describe("startup-info", () => {
 
       await printStartupInfo(8765, "0.0.0.0", "k");
       expect(mockQrToString).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("renderPairingInfo", () => {
+    const qr = "QRLINE-1\nQRLINE-2\n";
+
+    function render(columns: number, color = false) {
+      const info = buildPairingInfo(8765, "k");
+      const codes = new Map(info.connections.map((c) => [c.deepLink, qr]));
+      return renderPairingInfo(info, codes, { color, columns });
+    }
+
+    it("places routes side by side when they fit", () => {
+      const lines = render(200).split("\n");
+      const heading = lines.find((line) => line.includes("● LAN"));
+      expect(heading).toContain("● Tailscale");
+      expect(lines.filter((line) => line.includes("QRLINE-1"))).toHaveLength(1);
+    });
+
+    it("stacks routes on narrow terminals", () => {
+      const lines = render(30).split("\n");
+      const heading = lines.find((line) => line.includes("● LAN"));
+      expect(heading).not.toContain("Tailscale");
+      expect(lines.filter((line) => line.includes("QRLINE-1"))).toHaveLength(2);
+    });
+
+    it("colors only when asked", () => {
+      expect(render(200, false)).not.toContain("\x1b[");
+      expect(render(200, true)).toContain("\x1b[32m");
+      expect(render(200, true)).toContain("\x1b[36m");
+    });
+
+    it("lists additional addresses of the same route", () => {
+      mockNetworkInterfaces.mockReturnValue({
+        en0: [{ family: "IPv4", internal: false, address: "192.168.1.20" }],
+        en1: [{ family: "IPv4", internal: false, address: "10.0.0.5" }],
+      });
+      const output = render(200);
+      expect(output).toContain("Other addresses:");
+      expect(output).toContain("ws://10.0.0.5:8765");
     });
   });
 });
