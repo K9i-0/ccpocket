@@ -191,7 +191,7 @@ packages:
       path: "../mobile"
       relative: true
     source: path
-    version: "1.155.0+290"
+    version: "1.160.1+302"
   characters:
     dependency: transitive
     description:
@@ -268,10 +268,10 @@ packages:
     dependency: transitive
     description:
       name: dartssh2
-      sha256: ce7347d76fd7115994f3785b3b7b7c61e957641faa01a2ce066699609f2b45be
+      sha256: "39359aceafcf5940b868249e3c9c6d86e4e0f989eec7417d033c943157c84c51"
       url: "https://pub.dev"
     source: hosted
-    version: "2.22.5"
+    version: "4.1.0"
   data_assets:
     dependency: transitive
     description:
@@ -1093,10 +1093,10 @@ packages:
     dependency: "direct main"
     description:
       name: multi_device_preview
-      sha256: d1d6d77c1fad897cb45f9c984f88cfc5e42490b0019d331c145f2c3ed9890213
+      sha256: "5244ce7f72abd634bafe14d42a3e1e850fcf6854ecc98021dee35fd8dc439652"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.3.1"
   multi_device_preview_marionette:
     dependency: "direct main"
     description:
@@ -1453,10 +1453,10 @@ packages:
     dependency: transitive
     description:
       name: skeletonizer
-      sha256: "9f38f9b47ec3cf2235a6a4f154a88a95432bc55ba98b3e2eb6ced5c1974bc122"
+      sha256: f67c2ce8a3fedea63d885afe61a136f3adb59f2c28faa6e79102a5280973c64f
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.3"
+    version: "3.0.0"
   sky_engine:
     dependency: transitive
     description: flutter
