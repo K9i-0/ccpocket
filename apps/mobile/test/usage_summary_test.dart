@@ -326,13 +326,15 @@ void main() {
       expect(pick(20, 69), '5h');
     });
 
-    test('switches to 1w at the warning band when it is tighter', () {
-      expect(pick(20, 70), '1w');
-      expect(pick(0, 100), '1w');
+    test('keeps 5h while the weekly quota has any remaining', () {
+      expect(pick(20, 70), '5h');
+      expect(pick(0, 99.5), '5h');
+      expect(pick(90, 80), '5h');
     });
 
-    test('keeps 5h when it is tighter than a low weekly quota', () {
-      expect(pick(90, 80), '5h');
+    test('switches to 1w once the weekly quota is exhausted', () {
+      expect(pick(0, 100), '1w');
+      expect(pick(100, 100), '1w');
     });
 
     test('uses 1w when 5h is unavailable', () {

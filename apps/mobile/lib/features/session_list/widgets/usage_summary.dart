@@ -50,8 +50,8 @@ List<UsageInfo> usageSummaryProviders(List<UsageInfo> providers) {
 }
 
 /// Compact usage summary on a single line. Each provider shows one window:
-/// 5h by default, or 1w once the weekly quota is running low and is tighter
-/// than 5h (see [usageSummaryWindow]); tapping opens the settings card with
+/// 5h by default, or 1w once the weekly quota is exhausted (see
+/// [usageSummaryWindow]); tapping opens the settings card with
 /// every window. A single provider renders as
 /// "Codex Remaining 5h 68% ▬"; several providers share one mode label:
 /// "Remaining  Claude 5h 80% ▬  Codex 1w 42% ▬". Screen readers still hear
@@ -191,25 +191,18 @@ class _ProviderUsageLine extends StatelessWidget {
 }
 
 /// Remaining percentage at or below which a window is shown as a warning.
-/// Shared by the indicator color and the 5h/1w selection.
 const double _warningRemainingPercent = 30;
 const double _criticalRemainingPercent = 10;
 
 /// Window shown in the compact summary. 5h is the default because it moves
-/// fastest, but the weekly quota caps it: with 1w exhausted a full 5h window
-/// is still unusable. Switch to 1w once it reaches the warning band and has
-/// less remaining than 5h. Weekly usage is cumulative, so it is normally
-/// higher than 5h usage and would otherwise win almost always.
+/// fastest. Switch to 1w only once it is exhausted: sessions then stop even
+/// with 5h left, and showing that 5h would make the stop look unexplained.
 ({String label, UsageWindow window}) usageSummaryWindow(UsageInfo usage) {
   final fiveHour = usage.fiveHour;
   final sevenDay = usage.sevenDay;
   if (fiveHour == null) return (label: '1w', window: sevenDay!);
-  if (sevenDay != null) {
-    final weeklyRemaining = _remainingPercent(sevenDay);
-    if (weeklyRemaining <= _warningRemainingPercent &&
-        weeklyRemaining < _remainingPercent(fiveHour)) {
-      return (label: '1w', window: sevenDay);
-    }
+  if (sevenDay != null && _remainingPercent(sevenDay) <= 0) {
+    return (label: '1w', window: sevenDay);
   }
   return (label: '5h', window: fiveHour);
 }
