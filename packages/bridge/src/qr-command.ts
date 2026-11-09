@@ -98,6 +98,11 @@ export async function runQrCommand(port: number): Promise<number> {
     demoMode: false,
   });
 
+  if (pairing.token) {
+    // Desktop apps cannot scan the QR code; they take the key directly.
+    console.log(`[bridge]   API key (for desktop apps): ${pairing.token}`);
+  }
+
   if (pairing.auth === "none") {
     console.warn(
       "[bridge] WARNING: this Bridge has no API key. Anyone who can reach it can control your agents.",

@@ -90,3 +90,86 @@ export function isLocalPairingRequest(
   if (req.headers.origin !== undefined) return false;
   return true;
 }
+
+/** Persisted API key used when none is configured explicitly. */
+export function apiKeyPath(home = homedir()): string {
+  return join(home, ".ccpocket", "bridge-api-key");
+}
+
+export type ApiKeySource = "configured" | "stored" | "generated" | "disabled";
+
+export interface ResolvedApiKey {
+  apiKey?: string;
+  source: ApiKeySource;
+}
+
+/**
+ * Decide which API key the Bridge requires.
+ *
+ * An explicit key (`BRIDGE_API_KEY` / `--api-key`) wins. Otherwise the key in
+ * [path] is reused, or a new random key is generated and stored there with
+ * mode `0600`, so plain `npx` runs and background services keep a stable key
+ * across restarts. Authentication is disabled only when [insecureNoAuth] is
+ * set explicitly.
+ */
+export async function resolveApiKey(opts: {
+  configured?: string;
+  insecureNoAuth: boolean;
+  path?: string;
+}): Promise<ResolvedApiKey> {
+  const configured = opts.configured?.trim();
+  if (configured) return { apiKey: configured, source: "configured" };
+  if (opts.insecureNoAuth) return { source: "disabled" };
+
+  const path = opts.path ?? apiKeyPath();
+  const stored = await readPairingSecret(path);
+  if (stored) return { apiKey: stored, source: "stored" };
+
+  const apiKey = randomBytes(24).toString("base64url");
+  await mkdir(join(path, ".."), { recursive: true, mode: 0o700 });
+  // "wx" fails if another Bridge created the file meanwhile; reuse its key.
+  try {
+    await writeFile(path, `${apiKey}\n`, { mode: 0o600, flag: "wx" });
+  } catch (err) {
+    const raced = await readPairingSecret(path);
+    if (raced) return { apiKey: raced, source: "stored" };
+    throw err;
+  }
+  return { apiKey, source: "generated" };
+}
+
+/** Bearer token from an `Authorization` header, if any. */
+export function bearerToken(req: IncomingMessage): string | null {
+  const header = req.headers.authorization;
+  if (typeof header !== "string") return null;
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match ? match[1].trim() : null;
+}
+
+/**
+ * HTTP endpoints that expose account data or change state and therefore
+ * require the API key. `/health` and `/version` stay public for probing;
+ * image, media and upload URLs are capability URLs with unguessable IDs.
+ */
+export function httpRouteRequiresAuth(
+  method: string | undefined,
+  rawUrl: string | undefined,
+): boolean {
+  const pathname = new URL(rawUrl ?? "/", "http://localhost").pathname;
+  if (method === "GET" && (pathname === "/usage" || pathname === "/doctor")) {
+    return true;
+  }
+  if (method === "POST" && pathname === "/api/gallery/upload") return true;
+  if (method === "DELETE" && pathname.startsWith("/api/gallery/")) return true;
+  return false;
+}
+
+/** Whether an HTTP request may use a route protected by [apiKey]. */
+export function isAuthorizedHttpRequest(
+  req: IncomingMessage,
+  apiKey: string | undefined,
+): boolean {
+  if (!apiKey) return true;
+  if (!httpRouteRequiresAuth(req.method, req.url)) return true;
+  return tokensMatch(bearerToken(req), apiKey);
+}

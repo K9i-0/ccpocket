@@ -36,6 +36,7 @@ interface SetupOptions {
   apiKey?: string;
   publicWsUrl?: string;
   disableMdns?: boolean;
+  insecureNoAuth?: boolean;
   codexAppServerMode?: string;
   codexSharedAppServerUrl?: string;
   /** @deprecated Use codexSharedAppServerUrl. */
@@ -52,6 +53,8 @@ export function setupLaunchd(opts: SetupOptions): void {
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
   const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
+  const insecureNoAuth =
+    opts.insecureNoAuth || process.env.BRIDGE_INSECURE_NO_AUTH === "1";
   const allowClaudeOAuth = process.env.BRIDGE_ALLOW_CLAUDE_OAUTH === "1";
   const codexAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL?.trim() ?? "";
   const codexAssistReasoningEffort =
@@ -121,6 +124,12 @@ export function setupLaunchd(opts: SetupOptions): void {
   if (disableMdns) {
     envBlock += `
         <key>BRIDGE_DISABLE_MDNS</key>
+        <string>1</string>`;
+  }
+
+  if (insecureNoAuth) {
+    envBlock += `
+        <key>BRIDGE_INSECURE_NO_AUTH</key>
         <string>1</string>`;
   }
 
@@ -204,6 +213,11 @@ ${envBlock}
   try {
     execSync(`launchctl start "${PLIST_LABEL}"`);
     console.log(`==> Bridge Server started on port ${port}`);
+    if (!insecureNoAuth) {
+      console.log(
+        `==> To pair a device, run: npx --yes @ccpocket/bridge@1 qr${port === 8765 ? "" : ` --port ${port}`}`,
+      );
+    }
     if (codexAppServerMode && codexAppServerUrl) {
       console.log(
         `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,

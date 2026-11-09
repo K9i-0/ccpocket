@@ -55,6 +55,7 @@ interface SetupOptions {
   apiKey?: string;
   publicWsUrl?: string;
   disableMdns?: boolean;
+  insecureNoAuth?: boolean;
   codexAppServerMode?: string;
   codexSharedAppServerUrl?: string;
   /** @deprecated Use codexSharedAppServerUrl. */
@@ -101,6 +102,8 @@ export function setupSystemd(opts: SetupOptions): void {
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
   const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
+  const insecureNoAuth =
+    opts.insecureNoAuth || process.env.BRIDGE_INSECURE_NO_AUTH === "1";
   const allowClaudeOAuth = process.env.BRIDGE_ALLOW_CLAUDE_OAUTH === "1";
   const codexAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL?.trim() ?? "";
   const codexAssistReasoningEffort =
@@ -163,6 +166,9 @@ Environment=BRIDGE_HOST=${host}`;
   if (disableMdns) {
     envLines += "\nEnvironment=BRIDGE_DISABLE_MDNS=1";
   }
+  if (insecureNoAuth) {
+    envLines += "\nEnvironment=BRIDGE_INSECURE_NO_AUTH=1";
+  }
   if (allowClaudeOAuth) {
     envLines += "\nEnvironment=BRIDGE_ALLOW_CLAUDE_OAUTH=1";
   }
@@ -210,6 +216,11 @@ WantedBy=default.target
   try {
     execSync(`systemctl --user restart "${SERVICE_NAME}"`);
     console.log(`==> Bridge Server started on port ${port}`);
+    if (!insecureNoAuth) {
+      console.log(
+        `==> To pair a device, run: npx --yes @ccpocket/bridge@1 qr${port === 8765 ? "" : ` --port ${port}`}`,
+      );
+    }
     if (codexAppServerMode && codexAppServerUrl) {
       console.log(
         `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,

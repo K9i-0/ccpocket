@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  bearerToken,
+  httpRouteRequiresAuth,
+  isAuthorizedHttpRequest,
   isLocalPairingRequest,
+  resolveApiKey,
   pairingSecretPath,
   readPairingSecret,
   tokensMatch,
@@ -123,5 +127,91 @@ describe("pairing secret", () => {
     } finally {
       await rm(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("resolveApiKey", () => {
+  async function withHome<T>(fn: (path: string) => Promise<T>): Promise<T> {
+    const home = await mkdtemp(join(tmpdir(), "ccpocket-key-"));
+    try {
+      return await fn(join(home, ".ccpocket", "bridge-api-key"));
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  }
+
+  it("prefers an explicitly configured key without touching disk", () =>
+    withHome(async (path) => {
+      expect(
+        await resolveApiKey({ configured: " mine ", insecureNoAuth: false, path }),
+      ).toEqual({ apiKey: "mine", source: "configured" });
+      expect(await readPairingSecret(path)).toBeNull();
+    }));
+
+  it("disables auth only when explicitly requested", () =>
+    withHome(async (path) => {
+      expect(await resolveApiKey({ insecureNoAuth: true, path })).toEqual({
+        source: "disabled",
+      });
+      expect(await readPairingSecret(path)).toBeNull();
+    }));
+
+  it("generates, persists and then reuses a key", () =>
+    withHome(async (path) => {
+      const first = await resolveApiKey({ insecureNoAuth: false, path });
+      expect(first.source).toBe("generated");
+      expect(first.apiKey).toMatch(/^[A-Za-z0-9_-]{32}$/);
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+
+      const second = await resolveApiKey({ insecureNoAuth: false, path });
+      expect(second).toEqual({ apiKey: first.apiKey, source: "stored" });
+    }));
+});
+
+describe("HTTP auth", () => {
+  function request(
+    method: string,
+    url: string,
+    authorization?: string,
+  ): IncomingMessage {
+    return {
+      method,
+      url,
+      headers: authorization ? { authorization } : {},
+    } as unknown as IncomingMessage;
+  }
+
+  it("protects account data and gallery writes only", () => {
+    expect(httpRouteRequiresAuth("GET", "/usage")).toBe(true);
+    expect(httpRouteRequiresAuth("GET", "/doctor")).toBe(true);
+    expect(httpRouteRequiresAuth("POST", "/api/gallery/upload")).toBe(true);
+    expect(httpRouteRequiresAuth("POST", "/api/gallery/upload?x=1")).toBe(true);
+    expect(httpRouteRequiresAuth("DELETE", "/api/gallery/abc")).toBe(true);
+
+    expect(httpRouteRequiresAuth("GET", "/health")).toBe(false);
+    expect(httpRouteRequiresAuth("GET", "/version")).toBe(false);
+    expect(httpRouteRequiresAuth("GET", "/api/gallery/abc")).toBe(false);
+    expect(httpRouteRequiresAuth("OPTIONS", "/api/gallery/upload")).toBe(false);
+  });
+
+  it("reads bearer tokens", () => {
+    expect(bearerToken(request("GET", "/usage", "Bearer abc"))).toBe("abc");
+    expect(bearerToken(request("GET", "/usage", "bearer  abc "))).toBe("abc");
+    expect(bearerToken(request("GET", "/usage", "Basic abc"))).toBeNull();
+    expect(bearerToken(request("GET", "/usage"))).toBeNull();
+  });
+
+  it("requires the key on protected routes", () => {
+    expect(isAuthorizedHttpRequest(request("GET", "/usage"), "k")).toBe(false);
+    expect(
+      isAuthorizedHttpRequest(request("GET", "/usage", "Bearer wrong"), "k"),
+    ).toBe(false);
+    expect(
+      isAuthorizedHttpRequest(request("GET", "/usage", "Bearer k"), "k"),
+    ).toBe(true);
+    expect(isAuthorizedHttpRequest(request("GET", "/health"), "k")).toBe(true);
+    expect(isAuthorizedHttpRequest(request("GET", "/usage"), undefined)).toBe(
+      true,
+    );
   });
 });

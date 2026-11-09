@@ -42,7 +42,8 @@ ccpocket-bridge --version
 | `BRIDGE_IDLE_SESSION_TTL_MINUTES` | Disabled | Automatically stop idle sessions after this many minutes. Only a finite positive number enables this; unset, empty, zero, negative, or invalid values disable it. The 30-idle-session retention cap still applies. |
 | `BRIDGE_NOTIFY_GOAL_TURN_COMPLETED` | `false` | Set exactly to `true` to notify intermediate Codex turns while a Goal is active. Goal completion, blockers, limits, approvals and errors remain enabled. Read at session creation; restart Bridge to apply to all sessions. |
 | `BRIDGE_HOST` | `0.0.0.0` | Bind address |
-| `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
+| `BRIDGE_API_KEY` | (generated) | API key clients must present. Without it, a key is generated once and stored in `~/.ccpocket/bridge-api-key` (mode `0600`) |
+| `BRIDGE_INSECURE_NO_AUTH` | (none) | Set to `1` (or pass `--insecure-no-auth`) to disable API key authentication. Not recommended |
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access; set exactly to `*` to allow any directory |
 | `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS` | unset (project only) | Set exactly to `1` to allow sharing/downloading any regular file readable by the Bridge process, including paths outside `BRIDGE_ALLOWED_DIRS`. Absolute and relative paths within the selected project work by default. |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
@@ -226,6 +227,7 @@ that affect startup:
 - `BRIDGE_PORT` / `--port`
 - `BRIDGE_HOST` / `--host`
 - `BRIDGE_API_KEY` / `--api-key`
+- `BRIDGE_INSECURE_NO_AUTH` / `--insecure-no-auth`
 - `BRIDGE_ALLOWED_DIRS`
 - `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS`
 - `BRIDGE_PUBLIC_WS_URL` / `--public-ws-url`
@@ -277,11 +279,19 @@ machines, other local users and web pages cannot read the key.
 
 ### Security
 
-Without `BRIDGE_API_KEY`, anyone who can reach the port can control your
-agents. Set an API key, especially on shared networks such as café Wi-Fi. A
-future release will require an API key by default; see
-[docs/bridge-auth-required.md](../../docs/bridge-auth-required.md). Plain
-`ws://` is not encrypted, so on untrusted networks prefer Tailscale or `wss://`.
+The Bridge always requires an API key unless you pass `--insecure-no-auth`.
+If you do not set `BRIDGE_API_KEY`, the first start generates a key and stores
+it in `~/.ccpocket/bridge-api-key`; later starts reuse it. Pair devices with
+the QR code shown when the Bridge starts in a terminal, or with
+`npx @ccpocket/bridge@1 qr` for a background service. Desktop apps take the
+API key printed by the same command. To rotate the key, delete the file and
+restart the Bridge, then pair your devices again.
+
+`/usage`, `/doctor`, gallery upload and gallery delete require
+`Authorization: Bearer <key>`. `/health` and `/version` stay public.
+
+Plain `ws://` is not encrypted, so on untrusted networks such as café Wi-Fi
+prefer Tailscale or `wss://`.
 
 On Linux, setup gives standalone Codex installs priority by including
 `$HOME/.local/bin` before npm-managed Node paths in the service `PATH`.
