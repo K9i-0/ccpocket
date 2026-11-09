@@ -2,6 +2,16 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.104.0] - 2026-11-09
+
+### Changed
+
+- **The Bridge now requires an API key by default.** If `BRIDGE_API_KEY` / `--api-key` is not set, the first start generates a key and stores it in `~/.ccpocket/bridge-api-key` (mode `0600`); later starts reuse it. Devices that connected without a key must pair again: scan the QR code shown when the Bridge starts in a terminal, or run `npx @ccpocket/bridge@1 qr` for a background service. CC Pocket 1.160.0 or later shows how to re-pair when the key is rejected. Pass `--insecure-no-auth` (or set `BRIDGE_INSECURE_NO_AUTH=1`) to keep running without authentication; `setup` persists it.
+- `/usage`, `/doctor`, gallery upload and gallery delete require `Authorization: Bearer <key>`. `/health` and `/version` stay public.
+- The connection block at startup and from `ccpocket-bridge qr` shows a QR code for each route (LAN, Tailscale, public URL) with a colored label and hint, side by side when the terminal is wide enough. Link-local `169.254.x.x` addresses are no longer listed.
+- Background services no longer write the token-bearing QR code to their log; they print how to run `ccpocket-bridge qr` instead. `setup` prints the same hint.
+- `ccpocket-bridge qr` also prints the API key, for the desktop apps that cannot scan QR codes.
+
 ## [1.103.0] - 2026-11-07
 
 ### Added
