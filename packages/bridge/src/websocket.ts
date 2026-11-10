@@ -1064,6 +1064,8 @@ export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
+  /** Extra roots that file preview, download, and reveal may read. */
+  readOnlyDirs?: string[];
   fileDownloadAllowAllPaths?: boolean;
   imageStore?: ImageStore;
   mediaStore?: MediaStore;
@@ -1116,6 +1118,7 @@ export class BridgeWebSocketServer {
   private sessionManager: SessionManager;
   private apiKey: string | null;
   private allowedDirs: string[];
+  private readOnlyDirs: string[];
   private fileDownloadAllowAllPaths: boolean;
   private imageStore: ImageStore | null;
   private mediaStore: MediaStore | null;
@@ -1248,6 +1251,7 @@ export class BridgeWebSocketServer {
     } = options;
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
+    this.readOnlyDirs = options.readOnlyDirs ?? [];
     this.fileDownloadAllowAllPaths = options.fileDownloadAllowAllPaths ?? false;
     this.imageStore = imageStore ?? null;
     this.mediaStore = mediaStore ?? null;
@@ -1416,6 +1420,42 @@ export class BridgeWebSocketServer {
     return false;
   }
 
+  private isPathInReadOnlyDir(path: string): boolean {
+    return this.readOnlyDirs.some(
+      (dir) => isPathWithinAllowedDirectory(path, dir, this.platform),
+    );
+  }
+
+  private async isCanonicalPathInReadOnlyDir(path: string): Promise<boolean> {
+    for (const dir of this.readOnlyDirs) {
+      let canonicalDir = dir;
+      try {
+        canonicalDir = await realpath(dir);
+      } catch {
+        // Keep the configured path when the read-only root cannot be resolved.
+      }
+      if (isPathWithinAllowedDirectory(path, canonicalDir, this.platform)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Read access: allowed directories plus BRIDGE_READONLY_DIRS. Use only for
+   * file preview, download, and reveal — never for projects or writes.
+   */
+  private isPathReadable(path: string): boolean {
+    return this.isPathAllowed(path) || this.isPathInReadOnlyDir(path);
+  }
+
+  private async isCanonicalPathReadable(path: string): Promise<boolean> {
+    return (
+      (await this.isCanonicalPathAllowed(path)) ||
+      (await this.isCanonicalPathInReadOnlyDir(path))
+    );
+  }
+
   private sendFileDownloadError(
     ws: WebSocket,
     request: Extract<ClientMessage, { type: "prepare_file_download" }>,
@@ -1447,7 +1487,8 @@ export class BridgeWebSocketServer {
     if (
       !this.isPathAllowed(projectPath) ||
       (!this.fileDownloadAllowAllPaths &&
-        !isPathWithinAllowedDirectory(requestedPath, projectPath, this.platform))
+        !isPathWithinAllowedDirectory(requestedPath, projectPath, this.platform) &&
+        !this.isPathInReadOnlyDir(requestedPath))
     ) {
       this.sendFileDownloadError(
         ws,
@@ -1491,13 +1532,16 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    if (
-      !this.fileDownloadAllowAllPaths &&
-      (!isPathWithinAllowedDirectory(
+    const canonicalFileInProject =
+      isPathWithinAllowedDirectory(
         canonicalFilePath,
         canonicalProjectPath,
         this.platform,
-      ) || !(await this.isCanonicalPathAllowed(canonicalFilePath)))
+      ) && (await this.isCanonicalPathAllowed(canonicalFilePath));
+    if (
+      !this.fileDownloadAllowAllPaths &&
+      !canonicalFileInProject &&
+      !(await this.isCanonicalPathInReadOnlyDir(canonicalFilePath))
     ) {
       this.sendFileDownloadError(
         ws,
@@ -7252,12 +7296,12 @@ export class BridgeWebSocketServer {
           }
           try {
             const path = resolve(msg.projectPath, msg.filePath);
-            if (!this.isPathAllowed(path)) {
+            if (!this.isPathReadable(path)) {
               reply("path_not_allowed");
               return;
             }
             const canonicalPath = await realpath(path);
-            if (!(await this.isCanonicalPathAllowed(canonicalPath))) {
+            if (!(await this.isCanonicalPathReadable(canonicalPath))) {
               reply("path_not_allowed");
               return;
             }
@@ -7278,7 +7322,7 @@ export class BridgeWebSocketServer {
           filePath: msg.filePath,
         };
         const absPath = resolve(msg.projectPath, msg.filePath);
-        if (!this.isPathAllowed(absPath)) {
+        if (!this.isPathReadable(absPath)) {
           this.send(ws, {
             type: "file_content",
             ...responseMetadata,
@@ -7346,7 +7390,7 @@ export class BridgeWebSocketServer {
               ? await stat(absPath)
               : fileStat;
             const canonicalPath = await realpath(absPath);
-            if (!(await this.isCanonicalPathAllowed(canonicalPath))) {
+            if (!(await this.isCanonicalPathReadable(canonicalPath))) {
               this.send(ws, {
                 type: "file_content",
                 ...responseMetadata,

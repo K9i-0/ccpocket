@@ -109,6 +109,13 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>${allowedDirs}</string>`;
   }
 
+  const readOnlyDirs = process.env.BRIDGE_READONLY_DIRS?.trim() ?? "";
+  if (readOnlyDirs) {
+    envBlock += `
+        <key>BRIDGE_READONLY_DIRS</key>
+        <string>${readOnlyDirs}</string>`;
+  }
+
   if (process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS === "1") {
     envBlock += `
         <key>BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS</key>

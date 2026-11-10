@@ -120,6 +120,17 @@ describe("setup-systemd", () => {
       }
     });
 
+    it("includes BRIDGE_READONLY_DIRS when provided", () => {
+      process.env.BRIDGE_READONLY_DIRS = "/tmp,/private/tmp";
+
+      setupSystemd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain(
+        "Environment=BRIDGE_READONLY_DIRS=/tmp,/private/tmp",
+      );
+    });
+
     it("includes BRIDGE_ALLOWED_DIRS when provided", () => {
       process.env.BRIDGE_ALLOWED_DIRS = "/home/testuser,/scratch/testuser";
 
@@ -393,6 +404,7 @@ describe("setup-systemd", () => {
 function clearBridgeEnv(): void {
   delete process.env.BRIDGE_PORT;
   delete process.env.BRIDGE_ALLOWED_DIRS;
+  delete process.env.BRIDGE_READONLY_DIRS;
   delete process.env.BRIDGE_PUBLIC_WS_URL;
   delete process.env.BRIDGE_DISABLE_MDNS;
   delete process.env.BRIDGE_ALLOW_CLAUDE_OAUTH;

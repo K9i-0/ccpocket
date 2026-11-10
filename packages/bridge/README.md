@@ -45,6 +45,7 @@ ccpocket-bridge --version
 | `BRIDGE_API_KEY` | (generated) | API key clients must present. Without it, a key is generated once and stored in `~/.ccpocket/bridge-api-key` (mode `0600`) |
 | `BRIDGE_INSECURE_NO_AUTH` | (none) | Set to `1` (or pass `--insecure-no-auth`) to disable API key authentication. Not recommended |
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access; set exactly to `*` to allow any directory |
+| `BRIDGE_READONLY_DIRS` | unset | Comma-separated list of extra directories whose files may be previewed, downloaded, and revealed in Finder from the app (for example `/tmp,/private/tmp` for agent screenshots). They cannot be used as projects, upload destinations, or Git targets. `*` is not supported. |
 | `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS` | unset (project only) | Set exactly to `1` to allow sharing/downloading any regular file readable by the Bridge process, including paths outside `BRIDGE_ALLOWED_DIRS`. Absolute and relative paths within the selected project work by default. |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
@@ -229,6 +230,7 @@ that affect startup:
 - `BRIDGE_API_KEY` / `--api-key`
 - `BRIDGE_INSECURE_NO_AUTH` / `--insecure-no-auth`
 - `BRIDGE_ALLOWED_DIRS`
+- `BRIDGE_READONLY_DIRS`
 - `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS`
 - `BRIDGE_PUBLIC_WS_URL` / `--public-ws-url`
 - `BRIDGE_DISABLE_MDNS` / `--no-mdns`
@@ -369,7 +371,7 @@ the repository root [LICENSE](../../LICENSE).
 
 Sharing accepts both project-relative and absolute file paths. By default, the
 resolved file (including symlink targets) must stay inside the selected project
-and `BRIDGE_ALLOWED_DIRS`.
+and `BRIDGE_ALLOWED_DIRS`, or inside a `BRIDGE_READONLY_DIRS` entry.
 
 To explicitly allow sharing files from any location:
 

@@ -7204,6 +7204,59 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")("lets read-only dirs be previewed, downloaded, and revealed but not used as projects", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
+    const readOnly = mkdtempSync(resolve(tmpdir(), "ccpocket-readonly-"));
+    const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-outside-"));
+    const shot = resolve(readOnly, "shot.txt");
+    writeFileSync(shot, "shot");
+    writeFileSync(resolve(outside, "secret.txt"), "secret");
+    symlinkSync(resolve(outside, "secret.txt"), resolve(readOnly, "link.txt"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer, allowedDirs: [projectPath], readOnlyDirs: [readOnly],
+      mediaStore: new MediaStore(), platform: "darwin",
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const send = async (message: Record<string, unknown>) => {
+      ws.send.mockClear();
+      await (bridge as any).handleClientMessage(message, ws);
+      await expect.poll(() => ws.send.mock.calls.length).toBeGreaterThan(0);
+      return JSON.parse(ws.send.mock.calls[0][0]);
+    };
+    const proof = { proofPath: "/proof", proofToken: "a".repeat(64) };
+    try {
+      expect(await send({ type: "read_file", projectPath, filePath: shot }))
+        .toMatchObject({ type: "file_content", kind: "text", content: "shot" });
+      expect(await send({ type: "read_file", projectPath, filePath: resolve(readOnly, "link.txt") }))
+        .toMatchObject({ type: "file_content", error: "Path not allowed" });
+      expect(await send({ type: "read_file", projectPath, filePath: resolve(outside, "secret.txt") }))
+        .toMatchObject({ type: "file_content", error: "Path not allowed" });
+
+      expect(await send({ type: "prepare_file_download", projectPath, filePath: shot, requestId: "ro-1" }))
+        .toMatchObject({ type: "file_download_ready", requestId: "ro-1" });
+      expect(await send({ type: "prepare_file_download", projectPath, filePath: resolve(readOnly, "link.txt"), requestId: "ro-2" }))
+        .toMatchObject({ errorCode: "file_download_not_allowed" });
+      expect(await send({ type: "prepare_file_download", projectPath: readOnly, filePath: "shot.txt", requestId: "ro-3" }))
+        .toMatchObject({ errorCode: "file_download_not_allowed" });
+
+      const revealsBefore = revealInFinderMock.mock.calls.length;
+      expect(await send({ type: "reveal_file", projectPath, filePath: shot, requestId: "ro-4", ...proof }))
+        .toEqual({ type: "reveal_file_result", requestId: "ro-4" });
+      expect(revealInFinderMock).toHaveBeenCalledTimes(revealsBefore + 1);
+      expect(await send({ type: "reveal_file", projectPath, filePath: resolve(readOnly, "link.txt"), requestId: "ro-5", ...proof }))
+        .toMatchObject({ errorCode: "path_not_allowed" });
+
+      const listed = await send({ type: "list_files", projectPath: readOnly });
+      expect(listed).toMatchObject({ type: "file_list", files: [] });
+      expect(listed.error).toContain("not in the allowed directories");
+    } finally {
+      bridge.close();
+      for (const dir of [projectPath, readOnly, outside]) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it("rejects downloads that escape the selected project", async () => {
     const allowedRoot = mkdtempSync(resolve(tmpdir(), "ccpocket-download-root-"));
     const projectPath = resolve(allowedRoot, "project");

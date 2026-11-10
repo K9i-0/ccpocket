@@ -93,7 +93,8 @@ sh, yml, yaml, json, toml, md, html, css, scss, sql, xml, gradle, dockerfile, ma
 
 ## セキュリティ
 
-- Bridge側で `isPathAllowed()` によるパス検証（BRIDGE_ALLOWED_DIRS 準拠）
+- Bridge側で `isPathReadable()` によるパス検証（BRIDGE_ALLOWED_DIRS、または読み取り専用の BRIDGE_READONLY_DIRS に含まれること。symlink解決後の実パスでも確認）
+- BRIDGE_READONLY_DIRS はプレビュー・ダウンロード・Finder表示だけに効く。エージェントが `/tmp` に置いたスクリーンショット等を開く用途で、プロジェクト・アップロード先・Git操作の許可には使わない
 - `projectPath` が未設定の場合はタップしても何も起きない（silent failure）
 - ファイルは読み取り専用（書き込みAPIなし）
 

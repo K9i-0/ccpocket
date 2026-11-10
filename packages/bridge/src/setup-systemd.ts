@@ -157,6 +157,10 @@ Environment=BRIDGE_HOST=${host}`;
   if (allowedDirs) {
     envLines += `\nEnvironment=BRIDGE_ALLOWED_DIRS=${allowedDirs}`;
   }
+  const readOnlyDirs = process.env.BRIDGE_READONLY_DIRS?.trim() ?? "";
+  if (readOnlyDirs) {
+    envLines += `\nEnvironment=BRIDGE_READONLY_DIRS=${readOnlyDirs}`;
+  }
   if (process.env.BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS === "1") {
     envLines += "\nEnvironment=BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS=1";
   }

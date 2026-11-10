@@ -3,6 +3,7 @@ import {
   isPathWithinAllowedDirectory,
   normalizePlatformPath,
   parseAllowedDirectories,
+  parseReadOnlyDirectories,
   resolvePlatformPath,
   resolvePlatformPathFrom,
   stripWindowsExtendedPathPrefix,
@@ -87,6 +88,17 @@ describe("path-utils", () => {
       .toEqual(["/home/alice", "/opt/project"]);
     expect(parseAllowedDirectories("C:\\Users\\alice", "win32"))
       .toEqual(["C:\\Users\\alice"]);
+  });
+
+  it("parses read-only directories and rejects a star", () => {
+    expect(parseReadOnlyDirectories(undefined, "linux")).toEqual([]);
+    expect(parseReadOnlyDirectories("  ", "linux")).toEqual([]);
+    expect(parseReadOnlyDirectories("/tmp, /private/tmp", "linux"))
+      .toEqual(["/tmp", "/private/tmp"]);
+    expect(() => parseReadOnlyDirectories("*", "linux"))
+      .toThrow("'*' is not supported");
+    expect(() => parseReadOnlyDirectories(",", "linux"))
+      .toThrow("at least one path");
   });
 
   it("accepts children whose names start with two dots", () => {

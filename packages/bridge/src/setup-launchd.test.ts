@@ -99,6 +99,16 @@ describe("setup-launchd", () => {
       }
     });
 
+    it("includes BRIDGE_READONLY_DIRS when provided", () => {
+      process.env.BRIDGE_READONLY_DIRS = "/tmp,/private/tmp";
+
+      setupLaunchd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_READONLY_DIRS</key>");
+      expect(content).toContain("<string>/tmp,/private/tmp</string>");
+    });
+
     it("includes BRIDGE_ALLOWED_DIRS when provided", () => {
       process.env.BRIDGE_ALLOWED_DIRS = "/Users/testuser,/tmp/work";
 
@@ -228,6 +238,7 @@ describe("setup-launchd", () => {
 function clearBridgeEnv(): void {
   delete process.env.BRIDGE_PORT;
   delete process.env.BRIDGE_ALLOWED_DIRS;
+  delete process.env.BRIDGE_READONLY_DIRS;
   delete process.env.BRIDGE_PUBLIC_WS_URL;
   delete process.env.BRIDGE_DISABLE_MDNS;
   delete process.env.BRIDGE_ALLOW_CLAUDE_OAUTH;

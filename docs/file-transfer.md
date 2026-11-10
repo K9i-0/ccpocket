@@ -71,7 +71,9 @@ sheet finishes.
 ## Security
 
 The Bridge performs both lexical and canonical containment checks against the
-requested project and `BRIDGE_ALLOWED_DIRS`. The media store pins the validated
+requested project and `BRIDGE_ALLOWED_DIRS`. Files inside a `BRIDGE_READONLY_DIRS`
+entry are also downloadable (lexically and canonically inside that entry) while
+the selected project itself must still be allowed. The media store pins the validated
 file identity (device and inode), registered size, and canonical path. HTTP
 serving opens with `O_NOFOLLOW` where available and rejects files whose path,
 identity, or size changed after registration. The app independently rejects a

@@ -72,6 +72,31 @@ export function parseAllowedDirectories(
   return entries.map((dir) => resolvePlatformPath(dir, platform));
 }
 
+/**
+ * Parses BRIDGE_READONLY_DIRS: extra roots whose files may be previewed,
+ * downloaded, and revealed, but never used as a project or write target.
+ * Unset means no extra roots. "*" is rejected so a typo cannot expose the
+ * whole filesystem.
+ */
+export function parseReadOnlyDirectories(
+  input: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  const raw = input?.trim();
+  if (!raw) return [];
+
+  const entries = raw.split(",").map((dir) => dir.trim()).filter(Boolean);
+  if (entries.length === 0) {
+    throw new Error("BRIDGE_READONLY_DIRS must contain at least one path");
+  }
+  if (entries.includes("*")) {
+    throw new Error(
+      "BRIDGE_READONLY_DIRS must be a comma-separated path list ('*' is not supported)",
+    );
+  }
+  return entries.map((dir) => resolvePlatformPath(dir, platform));
+}
+
 export function isPathWithinAllowedDirectory(
   targetPath: string,
   allowedDir: string,
