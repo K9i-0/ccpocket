@@ -3915,10 +3915,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contextCompactionInProgress => 'Compacting context…';
 
   @override
-  String get olderHistoryTitle => 'Earlier messages';
-
-  @override
-  String get olderHistoryDescription => 'Older messages are not shown here';
+  String get olderHistoryTitle => 'Older messages are hidden';
 
   @override
   String get transcriptTitle => 'Earlier messages';

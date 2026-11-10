@@ -77,7 +77,8 @@ void main() {
     await tester.pumpWidget(
       _wrap(OlderHistoryCard(onOpenTranscript: () => opened++)),
     );
-    expect(find.text('Earlier messages'), findsOneWidget);
+    expect(find.text('Older messages are hidden'), findsOneWidget);
+    expect(find.text('View earlier messages'), findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey('older_history_transcript_button')),
     );

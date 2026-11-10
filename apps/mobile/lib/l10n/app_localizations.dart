@@ -7064,14 +7064,8 @@ abstract class AppLocalizations {
   /// No description provided for @olderHistoryTitle.
   ///
   /// In ja, this message translates to:
-  /// **'以前のやり取り'**
+  /// **'古いメッセージは省略されています'**
   String get olderHistoryTitle;
-
-  /// No description provided for @olderHistoryDescription.
-  ///
-  /// In ja, this message translates to:
-  /// **'古いメッセージはここでは省略しています'**
-  String get olderHistoryDescription;
 
   /// No description provided for @transcriptTitle.
   ///

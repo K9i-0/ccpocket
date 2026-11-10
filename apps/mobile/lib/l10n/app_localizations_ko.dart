@@ -3797,10 +3797,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get contextCompactionInProgress => '컨텍스트 압축 중…';
 
   @override
-  String get olderHistoryTitle => '이전 대화';
-
-  @override
-  String get olderHistoryDescription => '오래된 메시지는 여기에 표시되지 않습니다';
+  String get olderHistoryTitle => '이전 메시지가 생략되었습니다';
 
   @override
   String get transcriptTitle => '이전 대화';

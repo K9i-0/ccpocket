@@ -3769,10 +3769,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get contextCompactionInProgress => 'コンテキストを圧縮中…';
 
   @override
-  String get olderHistoryTitle => '以前のやり取り';
-
-  @override
-  String get olderHistoryDescription => '古いメッセージはここでは省略しています';
+  String get olderHistoryTitle => '古いメッセージは省略されています';
 
   @override
   String get transcriptTitle => '以前のやり取り';

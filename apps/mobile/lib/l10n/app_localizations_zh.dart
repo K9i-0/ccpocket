@@ -3726,10 +3726,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get contextCompactionInProgress => '正在压缩上下文…';
 
   @override
-  String get olderHistoryTitle => '之前的消息';
-
-  @override
-  String get olderHistoryDescription => '较早的消息未在此显示';
+  String get olderHistoryTitle => '较早的消息已省略';
 
   @override
   String get transcriptTitle => '之前的消息';

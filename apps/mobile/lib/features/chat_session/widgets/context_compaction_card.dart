@@ -77,7 +77,6 @@ class OlderHistoryCard extends StatelessWidget {
       key: const ValueKey('older_history_card'),
       icon: Icons.history,
       title: l.olderHistoryTitle,
-      details: Text(l.olderHistoryDescription, style: _detailStyle(context)),
       children: [
         if (onOpenTranscript case final onOpen?)
           _CardTextButton(
@@ -133,13 +132,13 @@ class _BoundaryFrame extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.details,
+    this.details,
     required this.children,
   });
 
   final IconData icon;
   final String title;
-  final Widget details;
+  final Widget? details;
   final List<Widget> children;
 
   @override
@@ -173,10 +172,11 @@ class _BoundaryFrame extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 24, bottom: 4),
-                child: details,
-              ),
+              if (details case final details?)
+                Padding(
+                  padding: const EdgeInsets.only(left: 24, bottom: 4),
+                  child: details,
+                ),
               ...children,
             ],
           ),
