@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.161.0] - 2026-11-11
+
+### Added
+
+- The usage card in Settings shows model-scoped weekly limits, such as Fable on Max plans, as an extra row when the account has one. Requires Bridge 1.105.0 or later.
+
+### Changed
+
+- The app expects Bridge 1.105.0.
+
+### Fixed
+
+- Usage bars in Settings stay aligned across Claude and Codex when a model-scoped row is shown.
+- A turn that starts without user input (for example from a background task) no longer shows the previous answer again as an extra bubble.
+- The older-history card no longer repeats the same wording twice.
+
 ## [1.160.2] - 2026-11-10
 
 ### Changed
