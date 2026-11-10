@@ -125,10 +125,19 @@ Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
   void resolvePendingResult({bool includeTrailingAssistants = false}) {
     final pending = pendingResult;
     if (pending == null) return;
-    final visibleTexts = includeTrailingAssistants
-        ? [...pending.assistantTexts, ...assistantTexts]
-        : pending.assistantTexts;
-    if (!isAlreadyShown(pending.text, visibleTexts)) {
+    // Trailing assistants may be a late-arriving final answer, or a new turn
+    // that started without a user entry (e.g. a background task
+    // notification). Accept the result as shown when any prefix of the
+    // trailing texts completes it, so later turns cannot un-hide it.
+    final trailingCount = includeTrailingAssistants ? assistantTexts.length : 0;
+    var shown = false;
+    for (var count = 0; count <= trailingCount && !shown; count++) {
+      shown = isAlreadyShown(pending.text, [
+        ...pending.assistantTexts,
+        ...assistantTexts.take(count),
+      ]);
+    }
+    if (!shown) {
       fallbackIndices.add(pending.index);
     }
     pendingResult = null;

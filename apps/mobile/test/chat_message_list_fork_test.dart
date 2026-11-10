@@ -193,6 +193,29 @@ void main() {
       expect(successResultFallbackEntryIndices(entries), {0});
     });
 
+    test('does not show a shown answer when a new turn starts without a user entry', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_assistantWithText('final', 'Final summary')),
+        ServerChatEntry(_result(result: 'Final summary')),
+        // Background task notification started a new turn (no user entry).
+        ServerChatEntry(_assistantWithText('next', 'Ready. Start the queue.')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), isEmpty);
+    });
+
+    test('accepts a late final answer followed by a new turn', () {
+      final entries = <ChatEntry>[
+        UserChatEntry('inspect this'),
+        ServerChatEntry(_result(result: 'Final summary')),
+        ServerChatEntry(_assistantWithText('late', 'Final summary')),
+        ServerChatEntry(_assistantWithText('next', 'Ready. Start the queue.')),
+      ];
+
+      expect(successResultFallbackEntryIndices(entries), isEmpty);
+    });
+
     test('uses result text when only a progress update exists', () {
       final entries = <ChatEntry>[
         UserChatEntry('inspect this'),
