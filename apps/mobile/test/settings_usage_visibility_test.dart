@@ -1223,6 +1223,13 @@ void main() {
               provider: 'claude',
               fiveHour: UsageWindow(utilization: 20, resetsAt: resetsAt),
               sevenDay: UsageWindow(utilization: 64, resetsAt: resetsAt),
+              modelWindows: [
+                UsageModelWindow(
+                  label: 'Fable',
+                  utilization: 28,
+                  resetsAt: resetsAt,
+                ),
+              ],
             ),
           ],
         ),
@@ -1268,6 +1275,18 @@ void main() {
       );
       expect(
         find.descendant(of: codexCard, matching: find.text('47%')),
+        findsOneWidget,
+      );
+      // Model-scoped weekly limits only appear for accounts that have them.
+      final fableRow = find.byKey(const ValueKey('usage_model_window_Fable'));
+      expect(find.descendant(of: claudeCard, matching: fableRow), findsOne);
+      expect(find.descendant(of: codexCard, matching: fableRow), findsNothing);
+      expect(
+        find.descendant(of: fableRow, matching: find.text('Fable')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: fableRow, matching: find.text('72%')),
         findsOneWidget,
       );
       expect(
@@ -2521,6 +2540,13 @@ void main() {
                 utilization: 26,
                 resetsAt: resetsAt.toIso8601String(),
               ),
+              modelWindows: [
+                UsageModelWindow(
+                  label: 'Fable',
+                  utilization: 28,
+                  resetsAt: resetsAt.toIso8601String(),
+                ),
+              ],
             ),
             UsageInfo(
               provider: 'codex',

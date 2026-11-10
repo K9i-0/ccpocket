@@ -331,6 +331,16 @@ class _ProviderUsageTile extends StatelessWidget {
                 windowDuration: const Duration(days: 7),
                 displayMode: displayMode,
               ),
+            for (final window in info.modelWindows) ...[
+              const SizedBox(height: 10),
+              _UsageBar(
+                key: ValueKey('usage_model_window_${window.label}'),
+                label: window.label,
+                window: window,
+                windowDuration: const Duration(days: 7),
+                displayMode: displayMode,
+              ),
+            ],
           ],
         ],
       ),
@@ -344,6 +354,7 @@ class _UsageBar extends StatefulWidget {
   final Duration windowDuration;
   final UsageDisplayMode displayMode;
   const _UsageBar({
+    super.key,
     required this.label,
     required this.window,
     required this.windowDuration,
@@ -644,6 +655,8 @@ class _CompactProviderUsage extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final providerLabel = info.provider == 'claude' ? 'Claude' : 'Codex';
+    // Widen every label together so the bars stay aligned with model rows.
+    final labelWidth = info.modelWindows.isEmpty ? 22.0 : 40.0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -673,6 +686,7 @@ class _CompactProviderUsage extends StatelessWidget {
                     if (info.fiveHour != null)
                       _CompactWindowRow(
                         label: '5h',
+                        labelWidth: labelWidth,
                         window: info.fiveHour!,
                         windowDuration: const Duration(hours: 5),
                         displayMode: displayMode,
@@ -680,7 +694,17 @@ class _CompactProviderUsage extends StatelessWidget {
                     if (info.sevenDay != null)
                       _CompactWindowRow(
                         label: '1w',
+                        labelWidth: labelWidth,
                         window: info.sevenDay!,
+                        windowDuration: const Duration(days: 7),
+                        displayMode: displayMode,
+                      ),
+                    for (final window in info.modelWindows)
+                      _CompactWindowRow(
+                        key: ValueKey('usage_model_window_${window.label}'),
+                        label: window.label,
+                        labelWidth: labelWidth,
+                        window: window,
                         windowDuration: const Duration(days: 7),
                         displayMode: displayMode,
                       ),
@@ -694,13 +718,16 @@ class _CompactProviderUsage extends StatelessWidget {
 
 class _CompactWindowRow extends StatelessWidget {
   const _CompactWindowRow({
+    super.key,
     required this.label,
+    required this.labelWidth,
     required this.window,
     required this.windowDuration,
     required this.displayMode,
   });
 
   final String label;
+  final double labelWidth;
   final UsageWindow window;
   final Duration windowDuration;
   final UsageDisplayMode displayMode;
@@ -749,9 +776,11 @@ class _CompactWindowRow extends StatelessWidget {
           Row(
             children: [
               SizedBox(
-                width: 22,
+                width: labelWidth,
                 child: Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -784,7 +813,7 @@ class _CompactWindowRow extends StatelessWidget {
           ),
           if (resetText != null || reliablePace != null)
             Padding(
-              padding: const EdgeInsets.only(left: 22, top: 2),
+              padding: EdgeInsets.only(left: labelWidth, top: 2),
               child: Text.rich(
                 TextSpan(
                   children: [

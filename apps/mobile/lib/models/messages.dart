@@ -774,16 +774,40 @@ class UsageWindow {
   DateTime? get resetsAtDateTime => DateTime.tryParse(resetsAt);
 }
 
+/// A weekly window scoped to one model (e.g. Fable), labeled by the server.
+class UsageModelWindow extends UsageWindow {
+  final String label;
+
+  const UsageModelWindow({
+    required this.label,
+    required super.utilization,
+    required super.resetsAt,
+  });
+
+  factory UsageModelWindow.fromJson(Map<String, dynamic> json) {
+    return UsageModelWindow(
+      label: json['label'] as String,
+      utilization: (json['utilization'] as num).toDouble(),
+      resetsAt: json['resetsAt'] as String,
+    );
+  }
+}
+
 class UsageInfo {
   final String provider;
   final UsageWindow? fiveHour;
   final UsageWindow? sevenDay;
+
+  /// Model-scoped weekly windows; empty when the account has none or the
+  /// Bridge predates the field.
+  final List<UsageModelWindow> modelWindows;
   final String? error;
 
   const UsageInfo({
     required this.provider,
     this.fiveHour,
     this.sevenDay,
+    this.modelWindows = const [],
     this.error,
   });
 
@@ -796,6 +820,10 @@ class UsageInfo {
       sevenDay: json['sevenDay'] != null
           ? UsageWindow.fromJson(json['sevenDay'] as Map<String, dynamic>)
           : null,
+      modelWindows: [
+        for (final entry in json['modelWindows'] as List? ?? const [])
+          if (entry is Map<String, dynamic>) UsageModelWindow.fromJson(entry),
+      ],
       error: json['error'] as String?,
     );
   }

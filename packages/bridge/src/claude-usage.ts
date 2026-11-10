@@ -4,7 +4,7 @@ import {
   canStartClaudeSdk,
   isClaudeOAuthOptInEnabled,
 } from "./sdk-process.js";
-import type { UsageInfo, UsageWindow } from "./usage.js";
+import type { UsageInfo, UsageModelWindow, UsageWindow } from "./usage.js";
 
 // Claude plan usage is read only through the Claude Agent SDK's experimental
 // `/usage` API. This adapter isolates the unstable method name and response
@@ -59,6 +59,18 @@ function mapClaudeWindow(value: unknown): UsageWindow | null {
   };
 }
 
+/** Per-model weekly windows (e.g. Fable); only listed for accounts they apply to. */
+function mapClaudeModelWindows(value: unknown): UsageModelWindow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!isRecord(entry)) return [];
+    const label = entry.display_name;
+    if (typeof label !== "string" || label.trim() === "") return [];
+    const window = mapClaudeWindow(entry);
+    return window ? [{ label: label.trim(), ...window }] : [];
+  });
+}
+
 /**
  * Map the experimental SDK usage response to UsageInfo.
  * Returns null when plan limits do not apply or no supported window exists,
@@ -73,7 +85,13 @@ export function mapClaudeUsageResponse(response: unknown): UsageInfo | null {
   const fiveHour = mapClaudeWindow(rateLimits.five_hour);
   const sevenDay = mapClaudeWindow(rateLimits.seven_day);
   if (!fiveHour && !sevenDay) return null;
-  return { provider: "claude", fiveHour, sevenDay };
+  const modelWindows = mapClaudeModelWindows(rateLimits.model_scoped);
+  return {
+    provider: "claude",
+    fiveHour,
+    sevenDay,
+    ...(modelWindows.length > 0 ? { modelWindows } : {}),
+  };
 }
 
 class ClaudeUsageUnavailable extends Error {}
@@ -186,8 +204,16 @@ function retainLastClaudeUsage(failed: UsageInfo): UsageInfo {
   const fiveHour = current(lastClaudeUsage.usage.fiveHour);
   const sevenDay = current(lastClaudeUsage.usage.sevenDay);
   if (!fiveHour && !sevenDay) return failed;
+  const modelWindows = (lastClaudeUsage.usage.modelWindows ?? []).filter(
+    (window) => current(window) !== null,
+  );
   // Clients render windows when present, so the error does not hide them.
-  return { ...failed, fiveHour, sevenDay };
+  return {
+    ...failed,
+    fiveHour,
+    sevenDay,
+    ...(modelWindows.length > 0 ? { modelWindows } : {}),
+  };
 }
 
 function recordClaudeUsage(result: UsageInfo | null): UsageInfo | null {

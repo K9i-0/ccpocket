@@ -102,6 +102,41 @@ describe("mapClaudeUsageResponse", () => {
     ).toBe(100);
   });
 
+  it("maps model-scoped weekly windows such as Fable", () => {
+    expect(
+      mapClaudeUsageResponse({
+        rate_limits_available: true,
+        rate_limits: {
+          ...subscriptionUsage.rate_limits,
+          model_scoped: [
+            {
+              display_name: "Fable",
+              utilization: 31,
+              resets_at: "2026-11-12T08:00:00.008286+00:00",
+            },
+            { display_name: "Unknown", utilization: null, resets_at: null },
+            { display_name: "", utilization: 5, resets_at: "2026-11-12T08:00:00Z" },
+            "unexpected",
+          ],
+        },
+      })?.modelWindows,
+    ).toEqual([
+      { label: "Fable", utilization: 31, resetsAt: "2026-11-12T08:00:00.008Z" },
+    ]);
+  });
+
+  it.each([undefined, null, []])(
+    "omits model windows when the account has none: %j",
+    (modelScoped) => {
+      const result = mapClaudeUsageResponse({
+        rate_limits_available: true,
+        rate_limits: { ...subscriptionUsage.rate_limits, model_scoped: modelScoped },
+      });
+      expect(result).not.toBeNull();
+      expect(result).not.toHaveProperty("modelWindows");
+    },
+  );
+
   it.each([
     { rate_limits_available: false, rate_limits: null },
     { rate_limits_available: true, rate_limits: null },
@@ -292,6 +327,9 @@ describe("fetchClaudeUsage retention", () => {
     rate_limits: {
       five_hour: { utilization: 42, resets_at: "2026-11-06T07:30:00Z" },
       seven_day: { utilization: 60, resets_at: "2026-11-10T00:00:00Z" },
+      model_scoped: [
+        { display_name: "Fable", utilization: 30, resets_at: "2026-11-10T00:00:00Z" },
+      ],
     },
   };
 
@@ -330,6 +368,9 @@ describe("fetchClaudeUsage retention", () => {
       provider: "claude",
       fiveHour: { utilization: 42, resetsAt: "2026-11-06T07:30:00.000Z" },
       sevenDay: { utilization: 60, resetsAt: "2026-11-10T00:00:00.000Z" },
+      modelWindows: [
+        { label: "Fable", utilization: 30, resetsAt: "2026-11-10T00:00:00.000Z" },
+      ],
       error: "Failed to fetch Claude usage: timed out",
     });
   });

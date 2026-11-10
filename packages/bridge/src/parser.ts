@@ -1316,6 +1316,7 @@ export interface UsageInfoPayload {
   provider: "claude" | "codex";
   fiveHour: UsageWindowPayload | null;
   sevenDay: UsageWindowPayload | null;
+  modelWindows?: Array<UsageWindowPayload & { label: string }>;
   error?: string;
 }
 

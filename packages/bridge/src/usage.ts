@@ -9,10 +9,17 @@ export interface UsageWindow {
   resetsAt: string;     // ISO 8601
 }
 
+/** A weekly window scoped to one model (e.g. Fable), labeled by the server. */
+export interface UsageModelWindow extends UsageWindow {
+  label: string;
+}
+
 export interface UsageInfo {
   provider: "claude" | "codex";
   fiveHour: UsageWindow | null;
   sevenDay: UsageWindow | null;
+  /** Omitted when the account has no model-scoped weekly limit. */
+  modelWindows?: UsageModelWindow[];
   error?: string;
 }
 
