@@ -168,6 +168,12 @@ class _UsageSectionState extends State<UsageSection> {
                   ? _CompactProviderUsage(
                       info: info,
                       displayMode: usageDisplayMode,
+                      // Widen labels for every provider together so the bars
+                      // stay aligned when a model row (e.g. Fable) is shown.
+                      windowLabelWidth:
+                          visibleProviders.any((p) => p.modelWindows.isNotEmpty)
+                          ? 40
+                          : 22,
                     )
                   : _ProviderUsageTile(
                       info: info,
@@ -645,18 +651,22 @@ IconData _paceIcon(UsagePaceStage stage) {
 /// Dense provider usage for the settings status card: one bar row per window
 /// with a short reset / pace line underneath.
 class _CompactProviderUsage extends StatelessWidget {
-  const _CompactProviderUsage({required this.info, required this.displayMode});
+  const _CompactProviderUsage({
+    required this.info,
+    required this.displayMode,
+    required this.windowLabelWidth,
+  });
 
   final UsageInfo info;
   final UsageDisplayMode displayMode;
+  final double windowLabelWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final providerLabel = info.provider == 'claude' ? 'Claude' : 'Codex';
-    // Widen every label together so the bars stay aligned with model rows.
-    final labelWidth = info.modelWindows.isEmpty ? 22.0 : 40.0;
+    final labelWidth = windowLabelWidth;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
