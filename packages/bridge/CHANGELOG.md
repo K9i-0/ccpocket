@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.105.0] - 2026-11-11
+
+### Added
+
+- `/usage` includes model-scoped weekly limits (for example Fable on Max plans) as an optional `modelWindows` list on the Claude entry. Labels come from the server, and the field is omitted when the account has no such limit, so older apps ignore it.
+
 ## [1.104.0] - 2026-11-09
 
 ### Changed
