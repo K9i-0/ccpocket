@@ -1982,7 +1982,7 @@ abstract class AppLocalizations {
   /// No description provided for @additionalWritableRootsTitle.
   ///
   /// In ja, this message translates to:
-  /// **'追加で利用できるディレクトリ'**
+  /// **'追加で利用できるフォルダ'**
   String get additionalWritableRootsTitle;
 
   /// No description provided for @additionalWritableRootsDescription.
@@ -2006,25 +2006,25 @@ abstract class AppLocalizations {
   /// No description provided for @addDirectory.
   ///
   /// In ja, this message translates to:
-  /// **'ディレクトリを追加'**
+  /// **'フォルダを追加'**
   String get addDirectory;
 
   /// No description provided for @directoryPath.
   ///
   /// In ja, this message translates to:
-  /// **'ディレクトリパス'**
+  /// **'フォルダのパス'**
   String get directoryPath;
 
   /// No description provided for @directoryPathOutsideAllowedRoots.
   ///
   /// In ja, this message translates to:
-  /// **'ディレクトリパスが許可されたルートの外側です'**
+  /// **'許可されたフォルダの外側のパスです'**
   String get directoryPathOutsideAllowedRoots;
 
   /// No description provided for @browseDirectory.
   ///
   /// In ja, this message translates to:
-  /// **'ディレクトリを参照'**
+  /// **'フォルダを参照'**
   String get browseDirectory;
 
   /// No description provided for @selectDirectory.
@@ -2036,14 +2036,26 @@ abstract class AppLocalizations {
   /// No description provided for @noSubdirectories.
   ///
   /// In ja, this message translates to:
-  /// **'サブディレクトリはありません'**
+  /// **'サブフォルダはありません'**
   String get noSubdirectories;
 
   /// No description provided for @directoryBrowserRoots.
   ///
   /// In ja, this message translates to:
-  /// **'許可されたディレクトリ'**
+  /// **'許可されたフォルダ'**
   String get directoryBrowserRoots;
+
+  /// No description provided for @directoryBrowserFilterHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダ名で絞り込み'**
+  String get directoryBrowserFilterHint;
+
+  /// No description provided for @directoryBrowserNoMatches.
+  ///
+  /// In ja, this message translates to:
+  /// **'一致するフォルダはありません'**
+  String get directoryBrowserNoMatches;
 
   /// No description provided for @directoryBrowserBridgeUpdateRequired.
   ///
@@ -4652,13 +4664,13 @@ abstract class AppLocalizations {
   /// No description provided for @showHiddenDirectories.
   ///
   /// In ja, this message translates to:
-  /// **'隠しディレクトリを表示'**
+  /// **'隠しフォルダを表示'**
   String get showHiddenDirectories;
 
   /// No description provided for @showHiddenDirectoriesSubtitle.
   ///
   /// In ja, this message translates to:
-  /// **'新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。'**
+  /// **'新規セッションのフォルダ選択に「.」で始まるフォルダを表示します。'**
   String get showHiddenDirectoriesSubtitle;
 
   /// No description provided for @showBridgeNameInSessionList.

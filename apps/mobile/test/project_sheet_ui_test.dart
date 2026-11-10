@@ -151,6 +151,62 @@ void main() {
     },
   );
 
+  testWidgets('editor rows show each folder name once and where it lives', (
+    tester,
+  ) async {
+    final bridge = _Bridge();
+    addTearDown(bridge.dispose);
+    final cubit = WorkspaceProjectsCubit(
+      const ProjectsMessage(
+        projects: [
+          WorkspaceProject(
+            id: 'project-1',
+            name: 'App and API',
+            rootPaths: ['/workspace/apps/api', '/outside/web'],
+            createdAt: '2026-09-01T00:00:00.000Z',
+            updatedAt: '2026-09-01T00:00:00.000Z',
+          ),
+        ],
+      ),
+      const Stream.empty(),
+    );
+    addTearDown(cubit.close);
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: host(
+          (context) =>
+              () => showProjectManagerSheet(
+                context: context,
+                bridge: bridge,
+                showHiddenDirectories: false,
+              ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('project_project-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('api'), findsOneWidget);
+    expect(find.text('プライマリ · workspace / apps'), findsOneWidget);
+    expect(find.text('web'), findsOneWidget);
+    expect(find.text('/outside'), findsOneWidget);
+    expect(find.textContaining('/workspace/apps/api'), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('project_folder_/outside/web')),
+        matching: find.byIcon(Icons.star_border),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('プライマリ · /outside'), findsOneWidget);
+    expect(find.text('workspace / apps'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'multi-project manager and editor are sheets without automatic keyboard',
     (tester) async {

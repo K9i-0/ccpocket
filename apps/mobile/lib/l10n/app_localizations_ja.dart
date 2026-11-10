@@ -1012,7 +1012,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkAccess => 'ネットワークアクセス';
 
   @override
-  String get additionalWritableRootsTitle => '追加で利用できるディレクトリ';
+  String get additionalWritableRootsTitle => '追加で利用できるフォルダ';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -1026,25 +1026,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String get additionalWritableRootsSuggestions => '最近のプロジェクト';
 
   @override
-  String get addDirectory => 'ディレクトリを追加';
+  String get addDirectory => 'フォルダを追加';
 
   @override
-  String get directoryPath => 'ディレクトリパス';
+  String get directoryPath => 'フォルダのパス';
 
   @override
-  String get directoryPathOutsideAllowedRoots => 'ディレクトリパスが許可されたルートの外側です';
+  String get directoryPathOutsideAllowedRoots => '許可されたフォルダの外側のパスです';
 
   @override
-  String get browseDirectory => 'ディレクトリを参照';
+  String get browseDirectory => 'フォルダを参照';
 
   @override
   String get selectDirectory => '選択';
 
   @override
-  String get noSubdirectories => 'サブディレクトリはありません';
+  String get noSubdirectories => 'サブフォルダはありません';
 
   @override
-  String get directoryBrowserRoots => '許可されたディレクトリ';
+  String get directoryBrowserRoots => '許可されたフォルダ';
+
+  @override
+  String get directoryBrowserFilterHint => 'フォルダ名で絞り込み';
+
+  @override
+  String get directoryBrowserNoMatches => '一致するフォルダはありません';
 
   @override
   String get directoryBrowserBridgeUpdateRequired =>
@@ -2463,11 +2469,11 @@ class AppLocalizationsJa extends AppLocalizations {
       '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
 
   @override
-  String get showHiddenDirectories => '隠しディレクトリを表示';
+  String get showHiddenDirectories => '隠しフォルダを表示';
 
   @override
   String get showHiddenDirectoriesSubtitle =>
-      '新規セッションのディレクトリブラウザに「.」で始まるフォルダを表示します。';
+      '新規セッションのフォルダ選択に「.」で始まるフォルダを表示します。';
 
   @override
   String get showBridgeNameInSessionList => 'Bridge名を表示';

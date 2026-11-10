@@ -1038,8 +1038,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkAccess => 'Network Access';
 
   @override
-  String get additionalWritableRootsTitle =>
-      'Additional accessible directories';
+  String get additionalWritableRootsTitle => 'Additional accessible folders';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -1053,26 +1052,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get additionalWritableRootsSuggestions => 'Recent projects';
 
   @override
-  String get addDirectory => 'Add directory';
+  String get addDirectory => 'Add folder';
 
   @override
-  String get directoryPath => 'Directory path';
+  String get directoryPath => 'Folder path';
 
   @override
   String get directoryPathOutsideAllowedRoots =>
-      'Directory path is outside the allowed roots';
+      'Folder path is outside the allowed folders';
 
   @override
-  String get browseDirectory => 'Browse directory';
+  String get browseDirectory => 'Browse folders';
 
   @override
   String get selectDirectory => 'Select';
 
   @override
-  String get noSubdirectories => 'No subdirectories';
+  String get noSubdirectories => 'No subfolders';
 
   @override
-  String get directoryBrowserRoots => 'Allowed directories';
+  String get directoryBrowserRoots => 'Allowed folders';
+
+  @override
+  String get directoryBrowserFilterHint => 'Filter folders';
+
+  @override
+  String get directoryBrowserNoMatches => 'No matching folders';
 
   @override
   String get directoryBrowserBridgeUpdateRequired =>
@@ -2554,11 +2559,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which AI tools appear for new sessions and change their order.';
 
   @override
-  String get showHiddenDirectories => 'Show Hidden Directories';
+  String get showHiddenDirectories => 'Show Hidden Folders';
 
   @override
   String get showHiddenDirectoriesSubtitle =>
-      'Include folders beginning with . in the new session directory browser.';
+      'Include folders beginning with . when choosing a folder for a new session.';
 
   @override
   String get showBridgeNameInSessionList => 'Show Bridge name';

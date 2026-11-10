@@ -108,6 +108,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
+    // Rows show the name only; the location is the breadcrumb line.
+    expect(find.text('/workspace/alpha'), findsNothing);
+    expect(find.text('/workspace'), findsNothing);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('directory_browser_current_name')),
+          )
+          .data,
+      'workspace',
+    );
     expect(bridge.includeHiddenRequests, [isFalse]);
     var upButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('directory_browser_up_button')),
@@ -117,7 +128,11 @@ void main() {
     await tester.tap(find.text('alpha'));
     await tester.pumpAndSettle();
     expect(bridge.requests, ['/workspace', '/workspace/alpha']);
-    expect(find.text('No subdirectories'), findsOneWidget);
+    expect(find.text('No subfolders'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('directory_browser_filter_field')),
+      findsNothing,
+    );
     upButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('directory_browser_up_button')),
     );
@@ -128,6 +143,137 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(await result, '/workspace/alpha');
+  });
+
+  testWidgets('breadcrumbs jump back to an ancestor inside the root', (
+    tester,
+  ) async {
+    final bridge = _DirectoryBrowserBridge();
+    addTearDown(bridge.dispose);
+
+    await tester.pumpWidget(
+      _testApp(
+        onOpen: () {
+          showDirectoryBrowserSheet(
+            context: tester.element(find.text('Open browser')),
+            bridge: bridge,
+            initialPath: '/workspace/alpha/deep',
+            allowedRoots: const ['/workspace'],
+          );
+        },
+      ),
+    );
+    await tester.tap(find.text('Open browser'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('workspace'), findsOneWidget);
+    expect(find.text('alpha'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('directory_browser_current_name')),
+          )
+          .data,
+      'deep',
+    );
+    // Nothing above the allowed root is offered.
+    expect(
+      find.byKey(const ValueKey('directory_browser_crumb_/')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('directory_browser_crumb_/workspace')),
+    );
+    await tester.pumpAndSettle();
+    expect(bridge.requests, ['/workspace/alpha/deep', '/workspace']);
+    expect(find.text('beta'), findsOneWidget);
+  });
+
+  testWidgets('filters the listed folders by name until another is opened', (
+    tester,
+  ) async {
+    final bridge = _DirectoryBrowserBridge();
+    addTearDown(bridge.dispose);
+
+    await tester.pumpWidget(
+      _testApp(
+        onOpen: () {
+          showDirectoryBrowserSheet(
+            context: tester.element(find.text('Open browser')),
+            bridge: bridge,
+            initialPath: '/workspace',
+            allowedRoots: const ['/workspace'],
+          );
+        },
+      ),
+    );
+    await tester.tap(find.text('Open browser'));
+    await tester.pumpAndSettle();
+
+    final filter = find.byKey(const ValueKey('directory_browser_filter_field'));
+    await tester.enterText(filter, 'BET');
+    await tester.pump();
+    expect(find.text('alpha'), findsNothing);
+    expect(find.text('beta'), findsOneWidget);
+
+    await tester.enterText(filter, 'zzz');
+    await tester.pump();
+    expect(find.text('No matching folders'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('directory_browser_filter_clear_button')),
+    );
+    await tester.pump();
+    expect(find.text('alpha'), findsOneWidget);
+
+    await tester.enterText(filter, 'alp');
+    await tester.pump();
+    await tester.tap(find.text('alpha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('directory_browser_up_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('alpha'), findsOneWidget);
+    expect(find.text('beta'), findsOneWidget);
+    expect(tester.widget<TextField>(filter).controller!.text, isEmpty);
+  });
+
+  test('folderBreadcrumbs stops at the containing allowed root', () {
+    expect(
+      folderBreadcrumbs('/workspace/apps/api', const [
+        '/other',
+        '/workspace',
+      ]).map((crumb) => (crumb.label, crumb.path)),
+      [
+        ('workspace', '/workspace'),
+        ('apps', '/workspace/apps'),
+        ('api', '/workspace/apps/api'),
+      ],
+    );
+    expect(folderBreadcrumbs('/a/b', const []).map((crumb) => crumb.label), [
+      '/',
+      'a',
+      'b',
+    ]);
+    expect(
+      folderBreadcrumbs(r'C:\Work\app', const [
+        r'c:\work',
+      ]).map((crumb) => crumb.label),
+      ['Work', 'app'],
+    );
+  });
+
+  test('folderLocationLabel names the parent without repeating the folder', () {
+    expect(
+      folderLocationLabel('/workspace/apps/api', const ['/workspace']),
+      'workspace / apps',
+    );
+    expect(folderLocationLabel('/workspace', const ['/workspace']), '/');
+    expect(
+      folderLocationLabel('/outside/web', const ['/workspace']),
+      '/outside',
+    );
+    expect(folderLocationLabel('/', const []), isNull);
   });
 
   testWidgets('requests hidden directories when enabled', (tester) async {
@@ -177,7 +323,7 @@ void main() {
     await tester.tap(find.text('Open browser'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Directory path is outside the allowed roots'),
+      find.text('This folder is outside the allowed browsing area.'),
       findsOneWidget,
     );
     final selectButton = tester.widget<FilledButton>(
@@ -356,7 +502,7 @@ void main() {
 
     expect(bridge.requests, isEmpty);
     expect(
-      find.text('Directory path is outside the allowed roots'),
+      find.text('Folder path is outside the allowed folders'),
       findsOneWidget,
     );
   });

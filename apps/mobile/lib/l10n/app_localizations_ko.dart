@@ -1009,7 +1009,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get networkAccess => '네트워크 액세스';
 
   @override
-  String get additionalWritableRootsTitle => '추가로 접근할 디렉터리';
+  String get additionalWritableRootsTitle => '추가로 접근할 폴더';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -1023,25 +1023,31 @@ class AppLocalizationsKo extends AppLocalizations {
   String get additionalWritableRootsSuggestions => '최근 프로젝트';
 
   @override
-  String get addDirectory => '디렉터리 추가';
+  String get addDirectory => '폴더 추가';
 
   @override
-  String get directoryPath => '디렉터리 경로';
+  String get directoryPath => '폴더 경로';
 
   @override
-  String get directoryPathOutsideAllowedRoots => '디렉터리 경로가 허용된 루트 밖에 있습니다';
+  String get directoryPathOutsideAllowedRoots => '폴더 경로가 허용된 범위 밖에 있습니다';
 
   @override
-  String get browseDirectory => '디렉터리 찾아보기';
+  String get browseDirectory => '폴더 찾아보기';
 
   @override
   String get selectDirectory => '선택';
 
   @override
-  String get noSubdirectories => '하위 디렉터리 없음';
+  String get noSubdirectories => '하위 폴더 없음';
 
   @override
-  String get directoryBrowserRoots => '허용된 디렉터리';
+  String get directoryBrowserRoots => '허용된 폴더';
+
+  @override
+  String get directoryBrowserFilterHint => '폴더 이름으로 필터';
+
+  @override
+  String get directoryBrowserNoMatches => '일치하는 폴더가 없습니다';
 
   @override
   String get directoryBrowserBridgeUpdateRequired =>
@@ -2475,11 +2481,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
 
   @override
-  String get showHiddenDirectories => '숨김 디렉터리 표시';
+  String get showHiddenDirectories => '숨김 폴더 표시';
 
   @override
   String get showHiddenDirectoriesSubtitle =>
-      '새 세션 디렉터리 브라우저에 .으로 시작하는 폴더를 표시합니다.';
+      '새 세션의 폴더 선택 화면에 .으로 시작하는 폴더를 표시합니다.';
 
   @override
   String get showBridgeNameInSessionList => 'Bridge 이름 표시';

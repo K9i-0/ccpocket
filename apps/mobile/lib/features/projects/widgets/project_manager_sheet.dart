@@ -209,31 +209,13 @@ class _ProjectEditorSheetState extends State<_ProjectEditorSheet> {
         Text(l.sourceFolders, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         for (final (index, root) in _roots.indexed)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(index == 0 ? Icons.star : Icons.folder_outlined),
-            title: Text(pathBasename(root)),
-            subtitle: Text(
-              '${index == 0 ? '${l.primary} · ' : ''}$root',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (index > 0)
-                  IconButton(
-                    tooltip: l.makePrimary,
-                    icon: const Icon(Icons.star_border),
-                    onPressed: () => _makePrimary(root),
-                  ),
-                IconButton(
-                  tooltip: l.removeFolder,
-                  icon: const Icon(Icons.close),
-                  onPressed: () => setState(() => _roots.remove(root)),
-                ),
-              ],
-            ),
+          _ProjectFolderTile(
+            key: ValueKey('project_folder_$root'),
+            path: root,
+            allowedRoots: widget.bridge.allowedDirs,
+            isPrimary: index == 0,
+            onMakePrimary: () => _makePrimary(root),
+            onRemove: () => setState(() => _roots.remove(root)),
           ),
         TextButton.icon(
           key: const ValueKey('project_add_folder_button'),
@@ -242,6 +224,68 @@ class _ProjectEditorSheetState extends State<_ProjectEditorSheet> {
           label: Text(l.addFolder),
         ),
       ],
+    );
+  }
+}
+
+/// One folder of a multi-project. The name is the title, so the second line
+/// only says where the folder is; the full path is on long press.
+class _ProjectFolderTile extends StatelessWidget {
+  const _ProjectFolderTile({
+    super.key,
+    required this.path,
+    required this.allowedRoots,
+    required this.isPrimary,
+    required this.onMakePrimary,
+    required this.onRemove,
+  });
+
+  final String path;
+  final List<String> allowedRoots;
+  final bool isPrimary;
+  final VoidCallback onMakePrimary;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final details = [
+      if (isPrimary) l.primary,
+      ?folderLocationLabel(path, allowedRoots),
+    ].join(' · ');
+    return Tooltip(
+      message: path,
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(isPrimary ? Icons.star : Icons.folder_outlined, size: 20),
+        title: Text(
+          pathBasename(path),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: details.isEmpty
+            ? null
+            : Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isPrimary)
+              IconButton(
+                tooltip: l.makePrimary,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.star_border),
+                onPressed: onMakePrimary,
+              ),
+            IconButton(
+              tooltip: l.removeFolder,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close),
+              onPressed: onRemove,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

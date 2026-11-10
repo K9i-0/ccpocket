@@ -1377,6 +1377,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       context: context,
       controller: _additionalWritableRootController,
       suggestions: _addDirSuggestions,
+      bridge: widget.bridge,
+      includeHidden: widget.showHiddenDirectories,
     );
     if (selected == null || !mounted) return;
     _addWritableRoot(selected);
@@ -2401,6 +2403,19 @@ class _PathInput extends StatelessWidget {
   }
 }
 
+/// Chip labels for a list of folders: the folder name, or the whole path for
+/// folders whose name appears more than once. The whole path stays available
+/// as the chip's tooltip.
+List<String> _folderChipLabels(List<String> paths) {
+  final names = [for (final path in paths) pathBasename(path)];
+  return [
+    for (final (index, path) in paths.indexed)
+      names.where((name) => name == names[index]).length > 1
+          ? shortenPath(path)
+          : names[index],
+  ];
+}
+
 class _AdditionalWritableRootsSection extends StatelessWidget {
   final List<String> roots;
   final VoidCallback onAddPressed;
@@ -2416,6 +2431,7 @@ class _AdditionalWritableRootsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final rootLabels = _folderChipLabels(roots);
     final infoButton = _AdditionalWritableRootsInfoButton(
       message:
           '${l.additionalWritableRootsDescription}\n${l.additionalWritableRootsTooltip}',
@@ -2468,12 +2484,12 @@ class _AdditionalWritableRootsSection extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final root in roots)
+                  for (final (index, root) in roots.indexed)
                     InputChip(
                       key: ValueKey(
                         'additional_writable_root_${root.hashCode}',
                       ),
-                      label: Text(shortenPath(root)),
+                      label: Text(rootLabels[index]),
                       tooltip: root,
                       onDeleted: () => onDeleted(root),
                     ),
@@ -2524,29 +2540,54 @@ Future<String?> _showAddWritableRootSheet({
   required BuildContext context,
   required TextEditingController controller,
   required List<String> suggestions,
+  required BridgeService? bridge,
+  required bool includeHidden,
 }) {
   return showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (sheetContext) =>
-        _AddWritableRootSheet(controller: controller, suggestions: suggestions),
+    builder: (sheetContext) => _AddWritableRootSheet(
+      controller: controller,
+      suggestions: suggestions,
+      bridge: bridge,
+      includeHidden: includeHidden,
+    ),
   );
 }
 
 class _AddWritableRootSheet extends StatelessWidget {
   final TextEditingController controller;
   final List<String> suggestions;
+  final BridgeService? bridge;
+  final bool includeHidden;
 
   const _AddWritableRootSheet({
     required this.controller,
     required this.suggestions,
+    required this.bridge,
+    required this.includeHidden,
   });
+
+  /// Picking a folder in the browser is already a confirmation, so it is
+  /// added straight away instead of being copied into the field first.
+  Future<void> _browse(BuildContext context, BridgeService bridge) async {
+    final typed = controller.text.trim();
+    final path = await showDirectoryBrowserSheet(
+      context: context,
+      bridge: bridge,
+      initialPath: typed.isEmpty ? null : typed,
+      allowedRoots: bridge.allowedDirs,
+      includeHidden: includeHidden,
+    );
+    if (path != null && context.mounted) Navigator.pop(context, path);
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final suggestionLabels = _folderChipLabels(suggestions);
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
@@ -2608,6 +2649,16 @@ class _AddWritableRootSheet extends StatelessWidget {
                           labelText: l.directoryPath,
                           hintText: '/Users/me/Workspace/other-project',
                           border: const OutlineInputBorder(),
+                          suffixIcon: bridge == null
+                              ? null
+                              : IconButton(
+                                  key: const ValueKey(
+                                    'additional_writable_root_browse_button',
+                                  ),
+                                  tooltip: l.browseDirectory,
+                                  onPressed: () => _browse(context, bridge!),
+                                  icon: const Icon(Icons.folder_open),
+                                ),
                         ),
                         onSubmitted: (value) {
                           final trimmed = value.trim();
@@ -2630,12 +2681,17 @@ class _AddWritableRootSheet extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            for (final suggestion in suggestions)
+                            for (final (index, suggestion)
+                                in suggestions.indexed)
                               ActionChip(
                                 key: ValueKey(
                                   'additional_writable_root_suggestion_${suggestion.hashCode}',
                                 ),
-                                label: Text(shortenPath(suggestion)),
+                                avatar: const Icon(
+                                  Icons.folder_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(suggestionLabels[index]),
                                 tooltip: suggestion,
                                 onPressed: () {
                                   Navigator.pop(context, suggestion);

@@ -239,6 +239,83 @@ void main() {
     );
   });
 
+  testWidgets('an additional folder can be picked from the folder browser', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final bridge = _DirectoryBrowserBridge();
+    addTearDown(bridge.dispose);
+    NewSessionParams? result;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
+        theme: AppTheme.darkTheme,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: const [],
+                  initialParams: NewSessionParams(
+                    projectPath: '/workspace/main',
+                    provider: Provider.codex,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Additional accessible folders'), findsOneWidget);
+    final addButton = find.byKey(
+      const ValueKey('additional_writable_root_add_button'),
+    );
+    await tester.ensureVisible(addButton);
+    await tester.tap(addButton);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('additional_writable_root_field')),
+      '/workspace',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('additional_writable_root_browse_button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ccpocket'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('directory_browser_select_action')),
+    );
+    await tester.pumpAndSettle();
+
+    // Selecting in the browser adds the folder without a second confirmation.
+    expect(
+      find.byKey(const ValueKey('additional_writable_root_field')),
+      findsNothing,
+    );
+    final startButton = find.byKey(const ValueKey('dialog_start_button'));
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+    expect(result?.additionalWritableRoots, ['/workspace/ccpocket']);
+  });
+
   testWidgets('restores a delayed Project selection by identity', (
     tester,
   ) async {

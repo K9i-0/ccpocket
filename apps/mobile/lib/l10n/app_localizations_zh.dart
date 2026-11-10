@@ -1001,11 +1001,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAccess => '网络访问';
 
   @override
-  String get additionalWritableRootsTitle => '额外可用目录';
+  String get additionalWritableRootsTitle => '额外可用文件夹';
 
   @override
   String get additionalWritableRootsDescription =>
-      '此会话会在 Codex config.toml 的 writable_roots 之外追加这些目录。';
+      '此会话会在 Codex config.toml 的 writable_roots 之外追加这些文件夹。';
 
   @override
   String get additionalWritableRootsTooltip =>
@@ -1015,25 +1015,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get additionalWritableRootsSuggestions => '最近项目';
 
   @override
-  String get addDirectory => '添加目录';
+  String get addDirectory => '添加文件夹';
 
   @override
-  String get directoryPath => '目录路径';
+  String get directoryPath => '文件夹路径';
 
   @override
-  String get directoryPathOutsideAllowedRoots => '目录路径不在允许的目录范围内';
+  String get directoryPathOutsideAllowedRoots => '文件夹路径不在允许的范围内';
 
   @override
-  String get browseDirectory => '浏览目录';
+  String get browseDirectory => '浏览文件夹';
 
   @override
   String get selectDirectory => '选择';
 
   @override
-  String get noSubdirectories => '没有子目录';
+  String get noSubdirectories => '没有子文件夹';
 
   @override
-  String get directoryBrowserRoots => '允许的目录';
+  String get directoryBrowserRoots => '允许的文件夹';
+
+  @override
+  String get directoryBrowserFilterHint => '筛选文件夹';
+
+  @override
+  String get directoryBrowserNoMatches => '没有匹配的文件夹';
 
   @override
   String get directoryBrowserBridgeUpdateRequired =>
@@ -2434,10 +2440,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
 
   @override
-  String get showHiddenDirectories => '显示隐藏目录';
+  String get showHiddenDirectories => '显示隐藏文件夹';
 
   @override
-  String get showHiddenDirectoriesSubtitle => '在新建会话目录浏览器中显示以 . 开头的文件夹。';
+  String get showHiddenDirectoriesSubtitle => '在新建会话的文件夹浏览器中显示以 . 开头的文件夹。';
 
   @override
   String get showBridgeNameInSessionList => '显示 Bridge 名称';

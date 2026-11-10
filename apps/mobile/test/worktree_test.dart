@@ -417,7 +417,53 @@ void main() {
       await tester.tap(addButton);
       await tester.pumpAndSettle();
 
-      expect(find.text(extraProject), findsOneWidget);
+      // The chip names the folder; the path is its tooltip, not its label.
+      expect(find.text('codex'), findsOneWidget);
+      expect(find.text(extraProject), findsNothing);
+      expect(find.byTooltip(extraProject), findsOneWidget);
+    });
+
+    testWidgets('additional writable root suggestions with the same folder '
+        'name show their paths', (tester) async {
+      const first = '/Users/me/Workspace/codex';
+      const second = '/Users/me/Archive/codex';
+      SharedPreferences.setMockInitialValues({
+        _additionalWritableRootHistoryKey: [first, second],
+      });
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [
+                    (path: '/Users/me/Workspace/main', name: 'main'),
+                  ],
+                  initialParams: NewSessionParams(
+                    projectPath: '/Users/me/Workspace/main',
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final addButton = find.byKey(
+        const ValueKey('additional_writable_root_add_button'),
+      );
+      await tester.ensureVisible(addButton);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('codex'), findsNothing);
+      expect(find.text(first), findsOneWidget);
+      expect(find.text(second), findsOneWidget);
     });
 
     testWidgets(
