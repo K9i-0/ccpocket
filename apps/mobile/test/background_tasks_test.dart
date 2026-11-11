@@ -93,6 +93,29 @@ void main() {
 
     expect(find.text('Running in background'), findsOneWidget);
     expect(find.text('Wait for CI · +1 more'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('background_tasks_bar')));
+    // The bar's spinner never settles.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Running in background (2)'), findsOneWidget);
+    final shell = find.byKey(const ValueKey('background_task_b1'));
+    expect(
+      find.descendant(of: shell, matching: find.text('Wait for CI')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: shell, matching: find.text('Shell')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('background_task_a1')),
+        matching: find.text('Explore'),
+      ),
+      findsOneWidget,
+    );
   });
 
   test('session list carries the background agent count', () {
