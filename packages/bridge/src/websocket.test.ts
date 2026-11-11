@@ -16,6 +16,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePlatformPath } from "./path-utils.js";
 import { MediaStore } from "./media-store.js";
+import { ImageStore } from "./image-store.js";
 import { UploadStore } from "./upload-store.js";
 
 const {
@@ -128,6 +129,8 @@ vi.mock("./session.js", () => ({
     constructor(onMessage?: (sessionId: string, msg: any) => void) {
       this.onMessage = onMessage ?? (() => {});
     }
+
+    setAssistantImageResolver(): void {}
 
     create(
       projectPath: string,
@@ -7249,6 +7252,49 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       const listed = await send({ type: "list_files", projectPath: readOnly });
       expect(listed).toMatchObject({ type: "file_list", files: [] });
       expect(listed.error).toContain("not in the allowed directories");
+    } finally {
+      bridge.close();
+      for (const dir of [projectPath, readOnly, outside]) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("re-attaches markdown-embedded images when past history is restored", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-bridge-"));
+    const readOnly = mkdtempSync(resolve(tmpdir(), "ccpocket-readonly-"));
+    const outside = mkdtempSync(resolve(tmpdir(), "ccpocket-outside-"));
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    writeFileSync(resolve(projectPath, "a.png"), png);
+    writeFileSync(resolve(readOnly, "shot.png"), png);
+    writeFileSync(resolve(outside, "secret.png"), png);
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer, allowedDirs: [projectPath], readOnlyDirs: [readOnly],
+      imageStore: new ImageStore(),
+    });
+    const text = [
+      "![案A](a.png)",
+      `![検証](${resolve(readOnly, "shot.png")})`,
+      `![外](${resolve(outside, "secret.png")})`,
+      "[a.png](a.png)",
+    ].join("\n");
+    const plain = { role: "assistant", content: [{ type: "text", text: "[a.png](a.png)" }] };
+    try {
+      const { pastMessages } = await (bridge as any).preparePastHistoryMessages(
+        { projectPath },
+        [{ role: "assistant", uuid: "u1", content: [{ type: "text", text }] }, plain],
+      );
+      expect(pastMessages[0].images).toHaveLength(2);
+      expect(pastMessages[0].images[0]).toMatchObject({
+        path: resolve(projectPath, "a.png"), alt: "案A", mimeType: "image/png",
+      });
+      expect(pastMessages[0].images[1]).toMatchObject({
+        path: resolve(readOnly, "shot.png"), alt: "検証",
+      });
+      expect(pastMessages[1]).toBe(plain);
     } finally {
       bridge.close();
       for (const dir of [projectPath, readOnly, outside]) {

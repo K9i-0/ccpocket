@@ -640,6 +640,7 @@ class ChatMessageHandler {
                 model: '',
               ),
               messageUuid: m.uuid,
+              images: m.images,
             ),
             timestamp: ts,
           ),

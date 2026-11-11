@@ -263,6 +263,7 @@ class ServerMessageWidget extends StatelessWidget {
         resolvedPlanText: resolvedPlanText,
         hiddenToolUseIds: hiddenToolUseIds,
         onFileTap: onFileTap,
+        httpBaseUrl: httpBaseUrl,
         onFork: onForkMessage != null ? () => onForkMessage!(msg) : null,
       ),
       // Hide tool results that are summarized by a tool_use_summary

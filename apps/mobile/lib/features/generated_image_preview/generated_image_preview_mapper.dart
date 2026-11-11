@@ -61,6 +61,44 @@ List<GeneratedImagePreviewItem> generatedImageItemsFromToolResults(
   return items;
 }
 
+/// Items for images the assistant embedded with `![label](path)`.
+///
+/// The alt text becomes the thumbnail caption and the file name the preview
+/// heading, so candidates can be told apart when the user is asked to choose.
+List<GeneratedImagePreviewItem> generatedImageItemsFromAssistantImages(
+  List<ImageRef> images, {
+  required String messageKey,
+  required String? httpBaseUrl,
+}) {
+  final items = <GeneratedImagePreviewItem>[];
+  for (var index = 0; index < images.length; index++) {
+    final image = images[index];
+    final resolvedUrl = _resolveImageUrl(image.url, httpBaseUrl);
+    if (resolvedUrl == null) continue;
+    final thumbnailUrl = image.thumbnailUrl == null
+        ? null
+        : _resolveImageUrl(image.thumbnailUrl!, httpBaseUrl);
+    final path = image.path;
+    final fileName = path?.split(RegExp(r'[/\\]')).last;
+    final alt = image.alt?.trim() ?? '';
+    final identity = 'assistant-image-v1\n${image.id}\n${image.mimeType}';
+    items.add(
+      GeneratedImagePreviewItem(
+        id: '$messageKey:$index:${image.id}',
+        url: resolvedUrl,
+        thumbnailUrl: thumbnailUrl,
+        cacheKey: sha256.convert(utf8.encode(identity)).toString(),
+        mimeType: image.mimeType,
+        prompt: alt,
+        savedPath: path,
+        caption: alt.isNotEmpty ? alt : fileName,
+        title: fileName,
+      ),
+    );
+  }
+  return items;
+}
+
 GeneratedImagePreviewItem _itemFromImageRef({
   required ToolResultMessage message,
   required ImageRef image,

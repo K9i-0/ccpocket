@@ -122,11 +122,19 @@ class _GeneratedImageChatTile extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: preserveAspectRatio
-                ? _IntrinsicAspectRatioImage(item: item)
+                ? Stack(
+                    children: [
+                      _IntrinsicAspectRatioImage(item: item),
+                      if (item.caption case final caption?)
+                        _GeneratedImageCaption(index: index, caption: caption),
+                    ],
+                  )
                 : Stack(
                     fit: StackFit.expand,
                     children: [
                       _GeneratedImageThumbnail(item: item, fit: BoxFit.cover),
+                      if (item.caption case final caption?)
+                        _GeneratedImageCaption(index: index, caption: caption),
                       if (remainingCount > 0)
                         ColoredBox(
                           color: Colors.black54,
@@ -143,6 +151,47 @@ class _GeneratedImageChatTile extends StatelessWidget {
                         ),
                     ],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Label pinned to the bottom-left of a thumbnail.
+class _GeneratedImageCaption extends StatelessWidget {
+  final int index;
+  final String caption;
+
+  const _GeneratedImageCaption({required this.index, required this.caption});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 6,
+      right: 6,
+      bottom: 6,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: Text(
+              caption,
+              key: ValueKey('generated_image_chat_caption_$index'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
           ),
         ),
       ),

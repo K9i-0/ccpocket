@@ -19,6 +19,10 @@ import '../../utils/tool_categories.dart';
 import '../../utils/codex_plan_update.dart';
 import '../../features/file_peek/file_path_syntax.dart';
 import '../../features/file_peek/markdown_link_handler.dart';
+import '../../features/generated_image_preview/generated_image_preview_item.dart';
+import '../../features/generated_image_preview/generated_image_preview_mapper.dart';
+import '../../features/generated_image_preview/widgets/generated_image_chat_group.dart';
+import 'markdown_image_chip.dart';
 import 'error_bubble.dart';
 import '../plan_detail_sheet.dart';
 import '../google_search_text_selection.dart';
@@ -45,11 +49,15 @@ class AssistantBubble extends StatefulWidget {
   final VoidCallback? onFork;
   final Set<String> hiddenToolUseIds;
 
+  /// Bridge HTTP origin used to load images attached to the message.
+  final String? httpBaseUrl;
+
   const AssistantBubble({
     super.key,
     required this.message,
     this.resolvedPlanText,
     this.onFileTap,
+    this.httpBaseUrl,
     this.onFork,
     this.hiddenToolUseIds = const {},
   });
@@ -112,8 +120,17 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       );
     }
 
+    final imageItems = widget.message.images.isEmpty
+        ? const <GeneratedImagePreviewItem>[]
+        : generatedImageItemsFromAssistantImages(
+            widget.message.images,
+            messageKey: widget.message.messageUuid ?? widget.message.message.id,
+            httpBaseUrl: widget.httpBaseUrl,
+          );
+
     return _DefaultLayout(
       contents: contents,
+      imageItems: imageItems,
       hasTextContent: hasTextContent,
       plainTextMode: _plainTextMode,
       allText: allText,
@@ -204,6 +221,7 @@ class _PlanLayout extends StatelessWidget {
 
 class _DefaultLayout extends StatelessWidget {
   final List<AssistantContent> contents;
+  final List<GeneratedImagePreviewItem> imageItems;
   final bool hasTextContent;
   final bool plainTextMode;
   final String allText;
@@ -214,6 +232,7 @@ class _DefaultLayout extends StatelessWidget {
 
   const _DefaultLayout({
     required this.contents,
+    this.imageItems = const [],
     required this.hasTextContent,
     required this.plainTextMode,
     required this.allText,
@@ -248,6 +267,7 @@ class _DefaultLayout extends StatelessWidget {
               thinking: thinking,
             ),
           },
+        if (imageItems.isNotEmpty) GeneratedImageChatGroup(items: imageItems),
         if (hasTextContent)
           MessageActionBar(
             textToCopy: allText,
@@ -292,6 +312,9 @@ class _DefaultLayout extends StatelessWidget {
                     context,
                     onFileTap: onFileTap,
                     knownPathSuffixes: fileSuffixes,
+                  ),
+                  sizedImageBuilder: chatMarkdownImageBuilder(
+                    onFileTap: onFileTap,
                   ),
                   inlineSyntaxes: [
                     if (onFileTap != null) ...[

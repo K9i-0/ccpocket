@@ -35,6 +35,11 @@ import type {
 } from "./parser.js";
 import { isAgentBackgroundTask } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
+import {
+  assistantTextBlocks,
+  hasMarkdownImages,
+  type AssistantImageResolver,
+} from "./markdown-images.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 import { withDerivedCodexPermissionsMode } from "./codex-permissions.js";
 import { GoalNotifications } from "./goal-notifications.js";
@@ -355,6 +360,7 @@ export class SessionManager {
   private onGalleryImage: GalleryImageCallback | null;
   private worktreeStore: WorktreeStore | null;
   private onSessionUpdated: SessionUpdatedCallback | null;
+  private assistantImageResolver: AssistantImageResolver | null = null;
   private readonly idleSessionTtlMs: number;
   private idleEvictionTimer: ReturnType<typeof setInterval>;
 
@@ -371,6 +377,11 @@ export class SessionManager {
       pluginMetadata?: Array<Record<string, unknown>>;
     }
   >();
+
+  /** Enables attaching markdown-embedded images to assistant messages. */
+  setAssistantImageResolver(resolver: AssistantImageResolver | null): void {
+    this.assistantImageResolver = resolver;
+  }
 
   constructor(
     onMessage: (sessionId: string, msg: ServerMessage) => void,
@@ -662,6 +673,20 @@ export class SessionManager {
           this.onSessionUpdated?.(session.id);
         }
 
+        // Attach images the assistant embedded with ![label](path).
+        if (msg.type === "assistant" && this.assistantImageResolver) {
+          const texts = assistantTextBlocks(msg.message.content);
+          if (hasMarkdownImages(texts)) {
+            const images = await this.assistantImageResolver(
+              texts,
+              session.projectPath,
+            );
+            if (images.length > 0) {
+              msg = { ...msg, images };
+            }
+          }
+        }
+
         // Extract images from tool_result content for both Claude and Codex.
         if (msg.type === "tool_result" && this.imageStore) {
           const paths = this.imageStore.extractImagePaths(msg.content);
@@ -813,6 +838,9 @@ export class SessionManager {
             goalNotifications.goal === undefined))
       ) {
         return true;
+      }
+      if (msg.type === "assistant" && this.assistantImageResolver) {
+        return hasMarkdownImages(assistantTextBlocks(msg.message.content));
       }
       if (msg.type !== "tool_result" || !this.imageStore) return false;
       if (this.imageStore.extractImagePaths(msg.content).length > 0) {

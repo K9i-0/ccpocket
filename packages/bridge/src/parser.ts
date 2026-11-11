@@ -1,3 +1,4 @@
+import type { AssistantImageRef } from "./markdown-images.js";
 import type { CodexRecoveryState } from "./codex-recovery.js";
 import type { GoalNotification } from "./goal-notifications.js";
 import type { GalleryImageInfo } from "./gallery-store.js";
@@ -772,7 +773,13 @@ export type ServerMessage =
       tipCode?: string;
       codexCliJoin?: CodexCliJoinTarget;
     }
-  | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
+  | {
+      type: "assistant";
+      message: AssistantMessage;
+      messageUuid?: string;
+      /** Local images embedded with markdown image syntax in the text. */
+      images?: AssistantImageRef[];
+    }
   | {
       type: "tool_result";
       toolUseId: string;

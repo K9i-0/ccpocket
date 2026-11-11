@@ -635,11 +635,20 @@ class ImageRef {
   final String mimeType;
   final String? thumbnailUrl;
 
+  /// Source file on the Bridge host, set for images the assistant embedded
+  /// with markdown image syntax.
+  final String? path;
+
+  /// Label the assistant wrote as the image's alt text.
+  final String? alt;
+
   const ImageRef({
     required this.id,
     required this.url,
     required this.mimeType,
     this.thumbnailUrl,
+    this.path,
+    this.alt,
   });
 
   factory ImageRef.fromJson(Map<String, dynamic> json) {
@@ -648,6 +657,8 @@ class ImageRef {
       url: json['url'] as String,
       mimeType: json['mimeType'] as String,
       thumbnailUrl: json['thumbnailUrl'] as String?,
+      path: json['path'] as String?,
+      alt: json['alt'] as String?,
     );
   }
 }
@@ -953,6 +964,12 @@ sealed class ServerMessage {
           json['message'] as Map<String, dynamic>,
         ),
         messageUuid: json['messageUuid'] as String?,
+        images:
+            (json['images'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(ImageRef.fromJson)
+                .toList() ??
+            const [],
       ),
       'tool_result' => ToolResultMessage(
         toolUseId: json['toolUseId'] as String,
@@ -1894,7 +1911,15 @@ class CodexCliJoinTarget {
 class AssistantServerMessage implements ServerMessage {
   final AssistantMessage message;
   final String? messageUuid;
-  const AssistantServerMessage({required this.message, this.messageUuid});
+
+  /// Local images the assistant embedded with `![label](path)`, registered
+  /// by the Bridge so they can be shown below the message.
+  final List<ImageRef> images;
+  const AssistantServerMessage({
+    required this.message,
+    this.messageUuid,
+    this.images = const [],
+  });
 }
 
 class ToolResultMessage implements ServerMessage {

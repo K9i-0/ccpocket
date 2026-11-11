@@ -91,6 +91,13 @@ import {
   saveCodexSessionProfile,
 } from "./sessions-index.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
+import {
+  assistantTextBlocks,
+  createAssistantImageResolver,
+  hasMarkdownImages,
+  type AssistantImageRef,
+  type AssistantImageResolver,
+} from "./markdown-images.js";
 import type { MediaStore } from "./media-store.js";
 import {
   isSafeUploadFileName,
@@ -1119,6 +1126,7 @@ export class BridgeWebSocketServer {
   private apiKey: string | null;
   private allowedDirs: string[];
   private readOnlyDirs: string[];
+  private assistantImageResolver: AssistantImageResolver | null = null;
   private fileDownloadAllowAllPaths: boolean;
   private imageStore: ImageStore | null;
   private mediaStore: MediaStore | null;
@@ -1350,6 +1358,14 @@ export class BridgeWebSocketServer {
       },
     });
 
+    this.assistantImageResolver = imageStore
+      ? createAssistantImageResolver({
+          imageStore,
+          isPathReadable: (path) => this.isPathReadable(path),
+          isCanonicalPathReadable: (path) => this.isCanonicalPathReadable(path),
+        })
+      : null;
+
     this.sessionManager = new SessionManager(
       (sessionId, msg) => {
         this.broadcastSessionMessage(sessionId, msg);
@@ -1369,6 +1385,7 @@ export class BridgeWebSocketServer {
         this.broadcastSessionList();
       },
     );
+    this.sessionManager.setAssistantImageResolver(this.assistantImageResolver);
 
     this.wss.on("connection", (ws, req) => {
       // API key authentication
@@ -2566,6 +2583,12 @@ export class BridgeWebSocketServer {
         continue;
       }
 
+      if (msg.role === "assistant") {
+        const images = await this.resolveAssistantImages(session, msg.content);
+        pastMessages.push(images.length > 0 ? { ...msg, images } : raw);
+        continue;
+      }
+
       if (msg.role !== "tool_result") {
         pastMessages.push(raw);
         continue;
@@ -3109,6 +3132,10 @@ export class BridgeWebSocketServer {
     if (item.role === "assistant") {
       const content = this.sessionHistoryAssistantContent(item.content);
       if (content.length === 0) return null;
+      const assistantImages = await this.resolveAssistantImages(
+        session,
+        content,
+      );
       const messageId =
         item.uuid ??
         this.sessionHistorySingleToolUseId(item.content) ??
@@ -3122,6 +3149,7 @@ export class BridgeWebSocketServer {
           model: session.codexSettings?.model ?? "",
         },
         ...(item.uuid ? { messageUuid: item.uuid } : {}),
+        ...(assistantImages.length > 0 ? { images: assistantImages } : {}),
       };
     }
 
@@ -3270,6 +3298,17 @@ export class BridgeWebSocketServer {
     }
 
     return refs;
+  }
+
+  /** Re-registers markdown-embedded images when history is restored. */
+  private async resolveAssistantImages(
+    session: SessionInfo,
+    content: unknown,
+  ): Promise<AssistantImageRef[]> {
+    if (!this.assistantImageResolver) return [];
+    const texts = assistantTextBlocks(content);
+    if (!hasMarkdownImages(texts)) return [];
+    return this.assistantImageResolver(texts, session.projectPath);
   }
 
   private async registerPastToolResultImages(

@@ -75,17 +75,26 @@ class _DetailsContent extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFF69D5C3), size: 15),
+            Icon(
+              item.title == null ? Icons.auto_awesome : Icons.image_outlined,
+              color: const Color(0xFF69D5C3),
+              size: 15,
+            ),
             const SizedBox(width: 8),
-            Text(
-              l.generatedImagePromptLabel,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
+            Flexible(
+              child: Text(
+                item.title ?? l.generatedImagePromptLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             const Spacer(),
             _ImageFormatBadge(mimeType: item.mimeType),
           ],

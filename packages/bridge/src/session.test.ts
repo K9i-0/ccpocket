@@ -1612,6 +1612,56 @@ describe("SessionManager codex path", () => {
       { seq: 2, type: "result" },
     ]);
   });
+
+  it("attaches markdown-embedded images to assistant messages in order", async () => {
+    const forwarded: ServerMessage[] = [];
+    const image = {
+      id: "a".repeat(64),
+      url: `/images/${"a".repeat(64)}`,
+      mimeType: "image/png",
+      path: "/tmp/project-md-images/out/a.png",
+      alt: "案A",
+    };
+    const resolver = vi.fn(async () => [image]);
+    const manager = new SessionManager((_, msg) => {
+      forwarded.push(msg);
+    });
+    manager.setAssistantImageResolver(resolver);
+    const sessionId = manager.create(
+      "/tmp/project-md-images",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const assistant = (id: string, text: string) =>
+      ({
+        type: "assistant",
+        message: {
+          id,
+          role: "assistant",
+          content: [{ type: "text", text }],
+          model: "test",
+        },
+      }) as unknown as ServerMessage;
+
+    codexInstances[0].emit("message", assistant("m1", "![案A](out/a.png)"));
+    codexInstances[0].emit("message", assistant("m2", "[a.png](out/a.png)"));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(resolver).toHaveBeenCalledWith(
+      ["![案A](out/a.png)"],
+      "/tmp/project-md-images",
+    );
+    expect(forwarded).toHaveLength(2);
+    expect(forwarded[0]).toMatchObject({ type: "assistant", images: [image] });
+    expect(forwarded[1]).not.toHaveProperty("images");
+    expect(manager.get(sessionId)?.history[0]).toMatchObject({
+      type: "assistant",
+      images: [image],
+    });
+  });
 });
 
 describe("SessionManager rewindConversation", () => {

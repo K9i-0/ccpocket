@@ -13,6 +13,12 @@ class GeneratedImagePreviewItem {
   final String? savedPath;
   final String? details;
 
+  /// Short label drawn on the chat thumbnail (e.g. "案A").
+  final String? caption;
+
+  /// Replaces the "Prompt" heading in the preview, e.g. with a file name.
+  final String? title;
+
   const GeneratedImagePreviewItem({
     required this.id,
     this.url,
@@ -24,6 +30,8 @@ class GeneratedImagePreviewItem {
     this.status,
     this.savedPath,
     this.details,
+    this.caption,
+    this.title,
   }) : assert(bytes != null || (url != null && url != ''));
 
   bool get hasDetails =>
