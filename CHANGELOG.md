@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.162.0] - 2026-11-11
+
+### Added
+
+- Local images that the assistant shows with Markdown image syntax in its reply appear as a thumbnail gallery below the message, labeled so candidates can be told apart. In the text, such images are shown as a label that opens the file preview. Requires Bridge 1.106.0 or later.
+- The folder browser has a name filter, and the Codex "additional folders" sheet has a browse button.
+
+### Changed
+
+- The folder browser is more compact: one tappable breadcrumb from the allowed folder, name-only rows, and allowed-folder shortcuts only when there is more than one. Known Bridge errors are shown in the app's own words.
+- The multi-project editor shows each folder's name with a one-line location, and additional folder chips show folder names (the full path only when names collide).
+- The UI says "folder" instead of "directory" throughout.
+- The app expects Bridge 1.106.0.
+
 ## [1.161.0] - 2026-11-11
 
 ### Added
