@@ -447,6 +447,28 @@ void main() {
       });
     });
 
+    testWidgets('tapping the model name opens the model picker', (
+      tester,
+    ) async {
+      await pumpWithSettings(tester);
+      await tester.tap(find.byKey(const ValueKey('claude_model_chip')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_model_label')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('claude_settings_model_haiku_option')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(claudeCubit.state.claudeModel, 'haiku');
+      expect(
+        find.byKey(const ValueKey('claude_settings_quick_panel')),
+        findsOneWidget,
+      );
+    });
+
     Switch ultracodeSwitch(WidgetTester tester) => tester.widget<Switch>(
       find.descendant(
         of: find.byKey(const ValueKey('claude_settings_ultracode_switch')),
@@ -634,13 +656,14 @@ void main() {
         closeTo(headerY, 1),
       );
     }
+    // The model name is a button with a dropdown arrow.
     final modelBounds = tester.getRect(
-      find.byKey(const ValueKey('codex_settings_model_label')),
+      find.byKey(const ValueKey('codex_settings_model_label_button')),
     );
     final effortBounds = tester.getRect(
       find.byKey(const ValueKey('codex_settings_effort_label')),
     );
-    expect(effortBounds.left - modelBounds.right, closeTo(8, 1));
+    expect(effortBounds.left - modelBounds.right, closeTo(4, 1));
     expect(
       tester
           .widget<Text>(

@@ -165,6 +165,7 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
       advancedPanelKey: '${prefix}_advanced_panel',
       modelLabelKey: '${prefix}_model_label',
       effortLabelKey: '${prefix}_effort_label',
+      onModelTap: () => _showModelPicker(prefix),
       quickChild: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -243,18 +244,7 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
         key: ValueKey('${prefix}_model_row'),
         label: l.model,
         value: claudeModelLabel(widget.models, _model),
-        onTap: () => _showPicker<String>(
-          title: l.model,
-          values: [for (final option in widget.models) option.value],
-          selected: _model,
-          label: (m) => claudeModelLabel(widget.models, m),
-          subtitle: (m) {
-            final description = claudeModelDescription(widget.models, m);
-            return description.isEmpty ? null : description;
-          },
-          optionKey: (m) => '${prefix}_model_${m}_option',
-          onSelected: widget.onModelChanged,
-        ),
+        onTap: () => _showModelPicker(prefix),
       ),
       if (efforts.isNotEmpty && effort != null)
         _SettingsRow(
@@ -289,6 +279,21 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
           ),
         ),
     ];
+  }
+
+  void _showModelPicker(String prefix) {
+    _showPicker<String>(
+      title: AppLocalizations.of(context).model,
+      values: [for (final option in widget.models) option.value],
+      selected: _model,
+      label: (m) => claudeModelLabel(widget.models, m),
+      subtitle: (m) {
+        final description = claudeModelDescription(widget.models, m);
+        return description.isEmpty ? null : description;
+      },
+      optionKey: (m) => '${prefix}_model_${m}_option',
+      onSelected: widget.onModelChanged,
+    );
   }
 
   void _showPicker<T>({

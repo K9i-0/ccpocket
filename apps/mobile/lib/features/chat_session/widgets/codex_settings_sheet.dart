@@ -131,6 +131,7 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
           advancedPanelKey: 'codex_settings_advanced_panel',
           modelLabelKey: 'codex_settings_model_label',
           effortLabelKey: 'codex_settings_effort_label',
+          onModelTap: () => _showModelPicker(context),
           quickChild: CodexEffortSlider(
             efforts: _efforts,
             value: _effort,

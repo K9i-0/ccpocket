@@ -118,6 +118,9 @@ class CodexSettingsPanel extends StatelessWidget {
   final Widget quickChild;
   final Widget advancedChild;
 
+  /// Opens the model picker straight from the header's model name.
+  final VoidCallback? onModelTap;
+
   const CodexSettingsPanel({
     super.key,
     required this.modelLabel,
@@ -137,6 +140,7 @@ class CodexSettingsPanel extends StatelessWidget {
     required this.effortLabelKey,
     required this.quickChild,
     required this.advancedChild,
+    this.onModelTap,
   });
 
   @override
@@ -169,6 +173,7 @@ class CodexSettingsPanel extends StatelessWidget {
             onToggleMode: onToggleMode,
             modelLabelKey: modelLabelKey,
             effortLabelKey: effortLabelKey,
+            onModelTap: onModelTap,
           ),
           if (!speeds.contains(speed))
             Padding(
@@ -235,6 +240,7 @@ class _CodexSettingsHeader extends StatelessWidget {
   final VoidCallback onToggleMode;
   final String modelLabelKey;
   final String effortLabelKey;
+  final VoidCallback? onModelTap;
 
   const _CodexSettingsHeader({
     required this.modelLabel,
@@ -249,11 +255,20 @@ class _CodexSettingsHeader extends StatelessWidget {
     required this.onToggleMode,
     required this.modelLabelKey,
     required this.effortLabelKey,
+    this.onModelTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final onModelTap = this.onModelTap;
+    final modelText = Text(
+      '$modelLabel${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
+      key: ValueKey(modelLabelKey),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+    );
     final effortText = Text(
       effortLabel,
       key: ValueKey(effortLabelKey),
@@ -282,18 +297,32 @@ class _CodexSettingsHeader extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(
-                    '$modelLabel${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
-                    key: ValueKey(modelLabelKey),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: onModelTap == null
+                      ? modelText
+                      : InkWell(
+                          key: ValueKey('${modelLabelKey}_button'),
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            onModelTap();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 8, 2, 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: modelText),
+                                Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  size: 20,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: onModelTap == null ? 8 : 4),
                 Semantics(
                   label: 'Effort',
                   value: effortLabel,
