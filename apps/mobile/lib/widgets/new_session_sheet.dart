@@ -574,7 +574,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _additionalWritableRootController = TextEditingController();
   late final PageController _pageController;
   var _provider = Provider.codex;
-  var _claudePermissionMode = PermissionMode.defaultMode;
+  var _claudePermissionMode = PermissionMode.auto;
   var _executionMode = ExecutionMode.defaultMode;
   var _codexPermissionsMode = CodexPermissionsMode.defaultPermissions;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;

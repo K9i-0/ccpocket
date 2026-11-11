@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
@@ -795,6 +796,43 @@ void main() {
       expect(result!.provider, Provider.codex);
       expect(result!.model, 'gpt-5.5');
       expect(result!.codexModelOverridden, false);
+    });
+
+    testWidgets('Claude starts in Auto permission mode by default', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  visibleTabs: const [NewSessionTab.claude],
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('proj'));
+      await tester.pumpAndSettle();
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result!.provider, Provider.claude);
+      expect(result!.permissionMode, PermissionMode.auto);
     });
 
     testWidgets('Codex provider can also enable worktree', (tester) async {
