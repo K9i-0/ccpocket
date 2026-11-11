@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.163.0] - 2026-11-11
+
+### Added
+
+- Tapping the "Running in background" bar lists the running background tasks and subagents with their names and kinds. The list follows the session while it is open.
+- Tapping the model name in the model and effort sheet opens the model picker without switching to the advanced view.
+
+### Changed
+
+- New Claude sessions start in the Auto permission mode by default. A project's previously saved choice is kept.
+- The "Input" settings category is now called "Chat".
+
 ## [1.162.0] - 2026-11-11
 
 ### Added
