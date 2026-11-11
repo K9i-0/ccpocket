@@ -2051,7 +2051,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsCategoryAppearance => '화면';
 
   @override
-  String get settingsCategoryInput => '입력';
+  String get settingsCategoryInput => '채팅';
 
   @override
   String get settingsCategoryAgents => '에이전트';

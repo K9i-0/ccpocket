@@ -3860,7 +3860,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCategoryInput.
   ///
   /// In ja, this message translates to:
-  /// **'入力'**
+  /// **'チャット'**
   String get settingsCategoryInput;
 
   /// No description provided for @settingsCategoryAgents.

@@ -2120,7 +2120,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCategoryAppearance => 'Appearance';
 
   @override
-  String get settingsCategoryInput => 'Input';
+  String get settingsCategoryInput => 'Chat';
 
   @override
   String get settingsCategoryAgents => 'Agents';

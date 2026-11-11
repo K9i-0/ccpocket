@@ -2038,7 +2038,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsCategoryAppearance => '外観';
 
   @override
-  String get settingsCategoryInput => '入力';
+  String get settingsCategoryInput => 'チャット';
 
   @override
   String get settingsCategoryAgents => 'エージェント';

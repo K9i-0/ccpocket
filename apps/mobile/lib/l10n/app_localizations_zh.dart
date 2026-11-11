@@ -2012,7 +2012,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsCategoryAppearance => '外观';
 
   @override
-  String get settingsCategoryInput => '输入';
+  String get settingsCategoryInput => '聊天';
 
   @override
   String get settingsCategoryAgents => '智能体';

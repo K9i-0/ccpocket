@@ -21,7 +21,7 @@ extension SettingsCategoryVisuals on SettingsCategory {
     SettingsCategory.notifications => Icons.notifications_rounded,
     SettingsCategory.usage => Icons.speed_rounded,
     SettingsCategory.appearance => Icons.palette_rounded,
-    SettingsCategory.input => Icons.keyboard_alt_rounded,
+    SettingsCategory.input => Icons.chat_bubble_rounded,
     SettingsCategory.agents => Icons.smart_toy_rounded,
     SettingsCategory.git => Icons.difference_rounded,
     SettingsCategory.support => Icons.favorite_rounded,
