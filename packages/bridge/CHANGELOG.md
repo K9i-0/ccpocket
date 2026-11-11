@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.106.0] - 2026-11-11
+
+### Added
+
+- Local images that the assistant shows with Markdown image syntax (`![label](path)`) in its reply are attached to the `assistant` message as an optional `images` list, both live and when history is restored, for Claude and Codex. Only files inside `BRIDGE_ALLOWED_DIRS` or `BRIDGE_READONLY_DIRS` are attached (up to 12 per message). Older apps ignore the field.
+- `BRIDGE_READONLY_DIRS`: a comma-separated list of extra directories whose files can be previewed, downloaded, and revealed in Finder from the app (for example `/tmp,/private/tmp` for agent screenshots). They cannot be used as projects, upload destinations, or Git targets. `setup` persists the setting.
+
 ## [1.105.0] - 2026-11-11
 
 ### Added
