@@ -3637,6 +3637,51 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("correlates path_not_allowed with the rejected resume request", async () => {
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: ["/tmp/allowed"],
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_outside",
+        projectPath: "/tmp/outside/project",
+        provider: "codex",
+        resumeRequestId: "resume-outside",
+      },
+      ws,
+    );
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "session_resume_failed",
+        sourceSessionId: "thr_outside",
+        resumeRequestId: "resume-outside",
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "path_not_allowed",
+        path: "/tmp/outside/project",
+        sessionId: "thr_outside",
+        requestId: "resume-outside",
+      }),
+    );
+
+    bridge.close();
+  });
+
   it("forwards additional writable roots on codex resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

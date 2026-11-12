@@ -6456,7 +6456,13 @@ export class BridgeWebSocketServer {
             projectPath: resumeProjectPath,
             resumeRequestId: msg.resumeRequestId,
           });
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          this.send(ws, {
+            ...this.buildPathNotAllowedError(
+              msg.projectPath,
+              msg.resumeRequestId,
+            ),
+            sessionId: msg.sessionId,
+          });
           break;
         }
         if (
@@ -6571,10 +6577,13 @@ export class BridgeWebSocketServer {
               projectPath: effectiveProjectPath,
               resumeRequestId: msg.resumeRequestId,
             });
-            this.send(
-              ws,
-              this.buildPathNotAllowedError(additionalWritableRoots.deniedRoot),
-            );
+            this.send(ws, {
+              ...this.buildPathNotAllowedError(
+                additionalWritableRoots.deniedRoot,
+                msg.resumeRequestId,
+              ),
+              sessionId: sessionRefId,
+            });
             break;
           }
           let worktreeOpts:
@@ -6814,10 +6823,13 @@ export class BridgeWebSocketServer {
             projectPath: resumeProjectPath,
             resumeRequestId: msg.resumeRequestId,
           });
-          this.send(
-            ws,
-            this.buildPathNotAllowedError(additionalDirectories.deniedRoot),
-          );
+          this.send(ws, {
+            ...this.buildPathNotAllowedError(
+              additionalDirectories.deniedRoot,
+              msg.resumeRequestId,
+            ),
+            sessionId: sessionRefId,
+          });
           break;
         }
         // Look up worktree mapping for this Claude session
@@ -9083,6 +9095,10 @@ export class BridgeWebSocketServer {
         type: "error",
         message:
           "This session is already being restored with different settings. Wait for it to finish, then try again.",
+        sessionId: sourceSessionId,
+        ...(request.resumeRequestId
+          ? { requestId: request.resumeRequestId }
+          : {}),
       });
       return { key, operationId: operation.id, isOwner: false };
     }

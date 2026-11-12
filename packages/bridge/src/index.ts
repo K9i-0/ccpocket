@@ -31,6 +31,7 @@ import {
   PromptHistoryStore,
 } from "./prompt-history-store.js";
 import {
+  directoryListWarnings,
   parseAllowedDirectories,
   parseReadOnlyDirectories,
 } from "./path-utils.js";
@@ -109,6 +110,18 @@ export async function startServer() {
   );
   if (READONLY_DIRS.length > 0) {
     console.log(`[bridge] Read-only dirs: ${READONLY_DIRS.join(", ")}`);
+  }
+  for (const warning of [
+    ...directoryListWarnings(
+      "BRIDGE_ALLOWED_DIRS",
+      process.env.BRIDGE_ALLOWED_DIRS,
+    ),
+    ...directoryListWarnings(
+      "BRIDGE_READONLY_DIRS",
+      process.env.BRIDGE_READONLY_DIRS,
+    ),
+  ]) {
+    console.warn(`[bridge] WARNING: ${warning}`);
   }
 
   // Initialize Firebase Anonymous Auth for push notifications

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  directoryListWarnings,
   isPathWithinAllowedDirectory,
   normalizePlatformPath,
   parseAllowedDirectories,
@@ -88,6 +89,22 @@ describe("path-utils", () => {
       .toEqual(["/home/alice", "/opt/project"]);
     expect(parseAllowedDirectories("C:\\Users\\alice", "win32"))
       .toEqual(["C:\\Users\\alice"]);
+  });
+
+  it("warns when a directory list uses semicolons instead of commas", () => {
+    expect(
+      directoryListWarnings(
+        "BRIDGE_ALLOWED_DIRS",
+        "C:\\Users\\alice;D:\\",
+      ),
+    ).toEqual([
+      expect.stringContaining('"C:\\Users\\alice;D:\\" contains \';\''),
+    ]);
+    expect(
+      directoryListWarnings("BRIDGE_ALLOWED_DIRS", "C:\\Users\\alice,D:\\"),
+    ).toEqual([]);
+    expect(directoryListWarnings("BRIDGE_ALLOWED_DIRS", undefined)).toEqual([]);
+    expect(directoryListWarnings("BRIDGE_ALLOWED_DIRS", "*")).toEqual([]);
   });
 
   it("parses read-only directories and rejects a star", () => {
