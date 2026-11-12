@@ -716,6 +716,87 @@ describe("scanJsonlDir", () => {
     expect(result[0].firstPrompt).toBe("restore this session correctly");
   });
 
+  it("decodes JSON escapes in a Windows cwd", async () => {
+    // JSON.stringify writes each backslash as "\\", as Claude Code does in
+    // Windows transcripts. projectPath must be the real path, not the escaped
+    // string body, so it matches the path the Bridge resolves on resume.
+    const windowsCwd = "C:\\Users\\dev\\demo";
+    writeFileSync(
+      join(testDir, "windows-cwd.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "windows session" },
+        cwd: windowsCwd,
+        gitBranch: "main",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe(windowsCwd);
+    expect(result[0].resumeCwd).toBeUndefined();
+  });
+
+  it("normalizes an escaped Windows worktree cwd and keeps the decoded resumeCwd", async () => {
+    const worktreeCwd = "C:\\Users\\dev\\demo\\.claude\\worktrees\\feature";
+    writeFileSync(
+      join(testDir, "windows-worktree.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "windows worktree session" },
+        cwd: worktreeCwd,
+        gitBranch: "feature",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe("C:\\Users\\dev\\demo");
+    expect(result[0].resumeCwd).toBe(worktreeCwd);
+  });
+
+  it("decodes a Windows cwd found by the streaming fallback", async () => {
+    const windowsCwd = "C:\\Users\\dev\\big-image-project";
+    const largePadding = "x".repeat(20000); // > 16KB
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", data: largePadding } },
+            { type: "text", text: "windows image session" },
+          ],
+        },
+        cwd: windowsCwd,
+        gitBranch: "main",
+        sessionId: "windows-large-session",
+        timestamp: "2026-03-01T00:00:00.000Z",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Done." }],
+        },
+        cwd: windowsCwd,
+        sessionId: "windows-large-session",
+        timestamp: "2026-03-01T00:00:01.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "windows-large-session.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe(windowsCwd);
+    expect(result[0].resumeCwd).toBeUndefined();
+  });
+
   it("skips jsonl files when sessionId is excluded", async () => {
     writeFileSync(
       join(testDir, "included.jsonl"),
