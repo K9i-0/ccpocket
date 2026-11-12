@@ -2513,6 +2513,11 @@ class AppLocalizationsZh extends AppLocalizations {
       '请关闭 Codex Desktop 或 Codex App，然后重试。';
 
   @override
+  String resumePathNotAllowed(String path) {
+    return '“$path”不在 Bridge 允许的文件夹内。请将其加入 BRIDGE_ALLOWED_DIRS（以英文逗号分隔）并重启 Bridge。';
+  }
+
+  @override
   String get clipboardNotAvailable => '无法访问剪贴板';
 
   @override

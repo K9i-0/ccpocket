@@ -2544,6 +2544,11 @@ class AppLocalizationsJa extends AppLocalizations {
       'Codex Desktop または Codex App を閉じてから、もう一度お試しください。';
 
   @override
+  String resumePathNotAllowed(String path) {
+    return '「$path」はBridgeの許可フォルダ外です。BRIDGE_ALLOWED_DIRS（カンマ区切り）に追加してBridgeを再起動してください。';
+  }
+
+  @override
   String get clipboardNotAvailable => 'クリップボードにアクセスできません';
 
   @override

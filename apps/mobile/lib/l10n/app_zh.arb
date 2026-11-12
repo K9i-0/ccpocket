@@ -1072,6 +1072,7 @@
   },
   "retry": "重试",
   "codexWriterConflictGuidance": "请关闭 Codex Desktop 或 Codex App，然后重试。",
+  "resumePathNotAllowed": "“{path}”不在 Bridge 允许的文件夹内。请将其加入 BRIDGE_ALLOWED_DIRS（以英文逗号分隔）并重启 Bridge。",
 
   "clipboardNotAvailable": "无法访问剪贴板",
   "failedToLoadImage": "加载图片失败",

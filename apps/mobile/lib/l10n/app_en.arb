@@ -1002,6 +1002,7 @@
   },
   "retry": "Retry",
   "codexWriterConflictGuidance": "Close Codex Desktop or the Codex App, then try again.",
+  "resumePathNotAllowed": "\"{path}\" is outside the folders this Bridge allows. Add it to BRIDGE_ALLOWED_DIRS (comma-separated) and restart the Bridge.",
 
   "clipboardNotAvailable": "Cannot access clipboard",
   "failedToLoadImage": "Failed to load image",

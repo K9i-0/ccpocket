@@ -4787,6 +4787,12 @@ abstract class AppLocalizations {
   /// **'Codex Desktop または Codex App を閉じてから、もう一度お試しください。'**
   String get codexWriterConflictGuidance;
 
+  /// No description provided for @resumePathNotAllowed.
+  ///
+  /// In ja, this message translates to:
+  /// **'「{path}」はBridgeの許可フォルダ外です。BRIDGE_ALLOWED_DIRS（カンマ区切り）に追加してBridgeを再起動してください。'**
+  String resumePathNotAllowed(String path);
+
   /// No description provided for @clipboardNotAvailable.
   ///
   /// In ja, this message translates to:

@@ -410,14 +410,18 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
 
       if (msg is ErrorMessage && _matchesFailedResumeError(msg)) {
-        final showWriterConflict =
-            msg.errorCode == 'codex_thread_writer_conflict';
         _clearFailedResumeCorrelation();
-        if (showWriterConflict && mounted) {
+        if (mounted) {
+          // A rejected resume never opens a chat screen, so this list is the
+          // only place that can tell the user why the tap did nothing.
           final l = AppLocalizations.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l.codexWriterConflictGuidance)),
-          );
+          final text = switch (msg.errorCode) {
+            'codex_thread_writer_conflict' => l.codexWriterConflictGuidance,
+            'path_not_allowed' => l.resumePathNotAllowed(msg.path ?? ''),
+            _ => msg.message,
+          };
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(text)));
         }
         return;
       }
@@ -1743,6 +1747,13 @@ class _SessionListScreenState extends State<SessionListScreen>
   bool _matchesFailedResumeError(ErrorMessage message) {
     if (_failedResumeSessionId == null || _failedResumeRequestId == null) {
       return false;
+    }
+    // Bridge 1.106.0 and older send path_not_allowed for a rejected resume
+    // without sessionId/requestId, right after session_resume_failed.
+    if (message.errorCode == 'path_not_allowed' &&
+        message.sessionId == null &&
+        message.requestId == null) {
+      return true;
     }
     if (message.sessionId != _failedResumeSessionId) return false;
     return message.requestId == _failedResumeRequestId;

@@ -718,6 +718,118 @@ void main() {
     );
   });
 
+  testWidgets('rejected resume explains why the tap did nothing', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        debugRecentSessions: [_recentSession('one')],
+        sessionListOnly: true,
+      ),
+    );
+    bridge.emitRecentSessions([_recentSession('one')]);
+    await _pumpUi(tester);
+
+    Future<String> tapAndFail() async {
+      final recentSession = find.byKey(const ValueKey('recent_session_one'));
+      await tester.scrollUntilVisible(
+        recentSession,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(recentSession);
+      await _pumpUi(tester);
+      final resumeRequestId =
+          (jsonDecode(bridge.sentMessages.last.toJson())
+                  as Map<String, dynamic>)['resumeRequestId']
+              as String;
+      bridge.emitMessage(
+        SystemMessage(
+          subtype: 'session_resume_failed',
+          sourceSessionId: 'one',
+          resumeRequestId: resumeRequestId,
+        ),
+      );
+      return resumeRequestId;
+    }
+
+    const pathNotAllowed =
+        '"D:\\Projects\\my-app" is outside the folders this Bridge allows. '
+        'Add it to BRIDGE_ALLOWED_DIRS (comma-separated) and restart the '
+        'Bridge.';
+
+    // Bridge 1.106.0 and older: the error carries no sessionId/requestId.
+    await tapAndFail();
+    bridge.emitMessage(
+      const ErrorMessage(
+        message: 'Project path not allowed',
+        errorCode: 'path_not_allowed',
+        path: r'D:\Projects\my-app',
+      ),
+    );
+    await tester.pump();
+    expect(find.text(pathNotAllowed), findsOneWidget);
+
+    final messenger = tester.state<ScaffoldMessengerState>(
+      find.byType(ScaffoldMessenger),
+    );
+    messenger.hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+
+    // An unrelated path error with no failed resume pending stays silent.
+    bridge.emitMessage(
+      const ErrorMessage(
+        message: 'Project path not allowed',
+        errorCode: 'path_not_allowed',
+        path: r'D:\Projects\my-app',
+      ),
+    );
+    await tester.pump();
+    expect(find.text(pathNotAllowed), findsNothing);
+
+    // Newer Bridges correlate the error with the resume request.
+    final correlatedRequestId = await tapAndFail();
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'Project path not allowed',
+        errorCode: 'path_not_allowed',
+        path: r'D:\Projects\my-app',
+        sessionId: 'one',
+        requestId: correlatedRequestId,
+      ),
+    );
+    await tester.pump();
+    expect(find.text(pathNotAllowed), findsOneWidget);
+    messenger.hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+
+    // Other resume failures show the Bridge's own message.
+    final otherRequestId = await tapAndFail();
+    bridge.emitMessage(
+      ErrorMessage(
+        message: 'Project not found: p1',
+        errorCode: 'project_not_found',
+        sessionId: 'one',
+        requestId: otherRequestId,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Project not found: p1'), findsOneWidget);
+  });
+
   testWidgets(
     'matching resume creation selects session and clears correlation',
     (tester) async {
