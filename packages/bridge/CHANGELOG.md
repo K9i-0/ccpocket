@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.106.1] - 2026-11-12
+
+### Fixed
+
+- When `resume_session` is rejected because the project (or an extra directory) is outside `BRIDGE_ALLOWED_DIRS`, or because the same session is already being restored with different settings, the `error` message now carries `sessionId` and `requestId` like the other resume failures, so the app can show it for the tap that caused it. ([#324](https://github.com/K9i-0/ccpocket/issues/324))
+- A `BRIDGE_ALLOWED_DIRS` or `BRIDGE_READONLY_DIRS` entry that contains `;` logs a warning at startup. Paths are separated by commas; a semicolon-separated list was silently treated as one path that matched nothing.
+
 ## [1.106.0] - 2026-11-11
 
 ### Added
