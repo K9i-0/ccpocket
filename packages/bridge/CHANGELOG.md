@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.106.2] - 2026-11-13
+
+### Fixed
+
+- On Windows, the project path of Claude sessions in `recent_sessions` kept its JSON escapes (`C:\\Users\\dev\\demo` instead of `C:\Users\dev\demo`). Resuming such a session left a "Restoring" card that never cleared and replayed the resume after every reconnect, creating duplicate sessions. The path is now decoded, which also makes `.claude\worktrees\<name>` sessions group under their repository on Windows. ([#326](https://github.com/K9i-0/ccpocket/issues/326), [#327](https://github.com/K9i-0/ccpocket/pull/327) by @hustneverland)
+
 ## [1.106.1] - 2026-11-12
 
 ### Fixed
