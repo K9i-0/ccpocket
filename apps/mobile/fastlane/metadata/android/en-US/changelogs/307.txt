@@ -1,0 +1,7 @@
+• Tap the "Running in background" bar to list background tasks and subagents.
+• Tap the model name in the model sheet to pick a model right away.
+• New Claude sessions start in Auto permission mode.
+• Local images in assistant replies appear as thumbnails below the message (Bridge 1.106.0+).
+• Compact folder browser with a name filter.
+• Settings shows model-scoped weekly limits such as Fable (Bridge 1.105.0+).
+• A session the Bridge can't resume now shows the reason.
