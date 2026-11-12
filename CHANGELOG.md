@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.163.1] - 2026-11-12
+
+### Fixed
+
+- Tapping a recent session that the Bridge refuses to resume no longer looks like a dead tap. The session list shows why, including which folder to add to `BRIDGE_ALLOWED_DIRS` when the project is outside the allowed folders. ([#324](https://github.com/K9i-0/ccpocket/issues/324))
+- Windows: added an opt-in switch for a Flutter engine crash (`flutter_windows.dll` access violation in the accessibility bridge, [flutter/flutter#175041](https://github.com/flutter/flutter/issues/175041)) that can close the app shortly after launch when input methods, screenshot tools, or remote-desktop agents query the window. Set the environment variable `CCPOCKET_DISABLE_ACCESSIBILITY=1` before starting CC Pocket to keep the accessibility bridge off. Screen readers cannot read the app while it is set; the default behavior is unchanged. Thanks to @hustneverland. ([#325](https://github.com/K9i-0/ccpocket/issues/325))
+
 ## [1.163.0] - 2026-11-11
 
 ### Added
