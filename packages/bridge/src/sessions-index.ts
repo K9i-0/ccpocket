@@ -435,7 +435,7 @@ const RE_TYPE_USER = /"type"\s*:\s*"user"/;
 const RE_TYPE_ASSISTANT = /"type"\s*:\s*"assistant"/;
 const RE_TIMESTAMP = /"timestamp"\s*:\s*"([^"]+)"/;
 const RE_GIT_BRANCH = /"gitBranch"\s*:\s*"([^"]+)"/;
-const RE_CWD = /"cwd"\s*:\s*"([^"]+)"/;
+const RE_CWD = /"cwd"\s*:\s*"((?:\\.|[^"\\])+)"/;
 const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
 const RE_PERMISSION_MODE = /"permissionMode"\s*:\s*"([^"]+)"/;
 const RE_TYPE_CUSTOM_TITLE = /"type"\s*:\s*"custom-title"/;
@@ -493,6 +493,20 @@ function isClaudeNonPromptUserEntry(
 
 function isCodexAutoRenameSession(firstPrompt: string): boolean {
   return isAutoRenamePromptText(firstPrompt);
+}
+
+/**
+ * Decode a cwd captured by RE_CWD. The regex returns the raw JSON string body,
+ * so a Windows path like C:\repo would otherwise keep its escaped (doubled)
+ * backslashes and no longer match the path the Bridge resolves for a session.
+ */
+function decodeCwd(raw: string): string {
+  try {
+    const decoded: unknown = JSON.parse(`"${raw}"`);
+    return typeof decoded === "string" ? decoded : raw;
+  } catch {
+    return raw;
+  }
 }
 
 function decodeJsonStringPrefix(fragment: string): string {
@@ -617,7 +631,7 @@ function parseFromChunks(
     if (!projectPath) {
       const cwdMatch = line.match(RE_CWD);
       if (cwdMatch) {
-        rawCwd = cwdMatch[1];
+        rawCwd = decodeCwd(cwdMatch[1]);
         projectPath = normalizeWorktreePath(rawCwd);
         headFoundProjectPath = true;
       }
@@ -730,7 +744,7 @@ function parseFromChunks(
         if (!projectPath) {
           const cwdMatch = line.match(RE_CWD);
           if (cwdMatch) {
-            rawCwd = cwdMatch[1];
+            rawCwd = decodeCwd(cwdMatch[1]);
             projectPath = normalizeWorktreePath(rawCwd);
           }
         }
@@ -961,7 +975,7 @@ async function extractMissingFieldsStreaming(
       if (needProjectPath && !projectPath) {
         const cwdMatch = line.match(RE_CWD);
         if (cwdMatch) {
-          rawCwd = cwdMatch[1];
+          rawCwd = decodeCwd(cwdMatch[1]);
           projectPath = normalizeWorktreePath(rawCwd);
         }
       }
