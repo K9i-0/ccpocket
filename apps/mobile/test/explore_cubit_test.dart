@@ -5,13 +5,14 @@ import 'package:ccpocket/features/explore/explore_screen.dart';
 import 'package:ccpocket/features/explore/state/explore_state.dart';
 import 'package:ccpocket/features/file_peek/file_peek_sheet.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:ccpocket/features/explore/state/explore_cubit.dart';
 import 'package:ccpocket/features/explore/widgets/explore_empty_state.dart';
 import 'package:ccpocket/features/explore/widgets/explore_entry_tile.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -221,7 +222,7 @@ void main() {
   testWidgets('hides file actions when sharing is unsupported', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ExploreEntryTile(
@@ -242,7 +243,7 @@ void main() {
   testWidgets('shows ignored files with a muted label', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ExploreEntryTile(
@@ -279,7 +280,7 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: ExploreScreen(
               sessionId: 'session-1',
@@ -337,7 +338,7 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const ExploreScreen(
               sessionId: 'session-1',
@@ -384,7 +385,7 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const ExploreScreen(
               sessionId: 'session-1',
@@ -438,7 +439,7 @@ void main() {
           value: bridge,
           child: MaterialApp(
             theme: AppTheme.darkTheme,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: const ExploreScreen(
               sessionId: 'session-1',

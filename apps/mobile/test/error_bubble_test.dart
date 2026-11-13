@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/error_bubble.dart';
@@ -9,7 +10,7 @@ import 'package:ccpocket/widgets/bubbles/error_bubble.dart';
 Widget _wrapErrorBubble({required Widget child, required Locale locale}) {
   return MaterialApp(
     theme: AppTheme.darkTheme,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: locale,
     home: Scaffold(body: child),

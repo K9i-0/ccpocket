@@ -1,7 +1,8 @@
 import 'package:ccpocket/features/settings/supporter_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,7 +22,7 @@ Widget _wrap(RevenueCatService revenueCatService, {Locale? locale}) {
     child: MaterialApp(
       theme: ThemeData(platform: TargetPlatform.iOS),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const SupporterScreen(),
     ),

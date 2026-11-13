@@ -1,6 +1,7 @@
 import 'package:ccpocket/features/file_peek/widgets/file_peek_pdf_preview.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -11,7 +12,7 @@ void main() {
     var retries = 0;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: FilePeekPdfPreview(pdfUrl: null, onRetry: () => retries++),
@@ -37,7 +38,7 @@ void main() {
     final preview = FilePeekPdfPreview(pdfUrl: url, onRetry: () => retries++);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(

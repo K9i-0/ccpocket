@@ -1,17 +1,18 @@
 import 'package:ccpocket/features/session_list/widgets/bridge_auth_required_card.dart';
 import 'package:ccpocket/features/session_list/widgets/machine_card.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/protocol_version.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
     locale: const Locale('en'),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: AppTheme.lightTheme,
     home: Scaffold(body: SingleChildScrollView(child: child)),

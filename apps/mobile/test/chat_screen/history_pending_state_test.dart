@@ -3,7 +3,7 @@ import 'package:ccpocket/features/claude_session/widgets/plan_mode_chip.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';
 

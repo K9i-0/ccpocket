@@ -2,7 +2,7 @@ import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/skill_trigger_style.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';

@@ -1,5 +1,5 @@
 import 'package:extended_image/extended_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../widgets/zoomable_image_viewer.dart';

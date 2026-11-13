@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Compact pin toggle shared by session cards and project headers.
 class PinToggleButton extends StatelessWidget {

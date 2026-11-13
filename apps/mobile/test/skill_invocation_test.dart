@@ -2,7 +2,7 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/skill_trigger_style.dart';
 import 'package:ccpocket/utils/skill_invocation.dart';
 import 'package:ccpocket/widgets/slash_command_sheet.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _codex = SkillTriggerCatalog(

@@ -3,8 +3,9 @@ import 'package:ccpocket/features/demo/state/demo_cubit.dart';
 import 'package:ccpocket/features/demo/state/demo_state.dart';
 import 'package:ccpocket/features/session_list/widgets/connect_form.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -34,7 +35,7 @@ void main() {
   Widget app({String language = 'en'}) => MaterialApp(
     theme: AppTheme.darkTheme,
     locale: Locale(language),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: ConnectForm(

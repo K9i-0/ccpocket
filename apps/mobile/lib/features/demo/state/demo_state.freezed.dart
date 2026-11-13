@@ -26,16 +26,21 @@ $DemoStateCopyWith<DemoState> get copyWith => _$DemoStateCopyWithImpl<DemoState>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DemoState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.prompt, prompt) || other.prompt == prompt)&&(identical(other.generation, generation) || other.generation == generation));
+  final _this = this as DemoState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DemoState&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.prompt, _this.prompt) || other.prompt == _this.prompt)&&(identical(other.generation, _this.generation) || other.generation == _this.generation));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,phase,prompt,generation);
+int get hashCode {
+  final _this = this as DemoState;
+  return Object.hash(runtimeType,_this.phase,_this.prompt,_this.generation);
+}
 
 @override
 String toString() {
-  return 'DemoState(phase: $phase, prompt: $prompt, generation: $generation)';
+  final _this = this as DemoState;
+  return 'DemoState(phase: ${_this.phase}, prompt: ${_this.prompt}, generation: ${_this.generation})';
 }
 
 
@@ -226,16 +231,18 @@ _$DemoStateCopyWith<_DemoState> get copyWith => __$DemoStateCopyWithImpl<_DemoSt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DemoState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.prompt, prompt) || other.prompt == prompt)&&(identical(other.generation, generation) || other.generation == generation));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DemoState&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.prompt, prompt) || other.prompt == prompt)&&(identical(other.generation, generation) || other.generation == generation));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,phase,prompt,generation);
+int get hashCode {
+    return Object.hash(runtimeType,phase,prompt,generation);
+}
 
 @override
 String toString() {
-  return 'DemoState(phase: $phase, prompt: $prompt, generation: $generation)';
+    return 'DemoState(phase: $phase, prompt: $prompt, generation: $generation)';
 }
 
 

@@ -7,7 +7,7 @@
 import 'dart:async';
 
 import 'package:ccpocket/main.dart';
-import 'package:flutter/material.dart' show Orientation;
+import 'package:flutter/widgets.dart' show Orientation;
 import 'package:flutter/services.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:multi_device_preview/multi_device_preview.dart';

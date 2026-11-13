@@ -1,6 +1,6 @@
 import 'package:ccpocket/features/codex_session/widgets/codex_goal_card.dart';
 import 'package:ccpocket/mock/mock_scenarios.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

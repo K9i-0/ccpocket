@@ -18,7 +18,7 @@ import 'dart:convert';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
@@ -30,6 +30,7 @@ import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 import 'core/logger.dart';
 import 'core/reflex/reflex_registry.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/app_localizations_delegates.dart';
 import 'features/file_peek/playback/background_media_handler.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/session_list/state/session_list_reflex.dart';
@@ -570,14 +571,21 @@ class _CcpocketAppState extends State<CcpocketApp> {
             darkTheme: AppTheme.darkThemeForLocale(themeLocale),
             themeMode: settings.themeMode,
             locale: appLocale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             routerConfig: _appRouter.config(
               navigatorObservers: () => [SessionRouteObserver()],
             ),
             builder: (context, child) {
               final mediaQuery = MediaQuery.maybeOf(context);
-              final app = child ?? const SizedBox.shrink();
+              // Dependencies that still import package:flutter/material.dart
+              // (flutter_markdown, skeletonizer, talker_flutter, ...) read the
+              // legacy Theme and MaterialLocalizations, which
+              // package:material_ui no longer provides.
+              // ignore: deprecated_member_use
+              final app = MaterialUiCompatibilityBridge(
+                child: child ?? const SizedBox.shrink(),
+              );
               if (mediaQuery == null) return app;
               return MediaQuery(
                 data: mediaQuery.copyWith(

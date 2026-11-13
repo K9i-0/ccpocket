@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 各ガイドページの共通レイアウト。
 /// 上部にアイコン、タイトル、本文を配置する。

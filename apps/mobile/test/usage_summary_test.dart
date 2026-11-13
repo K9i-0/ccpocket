@@ -2,9 +2,10 @@ import 'package:ccpocket/features/session_list/widgets/usage_summary.dart';
 import 'package:ccpocket/features/session_list/widgets/section_header.dart';
 import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _usage = UsageInfo(
@@ -32,7 +33,7 @@ Widget _buildSummary(
           .copyWith(textScaler: TextScaler.linear(textScale)),
       child: child!,
     ),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('ja'),
     theme: AppTheme.darkTheme,

@@ -26,16 +26,21 @@ $FileUploadItemStateCopyWith<FileUploadItemState> get copyWith => _$FileUploadIt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileUploadItemState&&(identical(other.id, id) || other.id == id)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.sentBytes, sentBytes) || other.sentBytes == sentBytes)&&(identical(other.status, status) || other.status == status)&&(identical(other.uploadedPath, uploadedPath) || other.uploadedPath == uploadedPath)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+  final _this = this as FileUploadItemState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileUploadItemState&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.fileName, _this.fileName) || other.fileName == _this.fileName)&&(identical(other.sizeBytes, _this.sizeBytes) || other.sizeBytes == _this.sizeBytes)&&(identical(other.sentBytes, _this.sentBytes) || other.sentBytes == _this.sentBytes)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.uploadedPath, _this.uploadedPath) || other.uploadedPath == _this.uploadedPath)&&(identical(other.errorCode, _this.errorCode) || other.errorCode == _this.errorCode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,fileName,sizeBytes,sentBytes,status,uploadedPath,errorCode);
+int get hashCode {
+  final _this = this as FileUploadItemState;
+  return Object.hash(runtimeType,_this.id,_this.fileName,_this.sizeBytes,_this.sentBytes,_this.status,_this.uploadedPath,_this.errorCode);
+}
 
 @override
 String toString() {
-  return 'FileUploadItemState(id: $id, fileName: $fileName, sizeBytes: $sizeBytes, sentBytes: $sentBytes, status: $status, uploadedPath: $uploadedPath, errorCode: $errorCode)';
+  final _this = this as FileUploadItemState;
+  return 'FileUploadItemState(id: ${_this.id}, fileName: ${_this.fileName}, sizeBytes: ${_this.sizeBytes}, sentBytes: ${_this.sentBytes}, status: ${_this.status}, uploadedPath: ${_this.uploadedPath}, errorCode: ${_this.errorCode})';
 }
 
 
@@ -234,16 +239,18 @@ _$FileUploadItemStateCopyWith<_FileUploadItemState> get copyWith => __$FileUploa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileUploadItemState&&(identical(other.id, id) || other.id == id)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.sentBytes, sentBytes) || other.sentBytes == sentBytes)&&(identical(other.status, status) || other.status == status)&&(identical(other.uploadedPath, uploadedPath) || other.uploadedPath == uploadedPath)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileUploadItemState&&(identical(other.id, id) || other.id == id)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.sentBytes, sentBytes) || other.sentBytes == sentBytes)&&(identical(other.status, status) || other.status == status)&&(identical(other.uploadedPath, uploadedPath) || other.uploadedPath == uploadedPath)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,fileName,sizeBytes,sentBytes,status,uploadedPath,errorCode);
+int get hashCode {
+    return Object.hash(runtimeType,id,fileName,sizeBytes,sentBytes,status,uploadedPath,errorCode);
+}
 
 @override
 String toString() {
-  return 'FileUploadItemState(id: $id, fileName: $fileName, sizeBytes: $sizeBytes, sentBytes: $sentBytes, status: $status, uploadedPath: $uploadedPath, errorCode: $errorCode)';
+    return 'FileUploadItemState(id: $id, fileName: $fileName, sizeBytes: $sizeBytes, sentBytes: $sentBytes, status: $status, uploadedPath: $uploadedPath, errorCode: $errorCode)';
 }
 
 
@@ -301,16 +308,21 @@ $FileUploadStateCopyWith<FileUploadState> get copyWith => _$FileUploadStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileUploadState&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.conflictPolicy, conflictPolicy) || other.conflictPolicy == conflictPolicy)&&(identical(other.isRunning, isRunning) || other.isRunning == isRunning)&&(identical(other.isCancelled, isCancelled) || other.isCancelled == isCancelled)&&(identical(other.isComplete, isComplete) || other.isComplete == isComplete)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+  final _this = this as FileUploadState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileUploadState&&const DeepCollectionEquality().equals(other.items, _this.items)&&(identical(other.conflictPolicy, _this.conflictPolicy) || other.conflictPolicy == _this.conflictPolicy)&&(identical(other.isRunning, _this.isRunning) || other.isRunning == _this.isRunning)&&(identical(other.isCancelled, _this.isCancelled) || other.isCancelled == _this.isCancelled)&&(identical(other.isComplete, _this.isComplete) || other.isComplete == _this.isComplete)&&(identical(other.errorMessage, _this.errorMessage) || other.errorMessage == _this.errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),conflictPolicy,isRunning,isCancelled,isComplete,errorMessage);
+int get hashCode {
+  final _this = this as FileUploadState;
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.items),_this.conflictPolicy,_this.isRunning,_this.isCancelled,_this.isComplete,_this.errorMessage);
+}
 
 @override
 String toString() {
-  return 'FileUploadState(items: $items, conflictPolicy: $conflictPolicy, isRunning: $isRunning, isCancelled: $isCancelled, isComplete: $isComplete, errorMessage: $errorMessage)';
+  final _this = this as FileUploadState;
+  return 'FileUploadState(items: ${_this.items}, conflictPolicy: ${_this.conflictPolicy}, isRunning: ${_this.isRunning}, isCancelled: ${_this.isCancelled}, isComplete: ${_this.isComplete}, errorMessage: ${_this.errorMessage})';
 }
 
 
@@ -513,16 +525,18 @@ _$FileUploadStateCopyWith<_FileUploadState> get copyWith => __$FileUploadStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileUploadState&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.conflictPolicy, conflictPolicy) || other.conflictPolicy == conflictPolicy)&&(identical(other.isRunning, isRunning) || other.isRunning == isRunning)&&(identical(other.isCancelled, isCancelled) || other.isCancelled == isCancelled)&&(identical(other.isComplete, isComplete) || other.isComplete == isComplete)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileUploadState&&const DeepCollectionEquality().equals(other.items, _items)&&(identical(other.conflictPolicy, conflictPolicy) || other.conflictPolicy == conflictPolicy)&&(identical(other.isRunning, isRunning) || other.isRunning == isRunning)&&(identical(other.isCancelled, isCancelled) || other.isCancelled == isCancelled)&&(identical(other.isComplete, isComplete) || other.isComplete == isComplete)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),conflictPolicy,isRunning,isCancelled,isComplete,errorMessage);
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),conflictPolicy,isRunning,isCancelled,isComplete,errorMessage);
+}
 
 @override
 String toString() {
-  return 'FileUploadState(items: $items, conflictPolicy: $conflictPolicy, isRunning: $isRunning, isCancelled: $isCancelled, isComplete: $isComplete, errorMessage: $errorMessage)';
+    return 'FileUploadState(items: $items, conflictPolicy: $conflictPolicy, isRunning: $isRunning, isCancelled: $isCancelled, isComplete: $isComplete, errorMessage: $errorMessage)';
 }
 
 

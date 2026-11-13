@@ -29,16 +29,21 @@ $StreamingStateCopyWith<StreamingState> get copyWith => _$StreamingStateCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StreamingState&&(identical(other.text, text) || other.text == text)&&(identical(other.thinking, thinking) || other.thinking == thinking)&&(identical(other.isStreaming, isStreaming) || other.isStreaming == isStreaming));
+  final _this = this as StreamingState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StreamingState&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.thinking, _this.thinking) || other.thinking == _this.thinking)&&(identical(other.isStreaming, _this.isStreaming) || other.isStreaming == _this.isStreaming));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,text,thinking,isStreaming);
+int get hashCode {
+  final _this = this as StreamingState;
+  return Object.hash(runtimeType,_this.text,_this.thinking,_this.isStreaming);
+}
 
 @override
 String toString() {
-  return 'StreamingState(text: $text, thinking: $thinking, isStreaming: $isStreaming)';
+  final _this = this as StreamingState;
+  return 'StreamingState(text: ${_this.text}, thinking: ${_this.thinking}, isStreaming: ${_this.isStreaming})';
 }
 
 
@@ -232,16 +237,18 @@ _$StreamingStateCopyWith<_StreamingState> get copyWith => __$StreamingStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _StreamingState&&(identical(other.text, text) || other.text == text)&&(identical(other.thinking, thinking) || other.thinking == thinking)&&(identical(other.isStreaming, isStreaming) || other.isStreaming == isStreaming));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StreamingState&&(identical(other.text, text) || other.text == text)&&(identical(other.thinking, thinking) || other.thinking == thinking)&&(identical(other.isStreaming, isStreaming) || other.isStreaming == isStreaming));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,text,thinking,isStreaming);
+int get hashCode {
+    return Object.hash(runtimeType,text,thinking,isStreaming);
+}
 
 @override
 String toString() {
-  return 'StreamingState(text: $text, thinking: $thinking, isStreaming: $isStreaming)';
+    return 'StreamingState(text: $text, thinking: $thinking, isStreaming: $isStreaming)';
 }
 
 

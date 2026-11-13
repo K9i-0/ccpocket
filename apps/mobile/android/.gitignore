@@ -16,3 +16,5 @@ keystore.properties
 
 # Firebase config (contains project-specific secrets)
 app/google-services.json
+# Gradle 9 problem reports
+/build/

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Displays session cost and optionally message count with context indicator.
 class CostBadge extends StatelessWidget {

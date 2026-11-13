@@ -3,7 +3,7 @@ import '../session_list/workspace_shell_screen.dart';
 import '../explore/widgets/explore_entry_tile.dart';
 import '../file_transfer/widgets/file_transfer_dialog.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 

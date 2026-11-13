@@ -1,7 +1,7 @@
 // ignore_for_file: altive_lints_plugin/avoid_hardcoded_japanese
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../models/messages.dart';
 import 'store_screenshot_data.dart';

@@ -26,16 +26,21 @@ $ExploreStateCopyWith<ExploreState> get copyWith => _$ExploreStateCopyWithImpl<E
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other.allFiles, allFiles)&&const DeepCollectionEquality().equals(other.ignoredFiles, ignoredFiles)&&const DeepCollectionEquality().equals(other.visibleEntries, visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
+  final _this = this as ExploreState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExploreState&&(identical(other.projectPath, _this.projectPath) || other.projectPath == _this.projectPath)&&(identical(other.currentPath, _this.currentPath) || other.currentPath == _this.currentPath)&&const DeepCollectionEquality().equals(other.allFiles, _this.allFiles)&&const DeepCollectionEquality().equals(other.ignoredFiles, _this.ignoredFiles)&&const DeepCollectionEquality().equals(other.visibleEntries, _this.visibleEntries)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.fileListTruncated, _this.fileListTruncated) || other.fileListTruncated == _this.fileListTruncated)&&(identical(other.totalFiles, _this.totalFiles) || other.totalFiles == _this.totalFiles)&&(identical(other.error, _this.error) || other.error == _this.error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(allFiles),const DeepCollectionEquality().hash(ignoredFiles),const DeepCollectionEquality().hash(visibleEntries),status,fileListTruncated,totalFiles,error);
+int get hashCode {
+  final _this = this as ExploreState;
+  return Object.hash(runtimeType,_this.projectPath,_this.currentPath,const DeepCollectionEquality().hash(_this.allFiles),const DeepCollectionEquality().hash(_this.ignoredFiles),const DeepCollectionEquality().hash(_this.visibleEntries),_this.status,_this.fileListTruncated,_this.totalFiles,_this.error);
+}
 
 @override
 String toString() {
-  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, ignoredFiles: $ignoredFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
+  final _this = this as ExploreState;
+  return 'ExploreState(projectPath: ${_this.projectPath}, currentPath: ${_this.currentPath}, allFiles: ${_this.allFiles}, ignoredFiles: ${_this.ignoredFiles}, visibleEntries: ${_this.visibleEntries}, status: ${_this.status}, fileListTruncated: ${_this.fileListTruncated}, totalFiles: ${_this.totalFiles}, error: ${_this.error})';
 }
 
 
@@ -256,16 +261,18 @@ _$ExploreStateCopyWith<_ExploreState> get copyWith => __$ExploreStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other._allFiles, _allFiles)&&const DeepCollectionEquality().equals(other._ignoredFiles, _ignoredFiles)&&const DeepCollectionEquality().equals(other._visibleEntries, _visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExploreState&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.currentPath, currentPath) || other.currentPath == currentPath)&&const DeepCollectionEquality().equals(other.allFiles, _allFiles)&&const DeepCollectionEquality().equals(other.ignoredFiles, _ignoredFiles)&&const DeepCollectionEquality().equals(other.visibleEntries, _visibleEntries)&&(identical(other.status, status) || other.status == status)&&(identical(other.fileListTruncated, fileListTruncated) || other.fileListTruncated == fileListTruncated)&&(identical(other.totalFiles, totalFiles) || other.totalFiles == totalFiles)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(_allFiles),const DeepCollectionEquality().hash(_ignoredFiles),const DeepCollectionEquality().hash(_visibleEntries),status,fileListTruncated,totalFiles,error);
+int get hashCode {
+    return Object.hash(runtimeType,projectPath,currentPath,const DeepCollectionEquality().hash(_allFiles),const DeepCollectionEquality().hash(_ignoredFiles),const DeepCollectionEquality().hash(_visibleEntries),status,fileListTruncated,totalFiles,error);
+}
 
 @override
 String toString() {
-  return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, ignoredFiles: $ignoredFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
+    return 'ExploreState(projectPath: $projectPath, currentPath: $currentPath, allFiles: $allFiles, ignoredFiles: $ignoredFiles, visibleEntries: $visibleEntries, status: $status, fileListTruncated: $fileListTruncated, totalFiles: $totalFiles, error: $error)';
 }
 
 

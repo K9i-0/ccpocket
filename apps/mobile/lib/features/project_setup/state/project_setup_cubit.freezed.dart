@@ -26,16 +26,21 @@ $ProjectSetupStateCopyWith<ProjectSetupState> get copyWith => _$ProjectSetupStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProjectSetupState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.error, error) || other.error == error)&&(identical(other.result, result) || other.result == result));
+  final _this = this as ProjectSetupState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProjectSetupState&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.result, _this.result) || other.result == _this.result));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,busy,error,result);
+int get hashCode {
+  final _this = this as ProjectSetupState;
+  return Object.hash(runtimeType,_this.busy,_this.error,_this.result);
+}
 
 @override
 String toString() {
-  return 'ProjectSetupState(busy: $busy, error: $error, result: $result)';
+  final _this = this as ProjectSetupState;
+  return 'ProjectSetupState(busy: ${_this.busy}, error: ${_this.error}, result: ${_this.result})';
 }
 
 
@@ -210,7 +215,7 @@ return $default(_that.busy,_that.error,_that.result);case _:
 
 class _ProjectSetupState implements ProjectSetupState {
   const _ProjectSetupState({this.busy = false, this.error, this.result});
-
+  
 
 @override@JsonKey() final  bool busy;
 @override final  String? error;
@@ -226,16 +231,18 @@ _$ProjectSetupStateCopyWith<_ProjectSetupState> get copyWith => __$ProjectSetupS
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProjectSetupState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.error, error) || other.error == error)&&(identical(other.result, result) || other.result == result));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProjectSetupState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.error, error) || other.error == error)&&(identical(other.result, result) || other.result == result));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,busy,error,result);
+int get hashCode {
+    return Object.hash(runtimeType,busy,error,result);
+}
 
 @override
 String toString() {
-  return 'ProjectSetupState(busy: $busy, error: $error, result: $result)';
+    return 'ProjectSetupState(busy: $busy, error: $error, result: $result)';
 }
 
 

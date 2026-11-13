@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:ccpocket/features/codex_session/widgets/codex_recovery_panel.dart';
 import 'package:ccpocket/models/messages.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

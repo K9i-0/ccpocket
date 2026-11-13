@@ -1,10 +1,11 @@
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/theme/app_spacing.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/bubbles/streaming_bubble.dart';
 import 'package:ccpocket/widgets/link_hover_underline.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -114,7 +115,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SingleChildScrollView(child: StreamingBubble(text: text)),
@@ -228,7 +229,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SingleChildScrollView(

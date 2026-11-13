@@ -26,16 +26,21 @@ $BrowserLocationCopyWith<BrowserLocation> get copyWith => _$BrowserLocationCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BrowserLocation&&(identical(other.directory, directory) || other.directory == directory)&&(identical(other.query, query) || other.query == query)&&(identical(other.file, file) || other.file == file)&&(identical(other.line, line) || other.line == line));
+  final _this = this as BrowserLocation;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BrowserLocation&&(identical(other.directory, _this.directory) || other.directory == _this.directory)&&(identical(other.query, _this.query) || other.query == _this.query)&&(identical(other.file, _this.file) || other.file == _this.file)&&(identical(other.line, _this.line) || other.line == _this.line));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,directory,query,file,line);
+int get hashCode {
+  final _this = this as BrowserLocation;
+  return Object.hash(runtimeType,_this.directory,_this.query,_this.file,_this.line);
+}
 
 @override
 String toString() {
-  return 'BrowserLocation(directory: $directory, query: $query, file: $file, line: $line)';
+  final _this = this as BrowserLocation;
+  return 'BrowserLocation(directory: ${_this.directory}, query: ${_this.query}, file: ${_this.file}, line: ${_this.line})';
 }
 
 
@@ -228,16 +233,18 @@ _$BrowserLocationCopyWith<_BrowserLocation> get copyWith => __$BrowserLocationCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BrowserLocation&&(identical(other.directory, directory) || other.directory == directory)&&(identical(other.query, query) || other.query == query)&&(identical(other.file, file) || other.file == file)&&(identical(other.line, line) || other.line == line));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BrowserLocation&&(identical(other.directory, directory) || other.directory == directory)&&(identical(other.query, query) || other.query == query)&&(identical(other.file, file) || other.file == file)&&(identical(other.line, line) || other.line == line));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,directory,query,file,line);
+int get hashCode {
+    return Object.hash(runtimeType,directory,query,file,line);
+}
 
 @override
 String toString() {
-  return 'BrowserLocation(directory: $directory, query: $query, file: $file, line: $line)';
+    return 'BrowserLocation(directory: $directory, query: $query, file: $file, line: $line)';
 }
 
 
@@ -292,16 +299,21 @@ $FileBrowserStateCopyWith<FileBrowserState> get copyWith => _$FileBrowserStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileBrowserState&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other.history, history)&&const DeepCollectionEquality().equals(other.entries, entries)&&const DeepCollectionEquality().equals(other.recentFiles, recentFiles)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.indexTruncated, indexTruncated) || other.indexTruncated == indexTruncated)&&(identical(other.legacyListing, legacyListing) || other.legacyListing == legacyListing)&&(identical(other.error, error) || other.error == error));
+  final _this = this as FileBrowserState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileBrowserState&&(identical(other.location, _this.location) || other.location == _this.location)&&const DeepCollectionEquality().equals(other.history, _this.history)&&const DeepCollectionEquality().equals(other.entries, _this.entries)&&const DeepCollectionEquality().equals(other.recentFiles, _this.recentFiles)&&(identical(other.loading, _this.loading) || other.loading == _this.loading)&&(identical(other.indexTruncated, _this.indexTruncated) || other.indexTruncated == _this.indexTruncated)&&(identical(other.legacyListing, _this.legacyListing) || other.legacyListing == _this.legacyListing)&&(identical(other.error, _this.error) || other.error == _this.error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,location,const DeepCollectionEquality().hash(history),const DeepCollectionEquality().hash(entries),const DeepCollectionEquality().hash(recentFiles),loading,indexTruncated,legacyListing,error);
+int get hashCode {
+  final _this = this as FileBrowserState;
+  return Object.hash(runtimeType,_this.location,const DeepCollectionEquality().hash(_this.history),const DeepCollectionEquality().hash(_this.entries),const DeepCollectionEquality().hash(_this.recentFiles),_this.loading,_this.indexTruncated,_this.legacyListing,_this.error);
+}
 
 @override
 String toString() {
-  return 'FileBrowserState(location: $location, history: $history, entries: $entries, recentFiles: $recentFiles, loading: $loading, indexTruncated: $indexTruncated, legacyListing: $legacyListing, error: $error)';
+  final _this = this as FileBrowserState;
+  return 'FileBrowserState(location: ${_this.location}, history: ${_this.history}, entries: ${_this.entries}, recentFiles: ${_this.recentFiles}, loading: ${_this.loading}, indexTruncated: ${_this.indexTruncated}, legacyListing: ${_this.legacyListing}, error: ${_this.error})';
 }
 
 
@@ -529,16 +541,18 @@ _$FileBrowserStateCopyWith<_FileBrowserState> get copyWith => __$FileBrowserStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileBrowserState&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other._history, _history)&&const DeepCollectionEquality().equals(other._entries, _entries)&&const DeepCollectionEquality().equals(other._recentFiles, _recentFiles)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.indexTruncated, indexTruncated) || other.indexTruncated == indexTruncated)&&(identical(other.legacyListing, legacyListing) || other.legacyListing == legacyListing)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _FileBrowserState&&(identical(other.location, location) || other.location == location)&&const DeepCollectionEquality().equals(other.history, _history)&&const DeepCollectionEquality().equals(other.entries, _entries)&&const DeepCollectionEquality().equals(other.recentFiles, _recentFiles)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.indexTruncated, indexTruncated) || other.indexTruncated == indexTruncated)&&(identical(other.legacyListing, legacyListing) || other.legacyListing == legacyListing)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,location,const DeepCollectionEquality().hash(_history),const DeepCollectionEquality().hash(_entries),const DeepCollectionEquality().hash(_recentFiles),loading,indexTruncated,legacyListing,error);
+int get hashCode {
+    return Object.hash(runtimeType,location,const DeepCollectionEquality().hash(_history),const DeepCollectionEquality().hash(_entries),const DeepCollectionEquality().hash(_recentFiles),loading,indexTruncated,legacyListing,error);
+}
 
 @override
 String toString() {
-  return 'FileBrowserState(location: $location, history: $history, entries: $entries, recentFiles: $recentFiles, loading: $loading, indexTruncated: $indexTruncated, legacyListing: $legacyListing, error: $error)';
+    return 'FileBrowserState(location: $location, history: $history, entries: $entries, recentFiles: $recentFiles, loading: $loading, indexTruncated: $indexTruncated, legacyListing: $legacyListing, error: $error)';
 }
 
 

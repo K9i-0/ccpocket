@@ -5,7 +5,8 @@ import 'package:ccpocket/features/generated_image_preview/generated_image_previe
 import 'package:ccpocket/features/generated_image_preview/generated_image_preview_screen.dart';
 import 'package:ccpocket/features/generated_image_preview/widgets/generated_image_chat_group.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -82,7 +83,7 @@ void main() {
 
 Widget _wrap(Widget child) {
   return MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     home: Scaffold(

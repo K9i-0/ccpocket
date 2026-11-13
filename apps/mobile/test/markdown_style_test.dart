@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';
+// flutter_markdown still builds package:flutter/material.dart widgets.
+// ignore: deprecated_member_use
+import 'package:flutter/material.dart' as legacy show SelectableText;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -125,8 +128,8 @@ void main() {
           ),
         );
 
-        final selectableText = tester.widget<SelectableText>(
-          find.byType(SelectableText).first,
+        final selectableText = tester.widget<legacy.SelectableText>(
+          find.byType(legacy.SelectableText).first,
         );
         final inlineCodeSpan = _findTextSpan(
           selectableText.textSpan!,

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:duo_kit/duo_kit.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 /// Reserves the control strip of an iPhone Duo window and lets the frontmost

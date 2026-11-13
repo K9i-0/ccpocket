@@ -2,11 +2,12 @@ import 'package:ccpocket/features/git/diff_comments.dart';
 import 'package:ccpocket/features/git/git_screen.dart';
 import 'package:ccpocket/features/media_feedback/state/media_feedback_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/mock_bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +38,7 @@ Future<DraftService> _pump(WidgetTester tester, {String? sessionId}) async {
         RepositoryProvider<DraftService>.value(value: drafts),
       ],
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
         theme: AppTheme.darkTheme,

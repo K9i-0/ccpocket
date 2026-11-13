@@ -5,7 +5,6 @@ import Photos
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let appIconChannelName = "ccpocket/app_icon"
-  private let platformEnvironmentChannelName = "ccpocket/platform_environment"
   private let clipboardChannelName = "ccpocket/clipboard"
 
   override func application(
@@ -27,13 +26,6 @@ import Photos
         binaryMessenger: registrar.messenger()
       )
       channel.setMethodCallHandler(handleAppIconMethodCall)
-    }
-    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PlatformEnvironmentChannel") {
-      let channel = FlutterMethodChannel(
-        name: platformEnvironmentChannelName,
-        binaryMessenger: registrar.messenger()
-      )
-      channel.setMethodCallHandler(handlePlatformEnvironmentMethodCall)
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FloatingKeyboardChannel") {
       FloatingKeyboardTracker.register(with: registrar)
@@ -105,33 +97,6 @@ import Photos
       }
       let icon = args["icon"] as? String
       setAlternateIcon(icon: icon, result: result)
-    default:
-      result(FlutterMethodNotImplemented)
-    }
-  }
-
-  private func handlePlatformEnvironmentMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    switch call.method {
-    case "isIOSAppOnMac":
-      if #available(iOS 14.0, *) {
-        result(ProcessInfo.processInfo.isiOSAppOnMac)
-      } else {
-        result(false)
-      }
-    case "iosUserInterfaceIdiom":
-      let idiom = UIDevice.current.userInterfaceIdiom
-      if #available(iOS 14.0, *), idiom == .mac {
-        result("mac")
-        return
-      }
-      switch idiom {
-      case .pad:
-        result("pad")
-      case .phone:
-        result("phone")
-      default:
-        result("unspecified")
-      }
     default:
       result(FlutterMethodNotImplemented)
     }

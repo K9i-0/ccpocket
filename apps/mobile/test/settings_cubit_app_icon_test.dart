@@ -2,7 +2,7 @@ import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/models/app_icon.dart';
 import 'package:ccpocket/services/app_icon_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

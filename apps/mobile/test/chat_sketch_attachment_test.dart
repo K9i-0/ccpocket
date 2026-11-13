@@ -9,6 +9,7 @@ import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/sketch/sketch_screen.dart';
 import 'package:ccpocket/features/sketch/sketch_document.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -16,7 +17,7 @@ import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,7 +103,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigator,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
         home: MultiRepositoryProvider(

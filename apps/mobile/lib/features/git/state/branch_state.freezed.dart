@@ -34,16 +34,21 @@ $BranchStateCopyWith<BranchState> get copyWith => _$BranchStateCopyWithImpl<Bran
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BranchState&&(identical(other.current, current) || other.current == current)&&const DeepCollectionEquality().equals(other.branches, branches)&&(identical(other.query, query) || other.query == query)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.creating, creating) || other.creating == creating)&&const DeepCollectionEquality().equals(other.checkedOutBranches, checkedOutBranches)&&const DeepCollectionEquality().equals(other.remoteStatusByBranch, remoteStatusByBranch));
+  final _this = this as BranchState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BranchState&&(identical(other.current, _this.current) || other.current == _this.current)&&const DeepCollectionEquality().equals(other.branches, _this.branches)&&(identical(other.query, _this.query) || other.query == _this.query)&&(identical(other.loading, _this.loading) || other.loading == _this.loading)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.creating, _this.creating) || other.creating == _this.creating)&&const DeepCollectionEquality().equals(other.checkedOutBranches, _this.checkedOutBranches)&&const DeepCollectionEquality().equals(other.remoteStatusByBranch, _this.remoteStatusByBranch));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,current,const DeepCollectionEquality().hash(branches),query,loading,error,creating,const DeepCollectionEquality().hash(checkedOutBranches),const DeepCollectionEquality().hash(remoteStatusByBranch));
+int get hashCode {
+  final _this = this as BranchState;
+  return Object.hash(runtimeType,_this.current,const DeepCollectionEquality().hash(_this.branches),_this.query,_this.loading,_this.error,_this.creating,const DeepCollectionEquality().hash(_this.checkedOutBranches),const DeepCollectionEquality().hash(_this.remoteStatusByBranch));
+}
 
 @override
 String toString() {
-  return 'BranchState(current: $current, branches: $branches, query: $query, loading: $loading, error: $error, creating: $creating, checkedOutBranches: $checkedOutBranches, remoteStatusByBranch: $remoteStatusByBranch)';
+  final _this = this as BranchState;
+  return 'BranchState(current: ${_this.current}, branches: ${_this.branches}, query: ${_this.query}, loading: ${_this.loading}, error: ${_this.error}, creating: ${_this.creating}, checkedOutBranches: ${_this.checkedOutBranches}, remoteStatusByBranch: ${_this.remoteStatusByBranch})';
 }
 
 
@@ -273,16 +278,18 @@ _$BranchStateCopyWith<_BranchState> get copyWith => __$BranchStateCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BranchState&&(identical(other.current, current) || other.current == current)&&const DeepCollectionEquality().equals(other._branches, _branches)&&(identical(other.query, query) || other.query == query)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.creating, creating) || other.creating == creating)&&const DeepCollectionEquality().equals(other._checkedOutBranches, _checkedOutBranches)&&const DeepCollectionEquality().equals(other._remoteStatusByBranch, _remoteStatusByBranch));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BranchState&&(identical(other.current, current) || other.current == current)&&const DeepCollectionEquality().equals(other.branches, _branches)&&(identical(other.query, query) || other.query == query)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.creating, creating) || other.creating == creating)&&const DeepCollectionEquality().equals(other.checkedOutBranches, _checkedOutBranches)&&const DeepCollectionEquality().equals(other.remoteStatusByBranch, _remoteStatusByBranch));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,current,const DeepCollectionEquality().hash(_branches),query,loading,error,creating,const DeepCollectionEquality().hash(_checkedOutBranches),const DeepCollectionEquality().hash(_remoteStatusByBranch));
+int get hashCode {
+    return Object.hash(runtimeType,current,const DeepCollectionEquality().hash(_branches),query,loading,error,creating,const DeepCollectionEquality().hash(_checkedOutBranches),const DeepCollectionEquality().hash(_remoteStatusByBranch));
+}
 
 @override
 String toString() {
-  return 'BranchState(current: $current, branches: $branches, query: $query, loading: $loading, error: $error, creating: $creating, checkedOutBranches: $checkedOutBranches, remoteStatusByBranch: $remoteStatusByBranch)';
+    return 'BranchState(current: $current, branches: $branches, query: $query, loading: $loading, error: $error, creating: $creating, checkedOutBranches: $checkedOutBranches, remoteStatusByBranch: $remoteStatusByBranch)';
 }
 
 

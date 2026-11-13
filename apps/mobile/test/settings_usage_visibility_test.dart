@@ -8,12 +8,14 @@ import 'package:ccpocket/features/settings/widgets/settings_visibility_builder.d
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/git_diff_interaction_mode.dart';
 import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
+import 'package:ccpocket/services/platform_environment_service.dart';
 import 'package:ccpocket/services/app_update_service.dart';
 import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -23,8 +25,7 @@ import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:ccpocket/services/ssh_startup_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -343,7 +344,7 @@ Future<Widget> _buildScreen({
         BlocProvider<MachineManagerCubit>.value(value: machineManagerCubit),
       ],
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
         home: SettingsScreen(
@@ -402,11 +403,21 @@ MachineManagerCubit _createMachineManagerCubit(MachineManagerService service) {
   );
 }
 
+class _FakePlatformEnvironmentGateway implements PlatformEnvironmentGateway {
+  const _FakePlatformEnvironmentGateway({required bool isIOSAppOnMac})
+    : _isIOSAppOnMac = isIOSAppOnMac;
+
+  final bool _isIOSAppOnMac;
+
+  @override
+  Future<bool> isIOSAppOnMac() async => _isIOSAppOnMac;
+
+  @override
+  Future<String?> iosUserInterfaceIdiom() async => null;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const platformEnvironmentChannel = MethodChannel(
-    'ccpocket/platform_environment',
-  );
 
   setUp(() {
     PackageInfo.setMockInitialValues(
@@ -416,8 +427,7 @@ void main() {
       buildNumber: '1',
       buildSignature: '',
     );
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(platformEnvironmentChannel, null);
+    PlatformEnvironmentService.debugOverride = null;
   });
 
   group('Settings usage visibility', () {
@@ -1866,11 +1876,10 @@ void main() {
 
   group('Settings macOS native app link', () {
     testWidgets('shows link when iOS app is running on Mac', (tester) async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(platformEnvironmentChannel, (call) async {
-            if (call.method == 'isIOSAppOnMac') return true;
-            return null;
-          });
+      PlatformEnvironmentService.debugOverride =
+          PlatformEnvironmentService.test(
+            gateway: const _FakePlatformEnvironmentGateway(isIOSAppOnMac: true),
+          );
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
@@ -1907,11 +1916,10 @@ void main() {
     testWidgets('hides link when not running as an iOS app on Mac', (
       tester,
     ) async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(platformEnvironmentChannel, (call) async {
-            if (call.method == 'isIOSAppOnMac') return false;
-            return null;
-          });
+      PlatformEnvironmentService
+          .debugOverride = PlatformEnvironmentService.test(
+        gateway: const _FakePlatformEnvironmentGateway(isIOSAppOnMac: false),
+      );
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);

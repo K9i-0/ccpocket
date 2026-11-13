@@ -3,7 +3,7 @@ import 'package:ccpocket/features/workspace/state/workspace_navigation_cubit.dar
 import 'package:ccpocket/features/workspace/state/workspace_navigation_state.dart';
 import 'package:ccpocket/features/workspace/widgets/workspace_pane_navigator.dart';
 import 'package:ccpocket/models/messages.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

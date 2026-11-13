@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Reserves a stable video viewport regardless of the number of comments.
 class VideoFeedbackLayout extends StatelessWidget {

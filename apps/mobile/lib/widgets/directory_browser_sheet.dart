@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../features/explore/state/explore_state.dart';
 import '../features/explore/widgets/explore_entry_tile.dart';

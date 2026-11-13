@@ -3,11 +3,12 @@ import 'dart:typed_data';
 import 'package:ccpocket/features/debug/debug_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
 import 'package:ccpocket/widgets/bubbles/image_preview.dart';
 import 'package:ccpocket/widgets/workspace_pane_chrome.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -29,7 +30,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.macOS),
         home: FullScreenImageViewer(bytes: _transparentPng),
@@ -56,7 +57,7 @@ Future<Widget> _wrapDebugScreen() async {
     child: BlocProvider<SettingsCubit>(
       create: (_) => SettingsCubit(prefs),
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.macOS),
         home: const DebugScreen(),

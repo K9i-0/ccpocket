@@ -1,7 +1,8 @@
 import 'package:ccpocket/features/session_list/widgets/session_list_loading_view.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:skeletonizer/src/widgets/skeletonizer.dart'
@@ -9,7 +10,7 @@ import 'package:skeletonizer/src/widgets/skeletonizer.dart'
 
 Widget _wrap(ThemeData theme) {
   return MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     theme: theme,

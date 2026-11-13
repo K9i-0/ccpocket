@@ -3,7 +3,8 @@ import 'package:ccpocket/features/media_feedback/state/media_feedback_cubit.dart
 import 'package:ccpocket/features/media_feedback/state/media_feedback_state.dart';
 import 'package:ccpocket/features/media_feedback/widgets/media_feedback_editor.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ccpocket/features/media_feedback/widgets/video_feedback_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +23,7 @@ void main() {
     VoidCallback? pause,
     ValueChanged<Duration>? seek,
   }) => MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: Column(
@@ -55,7 +56,7 @@ void main() {
       const videoKey = ValueKey('test_video');
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: VideoFeedbackLayout(

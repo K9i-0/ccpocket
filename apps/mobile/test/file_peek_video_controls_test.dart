@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:ccpocket/features/file_peek/widgets/file_peek_video_controls.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -82,7 +83,7 @@ Future<_FakePlayer> _pump(WidgetTester tester, Size size) async {
   addTearDown(player.stream.close);
   await tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         backgroundColor: Colors.black,

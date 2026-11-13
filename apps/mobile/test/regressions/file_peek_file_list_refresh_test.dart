@@ -6,6 +6,7 @@ import 'package:ccpocket/features/codex_session/codex_session_screen.dart';
 import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -13,7 +14,7 @@ import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,7 +104,7 @@ Future<Widget> _wrap(Widget child, _RecordingBridgeService bridge) async {
   final prefs = await SharedPreferences.getInstance();
 
   return MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     theme: AppTheme.darkTheme,

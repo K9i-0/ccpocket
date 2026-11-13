@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../../models/git_diff_interaction_mode.dart';

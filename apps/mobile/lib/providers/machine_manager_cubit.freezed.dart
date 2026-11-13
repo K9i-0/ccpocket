@@ -35,16 +35,21 @@ $MachineManagerStateCopyWith<MachineManagerState> get copyWith => _$MachineManag
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MachineManagerState&&const DeepCollectionEquality().equals(other.machines, machines)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.startingMachineId, startingMachineId) || other.startingMachineId == startingMachineId)&&(identical(other.updatingMachineId, updatingMachineId) || other.updatingMachineId == updatingMachineId)&&(identical(other.latestBridgeVersion, latestBridgeVersion) || other.latestBridgeVersion == latestBridgeVersion)&&(identical(other.isCheckingLatestBridgeVersion, isCheckingLatestBridgeVersion) || other.isCheckingLatestBridgeVersion == isCheckingLatestBridgeVersion)&&(identical(other.latestBridgeVersionError, latestBridgeVersionError) || other.latestBridgeVersionError == latestBridgeVersionError)&&(identical(other.error, error) || other.error == error)&&(identical(other.successMessage, successMessage) || other.successMessage == successMessage));
+  final _this = this as MachineManagerState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MachineManagerState&&const DeepCollectionEquality().equals(other.machines, _this.machines)&&(identical(other.isLoading, _this.isLoading) || other.isLoading == _this.isLoading)&&(identical(other.startingMachineId, _this.startingMachineId) || other.startingMachineId == _this.startingMachineId)&&(identical(other.updatingMachineId, _this.updatingMachineId) || other.updatingMachineId == _this.updatingMachineId)&&(identical(other.latestBridgeVersion, _this.latestBridgeVersion) || other.latestBridgeVersion == _this.latestBridgeVersion)&&(identical(other.isCheckingLatestBridgeVersion, _this.isCheckingLatestBridgeVersion) || other.isCheckingLatestBridgeVersion == _this.isCheckingLatestBridgeVersion)&&(identical(other.latestBridgeVersionError, _this.latestBridgeVersionError) || other.latestBridgeVersionError == _this.latestBridgeVersionError)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.successMessage, _this.successMessage) || other.successMessage == _this.successMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(machines),isLoading,startingMachineId,updatingMachineId,latestBridgeVersion,isCheckingLatestBridgeVersion,latestBridgeVersionError,error,successMessage);
+int get hashCode {
+  final _this = this as MachineManagerState;
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.machines),_this.isLoading,_this.startingMachineId,_this.updatingMachineId,_this.latestBridgeVersion,_this.isCheckingLatestBridgeVersion,_this.latestBridgeVersionError,_this.error,_this.successMessage);
+}
 
 @override
 String toString() {
-  return 'MachineManagerState(machines: $machines, isLoading: $isLoading, startingMachineId: $startingMachineId, updatingMachineId: $updatingMachineId, latestBridgeVersion: $latestBridgeVersion, isCheckingLatestBridgeVersion: $isCheckingLatestBridgeVersion, latestBridgeVersionError: $latestBridgeVersionError, error: $error, successMessage: $successMessage)';
+  final _this = this as MachineManagerState;
+  return 'MachineManagerState(machines: ${_this.machines}, isLoading: ${_this.isLoading}, startingMachineId: ${_this.startingMachineId}, updatingMachineId: ${_this.updatingMachineId}, latestBridgeVersion: ${_this.latestBridgeVersion}, isCheckingLatestBridgeVersion: ${_this.isCheckingLatestBridgeVersion}, latestBridgeVersionError: ${_this.latestBridgeVersionError}, error: ${_this.error}, successMessage: ${_this.successMessage})';
 }
 
 
@@ -263,16 +268,18 @@ _$MachineManagerStateCopyWith<_MachineManagerState> get copyWith => __$MachineMa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MachineManagerState&&const DeepCollectionEquality().equals(other._machines, _machines)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.startingMachineId, startingMachineId) || other.startingMachineId == startingMachineId)&&(identical(other.updatingMachineId, updatingMachineId) || other.updatingMachineId == updatingMachineId)&&(identical(other.latestBridgeVersion, latestBridgeVersion) || other.latestBridgeVersion == latestBridgeVersion)&&(identical(other.isCheckingLatestBridgeVersion, isCheckingLatestBridgeVersion) || other.isCheckingLatestBridgeVersion == isCheckingLatestBridgeVersion)&&(identical(other.latestBridgeVersionError, latestBridgeVersionError) || other.latestBridgeVersionError == latestBridgeVersionError)&&(identical(other.error, error) || other.error == error)&&(identical(other.successMessage, successMessage) || other.successMessage == successMessage));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _MachineManagerState&&const DeepCollectionEquality().equals(other.machines, _machines)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.startingMachineId, startingMachineId) || other.startingMachineId == startingMachineId)&&(identical(other.updatingMachineId, updatingMachineId) || other.updatingMachineId == updatingMachineId)&&(identical(other.latestBridgeVersion, latestBridgeVersion) || other.latestBridgeVersion == latestBridgeVersion)&&(identical(other.isCheckingLatestBridgeVersion, isCheckingLatestBridgeVersion) || other.isCheckingLatestBridgeVersion == isCheckingLatestBridgeVersion)&&(identical(other.latestBridgeVersionError, latestBridgeVersionError) || other.latestBridgeVersionError == latestBridgeVersionError)&&(identical(other.error, error) || other.error == error)&&(identical(other.successMessage, successMessage) || other.successMessage == successMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_machines),isLoading,startingMachineId,updatingMachineId,latestBridgeVersion,isCheckingLatestBridgeVersion,latestBridgeVersionError,error,successMessage);
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_machines),isLoading,startingMachineId,updatingMachineId,latestBridgeVersion,isCheckingLatestBridgeVersion,latestBridgeVersionError,error,successMessage);
+}
 
 @override
 String toString() {
-  return 'MachineManagerState(machines: $machines, isLoading: $isLoading, startingMachineId: $startingMachineId, updatingMachineId: $updatingMachineId, latestBridgeVersion: $latestBridgeVersion, isCheckingLatestBridgeVersion: $isCheckingLatestBridgeVersion, latestBridgeVersionError: $latestBridgeVersionError, error: $error, successMessage: $successMessage)';
+    return 'MachineManagerState(machines: $machines, isLoading: $isLoading, startingMachineId: $startingMachineId, updatingMachineId: $updatingMachineId, latestBridgeVersion: $latestBridgeVersion, isCheckingLatestBridgeVersion: $isCheckingLatestBridgeVersion, latestBridgeVersionError: $latestBridgeVersionError, error: $error, successMessage: $successMessage)';
 }
 
 

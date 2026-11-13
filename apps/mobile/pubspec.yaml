@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.163.1+307
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.14.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -37,6 +37,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  material_ui: ^1.11.0
+  cupertino_ui: ^1.1.6
   web_socket_channel: ^3.0.3
   webview_flutter: ^4.14.1
   marionette_flutter: ^0.7.0
@@ -46,7 +48,7 @@ dependencies:
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
   markdown: ^7.3.0
-  google_fonts: ^8.0.0
+  google_fonts: ^9.0.0
   bonsoir: ^6.0.1
   mobile_scanner: ^7.1.4
   app_links: ^7.2.2
@@ -86,7 +88,7 @@ dependencies:
   highlight: ^0.7.0
   syntax_highlight: ^0.5.0
   in_app_review: ^2.0.11
-  flutter_slidable: ^4.0.3
+  flutter_slidable: ^5.2.0
   super_drag_and_drop: ^0.9.1
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
@@ -99,6 +101,9 @@ dependencies:
   audio_session: ^0.2.4
   pdfrx: ^2.11.0
   duo_kit: ^0.1.2
+  # Runtime for the FFIgen bindings in lib/services/native/.
+  ffi: ^2.1.4
+  objective_c: ^9.6.4
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged
@@ -132,6 +137,7 @@ dev_dependencies:
   json_serializable: ^6.15.2
   auto_route_generator: ^10.4.0
   web_socket: ^1.0.1
+  ffigen: ^23.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

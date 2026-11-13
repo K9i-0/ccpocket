@@ -11,6 +11,7 @@ import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/workspace/workspace_layout_metrics.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/router/app_router.dart';
 import 'package:ccpocket/router/session_stack_navigation.dart';
@@ -35,7 +36,7 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/session_card.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
 import 'package:ccpocket/features/git/git_screen.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart' hide Provider;
@@ -487,13 +488,13 @@ Widget _buildWorkspaceApp({
                 routerConfig: router.config(
                   navigatorObservers: () => [SessionRouteObserver()],
                 ),
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                localizationsDelegates: appLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 locale: locale,
                 theme: AppTheme.darkTheme.copyWith(platform: platform),
               )
             : MaterialApp(
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                localizationsDelegates: appLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 locale: locale,
                 theme: AppTheme.darkTheme.copyWith(platform: platform),

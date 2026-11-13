@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/chat_session/state/background_completion_gate.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_state.dart';
 import 'package:ccpocket/features/chat_session/widgets/background_tasks_bar.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/chat_message_handler.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -70,7 +71,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.darkTheme,
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const Scaffold(
           body: BackgroundTasksBar(
@@ -167,7 +168,7 @@ void main() {
       MaterialApp(
         theme: AppTheme.darkTheme,
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: BackgroundTasksBar(

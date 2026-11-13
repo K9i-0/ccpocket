@@ -1,7 +1,7 @@
 import 'package:ccpocket/features/chat_session/widgets/bottom_overlay_layout.dart';
 import 'package:ccpocket/features/chat_session/widgets/floating_composer_layout.dart';
 import 'package:ccpocket/features/chat_session/widgets/maintain_reading_position_physics.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/features/git/widgets/diff_image_viewer.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/bubbles/image_preview.dart';
 import 'package:ccpocket/services/photo_library_service.dart';
 import 'package:ccpocket/widgets/media_export_actions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,7 +26,7 @@ void main() {
 
   Future<void> mount(WidgetTester tester) => tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         appBar: AppBar(actions: [MediaExportActions(bytes: bytes)]),
@@ -99,7 +100,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: FullScreenImageViewer(bytes: bytes),
       ),
@@ -118,7 +119,7 @@ void main() {
     final before = Uint8List.fromList(bytes);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: DiffImageViewer(
           file: const DiffFile(filePath: 'image.png', hunks: []),

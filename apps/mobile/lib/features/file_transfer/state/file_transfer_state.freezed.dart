@@ -21,7 +21,7 @@ mixin _$FileTransferState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferState);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferState);
 }
 
 
@@ -30,7 +30,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'FileTransferState()';
+    return 'FileTransferState()';
 }
 
 
@@ -201,7 +201,7 @@ return cancelled();case _:
 
 class FileTransferIdle implements FileTransferState {
   const FileTransferIdle();
-
+  
 
 
 
@@ -210,7 +210,7 @@ class FileTransferIdle implements FileTransferState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferIdle);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferIdle);
 }
 
 
@@ -219,7 +219,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'FileTransferState.idle()';
+    return 'FileTransferState.idle()';
 }
 
 
@@ -233,7 +233,7 @@ String toString() {
 
 class FileTransferPreparing implements FileTransferState {
   const FileTransferPreparing();
-
+  
 
 
 
@@ -242,7 +242,7 @@ class FileTransferPreparing implements FileTransferState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferPreparing);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferPreparing);
 }
 
 
@@ -251,7 +251,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'FileTransferState.preparing()';
+    return 'FileTransferState.preparing()';
 }
 
 
@@ -265,7 +265,7 @@ String toString() {
 
 class FileTransferDownloading implements FileTransferState {
   const FileTransferDownloading({required this.receivedBytes, required this.totalBytes});
-
+  
 
  final  int receivedBytes;
  final  int totalBytes;
@@ -280,16 +280,18 @@ $FileTransferDownloadingCopyWith<FileTransferDownloading> get copyWith => _$File
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferDownloading&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferDownloading&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,receivedBytes,totalBytes);
+int get hashCode {
+    return Object.hash(runtimeType,receivedBytes,totalBytes);
+}
 
 @override
 String toString() {
-  return 'FileTransferState.downloading(receivedBytes: $receivedBytes, totalBytes: $totalBytes)';
+    return 'FileTransferState.downloading(receivedBytes: $receivedBytes, totalBytes: $totalBytes)';
 }
 
 
@@ -333,7 +335,7 @@ as int,
 
 class FileTransferReady implements FileTransferState {
   const FileTransferReady({required this.localPath, required this.fileName, required this.mimeType, required this.sizeBytes});
-
+  
 
  final  String localPath;
  final  String fileName;
@@ -350,16 +352,18 @@ $FileTransferReadyCopyWith<FileTransferReady> get copyWith => _$FileTransferRead
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferReady&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferReady&&(identical(other.localPath, localPath) || other.localPath == localPath)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,localPath,fileName,mimeType,sizeBytes);
+int get hashCode {
+    return Object.hash(runtimeType,localPath,fileName,mimeType,sizeBytes);
+}
 
 @override
 String toString() {
-  return 'FileTransferState.ready(localPath: $localPath, fileName: $fileName, mimeType: $mimeType, sizeBytes: $sizeBytes)';
+    return 'FileTransferState.ready(localPath: $localPath, fileName: $fileName, mimeType: $mimeType, sizeBytes: $sizeBytes)';
 }
 
 
@@ -405,7 +409,7 @@ as int,
 
 class FileTransferFailed implements FileTransferState {
   const FileTransferFailed({required this.errorCode, required this.message});
-
+  
 
  final  String errorCode;
  final  String message;
@@ -420,16 +424,18 @@ $FileTransferFailedCopyWith<FileTransferFailed> get copyWith => _$FileTransferFa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferFailed&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.message, message) || other.message == message));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferFailed&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.message, message) || other.message == message));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,errorCode,message);
+int get hashCode {
+    return Object.hash(runtimeType,errorCode,message);
+}
 
 @override
 String toString() {
-  return 'FileTransferState.failed(errorCode: $errorCode, message: $message)';
+    return 'FileTransferState.failed(errorCode: $errorCode, message: $message)';
 }
 
 
@@ -473,7 +479,7 @@ as String,
 
 class FileTransferCancelled implements FileTransferState {
   const FileTransferCancelled();
-
+  
 
 
 
@@ -482,7 +488,7 @@ class FileTransferCancelled implements FileTransferState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferCancelled);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is FileTransferCancelled);
 }
 
 
@@ -491,7 +497,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'FileTransferState.cancelled()';
+    return 'FileTransferState.cancelled()';
 }
 
 

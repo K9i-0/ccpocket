@@ -1,7 +1,7 @@
 import 'package:ccpocket/features/chat_session/widgets/floating_composer_layout.dart';
 import 'package:ccpocket/services/floating_keyboard_service.dart';
 import 'package:ccpocket/widgets/frosted_composer.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

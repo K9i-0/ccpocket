@@ -1,7 +1,7 @@
 import 'package:ccpocket/features/chat_session/widgets/status_line.dart';
 import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
 import 'package:ccpocket/models/messages.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';
 

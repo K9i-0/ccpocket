@@ -26,16 +26,21 @@ $FinderRevealStateCopyWith<FinderRevealState> get copyWith => _$FinderRevealStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FinderRevealState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+  final _this = this as FinderRevealState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FinderRevealState&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.errorCode, _this.errorCode) || other.errorCode == _this.errorCode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,busy,errorCode);
+int get hashCode {
+  final _this = this as FinderRevealState;
+  return Object.hash(runtimeType,_this.busy,_this.errorCode);
+}
 
 @override
 String toString() {
-  return 'FinderRevealState(busy: $busy, errorCode: $errorCode)';
+  final _this = this as FinderRevealState;
+  return 'FinderRevealState(busy: ${_this.busy}, errorCode: ${_this.errorCode})';
 }
 
 
@@ -209,7 +214,7 @@ return $default(_that.busy,_that.errorCode);case _:
 
 class _FinderRevealState implements FinderRevealState {
   const _FinderRevealState({this.busy = false, this.errorCode});
-
+  
 
 @override@JsonKey() final  bool busy;
 @override final  String? errorCode;
@@ -224,16 +229,18 @@ _$FinderRevealStateCopyWith<_FinderRevealState> get copyWith => __$FinderRevealS
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FinderRevealState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _FinderRevealState&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,busy,errorCode);
+int get hashCode {
+    return Object.hash(runtimeType,busy,errorCode);
+}
 
 @override
 String toString() {
-  return 'FinderRevealState(busy: $busy, errorCode: $errorCode)';
+    return 'FinderRevealState(busy: $busy, errorCode: $errorCode)';
 }
 
 

@@ -1,49 +1,38 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
+import 'native/ios_environment.dart';
 
 abstract class PlatformEnvironmentGateway {
   Future<bool> isIOSAppOnMac();
   Future<String?> iosUserInterfaceIdiom();
 }
 
-class MethodChannelPlatformEnvironmentGateway
-    implements PlatformEnvironmentGateway {
-  const MethodChannelPlatformEnvironmentGateway([
-    this._channel = const MethodChannel('ccpocket/platform_environment'),
-  ]);
-
-  final MethodChannel _channel;
+/// Reads the environment straight from UIKit / Foundation through FFIgen
+/// bindings instead of a platform channel.
+class NativePlatformEnvironmentGateway implements PlatformEnvironmentGateway {
+  const NativePlatformEnvironmentGateway();
 
   @override
-  Future<bool> isIOSAppOnMac() async {
-    try {
-      return await _channel.invokeMethod<bool>('isIOSAppOnMac') ?? false;
-    } on MissingPluginException {
-      return false;
-    } on PlatformException catch (e) {
-      debugPrint('Platform environment unavailable: ${e.code}');
-      return false;
-    }
-  }
+  Future<bool> isIOSAppOnMac() async => readIsIOSAppOnMac();
 
   @override
-  Future<String?> iosUserInterfaceIdiom() async {
-    try {
-      return await _channel.invokeMethod<String>('iosUserInterfaceIdiom');
-    } on MissingPluginException {
-      return null;
-    } on PlatformException catch (e) {
-      debugPrint('Platform environment unavailable: ${e.code}');
-      return null;
-    }
-  }
+  Future<String?> iosUserInterfaceIdiom() async => readIOSUserInterfaceIdiom();
 }
 
 class PlatformEnvironmentService {
   PlatformEnvironmentService._({PlatformEnvironmentGateway? gateway})
-    : _gateway = gateway ?? const MethodChannelPlatformEnvironmentGateway();
+    : _gateway = gateway ?? const NativePlatformEnvironmentGateway();
 
-  static final instance = PlatformEnvironmentService._();
+  static final _default = PlatformEnvironmentService._();
+  static PlatformEnvironmentService? _override;
+
+  static PlatformEnvironmentService get instance => _override ?? _default;
+
+  /// Replaces [instance] in tests; pass null to restore the native gateway.
+  @visibleForTesting
+  static set debugOverride(PlatformEnvironmentService? service) {
+    _override = service;
+  }
 
   @visibleForTesting
   factory PlatformEnvironmentService.test({

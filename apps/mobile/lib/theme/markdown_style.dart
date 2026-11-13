@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -93,13 +93,73 @@ Future<bool> launchMarkdownUri(Uri uri) async {
   }
 }
 
+/// Same defaults as `MarkdownStyleSheet.fromTheme`, which only accepts the
+/// legacy `package:flutter/material.dart` `ThemeData`.
+MarkdownStyleSheet _baseMarkdownStyle(ThemeData theme) {
+  final body = theme.textTheme.bodyMedium!;
+  final cardColor = theme.cardTheme.color;
+  return MarkdownStyleSheet(
+    a: const TextStyle(color: Colors.blue),
+    p: body,
+    pPadding: EdgeInsets.zero,
+    code: body.copyWith(
+      backgroundColor: cardColor,
+      fontFamily: 'monospace',
+      fontSize: body.fontSize! * 0.85,
+    ),
+    h1: theme.textTheme.headlineSmall,
+    h1Padding: EdgeInsets.zero,
+    h2: theme.textTheme.titleLarge,
+    h2Padding: EdgeInsets.zero,
+    h3: theme.textTheme.titleMedium,
+    h3Padding: EdgeInsets.zero,
+    h4: theme.textTheme.bodyLarge,
+    h4Padding: EdgeInsets.zero,
+    h5: theme.textTheme.bodyLarge,
+    h5Padding: EdgeInsets.zero,
+    h6: theme.textTheme.bodyLarge,
+    h6Padding: EdgeInsets.zero,
+    em: const TextStyle(fontStyle: FontStyle.italic),
+    strong: const TextStyle(fontWeight: FontWeight.bold),
+    del: const TextStyle(decoration: TextDecoration.lineThrough),
+    blockquote: body,
+    img: body,
+    checkbox: body.copyWith(color: theme.primaryColor),
+    blockSpacing: 8,
+    listIndent: 24,
+    listBullet: body,
+    listBulletPadding: const EdgeInsets.only(right: 4),
+    tableHead: const TextStyle(fontWeight: FontWeight.w600),
+    tableBody: body,
+    tableHeadAlign: TextAlign.center,
+    tablePadding: const EdgeInsets.only(bottom: 4),
+    tableBorder: TableBorder.all(color: theme.dividerColor),
+    tableColumnWidth: const FlexColumnWidth(),
+    tableCellsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+    tableCellsDecoration: const BoxDecoration(),
+    blockquotePadding: const EdgeInsets.all(8),
+    blockquoteDecoration: BoxDecoration(
+      color: Colors.blue.shade100,
+      borderRadius: BorderRadius.circular(2),
+    ),
+    codeblockPadding: const EdgeInsets.all(8),
+    codeblockDecoration: BoxDecoration(
+      color: cardColor ?? theme.cardColor,
+      borderRadius: BorderRadius.circular(2),
+    ),
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(top: BorderSide(width: 5, color: theme.dividerColor)),
+    ),
+  );
+}
+
 MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
   final appColors = Theme.of(context).extension<AppColors>()!;
   final theme = Theme.of(context);
   final baseStyle = theme.textTheme.bodyMedium ?? const TextStyle();
   final codeSettings = codeTextSettingsOf(context);
 
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+  return _baseMarkdownStyle(theme).copyWith(
     p: baseStyle,
     strong: GoogleFonts.ibmPlexSans(
       textStyle: baseStyle,

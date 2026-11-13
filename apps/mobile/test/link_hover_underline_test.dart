@@ -1,7 +1,10 @@
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/link_hover_underline.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+// flutter_markdown still builds package:flutter/material.dart widgets.
+// ignore: deprecated_member_use
+import 'package:flutter/material.dart' as legacy show SelectableText;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -91,7 +94,8 @@ void main() {
 
     await hoverAt(
       tester,
-      tester.getTopLeft(find.byType(SelectableText).first) + const Offset(8, 8),
+      tester.getTopLeft(find.byType(legacy.SelectableText).first) +
+          const Offset(8, 8),
     );
     expect(underlines(tester), isNotEmpty);
   });

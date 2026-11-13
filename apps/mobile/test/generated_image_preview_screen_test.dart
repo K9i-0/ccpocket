@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:ccpocket/features/generated_image_preview/generated_image_preview_item.dart';
 import 'package:ccpocket/features/generated_image_preview/generated_image_preview_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -195,7 +196,7 @@ void main() {
       late StateSetter rebuild;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('en'),
           home: StatefulBuilder(
@@ -242,7 +243,7 @@ Widget _wrapItems(
   MediaFeedbackBinding? feedback,
 }) {
   return MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     home: GeneratedImagePreviewScreen(

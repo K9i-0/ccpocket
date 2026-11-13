@@ -24,7 +24,7 @@ PODS:
   - firebase_core (4.15.2):
     - Firebase/CoreOnly (= 12.19.3)
     - Flutter
-  - firebase_messaging (16.5.0):
+  - firebase_messaging (16.7.1):
     - Firebase/Messaging (= 12.19.3)
     - firebase_core
     - Flutter
@@ -101,16 +101,16 @@ PODS:
   - nanopb/encode (3.30910.0)
   - package_info_plus (0.4.5):
     - Flutter
-  - pdfium_flutter (0.4.1):
+  - pdfium_flutter (0.4.2):
     - Flutter
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (10.2.3):
+  - purchases_flutter (10.19.0):
     - Flutter
-    - PurchasesHybridCommon (= 18.14.1)
-  - PurchasesHybridCommon (18.14.1):
-    - RevenueCat (= 5.78.0)
-  - RevenueCat (5.78.0)
+    - PurchasesHybridCommon (= 19.17.0)
+  - PurchasesHybridCommon (19.17.0):
+    - RevenueCat (= 5.99.0)
+  - RevenueCat (5.99.0)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -245,10 +245,10 @@ SPEC CHECKSUMS:
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
-  file_selector_ios: ec57ec07954363dd730b642e765e58f199bb621a
+  file_selector_ios: fb1dd93b450e9c1ac595c0c8cf29cc855ea24d61
   Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
   firebase_core: 4d065e808a89f0eaa0df16660666783f9ea13d38
-  firebase_messaging: aa205093495eae606284410ef0c98d011cb9cab4
+  firebase_messaging: d66dd9b68ca259955678628aa4f3e4294d055790
   FirebaseCore: ab948de5d99e69aeed3cd6f5ace263ce795b2559
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
   FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
@@ -258,7 +258,7 @@ SPEC CHECKSUMS:
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
   GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
-  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  image_picker_ios: 872ad7b7cb44bf470e7324191b51ee0e26f45cb9
   in_app_review: 7dd1ea365263f834b8464673f9df72c80c17c937
   irondash_engine_context: 8e58ca8e0212ee9d1c7dc6a42121849986c88486
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
@@ -266,13 +266,13 @@ SPEC CHECKSUMS:
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
-  pdfium_flutter: 40fe1ba3e38784900c4e1dfc5b2bb391beb7b1e6
+  pdfium_flutter: 0d5445288f185431023e76bce901fe315d2f0602
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: c2af1311b818f75b549290971a928cb30036cb82
-  PurchasesHybridCommon: 825e4e748b62c919bc4cb4032b0d1e452409bd74
-  RevenueCat: f3641992451c1426da8d8d1466cec3bbdb765962
+  purchases_flutter: 8816e152bcf4d8e6222decc5c2234235d630f0cf
+  PurchasesHybridCommon: 46a92170257b674766b5ed5366be53c9d1603bbd
+  RevenueCat: 8e91d216b71708bb2c97be0aa86f47bfdb450655
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   super_native_extensions: b763c02dc3a8fd078389f410bf15149179020cb4

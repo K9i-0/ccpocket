@@ -34,16 +34,21 @@ $CommitStateCopyWith<CommitState> get copyWith => _$CommitStateCopyWithImpl<Comm
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
+  final _this = this as CommitState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CommitState&&(identical(other.message, _this.message) || other.message == _this.message)&&(identical(other.autoGenerate, _this.autoGenerate) || other.autoGenerate == _this.autoGenerate)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.error, _this.error) || other.error == _this.error)&&(identical(other.commitHash, _this.commitHash) || other.commitHash == _this.commitHash)&&(identical(other.stagedFileCount, _this.stagedFileCount) || other.stagedFileCount == _this.stagedFileCount)&&(identical(other.insertions, _this.insertions) || other.insertions == _this.insertions)&&(identical(other.deletions, _this.deletions) || other.deletions == _this.deletions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,stagedFileCount,insertions,deletions);
+int get hashCode {
+  final _this = this as CommitState;
+  return Object.hash(runtimeType,_this.message,_this.autoGenerate,_this.status,_this.error,_this.commitHash,_this.stagedFileCount,_this.insertions,_this.deletions);
+}
 
 @override
 String toString() {
-  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
+  final _this = this as CommitState;
+  return 'CommitState(message: ${_this.message}, autoGenerate: ${_this.autoGenerate}, status: ${_this.status}, error: ${_this.error}, commitHash: ${_this.commitHash}, stagedFileCount: ${_this.stagedFileCount}, insertions: ${_this.insertions}, deletions: ${_this.deletions})';
 }
 
 
@@ -252,16 +257,18 @@ _$CommitStateCopyWith<_CommitState> get copyWith => __$CommitStateCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,stagedFileCount,insertions,deletions);
+int get hashCode {
+    return Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,stagedFileCount,insertions,deletions);
+}
 
 @override
 String toString() {
-  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
+    return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
 }
 
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +8,7 @@ import 'package:ccpocket/features/git/state/git_view_state.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/git/widgets/git_file_list_sheet.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/git_diff_interaction_mode.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -19,7 +20,7 @@ Widget _wrap(Widget child, {BridgeService? bridge}) {
   return RepositoryProvider<BridgeService>.value(
     value: bridge ?? BridgeService(),
     child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
       theme: AppTheme.darkTheme,
@@ -42,7 +43,7 @@ Future<Widget> _wrapWithSettings(
     child: BlocProvider<SettingsCubit>(
       create: (_) => settingsCubit,
       child: MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
         theme: AppTheme.darkTheme,

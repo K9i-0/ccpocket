@@ -21,7 +21,7 @@ mixin _$SessionLinkState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkState);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkState);
 }
 
 
@@ -30,7 +30,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'SessionLinkState()';
+    return 'SessionLinkState()';
 }
 
 
@@ -201,7 +201,7 @@ return unavailable();case _:
 
 class SessionLinkResolving implements SessionLinkState {
   const SessionLinkResolving();
-
+  
 
 
 
@@ -210,7 +210,7 @@ class SessionLinkResolving implements SessionLinkState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkResolving);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkResolving);
 }
 
 
@@ -219,7 +219,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'SessionLinkState.resolving()';
+    return 'SessionLinkState.resolving()';
 }
 
 
@@ -233,7 +233,7 @@ String toString() {
 
 class SessionLinkResuming implements SessionLinkState {
   const SessionLinkResuming();
-
+  
 
 
 
@@ -242,7 +242,7 @@ class SessionLinkResuming implements SessionLinkState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkResuming);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkResuming);
 }
 
 
@@ -251,7 +251,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'SessionLinkState.resuming()';
+    return 'SessionLinkState.resuming()';
 }
 
 
@@ -265,7 +265,7 @@ String toString() {
 
 class SessionLinkOpenLive implements SessionLinkState {
   const SessionLinkOpenLive({required this.bridgeSessionId, required this.provider});
-
+  
 
  final  String bridgeSessionId;
  final  String provider;
@@ -280,16 +280,18 @@ $SessionLinkOpenLiveCopyWith<SessionLinkOpenLive> get copyWith => _$SessionLinkO
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenLive&&(identical(other.bridgeSessionId, bridgeSessionId) || other.bridgeSessionId == bridgeSessionId)&&(identical(other.provider, provider) || other.provider == provider));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenLive&&(identical(other.bridgeSessionId, bridgeSessionId) || other.bridgeSessionId == bridgeSessionId)&&(identical(other.provider, provider) || other.provider == provider));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,bridgeSessionId,provider);
+int get hashCode {
+    return Object.hash(runtimeType,bridgeSessionId,provider);
+}
 
 @override
 String toString() {
-  return 'SessionLinkState.openLive(bridgeSessionId: $bridgeSessionId, provider: $provider)';
+    return 'SessionLinkState.openLive(bridgeSessionId: $bridgeSessionId, provider: $provider)';
 }
 
 
@@ -333,7 +335,7 @@ as String,
 
 class SessionLinkOpenResumed implements SessionLinkState {
   const SessionLinkOpenResumed({required this.session, this.gitBranch});
-
+  
 
  final  SystemMessage session;
  final  String? gitBranch;
@@ -348,16 +350,18 @@ $SessionLinkOpenResumedCopyWith<SessionLinkOpenResumed> get copyWith => _$Sessio
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenResumed&&(identical(other.session, session) || other.session == session)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenResumed&&(identical(other.session, session) || other.session == session)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,session,gitBranch);
+int get hashCode {
+    return Object.hash(runtimeType,session,gitBranch);
+}
 
 @override
 String toString() {
-  return 'SessionLinkState.openResumed(session: $session, gitBranch: $gitBranch)';
+    return 'SessionLinkState.openResumed(session: $session, gitBranch: $gitBranch)';
 }
 
 
@@ -401,7 +405,7 @@ as String?,
 
 class SessionLinkOpenLegacy implements SessionLinkState {
   const SessionLinkOpenLegacy();
-
+  
 
 
 
@@ -410,7 +414,7 @@ class SessionLinkOpenLegacy implements SessionLinkState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenLegacy);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkOpenLegacy);
 }
 
 
@@ -419,7 +423,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'SessionLinkState.openLegacy()';
+    return 'SessionLinkState.openLegacy()';
 }
 
 
@@ -433,7 +437,7 @@ String toString() {
 
 class SessionLinkUnavailable implements SessionLinkState {
   const SessionLinkUnavailable();
-
+  
 
 
 
@@ -442,7 +446,7 @@ class SessionLinkUnavailable implements SessionLinkState {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkUnavailable);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionLinkUnavailable);
 }
 
 
@@ -451,7 +455,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'SessionLinkState.unavailable()';
+    return 'SessionLinkState.unavailable()';
 }
 
 

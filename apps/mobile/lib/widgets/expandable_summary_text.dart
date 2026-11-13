@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A text widget that truncates to [maxLines] with a "more" link
 /// positioned inline at the bottom-right, maximising visible text.

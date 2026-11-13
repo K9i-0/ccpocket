@@ -8,13 +8,14 @@ import 'package:ccpocket/features/session_list/widgets/session_filter_bar.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/offline_pending_action.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -146,7 +147,7 @@ Widget _buildHomeContent({
       ),
     ],
     child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
       theme: AppTheme.darkTheme,

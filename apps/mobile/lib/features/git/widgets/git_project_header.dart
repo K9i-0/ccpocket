@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../state/git_view_cubit.dart';
 import '../state/git_view_state.dart';
