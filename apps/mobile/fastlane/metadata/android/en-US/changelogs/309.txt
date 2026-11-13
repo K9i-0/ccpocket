@@ -1,0 +1,1 @@
+• Updated the app's underlying framework for stability.

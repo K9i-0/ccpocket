@@ -1,1 +1,2 @@
-• Tapping a recent session that the Bridge can't resume now shows the reason, including which folder to add to BRIDGE_ALLOWED_DIRS.
+• Touch input responds a little faster.
+• Updated the app's underlying framework for stability.
