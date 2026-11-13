@@ -51,7 +51,7 @@
     "doctor": "tsx src/cli.ts doctor"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.316",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.319",
     "bonjour-service": "^1.4.4",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.5",
