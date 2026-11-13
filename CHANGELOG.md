@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.163.2] - 2026-11-14
+
+### Changed
+
+- Built with Flutter 3.50. On iOS, touch input reaches the app about one frame sooner.
+- Over-the-air patches are no longer used, so every update now arrives through the store or a new download. The update track option is gone from the debug screen, and the version row in Settings no longer shows a patch number.
+
 ## [1.163.1] - 2026-11-12
 
 ### Fixed
