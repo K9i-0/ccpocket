@@ -151,8 +151,8 @@ git push origin windows/vX.Y.Z+N
 
 | タグ | ワークフロー | 内容 |
 |-----|------------|------|
-| `ios/v*` | `ios-release.yml` | Shorebird release iOS → TestFlight → GitHub Release |
-| `android/v*` | `android-release.yml` | Shorebird release Android → Google Play (internal draft) → GitHub Release |
+| `ios/v*` | `ios-release.yml` | `flutter build ipa` → TestFlight → GitHub Release |
+| `android/v*` | `android-release.yml` | `flutter build appbundle` → Google Play (internal draft) → GitHub Release |
 | `macos/v*` | `macos-release.yml` | Developer ID 署名 → 公証 → DMG → GitHub Release |
 | `linux/v*` | `linux-release.yml` | Linux release build → Xvfb smoke → tar.gz → GitHub Release |
 | `windows/v*` | `windows-release.yml` | Windows release build → smoke → zip → GitHub Release |

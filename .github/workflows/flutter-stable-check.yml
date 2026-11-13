@@ -1,7 +1,7 @@
 name: Flutter Stable Check
 
 # Dependabot cannot track the Flutter SDK. Open an issue when a newer Flutter
-# stable is released and Shorebird supports it.
+# stable is released.
 
 on:
   schedule:
@@ -24,8 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check Flutter stable and Shorebird support
-        run: bash scripts/check-flutter-shorebird.sh
+      - name: Check Flutter stable
+        run: bash scripts/check-flutter-stable.sh
         env:
           GH_TOKEN: ${{ github.token }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '' }}

@@ -69,7 +69,6 @@ dependencies:
   super_clipboard: ^0.9.1
   firebase_core: ^4.15.2
   firebase_messaging: ^16.1.1
-  shorebird_code_push: ^2.0.5
   # 10.2.3 includes RevenueCat iOS 5.78.0, which fixes Xcode 27 compilation.
   purchases_flutter: ^10.2.3
   package_info_plus: ^9.0.0
@@ -151,7 +150,6 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - shorebird.yaml
     - assets/icon.png
     - assets/icon_light_outline.png
     - assets/icon_pro_copper_emerald.png

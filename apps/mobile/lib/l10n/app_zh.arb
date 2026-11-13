@@ -743,11 +743,6 @@
   "viewApplicationLogs": "查看应用日志",
   "mockPreview": "Mock 预览",
   "viewMockChatScenarios": "查看 Mock 聊天场景",
-  "updateTrack": "更新轨道",
-  "updateTrackDescription": "更改后重启应用以生效",
-  "updateTrackStable": "稳定版",
-  "updateTrackStaging": "预发布版",
-  "updateDownloaded": "更新已下载。请重启应用以生效。",
 
   "promptHistory": "提示词历史",
   "frequent": "常用",

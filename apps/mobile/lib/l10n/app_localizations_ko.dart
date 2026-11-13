@@ -1879,21 +1879,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get viewMockChatScenarios => '모의 채팅 시나리오 보기';
 
   @override
-  String get updateTrack => '업데이트 트랙';
-
-  @override
-  String get updateTrackDescription => '변경 적용을 위해 앱을 재시작하세요';
-
-  @override
-  String get updateTrackStable => 'Stable';
-
-  @override
-  String get updateTrackStaging => 'Staging';
-
-  @override
-  String get updateDownloaded => '업데이트가 다운로드되었습니다. 적용하려면 앱을 재시작하세요.';
-
-  @override
   String get promptHistory => '프롬프트 기록';
 
   @override

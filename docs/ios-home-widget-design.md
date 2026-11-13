@@ -76,7 +76,6 @@ WidgetKit の extension は「常駐プロセス」ではない。
 ## ビルド・配布の考慮点（見落としやすい部分）
 
 - Xcode に Widget Extension ターゲットを追加し、App Group を `Runner.entitlements` と `RunnerRelease.entitlements` の両方に設定する。extension 用の App ID とプロビジョニングプロファイルも必要（`release-app` スキルの署名手順を更新）。
-- **Shorebird の OTA パッチは Dart のみ対象。** Swift 側のウィジェット変更は毎回ストアリリースが必要になる。表示ロジックをできるだけ Swift の薄い描画層に留め、整形済みのデータをアプリから渡す設計にすると、OTA で直せる範囲が広がる。
 - デプロイメントターゲットは iOS 15.0。WidgetKit 自体は使えるが、インタラクティブウィジェット（17+）、`containerBackground`（17+ で必須）、Control Center コントロール（18+）は `if #available` で分岐する。最低バージョンを上げるかどうかも判断材料になる。
 - ローカライズ: ウィジェット用の文字列を ja / en / ko / zh-Hans で別途用意する（既存の lproj は Runner 用のみ）。
 - extension 用の `PrivacyInfo.xcprivacy`（UserDefaults の利用理由など）と、App Store 掲載のスクリーンショット・説明文の更新。

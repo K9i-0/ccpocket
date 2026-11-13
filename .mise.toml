@@ -1,5 +1,4 @@
 [tools]
 node = "22"
 flutter = "3.47.9"
-shorebird = "1.6.136"
 "npm:agent-device" = "0.21.35"

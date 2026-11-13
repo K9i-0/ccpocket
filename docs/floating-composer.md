@@ -26,9 +26,8 @@ keyboard spans the full width at the bottom. Neither counts as floating.
 ### Compatibility
 
 - Android, desktop and web never subscribe. They always use the docked layout.
-- An older iOS binary that receives a Dart-only Shorebird patch has no native
-  tracker. Its listen fails, the error is swallowed, and the layout stays
-  docked. Following floating keyboards therefore needs a store build.
+- If the native tracker is missing, the listen fails, the error is swallowed,
+  and the layout stays docked.
 
 ## Layout (`FloatingComposerLayout`)
 

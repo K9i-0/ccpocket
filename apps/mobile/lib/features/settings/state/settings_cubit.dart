@@ -48,9 +48,6 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyFcmMachines = 'settings_fcm_machines';
   static const _keyFcmPrivacyMachines = 'settings_fcm_privacy_machines';
 
-  /// SharedPreferences key for the Shorebird update track.
-  /// Also read directly from SharedPreferences in main.dart at startup.
-  static const keyShorebirdTrack = 'settings_shorebird_track';
   static const _keyHideVoiceInput = 'settings_hide_voice_input';
   static const _keyOpenGalleryDirectly = 'settings_open_gallery_directly';
   static const _keyImagePasteShortcut = 'settings_image_paste_shortcut';
@@ -205,7 +202,6 @@ class SettingsCubit extends Cubit<SettingsState> {
       fcmPrivacyMachines = list.cast<String>().toSet();
     }
 
-    final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
     final indentSize = prefs.getInt(_keyIndentSize) ?? 2;
     final textScale = prefs.getDouble(_keyTextScale) ?? 1.0;
     final multiPaneBreakpoint = normalizeWorkspaceMultiPaneBreakpoint(
@@ -296,7 +292,6 @@ class SettingsCubit extends Cubit<SettingsState> {
       speechLocaleId: speechLocale ?? '',
       fcmEnabledMachines: fcmMachines,
       fcmPrivacyMachines: fcmPrivacyMachines,
-      shorebirdTrack: shorebirdTrack,
       indentSize: indentSize.clamp(1, 4),
       textScale: textScale.clamp(minTextScale, maxTextScale),
       multiPaneBreakpoint: multiPaneBreakpoint,
@@ -452,11 +447,6 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setCodeFontFamily(CodeFontFamily family) {
     _prefs.setString(_keyCodeFontFamily, family.id);
     emit(state.copyWith(codeFontFamily: family));
-  }
-
-  void setShorebirdTrack(String track) {
-    _prefs.setString(keyShorebirdTrack, track);
-    emit(state.copyWith(shorebirdTrack: track));
   }
 
   void setHideVoiceInput(bool hide) {

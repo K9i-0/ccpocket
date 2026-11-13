@@ -66,12 +66,6 @@ Grep pattern="<deprecated_api>" path="apps/mobile" glob="*.dart"
 grep -r "mise.toml" .github/workflows/
 ```
 
-#### Shorebird (OTA パッチ)
-- Shorebird はリリース時の Flutter バージョンでビルドを管理する
-- 既存リリースへのパッチは旧バージョンで行う必要がある
-- 新バージョンで新リリースを作る場合は問題ない
-- `shorebird doctor` で互換性を確認する
-
 #### dependency_overrides (一時的フォーク)
 - `pubspec.yaml` の `dependency_overrides` セクションを確認
 - 各オーバーライドが本家にマージ済み / pub.dev にリリース済みなら削除できるか調査
@@ -79,7 +73,7 @@ grep -r "mise.toml" .github/workflows/
 
 #### パッケージ互換性
 - `flutter pub outdated` で非互換パッケージがないか確認
-- 特に Shorebird, Firebase, google_fonts など Flutter バージョンに敏感なパッケージに注意
+- 特に Firebase, google_fonts など Flutter バージョンに敏感なパッケージに注意
 
 ### 2-3. Dart SDK 制約
 - `pubspec.yaml` の `environment.sdk` が新バージョン同梱の Dart と互換か確認
@@ -115,7 +109,7 @@ grep -r "mise.toml" .github/workflows/
 
 ## フェーズ4: 実行
 
-影響調査だけの依頼なら調査結果で完了する。アップグレードを依頼済みなら対象バージョンと範囲を引き継ぎ、実装・検証まで進める。対象が未指定ならShorebirdとの互換性を確認できる最新stableを選び、選定理由を報告して進める。互換性を満たす候補を特定できない場合だけ確認する。
+影響調査だけの依頼なら調査結果で完了する。アップグレードを依頼済みなら対象バージョンと範囲を引き継ぎ、実装・検証まで進める。対象が未指定なら最新stableを選んで進める。
 
 ### 4-1. mise 更新
 

@@ -25,7 +25,6 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
 import 'core/logger.dart';
@@ -68,7 +67,6 @@ import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
-import 'utils/platform_helper.dart';
 import 'widgets/duo/duo_control_strip.dart';
 import 'widgets/release_error_widget.dart';
 
@@ -79,23 +77,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // No-op: FCM notification messages are automatically displayed by the OS.
   // This handler is registered to prevent the "no onBackgroundMessage handler"
   // warning on Android.
-}
-
-/// Checks for Shorebird patches using the user-selected update track.
-Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
-  try {
-    final updater = ShorebirdUpdater();
-    final trackName =
-        prefs.getString(SettingsCubit.keyShorebirdTrack) ?? 'stable';
-    final track = UpdateTrack(trackName);
-    final status = await updater.checkForUpdate(track: track);
-    if (status == UpdateStatus.outdated) {
-      await updater.update(track: track);
-      logger.info('[shorebird] Patch downloaded (track: $trackName)');
-    }
-  } catch (e) {
-    logger.warning('[shorebird] Update check failed: $e');
-  }
 }
 
 void main() async {
@@ -182,14 +163,6 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
       wsUrlResolver: sshBridgeTunnelService.buildWsUrl,
       httpBaseUrlResolver: sshBridgeTunnelService.buildHttpBaseUrl,
     );
-  }
-
-  // Shorebird manual update check (auto_update is disabled in shorebird.yaml).
-  // Reads the user-selected track from SharedPreferences and checks for patches
-  // in the background. The patch is applied on next app restart.
-  // Shorebird OTA is only available on mobile platforms (iOS/Android).
-  if (isMobileHost) {
-    unawaited(_checkShorebirdUpdate(prefs));
   }
 
   final bridge = BridgeService();

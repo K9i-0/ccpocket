@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/app_update_service.dart';
-import '../state/settings_cubit.dart';
-import '../state/settings_state.dart';
 import 'settings_tiles.dart';
 
 class VersionTile extends StatefulWidget {
@@ -31,19 +27,8 @@ class _VersionTileState extends State<VersionTile> {
     final info = await PackageInfo.fromPlatform();
     final version = '${info.version}+${info.buildNumber}';
 
-    String result = version;
-    try {
-      final updater = ShorebirdUpdater();
-      final patch = await updater.readCurrentPatch();
-      if (patch != null) {
-        result = '$version (patch ${patch.number})';
-      }
-    } catch (_) {
-      // Shorebird not available (e.g. debug builds)
-    }
-
     if (mounted) {
-      setState(() => _versionText = result);
+      setState(() => _versionText = version);
     }
   }
 
@@ -51,19 +36,10 @@ class _VersionTileState extends State<VersionTile> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
 
-    return BlocBuilder<SettingsCubit, SettingsState>(
-      builder: (context, settings) {
-        final trackSuffix = settings.shorebirdTrack != 'stable'
-            ? ' [${settings.shorebirdTrack}]'
-            : '';
-        return ListTile(
-          leading: const SettingsLeadingIcon(Icons.info_outline_rounded),
-          title: Text(l.version),
-          subtitle: Text(
-            _versionText != null ? '$_versionText$trackSuffix' : l.loading,
-          ),
-        );
-      },
+    return ListTile(
+      leading: const SettingsLeadingIcon(Icons.info_outline_rounded),
+      title: Text(l.version),
+      subtitle: Text(_versionText ?? l.loading),
     );
   }
 }

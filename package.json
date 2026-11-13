@@ -26,9 +26,6 @@
     "functions:typecheck": "npm --prefix functions run typecheck",
     "functions:build": "npm --prefix functions run build",
     "functions:deploy": "firebase deploy --only functions --project ccpocket-ca33b",
-    "release-card": "node scripts/release-card/generate.mjs",
-    "shorebird:patch:android": "bash .claude/skills/shorebird-patch/patch.sh android",
-    "shorebird:patch:ios": "bash .claude/skills/shorebird-patch/patch.sh ios",
-    "shorebird:promote": "bash .claude/skills/shorebird-patch/promote.sh"
+    "release-card": "node scripts/release-card/generate.mjs"
   }
 }

@@ -52,7 +52,7 @@ test('parses monitor options and creates release targets', () => {
     {
       key: 'ios',
       branch: 'ios/v1.2.3+4',
-      workflow: 'iOS Release (Shorebird)',
+      workflow: 'iOS Release',
     },
     {
       key: 'windows',

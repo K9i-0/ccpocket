@@ -7,10 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PLATFORM_CONFIG = {
-  ios: { tagPrefix: 'ios', workflow: 'iOS Release (Shorebird)' },
+  ios: { tagPrefix: 'ios', workflow: 'iOS Release' },
   android: {
     tagPrefix: 'android',
-    workflow: 'Android Release (Shorebird)',
+    workflow: 'Android Release',
   },
   macos: { tagPrefix: 'macos', workflow: 'macOS Release' },
   linux: { tagPrefix: 'linux', workflow: 'Linux Release' },

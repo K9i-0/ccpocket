@@ -1,4 +1,4 @@
-name: iOS Release (Shorebird)
+name: iOS Release
 on:
   push:
     tags:
@@ -19,12 +19,11 @@ jobs:
     needs: test-gate
     # Quality checks run once in the Test workflow and are enforced by test-gate.
     # iPhone Duo support needs the iOS 27 SDK: apps linked against an older SDK
-    # run in compatibility mode there (no control strip). Pin the release Xcode
-    # so patches are built with the same toolchain as their release.
+    # run in compatibility mode there (no control strip), so pin the release
+    # Xcode.
     runs-on: xcode-27
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
-      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
@@ -39,9 +38,6 @@ jobs:
       - name: Read Flutter version from .mise.toml
         id: mise
         run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
-      - uses: shorebirdtech/setup-shorebird@8b1059ddb56a926f0146edf4133cc647775c162f # v1.4.1
-        with:
-          cache: true
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ steps.mise.outputs.flutter_version }}
@@ -52,7 +48,7 @@ jobs:
           pipx ensurepath
       - name: Setup Firebase config
         run: echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" | base64 -d > apps/mobile/ios/Runner/GoogleService-Info.plist
-      - name: Use precompiled Rust artifacts for Shorebird
+      - name: Use precompiled Rust artifacts
         run: |
           printf '%s\n' 'use_precompiled_binaries: true' > apps/mobile/cargokit_options.yaml
       - run: flutter pub get
@@ -69,19 +65,12 @@ jobs:
         run: keychain add-certificates
       - name: Set up code signing
         run: xcode-project use-profiles
-      - name: Shorebird Release iOS
+      - name: Build iOS release
         working-directory: apps/mobile
         run: |
-          # --no-tree-shake-icons: Prevent MaterialIcons-Regular.otf from changing
-          # between release and patch builds, which causes Shorebird asset diff warnings
-          # and prevents patches from being applied on devices.
-          # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
-          shorebird release ios \
-            --flutter-version="${{ steps.mise.outputs.flutter_version }}" \
-            --export-options-plist=$HOME/export_options.plist \
-            -- \
-            --dart-define=REVENUECAT_PUBLIC_KEY="${REVENUECAT_PUBLIC_KEY}" \
-            --no-tree-shake-icons
+          flutter build ipa --release \
+            --export-options-plist="$HOME/export_options.plist" \
+            --dart-define=REVENUECAT_PUBLIC_KEY="${REVENUECAT_PUBLIC_KEY}"
       - name: Find IPA file
         id: find_ipa
         run: |

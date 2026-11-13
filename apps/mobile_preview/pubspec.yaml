@@ -25,7 +25,6 @@ flutter:
     # Same as apps/mobile: speech_to_text needs CocoaPods on macOS.
     enable-swift-package-manager: false
   assets:
-    - shorebird.yaml
     - assets/icon.png
     - assets/icon_light_outline.png
     - assets/icon_pro_copper_emerald.png

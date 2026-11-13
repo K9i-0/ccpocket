@@ -107,7 +107,6 @@ Core stack:
 - SSH host management: `dartssh2`
 - Push notifications: Firebase Messaging
 - Purchases/supporter flow: RevenueCat `purchases_flutter`
-- OTA updates: Shorebird Code Push
 - UI automation hooks: `marionette_flutter`
 - Tests: `flutter_test`, `bloc_test`, Patrol finders, widget tests
 

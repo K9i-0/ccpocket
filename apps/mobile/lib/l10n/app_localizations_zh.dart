@@ -1841,21 +1841,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get viewMockChatScenarios => '查看 Mock 聊天场景';
 
   @override
-  String get updateTrack => '更新轨道';
-
-  @override
-  String get updateTrackDescription => '更改后重启应用以生效';
-
-  @override
-  String get updateTrackStable => '稳定版';
-
-  @override
-  String get updateTrackStaging => '预发布版';
-
-  @override
-  String get updateDownloaded => '更新已下载。请重启应用以生效。';
-
-  @override
   String get promptHistory => '提示词历史';
 
   @override

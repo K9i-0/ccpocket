@@ -67,7 +67,6 @@ MVP exclusions:
 - Native package installation (`.deb`, AppImage, Flatpak).
 - Push notifications.
 - Purchases / RevenueCat support.
-- Shorebird patches.
 - QR scanning.
 - Distro-specific support commitments.
 
@@ -137,7 +136,6 @@ mobile/macOS.
 Review these areas:
 
 - Firebase Messaging / push notification registration.
-- Shorebird patch checks.
 - RevenueCat purchases and supporter catalog.
 - QR scanning and camera access.
 - macOS native app update checks.
