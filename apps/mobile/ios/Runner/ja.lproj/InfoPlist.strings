@@ -3,3 +3,4 @@
 "NSLocalNetworkUsageDescription" = "ローカルネットワーク上のCC Pocketブリッジサーバーを検索します";
 "NSMicrophoneUsageDescription" = "音声入力でテキストに変換するためにマイクへのアクセスが必要です";
 "NSSpeechRecognitionUsageDescription" = "音声認識を使用して音声入力をテキストメッセージに変換します";
+"NSPhotoLibraryUsageDescription" = "メッセージに添付する写真やビデオをライブラリから選択します";

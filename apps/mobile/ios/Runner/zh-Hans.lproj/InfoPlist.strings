@@ -3,3 +3,4 @@
 "NSLocalNetworkUsageDescription" = "正在搜索本地网络上的CC Pocket桥接服务器";
 "NSMicrophoneUsageDescription" = "语音输入需要使用麦克风将语音转换为文字";
 "NSSpeechRecognitionUsageDescription" = "使用语音识别将语音输入转换为文字消息";
+"NSPhotoLibraryUsageDescription" = "从照片图库中选择要附加到消息的照片和视频";

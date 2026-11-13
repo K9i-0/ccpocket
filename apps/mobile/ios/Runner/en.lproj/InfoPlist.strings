@@ -3,3 +3,4 @@
 "NSLocalNetworkUsageDescription" = "Searching for CC Pocket bridge servers on your local network";
 "NSMicrophoneUsageDescription" = "Voice input requires microphone access to transcribe speech to text";
 "NSSpeechRecognitionUsageDescription" = "Speech recognition is used to convert voice input to text messages";
+"NSPhotoLibraryUsageDescription" = "Choose photos and videos from your library to attach to messages.";

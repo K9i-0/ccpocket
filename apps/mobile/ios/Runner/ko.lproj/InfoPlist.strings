@@ -3,3 +3,4 @@
 "NSLocalNetworkUsageDescription" = "로컬 네트워크에서 CC Pocket Bridge 서버를 검색합니다";
 "NSMicrophoneUsageDescription" = "음성 입력을 텍스트로 변환하려면 마이크 권한이 필요합니다";
 "NSSpeechRecognitionUsageDescription" = "음성 입력을 텍스트 메시지로 변환하려면 음성 인식 권한이 필요합니다";
+"NSPhotoLibraryUsageDescription" = "메시지에 첨부할 사진과 비디오를 보관함에서 선택합니다";
