@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.106.4] - 2026-11-15
+
+### Fixed
+
+- On Windows, automatic session naming for Codex failed with `spawn codex ENOENT` when Codex was installed globally with npm (only the `codex.cmd` shim is on PATH), leaving sessions unnamed. Auto-rename now uses a native `codex.exe` found on PATH, or runs the npm package's `bin/codex.js` with the current Node runtime. Arguments are passed without a shell. ([#332](https://github.com/K9i-0/ccpocket/pull/332) by @hustneverland)
+
 ## [1.106.3] - 2026-11-15
 
 ### Changed
