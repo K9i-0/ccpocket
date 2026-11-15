@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { join, resolve } from "node:path";
+import { join, resolve, win32 } from "node:path";
 import type { ServerMessage } from "./parser.js";
 
 const {
@@ -8,12 +8,14 @@ const {
   mkdtempSyncMock,
   readFileSyncMock,
   rmSyncMock,
+  existsSyncMock,
 } = vi.hoisted(() => ({
   execFileMock: vi.fn(),
   stdinEndMock: vi.fn(),
   mkdtempSyncMock: vi.fn(),
   readFileSyncMock: vi.fn(),
   rmSyncMock: vi.fn(),
+  existsSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
@@ -39,6 +41,7 @@ vi.mock("node:fs", () => ({
   mkdtempSync: mkdtempSyncMock,
   readFileSync: readFileSyncMock,
   rmSync: rmSyncMock,
+  existsSync: existsSyncMock,
 }));
 
 import {
@@ -47,6 +50,7 @@ import {
   buildAutoRenameTranscript,
   generateAutoRenameName,
   sanitizeAutoRenameName,
+  resolveCodexAutoRenameCommand,
 } from "./auto-rename.js";
 
 const originalAssistModel = process.env.BRIDGE_CODEX_ASSIST_MODEL;
@@ -61,6 +65,7 @@ describe("auto rename", () => {
     mkdtempSyncMock.mockReset();
     readFileSyncMock.mockReset();
     rmSyncMock.mockReset();
+    existsSyncMock.mockReset().mockReturnValue(false);
     mkdtempSyncMock.mockReturnValue("/tmp/ccpocket-auto-rename-1");
     delete process.env.BRIDGE_CODEX_ASSIST_MODEL;
     delete process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
@@ -288,6 +293,64 @@ describe("auto rename", () => {
       recursive: true,
       force: true,
     });
+  });
+
+  it("runs the Windows npm entry point without interpreting arguments", () => {
+    const dir = "C:\\Users\\测试 用户\\AppData\\Roaming\\npm";
+    const script = win32.join(
+      dir, "node_modules", "@openai", "codex", "bin", "codex.js",
+    );
+    const files = new Set([win32.join(dir, "codex.cmd"), script]);
+    existsSyncMock.mockImplementation((file: string) => files.has(file));
+    const args = [
+      "exec", "-m", "model&literal", "-c", 'model_reasoning_effort="none"',
+      "-o", "C:\\临时 目录\\name & result.txt", "-",
+    ];
+    const cli = resolveCodexAutoRenameCommand(
+      args, "C:\\project", "win32", `C:\\missing;"${dir}"`,
+    );
+    expect(cli).toEqual({ command: process.execPath, args: [script, ...args] });
+  });
+
+  it("preserves PATH order when a native Windows executable is first", () => {
+    const native = "C:\\standalone\\codex.exe";
+    existsSyncMock.mockImplementation((file: string) => file === native);
+    const args = ["exec", "-"];
+    expect(resolveCodexAutoRenameCommand(
+      args, "C:\\project", "win32", "C:\\standalone;C:\\npm",
+    )).toEqual({ command: native, args });
+    expect(existsSyncMock).not.toHaveBeenCalledWith("C:\\npm\\codex.cmd");
+  });
+
+  it("keeps a missing or non-npm Windows CLI failure observable", () => {
+    existsSyncMock.mockImplementation((file: string) => file.endsWith("codex.cmd"));
+    expect(resolveCodexAutoRenameCommand(
+      ["exec", "-"], "C:\\project", "win32", "C:\\custom",
+    )).toEqual({ command: "codex", args: ["exec", "-"] });
+  });
+
+  it("keeps non-Windows CLI resolution unchanged", () => {
+    const args = ["exec", "-"];
+    expect(resolveCodexAutoRenameCommand(
+      args, "/project", "linux", "/usr/local/bin:/usr/bin",
+    )).toEqual({ command: "codex", args });
+    expect(existsSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves relative PATH entries from the session directory", () => {
+    const binary = "C:\\session\\tools\\codex.exe";
+    existsSyncMock.mockImplementation((file: string) => file === binary);
+    expect(resolveCodexAutoRenameCommand(
+      ["exec"], "C:\\session", "win32", "tools;C:\\global",
+    )).toEqual({ command: binary, args: ["exec"] });
+  });
+
+  it("preserves native executable precedence in the child directory", () => {
+    const executable = "C:\\session\\codex.exe";
+    existsSyncMock.mockImplementation((file: string) => file === executable);
+    expect(resolveCodexAutoRenameCommand(
+      ["exec"], "C:\\session", "win32", "C:\\npm",
+    )).toEqual({ command: executable, args: ["exec"] });
   });
 });
 

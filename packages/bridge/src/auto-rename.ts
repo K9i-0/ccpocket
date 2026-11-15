@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, win32 } from "node:path";
 import type { Provider, ServerMessage } from "./parser.js";
 import {
   getCodexAssistModel,
@@ -140,6 +140,7 @@ function runCli(
         maxBuffer: 1024 * 1024,
         timeout: AUTO_RENAME_TIMEOUT_MS,
         killSignal: "SIGKILL",
+        windowsHide: true,
       },
       (err, stdout) => {
         if (err) {
@@ -167,8 +168,7 @@ async function runCodexAutoRename(
   const outputPath = join(outputDir, "session-name.txt");
 
   try {
-    await runCli(
-      "codex",
+    const cli = resolveCodexAutoRenameCommand(
       [
         "exec",
         "--skip-git-repo-check",
@@ -181,12 +181,37 @@ async function runCodexAutoRename(
         "-",
       ],
       cwd,
-      prompt,
     );
+    await runCli(cli.command, cli.args, cwd, prompt);
     return readFileSync(outputPath, "utf-8");
   } finally {
     rmSync(outputDir, { recursive: true, force: true });
   }
+}
+
+export function resolveCodexAutoRenameCommand(
+  args: string[],
+  cwd: string,
+  platform = process.platform,
+  searchPath = process.env.PATH ?? "",
+): { command: string; args: string[] } {
+  if (platform === "win32") {
+    // Windows resolves relative PATH entries from the child's working directory.
+    for (const entry of [cwd, ...searchPath.split(";")]) {
+      const dir = win32.resolve(cwd, entry.trim().replace(/^"(.*)"$/, "$1"));
+      const executable = win32.join(dir, "codex.exe");
+      if (existsSync(executable)) return { command: executable, args };
+      const script = win32.join(
+        dir, "node_modules", "@openai", "codex", "bin", "codex.js",
+      );
+      if (existsSync(win32.join(dir, "codex.cmd")) && existsSync(script)) {
+        // execFile cannot execute npm's .cmd shim. Use its JS entry point
+        // with the current Node runtime, keeping arguments out of a shell.
+        return { command: process.execPath, args: [script, ...args] };
+      }
+    }
+  }
+  return { command: "codex", args };
 }
 
 function limitText(text: string, maxChars: number): string {
