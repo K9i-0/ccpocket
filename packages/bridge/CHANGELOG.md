@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.106.3] - 2026-11-15
+
+### Changed
+
+- Updated `undici` to 8.12.4, which fixes six security issues in its redirect, cache, and `fetch()` integrity handling (one rated high: CVE-2026-116592).
+- Updated `@anthropic-ai/claude-agent-sdk` to 0.3.319 (parity with Claude Code v2.1.319).
+
 ## [1.106.2] - 2026-11-13
 
 ### Fixed
