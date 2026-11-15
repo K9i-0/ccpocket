@@ -105,12 +105,12 @@ PODS:
     - Flutter
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (10.19.0):
+  - purchases_flutter (11.0.1):
     - Flutter
-    - PurchasesHybridCommon (= 19.17.0)
-  - PurchasesHybridCommon (19.17.0):
-    - RevenueCat (= 5.99.0)
-  - RevenueCat (5.99.0)
+    - PurchasesHybridCommon (= 20.3.0)
+  - PurchasesHybridCommon (20.3.0):
+    - RevenueCat (= 5.100.0)
+  - RevenueCat (5.100.0)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -268,9 +268,9 @@ SPEC CHECKSUMS:
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   pdfium_flutter: 0d5445288f185431023e76bce901fe315d2f0602
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: 8816e152bcf4d8e6222decc5c2234235d630f0cf
-  PurchasesHybridCommon: 46a92170257b674766b5ed5366be53c9d1603bbd
-  RevenueCat: 8e91d216b71708bb2c97be0aa86f47bfdb450655
+  purchases_flutter: 30f3d290de5e94b22446cddc119f83f16428bc43
+  PurchasesHybridCommon: 317c3a8f157054d0307c3276dd3bc1c229db0d4e
+  RevenueCat: 534bc736ccf97653e4681b1fb3452eb0a396a842
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
