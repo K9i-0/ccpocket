@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.163.3] - 2026-11-15
+
+### Changed
+
+- Updated the RevenueCat SDK (`purchases_flutter` 11), which moves Android purchases to Google Play Billing Library 9.
+- The Bridge update banner now expects Bridge 1.106.3, which includes security fixes in its HTTP client.
+
 ## [1.163.2] - 2026-11-14
 
 ### Changed
