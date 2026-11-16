@@ -89,6 +89,27 @@ describe("ImageStore.extractImagePaths", () => {
     ]);
   });
 
+  it("finds a path glued to punctuation or non-ASCII prose", () => {
+    expect(extract("<path>/tmp/a.png</path>")).toEqual(["/tmp/a.png"]);
+    expect(extract("保存先：/tmp/b.png")).toEqual(["/tmp/b.png"]);
+    expect(extract("画像は/tmp/c.png に保存しました")).toEqual(["/tmp/c.png"]);
+    expect(extract("files: [/tmp/d.png]|/tmp/e.png;/tmp/f.png")).toEqual([
+      "/tmp/d.png",
+      "/tmp/e.png",
+      "/tmp/f.png",
+    ]);
+  });
+
+  it("finds a path that follows a newline inside structured content", () => {
+    expect(
+      extract([{ type: "text", text: "Saved:\n/tmp/shot.png\t/tmp/other.png" }]),
+    ).toEqual(["/tmp/shot.png", "/tmp/other.png"]);
+  });
+
+  it("does not report the path part of a URL", () => {
+    expect(extract("See https://example.com/img/remote.jpg")).toEqual([]);
+  });
+
   // ---- Extension filtering ----
 
   it("extracts png files", () => {

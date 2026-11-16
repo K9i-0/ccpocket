@@ -38,13 +38,30 @@ const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-// Matches absolute paths ending with image extensions. The leading group keeps
-// a match at the start of a token, so the tail of a relative path
-// (`src/assets/logo.png`) is not reported as the absolute `/assets/logo.png`.
-// Non-ASCII letters stay inside the path instead of splitting it, and a Windows
-// drive prefix is kept with the path it belongs to.
+// Matches absolute paths ending with image extensions. The lookbehind rejects a
+// match that starts in the middle of an ASCII token, so the tail of a relative
+// path (`src/assets/logo.png`, `src/c++/logo.png`) is not reported as an
+// absolute one. It is a denylist rather than a delimiter allowlist so a path
+// glued to any other punctuation or to non-ASCII prose (`<path>/tmp/a.png`,
+// `保存先：/tmp/a.png`, `画像は/tmp/a.png`) is still found. Non-ASCII letters
+// stay inside the path instead of splitting it, and a Windows drive prefix is
+// kept with the path it belongs to.
 const IMAGE_PATH_RE =
-  /(^|[\s"'`(\[<,=:])((?:[A-Za-z]:)?\/[\p{L}\p{N}\p{M}._/-]+\.(?:png|jpe?g|gif|webp))/giu;
+  /(?<![A-Za-z0-9_.~+@%#$&*!?\\/-])(?:[A-Za-z]:)?\/[\p{L}\p{N}\p{M}._/-]+\.(?:png|jpe?g|gif|webp)/giu;
+
+/**
+ * Flatten a value into searchable text. Strings inside objects/arrays are
+ * joined by newlines instead of JSON-encoded, so an escaped `\n` or `\t` in
+ * front of a path does not read as part of a token.
+ */
+function searchableText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(searchableText).join("\n");
+  if (value && typeof value === "object") {
+    return Object.values(value).map(searchableText).join("\n");
+  }
+  return "";
+}
 
 export class ImageStore {
   private store = new Map<string, StoredImage>();
@@ -153,10 +170,8 @@ export class ImageStore {
 
   /** Extract local image file paths from text (ignores URLs). */
   extractImagePaths(text: unknown): string[] {
-    const str = typeof text === "string" ? text : JSON.stringify(text ?? "");
     const localPaths: string[] = [];
-    for (const match of str.matchAll(IMAGE_PATH_RE)) {
-      const path = match[2];
+    for (const [path] of searchableText(text).matchAll(IMAGE_PATH_RE)) {
       // Filter out URLs (paths starting with //)
       if (path.startsWith("//")) continue;
       localPaths.push(path);
