@@ -679,14 +679,17 @@ function parseFromChunks(
 
     // Find last timestamp and last user prompt from tail (scan in reverse)
     let lastUserLine: string | null = null;
-    let tailCustomTitle = "";
+    // undefined = no custom-title line seen yet; "" = the title was cleared.
+    // Tracking the two separately keeps an older non-empty title from
+    // resurrecting a title the user cleared at the end of the transcript.
+    let tailCustomTitle: string | undefined;
     for (let i = tailLines.length - 1; i >= 0; i--) {
       const line = tailLines[i];
       if (!line.trim()) continue;
 
       if (RE_TYPE_CUSTOM_TITLE.test(line)) {
         const ctMatch = line.match(RE_CUSTOM_TITLE);
-        if (ctMatch && !tailCustomTitle) {
+        if (ctMatch && tailCustomTitle === undefined) {
           tailCustomTitle = ctMatch[1];
           customTitle = tailCustomTitle;
         }
@@ -1232,10 +1235,12 @@ export async function getAllRecentSessions(
             if (includeOnlyNamedClaude) {
               // ccpocket/SDK renames only append a JSONL custom-title line, so
               // the index customTitle alone misses renamed sessions.
-              name =
-                (await getClaudeJsonlCustomTitle(
-                  entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`),
-                )) ?? entry.customTitle;
+              const jsonlTitle = await getClaudeJsonlCustomTitle(
+                entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`),
+              );
+              // Only an absent JSONL title falls back to the index. A cleared
+              // title ("") must not resurrect a stale index customTitle.
+              name = jsonlTitle !== undefined ? jsonlTitle : entry.customTitle;
               if (!name) continue;
             }
 
@@ -2014,7 +2019,8 @@ async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | und
     if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
       const buf = Buffer.alloc(fileSize);
       await fh.read(buf, 0, fileSize, 0);
-      return extractClaudeCustomTitleFromText(buf.toString("utf-8")) || undefined;
+      // Keep "" (explicitly cleared) distinct from undefined (no title line).
+      return extractClaudeCustomTitleFromText(buf.toString("utf-8"));
     }
 
     const headBuf = Buffer.alloc(HEAD_BYTES);
@@ -2027,8 +2033,9 @@ async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | und
     const firstNewline = tailRaw.indexOf("\n");
     const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
     // Custom titles are last-wins: a cleared title in the tail overrides a
-    // title written near the start of the transcript.
-    return (extractClaudeCustomTitleFromText(cleanTail) ?? headTitle) || undefined;
+    // title written near the start of the transcript. Return the value as-is
+    // so callers can tell a cleared title ("") from an absent one (undefined).
+    return extractClaudeCustomTitleFromText(cleanTail) ?? headTitle;
   } finally {
     await fh.close();
   }
@@ -2046,28 +2053,28 @@ export async function getClaudeSessionName(
   const dirPath = join(homedir(), ".claude", "projects", slug);
   const indexPath = join(dirPath, "sessions-index.json");
 
-  let raw: string;
+  // A missing or unreadable index is not fatal: the transcript is the source
+  // of truth for custom titles, so fall through with no index entry.
+  let index: RawSessionIndexFile | null = null;
   try {
-    raw = await readFile(indexPath, "utf-8");
+    index = JSON.parse(await readFile(indexPath, "utf-8")) as RawSessionIndexFile;
   } catch {
-    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
+    index = null;
   }
 
-  let index: RawSessionIndexFile;
-  try {
-    index = JSON.parse(raw) as RawSessionIndexFile;
-  } catch {
-    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
-  }
+  const entry = Array.isArray(index?.entries)
+    ? index.entries.find((e) => e.sessionId === claudeSessionId)
+    : undefined;
 
-  if (!Array.isArray(index.entries)) {
-    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
+  const jsonlTitle = await getClaudeJsonlCustomTitle(
+    entry?.fullPath || join(dirPath, `${claudeSessionId}.jsonl`),
+  );
+  if (jsonlTitle !== undefined) {
+    // A cleared title ("") means the session has no name. Do not fall back to
+    // a stale sessions-index customTitle in that case.
+    return jsonlTitle || undefined;
   }
-
-  const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
-  return (
-    await getClaudeJsonlCustomTitle(entry?.fullPath || join(dirPath, `${claudeSessionId}.jsonl`))
-  ) ?? entry?.customTitle ?? undefined;
+  return entry?.customTitle || undefined;
 }
 
 /**
