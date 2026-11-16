@@ -16,6 +16,24 @@ const BOOLEAN_FLAGS = new Set([
   "insecure-no-auth",
 ]);
 
+function isKnownFlag(arg: string): boolean {
+  if (arg === "-h" || arg === "-v") {
+    return true;
+  }
+  if (!arg.startsWith("--")) {
+    return false;
+  }
+  const raw = arg.slice(2);
+  const equalIndex = raw.indexOf("=");
+  const name = equalIndex === -1 ? raw : raw.slice(0, equalIndex);
+  return (
+    VALUE_FLAGS.has(name) ||
+    BOOLEAN_FLAGS.has(name) ||
+    name === "help" ||
+    name === "version"
+  );
+}
+
 export interface ParsedCliArgs {
   command?: string;
   flags: Map<string, string | true>;
@@ -48,7 +66,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       if (VALUE_FLAGS.has(name)) {
         if (inlineValue !== undefined) {
           flags.set(name, inlineValue);
-        } else if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
+        } else if (i + 1 < args.length && !isKnownFlag(args[i + 1])) {
           flags.set(name, args[i + 1]);
           i += 1;
         } else {
