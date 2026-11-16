@@ -1,0 +1,5 @@
+• New Issues / PRs screen: browse a project's open GitHub Issues and pull requests. Filter by label, hide drafts, or show only dependabot PRs, and tap an item to read its body and recent comments.
+• Select Issues and PRs to add their GitHub URLs to your next message.
+• Open it from an empty chat, the chat menu (⋯), a recent session's long-press menu, or a project header.
+• Requires Bridge 1.107.0+ and the GitHub CLI (gh) signed in on the Bridge host.
+• Updated the purchase SDK.
