@@ -22,6 +22,33 @@ describe("normalizeRepositoryUrl", () => {
     expect(normalizeRepositoryUrl("https://user:token@github.com/owner/repo.git")).toBe(expected);
   });
 
+  it("drops a port that only spells out the scheme default", () => {
+    expect(normalizeRepositoryUrl("ssh://git@github.com:22/owner/repo.git")).toBe(
+      "github.com/owner/repo",
+    );
+    expect(normalizeRepositoryUrl("ssh://git@git.example.com:22/team/repo")).toBe(
+      "git.example.com/team/repo",
+    );
+    expect(normalizeRepositoryUrl("git://git.example.com:9418/team/repo")).toBe(
+      "git.example.com/team/repo",
+    );
+    expect(normalizeRepositoryUrl("https://git.example.com:443/team/repo")).toBe(
+      "git.example.com/team/repo",
+    );
+  });
+
+  it("keeps a non-default port, which addresses another service", () => {
+    expect(normalizeRepositoryUrl("ssh://git@git.example.com:2222/team/repo")).toBe(
+      "git.example.com:2222/team/repo",
+    );
+    expect(normalizeRepositoryUrl("https://git.example.com:8443/team/repo")).toBe(
+      "git.example.com:8443/team/repo",
+    );
+    expect(normalizeRepositoryUrl("ssh://git@git.example.com:2222/team/repo")).not.toBe(
+      normalizeRepositoryUrl("https://git.example.com/team/repo"),
+    );
+  });
+
   it("keeps path casing for non-GitHub hosts, which may be case-sensitive", () => {
     expect(normalizeRepositoryUrl("git@Git.Example.com:Team/Repo.git")).toBe(
       "git.example.com/Team/Repo",
@@ -155,6 +182,18 @@ describe("createRepositoryRootResolver", () => {
     expect(
       await resolver.resolveRepositoryUrl("git@github.com:owner/unknown.git", [repo, other]),
     ).toBeNull();
+  });
+
+  it("maps a URL to a checkout whose origin spells out the SSH default port", async () => {
+    git(repo, ["remote", "set-url", "origin", "ssh://git@github.com:22/owner/app.git"]);
+
+    const resolver = createRepositoryRootResolver();
+    expect(
+      await resolver.resolveRepositoryUrl("https://github.com/owner/app", [repo]),
+    ).toBe(repo);
+    expect(
+      await resolver.resolveRepositoryUrl("git@github.com:owner/app.git", [repo]),
+    ).toBe(repo);
   });
 
   it("does not guess when several checkouts share the same origin", async () => {

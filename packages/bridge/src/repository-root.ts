@@ -46,24 +46,46 @@ export interface RepositoryRootResolver {
  * repository compare equal: `host/owner/repo` without `.git`. The host is
  * lowercased; the path is folded only for github.com, whose paths are
  * case-insensitive. Other hosts may treat path casing as significant.
+ *
+ * A URL may spell out the default port of its scheme
+ * (`ssh://git@github.com:22/owner/repo.git`), which is the same remote as the
+ * portless form. Only a default port is dropped: a non-default port addresses
+ * a different service and stays part of the host.
  */
 export function normalizeRepositoryUrl(url: string): string | null {
   let value = url.trim();
   if (!value) return null;
+  let scheme: string | undefined;
   const scpLike = value.match(/^[^@/:]+@([^:/]+):(.+)$/);
   if (scpLike) {
     value = `${scpLike[1]}/${scpLike[2]}`;
   } else {
+    const withScheme = value.match(/^([a-z][a-z0-9+.-]*):\/\//i);
+    if (withScheme) scheme = withScheme[1].toLowerCase();
     value = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/^[^@/]+@/, "");
   }
   value = value.replace(/\/+$/, "").replace(/\.git$/, "").replace(/\/+$/, "");
   if (!value) return null;
   const separator = value.indexOf("/");
   if (separator < 0) return value.toLowerCase();
-  const host = value.slice(0, separator).toLowerCase();
+  let host = value.slice(0, separator).toLowerCase();
   const path = value.slice(separator);
+  const port = host.match(/^(.*):(\d+)$/);
+  if (port && scheme && DEFAULT_PORTS[scheme] === port[2]) host = port[1];
   return `${host}${host === "github.com" ? path.toLowerCase() : path}`;
 }
+
+/** Ports that a scheme's URLs may leave out. */
+const DEFAULT_PORTS: Record<string, string> = {
+  ssh: "22",
+  "ssh+git": "22",
+  "git+ssh": "22",
+  git: "9418",
+  http: "80",
+  https: "443",
+  ws: "80",
+  wss: "443",
+};
 
 export function createRepositoryRootResolver(
   options: { runGit?: RunGit; now?: () => number } = {},
