@@ -7,9 +7,9 @@
  * signed with the cloud provider's credentials that the Claude Code process
  * resolves on the Bridge machine.
  *
- * The Bridge only needs the provider flag for its startup gate. It does not
- * access credential fields from Claude settings or send cloud configuration
- * to the mobile app.
+ * The Bridge only needs the provider flag for its startup gate and, for
+ * Bedrock, the region for doctor diagnostics. It does not access credential
+ * fields from Claude settings or send cloud configuration to the mobile app.
  *
  * https://code.claude.com/docs/en/amazon-bedrock
  * https://code.claude.com/docs/en/google-vertex-ai
