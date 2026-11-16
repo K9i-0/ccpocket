@@ -61,6 +61,13 @@ describe("parseCliArgs", () => {
     expect(parseFlag(parsed, "port")).toBe("");
   });
 
+  it("does not consume a following flag as a missing option value", () => {
+    const parsed = parseCliArgs(["--port", "--help"]);
+
+    expect(parseFlag(parsed, "port")).toBe("");
+    expect(parsed.helpRequested).toBe(true);
+  });
+
   it("detects setup command after valued flags", () => {
     const parsed = parseCliArgs(["--port", "9000", "setup", "--uninstall"]);
 

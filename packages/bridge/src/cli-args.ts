@@ -48,7 +48,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       if (VALUE_FLAGS.has(name)) {
         if (inlineValue !== undefined) {
           flags.set(name, inlineValue);
-        } else if (i + 1 < args.length) {
+        } else if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
           flags.set(name, args[i + 1]);
           i += 1;
         } else {
