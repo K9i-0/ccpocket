@@ -28,33 +28,38 @@ class GitHubFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final isPr = kind == GitHubItemKind.pr;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        spacing: 8,
-        children: [
-          if (isPr)
-            FilterChip(
-              key: const ValueKey('github_filter_hide_drafts_chip'),
-              label: Text(l.githubFilterHideDrafts),
-              selected: filters.hideDrafts,
-              onSelected: onHideDraftsChanged,
-            ),
-          if (isPr)
-            FilterChip(
-              key: const ValueKey('github_filter_dependabot_chip'),
-              label: Text(l.githubFilterDependabotOnly),
-              selected: filters.dependabotOnly,
-              onSelected: onDependabotOnlyChanged,
-            ),
-          if (labels.isNotEmpty)
-            _GitHubLabelFilterChip(
-              selectedLabel: filters.label,
-              labels: labels,
-              onChanged: onLabelChanged,
-            ),
-        ],
+    if (!isPr && labels.isEmpty) return const SizedBox.shrink();
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      heightFactor: 1,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          spacing: 8,
+          children: [
+            if (isPr)
+              FilterChip(
+                key: const ValueKey('github_filter_hide_drafts_chip'),
+                label: Text(l.githubFilterHideDrafts),
+                selected: filters.hideDrafts,
+                onSelected: onHideDraftsChanged,
+              ),
+            if (isPr)
+              FilterChip(
+                key: const ValueKey('github_filter_dependabot_chip'),
+                label: Text(l.githubFilterDependabotOnly),
+                selected: filters.dependabotOnly,
+                onSelected: onDependabotOnlyChanged,
+              ),
+            if (labels.isNotEmpty)
+              _GitHubLabelFilterChip(
+                selectedLabel: filters.label,
+                labels: labels,
+                onChanged: onLabelChanged,
+              ),
+          ],
+        ),
       ),
     );
   }
