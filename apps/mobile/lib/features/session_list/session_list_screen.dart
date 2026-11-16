@@ -906,6 +906,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     NewSessionParams? initialParams,
     Map<Provider, NewSessionParams> providerDefaults = const {},
     bool lockProvider = false,
+    bool lockProject = false,
     bool multiProjectOnly = false,
   }) async {
     final sessions =
@@ -922,6 +923,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       initialParams: initialParams,
       providerDefaults: providerDefaults,
       lockProvider: lockProvider,
+      lockProject: lockProject,
       multiProjectOnly: multiProjectOnly,
       visibleTabs: settings.newSessionTabs,
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
@@ -985,6 +987,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     final result = await _openNewSessionSheet(
       initialParams: target,
       providerDefaults: providerDefaults,
+      // The item numbers belong to this repository.
+      lockProject: true,
     );
     if (result == null || !mounted) return;
     await _sessionStartDefaultsStore.save(result);
@@ -993,11 +997,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (!mounted) return;
     _startNewSession(
       result,
-      // The item numbers belong to this repository. If another project was
-      // picked in the sheet, start it without the request.
-      initialPrompt: result.projectPath == projectPath
-          ? triagePromptForProvider(prompt, result.provider)
-          : null,
+      initialPrompt: triagePromptForProvider(prompt, result.provider),
     );
   }
 
