@@ -29,7 +29,7 @@ const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 //
 // A single regular expression cannot parse this syntax: markdown allows
 // balanced brackets in the alt text (`![a [b] c](x.png)`) and balanced
-// parentheses in a bare destination (`![shot](Screenshot (1).png)`), plus
+// parentheses in a bare destination (`![shot](Screenshot(1).png)`), plus
 // backslash escapes for both. The scanner below tracks those depths instead.
 const FENCED_CODE_RE = /^(```|~~~)[^\n]*\n[\s\S]*?(?:^\1[^\n]*$|(?![\s\S]))/gm;
 const INLINE_CODE_RE = /`[^`\n]*`/g;
@@ -54,7 +54,7 @@ export function extractMarkdownImages(text: string): MarkdownImage[] {
     if (close === null) continue;
     index = close;
     const path = localPathFromDestination(
-      unescapeMarkdown(destination.value),
+      unescapeDestination(destination.value),
     );
     if (!path || seen.has(path)) continue;
     if (!IMAGE_EXTENSIONS.has(extname(path).toLowerCase())) continue;
@@ -86,6 +86,16 @@ function unescapeMarkdown(value: string): string {
   return out;
 }
 
+/**
+ * Destinations only drop the backslash from the delimiters the scanner itself
+ * gives meaning to. Unescaping all punctuation would corrupt Windows paths,
+ * where `\.` and `\_` are a separator followed by a file name
+ * (`C:\Users\me\.claude\shot.png`).
+ */
+function unescapeDestination(value: string): string {
+  return value.replace(/\\([()<>])/g, "$1");
+}
+
 interface Scanned {
   value: string;
   /** Index just past the scanned construct. */
@@ -97,7 +107,7 @@ function scanAltText(text: string, start: number): Scanned | null {
   let depth = 0;
   for (let index = start; index < text.length; index++) {
     const char = text[index];
-    if (char === "\\") {
+    if (char === "\\" && text[index + 1] !== "\n") {
       index++;
       continue;
     }
@@ -116,8 +126,9 @@ function scanAltText(text: string, start: number): Scanned | null {
 
 /**
  * Link destination: `<angle bracketed>` (may hold spaces and parentheses) or
- * bare, where balanced parentheses belong to the path. Ends at the first
- * unbalanced `)` or whitespace.
+ * bare, where balanced parentheses belong to the path. A bare destination
+ * ends at the first unbalanced `)` or at whitespace, and cannot contain
+ * whitespace even inside parentheses.
  */
 function scanDestination(text: string, start: number): Scanned | null {
   let index = start;
@@ -162,9 +173,9 @@ function scanDestination(text: string, start: number): Scanned | null {
       depth--;
       continue;
     }
-    if (depth === 0 && (char === " " || char === "\t")) break;
+    if (char === " " || char === "\t") break;
   }
-  if (index === begin) return null;
+  if (index === begin || depth !== 0) return null;
   return { value: text.slice(begin, index), end: index };
 }
 

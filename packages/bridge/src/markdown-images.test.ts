@@ -98,6 +98,30 @@ describe("extractMarkdownImages", () => {
     ]);
   });
 
+  it("keeps Windows separators that precede punctuation", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![dot](C:\\Users\\me\\.claude\\tmp\\a.png)",
+          "![underscore](C:\\work\\_shots\\a-b\\b.png)",
+          "![angled](<C:\\Users\\me\\.claude\\My Shots\\c.png>)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "dot", path: "C:\\Users\\me\\.claude\\tmp\\a.png" },
+      { alt: "underscore", path: "C:\\work\\_shots\\a-b\\b.png" },
+      { alt: "angled", path: "C:\\Users\\me\\.claude\\My Shots\\c.png" },
+    ]);
+  });
+
+  it("ignores bare destinations with whitespace inside parentheses", () => {
+    expect(
+      extractMarkdownImages(
+        "![s](/work/foo(bar baz).png)\n![a\\\nb](/work/x.png)",
+      ),
+    ).toEqual([]);
+  });
+
   it("ignores images that are not closed correctly", () => {
     expect(
       extractMarkdownImages(
