@@ -3831,7 +3831,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get githubSelectAll => 'すべて選択';
 
   @override
-  String get githubOpenIssuesAndPrs => 'Issue / PR を開く';
+  String get githubStartFromIssueOrPr => 'Issue / PR から始める';
 
   @override
   String get githubSelect => '選択';

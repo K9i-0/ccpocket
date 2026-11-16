@@ -1472,7 +1472,7 @@
   "githubNoComments": "아직 댓글이 없습니다",
   "githubNoDescription": "설명이 없습니다",
   "githubSelectAll": "모두 선택",
-  "githubOpenIssuesAndPrs": "Issue / PR 열기",
+  "githubStartFromIssueOrPr": "Issue / PR에서 시작",
   "githubSelect": "선택",
   "githubDeselect": "선택 해제",
   "githubClearSelection": "선택 모두 해제",

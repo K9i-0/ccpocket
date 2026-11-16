@@ -3564,10 +3564,10 @@ List<MockStep> _githubEmptyChatSteps(String sessionId) => [
   ),
 ];
 
-/// An empty chat with the "Open Issues / PRs" entry. The mock Bridge answers
-/// `github_list` / `github_item` from `mock_github.dart` (including a draft
-/// and dependabot pull requests), so items can be picked, show up above the
-/// composer, and be sent to the mock session.
+/// An empty chat with the "Start from an Issue / PR" entry. The mock Bridge
+/// answers `github_list` / `github_item` from `mock_github.dart` (including a
+/// draft and dependabot pull requests), so items can be picked, show up above
+/// the composer, and be sent to the mock session.
 final githubEmptyChatScenario = MockScenario(
   name: 'GitHub Issues PRs',
   icon: Icons.fact_check_outlined,

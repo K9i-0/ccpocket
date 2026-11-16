@@ -3788,7 +3788,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubSelectAll => '全选';
 
   @override
-  String get githubOpenIssuesAndPrs => '打开 Issue / PR';
+  String get githubStartFromIssueOrPr => '从 Issue / PR 开始';
 
   @override
   String get githubSelect => '选择';

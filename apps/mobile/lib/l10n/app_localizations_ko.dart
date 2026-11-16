@@ -3859,7 +3859,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get githubSelectAll => '모두 선택';
 
   @override
-  String get githubOpenIssuesAndPrs => 'Issue / PR 열기';
+  String get githubStartFromIssueOrPr => 'Issue / PR에서 시작';
 
   @override
   String get githubSelect => '선택';

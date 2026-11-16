@@ -1636,7 +1636,7 @@
   "githubNoComments": "コメントはまだありません",
   "githubNoDescription": "説明はありません",
   "githubSelectAll": "すべて選択",
-  "githubOpenIssuesAndPrs": "Issue / PR を開く",
+  "githubStartFromIssueOrPr": "Issue / PR から始める",
   "githubSelect": "選択",
   "githubDeselect": "選択を解除",
   "githubClearSelection": "選択をすべて解除",

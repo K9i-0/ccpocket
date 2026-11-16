@@ -3977,7 +3977,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get githubSelectAll => 'Select all';
 
   @override
-  String get githubOpenIssuesAndPrs => 'Open Issues / PRs';
+  String get githubStartFromIssueOrPr => 'Start from an Issue / PR';
 
   @override
   String get githubSelect => 'Select';

@@ -1285,7 +1285,10 @@ void main() {
         becomeIdle();
         await tester.pumpAndSettle();
         expect(
-          find.descendant(of: button, matching: find.text('Open Issues / PRs')),
+          find.descendant(
+            of: button,
+            matching: find.text('Start from an Issue / PR'),
+          ),
           findsOneWidget,
         );
         expect(

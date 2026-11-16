@@ -14,7 +14,7 @@ import '../../session_list/workspace_shell_screen.dart';
 import '../github_screen.dart';
 import 'github_mark_icon.dart';
 
-/// Whether a chat still offers the "Open Issues / PRs" entry.
+/// Whether a chat still offers the "Start from an Issue / PR" entry.
 ///
 /// It is offered only until the user sends something: a sent, failed, or
 /// offline-pending message and a queued input all count. Assistant and system
@@ -64,7 +64,7 @@ Future<void> openGitHubScreenForSession(
   );
 }
 
-/// "Open Issues / PRs" entry centered in an empty chat.
+/// "Start from an Issue / PR" entry centered in an empty chat.
 ///
 /// It never calls the Bridge itself; a non-GitHub project or an older Bridge
 /// is explained inside the screen it opens. A session that was started from a
@@ -138,11 +138,18 @@ class _EmptyChatGitHubButtonState extends State<EmptyChatGitHubButton> {
         alignment: Alignment.bottomCenter,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 24),
-          child: FilledButton.tonalIcon(
+          // An optional way to start, so it stays quiet: no fill, muted
+          // text, a small mark.
+          child: TextButton.icon(
             key: const ValueKey('empty_chat_github_button'),
             onPressed: _open,
-            icon: const GitHubMarkIcon(size: 20),
-            label: Text(AppLocalizations.of(context).githubOpenIssuesAndPrs),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              textStyle: Theme.of(context).textTheme.labelMedium,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const GitHubMarkIcon(size: 16),
+            label: Text(AppLocalizations.of(context).githubStartFromIssueOrPr),
           ),
         ),
       ),

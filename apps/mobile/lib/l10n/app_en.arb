@@ -1559,7 +1559,7 @@
   "githubNoComments": "No comments yet",
   "githubNoDescription": "No description",
   "githubSelectAll": "Select all",
-  "githubOpenIssuesAndPrs": "Open Issues / PRs",
+  "githubStartFromIssueOrPr": "Start from an Issue / PR",
   "githubSelect": "Select",
   "githubDeselect": "Deselect",
   "githubClearSelection": "Clear selection",

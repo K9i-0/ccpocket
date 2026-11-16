@@ -1613,7 +1613,7 @@
   "githubNoComments": "暂无评论",
   "githubNoDescription": "没有描述",
   "githubSelectAll": "全选",
-  "githubOpenIssuesAndPrs": "打开 Issue / PR",
+  "githubStartFromIssueOrPr": "从 Issue / PR 开始",
   "githubSelect": "选择",
   "githubDeselect": "取消选择",
   "githubClearSelection": "清除全部选择",

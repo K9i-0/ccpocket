@@ -7181,11 +7181,11 @@ abstract class AppLocalizations {
   /// **'すべて選択'**
   String get githubSelectAll;
 
-  /// No description provided for @githubOpenIssuesAndPrs.
+  /// No description provided for @githubStartFromIssueOrPr.
   ///
   /// In ja, this message translates to:
-  /// **'Issue / PR を開く'**
-  String get githubOpenIssuesAndPrs;
+  /// **'Issue / PR から始める'**
+  String get githubStartFromIssueOrPr;
 
   /// No description provided for @githubSelect.
   ///
