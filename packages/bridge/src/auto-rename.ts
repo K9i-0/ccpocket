@@ -68,16 +68,44 @@ export function isAutoRenamePromptText(text: string): boolean {
   return text.trimStart().startsWith(AUTO_RENAME_PROMPT_SIGNATURE);
 }
 
+/** Opening or closing line of a fenced code block (` ``` ` or `~~~`). */
+const CODE_FENCE_RE = /^(`{3,}|~{3,})/;
+
+/**
+ * Drops a markdown code fence that wraps the whole answer.
+ *
+ * The prompt forbids markdown, but a model may still answer with a fenced
+ * block: either three lines (open / name / close) or one line holding all
+ * three. Both shapes must unwrap to the bare name; only the single-line shape
+ * was handled before, and it also swallowed the name's first word as a
+ * language tag.
+ */
+function unwrapCodeFence(output: string): string {
+  const lines = output
+    .split("\n")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const opening = lines.length > 1 ? CODE_FENCE_RE.exec(lines[0]) : null;
+  if (!opening) return lines.join("\n");
+
+  const fence = opening[1];
+  const closing = CODE_FENCE_RE.exec(lines[lines.length - 1]);
+  const closed = closing !== null && closing[0] === fence;
+  // An unterminated fence still drops its opening line, which carries the
+  // language tag as well as the backticks.
+  return lines.slice(1, closed ? -1 : undefined).join("\n");
+}
+
 export function sanitizeAutoRenameName(output: string): string | null {
-  const line = output
+  const line = unwrapCodeFence(output)
     .split("\n")
     .map((part) => part.trim())
     .find(Boolean);
   if (!line) return null;
 
   let name = line
-    .replace(/^```(?:\w+)?\s*/, "")
-    .replace(/\s*```$/, "")
+    .replace(/^(`{3,}|~{3,})\s*/, "")
+    .replace(/\s*(`{3,}|~{3,})$/, "")
     .trim();
   name = stripWrapping(name, '"');
   name = stripWrapping(name, "'");
