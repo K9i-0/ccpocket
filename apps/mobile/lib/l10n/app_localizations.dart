@@ -7193,12 +7193,6 @@ abstract class AppLocalizations {
   /// **'選択'**
   String get githubSelect;
 
-  /// No description provided for @githubSelected.
-  ///
-  /// In ja, this message translates to:
-  /// **'選択中'**
-  String get githubSelected;
-
   /// No description provided for @githubDeselect.
   ///
   /// In ja, this message translates to:

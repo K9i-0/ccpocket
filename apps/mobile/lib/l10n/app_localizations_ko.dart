@@ -3865,9 +3865,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get githubSelect => '선택';
 
   @override
-  String get githubSelected => '선택됨';
-
-  @override
   String get githubDeselect => '선택 해제';
 
   @override

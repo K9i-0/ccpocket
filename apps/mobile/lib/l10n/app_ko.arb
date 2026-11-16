@@ -1474,7 +1474,6 @@
   "githubSelectAll": "모두 선택",
   "githubOpenIssuesAndPrs": "Issue / PR 열기",
   "githubSelect": "선택",
-  "githubSelected": "선택됨",
   "githubDeselect": "선택 해제",
   "githubClearSelection": "선택 모두 해제",
   "githubSelectAllSkipsDrafts": "Draft는 제외됩니다. 포함하려면 개별로 탭하세요.",

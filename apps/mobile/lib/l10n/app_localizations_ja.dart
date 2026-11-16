@@ -3837,9 +3837,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get githubSelect => '選択';
 
   @override
-  String get githubSelected => '選択中';
-
-  @override
   String get githubDeselect => '選択を解除';
 
   @override

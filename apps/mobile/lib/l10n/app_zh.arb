@@ -1615,7 +1615,6 @@
   "githubSelectAll": "全选",
   "githubOpenIssuesAndPrs": "打开 Issue / PR",
   "githubSelect": "选择",
-  "githubSelected": "已选择",
   "githubDeselect": "取消选择",
   "githubClearSelection": "清除全部选择",
   "githubSelectAllSkipsDrafts": "Draft 会被跳过。点按即可单独加入。",

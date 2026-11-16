@@ -1638,7 +1638,6 @@
   "githubSelectAll": "すべて選択",
   "githubOpenIssuesAndPrs": "Issue / PR を開く",
   "githubSelect": "選択",
-  "githubSelected": "選択中",
   "githubDeselect": "選択を解除",
   "githubClearSelection": "選択をすべて解除",
   "githubSelectAllSkipsDrafts": "Draftは除外されます。含めるには個別にタップしてください。",

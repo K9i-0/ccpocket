@@ -403,13 +403,6 @@ class GitHubItemList extends StatelessWidget {
                     projectPath: projectPath,
                     kind: kind,
                     summary: item,
-                    selection: selectable == null
-                        ? null
-                        : (
-                            cubit: selection,
-                            sessionId: sessionId,
-                            item: selectable,
-                          ),
                   ),
                 ),
                 onToggleSelected: selectable == null

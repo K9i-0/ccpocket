@@ -3794,9 +3794,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubSelect => '选择';
 
   @override
-  String get githubSelected => '已选择';
-
-  @override
   String get githubDeselect => '取消选择';
 
   @override

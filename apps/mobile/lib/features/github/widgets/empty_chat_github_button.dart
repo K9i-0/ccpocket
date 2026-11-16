@@ -133,12 +133,17 @@ class _EmptyChatGitHubButtonState extends State<EmptyChatGitHubButton> {
       padding: EdgeInsets.only(
         bottom: FloatingComposerStatus.obscuredBottomOf(context),
       ),
-      child: Center(
-        child: FilledButton.tonalIcon(
-          key: const ValueKey('empty_chat_github_button'),
-          onPressed: _open,
-          icon: const GitHubMarkIcon(size: 20),
-          label: Text(AppLocalizations.of(context).githubOpenIssuesAndPrs),
+      // Near the composer, where the thumb already is.
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: FilledButton.tonalIcon(
+            key: const ValueKey('empty_chat_github_button'),
+            onPressed: _open,
+            icon: const GitHubMarkIcon(size: 20),
+            label: Text(AppLocalizations.of(context).githubOpenIssuesAndPrs),
+          ),
         ),
       ),
     );

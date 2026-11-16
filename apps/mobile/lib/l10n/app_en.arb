@@ -1561,7 +1561,6 @@
   "githubSelectAll": "Select all",
   "githubOpenIssuesAndPrs": "Open Issues / PRs",
   "githubSelect": "Select",
-  "githubSelected": "Selected",
   "githubDeselect": "Deselect",
   "githubClearSelection": "Clear selection",
   "githubSelectAllSkipsDrafts": "Drafts are skipped. Tap one to include it.",

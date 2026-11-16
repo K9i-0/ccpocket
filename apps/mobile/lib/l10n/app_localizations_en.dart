@@ -3983,9 +3983,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get githubSelect => 'Select';
 
   @override
-  String get githubSelected => 'Selected';
-
-  @override
   String get githubDeselect => 'Deselect';
 
   @override

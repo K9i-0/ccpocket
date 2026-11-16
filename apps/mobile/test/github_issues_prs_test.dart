@@ -1274,34 +1274,42 @@ void main() {
             as String,
     ];
 
-    testWidgets('is centered, labelled, and opens the screen for its '
-        'session', (tester) async {
-      await pumpChat(tester);
-      final button = find.byKey(const ValueKey('empty_chat_github_button'));
-      expect(button, findsNothing, reason: 'the session is still starting');
+    testWidgets(
+      'sits at the bottom center, labelled, and opens the screen for its '
+      'session',
+      (tester) async {
+        await pumpChat(tester);
+        final button = find.byKey(const ValueKey('empty_chat_github_button'));
+        expect(button, findsNothing, reason: 'the session is still starting');
 
-      becomeIdle();
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: button, matching: find.text('Open Issues / PRs')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: button, matching: find.byType(GitHubMarkIcon)),
-        findsOneWidget,
-      );
-      final scaffold = tester.getRect(find.byType(Scaffold));
-      expect(tester.getCenter(button).dx, closeTo(scaffold.center.dx, 1));
-      expect(tester.getCenter(button).dy, closeTo(scaffold.center.dy, 1));
-      expect(find.byType(GitHubScreen), findsNothing);
+        becomeIdle();
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: button, matching: find.text('Open Issues / PRs')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: button, matching: find.byType(GitHubMarkIcon)),
+          findsOneWidget,
+        );
+        final scaffold = tester.getRect(find.byType(Scaffold));
+        expect(tester.getCenter(button).dx, closeTo(scaffold.center.dx, 1));
+        // Bottom-aligned, near the composer, for an easy thumb reach.
+        expect(tester.getCenter(button).dy, greaterThan(scaffold.center.dy));
+        expect(
+          tester.getBottomLeft(button).dy,
+          closeTo(scaffold.bottom - 24, 1),
+        );
+        expect(find.byType(GitHubScreen), findsNothing);
 
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<GitHubScreen>(find.byType(GitHubScreen)).sessionId,
-        'real',
-      );
-    });
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<GitHubScreen>(find.byType(GitHubScreen)).sessionId,
+          'real',
+        );
+      },
+    );
 
     testWidgets('a session started from a project opens the screen by '
         'itself once ready, and sends nothing', (tester) async {
@@ -1447,22 +1455,15 @@ void main() {
       expect(find.byKey(const ValueKey('github_detail_title')), findsOneWidget);
       expect(selected(), [341], reason: 'opening the detail selects nothing');
 
-      // The detail sheet selects and deselects its item.
-      final toggle = find.byKey(const ValueKey('github_detail_select_button'));
+      // The sheet only shows the item; selecting stays in the list.
       expect(
-        find.descendant(of: toggle, matching: find.text('Select')),
+        find.byKey(const ValueKey('github_detail_select_button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('github_open_on_github_button')),
         findsOneWidget,
       );
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(selected(), [341, 339]);
-      expect(
-        find.descendant(of: toggle, matching: find.text('Selected')),
-        findsOneWidget,
-      );
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(selected(), [341]);
     });
 
     testWidgets('the screen and the composer cards stay in sync', (
