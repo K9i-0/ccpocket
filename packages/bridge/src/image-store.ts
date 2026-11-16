@@ -44,7 +44,7 @@ const MIME_TYPES: Record<string, string> = {
 // Non-ASCII letters stay inside the path instead of splitting it, and a Windows
 // drive prefix is kept with the path it belongs to.
 const IMAGE_PATH_RE =
-  /(^|[^\p{L}\p{N}\p{M}._/-])((?:[A-Za-z]:)?\/[\p{L}\p{N}\p{M}._/-]+\.(?:png|jpe?g|gif|webp))/giu;
+  /(^|[\s"'`(\[<,=:])((?:[A-Za-z]:)?\/[\p{L}\p{N}\p{M}._/-]+\.(?:png|jpe?g|gif|webp))/giu;
 
 export class ImageStore {
   private store = new Map<string, StoredImage>();

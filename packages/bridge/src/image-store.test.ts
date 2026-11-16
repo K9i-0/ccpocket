@@ -73,6 +73,10 @@ describe("ImageStore.extractImagePaths", () => {
     expect(extract("The icon lives at src/assets/logo.png")).toEqual([]);
   });
 
+  it("does not treat punctuation inside relative paths as a token boundary", () => {
+    expect(extract("The icon lives at src/c++/logo.png")).toEqual([]);
+  });
+
   it("keeps the Windows drive prefix with the path", () => {
     expect(extract("Saved to C:/Users/alice/shot.png")).toEqual([
       "C:/Users/alice/shot.png",
