@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { normalizeRepositoryUrl } from "./repository-root.js";
 
 // Read-only access to GitHub through the `gh` CLI on the Bridge host.
@@ -61,7 +62,12 @@ export class GitHubCliError extends Error {
 
 export const GITHUB_LIST_LIMIT = 100;
 export const GITHUB_DETAIL_COMMENT_LIMIT = 20;
+/** Longest body or comment sent to the client, in UTF-16 code units. */
+export const GITHUB_BODY_MAX_LENGTH = 20_000;
+const BODY_TRUNCATION_MARKER = "\n\n… (truncated)";
 
+/** Pinned in `--repo` so `GH_HOST` on the host cannot redirect the call. */
+const GITHUB_HOST = "github.com";
 const COMMAND_TIMEOUT_MS = 20_000;
 const GIT_TIMEOUT_MS = 5_000;
 const MAX_BUFFER_BYTES = 32 * 1024 * 1024;
@@ -103,6 +109,8 @@ const defaultRunCommand: RunCommand = (command, args, options) =>
           GH_PROMPT_DISABLED: "1",
           GH_NO_UPDATE_NOTIFIER: "1",
           NO_COLOR: "1",
+          // Error classification matches on git's English messages.
+          LC_ALL: "C",
         },
       },
       (error, stdout, stderr) => {
@@ -124,7 +132,17 @@ const defaultRunCommand: RunCommand = (command, args, options) =>
 
 export interface GitHubCliDeps {
   run?: RunCommand;
+  /** Whether the project directory exists; defaults to a filesystem check. */
+  directoryExists?: (path: string) => Promise<boolean>;
 }
+
+const defaultDirectoryExists = async (path: string): Promise<boolean> => {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -185,7 +203,6 @@ const FAILURE_CHECK_STATES = new Set([
   "ERROR",
   "CANCELLED",
   "TIMED_OUT",
-  "ACTION_REQUIRED",
   "STARTUP_FAILURE",
 ]);
 const SUCCESS_CHECK_STATES = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
@@ -207,7 +224,10 @@ export function summarizeStatusCheckRollup(rollup: unknown): GitHubChecksState {
     if (status && status !== "COMPLETED") {
       pending = true;
     } else if (!SUCCESS_CHECK_STATES.has(outcome)) {
-      // PENDING, EXPECTED, QUEUED, IN_PROGRESS, STALE and anything unknown.
+      // PENDING, EXPECTED, QUEUED and IN_PROGRESS have no result yet.
+      // ACTION_REQUIRED usually means a workflow waits for a maintainer's
+      // approval on an external PR. STALE and unknown values are not a
+      // verdict either, so none of them may read as success or failure.
       pending = true;
     }
   }
@@ -254,6 +274,12 @@ export function mapGitHubItemList(
     .slice(0, GITHUB_LIST_LIMIT);
 }
 
+/** Cap a body so one huge item cannot produce an oversized message. */
+export function truncateGitHubBody(text: string): string {
+  if (text.length <= GITHUB_BODY_MAX_LENGTH) return text;
+  return `${text.slice(0, GITHUB_BODY_MAX_LENGTH)}${BODY_TRUNCATION_MARKER}`;
+}
+
 /** Keep the latest comments, oldest first. */
 export function mapGitHubComments(raw: unknown): GitHubComment[] {
   if (!Array.isArray(raw)) return [];
@@ -262,7 +288,7 @@ export function mapGitHubComments(raw: unknown): GitHubComment[] {
       const comment = asRecord(entry);
       return {
         author: mapGitHubAuthor(comment.author),
-        body: asString(comment.body),
+        body: truncateGitHubBody(asString(comment.body)),
         createdAt: asString(comment.createdAt),
       };
     })
@@ -277,7 +303,7 @@ export function mapGitHubItemDetail(
   const item = asRecord(raw);
   return {
     ...mapGitHubItemSummary(kind, item),
-    body: asString(item.body),
+    body: truncateGitHubBody(asString(item.body)),
     comments: mapGitHubComments(item.comments),
   };
 }
@@ -313,6 +339,10 @@ export function classifyGhFailure(failure: CommandFailure): GitHubError {
         "GitHub CLI is not authenticated on the Bridge host. Run: gh auth login",
     };
   }
+  // Checked before `killed`: exceeding maxBuffer also kills the process.
+  if (failure.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+    return { code: "failed", message: "GitHub CLI response was too large." };
+  }
   if (failure.killed || failure.code === "ETIMEDOUT") {
     return { code: "failed", message: "GitHub CLI timed out." };
   }
@@ -343,6 +373,8 @@ export function toGitHubError(error: unknown): GitHubError {
 // Commands
 // ---------------------------------------------------------------------------
 
+const NO_GITHUB_REMOTE_PATTERN = /not a git repository|No such remote/i;
+
 /** Resolve `owner/name` from the project's `origin` remote. */
 export async function resolveGitHubRepository(
   projectPath: string,
@@ -357,16 +389,32 @@ export async function resolveGitHubRepository(
     });
   } catch (error) {
     const failure = asRecord(error) as CommandFailure;
-    // A numeric exit code means git ran: no repository or no origin remote.
-    if (typeof failure.code === "number") {
+    const stderr = failure.stderr ?? "";
+    if (NO_GITHUB_REMOTE_PATTERN.test(stderr)) {
       throw new GitHubCliError(
         "not_github",
         "This project has no GitHub origin remote.",
       );
     }
+    // spawn reports ENOENT for a missing cwd as well as for a missing binary.
+    if (failure.code === "ENOENT") {
+      const exists = await (deps.directoryExists ?? defaultDirectoryExists)(
+        projectPath,
+      );
+      throw new GitHubCliError(
+        "failed",
+        exists
+          ? "git is not installed on the Bridge host."
+          : "The project directory was not found on the Bridge host.",
+      );
+    }
+    // e.g. "detected dubious ownership" or a permission error.
     throw new GitHubCliError(
       "failed",
-      shortMessage(failure.message ?? "", "Failed to read the git remote."),
+      shortMessage(
+        stderr || (failure.message ?? ""),
+        "Failed to read the git remote.",
+      ),
     );
   }
   const repository = gitHubRepositoryFromRemoteUrl(remoteUrl);
@@ -409,7 +457,7 @@ export async function listGitHubItems(
     kind,
     "list",
     "--repo",
-    repository,
+    `${GITHUB_HOST}/${repository}`,
     "--state",
     "open",
     "--limit",
@@ -434,7 +482,7 @@ export async function getGitHubItem(
     "view",
     String(number),
     "--repo",
-    repository,
+    `${GITHUB_HOST}/${repository}`,
     "--json",
     `${kind === "pr" ? PR_SUMMARY_FIELDS : ISSUE_SUMMARY_FIELDS},body,comments`,
   ]);

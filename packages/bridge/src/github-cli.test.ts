@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  GITHUB_BODY_MAX_LENGTH,
   GITHUB_DETAIL_COMMENT_LIMIT,
   GitHubCliError,
   classifyGhFailure,
@@ -196,6 +197,24 @@ describe("summarizeStatusCheckRollup", () => {
     },
   );
 
+  it("returns pending for a check run awaiting approval", () => {
+    expect(
+      summarizeStatusCheckRollup([
+        { status: "COMPLETED", conclusion: "SUCCESS" },
+        { status: "COMPLETED", conclusion: "ACTION_REQUIRED" },
+      ]),
+    ).toBe("pending");
+  });
+
+  it.each(["STALE", "SOMETHING_NEW"])(
+    "returns pending for the inconclusive conclusion %s",
+    (conclusion) => {
+      expect(
+        summarizeStatusCheckRollup([{ status: "COMPLETED", conclusion }]),
+      ).toBe("pending");
+    },
+  );
+
   it("prefers failure over pending", () => {
     expect(
       summarizeStatusCheckRollup([
@@ -289,6 +308,17 @@ describe("mapGitHubComments", () => {
     expect(mapped.author).toEqual({ login: "coderabbitai", isBot: true });
   });
 
+  it("truncates an oversized comment body", () => {
+    const [mapped] = mapGitHubComments([
+      { ...comment(1), body: "c".repeat(GITHUB_BODY_MAX_LENGTH + 500) },
+    ]);
+    expect(mapped.body.startsWith("c".repeat(GITHUB_BODY_MAX_LENGTH))).toBe(
+      true,
+    );
+    expect(mapped.body.endsWith("… (truncated)")).toBe(true);
+    expect(mapped.body.length).toBeLessThan(GITHUB_BODY_MAX_LENGTH + 50);
+  });
+
   it("returns an empty list when comments are missing", () => {
     expect(mapGitHubComments(undefined)).toEqual([]);
   });
@@ -312,6 +342,20 @@ describe("mapGitHubItemDetail", () => {
       "comment 1",
       "comment 2",
     ]);
+  });
+
+  it("truncates an oversized body and keeps one at the limit", () => {
+    const atLimit = "b".repeat(GITHUB_BODY_MAX_LENGTH);
+    expect(
+      mapGitHubItemDetail("issue", { ...ISSUE_LIST_FIXTURE[0], body: atLimit })
+        .body,
+    ).toBe(atLimit);
+
+    const detail = mapGitHubItemDetail("issue", {
+      ...ISSUE_LIST_FIXTURE[0],
+      body: `${atLimit}overflow`,
+    });
+    expect(detail.body).toBe(`${atLimit}\n\n… (truncated)`);
   });
 
   it("defaults a missing issue body to an empty string", () => {
@@ -356,6 +400,19 @@ describe("classifyGhFailure", () => {
     expect(
       classifyGhFailure({ code: null, killed: true, signal: "SIGTERM" }),
     ).toEqual({ code: "failed", message: "GitHub CLI timed out." });
+  });
+
+  it("reports an exceeded output buffer as too large, not a timeout", () => {
+    expect(
+      classifyGhFailure({
+        code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
+        killed: true,
+        signal: "SIGTERM",
+      }),
+    ).toEqual({
+      code: "failed",
+      message: "GitHub CLI response was too large.",
+    });
   });
 
   it("reports other failures with the first stderr line", () => {
@@ -427,10 +484,16 @@ describe("resolveGitHubRepository", () => {
     });
   });
 
-  it("rejects with not_github when there is no origin remote", async () => {
+  it.each([
+    [2, "error: No such remote 'origin'\n"],
+    [
+      128,
+      "fatal: not a git repository (or any of the parent directories): .git\n",
+    ],
+  ])("rejects with not_github for git exit %i", async (code, stderr) => {
     const run = fakeRun({
       git: () => {
-        throw { code: 2, stderr: "error: No such remote 'origin'" };
+        throw { code, stderr };
       },
     });
 
@@ -439,11 +502,45 @@ describe("resolveGitHubRepository", () => {
     });
   });
 
-  it("rejects with failed when git cannot run", async () => {
-    const run = fakeRun({});
+  it("rejects with failed and the stderr line for other git failures", async () => {
+    const run = fakeRun({
+      git: () => {
+        throw {
+          code: 128,
+          stderr:
+            "fatal: detected dubious ownership in repository at '/p'\nTo add an exception...\n",
+        };
+      },
+    });
 
     await expect(resolveGitHubRepository("/p", { run })).rejects.toMatchObject({
       code: "failed",
+      message: "fatal: detected dubious ownership in repository at '/p'",
+    });
+  });
+
+  it("reports a missing project directory when spawn fails with ENOENT", async () => {
+    const run = fakeRun({});
+
+    await expect(
+      resolveGitHubRepository("/p", {
+        run,
+        directoryExists: async () => false,
+      }),
+    ).rejects.toMatchObject({
+      code: "failed",
+      message: "The project directory was not found on the Bridge host.",
+    });
+  });
+
+  it("reports a missing git binary when the project directory exists", async () => {
+    const run = fakeRun({});
+
+    await expect(
+      resolveGitHubRepository("/p", { run, directoryExists: async () => true }),
+    ).rejects.toMatchObject({
+      code: "failed",
+      message: "git is not installed on the Bridge host.",
     });
   });
 });
@@ -465,7 +562,7 @@ describe("listGitHubItems", () => {
         "pr",
         "list",
         "--repo",
-        "K9i-0/ccpocket",
+        "github.com/K9i-0/ccpocket",
         "--state",
         "open",
         "--limit",
@@ -561,7 +658,7 @@ describe("getGitHubItem", () => {
         "view",
         "331",
         "--repo",
-        "K9i-0/ccpocket",
+        "github.com/K9i-0/ccpocket",
         "--json",
         "number,title,author,labels,createdAt,updatedAt,url,body,comments",
       ],

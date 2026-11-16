@@ -403,9 +403,26 @@ describe("doctor checks", () => {
       expect(mockExecFile).toHaveBeenCalledWith(
         "gh",
         ["auth", "status", "--hostname", "github.com"],
-        expect.anything(),
+        expect.objectContaining({
+          env: expect.objectContaining({
+            GH_PROMPT_DISABLED: "1",
+            GH_NO_UPDATE_NOTIFIER: "1",
+          }),
+        }),
         expect.any(Function),
       );
+    });
+
+    it("warns with the error when gh exists but cannot run", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(Object.assign(new Error("spawn gh EACCES"), { code: "EACCES" }), "", "");
+        },
+      );
+      const result = await checkGitHubCli();
+      expect(result.status).toBe("warn");
+      expect(result.message).toContain("EACCES");
+      expect(result.message).not.toContain("Not installed");
     });
 
     it("warns when gh is installed but not authenticated", async () => {
