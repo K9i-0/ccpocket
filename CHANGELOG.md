@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.164.0] - 2026-11-16
+
+### Added
+
+- Issues / PRs screen: browse a project's open GitHub Issues and pull requests without leaving the app. Pull requests show a Draft badge, a dependabot marker, and their CI state. You can filter by label, hide drafts, or show only dependabot PRs, and tap an item to read its body and recent comments.
+- Select Issues and PRs with the circle on each row. They appear above the chat input, and sending a message adds their GitHub URLs after your text, so you can pair them with any instruction or skill, for example `/triage`. "Select all" skips drafts.
+- An empty chat shows an "Open Issues / PRs" button. You can also open the screen from a recent session's long-press menu or a project group header. That starts a new empty session and opens the screen in it; nothing is sent until you send a message.
+- Requires Bridge 1.107.0 or later and the GitHub CLI (`gh`) signed in on the Bridge host. An older Bridge shows update guidance inside the screen.
+
 ## [1.163.3] - 2026-11-15
 
 ### Changed
