@@ -12,7 +12,10 @@ import {
   type PermissionResult,
   type ModelInfo,
 } from "@anthropic-ai/claude-agent-sdk";
-import { isClaudeBedrockModeEnabled } from "./claude-provider.js";
+import {
+  isClaudeBedrockModeEnabled,
+  isClaudeVertexModeEnabled,
+} from "./claude-provider.js";
 import { projectNarrationBlocks } from "./claude-narration.js";
 import {
   cleanClaudeCompactSummary,
@@ -186,10 +189,12 @@ export function hasExplicitClaudeCredential(
 export function canStartClaudeSdk(env: NodeJS.ProcessEnv = process.env): boolean {
   return (
     hasExplicitClaudeCredential(env)
-    // Amazon Bedrock authenticates with AWS credentials on the Bridge host, so
-    // its preflight does not require an Anthropic credential or subscription
-    // opt-in. The resolved SDK auth source is still checked below.
+    // Amazon Bedrock and Vertex AI authenticate with their own cloud
+    // credentials on the Bridge host, so their preflight does not require an
+    // Anthropic credential or subscription opt-in. The resolved SDK auth
+    // source is still checked below.
     || isClaudeBedrockModeEnabled(env)
+    || isClaudeVertexModeEnabled(env)
     || isClaudeOAuthOptInEnabled(env)
   );
 }

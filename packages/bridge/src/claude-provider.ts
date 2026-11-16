@@ -1,17 +1,18 @@
 /**
  * Detection for third-party Claude API backends on the Bridge host.
  *
- * Claude Code and the Claude Agent SDK can run against Amazon Bedrock instead
- * of the first-party Anthropic API. In that mode there is no Anthropic API key
- * and no Claude.ai login: requests are signed with AWS credentials that the
- * Claude Code process resolves through the AWS default credential provider
- * chain on the Bridge machine.
+ * Claude Code and the Claude Agent SDK can run against Amazon Bedrock or
+ * Google Cloud Vertex AI instead of the first-party Anthropic API. In those
+ * modes there is no Anthropic API key and no Claude.ai login: requests are
+ * signed with the cloud provider's credentials that the Claude Code process
+ * resolves on the Bridge machine.
  *
- * The Bridge only needs the provider flag for its startup gate and the region
- * for doctor diagnostics. It does not access credential fields from Claude
- * settings or send AWS configuration to the mobile app.
+ * The Bridge only needs the provider flag for its startup gate and, for
+ * Bedrock, the region for doctor diagnostics. It does not access credential
+ * fields from Claude settings or send cloud configuration to the mobile app.
  *
  * https://code.claude.com/docs/en/amazon-bedrock
+ * https://code.claude.com/docs/en/google-vertex-ai
  */
 
 import { readFileSync } from "node:fs";
@@ -19,6 +20,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const BEDROCK_ENV_VAR = "CLAUDE_CODE_USE_BEDROCK";
+const VERTEX_ENV_VAR = "CLAUDE_CODE_USE_VERTEX";
 const AWS_REGION_ENV_VAR = "AWS_REGION";
 
 /** Values Claude Code accepts for its own boolean environment variables. */
@@ -68,6 +70,21 @@ export function isClaudeBedrockModeEnabled(
   return (
     isTruthy(env[BEDROCK_ENV_VAR])
     || isTruthy(valueFromUserSettings(env, BEDROCK_ENV_VAR))
+  );
+}
+
+/**
+ * Whether Claude Code on this host is configured to use Google Cloud Vertex AI.
+ *
+ * Resolved the same way as the Bedrock flag: the provider needs no Anthropic
+ * credential, so the startup gate must not demand one.
+ */
+export function isClaudeVertexModeEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return (
+    isTruthy(env[VERTEX_ENV_VAR])
+    || isTruthy(valueFromUserSettings(env, VERTEX_ENV_VAR))
   );
 }
 

@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   isClaudeBedrockModeEnabled,
   isClaudeBedrockRegionConfigured,
+  isClaudeVertexModeEnabled,
 } from "./claude-provider.js";
 import {
   BRIDGE_STABLE_SETUP_COMMAND,
@@ -135,6 +136,12 @@ export async function checkCliProviders(): Promise<
           authMessage = "Amazon Bedrock enabled; AWS_REGION is not configured";
           remediation = "Set AWS_REGION in the Bridge environment or Claude Code user settings";
         }
+      } else if (isClaudeVertexModeEnabled()) {
+        // Like Bedrock, report the configuration only: doctor does not call
+        // Google Cloud, and Claude Code validates the project, region and
+        // credentials at session startup.
+        authenticated = true;
+        authMessage = "Google Vertex AI configured; Google Cloud credentials not verified";
       } else if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
         authenticated = true;
         authMessage = "API credential configured";

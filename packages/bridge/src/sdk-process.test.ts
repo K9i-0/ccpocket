@@ -15,6 +15,7 @@ import {
   sdkMessageToServerMessage,
   hasExplicitClaudeCredential,
   isClaudeOAuthOptInEnabled,
+  canStartClaudeSdk,
   listAvailableClaudeModels,
   stripClaudeModelPricing,
   backgroundTasksFromSdk,
@@ -1459,6 +1460,7 @@ describe("SdkProcess Claude authentication", () => {
     vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
     vi.stubEnv("BRIDGE_ALLOW_CLAUDE_OAUTH", "");
     vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "");
+    vi.stubEnv("CLAUDE_CODE_USE_VERTEX", "");
     vi.stubEnv("CLAUDE_CONFIG_DIR", claudeConfigDir);
   });
 
@@ -1566,6 +1568,14 @@ describe("SdkProcess Claude authentication", () => {
     expect(isClaudeOAuthOptInEnabled({ CLAUDE_CODE_USE_BEDROCK: "1" })).toBe(false);
   });
 
+  it("allows startup in Vertex AI mode without an Anthropic credential", () => {
+    const env = { CLAUDE_CONFIG_DIR: claudeConfigDir };
+    expect(canStartClaudeSdk({ ...env, CLAUDE_CODE_USE_VERTEX: "1" })).toBe(true);
+    expect(canStartClaudeSdk({ ...env, CLAUDE_CODE_USE_VERTEX: "true" })).toBe(true);
+    expect(canStartClaudeSdk({ ...env, CLAUDE_CODE_USE_VERTEX: "0" })).toBe(false);
+    expect(canStartClaudeSdk(env)).toBe(false);
+  });
+
   it("starts a session in Amazon Bedrock mode without Anthropic credentials", async () => {
     vi.stubEnv("CLAUDE_CODE_USE_BEDROCK", "1");
     const proc = new SdkProcess();
@@ -1610,6 +1620,56 @@ describe("SdkProcess Claude authentication", () => {
       type: "system",
       subtype: "init",
       sessionId: "bedrock-session",
+    }));
+    expect(messages).not.toContainEqual(expect.objectContaining({
+      type: "error",
+    }));
+  });
+
+  it("starts a session in Vertex AI mode without Anthropic credentials", async () => {
+    vi.stubEnv("CLAUDE_CODE_USE_VERTEX", "1");
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    const exits: Array<number | null> = [];
+    proc.on("message", (message) => messages.push(message));
+    proc.on("exit", (code) => exits.push(code));
+
+    mockSdkQuery.mockReturnValueOnce({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "init",
+          session_id: "vertex-session",
+          model: "claude-sonnet-4-6",
+          // Requests are signed with Google Cloud credentials instead of an
+          // Anthropic credential, so there is no apiKeySource either.
+          apiKeySource: "none",
+        };
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          duration_ms: 100,
+          session_id: "vertex-session",
+        };
+      },
+      close: vi.fn(),
+      supportedCommands: vi.fn().mockResolvedValue([]),
+      initializationResult: vi.fn().mockResolvedValue({
+        account: { apiProvider: "vertex" },
+        models: [],
+      }),
+    });
+
+    proc.start(process.cwd());
+    await vi.waitFor(() => expect(exits).toEqual([0]));
+
+    expect(mockSdkQuery).toHaveBeenCalledOnce();
+    expect(proc.sessionId).toBe("vertex-session");
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "system",
+      subtype: "init",
+      sessionId: "vertex-session",
     }));
     expect(messages).not.toContainEqual(expect.objectContaining({
       type: "error",

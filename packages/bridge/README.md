@@ -16,8 +16,9 @@ Claude sessions use `ANTHROPIC_API_KEY` by default. Subscription authentication
 through the Bridge machine's Claude Code login is available only after explicit
 opt-in with `BRIDGE_ALLOW_CLAUDE_OAUTH=1`; see
 [Claude Subscription Authentication](#claude-subscription-authentication-explicit-opt-in).
-Hosts that run Claude Code on Amazon Bedrock need neither of those; see
-[Claude on Amazon Bedrock](#claude-on-amazon-bedrock).
+Hosts that run Claude Code on Amazon Bedrock or Google Cloud Vertex AI need
+neither of those; see [Claude on Amazon Bedrock](#claude-on-amazon-bedrock) and
+[Claude on Google Cloud Vertex AI](#claude-on-google-cloud-vertex-ai).
 
 ## Installation
 
@@ -72,6 +73,7 @@ ccpocket-bridge --version
 | `ANTHROPIC_AUTH_TOKEN` | (none) | Advanced Claude SDK auth token; prefer `ANTHROPIC_API_KEY` |
 | `CLAUDE_CODE_USE_BEDROCK` | (none) | Claude Code setting; when enabled, Claude sessions run on Amazon Bedrock and no Anthropic credential is required |
 | `AWS_REGION` / `AWS_PROFILE` | (none) | Bedrock region (required) and optional AWS credential profile read by Claude Code |
+| `CLAUDE_CODE_USE_VERTEX` | (none) | Claude Code setting; when enabled, Claude sessions run on Google Cloud Vertex AI and no Anthropic credential is required |
 | `OPENAI_API_KEY` | (none) | Codex API key; Codex can also use `~/.codex/auth.json` |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `https://`, `socks4://`, `socks5://`) |
 
@@ -213,6 +215,32 @@ make the Bedrock configuration reachable from the service environment:
   setup rewrites that file.
 - Either platform: keeping the configuration in the Claude Code user settings
   `env` block works too, and survives re-running setup.
+
+## Claude on Google Cloud Vertex AI
+
+Claude Code can also run against
+[Google Cloud Vertex AI](https://code.claude.com/docs/en/google-vertex-ai).
+Requests are signed with Google Cloud credentials on the Bridge host, so the
+Bridge requires neither `ANTHROPIC_API_KEY` nor the subscription opt-in when
+`CLAUDE_CODE_USE_VERTEX` is enabled:
+
+```bash
+CLAUDE_CODE_USE_VERTEX=1 \
+CLOUD_ML_REGION=global \
+ANTHROPIC_VERTEX_PROJECT_ID=my-project \
+npx @ccpocket/bridge@latest
+```
+
+The flag is read from the Bridge environment or from the `env` block of the
+Claude Code user settings file, the same way as the Bedrock flag. The project,
+region, and credentials follow the Claude Code documentation: the Bridge does
+not read, validate, or forward them. As with Bedrock, an OAuth authentication
+source reported by Claude Code still requires `BRIDGE_ALLOW_CLAUDE_OAUTH=1`,
+and the notes above on the background service apply to the Vertex variables
+too.
+
+Doctor reports `Google Vertex AI configured; Google Cloud credentials not
+verified`. It checks the flag only and does not call Google Cloud.
 
 ## Persistent service setup
 
