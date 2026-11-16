@@ -81,6 +81,14 @@ interface GitHubError {
 
 A dependabot item is `author.isBot && author.login.startsWith("dependabot")`.
 
+Bridge implementation notes (`packages/bridge/src/github-cli.ts`):
+
+- A `projectPath` outside the allowed directories answers with `failed`.
+- An item that does not exist, a timeout, and an unparseable `gh` response
+  answer with `failed` and a one-line message.
+- `gh` returns no `is_bot` for comment authors, so `comments[].author.isBot`
+  is true only for an `app/` or `[bot]` login. The item author is reliable.
+
 Compatibility: an older Bridge answers `unsupported_message`. The GitHub screen
 waits for these responses directly, so it shows the Bridge update guidance
 inside the screen (not through chat `_unsupportedActions`).

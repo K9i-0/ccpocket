@@ -1,6 +1,12 @@
 import type { AssistantImageRef } from "./markdown-images.js";
 import type { CodexRecoveryState } from "./codex-recovery.js";
 import type { GoalNotification } from "./goal-notifications.js";
+import type {
+  GitHubError,
+  GitHubItemDetail,
+  GitHubItemKind,
+  GitHubItemSummary,
+} from "./github-cli.js";
 import type { GalleryImageInfo } from "./gallery-store.js";
 import type { ImageRef } from "./image-store.js";
 import type {
@@ -645,7 +651,20 @@ export type ClientMessage =
       includeRemote?: boolean;
       requestId?: string;
     }
-  | { type: "git_remote_status"; projectPath: string; requestId?: string };
+  | { type: "git_remote_status"; projectPath: string; requestId?: string }
+  | {
+      type: "github_list";
+      projectPath: string;
+      kind: GitHubItemKind;
+      requestId: string;
+    }
+  | {
+      type: "github_item";
+      projectPath: string;
+      kind: GitHubItemKind;
+      number: number;
+      requestId: string;
+    };
 
 /** Image change detected in a git diff (binary image file). */
 export interface ImageChange {
@@ -1312,6 +1331,25 @@ export type ServerMessage =
       branch: string;
       hasUpstream: boolean;
       error?: string;
+    }
+  | {
+      type: "github_list_result";
+      requestId: string;
+      projectPath: string;
+      kind: GitHubItemKind;
+      /** "owner/name" */
+      repository?: string;
+      items?: GitHubItemSummary[];
+      error?: GitHubError;
+    }
+  | {
+      type: "github_item_result";
+      requestId: string;
+      projectPath: string;
+      kind: GitHubItemKind;
+      number: number;
+      item?: GitHubItemDetail;
+      error?: GitHubError;
     };
 
 export interface UsageWindowPayload {
@@ -2520,6 +2558,22 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "git_remote_status":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "github_list":
+      case "github_item":
+        if (
+          !isNonEmptyString(msg.requestId) ||
+          !isNonEmptyString(msg.projectPath) ||
+          (msg.kind !== "pr" && msg.kind !== "issue")
+        )
+          return null;
+        if (
+          msg.type === "github_item" &&
+          (typeof msg.number !== "number" ||
+            !Number.isSafeInteger(msg.number) ||
+            msg.number <= 0)
+        )
+          return null;
         break;
       case "archive_session":
         if (typeof msg.sessionId !== "string") return null;

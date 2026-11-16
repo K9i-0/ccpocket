@@ -142,6 +142,7 @@ import {
   gitStatus,
 } from "./git-operations.js";
 import { generateCommitMessage } from "./git-assist.js";
+import { getGitHubItem, listGitHubItems, toGitHubError } from "./github-cli.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
@@ -8442,6 +8443,66 @@ export class BridgeWebSocketServer {
             hasUpstream: false,
           });
         }
+        break;
+      }
+
+      case "github_list":
+      case "github_item": {
+        // The gh CLI runs asynchronously; every outcome answers with the
+        // operation-specific result so the client's pending request clears.
+        const request = msg;
+        const correlation =
+          request.type === "github_list"
+            ? {
+                type: "github_list_result" as const,
+                requestId: request.requestId,
+                projectPath: request.projectPath,
+                kind: request.kind,
+              }
+            : {
+                type: "github_item_result" as const,
+                requestId: request.requestId,
+                projectPath: request.projectPath,
+                kind: request.kind,
+                number: request.number,
+              };
+        if (!this.isPathAllowed(request.projectPath)) {
+          this.send(ws, {
+            ...correlation,
+            error: {
+              code: "failed",
+              message: this.buildPathNotAllowedError(
+                request.projectPath,
+                request.requestId,
+              ).message,
+            },
+          });
+          break;
+        }
+        void (async () => {
+          try {
+            if (request.type === "github_list") {
+              const result = await listGitHubItems(
+                request.projectPath,
+                request.kind,
+              );
+              this.send(ws, {
+                ...correlation,
+                repository: result.repository,
+                items: result.items,
+              });
+            } else {
+              const result = await getGitHubItem(
+                request.projectPath,
+                request.kind,
+                request.number,
+              );
+              this.send(ws, { ...correlation, item: result.item });
+            }
+          } catch (err) {
+            this.send(ws, { ...correlation, error: toGitHubError(err) });
+          }
+        })();
         break;
       }
 
