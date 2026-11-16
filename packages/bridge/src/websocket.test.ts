@@ -32,6 +32,8 @@ const {
   listIndexedCodexThreadIdsMock,
   generateCommitMessageMock,
   gitCommitMock,
+  listGitHubItemsMock,
+  getGitHubItemMock,
   consumeFinderProofMock,
   verifyFinderSocketProofMock,
   revealInFinderMock,
@@ -48,6 +50,8 @@ const {
   listIndexedCodexThreadIdsMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
+  listGitHubItemsMock: vi.fn(),
+  getGitHubItemMock: vi.fn(),
   consumeFinderProofMock: vi.fn(),
   verifyFinderSocketProofMock: vi.fn(),
   revealInFinderMock: vi.fn(),
@@ -108,6 +112,17 @@ vi.mock("./debug-trace-store.js", () => ({
 vi.mock("./git-assist.js", () => ({
   generateCommitMessage: generateCommitMessageMock,
 }));
+
+vi.mock("./github-cli.js", async () => {
+  const actual = await vi.importActual<typeof import("./github-cli.js")>(
+    "./github-cli.js",
+  );
+  return {
+    ...actual,
+    listGitHubItems: listGitHubItemsMock,
+    getGitHubItem: getGitHubItemMock,
+  };
+});
 
 vi.mock("./git-operations.js", async () => {
   const actual = await vi.importActual<typeof import("./git-operations.js")>(
@@ -3092,6 +3107,265 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       }),
     );
     bridge.close();
+  });
+
+  describe("GitHub triage requests", () => {
+    const sentMessages = (ws: { send: ReturnType<typeof vi.fn> }) =>
+      ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+    const waitForSend = async (
+      ws: { send: ReturnType<typeof vi.fn> },
+      count = 1,
+    ) => {
+      for (let i = 0; i < 50 && ws.send.mock.calls.length < count; i++) {
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+      }
+    };
+
+    beforeEach(() => {
+      listGitHubItemsMock.mockReset();
+      getGitHubItemMock.mockReset();
+    });
+
+    it("answers github_list with the correlated repository and items", async () => {
+      const items = [
+        {
+          number: 330,
+          title: "chore(deps): bump ws",
+          url: "https://github.com/K9i-0/ccpocket/pull/330",
+          author: { login: "dependabot", isBot: true },
+          labels: ["dependencies"],
+          createdAt: "2026-11-10T01:00:00Z",
+          updatedAt: "2026-11-10T01:05:00Z",
+          isDraft: false,
+          checks: "success",
+        },
+      ];
+      listGitHubItemsMock.mockResolvedValue({
+        repository: "K9i-0/ccpocket",
+        items,
+      });
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        { type: "github_list", projectPath: "/p", kind: "pr", requestId: "gh-1" },
+        ws,
+      );
+      await waitForSend(ws);
+
+      expect(listGitHubItemsMock).toHaveBeenCalledWith("/p", "pr");
+      expect(sentMessages(ws)).toEqual([
+        {
+          type: "github_list_result",
+          requestId: "gh-1",
+          projectPath: "/p",
+          kind: "pr",
+          repository: "K9i-0/ccpocket",
+          items,
+        },
+      ]);
+      bridge.close();
+    });
+
+    it("answers github_list failures with the typed error", async () => {
+      const { GitHubCliError } = await import("./github-cli.js");
+      listGitHubItemsMock.mockRejectedValue(
+        new GitHubCliError("gh_unauthenticated", "Run: gh auth login"),
+      );
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        {
+          type: "github_list",
+          projectPath: "/p",
+          kind: "issue",
+          requestId: "gh-2",
+        },
+        ws,
+      );
+      await waitForSend(ws);
+
+      expect(sentMessages(ws)).toEqual([
+        {
+          type: "github_list_result",
+          requestId: "gh-2",
+          projectPath: "/p",
+          kind: "issue",
+          error: { code: "gh_unauthenticated", message: "Run: gh auth login" },
+        },
+      ]);
+      bridge.close();
+    });
+
+    it("answers github_item with the correlated detail", async () => {
+      const item = {
+        number: 327,
+        title: "Issue",
+        url: "https://github.com/K9i-0/ccpocket/issues/327",
+        author: { login: "alex", isBot: false },
+        labels: [],
+        createdAt: "2026-11-10T01:00:00Z",
+        updatedAt: "2026-11-10T01:05:00Z",
+        body: "body",
+        comments: [],
+      };
+      getGitHubItemMock.mockResolvedValue({
+        repository: "K9i-0/ccpocket",
+        item,
+      });
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        {
+          type: "github_item",
+          projectPath: "/p",
+          kind: "issue",
+          number: 327,
+          requestId: "gh-3",
+        },
+        ws,
+      );
+      await waitForSend(ws);
+
+      expect(getGitHubItemMock).toHaveBeenCalledWith("/p", "issue", 327);
+      expect(sentMessages(ws)).toEqual([
+        {
+          type: "github_item_result",
+          requestId: "gh-3",
+          projectPath: "/p",
+          kind: "issue",
+          number: 327,
+          item,
+        },
+      ]);
+      bridge.close();
+    });
+
+    it("answers github_item failures with the request number", async () => {
+      getGitHubItemMock.mockRejectedValue(new Error("boom"));
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        {
+          type: "github_item",
+          projectPath: "/p",
+          kind: "pr",
+          number: 175,
+          requestId: "gh-4",
+        },
+        ws,
+      );
+      await waitForSend(ws);
+
+      expect(sentMessages(ws)).toEqual([
+        {
+          type: "github_item_result",
+          requestId: "gh-4",
+          projectPath: "/p",
+          kind: "pr",
+          number: 175,
+          error: { code: "failed", message: "boom" },
+        },
+      ]);
+      bridge.close();
+    });
+
+    it("keeps concurrent requests for two projects correlated", async () => {
+      let releaseFirst: (value: unknown) => void = () => {};
+      listGitHubItemsMock.mockImplementation((projectPath: string) =>
+        projectPath === "/a"
+          ? new Promise((resolvePromise) => {
+              releaseFirst = resolvePromise;
+            })
+          : Promise.resolve({ repository: "o/b", items: [] }),
+      );
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        { type: "github_list", projectPath: "/a", kind: "pr", requestId: "a-1" },
+        ws,
+      );
+      await (bridge as any).handleClientMessage(
+        { type: "github_list", projectPath: "/b", kind: "pr", requestId: "b-1" },
+        ws,
+      );
+      await waitForSend(ws);
+      releaseFirst({ repository: "o/a", items: [] });
+      await waitForSend(ws, 2);
+
+      expect(
+        sentMessages(ws).map((message: Record<string, unknown>) => [
+          message.requestId,
+          message.projectPath,
+          message.repository,
+        ]),
+      ).toEqual([
+        ["b-1", "/b", "o/b"],
+        ["a-1", "/a", "o/a"],
+      ]);
+      bridge.close();
+    });
+
+    it("rejects a disallowed project path without calling gh", async () => {
+      const bridge = new BridgeWebSocketServer({
+        server: httpServer,
+        allowedDirs: ["/allowed"],
+      });
+      const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+      await (bridge as any).handleClientMessage(
+        {
+          type: "github_list",
+          projectPath: "/denied",
+          kind: "pr",
+          requestId: "gh-5",
+        },
+        ws,
+      );
+      await (bridge as any).handleClientMessage(
+        {
+          type: "github_item",
+          projectPath: "/denied",
+          kind: "pr",
+          number: 1,
+          requestId: "gh-6",
+        },
+        ws,
+      );
+
+      expect(listGitHubItemsMock).not.toHaveBeenCalled();
+      expect(getGitHubItemMock).not.toHaveBeenCalled();
+      expect(sentMessages(ws)).toEqual([
+        {
+          type: "github_list_result",
+          requestId: "gh-5",
+          projectPath: "/denied",
+          kind: "pr",
+          error: {
+            code: "failed",
+            message: expect.stringContaining("Project path not allowed"),
+          },
+        },
+        {
+          type: "github_item_result",
+          requestId: "gh-6",
+          projectPath: "/denied",
+          kind: "pr",
+          number: 1,
+          error: {
+            code: "failed",
+            message: expect.stringContaining("Project path not allowed"),
+          },
+        },
+      ]);
+      bridge.close();
+    });
   });
 
   it("lists only visible allowed directories", async () => {

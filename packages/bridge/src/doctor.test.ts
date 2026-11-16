@@ -30,6 +30,7 @@ const {
   checkDependencies,
   checkPortAvailable,
   checkTailscale,
+  checkGitHubCli,
   checkDataDirectory,
   checkLaunchdService,
   checkSystemdService,
@@ -384,6 +385,67 @@ describe("doctor checks", () => {
       mockExistsSync.mockReturnValue(false); // macOS app path doesn't exist either
       const result = await checkTailscale();
       expect(result.status).toBe("skip");
+    });
+  });
+
+  describe("checkGitHubCli", () => {
+    it("passes when gh is installed and authenticated", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+          if (args[0] === "--version") {
+            cb(null, "gh version 2.60.0 (2024-10-23)\n", "");
+          } else cb(null, "", "");
+        },
+      );
+      const result = await checkGitHubCli();
+      expect(result.status).toBe("pass");
+      expect(result.message).toContain("2.60.0");
+      expect(mockExecFile).toHaveBeenCalledWith(
+        "gh",
+        ["auth", "status", "--hostname", "github.com"],
+        expect.objectContaining({
+          env: expect.objectContaining({
+            GH_PROMPT_DISABLED: "1",
+            GH_NO_UPDATE_NOTIFIER: "1",
+          }),
+        }),
+        expect.any(Function),
+      );
+    });
+
+    it("warns with the error when gh exists but cannot run", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(Object.assign(new Error("spawn gh EACCES"), { code: "EACCES" }), "", "");
+        },
+      );
+      const result = await checkGitHubCli();
+      expect(result.status).toBe("warn");
+      expect(result.message).toContain("EACCES");
+      expect(result.message).not.toContain("Not installed");
+    });
+
+    it("warns when gh is installed but not authenticated", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+          if (args[0] === "--version") cb(null, "gh version 2.60.0\n", "");
+          else cb(new Error("not logged in"), "", "");
+        },
+      );
+      const result = await checkGitHubCli();
+      expect(result.status).toBe("warn");
+      expect(result.remediation).toContain("gh auth login");
+    });
+
+    it("skips when gh is not installed", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(Object.assign(new Error("spawn gh ENOENT"), { code: "ENOENT" }), "", "");
+        },
+      );
+      const result = await checkGitHubCli();
+      expect(result.status).toBe("skip");
+      expect(result.remediation).toContain("cli.github.com");
     });
   });
 

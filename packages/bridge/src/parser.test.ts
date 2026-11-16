@@ -1608,6 +1608,67 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"git_branches"}')).toBeNull();
   });
 
+  // github_list / github_item
+  it("parses github_list", () => {
+    const msg = parseClientMessage(
+      '{"type":"github_list","projectPath":"/p","kind":"pr","requestId":"gh-1"}',
+    );
+    expect(msg).toEqual({
+      type: "github_list",
+      projectPath: "/p",
+      kind: "pr",
+      requestId: "gh-1",
+    });
+  });
+
+  it("parses github_item", () => {
+    const msg = parseClientMessage(
+      '{"type":"github_item","projectPath":"/p","kind":"issue","number":327,"requestId":"gh-2"}',
+    );
+    expect(msg).toEqual({
+      type: "github_item",
+      projectPath: "/p",
+      kind: "issue",
+      number: 327,
+      requestId: "gh-2",
+    });
+  });
+
+  it.each([
+    ["missing requestId", { projectPath: "/p", kind: "pr" }],
+    ["empty requestId", { projectPath: "/p", kind: "pr", requestId: " " }],
+    ["missing projectPath", { kind: "pr", requestId: "gh-1" }],
+    ["non-string projectPath", { projectPath: 1, kind: "pr", requestId: "gh-1" }],
+    ["missing kind", { projectPath: "/p", requestId: "gh-1" }],
+    ["unknown kind", { projectPath: "/p", kind: "discussion", requestId: "gh-1" }],
+  ])("rejects github_list with %s", (_name, fields) => {
+    expect(
+      parseClientMessage(JSON.stringify({ type: "github_list", ...fields })),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        JSON.stringify({ type: "github_item", number: 1, ...fields }),
+      ),
+    ).toBeNull();
+  });
+
+  it.each([undefined, 0, -3, 1.5, "327", null])(
+    "rejects github_item with number %s",
+    (number) => {
+      expect(
+        parseClientMessage(
+          JSON.stringify({
+            type: "github_item",
+            projectPath: "/p",
+            kind: "pr",
+            requestId: "gh-1",
+            number,
+          }),
+        ),
+      ).toBeNull();
+    },
+  );
+
   // git_create_branch
   it("parses git_create_branch", () => {
     const msg = parseClientMessage(

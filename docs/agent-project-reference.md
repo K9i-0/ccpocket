@@ -118,6 +118,8 @@ Cloud Functions (relay) がFCMトークンの管理とプッシュ送信を担�
 - `get_history` - セッション履歴取得 (sessionId)
 - `get_diff` - プロジェクトのgit diff取得 (projectPath)
 - `list_directory` - 許可ルート配下のディレクトリ一覧取得 (path, requestId?)
+- `github_list` - オープンなPR / Issue一覧取得 (projectPath, kind: "pr" | "issue", requestId)
+- `github_item` - PR / Issueの本文と最新コメント取得 (projectPath, kind, number, requestId)
 
 ### Server → Client メッセージ
 - `system` - システムイベント (init, session_created)
@@ -132,6 +134,10 @@ Cloud Functions (relay) がFCMトークンの管理とプッシュ送信を担�
 - `session_list` - セッション一覧（Claude モデル一覧のフィールドは [claude-model-list.md](claude-model-list.md)）
 - `diff_result` - git diff結果 (diff, error?)
 - `directory_listing` - ディレクトリ一覧結果 (path, directories, requestId?)
+- `github_list_result` - PR / Issue一覧結果 (requestId, projectPath, kind, repository?, items?, error?)
+- `github_item_result` - PR / Issue詳細結果 (requestId, projectPath, kind, number, item?, error?)
+
+GitHub系はBridgeホストの `gh` CLI を読み取り専用で使う（`github-cli.ts`）。型とエラーコードは [github-triage.md](github-triage.md)。
 
 ### Bridge 非対応メッセージの Graceful Degradation
 

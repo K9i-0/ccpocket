@@ -371,6 +371,62 @@ export async function checkTailscale(): Promise<CheckResult> {
   }
 }
 
+/**
+ * GitHub CLI is only needed for the GitHub triage screen, so a missing or
+ * unauthenticated `gh` never fails the doctor run.
+ */
+export async function checkGitHubCli(): Promise<CheckResult> {
+  const name = "GitHub CLI";
+  const env = {
+    ...process.env,
+    GH_PROMPT_DISABLED: "1",
+    GH_NO_UPDATE_NOTIFIER: "1",
+  };
+  let version: string;
+  try {
+    const out = await execFileText("gh", ["--version"], env); // "gh version 2.60.0 (2024-10-23)"
+    version = out.match(/gh version (\S+)/)?.[1] ?? "";
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {
+        name,
+        status: "skip",
+        message: "Not installed (optional for GitHub triage)",
+        remediation: "Install: https://cli.github.com/",
+      };
+    }
+    const detail = (err instanceof Error ? err.message : String(err))
+      .split("\n")[0]
+      .trim();
+    return {
+      name,
+      status: "warn",
+      message: `Unable to run gh: ${detail}`,
+      remediation: "Check the gh installation: https://cli.github.com/",
+    };
+  }
+
+  try {
+    await execFileText(
+      "gh",
+      ["auth", "status", "--hostname", "github.com"],
+      env,
+    );
+    return {
+      name,
+      status: "pass",
+      message: version ? `v${version} (authenticated)` : "Authenticated",
+    };
+  } catch {
+    return {
+      name,
+      status: "warn",
+      message: "Installed but not authenticated for github.com",
+      remediation: "Run: gh auth login",
+    };
+  }
+}
+
 export async function checkFirebaseConnectivity(): Promise<CheckResult> {
   // Use a read-only endpoint to avoid creating anonymous accounts as a side effect
   const FIREBASE_API_KEY = "AIzaSyAptNnokWPqJIgv2Lr3I8ETN6bqZb5BGvc";
@@ -681,9 +737,13 @@ export function evaluateSleepSettings(
   };
 }
 
-function execFileText(cmd: string, args: string[]): Promise<string> {
+function execFileText(
+  cmd: string,
+  args: string[],
+  env?: NodeJS.ProcessEnv,
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 5_000 }, (err, stdout) => {
+    execFile(cmd, args, { timeout: 5_000, ...(env ? { env } : {}) }, (err, stdout) => {
       if (err) reject(err);
       else resolve(String(stdout));
     });
@@ -788,6 +848,7 @@ function getAllChecks(): CheckDefinition[] {
     },
     // Optional — connectivity & services
     { name: "Tailscale", category: "optional", run: checkTailscale },
+    { name: "GitHub CLI", category: "optional", run: checkGitHubCli },
     {
       name: "Firebase connectivity",
       category: "optional",
