@@ -52,6 +52,88 @@ describe("extractMarkdownImages", () => {
       { alt: "f", path: "/work/f.png" },
     ]);
   });
+
+  it("keeps alt text that contains brackets", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![前 [案A] 後](/work/a.png)",
+          "![escaped \\] bracket](/work/b.png)",
+          "![opening \\[ bracket](/work/c.png)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "前 [案A] 後", path: "/work/a.png" },
+      { alt: "escaped ] bracket", path: "/work/b.png" },
+      { alt: "opening [ bracket", path: "/work/c.png" },
+    ]);
+  });
+
+  it("keeps destinations with balanced parentheses", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![shot](/work/Screenshot(1).png)",
+          "![escaped](/work/Escaped\\(1\\).png)",
+          "![angled](</work/Angled (1).png>)",
+          "![encoded](/work/Encoded%20(1).png)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "shot", path: "/work/Screenshot(1).png" },
+      { alt: "escaped", path: "/work/Escaped(1).png" },
+      { alt: "angled", path: "/work/Angled (1).png" },
+      { alt: "encoded", path: "/work/Encoded (1).png" },
+    ]);
+  });
+
+  it("keeps Windows backslashes and titles that contain parentheses", () => {
+    expect(
+      extractMarkdownImages(
+        '![w](C:\\work\\shot.png)\n![t](/work/t.png "title (1)")',
+      ),
+    ).toEqual([
+      { alt: "w", path: "C:\\work\\shot.png" },
+      { alt: "t", path: "/work/t.png" },
+    ]);
+  });
+
+  it("keeps Windows separators that precede punctuation", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![dot](C:\\Users\\me\\.claude\\tmp\\a.png)",
+          "![underscore](C:\\work\\_shots\\a-b\\b.png)",
+          "![angled](<C:\\Users\\me\\.claude\\My Shots\\c.png>)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "dot", path: "C:\\Users\\me\\.claude\\tmp\\a.png" },
+      { alt: "underscore", path: "C:\\work\\_shots\\a-b\\b.png" },
+      { alt: "angled", path: "C:\\Users\\me\\.claude\\My Shots\\c.png" },
+    ]);
+  });
+
+  it("ignores bare destinations with whitespace inside parentheses", () => {
+    expect(
+      extractMarkdownImages(
+        "![s](/work/foo(bar baz).png)\n![a\\\nb](/work/x.png)",
+      ),
+    ).toEqual([]);
+  });
+
+  it("ignores images that are not closed correctly", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![open](/work/a.png",
+          "![space](/work/Screenshot (1).png)",
+          "![empty]()",
+          "![nested](/work/(a.png)",
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("assistantTextBlocks", () => {
