@@ -133,6 +133,96 @@ describe("PromptHistoryStore", () => {
     expect(store.list()).toHaveLength(0);
   });
 
+  it("clears the tombstone when a newer client copy was restored", async () => {
+    const store = await makeStore();
+    const entry = await store.record({
+      text: "restore me",
+      projectPath: "/repo",
+      clientId: "phone",
+      usedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await store.mutate({
+      id: entry.id,
+      action: "delete",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(store.list()).toHaveLength(0);
+
+    // The other device restored the prompt, so its copy has no `deletedAt`
+    // and an `updatedAt` after the delete.
+    await store.mergeClientEntries([
+      {
+        id: entry.id,
+        text: "restore me",
+        projectPath: "/repo",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+        lastUsedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+
+    expect(store.list()).toHaveLength(1);
+    expect(store.list()[0]).toMatchObject({ id: entry.id, text: "restore me" });
+    expect(store.list(true)[0].deletedAt).toBeUndefined();
+  });
+
+  it("keeps the tombstone when an older client copy is merged", async () => {
+    const store = await makeStore();
+    const entry = await store.record({
+      text: "stay deleted",
+      projectPath: "/repo",
+      clientId: "phone",
+      usedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await store.mutate({
+      id: entry.id,
+      action: "delete",
+      updatedAt: "2026-01-03T00:00:00.000Z",
+    });
+
+    // A device that has not seen the delete yet still sends its older copy.
+    await store.mergeClientEntries([
+      {
+        id: entry.id,
+        text: "stay deleted",
+        projectPath: "/repo",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        lastUsedAt: "2026-01-02T00:00:00.000Z",
+      },
+    ]);
+
+    expect(store.list()).toHaveLength(0);
+    expect(store.list(true)[0].deletedAt).toBe("2026-01-03T00:00:00.000Z");
+  });
+
+  it("keeps the newest tombstone over an older restore", async () => {
+    const store = await makeStore();
+    const entry = await store.record({
+      text: "delete again",
+      projectPath: "/repo",
+      clientId: "phone",
+      usedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await store.mutate({
+      id: entry.id,
+      action: "delete",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    // The restored copy predates a newer delete from another device.
+    await store.mergeClientEntries([
+      {
+        id: entry.id,
+        text: "delete again",
+        projectPath: "/repo",
+        updatedAt: "2026-01-01T12:00:00.000Z",
+        deletedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+
+    expect(store.list()).toHaveLength(0);
+    expect(store.list(true)[0].deletedAt).toBe("2026-01-03T00:00:00.000Z");
+  });
+
   it("replaces entries when importing legacy v1 history", async () => {
     const store = await makeStore();
     await store.record({ text: "old", projectPath: "/repo", clientId: "phone" });

@@ -419,8 +419,15 @@ export class PromptHistoryStore {
       existing.favoriteUpdatedAt = incoming.updatedAt;
     }
 
-    if (incoming.deletedAt && (!existing.deletedAt || incoming.deletedAt >= existing.deletedAt)) {
-      existing.deletedAt = incoming.deletedAt;
+    // A delete travels as a tombstone so other clients can hide the entry, but
+    // it is not permanent: a client copy restored (or used again) after the
+    // delete carries a newer `updatedAt` and wins, exactly like `record`.
+    if (incoming.deletedAt) {
+      if (!existing.deletedAt || incoming.deletedAt >= existing.deletedAt) {
+        existing.deletedAt = incoming.deletedAt;
+      }
+    } else if (existing.deletedAt && incoming.updatedAt > existing.deletedAt) {
+      existing.deletedAt = undefined;
     }
 
     for (const [clientId, stat] of Object.entries(incoming.clientStats)) {
