@@ -263,6 +263,58 @@ describe("PromptHistoryStore", () => {
     });
   });
 
+  it("keeps the stored history when an import has no usable entry", async () => {
+    const store = await makeStore();
+    await store.record({ text: "first", projectPath: "/repo", clientId: "phone" });
+    await store.record({ text: "second", projectPath: "/repo", clientId: "phone" });
+    const revision = store.revision;
+
+    const result = await store.importEntries(
+      [
+        { text: "   " },
+        { text: "\n\t" },
+        { text: "", projectPath: "/repo" },
+      ],
+      "phone",
+    );
+
+    expect(result.imported).toBe(0);
+    expect(result.entries.map((entry) => entry.text).sort()).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(store.list()).toHaveLength(2);
+    // Nothing changed, so no new revision was published to clients.
+    expect(store.revision).toBe(revision);
+  });
+
+  it("keeps the stored history when an import is empty", async () => {
+    const store = await makeStore();
+    await store.record({ text: "only", projectPath: "/repo", clientId: "phone" });
+
+    await store.importEntries([], "phone");
+
+    expect(store.list()).toHaveLength(1);
+    expect(store.list()[0].text).toBe("only");
+  });
+
+  it("imports the usable entries and drops the blank ones", async () => {
+    const store = await makeStore();
+    await store.record({ text: "old", projectPath: "/repo", clientId: "phone" });
+
+    const result = await store.importEntries(
+      [
+        { text: "kept", projectPath: "/repo", useCount: 2 },
+        { text: " ", projectPath: "/repo" },
+      ],
+      "phone",
+    );
+
+    expect(result.imported).toBe(1);
+    expect(store.list().map((entry) => entry.text)).toEqual(["kept"]);
+    expect(store.list()[0].totalUseCount).toBe(2);
+  });
+
   it("detects slash and skill command kinds", () => {
     expect(detectPromptCommandKind("/compact")).toBe("slash");
     expect(detectPromptCommandKind("$flutter-ui-design")).toBe("skill");

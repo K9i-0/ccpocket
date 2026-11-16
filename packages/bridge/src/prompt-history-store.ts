@@ -294,9 +294,9 @@ export class PromptHistoryStore {
     clientId: string,
     clientName?: string,
   ): Promise<{ imported: number; entries: PromptHistoryEntry[] }> {
-    this.data.entries = [];
-
-    let imported = 0;
+    // Build the imported entries before clearing anything: an import that
+    // carries no usable prompt must not erase the stored history.
+    const incoming: PromptHistoryEntry[] = [];
     for (const raw of entries) {
       const text = normalizeText(raw.text);
       if (!text) continue;
@@ -307,7 +307,7 @@ export class PromptHistoryStore {
       const createdAt = raw.createdAt ?? now;
       const lastUsedAt = raw.lastUsedAt ?? raw.updatedAt ?? now;
       const updatedAt = raw.updatedAt ?? lastUsedAt;
-      const incoming: PromptHistoryEntry = {
+      const entry: PromptHistoryEntry = {
         id,
         text,
         projectPath,
@@ -324,13 +324,17 @@ export class PromptHistoryStore {
         clientStats: raw.clientStats ?? {},
         sessionStats: raw.sessionStats ?? {},
       };
-      this.incrementClientStat(incoming, clientId, clientName, lastUsedAt, useCount);
-      this.mergeEntry(incoming);
-      imported += 1;
+      this.incrementClientStat(entry, clientId, clientName, lastUsedAt, useCount);
+      incoming.push(entry);
     }
 
+    if (incoming.length === 0) return { imported: 0, entries: this.list() };
+
+    this.data.entries = [];
+    for (const entry of incoming) this.mergeEntry(entry);
+
     await this.saveBumped();
-    return { imported, entries: this.list() };
+    return { imported: incoming.length, entries: this.list() };
   }
 
   async mergeClientEntries(entries: PromptHistoryImportEntry[]): Promise<void> {

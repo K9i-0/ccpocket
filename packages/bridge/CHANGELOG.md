@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.3] - 2026-11-16
+
+### Fixed
+
+- Claude sessions now start on hosts that use Google Cloud Vertex AI (`CLAUDE_CODE_USE_VERTEX=1` in the environment or in the Claude Code user settings) without an Anthropic API key, the same way Amazon Bedrock hosts do. `ccpocket-bridge doctor` reports Vertex AI mode instead of checking the Anthropic login. ([#340](https://github.com/K9i-0/ccpocket/pull/340) by @KuljeetSinghXDA)
+- Markdown images whose alt text contains brackets (`![a [b] c](...)`) or whose path contains balanced or escaped parentheses (`Screenshot(1).png`) are now attached instead of being dropped. Windows paths keep their backslashes. ([#339](https://github.com/K9i-0/ccpocket/pull/339) by @KuljeetSinghXDA)
+- A Git remote that spells out the scheme's default port (for example `ssh://git@github.com:22/owner/repo.git`) now matches the same repository written without the port, so the session is attached to its project. Non-default ports still count as a different host. ([#341](https://github.com/K9i-0/ccpocket/pull/341) by @KuljeetSinghXDA)
+
 ## [1.107.2] - 2026-11-16
 
 ### Fixed

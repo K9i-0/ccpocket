@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.165.0] - 2026-11-16
+
+### Added
+
+- The chat menu (⋯) in Claude and Codex sessions now has an Issues / PRs entry, so you can open the screen for the current session at any time, not only from an empty chat.
+
 ## [1.164.1] - 2026-11-16
 
 ### Changed
