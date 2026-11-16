@@ -1,6 +1,7 @@
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readFileSync, mkdirSync, cpSync, readdirSync, statSync, realpathSync } from "node:fs";
 import { join, dirname, basename, relative, resolve } from "node:path";
+import { isPathWithinAllowedDirectory } from "./path-utils.js";
 
 // ---- Types ----
 
@@ -287,6 +288,21 @@ export function removeWorktree(projectPath: string, wtPath: string): void {
   });
 }
 
+/**
+ * Whether [worktreePath] is a directory inside [root], not merely a path that
+ * shares its prefix. A plain `startsWith` would also accept the sibling
+ * directory `<project>-worktrees-legacy/` as part of `<project>-worktrees/`.
+ *
+ * Git prints worktree paths with forward slashes and its own drive-letter
+ * casing, so the comparison goes through the platform-aware path helper.
+ */
+function isUnderWorktreesRoot(worktreePath: string, root: string): boolean {
+  return (
+    isPathWithinAllowedDirectory(worktreePath, root) &&
+    relative(root, worktreePath) !== ""
+  );
+}
+
 /** List worktrees for a project (only those under <project>-worktrees/). */
 export function listWorktrees(projectPath: string): WorktreeInfo[] {
   const resolvedProject = resolveProject(projectPath);
@@ -317,7 +333,7 @@ export function listWorktrees(projectPath: string): WorktreeInfo[] {
       currentBranch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
     } else if (line === "") {
       // End of entry
-      if (currentPath && currentPath.startsWith(wtRoot)) {
+      if (currentPath && isUnderWorktreesRoot(currentPath, wtRoot)) {
         worktrees.push({
           worktreePath: currentPath,
           branch: currentBranch,
