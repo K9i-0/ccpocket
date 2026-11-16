@@ -68,16 +68,61 @@ export function isAutoRenamePromptText(text: string): boolean {
   return text.trimStart().startsWith(AUTO_RENAME_PROMPT_SIGNATURE);
 }
 
+/** Opening line of a fenced code block: the fence plus an optional language tag. */
+const CODE_FENCE_OPEN_RE = /^(`{3,}|~{3,})[\w+.#-]*$/;
+/** Closing line of a fenced code block: the fence alone. */
+const CODE_FENCE_CLOSE_RE = /^(`{3,}|~{3,})$/;
+
+/** Index of the last non-blank line, or -1 when every line is blank. */
+function lastNonEmptyIndex(lines: readonly string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (lines[index]) return index;
+  }
+  return -1;
+}
+
+/**
+ * Drops a markdown code fence that wraps the whole answer.
+ *
+ * The prompt forbids markdown, but a model may still answer with a fenced
+ * block: either three lines (open / name / close) or one line holding all
+ * three. Both shapes must unwrap to the bare name; only the single-line shape
+ * was handled before, and it also swallowed the name's first word as a
+ * language tag.
+ */
+function unwrapCodeFence(output: string): string {
+  // Blank lines stay in the list. Removing them early turns an opening fence
+  // with no body (`` ```text `` and then blank lines) into a one-line answer,
+  // which would hand the language tag back as the name.
+  const lines = output.split("\n").map((part) => part.trim());
+  const first = lines.findIndex(Boolean);
+  if (first === -1) return "";
+  const last = lastNonEmptyIndex(lines);
+
+  // A single-line fence such as ```Name``` is not an opening line; it is
+  // unwrapped later together with the rest of the name line.
+  const opening = CODE_FENCE_OPEN_RE.exec(lines[first]);
+  if (!opening) return lines.slice(first, last + 1).join("\n");
+
+  const fence = opening[1];
+  const closing = CODE_FENCE_CLOSE_RE.exec(lines[last]);
+  const closed = closing !== null && closing[1] === fence;
+  // An unterminated fence still drops its opening line, which carries the
+  // language tag as well as the backticks. A fence with no body unwraps to
+  // nothing, so the tag is never returned as the name.
+  return lines.slice(first + 1, closed ? last : undefined).join("\n");
+}
+
 export function sanitizeAutoRenameName(output: string): string | null {
-  const line = output
+  const line = unwrapCodeFence(output)
     .split("\n")
     .map((part) => part.trim())
     .find(Boolean);
   if (!line) return null;
 
   let name = line
-    .replace(/^```(?:\w+)?\s*/, "")
-    .replace(/\s*```$/, "")
+    .replace(/^(`{3,}|~{3,})\s*/, "")
+    .replace(/\s*(`{3,}|~{3,})$/, "")
     .trim();
   name = stripWrapping(name, '"');
   name = stripWrapping(name, "'");

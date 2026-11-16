@@ -140,6 +140,49 @@ describe("auto rename", () => {
     expect(sanitizeAutoRenameName("name: 未プッシュ差分レビュー")).toBeNull();
   });
 
+  it("unwraps a fenced code block written on its own lines", () => {
+    expect(sanitizeAutoRenameName("```\nFix login redirect loop\n```")).toBe(
+      "Fix login redirect loop",
+    );
+    expect(sanitizeAutoRenameName("```text\nFix login redirect loop\n```")).toBe(
+      "Fix login redirect loop",
+    );
+    expect(sanitizeAutoRenameName("~~~\nFix login redirect loop\n~~~")).toBe(
+      "Fix login redirect loop",
+    );
+    // Surrounding blank lines and a trailing newline are ignored.
+    expect(sanitizeAutoRenameName("\n```\nFix login redirect loop\n```\n\n")).toBe(
+      "Fix login redirect loop",
+    );
+    expect(sanitizeAutoRenameName("```\nFix login redirect loop")).toBe(
+      "Fix login redirect loop",
+    );
+  });
+
+  it("keeps the first word of a single-line fenced name", () => {
+    // The old fence regex treated the first word as a language tag and dropped
+    // it, so "Fix login redirect loop" came back as "login redirect loop".
+    expect(sanitizeAutoRenameName("```Fix login redirect loop```")).toBe(
+      "Fix login redirect loop",
+    );
+  });
+
+  it("does not treat a single-line fenced name as an opening fence", () => {
+    expect(
+      sanitizeAutoRenameName("```Fix login redirect loop```\nExplanation here"),
+    ).toBe("Fix login redirect loop");
+    expect(
+      sanitizeAutoRenameName("```Fix login redirect loop```\nAdditional details"),
+    ).toBe("Fix login redirect loop");
+  });
+
+  it("returns null when a fence wraps nothing", () => {
+    expect(sanitizeAutoRenameName("```\n```")).toBeNull();
+    expect(sanitizeAutoRenameName("```")).toBeNull();
+    // An empty, unterminated fence must not return its language tag as a name.
+    expect(sanitizeAutoRenameName("```text\n\n")).toBeNull();
+  });
+
   it("uses the Claude CLI for Claude sessions", async () => {
     mockExecFileResult("`依存関係更新`\n");
 
