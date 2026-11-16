@@ -301,6 +301,29 @@ describe("createWorktree / listWorktrees / removeWorktree", () => {
     expect(list.map((w) => w.branch).sort()).toEqual(["ccpocket/s1", "ccpocket/s2"]);
   });
 
+  it("ignores worktrees in a sibling directory that shares the prefix", () => {
+    const root = worktreesRoot(projectDir);
+    const inside = createWorktree(projectDir, "inside");
+    // `<project>-worktrees-legacy/` starts with `<project>-worktrees`, but it
+    // belongs to another checkout, not to this project's worktrees root.
+    const siblingRoot = `${root}-legacy`;
+    const outsidePath = join(siblingRoot, "legacy");
+    try {
+      execFileSync(
+        "git",
+        ["worktree", "add", "-b", "legacy-branch", outsidePath],
+        { cwd: projectDir },
+      );
+
+      const list = listWorktrees(projectDir);
+
+      expect(list.map((w) => w.worktreePath)).toEqual([inside.worktreePath]);
+      expect(list.map((w) => w.branch)).toEqual(["ccpocket/inside"]);
+    } finally {
+      rmSync(siblingRoot, { recursive: true, force: true });
+    }
+  });
+
   it("removes a worktree", () => {
     const wt = createWorktree(projectDir, "rm-test");
     expect(existsSync(wt.worktreePath)).toBe(true);
