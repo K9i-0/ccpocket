@@ -18,21 +18,23 @@ import 'widgets/github_item_detail_sheet.dart';
 import 'widgets/github_item_tile.dart';
 import 'widgets/github_triage_sheet.dart';
 
-export 'widgets/github_triage_sheet.dart' show GitHubTriageTarget;
+export 'widgets/github_triage_sheet.dart'
+    show GitHubTriageSubmit, GitHubTriageTarget;
 
 /// Open issues and pull requests of a project, with multi-select to hand
 /// them to the triage skill.
 ///
 /// The screen only reads from GitHub. It produces a `/triage ...` prompt and
-/// leaves sending to its opener: [onSubmitTriage] when embedded in a tool
-/// pane, otherwise the prompt is the route's pop result.
+/// leaves sending to its opener through [onSubmitTriage]. When the prompt is
+/// accepted a pushed screen pops itself; an embedded pane is closed by its
+/// host.
 @RoutePage()
 class GitHubScreen extends StatefulWidget {
   final String projectPath;
   final GitHubTriageTarget triageTarget;
   final bool embedded;
   final VoidCallback? onClose;
-  final ValueChanged<String>? onSubmitTriage;
+  final GitHubTriageSubmit onSubmitTriage;
 
   const GitHubScreen({
     super.key,
@@ -40,7 +42,7 @@ class GitHubScreen extends StatefulWidget {
     this.triageTarget = GitHubTriageTarget.newSession,
     this.embedded = false,
     this.onClose,
-    this.onSubmitTriage,
+    required this.onSubmitTriage,
   });
 
   @override
@@ -101,26 +103,27 @@ class _GitHubScreenState extends State<GitHubScreen>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
-    if (_ownsCubit) unawaited(_cubit.close());
+    if (_ownsCubit) {
+      unawaited(_cubit.close());
+    } else if (!_cubit.isClosed) {
+      // The cached lists outlive the screen; a selection must not.
+      _cubit.clearSelection();
+    }
     super.dispose();
   }
 
   Future<void> _requestTriage() async {
     final numbers = _cubit.state.selectedNumbers;
     if (numbers.isEmpty) return;
-    final prompt = await showGitHubTriageSheet(
+    final accepted = await showGitHubTriageSheet(
       context,
       numbers: numbers,
       target: widget.triageTarget,
+      onSubmit: widget.onSubmitTriage,
     );
-    if (prompt == null || prompt.isEmpty || !mounted) return;
+    if (accepted != true || !mounted) return;
     _cubit.clearSelection();
-    final onSubmit = widget.onSubmitTriage;
-    if (onSubmit != null) {
-      onSubmit(prompt);
-    } else {
-      Navigator.of(context).pop(prompt);
-    }
+    if (!widget.embedded) Navigator.of(context).pop();
   }
 
   @override
@@ -275,9 +278,9 @@ class _GitHubAppBar extends StatelessWidget implements PreferredSizeWidget {
         else
           IconButton(
             key: const ValueKey('github_refresh_button'),
-            onPressed: state.tab(kind).loading
-                ? null
-                : () => unawaited(cubit.refresh(kind)),
+            // Stays enabled while loading: a request stuck on a bad
+            // connection can be replaced without waiting for its timeout.
+            onPressed: () => unawaited(cubit.refresh(kind)),
             tooltip: l.refresh,
             icon: const Icon(Icons.refresh),
           ),
@@ -340,7 +343,9 @@ class GitHubItemList extends StatelessWidget {
             ),
           );
         } else if (!tab.loaded) {
-          child = const Center(child: CircularProgressIndicator());
+          child = const _GitHubScrollablePlaceholder(
+            child: CircularProgressIndicator(),
+          );
         } else if (items.isEmpty) {
           child = _GitHubScrollablePlaceholder(
             child: _GitHubEmptyState(
@@ -475,6 +480,7 @@ class _GitHubStaleBanner extends StatelessWidget {
                   GitHubFailureKind.unsupported =>
                     l.githubErrorUnsupportedTitle,
                   GitHubFailureKind.timeout ||
+                  GitHubFailureKind.disconnected ||
                   GitHubFailureKind.failed => l.githubErrorFailedTitle,
                 },
                 key: const ValueKey('github_stale_banner'),

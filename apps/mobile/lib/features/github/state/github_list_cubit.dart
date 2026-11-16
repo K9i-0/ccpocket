@@ -20,6 +20,7 @@ class GitHubListCubit extends Cubit<GitHubListState> {
   final Duration _timeout;
   final _pending = <GitHubItemKind, _PendingList>{};
   late final StreamSubscription<ServerMessage> _sub;
+  late final StreamSubscription<BridgeConnectionState> _connectionSub;
 
   GitHubListCubit({
     required BridgeService bridge,
@@ -29,6 +30,24 @@ class GitHubListCubit extends Cubit<GitHubListState> {
        _timeout = timeout,
        super(const GitHubListState()) {
     _sub = _bridge.messages.listen(_onMessage);
+    _connectionSub = _bridge.connectionStatus.listen(_onConnection);
+  }
+
+  static const _disconnected = GitHubFailure(
+    kind: GitHubFailureKind.disconnected,
+  );
+
+  /// An answer to a request sent on a lost transport never arrives, and the
+  /// Bridge does not replay these reads, so pending requests fail at once and
+  /// the user retries when connected again.
+  void _onConnection(BridgeConnectionState status) {
+    if (status == BridgeConnectionState.connected ||
+        status == BridgeConnectionState.connecting) {
+      return;
+    }
+    for (final entry in _pending.entries.toList()) {
+      _fail(entry.key, entry.value.requestId, _disconnected);
+    }
   }
 
   /// Loads [kind] unless it is already loaded or loading.
@@ -51,7 +70,8 @@ class GitHubListCubit extends Cubit<GitHubListState> {
       Timer(_timeout, () => _fail(kind, requestId, _timeoutFailure)),
     );
     _pending[kind] = pending;
-    _emitTab(kind, state.tab(kind).copyWith(loading: true));
+    _emitTab(kind, state.tab(kind).copyWith(loading: true, failure: null));
+    if (!_bridge.isConnected) _fail(kind, requestId, _disconnected);
     return pending.done.future;
   }
 
@@ -194,6 +214,7 @@ class GitHubListCubit extends Cubit<GitHubListState> {
   @override
   Future<void> close() async {
     await _sub.cancel();
+    await _connectionSub.cancel();
     for (final pending in _pending.values.toList()) {
       pending.dispose();
     }

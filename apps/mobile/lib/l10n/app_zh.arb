@@ -1638,5 +1638,6 @@
   "githubErrorUnsupportedBody": "此 Bridge 尚不支持 Issue / PR。请将 Bridge 更新到最新版本后重试。",
   "githubChecksSuccess": "CI 通过",
   "githubChecksFailure": "CI 失败",
-  "githubChecksPending": "CI 运行中"
+  "githubChecksPending": "CI 运行中",
+  "githubTriageSendFailed": "无法发送。此聊天已有消息，或会话尚未就绪。请从项目开始新会话后再请求。"
 }

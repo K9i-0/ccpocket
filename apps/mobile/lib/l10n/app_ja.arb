@@ -1666,5 +1666,6 @@
   "githubErrorUnsupportedBody": "このBridgeはIssue / PRの表示に対応していません。Bridgeを最新版に更新してから、再度お試しください。",
   "githubChecksSuccess": "CI成功",
   "githubChecksFailure": "CI失敗",
-  "githubChecksPending": "CI実行中"
+  "githubChecksPending": "CI実行中",
+  "githubTriageSendFailed": "送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。"
 }

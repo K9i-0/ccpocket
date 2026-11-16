@@ -28,6 +28,7 @@ class GitHubItemCubit extends Cubit<GitHubItemState> {
   final GitHubItemKind kind;
   final Duration _timeout;
   late final StreamSubscription<ServerMessage> _sub;
+  late final StreamSubscription<BridgeConnectionState> _connectionSub;
   String? _requestId;
   Timer? _timer;
 
@@ -41,8 +42,21 @@ class GitHubItemCubit extends Cubit<GitHubItemState> {
        _timeout = timeout,
        super(GitHubItemState(summary: summary)) {
     _sub = _bridge.messages.listen(_onMessage);
+    _connectionSub = _bridge.connectionStatus.listen((status) {
+      final requestId = _requestId;
+      if (requestId == null ||
+          status == BridgeConnectionState.connected ||
+          status == BridgeConnectionState.connecting) {
+        return;
+      }
+      _fail(requestId, _disconnected);
+    });
     load();
   }
+
+  static const _disconnected = GitHubFailure(
+    kind: GitHubFailureKind.disconnected,
+  );
 
   int get number => state.summary.number;
 
@@ -62,6 +76,7 @@ class GitHubItemCubit extends Cubit<GitHubItemState> {
       ),
     );
     emit(state.copyWith(loading: true, failure: null));
+    if (!_bridge.isConnected) _fail(requestId, _disconnected);
   }
 
   void _onMessage(ServerMessage message) {
@@ -131,6 +146,7 @@ class GitHubItemCubit extends Cubit<GitHubItemState> {
   Future<void> close() async {
     _settle();
     await _sub.cancel();
+    await _connectionSub.cancel();
     return super.close();
   }
 }

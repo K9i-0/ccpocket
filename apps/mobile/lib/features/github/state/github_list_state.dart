@@ -21,6 +21,9 @@ enum GitHubFailureKind {
   /// The Bridge did not answer in time.
   timeout,
 
+  /// The Bridge connection was lost before an answer arrived.
+  disconnected,
+
   /// Any other failure; see [GitHubFailure.message].
   failed;
 

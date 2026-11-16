@@ -1,27 +1,32 @@
 import 'dart:async';
 
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
-import '../../../router/app_router.dart';
+import '../../../services/bridge_service.dart';
 import '../../chat_session/state/chat_session_cubit.dart';
 import '../../chat_session/state/chat_session_state.dart';
 import '../../session_list/workspace_shell_screen.dart';
-import 'github_triage_sheet.dart';
+import '../github_screen.dart';
+import '../triage_prompt.dart';
 
 /// Whether a chat still offers the "Issues / PRs" entry.
 ///
 /// It is offered only until the user sends something: a sent, failed, or
 /// offline-pending message and a queued input all count. Assistant and system
-/// entries do not, so a greeting or an init notice keeps it visible. It waits
-/// for an idle session so it does not flash while a session starts, restores
-/// its history, or already runs the prompt it was started with.
+/// entries do not, so a greeting or an init notice keeps it visible.
+///
+/// A resumed session shows no entries until the Bridge delivers its context
+/// and history, so the entry waits for an idle session whose context has
+/// arrived. Earlier turns that were trimmed from the live window
+/// ([ChatSessionState.olderHistoryAvailable]) also mean the chat is not new.
 bool showsEmptyChatGitHubEntry(ChatSessionState state) {
-  if (state.status != ProcessStatus.idle || state.bulkLoading) return false;
-  if (state.queuedInput != null) return false;
+  if (state.status != ProcessStatus.idle || !state.sessionContextLoaded) {
+    return false;
+  }
+  if (state.olderHistoryAvailable || state.queuedInput != null) return false;
   return !state.entries.any(
     (entry) => entry is UserChatEntry || entry is QuestionAnswerChatEntry,
   );
@@ -36,9 +41,7 @@ Future<void> openGitHubScreenForSession(
   required String sessionId,
 }) async {
   final cubit = context.read<ChatSessionCubit>();
-  void send(String prompt) {
-    if (!cubit.isClosed) unawaited(cubit.sendMessage(prompt));
-  }
+  Future<bool> send(String prompt) => sendTriageAsFirstMessage(cubit, prompt);
 
   final shell = WorkspaceShellScreen.maybeOf(context);
   if (shell?.canOpenToolPane ?? false) {
@@ -49,13 +52,40 @@ Future<void> openGitHubScreenForSession(
     );
     return;
   }
-  final prompt = await context.router.push<String>(
-    GitHubRoute(
-      projectPath: projectPath,
-      triageTarget: GitHubTriageTarget.currentSession,
+  // Without a workspace shell (previews), keep the screen on the Bridge this
+  // chat talks to rather than whatever a new route would inherit.
+  final bridge = context.read<BridgeService>();
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => RepositoryProvider<BridgeService>.value(
+        value: bridge,
+        child: GitHubScreen(
+          projectPath: projectPath,
+          triageTarget: GitHubTriageTarget.currentSession,
+          onSubmitTriage: send,
+        ),
+      ),
     ),
   );
-  if (prompt != null && prompt.isNotEmpty) send(prompt);
+}
+
+/// Sends [prompt] only while the chat is still empty. The screen can stay
+/// open while the session moves on (another client, a queued input), and a
+/// triage request must not land in the middle of a conversation.
+///
+/// The trigger is converted here as well as in the send path, because a new
+/// Codex session may not have reported its skill list yet.
+Future<bool> sendTriageAsFirstMessage(
+  ChatSessionCubit cubit,
+  String prompt,
+) async {
+  if (cubit.isClosed || !showsEmptyChatGitHubEntry(cubit.state)) return false;
+  return cubit.sendMessage(
+    triagePromptForProvider(
+      prompt,
+      cubit.isCodex ? Provider.codex : Provider.claude,
+    ),
+  );
 }
 
 /// "Issues / PRs" shortcut shown above the composer of an empty chat.

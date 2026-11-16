@@ -187,8 +187,16 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
   final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
 
-  /// Receivers of the triage prompt composed in a GitHub pane, by pane id.
-  final Map<String, ValueChanged<String>> _githubTriageHandlers = {};
+  /// Receiver of the triage prompt composed in the open GitHub pane.
+  ({String paneId, GitHubTriageSubmit submit})? _githubTriageHandler;
+
+  /// Forgets the receiver once its pane is no longer the open tool.
+  void _dropStaleGitHubTriageHandler() {
+    if (_githubTriageHandler?.paneId != _toolPane?.id) {
+      _githubTriageHandler = null;
+    }
+  }
+
   Object? _homeRouteIdentity;
   bool _rootVisible = true;
   final _centerNavigatorKey = GlobalKey<NavigatorState>();
@@ -399,27 +407,34 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   /// Opens the Issues / PRs pane. [onSubmitTriage] receives the composed
-  /// `/triage ...` prompt after the pane has closed.
+  /// `/triage ...` prompt; the pane closes once it accepts it.
   void openGitHubPane({
     required String projectPath,
     String? sessionId,
-    required ValueChanged<String> onSubmitTriage,
+    required GitHubTriageSubmit onSubmitTriage,
   }) {
     final pane = GitHubToolPaneData(
       projectPath: projectPath,
       sessionId: sessionId,
     );
-    _githubTriageHandlers[pane.id] = onSubmitTriage;
+    final wasOpen = _toolPane?.id == pane.id;
     _openToolPane(pane);
+    // Opening the pane that is already open toggles it closed.
+    _githubTriageHandler = wasOpen
+        ? null
+        : (paneId: pane.id, submit: onSubmitTriage);
   }
 
-  void _handleGitHubTriage(String prompt, {int? entry}) {
-    if (entry != null && entry != _state.toolEntry) return;
+  Future<bool> _handleGitHubTriage(String prompt, {int? entry}) async {
+    if (entry != null && entry != _state.toolEntry) return false;
     final pane = _toolPane;
-    if (pane is! GitHubToolPaneData) return;
-    final handler = _githubTriageHandlers[pane.id];
-    closeToolPane();
-    handler?.call(prompt);
+    final handler = _githubTriageHandler;
+    if (pane is! GitHubToolPaneData || handler?.paneId != pane.id) {
+      return false;
+    }
+    final accepted = await handler!.submit(prompt);
+    if (accepted && mounted) closeToolPane(entry: entry);
+    return accepted;
   }
 
   void openExplorePane({
@@ -555,6 +570,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       return;
     }
     _navigation.openTool(pane);
+    _dropStaleGitHubTriageHandler();
     _rememberVisibleToolPane();
   }
 
@@ -574,6 +590,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     if (entry != null && entry != _state.toolEntry) return;
     _forgetToolPaneForSession(_state.liveSessionId ?? _toolPane?.sessionId);
     _navigation.closeTool();
+    _dropStaleGitHubTriageHandler();
   }
 
   /// Dispose the previous machine's chat before connecting to another target.
@@ -593,8 +610,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     closeFileBrowser();
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
-    _githubTriageHandlers.clear();
     _navigation.reset();
+    _githubTriageHandler = null;
   }
 
   void _handleExploreResult(ExploreScreenResult result, {int? entry}) {
@@ -640,6 +657,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       selection,
       restoredTool: _restoreToolPaneForSession(selection.sessionId),
     );
+    _dropStaleGitHubTriageHandler();
   }
 
   void clearSelectedSession({int? entry}) {
@@ -648,6 +666,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
     _navigation.closeSession();
+    _dropStaleGitHubTriageHandler();
   }
 
   void _clearSelectedSessionIfStopped(String sessionId) {
@@ -1133,7 +1152,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
   final ValueChanged<ExploreScreenResult> onExploreResultChanged;
   final ValueChanged<DiffSelection> onDiffSelection;
   final ValueChanged<String> onFilePeekOpened;
-  final ValueChanged<String> onGitHubTriage;
+  final GitHubTriageSubmit onGitHubTriage;
 
   const _WorkspaceToolPaneHost({
     required this.pane,

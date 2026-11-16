@@ -350,7 +350,7 @@ class GitHubRoute extends PageRouteInfo<GitHubRouteArgs> {
     GitHubTriageTarget triageTarget = GitHubTriageTarget.newSession,
     bool embedded = false,
     VoidCallback? onClose,
-    ValueChanged<String>? onSubmitTriage,
+    required GitHubTriageSubmit onSubmitTriage,
     List<PageRouteInfo>? children,
   }) : super(
          GitHubRoute.name,
@@ -390,7 +390,7 @@ class GitHubRouteArgs {
     this.triageTarget = GitHubTriageTarget.newSession,
     this.embedded = false,
     this.onClose,
-    this.onSubmitTriage,
+    required this.onSubmitTriage,
   });
 
   final Key? key;
@@ -403,7 +403,7 @@ class GitHubRouteArgs {
 
   final VoidCallback? onClose;
 
-  final ValueChanged<String>? onSubmitTriage;
+  final GitHubTriageSubmit onSubmitTriage;
 
   @override
   String toString() {

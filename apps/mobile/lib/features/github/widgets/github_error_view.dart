@@ -44,7 +44,7 @@ class GitHubErrorView extends StatelessWidget {
         l.githubErrorUnsupportedBody,
         null,
       ),
-      GitHubFailureKind.timeout => (
+      GitHubFailureKind.timeout || GitHubFailureKind.disconnected => (
         Icons.cloud_off,
         l.githubErrorFailedTitle,
         l.githubErrorTimeoutBody,

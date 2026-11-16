@@ -3942,4 +3942,8 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 실행 중';
+
+  @override
+  String get githubTriageSendFailed =>
+      '전송하지 못했습니다. 이 채팅에 이미 메시지가 있거나 세션이 준비되지 않았습니다. 프로젝트에서 새 세션으로 요청하세요.';
 }

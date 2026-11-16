@@ -1584,5 +1584,6 @@
   "githubErrorUnsupportedBody": "This Bridge does not support Issues / PRs yet. Update Bridge to the latest version, then try again.",
   "githubChecksSuccess": "CI passed",
   "githubChecksFailure": "CI failed",
-  "githubChecksPending": "CI running"
+  "githubChecksPending": "CI running",
+  "githubTriageSendFailed": "Couldn't send. This chat already has messages or the session isn't ready. Start a new session from the project instead."
 }

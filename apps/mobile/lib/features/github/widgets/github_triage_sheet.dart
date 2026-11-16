@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -14,31 +16,39 @@ enum GitHubTriageTarget {
   currentSession,
 }
 
-/// Asks what to do with [numbers] and returns the composed prompt, or `null`
-/// when dismissed.
-Future<String?> showGitHubTriageSheet(
+/// Hands the composed prompt to its receiver. Returns whether it was accepted.
+typedef GitHubTriageSubmit = Future<bool> Function(String prompt);
+
+/// Asks what to do with [numbers] and passes the composed prompt to
+/// [onSubmit]. The sheet closes with `true` once the prompt is accepted and
+/// stays open with an error when it is not. Returns `null` when dismissed.
+Future<bool?> showGitHubTriageSheet(
   BuildContext context, {
   required List<int> numbers,
   required GitHubTriageTarget target,
+  required GitHubTriageSubmit onSubmit,
 }) {
-  return showModalBottomSheet<String>(
+  return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
     constraints: macOSModalBottomSheetConstraints(context),
-    builder: (_) => GitHubTriageSheet(numbers: numbers, target: target),
+    builder: (_) =>
+        GitHubTriageSheet(numbers: numbers, target: target, onSubmit: onSubmit),
   );
 }
 
 class GitHubTriageSheet extends StatefulWidget {
   final List<int> numbers;
   final GitHubTriageTarget target;
+  final GitHubTriageSubmit onSubmit;
 
   const GitHubTriageSheet({
     super.key,
     required this.numbers,
     required this.target,
+    required this.onSubmit,
   });
 
   @override
@@ -48,6 +58,8 @@ class GitHubTriageSheet extends StatefulWidget {
 class _GitHubTriageSheetState extends State<GitHubTriageSheet> {
   final _noteController = TextEditingController();
   TriagePreset _preset = TriagePreset.investigateAndMerge;
+  bool _sending = false;
+  bool _rejected = false;
 
   @override
   void initState() {
@@ -62,6 +74,25 @@ class _GitHubTriageSheetState extends State<GitHubTriageSheet> {
   }
 
   void _onNoteChanged() => setState(() {});
+
+  Future<void> _submit() async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _rejected = false;
+    });
+    final accepted = await widget.onSubmit(_prompt);
+    if (!mounted) return;
+    if (accepted) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    // Keep the request on screen so nothing the user composed is lost.
+    setState(() {
+      _sending = false;
+      _rejected = true;
+    });
+  }
 
   String get _prompt => buildTriagePrompt(
     numbers: widget.numbers,
@@ -136,12 +167,22 @@ class _GitHubTriageSheetState extends State<GitHubTriageSheet> {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
+            if (_rejected) ...[
+              const SizedBox(height: 8),
+              Text(
+                l.githubTriageSendFailed,
+                key: const ValueKey('github_triage_send_error'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 key: const ValueKey('github_triage_send_button'),
-                onPressed: () => Navigator.of(context).pop(_prompt),
+                onPressed: _sending ? null : () => unawaited(_submit()),
                 icon: Icon(
                   startsNewSession ? Icons.arrow_forward : Icons.send,
                   size: 18,

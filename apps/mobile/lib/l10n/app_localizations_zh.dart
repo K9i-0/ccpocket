@@ -3868,4 +3868,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 运行中';
+
+  @override
+  String get githubTriageSendFailed => '无法发送。此聊天已有消息，或会话尚未就绪。请从项目开始新会话后再请求。';
 }

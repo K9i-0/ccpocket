@@ -1497,5 +1497,6 @@
   "githubErrorUnsupportedBody": "이 Bridge는 아직 이슈 / PR 보기를 지원하지 않습니다. Bridge를 최신 버전으로 업데이트한 뒤 다시 시도하세요.",
   "githubChecksSuccess": "CI 성공",
   "githubChecksFailure": "CI 실패",
-  "githubChecksPending": "CI 실행 중"
+  "githubChecksPending": "CI 실행 중",
+  "githubTriageSendFailed": "전송하지 못했습니다. 이 채팅에 이미 메시지가 있거나 세션이 준비되지 않았습니다. 프로젝트에서 새 세션으로 요청하세요."
 }

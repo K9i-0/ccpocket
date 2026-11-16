@@ -3913,4 +3913,8 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI実行中';
+
+  @override
+  String get githubTriageSendFailed =>
+      '送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。';
 }

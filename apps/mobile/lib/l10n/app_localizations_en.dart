@@ -4064,4 +4064,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI running';
+
+  @override
+  String get githubTriageSendFailed =>
+      'Couldn\'t send. This chat already has messages or the session isn\'t ready. Start a new session from the project instead.';
 }

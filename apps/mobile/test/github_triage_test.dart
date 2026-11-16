@@ -3,7 +3,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_state.dart';
+import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
 import 'package:ccpocket/features/github/github_screen.dart';
 import 'package:ccpocket/features/github/state/github_item_cubit.dart';
 import 'package:ccpocket/features/github/state/github_list_cubit.dart';
@@ -26,13 +28,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Records what the app sends and lets a test answer by hand.
 class _Bridge extends BridgeService {
   final responses = StreamController<ServerMessage>.broadcast(sync: true);
+  final connection = StreamController<BridgeConnectionState>.broadcast(
+    sync: true,
+  );
   final sent = <Map<String, dynamic>>[];
+  bool connected = true;
 
   @override
   Stream<ServerMessage> get messages => responses.stream;
 
   @override
-  bool get isConnected => true;
+  Stream<BridgeConnectionState> get connectionStatus => connection.stream;
+
+  @override
+  bool get isConnected => connected;
+
+  void setConnection(BridgeConnectionState state) {
+    connected = state == BridgeConnectionState.connected;
+    connection.add(state);
+  }
 
   @override
   void send(ClientMessage message) =>
@@ -43,6 +57,7 @@ class _Bridge extends BridgeService {
   @override
   void dispose() {
     responses.close();
+    connection.close();
     super.dispose();
   }
 }
@@ -429,6 +444,65 @@ void main() {
       expect(quick.state.prs.failure?.kind, GitHubFailureKind.timeout);
     });
 
+    test('a disconnect fails the pending request and a retry recovers', () {
+      unawaited(cubit.refresh(GitHubItemKind.pr));
+      final lost = bridge.lastRequestId;
+
+      // A new connection attempt alone is not a loss.
+      bridge.setConnection(BridgeConnectionState.connecting);
+      expect(cubit.state.prs.loading, isTrue);
+
+      bridge.setConnection(BridgeConnectionState.disconnected);
+      expect(cubit.state.prs.loading, isFalse);
+      expect(cubit.state.prs.failure?.kind, GitHubFailureKind.disconnected);
+
+      // Requesting while offline fails at once instead of waiting.
+      unawaited(cubit.refresh(GitHubItemKind.pr));
+      expect(cubit.state.prs.loading, isFalse);
+      expect(cubit.state.prs.failure?.kind, GitHubFailureKind.disconnected);
+      final offline = bridge.lastRequestId;
+
+      bridge.setConnection(BridgeConnectionState.connected);
+      unawaited(cubit.refresh(GitHubItemKind.pr));
+      expect(cubit.state.prs.loading, isTrue);
+      expect(cubit.state.prs.failure, isNull);
+
+      // Answers to the requests of the lost transport are ignored.
+      bridge.responses
+        ..add(_list(bridge, GitHubItemKind.pr, [_pr(1)], requestId: lost))
+        ..add(_list(bridge, GitHubItemKind.pr, [_pr(2)], requestId: offline));
+      expect(cubit.state.prs.loaded, isFalse);
+
+      bridge.responses.add(_list(bridge, GitHubItemKind.pr, [_pr(3)]));
+      expect(cubit.state.prs.items.single.number, 3);
+      expect(cubit.state.prs.failure, isNull);
+    });
+
+    test('a reconnecting transport also fails the pending request', () {
+      unawaited(cubit.refresh(GitHubItemKind.issue));
+      bridge.setConnection(BridgeConnectionState.reconnecting);
+      expect(cubit.state.issues.loading, isFalse);
+      expect(cubit.state.issues.failure?.kind, GitHubFailureKind.disconnected);
+    });
+
+    test('GitHub reads are not queued for replay while offline', () async {
+      SharedPreferences.setMockInitialValues({});
+      final offline = BridgeService();
+      addTearDown(offline.dispose);
+
+      offline
+        ..requestGitHubList(projectPath: _project, kind: GitHubItemKind.pr)
+        ..requestGitHubItem(
+          projectPath: _project,
+          kind: GitHubItemKind.pr,
+          number: 1,
+        )
+        // Other offline requests are still kept for the reconnect.
+        ..send(ClientMessage.listWorktrees(_project));
+
+      expect(offline.debugQueuedMessageTypes, ['list_worktrees']);
+    });
+
     test('a failed refresh keeps the last list and a retry clears it', () {
       unawaited(cubit.refresh(GitHubItemKind.pr));
       bridge.responses.add(_list(bridge, GitHubItemKind.pr, [_pr(1)]));
@@ -651,6 +725,22 @@ void main() {
       expect(item.state.detail?.body, 'Body 327');
     });
 
+    test('a disconnect fails the pending item and a retry recovers', () {
+      final item = open();
+      bridge.setConnection(BridgeConnectionState.disconnected);
+      expect(item.state.loading, isFalse);
+      expect(item.state.failure?.kind, GitHubFailureKind.disconnected);
+
+      item.load();
+      expect(item.state.failure?.kind, GitHubFailureKind.disconnected);
+
+      bridge.setConnection(BridgeConnectionState.connected);
+      item.load();
+      expect(item.state.loading, isTrue);
+      bridge.responses.add(result());
+      expect(item.state.detail?.body, 'Body 327');
+    });
+
     test('an older Bridge answering unsupported_message is reported', () {
       final item = open();
       bridge.responses.add(
@@ -734,7 +824,10 @@ void main() {
   });
 
   group('empty chat entry visibility', () {
-    const idle = ChatSessionState(status: ProcessStatus.idle);
+    const idle = ChatSessionState(
+      status: ProcessStatus.idle,
+      sessionContextLoaded: true,
+    );
     final assistant = ServerChatEntry(
       AssistantServerMessage(
         message: AssistantMessage(
@@ -792,16 +885,98 @@ void main() {
       );
     });
 
-    test('hidden until the session is idle with its history restored', () {
+    test('hidden until the session is idle and its context has arrived', () {
       expect(showsEmptyChatGitHubEntry(const ChatSessionState()), isFalse);
       expect(
         showsEmptyChatGitHubEntry(idle.copyWith(status: ProcessStatus.running)),
         isFalse,
       );
       expect(
-        showsEmptyChatGitHubEntry(idle.copyWith(bulkLoading: true)),
+        showsEmptyChatGitHubEntry(
+          const ChatSessionState(status: ProcessStatus.idle),
+        ),
+        isFalse,
+        reason: 'a resumed session has no entries before its context',
+      );
+    });
+
+    test('hidden when earlier turns were trimmed from the live history', () {
+      expect(
+        showsEmptyChatGitHubEntry(
+          idle.copyWith(entries: [assistant], olderHistoryAvailable: true),
+        ),
         isFalse,
       );
+    });
+  });
+
+  group('sending from an empty chat', () {
+    late MockBridgeService service;
+    late StreamingStateCubit streaming;
+
+    setUp(() {
+      service = MockBridgeService();
+      streaming = StreamingStateCubit();
+      addTearDown(() async {
+        await streaming.close();
+        service.dispose();
+      });
+    });
+
+    Future<ChatSessionCubit> session(Provider provider) async {
+      final chat = ChatSessionCubit(
+        sessionId: 's1',
+        provider: provider,
+        bridge: service,
+        streamingCubit: streaming,
+        initialProjectPath: _project,
+      );
+      addTearDown(chat.close);
+      service.loadHistory(const [StatusMessage(status: ProcessStatus.idle)]);
+      await Future<void>.delayed(Duration.zero);
+      return chat;
+    }
+
+    List<String> userTexts(ChatSessionCubit chat) => [
+      for (final entry in chat.state.entries)
+        if (entry is UserChatEntry) entry.text,
+    ];
+
+    test('Codex gets the dollar trigger without a skill list', () async {
+      final chat = await session(Provider.codex);
+      expect(chat.state.slashCommands, isEmpty);
+      expect(showsEmptyChatGitHubEntry(chat.state), isTrue);
+
+      expect(await sendTriageAsFirstMessage(chat, '/triage 5 6'), isTrue);
+      expect(userTexts(chat), [r'$triage 5 6']);
+    });
+
+    test('Claude keeps the slash trigger', () async {
+      final chat = await session(Provider.claude);
+      expect(await sendTriageAsFirstMessage(chat, '/triage 5'), isTrue);
+      expect(userTexts(chat), ['/triage 5']);
+    });
+
+    test('refuses once the chat is no longer empty', () async {
+      final chat = await session(Provider.claude);
+      expect(await chat.sendMessage('hello'), isTrue);
+
+      expect(await sendTriageAsFirstMessage(chat, '/triage 5'), isFalse);
+      expect(userTexts(chat), ['hello']);
+    });
+
+    test('refuses when the session is not ready or is closed', () async {
+      final starting = ChatSessionCubit(
+        sessionId: 's2',
+        provider: Provider.claude,
+        bridge: service,
+        streamingCubit: streaming,
+      );
+      expect(await sendTriageAsFirstMessage(starting, '/triage 5'), isFalse);
+      expect(userTexts(starting), isEmpty);
+
+      await starting.close();
+      expect(await sendTriageAsFirstMessage(starting, '/triage 5'), isFalse);
     });
   });
 
@@ -810,15 +985,20 @@ void main() {
       WidgetTester tester, {
       required BridgeService service,
       required String projectPath,
-      ValueChanged<String>? onSubmitTriage,
+      GitHubTriageSubmit? onSubmitTriage,
+      GitHubViewCacheService? cache,
       GitHubTriageTarget target = GitHubTriageTarget.newSession,
     }) async {
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        RepositoryProvider<BridgeService>.value(
-          value: service,
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<BridgeService>.value(value: service),
+            if (cache != null)
+              RepositoryProvider<GitHubViewCacheService>.value(value: cache),
+          ],
           child: MaterialApp(
             locale: const Locale('en'),
             theme: AppTheme.lightTheme,
@@ -828,7 +1008,7 @@ void main() {
               projectPath: projectPath,
               triageTarget: target,
               embedded: true,
-              onSubmitTriage: onSubmitTriage,
+              onSubmitTriage: onSubmitTriage ?? (_) async => true,
             ),
           ),
         ),
@@ -848,7 +1028,10 @@ void main() {
         tester,
         service: service,
         projectPath: MockGitHubProjects.repository,
-        onSubmitTriage: (prompt) => submitted = prompt,
+        onSubmitTriage: (prompt) async {
+          submitted = prompt;
+          return true;
+        },
         target: GitHubTriageTarget.currentSession,
       );
 
@@ -903,6 +1086,93 @@ void main() {
 
       expect(submitted, '/triage 331 335 338 342 対応してリリースまで squash');
       expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
+    });
+
+    testWidgets('a rejected request keeps the sheet open with an error', (
+      tester,
+    ) async {
+      final service = MockBridgeService();
+      addTearDown(service.dispose);
+      var accept = false;
+      final prompts = <String>[];
+      await pumpScreen(
+        tester,
+        service: service,
+        projectPath: MockGitHubProjects.repository,
+        target: GitHubTriageTarget.currentSession,
+        onSubmitTriage: (prompt) async {
+          prompts.add(prompt);
+          return accept;
+        },
+      );
+      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('github_request_triage_button')),
+      );
+      await tester.pumpAndSettle();
+
+      final send = find.byKey(const ValueKey('github_triage_send_button'));
+      final error = find.byKey(const ValueKey('github_triage_send_error'));
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+
+      expect(send, findsOneWidget, reason: 'sheet stays open');
+      expect(error, findsOneWidget);
+      expect(find.text('1 selected'), findsOneWidget, reason: 'selection kept');
+
+      accept = true;
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+
+      expect(send, findsNothing);
+      expect(prompts, ['/triage 341', '/triage 341']);
+      expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
+    });
+
+    testWidgets('closing the screen drops the selection but keeps the cache', (
+      tester,
+    ) async {
+      final service = MockBridgeService();
+      addTearDown(service.dispose);
+      final cache = GitHubViewCacheService(bridge: service);
+      addTearDown(cache.dispose);
+      await pumpScreen(
+        tester,
+        service: service,
+        projectPath: MockGitHubProjects.repository,
+        cache: cache,
+      );
+      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
+      await tester.pumpAndSettle();
+      final cached = cache.getOrCreate(MockGitHubProjects.repository).cubit;
+      expect(cached.state.selected, {341});
+
+      // Any way of leaving the screen disposes it (pane close button, back).
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(cached.isClosed, isFalse);
+      expect(cached.state.selectionMode, isFalse);
+      expect(cached.state.selected, isEmpty);
+      expect(cached.state.issues.items, isNotEmpty);
+    });
+
+    testWidgets('the refresh button stays usable while a request is stuck', (
+      tester,
+    ) async {
+      final stuck = _Bridge();
+      addTearDown(stuck.dispose);
+      await pumpScreen(tester, service: stuck, projectPath: _project);
+      expect(stuck.sent, hasLength(1));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('github_refresh_button')));
+      await tester.pump();
+
+      expect(stuck.sent, hasLength(2));
+      // Unmount before the fake Bridge is disposed.
+      await tester.pumpWidget(const SizedBox());
     });
 
     for (final (projectPath, key, text) in [

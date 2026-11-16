@@ -1575,7 +1575,7 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
   }
 
   Future<void> _open(String? projectPath) async {
-    final prompt = await Navigator.of(context).push<String>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider<BridgeService>.value(
           value: _service,
@@ -1584,11 +1584,14 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
             triageTarget: projectPath == null
                 ? GitHubTriageTarget.currentSession
                 : GitHubTriageTarget.newSession,
+            onSubmitTriage: (prompt) async {
+              if (mounted) setState(() => _prompt = prompt);
+              return true;
+            },
           ),
         ),
       ),
     );
-    if (prompt != null && mounted) setState(() => _prompt = prompt);
   }
 
   @override

@@ -7336,6 +7336,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'CI実行中'**
   String get githubChecksPending;
+
+  /// No description provided for @githubTriageSendFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。'**
+  String get githubTriageSendFailed;
 }
 
 class _AppLocalizationsDelegate

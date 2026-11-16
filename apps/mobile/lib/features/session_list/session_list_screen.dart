@@ -936,18 +936,22 @@ class _SessionListScreenState extends State<SessionListScreen>
   Future<void> _openProjectGitHub(RecentSession session) async {
     // The Bridge reads the repository from the project's first root.
     final projectPath = session.workspaceRootPaths.first;
-    void submit(String prompt) =>
-        unawaited(_startTriageSession(session, projectPath, prompt));
+    // The request is accepted at once: the new session sheet takes over and
+    // the Issues / PRs screen closes behind it.
+    Future<bool> submit(String prompt) async {
+      if (!mounted) return false;
+      unawaited(_startTriageSession(session, projectPath, prompt));
+      return true;
+    }
 
     final shell = WorkspaceShellScreen.maybeOf(context);
     if (shell?.canOpenToolPane ?? false) {
       shell!.openGitHubPane(projectPath: projectPath, onSubmitTriage: submit);
       return;
     }
-    final prompt = await context.router.push<String>(
-      GitHubRoute(projectPath: projectPath),
+    await context.router.push<void>(
+      GitHubRoute(projectPath: projectPath, onSubmitTriage: submit),
     );
-    if (prompt != null && prompt.isNotEmpty) submit(prompt);
   }
 
   /// Lets the user pick the agent and its options as for any new session,

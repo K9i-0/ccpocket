@@ -2090,6 +2090,11 @@ class BridgeService implements BridgeServiceBase {
     if (message.type == 'reveal_file' || message.type == 'reveal_file_local') {
       return;
     }
+    // The GitHub screen fails its pending request on disconnect and requests
+    // again itself, so a replayed read would only answer a forgotten id.
+    if (message.type == 'github_list' || message.type == 'github_item') {
+      return;
+    }
     final dedupeKey = _offlineMessageDedupeKey(message);
     if (dedupeKey != null) {
       _clearInFlightPendingMessage(dedupeKey);
@@ -2103,6 +2108,12 @@ class BridgeService implements BridgeServiceBase {
       unawaited(_persistOfflinePendingMessages());
     }
   }
+
+  /// Types of the messages waiting to be sent after a reconnect.
+  @visibleForTesting
+  List<String> get debugQueuedMessageTypes => [
+    for (final message in _messageQueue) message.type,
+  ];
 
   bool _addQueuedMessageIfAbsent(ClientMessage message) {
     final dedupeKey = _offlineMessageDedupeKey(message);
