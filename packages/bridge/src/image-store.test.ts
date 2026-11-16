@@ -69,6 +69,22 @@ describe("ImageStore.extractImagePaths", () => {
     expect(extract("Result: /a/b/c/d/e/f.gif")).toEqual(["/a/b/c/d/e/f.gif"]);
   });
 
+  it("does not report the tail of a relative path", () => {
+    expect(extract("The icon lives at src/assets/logo.png")).toEqual([]);
+  });
+
+  it("keeps the Windows drive prefix with the path", () => {
+    expect(extract("Saved to C:/Users/alice/shot.png")).toEqual([
+      "C:/Users/alice/shot.png",
+    ]);
+  });
+
+  it("keeps non-ASCII directory names inside the path", () => {
+    expect(extract("Saved to /Users/alice/写真/cat.png")).toEqual([
+      "/Users/alice/写真/cat.png",
+    ]);
+  });
+
   // ---- Extension filtering ----
 
   it("extracts png files", () => {

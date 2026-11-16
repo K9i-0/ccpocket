@@ -38,9 +38,13 @@ const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-// Matches absolute paths ending with image extensions
+// Matches absolute paths ending with image extensions. The leading group keeps
+// a match at the start of a token, so the tail of a relative path
+// (`src/assets/logo.png`) is not reported as the absolute `/assets/logo.png`.
+// Non-ASCII letters stay inside the path instead of splitting it, and a Windows
+// drive prefix is kept with the path it belongs to.
 const IMAGE_PATH_RE =
-  /(\/[\w./_-]+\.(?:png|jpe?g|gif|webp))/gi;
+  /(^|[^\p{L}\p{N}\p{M}._/-])((?:[A-Za-z]:)?\/[\p{L}\p{N}\p{M}._/-]+\.(?:png|jpe?g|gif|webp))/giu;
 
 export class ImageStore {
   private store = new Map<string, StoredImage>();
@@ -150,10 +154,13 @@ export class ImageStore {
   /** Extract local image file paths from text (ignores URLs). */
   extractImagePaths(text: unknown): string[] {
     const str = typeof text === "string" ? text : JSON.stringify(text ?? "");
-    const matches = str.match(IMAGE_PATH_RE);
-    if (!matches) return [];
-    // Filter out URLs (paths starting with //) and deduplicate
-    const localPaths = matches.filter((p) => !p.startsWith("//"));
+    const localPaths: string[] = [];
+    for (const match of str.matchAll(IMAGE_PATH_RE)) {
+      const path = match[2];
+      // Filter out URLs (paths starting with //)
+      if (path.startsWith("//")) continue;
+      localPaths.push(path);
+    }
     return [...new Set(localPaths)];
   }
 
