@@ -805,17 +805,22 @@ export function gitPush(projectPath: string): void {
 
 // ---- Phase 3: Branch Operations ----
 
+// Local branches live under `refs/heads`; `git branch --list` also prints a
+// `(HEAD detached at <sha>)` pseudo-entry on a detached HEAD, which is not a
+// branch and cannot be checked out. `for-each-ref` enumerates only real refs.
+const GIT_LOCAL_BRANCH_ARGS = [
+  "for-each-ref",
+  "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track)",
+  "refs/heads",
+];
+
 /** List branches and branches checked out by worktrees. */
 export function listBranches(projectPath: string): BranchListResult {
   const cwd = resolveProject(projectPath);
   const current = currentGitBranch(cwd);
   if (!current) throw new Error("Not a git repository");
 
-  const output = git([
-    "branch",
-    "--list",
-    "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track)",
-  ], cwd);
+  const output = git(GIT_LOCAL_BRANCH_ARGS, cwd);
   const branchRows = output
     ? output.split("\n").filter(Boolean).map((line) => {
         const [branch, upstream = "", track = ""] = line.split("\t");

@@ -1201,6 +1201,22 @@ describe("listBranches", () => {
       rmSync(worktree, { recursive: true, force: true });
     }
   });
+
+  it("lists only real branches when HEAD is detached", () => {
+    const before = listBranches(repo);
+    execFileSync("git", ["checkout", "--detach", "HEAD"], { cwd: repo });
+
+    const result = listBranches(repo);
+
+    // `git branch --list` prints `(HEAD detached at <sha>)` here. It is not a
+    // branch, and `checkoutBranch` cannot check it out.
+    expect(result.current).toBe("HEAD");
+    expect(result.branches).toEqual(before.branches);
+    expect(result.branches).toContain("feat/login");
+    for (const branch of result.branches) {
+      expect(branch.startsWith("(HEAD detached")).toBe(false);
+    }
+  });
 });
 
 describe("createBranch", () => {
