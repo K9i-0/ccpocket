@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.1] - 2026-11-16
+
+### Fixed
+
+- Clearing a Claude session name no longer brings back an older name. A cleared title in the transcript is no longer replaced by an earlier title near the end of a large transcript or by a stale `sessions-index.json` name. ([#335](https://github.com/K9i-0/ccpocket/pull/335) by @KuljeetSinghXDA)
+- Windows drive paths (`C:\...`) and UNC paths (`\\server\share\...`) are now kept in the project history instead of being silently dropped. Removing a worktree path also removes its parent project entry, matching how it was added. ([#333](https://github.com/K9i-0/ccpocket/pull/333) by @KuljeetSinghXDA)
+- A value-taking CLI option followed directly by a known flag (for example `ccpocket-bridge --port --help`) no longer treats that flag as its value. Values that start with a hyphen, such as API keys, are still accepted. Text previews with a negative line limit now return empty content instead of the full text. ([#334](https://github.com/K9i-0/ccpocket/pull/334) by @KuljeetSinghXDA)
+
 ## [1.107.0] - 2026-11-16
 
 ### Added
