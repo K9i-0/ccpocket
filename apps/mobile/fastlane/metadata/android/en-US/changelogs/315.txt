@@ -1,0 +1,1 @@
+• Fixed an issue where returning to the app from the background could show the loading screen for 10 seconds or more before the session list appeared. The app now reconnects to the Bridge right away.
