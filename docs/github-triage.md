@@ -38,10 +38,48 @@ ccpocket covers that loop only. It is not a general GitHub client.
 
 ### Protocol
 
-New client messages, both answered with a request-correlated response:
+New client messages. `requestId` is required; the Bridge echoes `requestId`
+and `projectPath` on success and on failure (see `request-correlation.md`).
+Only open items are listed (up to 100, newest first).
 
-- `github_list { projectPath, kind: "pr" | "issue", state: "open" }`
-- `github_item { projectPath, kind, number }`
+```ts
+// client → Bridge
+{ type: "github_list"; projectPath: string; kind: "pr" | "issue"; requestId: string }
+{ type: "github_item"; projectPath: string; kind: "pr" | "issue"; number: number; requestId: string }
+
+// Bridge → client
+{ type: "github_list_result"; requestId: string; projectPath: string; kind: "pr" | "issue";
+  repository?: string;            // "owner/name"
+  items?: GitHubItemSummary[];
+  error?: GitHubError }
+{ type: "github_item_result"; requestId: string; projectPath: string; kind: "pr" | "issue";
+  number: number;
+  item?: GitHubItemDetail;
+  error?: GitHubError }
+
+interface GitHubAuthor { login: string; isBot: boolean } // "app/" prefix stripped
+interface GitHubItemSummary {
+  number: number;
+  title: string;
+  url: string;
+  author: GitHubAuthor;
+  labels: string[];
+  createdAt: string;              // ISO 8601
+  updatedAt: string;
+  isDraft?: boolean;              // PR only
+  checks?: "success" | "failure" | "pending" | "none"; // PR only, from statusCheckRollup
+}
+interface GitHubItemDetail extends GitHubItemSummary {
+  body: string;
+  comments: { author: GitHubAuthor; body: string; createdAt: string }[]; // latest 20, oldest first
+}
+interface GitHubError {
+  code: "gh_missing" | "gh_unauthenticated" | "not_github" | "failed";
+  message: string;
+}
+```
+
+A dependabot item is `author.isBot && author.login.startsWith("dependabot")`.
 
 Compatibility: an older Bridge answers `unsupported_message`. The GitHub screen
 waits for these responses directly, so it shows the Bridge update guidance
