@@ -33,6 +33,7 @@ import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../../widgets/soft_keyboard_dismissal.dart';
+import '../github/triage_prompt.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
 import '../../widgets/duo/duo_control_strip.dart';
@@ -928,8 +929,80 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
-  void _startNewSession(NewSessionParams result) {
-    final initialPrompt = result.initialPrompt;
+  /// Opens Issues / PRs for the project of [session] without opening a
+  /// session. The composed triage request starts a new session there.
+  Future<void> _openProjectGitHub(RecentSession session) async {
+    // The Bridge reads the repository from the project's first root.
+    final projectPath = session.workspaceRootPaths.first;
+    void submit(String prompt) =>
+        unawaited(_startTriageSession(session, projectPath, prompt));
+
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    if (shell?.canOpenToolPane ?? false) {
+      shell!.openGitHubPane(projectPath: projectPath, onSubmitTriage: submit);
+      return;
+    }
+    final prompt = await context.router.push<String>(
+      GitHubRoute(projectPath: projectPath),
+    );
+    if (prompt != null && prompt.isNotEmpty) submit(prompt);
+  }
+
+  /// Lets the user pick the agent and its options as for any new session,
+  /// then starts it with [prompt] as the first message.
+  Future<void> _startTriageSession(
+    RecentSession session,
+    String projectPath,
+    String prompt,
+  ) async {
+    if (!mounted) return;
+    final defaults = await _loadInitialNewSessionDefaults();
+    final providerDefaults = await _loadProviderSessionDefaults();
+    final projectId = session.workspaceKind == 'project'
+        ? session.workspace?.projectId
+        : null;
+    final savedProfile = await _loadProjectCodexProfile(
+      projectPath,
+      projectId: projectId,
+    );
+    if (!mounted) return;
+    final codexProfiles = context.read<BridgeService>().codexProfiles;
+    final target = (defaults ?? NewSessionParams(projectPath: projectPath))
+        .forProject(
+          projectPath: projectPath,
+          projectId: projectId,
+          workspaceKind: projectId == null ? null : 'project',
+        )
+        .copyWith(
+          codexProfile:
+              savedProfile != null &&
+                  savedProfile.isNotEmpty &&
+                  (codexProfiles.isEmpty ||
+                      codexProfiles.contains(savedProfile))
+              ? savedProfile
+              : null,
+        );
+    final result = await _openNewSessionSheet(
+      initialParams: target,
+      providerDefaults: providerDefaults,
+    );
+    if (result == null || !mounted) return;
+    await _sessionStartDefaultsStore.save(result);
+    _trackPendingClaudeDefaultsCorrection(result);
+    await _saveProjectCodexProfileFromParams(result);
+    if (!mounted) return;
+    _startNewSession(
+      result,
+      // The item numbers belong to this repository. If another project was
+      // picked in the sheet, start it without the request.
+      initialPrompt: result.projectPath == projectPath
+          ? triagePromptForProvider(prompt, result.provider)
+          : null,
+    );
+  }
+
+  void _startNewSession(NewSessionParams result, {String? initialPrompt}) {
+    initialPrompt ??= result.initialPrompt;
     final bridge = context.read<BridgeService>();
     final settings = context.read<SettingsCubit>().state;
     final workspace = _workspaceForNewSession(result);
@@ -1391,6 +1464,12 @@ class _SessionListScreenState extends State<SessionListScreen>
           label: l.editSettingsThenStart,
         ),
         AdaptiveActionMenuItem(
+          key: const ValueKey('recent_session_github_action'),
+          value: 'github',
+          icon: Icons.fact_check_outlined,
+          label: l.githubIssuesAndPrs,
+        ),
+        AdaptiveActionMenuItem(
           value: 'archive',
           icon: Icons.archive_outlined,
           label: l.archive,
@@ -1421,6 +1500,11 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
       // Also refresh from server to confirm persistence
       context.read<BridgeService>().requestRecentSessions();
+      return;
+    }
+
+    if (action == 'github') {
+      await _openProjectGitHub(session);
       return;
     }
 
@@ -2273,6 +2357,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                   context.read<SessionListCubit>().toggleProjectCollapsed(path),
               onToggleProjectPinned: (path) =>
                   context.read<SessionListCubit>().toggleProjectPinned(path),
+              onOpenProjectGitHub: (session) =>
+                  unawaited(_openProjectGitHub(session)),
               providerFilter: effectiveProviderFilter,
               namedOnly: slState.namedOnly,
               filters: slState.filters,

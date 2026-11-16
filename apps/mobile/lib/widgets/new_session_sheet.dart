@@ -149,6 +149,52 @@ class NewSessionParams {
     );
   }
 
+  /// The same agent options aimed at another project's main checkout.
+  ///
+  /// Unlike [copyWith], the project identity is replaced as a whole and
+  /// everything tied to the previous project (worktree, extra roots, Codex
+  /// profile) is dropped.
+  NewSessionParams forProject({
+    required String projectPath,
+    String? projectId,
+    String? workspaceKind,
+  }) {
+    return NewSessionParams(
+      projectPath: projectPath,
+      projectId: projectId,
+      workspaceKind: workspaceKind,
+      provider: provider,
+      claudePermissionMode: claudePermissionMode,
+      executionMode: executionMode,
+      codexPermissionsMode: codexPermissionsMode,
+      codexApprovalPolicy: codexApprovalPolicy,
+      codexAutoReviewEnabled: codexAutoReviewEnabled,
+      codexApprovalPolicyOverridden: codexApprovalPolicyOverridden,
+      codexAutoReviewOverridden: codexAutoReviewOverridden,
+      codexModelOverridden: codexModelOverridden,
+      codexSandboxModeOverridden: codexSandboxModeOverridden,
+      codexReasoningEffortOverridden: codexReasoningEffortOverridden,
+      codexNetworkAccessOverridden: codexNetworkAccessOverridden,
+      codexWebSearchModeOverridden: codexWebSearchModeOverridden,
+      planMode: planMode,
+      model: model,
+      sandboxMode: sandboxMode,
+      modelReasoningEffort: modelReasoningEffort,
+      codexSpeed: codexSpeed,
+      networkAccessEnabled: networkAccessEnabled,
+      webSearchMode: webSearchMode,
+      claudeModel: claudeModel,
+      claudeEffort: claudeEffort,
+      claudeFastMode: claudeFastMode,
+      claudeUltracode: claudeUltracode,
+      claudeMaxTurns: claudeMaxTurns,
+      claudeMaxBudgetUsd: claudeMaxBudgetUsd,
+      claudeFallbackModel: claudeFallbackModel,
+      claudeForkSession: claudeForkSession,
+      claudePersistSession: claudePersistSession,
+    );
+  }
+
   NewSessionParams copyWith({
     String? projectPath,
     String? projectId,
