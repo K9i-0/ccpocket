@@ -3927,4 +3927,141 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transcriptBridgeUpdate =>
       'Update Bridge to view earlier messages.';
+
+  @override
+  String get githubIssuesAndPrs => 'Issues / PRs';
+
+  @override
+  String get githubTabIssues => 'Issues';
+
+  @override
+  String get githubTabPrs => 'PRs';
+
+  @override
+  String get githubDraft => 'Draft';
+
+  @override
+  String get githubFilterHideDrafts => 'Hide drafts';
+
+  @override
+  String get githubFilterDependabotOnly => 'Dependabot only';
+
+  @override
+  String get githubFilterLabel => 'Label';
+
+  @override
+  String get githubFilterAllLabels => 'All labels';
+
+  @override
+  String get githubEmptyPrs => 'No open pull requests';
+
+  @override
+  String get githubEmptyIssues => 'No open issues';
+
+  @override
+  String get githubEmptyFiltered => 'No items match the filters';
+
+  @override
+  String get githubOpenOnGitHub => 'Open on GitHub';
+
+  @override
+  String get githubRecentComments => 'Recent comments';
+
+  @override
+  String get githubNoComments => 'No comments yet';
+
+  @override
+  String get githubNoDescription => 'No description';
+
+  @override
+  String get githubSelectAll => 'Select all';
+
+  @override
+  String get githubSelectAllSkipsDrafts =>
+      'Drafts are skipped. Tap one to include it.';
+
+  @override
+  String get githubCancelSelection => 'Cancel selection';
+
+  @override
+  String githubSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get githubRequestTriage => 'Request triage';
+
+  @override
+  String get githubTriagePresetMerge => 'Investigate and merge';
+
+  @override
+  String get githubTriagePresetMergeHint =>
+      'Default behavior of the triage skill';
+
+  @override
+  String get githubTriagePresetRelease => 'Handle and release';
+
+  @override
+  String get githubTriagePresetContentOnly => 'Content / review only';
+
+  @override
+  String get githubTriagePresetClose => 'Check if resolved, comment, and close';
+
+  @override
+  String get githubTriageNoteHint => 'Additional instructions (optional)';
+
+  @override
+  String get githubTriageStartsNewSession =>
+      'Starts a new session in this project. You choose the agent and effort next.';
+
+  @override
+  String get githubTriageSendsToSession =>
+      'Sent as the first message of this session.';
+
+  @override
+  String get githubTriageNext => 'Next';
+
+  @override
+  String get githubErrorGhMissingTitle => 'GitHub CLI not found';
+
+  @override
+  String get githubErrorGhMissingBody =>
+      'Install the GitHub CLI (gh) on the machine running Bridge, then try again.';
+
+  @override
+  String get githubErrorUnauthenticatedTitle => 'GitHub CLI is not signed in';
+
+  @override
+  String get githubErrorUnauthenticatedBody =>
+      'Run this on the machine running Bridge, then try again.';
+
+  @override
+  String get githubErrorNotGithubTitle => 'Not a GitHub repository';
+
+  @override
+  String get githubErrorNotGithubBody =>
+      'The origin remote of this project does not point to GitHub.';
+
+  @override
+  String get githubErrorFailedTitle => 'Couldn\'t load from GitHub';
+
+  @override
+  String get githubErrorTimeoutBody =>
+      'Bridge did not respond. Check the connection and try again.';
+
+  @override
+  String get githubErrorUnsupportedTitle => 'Bridge update required';
+
+  @override
+  String get githubErrorUnsupportedBody =>
+      'This Bridge does not support Issues / PRs yet. Update Bridge to the latest version, then try again.';
+
+  @override
+  String get githubChecksSuccess => 'CI passed';
+
+  @override
+  String get githubChecksFailure => 'CI failed';
+
+  @override
+  String get githubChecksPending => 'CI running';
 }

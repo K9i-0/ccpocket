@@ -342,6 +342,97 @@ class GalleryRouteArgs {
 }
 
 /// generated route for
+/// [GitHubScreen]
+class GitHubRoute extends PageRouteInfo<GitHubRouteArgs> {
+  GitHubRoute({
+    Key? key,
+    required String projectPath,
+    GitHubTriageTarget triageTarget = GitHubTriageTarget.newSession,
+    bool embedded = false,
+    VoidCallback? onClose,
+    ValueChanged<String>? onSubmitTriage,
+    List<PageRouteInfo>? children,
+  }) : super(
+         GitHubRoute.name,
+         args: GitHubRouteArgs(
+           key: key,
+           projectPath: projectPath,
+           triageTarget: triageTarget,
+           embedded: embedded,
+           onClose: onClose,
+           onSubmitTriage: onSubmitTriage,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'GitHubRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<GitHubRouteArgs>();
+      return GitHubScreen(
+        key: args.key,
+        projectPath: args.projectPath,
+        triageTarget: args.triageTarget,
+        embedded: args.embedded,
+        onClose: args.onClose,
+        onSubmitTriage: args.onSubmitTriage,
+      );
+    },
+  );
+}
+
+class GitHubRouteArgs {
+  const GitHubRouteArgs({
+    this.key,
+    required this.projectPath,
+    this.triageTarget = GitHubTriageTarget.newSession,
+    this.embedded = false,
+    this.onClose,
+    this.onSubmitTriage,
+  });
+
+  final Key? key;
+
+  final String projectPath;
+
+  final GitHubTriageTarget triageTarget;
+
+  final bool embedded;
+
+  final VoidCallback? onClose;
+
+  final ValueChanged<String>? onSubmitTriage;
+
+  @override
+  String toString() {
+    return 'GitHubRouteArgs{key: $key, projectPath: $projectPath, triageTarget: $triageTarget, embedded: $embedded, onClose: $onClose, onSubmitTriage: $onSubmitTriage}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! GitHubRouteArgs) return false;
+    return key == other.key &&
+        projectPath == other.projectPath &&
+        triageTarget == other.triageTarget &&
+        embedded == other.embedded &&
+        onClose == other.onClose &&
+        onSubmitTriage == other.onSubmitTriage;
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      projectPath.hashCode ^
+      triageTarget.hashCode ^
+      embedded.hashCode ^
+      onClose.hashCode ^
+      onSubmitTriage.hashCode;
+}
+
+/// generated route for
 /// [GitScreen]
 class GitRoute extends PageRouteInfo<GitRouteArgs> {
   GitRoute({
