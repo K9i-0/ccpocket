@@ -436,6 +436,58 @@ describe("scanJsonlDir", () => {
     expect(result[0].name).toBeUndefined();
   });
 
+  it("keeps scanning past the newest message for a cleared tail title", async () => {
+    const sessionId = "cleared-title-after-message";
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "hello title" }],
+        },
+        cwd: "/my/project",
+        gitBranch: "main",
+        sessionId,
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+      JSON.stringify({ type: "custom-title", customTitle: "Old", sessionId }),
+      // >24KB of filler pushes the cleared title out of the 16KB head and
+      // into the 8KB tail, past the small-file read path.
+      ...Array.from({ length: 30 }, (_, i) =>
+        JSON.stringify({
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: `${i}:${"x".repeat(1024)}` }],
+          },
+          sessionId,
+          timestamp: "2026-01-01T00:00:01.000Z",
+        }),
+      ),
+      // The cleared title sits before the newest message, so a reverse scan
+      // that stops at the first timestamped line never reaches it.
+      JSON.stringify({ type: "custom-title", customTitle: "", sessionId }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "newest message" }],
+        },
+        sessionId,
+        timestamp: "2026-01-01T00:00:02.000Z",
+      }),
+    ];
+    const filePath = join(testDir, `${sessionId}.jsonl`);
+    writeFileSync(filePath, lines.join("\n") + "\n");
+    expect(statSync(filePath).size).toBeGreaterThan(24 * 1024);
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].firstPrompt).toBe("hello title");
+    expect(result[0].modified).toBe("2026-01-01T00:00:02.000Z");
+    expect(result[0].name).toBeUndefined();
+  });
+
   it("excludes Claude auto-rename helper sessions", async () => {
     const lines = [
       JSON.stringify({
@@ -3298,6 +3350,28 @@ describe("claude cleared custom titles", () => {
       const result = await listRecent();
       expect(result.sessions.map((s) => s.sessionId)).toEqual(["cleared-jsonl-only"]);
       expect(result.sessions[0].name).toBeUndefined();
+    });
+
+    it("keeps a newest message from hiding a cleared tail title", async () => {
+      writeTranscript(
+        "cleared-before-newest",
+        transcriptLines(
+          "cleared-before-newest",
+          [
+            titleLine("cleared-before-newest", ""),
+            assistantLine("cleared-before-newest", 99),
+          ],
+          [titleLine("cleared-before-newest", "Old")],
+        ),
+      );
+      writeIndex("cleared-before-newest", staleIndexName);
+
+      const result = await listRecent();
+      expect(result.sessions.map((s) => s.sessionId)).toEqual(["cleared-before-newest"]);
+      expect(result.sessions[0].name).toBeUndefined();
+      await expect(
+        getClaudeSessionName(projectPath, "cleared-before-newest"),
+      ).resolves.toBeUndefined();
     });
   });
 });

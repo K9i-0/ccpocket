@@ -574,6 +574,11 @@ interface ParsedClaudeChunks {
   headFoundFirstPrompt: boolean;
   headFoundProjectPath: boolean;
   headFoundGitBranch: boolean;
+  /**
+   * Last custom-title value seen in the head or tail. undefined = the
+   * transcript has no custom-title line; "" = the title was cleared.
+   */
+  customTitle: string | undefined;
 }
 
 function parseFromChunks(
@@ -588,7 +593,7 @@ function parseFromChunks(
   let gitBranch = "";
   let rawCwd = "";
   let projectPath = "";
-  let customTitle = "";
+  let customTitle: string | undefined;
   let permissionMode = "";
   let isSidechain = false;
   let hasAnyMessage = false;
@@ -670,6 +675,7 @@ function parseFromChunks(
       headFoundFirstPrompt,
       headFoundProjectPath,
       headFoundGitBranch,
+      customTitle,
     };
   }
 
@@ -683,6 +689,11 @@ function parseFromChunks(
     // Tracking the two separately keeps an older non-empty title from
     // resurrecting a title the user cleared at the end of the transcript.
     let tailCustomTitle: string | undefined;
+    // The newest timestamp is found at the first timestamped message in
+    // reverse. Keep scanning past it for a title line: a cleared title can sit
+    // before the last message in the tail, and stopping early would let an
+    // older head title survive a title the user cleared.
+    let tailTimestampFound = false;
     for (let i = tailLines.length - 1; i >= 0; i--) {
       const line = tailLines[i];
       if (!line.trim()) continue;
@@ -693,25 +704,26 @@ function parseFromChunks(
           tailCustomTitle = ctMatch[1];
           customTitle = tailCustomTitle;
         }
-        continue;
-      }
+      } else {
+        const isUser = RE_TYPE_USER.test(line);
+        const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
+        if (!isUser && !isAssistant) continue;
+        hasAnyMessage = true;
 
-      const isUser = RE_TYPE_USER.test(line);
-      const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
-      if (!isUser && !isAssistant) continue;
-      hasAnyMessage = true;
-
-      // Get the last modified timestamp
-      if (!modified || true) {
-        // Always update modified from tail (tail is later in file)
-        const tsMatch = line.match(RE_TIMESTAMP);
-        if (tsMatch) {
-          modified = tsMatch[1];
-          // We found the last message — we're done with timestamps
-          if (isUser && !lastUserLine) lastUserLine = line;
-          break;
+        // Record the newest timestamp and user line only once. Older tail
+        // messages must not overwrite them.
+        if (!tailTimestampFound) {
+          const tsMatch = line.match(RE_TIMESTAMP);
+          if (tsMatch) {
+            modified = tsMatch[1];
+            tailTimestampFound = true;
+            if (isUser && !lastUserLine) lastUserLine = line;
+          }
         }
       }
+
+      // Stop only once both the newest timestamp and the tail title are known.
+      if (tailTimestampFound && tailCustomTitle !== undefined) break;
     }
 
     // Also find last user line if not found in reverse timestamp scan
@@ -762,6 +774,7 @@ function parseFromChunks(
       headFoundFirstPrompt,
       headFoundProjectPath,
       headFoundGitBranch,
+      customTitle,
     };
   }
 
@@ -771,6 +784,7 @@ function parseFromChunks(
       headFoundFirstPrompt,
       headFoundProjectPath,
       headFoundGitBranch,
+      customTitle,
     };
   }
 
@@ -792,6 +806,7 @@ function parseFromChunks(
     headFoundFirstPrompt,
     headFoundProjectPath,
     headFoundGitBranch,
+    customTitle,
   };
 }
 
@@ -800,10 +815,10 @@ function parseFromChunks(
  * Only reads the first 16KB and last 8KB of the file, avoiding full I/O.
  * JSON.parse is called at most twice (first + last user lines).
  */
-async function parseClaudeJsonlFileFast(
+async function parseClaudeJsonlChunksFast(
   sessionId: string,
   filePath: string,
-): Promise<SessionIndexEntry | null> {
+): Promise<ParsedClaudeChunks | null> {
   let fh;
   try {
     fh = await open(filePath, "r");
@@ -821,7 +836,7 @@ async function parseClaudeJsonlFileFast(
     if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
       const buf = Buffer.alloc(fileSize);
       await fh.read(buf, 0, fileSize, 0);
-      return parseFromChunks(sessionId, buf.toString("utf-8"), null).entry;
+      return parseFromChunks(sessionId, buf.toString("utf-8"), null);
     }
 
     // Head read
@@ -880,7 +895,15 @@ async function parseClaudeJsonlFileFast(
     }
   }
 
-  return result;
+  return parsedChunks;
+}
+
+async function parseClaudeJsonlFileFast(
+  sessionId: string,
+  filePath: string,
+): Promise<SessionIndexEntry | null> {
+  const chunks = await parseClaudeJsonlChunksFast(sessionId, filePath);
+  return chunks?.entry ?? null;
 }
 
 async function hydrateClaudeIndexedEntry(
@@ -916,14 +939,21 @@ async function hydrateClaudeIndexedEntry(
   if (!needsJsonlRepair) return base;
 
   const fallbackPath = entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
-  const parsed = await parseClaudeJsonlFileFast(entry.sessionId, fallbackPath);
-  if (!parsed) return base;
+  const parsedChunks = await parseClaudeJsonlChunksFast(entry.sessionId, fallbackPath);
+  if (!parsedChunks?.entry) return base;
+  const parsed = parsedChunks.entry;
   if (isAutoRenamePromptText(parsed.firstPrompt)) return null;
 
-  return {
+  // Titles are three-state: a value names the session, "" means the title was
+  // cleared, and undefined means the transcript has no custom-title line. Only
+  // the absent case may fall back to the index customTitle, so a cleared title
+  // does not resurrect a stale index name.
+  const jsonlTitle = parsedChunks.customTitle;
+  const resolvedName = jsonlTitle === undefined ? base.name : jsonlTitle || undefined;
+
+  const hydrated: SessionIndexEntry = {
     ...base,
     firstPrompt: base.firstPrompt || parsed.firstPrompt,
-    ...(parsed.name ? { name: parsed.name } : base.name ? { name: base.name } : {}),
     created: base.created || parsed.created,
     modified: base.modified || parsed.modified,
     gitBranch: base.gitBranch || parsed.gitBranch,
@@ -932,6 +962,12 @@ async function hydrateClaudeIndexedEntry(
     ...(base.lastPrompt || !parsed.lastPrompt ? {} : { lastPrompt: parsed.lastPrompt }),
     ...(base.permissionMode || !parsed.permissionMode ? {} : { permissionMode: parsed.permissionMode }),
   };
+  if (resolvedName) {
+    hydrated.name = resolvedName;
+  } else {
+    delete hydrated.name;
+  }
+  return hydrated;
 }
 
 /**
