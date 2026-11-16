@@ -61,6 +61,7 @@ import '../explore/state/explore_state.dart';
 import '../git/state/git_status_cubit.dart';
 import '../git/state/git_view_cache_service.dart';
 import '../github/widgets/empty_chat_github_button.dart';
+import '../github/widgets/github_menu_item.dart';
 import '../../widgets/duo/duo_control_strip.dart';
 import '../workspace/widgets/workspace_pane_navigator.dart';
 import 'widgets/rewind_action_sheet.dart';
@@ -1167,6 +1168,15 @@ class _ChatScreenBody extends HookWidget {
                               projectPath: effectiveProjectPath,
                               sessionId: sessionId,
                             );
+                          case gitHubSessionMenuValue:
+                            if (effectiveProjectPath == null) return;
+                            unawaited(
+                              openGitHubScreenForSession(
+                                context,
+                                projectPath: effectiveProjectPath,
+                                sessionId: sessionId,
+                              ),
+                            );
                           case 'gallery':
                             _openGalleryScreen(context, sessionId: sessionId);
                           case 'rename':
@@ -1235,6 +1245,8 @@ class _ChatScreenBody extends HookWidget {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             ),
+                          if (effectiveProjectPath != null)
+                            gitHubSessionMenuItem(context),
                           PopupMenuItem(
                             key: const ValueKey('menu_gallery'),
                             value: 'gallery',

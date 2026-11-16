@@ -16,6 +16,7 @@ import 'package:ccpocket/features/github/state/github_selection_state.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/features/github/widgets/empty_chat_github_button.dart';
 import 'package:ccpocket/features/github/widgets/github_mark_icon.dart';
+import 'package:ccpocket/features/github/widgets/github_menu_item.dart';
 import 'package:ccpocket/features/github/widgets/github_selection_cards.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
@@ -1364,6 +1365,76 @@ void main() {
         tester.widget<GitHubScreen>(find.byType(GitHubScreen)).sessionId,
         'real',
       );
+    });
+  });
+
+  group('gitHubSessionMenuItem', () {
+    testWidgets('is labelled in the overflow menu and opens the screen for '
+        'its session', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final drafts = DraftService(await SharedPreferences.getInstance());
+      final service = helpers.MockBridgeService();
+      addTearDown(() async {
+        await drafts.githubSelection.close();
+        await drafts.mediaFeedback.close();
+        service.dispose();
+      });
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<BridgeService>.value(value: service),
+            RepositoryProvider<DraftService>.value(value: drafts),
+          ],
+          child: MaterialApp(
+            locale: const Locale('en'),
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                appBar: AppBar(
+                  actions: [
+                    PopupMenuButton<String>(
+                      key: const ValueKey('session_overflow_menu'),
+                      onSelected: (value) {
+                        if (value != gitHubSessionMenuValue) return;
+                        unawaited(
+                          openGitHubScreenForSession(
+                            context,
+                            projectPath: _project,
+                            sessionId: 'real',
+                          ),
+                        );
+                      },
+                      itemBuilder: (context) => [
+                        gitHubSessionMenuItem(context),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('session_overflow_menu')));
+      await tester.pumpAndSettle();
+      final item = find.byKey(const ValueKey('menu_github'));
+      expect(
+        find.descendant(of: item, matching: find.text('Issues / PRs')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: item, matching: find.byType(GitHubMarkIcon)),
+        findsOneWidget,
+      );
+
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+      final screen = tester.widget<GitHubScreen>(find.byType(GitHubScreen));
+      expect(screen.sessionId, 'real');
+      expect(screen.projectPath, _project);
     });
   });
 
