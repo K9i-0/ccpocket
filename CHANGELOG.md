@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.164.1] - 2026-11-16
+
+### Changed
+
+- The Issues / PRs entry in an empty chat is now a quieter "Start from an Issue / PR" text button, since starting from an Issue or PR is optional.
+
 ## [1.164.0] - 2026-11-16
 
 ### Added
