@@ -147,4 +147,47 @@ describe("path-utils", () => {
       ),
     ).toBe(false);
   });
+
+  it("accepts the allowed root itself when Windows casing differs", () => {
+    // `resolve` keeps the caller's casing, and `path.win32.relative` folds
+    // case and answers "" for the same directory, so the exact-match check
+    // has to ignore case on Windows.
+    expect(
+      isPathWithinAllowedDirectory(
+        "c:\\users\\alice\\project",
+        "C:\\Users\\Alice\\Project",
+        "win32",
+      ),
+    ).toBe(true);
+    expect(
+      isPathWithinAllowedDirectory(
+        "C:\\Users\\Alice\\Project",
+        "c:\\users\\alice\\project",
+        "win32",
+      ),
+    ).toBe(true);
+    expect(
+      isPathWithinAllowedDirectory(
+        "\\\\server\\Share",
+        "\\\\SERVER\\share",
+        "win32",
+      ),
+    ).toBe(true);
+    expect(
+      isPathWithinAllowedDirectory(
+        "\\\\?\\C:\\Users\\Alice\\Project",
+        "c:\\users\\alice\\project",
+        "win32",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps POSIX directory matching case-sensitive", () => {
+    expect(
+      isPathWithinAllowedDirectory("/home/Alice", "/home/alice", "linux"),
+    ).toBe(false);
+    expect(isPathWithinAllowedDirectory("/tmp/repo", "/tmp/repo", "linux")).toBe(
+      true,
+    );
+  });
 });
