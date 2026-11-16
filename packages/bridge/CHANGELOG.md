@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.0] - 2026-11-16
+
+### Added
+
+- `github_list` and `github_item` requests list a project's open Issues and pull requests and fetch one item's body and latest comments, for the app's new Issues / PRs screen. The Bridge runs the GitHub CLI (`gh`) on its host, read-only, for the project's `github.com` `origin` remote. Errors are reported as `gh_missing`, `gh_unauthenticated`, `not_github`, or `failed`.
+- `ccpocket-bridge doctor` checks whether the GitHub CLI is installed and signed in. This check is optional and only needed for the Issues / PRs screen.
+
 ## [1.106.4] - 2026-11-15
 
 ### Fixed
