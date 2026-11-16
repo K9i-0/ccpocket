@@ -109,30 +109,35 @@ inside the screen (not through chat `_unsupportedActions`).
 - Tapping a row shows the detail and offers opening it on GitHub.
 - Long press starts multi-select. "Select all" skips drafts by default; drafts
   can still be selected one by one.
-- "Request triage" opens a sheet with presets plus free text, provider, and
-  effort:
-  - investigate and merge (skill default for PRs)
-  - handle and release
-  - content only / review only
-  - check if resolved, comment, and close
-- Sending starts a new session in the project through `NewSessionSheet`'s
-  `initialPrompt`, for example `/triage 327 332 対応してリリースまで`.
-  `skill_invocation.dart` rewrites it to `$triage` for Codex
-  (`.agents/skills` links to `.claude/skills`).
+- Selected items are handed to the agent as their GitHub URLs. The app does
+  not know any skill: the user types the instruction and any skill name
+  (`/triage`, `$review`, ...) in the normal chat composer, so skill completion,
+  `/` ↔ `$` conversion, and attachments work as usual. (2026-11-16: replaced
+  the earlier triage-specific presets; ccpocket's `/triage` is a repository
+  skill, not a product feature.)
+- The bottom bar action "Add to chat" inserts one URL per line into the chat
+  composer and closes the screen:
+  - empty composer: the text becomes an empty first line followed by the URLs,
+    and the cursor is placed on the first line so the instruction (and a
+    leading `/skill`) goes first;
+  - non-empty composer: the URLs are appended on new lines after the existing
+    text, which is kept.
+- Opened from a project (no session): "Add to chat" opens `NewSessionSheet`
+  with the project locked; the new session starts with no message and its
+  composer is pre-filled as above. Nothing is sent automatically.
 
 ### Entry from an empty chat
 
-The chat screen also shows an "Issues / PRs" button for the session's project,
-only while the user has sent no message in that session.
+While the user has sent no message in the session, the empty chat shows a
+centered "Open Issues / PRs" button with the GitHub mark.
 
-- Hidden as soon as a user message exists, including a queued or pending one.
-  Assistant-only or system entries do not hide it.
+- Hidden as soon as a user message exists, including a queued or pending one,
+  or older history exists outside the loaded window. Assistant-only or system
+  entries do not hide it.
 - Shown for both Claude and Codex sessions. A non-GitHub project or an older
   Bridge is handled inside the screen, so the button does not call the Bridge.
-- Opened from a chat, the request sheet sends `/triage ...` as the first
-  message of that session instead of starting a new one. Provider and effort
-  are not shown because the session already fixes them.
-- On wide layouts it opens as a workspace tool pane like Git.
+- "Add to chat" fills this session's composer; nothing is sent.
+- On wide layouts the screen opens as a workspace tool pane like Git.
 
 ## Triage skill change
 
@@ -150,5 +155,5 @@ external repository search, and write actions from the app.
   mapping, and the request validation in `parser.ts`.
 - App: cubit unit tests, an `unsupported_message` test, `dart analyze`,
   `dart format`, and a mock scenario in `mock_scenarios.dart`.
-- UI: one Marionette run of list → multi-select → preset → the session starts
-  with the expected first message.
+- UI: Marionette runs of list → multi-select → "Add to chat" from both entry
+  points, checking the composer text and cursor and that nothing is sent.
