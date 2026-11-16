@@ -24,4 +24,17 @@ describe("textPreview", () => {
       truncated: true,
     });
   });
+
+  it("returns empty content when maxLines is zero or negative", () => {
+    expect(textPreview("one\ntwo", 0)).toEqual({
+      content: "",
+      totalLines: 2,
+      truncated: true,
+    });
+    expect(textPreview("one\ntwo", -1)).toEqual({
+      content: "",
+      totalLines: 2,
+      truncated: true,
+    });
+  });
 });
