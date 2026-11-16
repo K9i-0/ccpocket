@@ -68,6 +68,20 @@ inside the screen (not through chat `_unsupportedActions`).
   `skill_invocation.dart` rewrites it to `$triage` for Codex
   (`.agents/skills` links to `.claude/skills`).
 
+### Entry from an empty chat
+
+The chat screen also shows an "Issues / PRs" button for the session's project,
+only while the user has sent no message in that session.
+
+- Hidden as soon as a user message exists, including a queued or pending one.
+  Assistant-only or system entries do not hide it.
+- Shown for both Claude and Codex sessions. A non-GitHub project or an older
+  Bridge is handled inside the screen, so the button does not call the Bridge.
+- Opened from a chat, the request sheet sends `/triage ...` as the first
+  message of that session instead of starting a new one. Provider and effort
+  are not shown because the session already fixes them.
+- On wide layouts it opens as a workspace tool pane like Git.
+
 ## Triage skill change
 
 Accept several numbers explicitly (`/triage 327 332 ...`) and process them one
