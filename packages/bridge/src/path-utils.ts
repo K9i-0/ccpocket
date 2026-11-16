@@ -128,7 +128,15 @@ export function isPathWithinAllowedDirectory(
   const resolvedTarget = resolvePlatformPath(targetPath, platform);
   const resolvedAllowedDir = resolvePlatformPath(allowedDir, platform);
 
-  if (resolvedTarget === resolvedAllowedDir) return true;
+  // Windows paths are case-insensitive, and `resolve` keeps the caller's
+  // casing, so the same directory can arrive spelled two ways. `path.relative`
+  // folds case on win32 and answers "" for that pair, which the descendant
+  // check below reads as "not inside" and rejects.
+  const isSameDirectory =
+    platform === "win32"
+      ? resolvedTarget.toLowerCase() === resolvedAllowedDir.toLowerCase()
+      : resolvedTarget === resolvedAllowedDir;
+  if (isSameDirectory) return true;
 
   const relativePath = pathApi.relative(resolvedAllowedDir, resolvedTarget);
   return (
