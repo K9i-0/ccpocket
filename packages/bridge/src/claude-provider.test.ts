@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   isClaudeBedrockModeEnabled,
   isClaudeBedrockRegionConfigured,
+  isClaudeVertexModeEnabled,
 } from "./claude-provider.js";
 
 describe("isClaudeBedrockModeEnabled", () => {
@@ -107,5 +108,86 @@ describe("isClaudeBedrockModeEnabled", () => {
         AWS_REGION: "  ",
       }),
     ).toBe(false);
+  });
+});
+
+describe("isClaudeVertexModeEnabled", () => {
+  let configDir: string;
+
+  beforeEach(() => {
+    configDir = mkdtempSync(join(tmpdir(), "ccpocket-claude-vertex-"));
+  });
+
+  afterEach(() => {
+    rmSync(configDir, { recursive: true, force: true });
+  });
+
+  function writeUserSettings(settings: unknown): void {
+    writeFileSync(join(configDir, "settings.json"), JSON.stringify(settings));
+  }
+
+  it("is disabled when nothing is configured", () => {
+    expect(isClaudeVertexModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
+  });
+
+  it("accepts the environment values Claude Code treats as enabled", () => {
+    for (const value of ["1", "true", "TRUE", "yes", "on", " 1 "]) {
+      expect(
+        isClaudeVertexModeEnabled({
+          CLAUDE_CONFIG_DIR: configDir,
+          CLAUDE_CODE_USE_VERTEX: value,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects environment values Claude Code treats as disabled", () => {
+    for (const value of ["", "0", "false", "no", "off", "vertex"]) {
+      expect(
+        isClaudeVertexModeEnabled({
+          CLAUDE_CONFIG_DIR: configDir,
+          CLAUDE_CODE_USE_VERTEX: value,
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it("reads the flag from the Claude Code user settings env block", () => {
+    writeUserSettings({ env: { CLAUDE_CODE_USE_VERTEX: "1" } });
+    expect(isClaudeVertexModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(true);
+  });
+
+  it("stays enabled when the settings file opts in and the environment does not", () => {
+    writeUserSettings({ env: { CLAUDE_CODE_USE_VERTEX: "1" } });
+    expect(
+      isClaudeVertexModeEnabled({
+        CLAUDE_CONFIG_DIR: configDir,
+        CLAUDE_CODE_USE_VERTEX: "0",
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps the Bedrock and Vertex flags independent", () => {
+    expect(
+      isClaudeVertexModeEnabled({
+        CLAUDE_CONFIG_DIR: configDir,
+        CLAUDE_CODE_USE_BEDROCK: "1",
+      }),
+    ).toBe(false);
+    expect(
+      isClaudeBedrockModeEnabled({
+        CLAUDE_CONFIG_DIR: configDir,
+        CLAUDE_CODE_USE_VERTEX: "1",
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores unreadable or malformed settings files", () => {
+    expect(
+      isClaudeVertexModeEnabled({ CLAUDE_CONFIG_DIR: join(configDir, "missing") }),
+    ).toBe(false);
+
+    writeFileSync(join(configDir, "settings.json"), "{ not json");
+    expect(isClaudeVertexModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
   });
 });
