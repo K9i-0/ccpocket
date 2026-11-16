@@ -68,8 +68,10 @@ export function isAutoRenamePromptText(text: string): boolean {
   return text.trimStart().startsWith(AUTO_RENAME_PROMPT_SIGNATURE);
 }
 
-/** Opening or closing line of a fenced code block (` ``` ` or `~~~`). */
-const CODE_FENCE_RE = /^(`{3,}|~{3,})/;
+/** Opening line of a fenced code block: the fence plus an optional language tag. */
+const CODE_FENCE_OPEN_RE = /^(`{3,}|~{3,})[\w+.#-]*$/;
+/** Closing line of a fenced code block: the fence alone. */
+const CODE_FENCE_CLOSE_RE = /^(`{3,}|~{3,})$/;
 
 /**
  * Drops a markdown code fence that wraps the whole answer.
@@ -85,12 +87,14 @@ function unwrapCodeFence(output: string): string {
     .split("\n")
     .map((part) => part.trim())
     .filter(Boolean);
-  const opening = lines.length > 1 ? CODE_FENCE_RE.exec(lines[0]) : null;
+  // A single-line fence such as ```Name``` is not an opening line; it is
+  // unwrapped later together with the rest of the name line.
+  const opening = lines.length > 1 ? CODE_FENCE_OPEN_RE.exec(lines[0]) : null;
   if (!opening) return lines.join("\n");
 
   const fence = opening[1];
-  const closing = CODE_FENCE_RE.exec(lines[lines.length - 1]);
-  const closed = closing !== null && closing[0] === fence;
+  const closing = CODE_FENCE_CLOSE_RE.exec(lines[lines.length - 1]);
+  const closed = closing !== null && closing[1] === fence;
   // An unterminated fence still drops its opening line, which carries the
   // language tag as well as the backticks.
   return lines.slice(1, closed ? -1 : undefined).join("\n");

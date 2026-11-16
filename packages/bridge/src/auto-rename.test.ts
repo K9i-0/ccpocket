@@ -167,6 +167,12 @@ describe("auto rename", () => {
     );
   });
 
+  it("does not treat a single-line fenced name as an opening fence", () => {
+    expect(
+      sanitizeAutoRenameName("```Fix login redirect loop```\nExplanation here"),
+    ).toBe("Fix login redirect loop");
+  });
+
   it("returns null when a fence wraps nothing", () => {
     expect(sanitizeAutoRenameName("```\n```")).toBeNull();
     expect(sanitizeAutoRenameName("```")).toBeNull();
