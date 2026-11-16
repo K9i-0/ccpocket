@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.2] - 2026-11-16
+
+### Fixed
+
+- Auto-rename now uses the session name when the model wraps its answer in a Markdown code fence on separate lines (` ``` `, ` ```text `, or `~~~`), instead of keeping the old title. A name wrapped in a one-line fence keeps its first word. ([#336](https://github.com/K9i-0/ccpocket/pull/336) by @KuljeetSinghXDA)
+- On Windows, the allowed root directory itself is accepted when its letter casing differs from the configured path (for example `c:\users\...` vs `C:\Users\...`, or UNC share names). POSIX paths remain case-sensitive. ([#337](https://github.com/K9i-0/ccpocket/pull/337) by @KuljeetSinghXDA)
+- The branch list no longer includes a `(HEAD detached at ...)` entry when HEAD is detached, so it can no longer be selected as a branch to check out. ([#338](https://github.com/K9i-0/ccpocket/pull/338) by @KuljeetSinghXDA)
+
 ## [1.107.1] - 2026-11-16
 
 ### Fixed
