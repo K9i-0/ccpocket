@@ -69,7 +69,7 @@ Future<void> openGitHubScreenForSession(
 /// It never calls the Bridge itself; a non-GitHub project or an older Bridge
 /// is explained inside the screen it opens. A session that was started from a
 /// project's Issues / PRs entry opens the screen by itself once the chat is
-/// ready (`GitHubSelectionCubit.requestOpen`).
+/// ready and is the current route (`GitHubSelectionCubit.requestOpen`).
 class EmptyChatGitHubButton extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
@@ -106,7 +106,7 @@ class _EmptyChatGitHubButtonState extends State<EmptyChatGitHubButton> {
     _autoOpenScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autoOpenScheduled = false;
-      if (!mounted) return;
+      if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
       final selection = context.read<DraftService?>()?.githubSelection;
       if (selection == null || !selection.takeOpenRequest(widget.sessionId)) {
         return;
@@ -124,7 +124,10 @@ class _EmptyChatGitHubButtonState extends State<EmptyChatGitHubButton> {
     if (!visible || projectPath == null || projectPath.isEmpty) {
       return const SizedBox.shrink();
     }
-    _scheduleAutoOpen();
+    // Only while this chat is what the user is looking at. A route on top
+    // (or a chat that is still covered) keeps the request; this widget
+    // rebuilds when its route becomes current again.
+    if (ModalRoute.of(context)?.isCurrent ?? true) _scheduleAutoOpen();
     return Padding(
       // The chat content extends behind the bars and the composer.
       padding: EdgeInsets.only(

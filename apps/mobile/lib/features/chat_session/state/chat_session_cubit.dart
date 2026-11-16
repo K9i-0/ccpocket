@@ -1824,6 +1824,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // ---------------------------------------------------------------------------
 
   /// Send a user message, optionally with image attachments.
+  /// Whether [sendMessage] would handle [text] inside the app instead of
+  /// sending it to the agent (the Codex `/goal` commands). The composer must
+  /// pass such a command through unchanged: anything appended to it would be
+  /// read as part of the command.
+  bool handlesLocally(String text, {bool hasImages = false}) {
+    if (!isCodex || hasImages) return false;
+    final command = text.trim();
+    return command == '/goal' || command.startsWith('/goal ');
+  }
+
   Future<bool> sendMessage(
     String text, {
     List<({Uint8List bytes, String mimeType})>? images,
@@ -1834,7 +1844,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return false;
     }
     text = toNativeSkillTriggers(text);
-    if (isCodex && (images == null || images.isEmpty)) {
+    if (handlesLocally(text, hasImages: images?.isNotEmpty ?? false)) {
       final command = text.trim();
       switch (command) {
         case '/goal':

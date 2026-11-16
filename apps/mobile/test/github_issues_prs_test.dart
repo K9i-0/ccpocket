@@ -1133,6 +1133,62 @@ void main() {
       ]);
     });
 
+    testWidgets('a Codex /goal command is passed through without the URLs '
+        'and keeps the selection', (tester) async {
+      final chat = await pumpComposer(tester, provider: Provider.codex);
+      drafts.githubSelection.addAll('s1', [first]);
+      await tester.pumpAndSettle();
+
+      for (final command in ['/goal pause', '/goal ship the fix', '/goal']) {
+        expect(chat.handlesLocally(command), isTrue);
+        service.sentMessages.clear();
+        await tester.enterText(
+          find.byKey(const ValueKey('message_input')),
+          command,
+        );
+        await tester.pump();
+        await tapSend(tester);
+
+        final sent = [
+          for (final message in service.sentMessages)
+            jsonDecode(message.toJson()) as Map<String, dynamic>,
+        ];
+        expect(sentTexts(), isEmpty, reason: command);
+        expect(
+          sent.map((m) => jsonEncode(m)).join(),
+          isNot(contains('github.com')),
+          reason: command,
+        );
+        expect(drafts.githubSelection.items('s1'), [first], reason: command);
+      }
+      // `/goal pause` paused the goal instead of becoming an objective.
+      final types = <String>[];
+      service.sentMessages.clear();
+      await tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '/goal pause',
+      );
+      await tester.pump();
+      await tapSend(tester);
+      for (final message in service.sentMessages) {
+        final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+        types.add(json['type'] as String);
+        expect(json['objective'], isNull);
+      }
+      expect(types, isNot(contains('input')));
+
+      // Claude has no local commands: the same text is a normal message.
+      final claude = ChatSessionCubit(
+        sessionId: 's2',
+        bridge: service,
+        streamingCubit: streaming,
+      );
+      expect(claude.handlesLocally('/goal pause'), isFalse);
+      await claude.close();
+      // Let the goal request timeouts run out.
+      await tester.pump(const Duration(minutes: 2));
+    });
+
     testWidgets('a rejected send keeps the selection and the text', (
       tester,
     ) async {
@@ -1269,6 +1325,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(GitHubScreen), findsNothing);
       expect(drafts.githubSelection.takeOpenRequest('real'), isFalse);
+    });
+
+    testWidgets('waits to open until the chat is the current route', (
+      tester,
+    ) async {
+      drafts.githubSelection.requestOpen('real');
+      await pumpChat(tester);
+      final navigator = Navigator.of(tester.element(find.byType(Scaffold)));
+      unawaited(
+        navigator.push<void>(
+          MaterialPageRoute(
+            builder: (_) => const Scaffold(body: Text('covering route')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      becomeIdle();
+      await tester.pumpAndSettle();
+      expect(find.byType(GitHubScreen), findsNothing);
+      expect(find.text('covering route'), findsOneWidget);
+
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GitHubScreen>(find.byType(GitHubScreen)).sessionId,
+        'real',
+      );
     });
   });
 

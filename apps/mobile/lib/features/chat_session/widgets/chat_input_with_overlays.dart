@@ -794,8 +794,15 @@ class ChatInputWithOverlays extends HookWidget {
 
       // Build final message text with the requested diff prepended.
       final feedbackSnapshot = List<MediaFeedback>.of(feedbackEntries);
-      final githubSnapshot = List<GitHubSelectedItem>.of(githubItems);
-      // The user's text stays first so a leading skill trigger keeps working.
+      // A command the app handles itself (Codex `/goal ...`) is passed through
+      // as typed; the selection stays for the next real message.
+      final githubSnapshot =
+          cubit.handlesLocally(text, hasImages: images.isNotEmpty)
+          ? const <GitHubSelectedItem>[]
+          : List<GitHubSelectedItem>.of(githubItems);
+      // The URLs follow the user's text, so a skill trigger typed first stays
+      // ahead of them. An attached diff is still prepended before the text
+      // below, as it was before selections existed.
       var finalText = appendGitHubSelection(text, githubSnapshot);
       if (selection != null) {
         if (selection.diffText.isNotEmpty) {
