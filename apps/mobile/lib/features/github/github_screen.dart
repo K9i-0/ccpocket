@@ -70,12 +70,12 @@ class _GitHubScreenState extends State<GitHubScreen>
     if (cache == null || !cache.serves(bridge)) {
       _cubit = GitHubListCubit(bridge: bridge, projectPath: widget.projectPath);
       _ownsCubit = true;
-      _cubit.ensureLoaded(_kind);
+      _loadAllTabs();
     } else {
       final lookup = cache.getOrCreate(widget.projectPath);
       _cubit = lookup.cubit;
       if (lookup.created) {
-        _cubit.ensureLoaded(_kind);
+        _loadAllTabs();
       } else {
         // Show the cached list at once and bring it up to date behind it.
         _refreshLoadedTabs();
@@ -83,12 +83,16 @@ class _GitHubScreenState extends State<GitHubScreen>
     }
   }
 
+  /// Loads every tab up front so each tab label shows its count.
+  void _loadAllTabs() {
+    for (final kind in _tabKinds) {
+      _cubit.ensureLoaded(kind);
+    }
+  }
+
   void _refreshLoadedTabs() {
     for (final kind in _tabKinds) {
-      final tab = _cubit.state.tab(kind);
-      if (kind == _kind || tab.loaded) {
-        if (!tab.loading) unawaited(_cubit.refresh(kind));
-      }
+      if (!_cubit.state.tab(kind).loading) unawaited(_cubit.refresh(kind));
     }
   }
 
@@ -185,6 +189,9 @@ class _GitHubScreenState extends State<GitHubScreen>
               bottomNavigationBar: selecting
                   ? GitHubSelectionBar(
                       count: state.selected.length,
+                      showDraftNotice: state
+                          .visibleItems(_kind)
+                          .any((item) => item.isDraft),
                       onRequestTriage: _requestTriage,
                     )
                   : null,
@@ -498,11 +505,15 @@ class _GitHubStaleBanner extends StatelessWidget {
 /// Bottom bar shown in multi-select mode.
 class GitHubSelectionBar extends StatelessWidget {
   final int count;
+
+  /// Whether the current tab shows drafts, which "select all" skips.
+  final bool showDraftNotice;
   final VoidCallback onRequestTriage;
 
   const GitHubSelectionBar({
     super.key,
     required this.count,
+    this.showDraftNotice = false,
     required this.onRequestTriage,
   });
 
@@ -519,14 +530,17 @@ class GitHubSelectionBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                l.githubSelectAllSkipsDrafts,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (showDraftNotice) ...[
+                Text(
+                  l.githubSelectAllSkipsDrafts,
+                  key: const ValueKey('github_draft_notice'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(

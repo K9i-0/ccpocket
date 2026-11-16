@@ -1,6 +1,6 @@
 # GitHub Triage in ccpocket
 
-Status: design (not implemented)
+Status: implemented on main (not yet released)
 
 ## Goal
 

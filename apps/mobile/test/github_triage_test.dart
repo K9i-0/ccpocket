@@ -1088,6 +1088,36 @@ void main() {
       expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
     });
 
+    testWidgets('loads both tabs up front and shows the draft notice only '
+        'where drafts are listed', (tester) async {
+      final service = MockBridgeService();
+      addTearDown(service.dispose);
+      await pumpScreen(
+        tester,
+        service: service,
+        projectPath: MockGitHubProjects.repository,
+      );
+
+      // The PR tab label carries its count without being opened.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('github_tab_prs')),
+          matching: find.textContaining('('),
+        ),
+        findsOneWidget,
+      );
+
+      // Issues tab: selecting does not mention drafts.
+      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('github_draft_notice')), findsNothing);
+
+      // PR tab lists a draft, so the notice appears.
+      await tester.tap(find.byKey(const ValueKey('github_tab_prs')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('github_draft_notice')), findsOneWidget);
+    });
+
     testWidgets('a rejected request keeps the sheet open with an error', (
       tester,
     ) async {
@@ -1164,13 +1194,14 @@ void main() {
       final stuck = _Bridge();
       addTearDown(stuck.dispose);
       await pumpScreen(tester, service: stuck, projectPath: _project);
-      expect(stuck.sent, hasLength(1));
+      // Both tabs are requested up front.
+      expect(stuck.sent, hasLength(2));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('github_refresh_button')));
       await tester.pump();
 
-      expect(stuck.sent, hasLength(2));
+      expect(stuck.sent, hasLength(3));
       // Unmount before the fake Bridge is disposed.
       await tester.pumpWidget(const SizedBox());
     });
