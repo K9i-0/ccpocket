@@ -13,11 +13,13 @@
 - `new_session_fab` — 新規セッション作成FAB
 - `load_more_button` — セッション追加読み込み
 
-### 接続フォーム (Connect Form)
-- `server_url_field` — サーバーURL入力
-- `api_key_field` — APIキー入力
-- `connect_button` — 接続ボタン
+### 接続画面 (未接続時)
+- `machine_connect_button` — 保存済みマシンの接続ボタン
+- `machine_menu_<id>` — 保存済みマシンのメニュー（編集・削除）
 - `scan_qr_button` — QRスキャンボタン
+- `demo_try_button` — 接続せずに試す
+
+マシン追加シートの入力欄（ホスト・ポート・APIキー）にはキーがない。E2E の接続は `bash scripts/e2e-env.sh connect`（ディープリンク）を使う（[e2e.md](e2e.md)）。
 
 ### Chat Input Bar
 - `message_input` — メッセージテキスト入力

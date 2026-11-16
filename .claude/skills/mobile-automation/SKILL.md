@@ -10,12 +10,13 @@ description: FlutterアプリのUI動作をシミュレーター・エミュレ�
 - 起動・接続・profile起動・CLIとMCPの使い分け: [references/startup.md](references/startup.md)
 - 権限ダイアログ・システムアラート・回転などのネイティブUI: [references/agent-device.md](references/agent-device.md)
 - Bridge不要のMock UI検証と要素キー: [references/mock-and-keys.md](references/mock-and-keys.md)
-- 実際のBridge通信を含む検証: [references/e2e.md](references/e2e.md)
+- 実際のBridge通信を含む検証・worktree での並列E2E: [references/e2e.md](references/e2e.md)
 - 接続・ジェスチャー・モック制限の問題: [references/troubleshooting.md](references/troubleshooting.md)
 
 ## 実行範囲
 
-- 既定はiOSシミュレーターとテスト用Bridge `8766`。ユーザーが指定したデバイス・接続先を優先する。本番 `8765` のプロセスを停止しない。
+- 既定はiOSシミュレーターと、`scripts/e2e-env.sh` で用意するチェックアウト専用のテスト用Bridge（空きポート）とシミュレーター。ユーザーが指定したデバイス・接続先を優先する。本番 `8765` のプロセスを停止しない。
+- 複数の画面サイズを並べたレイアウト確認やストア用スクリーンショットは、シミュレーターを並べず multi device preview（`apps/mobile_preview`、[update-store の手順](../update-store/references/screenshots.md)）を使う。ネイティブUI・実Bridge通信・並列実装の動作確認はシミュレーターで行う。
 - プロジェクトルートは `git rev-parse --show-toplevel`、アプリはその配下の `apps/mobile`。
 - 検証する挙動と期待結果を決め、関連するシナリオを選ぶ。単純なUI確認は直接操作する。複数画面の独立した検証は、利用可能なら `e2e-verifier` 等へ委譲できる。
 - 操作には現在の `get_interactive_elements` のキー・boundsを使う。画面遷移やジェスチャー後は結果を確認する。

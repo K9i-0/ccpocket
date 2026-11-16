@@ -17,7 +17,7 @@ MacのiOSシミュレーターを **Expo Device Hub → Tailscale Serve (HTTPS) 
 xcrun simctl list devices booted
 ```
 
-対象アプリが既に動いていれば再利用する。起動が必要な場合やhot reloadには [mobile-automation](../mobile-automation/SKILL.md) を使う。テスト用Bridgeが必要なら8766を使い、本番8765を停止・再起動しない。
+対象アプリが既に動いていれば再利用する。起動が必要な場合やhot reloadには [mobile-automation](../mobile-automation/SKILL.md) を使う。テスト用Bridgeが必要なら `bash scripts/e2e-env.sh bridge`（空きポートを自動選択）を使い、本番8765を停止・再起動しない。
 
 前提はMac + Xcode、Node.js/npm、MacとスマホのTailscale接続。CoreSimulatorへのアクセスがサンドボックスで拒否された場合は、シミュレーターの故障と判断せず適切な実行権限で再確認する。
 

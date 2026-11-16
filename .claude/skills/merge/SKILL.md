@@ -29,5 +29,5 @@ git push origin main
 ```
 
 - コンフリクトは両側の意図を確認して解消し、影響範囲だけ検証する。判断できない場合だけユーザーに確認する。
-- 後片付け: `git worktree remove` で一時 worktree と `<branch>` の worktree を削除し、`git branch -d <branch>` でブランチを消す。
+- 後片付け: `git worktree remove` で一時 worktree と `<branch>` の worktree を削除し、`git branch -d <branch>` でブランチを消す。`<branch>` の worktree で `scripts/e2e-env.sh sim` を使っていた場合は、削除前にその worktree 内で `bash scripts/e2e-env.sh sim-delete` を実行する。
 - 最後に `git log --oneline -3` でマージ結果を報告する。

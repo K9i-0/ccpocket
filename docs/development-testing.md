@@ -39,6 +39,23 @@ BRIDGE_PORT=8766 BRIDGE_HOST=0.0.0.0 npm run bridge
 cd apps/mobile && flutter run -d <device-id>
 ```
 
+### Several checkouts at once
+
+When testing several worktrees in parallel, give each one its own Bridge port
+and iOS simulator with `scripts/e2e-env.sh` (run inside each worktree):
+
+```bash
+bash scripts/e2e-env.sh bridge             # free port from 8766, 8769-8799; mDNS off
+bash scripts/e2e-env.sh sim                # dedicated simulator, slimmed if simslim is installed
+bash scripts/e2e-env.sh connect <udid> <port>   # deep link with the Bridge API key
+bash scripts/e2e-env.sh sim-delete         # when the worktree is done
+```
+
+[simslim](https://github.com/MobAI-App/simslim) (`brew install
+mobai-app/tap/simslim`) is optional; it cuts an iOS 27.2 simulator from about
+10 GB to about 3 GB. With several Bridges running, stop each one through the
+process you started rather than by port.
+
 If no native/simulator device is available, use Flutter Web as the app target.
 For a browser on the same machine, `web-server` gives a debug run:
 
