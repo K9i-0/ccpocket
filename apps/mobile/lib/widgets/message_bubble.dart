@@ -334,6 +334,8 @@ class ServerMessageWidget extends StatelessWidget {
       DiffResultMessage() => const SizedBox.shrink(),
       DiffImageResultMessage() => const SizedBox.shrink(),
       WorktreeListMessage() => const SizedBox.shrink(),
+      GitHubListResultMessage() => const SizedBox.shrink(),
+      GitHubItemResultMessage() => const SizedBox.shrink(),
       WorktreeRemovedMessage() => const SizedBox.shrink(),
       WindowListMessage() => const SizedBox.shrink(),
       ScreenshotResultMessage() => const SizedBox.shrink(),

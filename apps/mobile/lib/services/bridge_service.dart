@@ -1267,6 +1267,10 @@ class BridgeService implements BridgeServiceBase {
                 _messageController.add(msg);
               case FileRevealResultMessage():
                 _messageController.add(msg);
+              case GitHubListResultMessage() || GitHubItemResultMessage():
+                // The GitHub screen correlates these by requestId. They are
+                // project-scoped and never belong to a chat transcript.
+                _messageController.add(msg);
               case FileDownloadReadyMessage():
                 // File transfer dialogs consume this correlated global
                 // response. It must never become a chat transcript entry.
@@ -4036,6 +4040,44 @@ class BridgeService implements BridgeServiceBase {
 
   void removeProjectHistory(String path) {
     send(ClientMessage.removeProjectHistory(path));
+  }
+
+  /// Requests the open pull requests or issues of [projectPath]'s GitHub
+  /// repository and returns the request id to match the result against.
+  ///
+  /// The answer arrives on [messages] as a [GitHubListResultMessage], or as an
+  /// `unsupported_message` [ErrorMessage] from a Bridge that predates it.
+  String requestGitHubList({
+    required String projectPath,
+    required GitHubItemKind kind,
+  }) {
+    final requestId = createProjectRequestId('github-list');
+    send(
+      ClientMessage.githubList(
+        projectPath: projectPath,
+        kind: kind,
+        requestId: requestId,
+      ),
+    );
+    return requestId;
+  }
+
+  /// Requests the body and latest comments of one pull request or issue.
+  String requestGitHubItem({
+    required String projectPath,
+    required GitHubItemKind kind,
+    required int number,
+  }) {
+    final requestId = createProjectRequestId('github-item');
+    send(
+      ClientMessage.githubItem(
+        projectPath: projectPath,
+        kind: kind,
+        number: number,
+        requestId: requestId,
+      ),
+    );
+    return requestId;
   }
 
   void requestWorktreeList(String projectPath) {

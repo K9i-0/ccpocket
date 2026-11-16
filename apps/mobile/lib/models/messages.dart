@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
+import 'github.dart';
 import 'input_delivery.dart';
 import 'protocol_version.dart';
 
+export 'github.dart';
 export 'input_delivery.dart';
 
 bool isCodexAutoReviewApprovalsReviewer(String? value) {
@@ -1376,6 +1378,30 @@ sealed class ServerMessage {
             .toList(),
         mainBranch: json['mainBranch'] as String?,
         error: json['error'] as String?,
+      ),
+      'github_list_result' => GitHubListResultMessage(
+        requestId: json['requestId'] as String?,
+        projectPath: json['projectPath'] as String?,
+        kind: GitHubItemKind.fromWire(json['kind']),
+        repository: json['repository'] as String?,
+        items: [
+          for (final item in json['items'] as List? ?? const [])
+            if (item is Map)
+              GitHubItemSummary.fromJson(Map<String, dynamic>.from(item)),
+        ],
+        error: GitHubError.fromJson(json['error']),
+      ),
+      'github_item_result' => GitHubItemResultMessage(
+        requestId: json['requestId'] as String?,
+        projectPath: json['projectPath'] as String?,
+        kind: GitHubItemKind.fromWire(json['kind']),
+        number: (json['number'] as num?)?.toInt() ?? 0,
+        item: json['item'] is Map
+            ? GitHubItemDetail.fromJson(
+                Map<String, dynamic>.from(json['item'] as Map),
+              )
+            : null,
+        error: GitHubError.fromJson(json['error']),
       ),
       'worktree_removed' => WorktreeRemovedMessage(
         projectPath: json['projectPath'] as String?,
@@ -3624,6 +3650,52 @@ class DiffImageResultMessage
     this.error,
     this.oldBase64,
     this.newBase64,
+  });
+}
+
+/// Open pull requests or issues of the project's GitHub repository.
+class GitHubListResultMessage
+    implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? requestId;
+  @override
+  final String? projectPath;
+  final GitHubItemKind kind;
+
+  /// `owner/name`.
+  final String? repository;
+  final List<GitHubItemSummary> items;
+  final GitHubError? error;
+
+  const GitHubListResultMessage({
+    this.requestId,
+    this.projectPath,
+    required this.kind,
+    this.repository,
+    this.items = const [],
+    this.error,
+  });
+}
+
+/// Body and latest comments of one pull request or issue.
+class GitHubItemResultMessage
+    implements ServerMessage, ProjectCorrelatedMessage {
+  @override
+  final String? requestId;
+  @override
+  final String? projectPath;
+  final GitHubItemKind kind;
+  final int number;
+  final GitHubItemDetail? item;
+  final GitHubError? error;
+
+  const GitHubItemResultMessage({
+    this.requestId,
+    this.projectPath,
+    required this.kind,
+    required this.number,
+    this.item,
+    this.error,
   });
 }
 
@@ -5966,6 +6038,31 @@ class ClientMessage {
     'type': 'remove_project',
     'projectId': projectId,
     'requestId': ?requestId,
+  });
+
+  /// `requestId` is required: every Bridge that knows this message echoes it.
+  factory ClientMessage.githubList({
+    required String projectPath,
+    required GitHubItemKind kind,
+    required String requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'github_list',
+    'projectPath': projectPath,
+    'kind': kind.value,
+    'requestId': requestId,
+  });
+
+  factory ClientMessage.githubItem({
+    required String projectPath,
+    required GitHubItemKind kind,
+    required int number,
+    required String requestId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'github_item',
+    'projectPath': projectPath,
+    'kind': kind.value,
+    'number': number,
+    'requestId': requestId,
   });
 
   factory ClientMessage.listWorktrees(
