@@ -171,11 +171,16 @@ describe("auto rename", () => {
     expect(
       sanitizeAutoRenameName("```Fix login redirect loop```\nExplanation here"),
     ).toBe("Fix login redirect loop");
+    expect(
+      sanitizeAutoRenameName("```Fix login redirect loop```\nAdditional details"),
+    ).toBe("Fix login redirect loop");
   });
 
   it("returns null when a fence wraps nothing", () => {
     expect(sanitizeAutoRenameName("```\n```")).toBeNull();
     expect(sanitizeAutoRenameName("```")).toBeNull();
+    // An empty, unterminated fence must not return its language tag as a name.
+    expect(sanitizeAutoRenameName("```text\n\n")).toBeNull();
   });
 
   it("uses the Claude CLI for Claude sessions", async () => {

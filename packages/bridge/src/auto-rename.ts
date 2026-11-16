@@ -73,6 +73,14 @@ const CODE_FENCE_OPEN_RE = /^(`{3,}|~{3,})[\w+.#-]*$/;
 /** Closing line of a fenced code block: the fence alone. */
 const CODE_FENCE_CLOSE_RE = /^(`{3,}|~{3,})$/;
 
+/** Index of the last non-blank line, or -1 when every line is blank. */
+function lastNonEmptyIndex(lines: readonly string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (lines[index]) return index;
+  }
+  return -1;
+}
+
 /**
  * Drops a markdown code fence that wraps the whole answer.
  *
@@ -83,21 +91,26 @@ const CODE_FENCE_CLOSE_RE = /^(`{3,}|~{3,})$/;
  * language tag.
  */
 function unwrapCodeFence(output: string): string {
-  const lines = output
-    .split("\n")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  // Blank lines stay in the list. Removing them early turns an opening fence
+  // with no body (`` ```text `` and then blank lines) into a one-line answer,
+  // which would hand the language tag back as the name.
+  const lines = output.split("\n").map((part) => part.trim());
+  const first = lines.findIndex(Boolean);
+  if (first === -1) return "";
+  const last = lastNonEmptyIndex(lines);
+
   // A single-line fence such as ```Name``` is not an opening line; it is
   // unwrapped later together with the rest of the name line.
-  const opening = lines.length > 1 ? CODE_FENCE_OPEN_RE.exec(lines[0]) : null;
-  if (!opening) return lines.join("\n");
+  const opening = CODE_FENCE_OPEN_RE.exec(lines[first]);
+  if (!opening) return lines.slice(first, last + 1).join("\n");
 
   const fence = opening[1];
-  const closing = CODE_FENCE_CLOSE_RE.exec(lines[lines.length - 1]);
+  const closing = CODE_FENCE_CLOSE_RE.exec(lines[last]);
   const closed = closing !== null && closing[1] === fence;
   // An unterminated fence still drops its opening line, which carries the
-  // language tag as well as the backticks.
-  return lines.slice(1, closed ? -1 : undefined).join("\n");
+  // language tag as well as the backticks. A fence with no body unwraps to
+  // nothing, so the tag is never returned as the name.
+  return lines.slice(first + 1, closed ? last : undefined).join("\n");
 }
 
 export function sanitizeAutoRenameName(output: string): string | null {
