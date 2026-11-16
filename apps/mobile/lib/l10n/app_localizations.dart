@@ -7181,83 +7181,47 @@ abstract class AppLocalizations {
   /// **'すべて選択'**
   String get githubSelectAll;
 
+  /// No description provided for @githubOpenIssuesAndPrs.
+  ///
+  /// In ja, this message translates to:
+  /// **'Issue / PR を開く'**
+  String get githubOpenIssuesAndPrs;
+
+  /// No description provided for @githubSelect.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択'**
+  String get githubSelect;
+
+  /// No description provided for @githubSelected.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択中'**
+  String get githubSelected;
+
+  /// No description provided for @githubDeselect.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択を解除'**
+  String get githubDeselect;
+
+  /// No description provided for @githubClearSelection.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択をすべて解除'**
+  String get githubClearSelection;
+
   /// No description provided for @githubSelectAllSkipsDrafts.
   ///
   /// In ja, this message translates to:
   /// **'Draftは除外されます。含めるには個別にタップしてください。'**
   String get githubSelectAllSkipsDrafts;
 
-  /// No description provided for @githubCancelSelection.
-  ///
-  /// In ja, this message translates to:
-  /// **'選択を解除'**
-  String get githubCancelSelection;
-
   /// No description provided for @githubSelectedCount.
   ///
   /// In ja, this message translates to:
   /// **'{count}件を選択中'**
   String githubSelectedCount(int count);
-
-  /// No description provided for @githubRequestTriage.
-  ///
-  /// In ja, this message translates to:
-  /// **'トリアージを依頼'**
-  String get githubRequestTriage;
-
-  /// No description provided for @githubTriagePresetMerge.
-  ///
-  /// In ja, this message translates to:
-  /// **'調査してマージ'**
-  String get githubTriagePresetMerge;
-
-  /// No description provided for @githubTriagePresetMergeHint.
-  ///
-  /// In ja, this message translates to:
-  /// **'triageスキルの既定の動作'**
-  String get githubTriagePresetMergeHint;
-
-  /// No description provided for @githubTriagePresetRelease.
-  ///
-  /// In ja, this message translates to:
-  /// **'対応してリリースまで'**
-  String get githubTriagePresetRelease;
-
-  /// No description provided for @githubTriagePresetContentOnly.
-  ///
-  /// In ja, this message translates to:
-  /// **'内容確認・レビューのみ'**
-  String get githubTriagePresetContentOnly;
-
-  /// No description provided for @githubTriagePresetClose.
-  ///
-  /// In ja, this message translates to:
-  /// **'解決済みか確認してコメント・クローズ'**
-  String get githubTriagePresetClose;
-
-  /// No description provided for @githubTriageNoteHint.
-  ///
-  /// In ja, this message translates to:
-  /// **'追加の指示（任意）'**
-  String get githubTriageNoteHint;
-
-  /// No description provided for @githubTriageStartsNewSession.
-  ///
-  /// In ja, this message translates to:
-  /// **'このプロジェクトで新しいセッションを開始します。エージェントとeffortは次の画面で選びます。'**
-  String get githubTriageStartsNewSession;
-
-  /// No description provided for @githubTriageSendsToSession.
-  ///
-  /// In ja, this message translates to:
-  /// **'このセッションの最初のメッセージとして送信します。'**
-  String get githubTriageSendsToSession;
-
-  /// No description provided for @githubTriageNext.
-  ///
-  /// In ja, this message translates to:
-  /// **'次へ'**
-  String get githubTriageNext;
 
   /// No description provided for @githubErrorGhMissingTitle.
   ///
@@ -7336,12 +7300,6 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'CI実行中'**
   String get githubChecksPending;
-
-  /// No description provided for @githubTriageSendFailed.
-  ///
-  /// In ja, this message translates to:
-  /// **'送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。'**
-  String get githubTriageSendFailed;
 }
 
 class _AppLocalizationsDelegate

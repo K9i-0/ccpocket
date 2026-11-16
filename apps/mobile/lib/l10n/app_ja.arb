@@ -1636,24 +1636,18 @@
   "githubNoComments": "コメントはまだありません",
   "githubNoDescription": "説明はありません",
   "githubSelectAll": "すべて選択",
+  "githubOpenIssuesAndPrs": "Issue / PR を開く",
+  "githubSelect": "選択",
+  "githubSelected": "選択中",
+  "githubDeselect": "選択を解除",
+  "githubClearSelection": "選択をすべて解除",
   "githubSelectAllSkipsDrafts": "Draftは除外されます。含めるには個別にタップしてください。",
-  "githubCancelSelection": "選択を解除",
   "githubSelectedCount": "{count}件を選択中",
   "@githubSelectedCount": {
     "placeholders": {
       "count": { "type": "int" }
     }
   },
-  "githubRequestTriage": "トリアージを依頼",
-  "githubTriagePresetMerge": "調査してマージ",
-  "githubTriagePresetMergeHint": "triageスキルの既定の動作",
-  "githubTriagePresetRelease": "対応してリリースまで",
-  "githubTriagePresetContentOnly": "内容確認・レビューのみ",
-  "githubTriagePresetClose": "解決済みか確認してコメント・クローズ",
-  "githubTriageNoteHint": "追加の指示（任意）",
-  "githubTriageStartsNewSession": "このプロジェクトで新しいセッションを開始します。エージェントとeffortは次の画面で選びます。",
-  "githubTriageSendsToSession": "このセッションの最初のメッセージとして送信します。",
-  "githubTriageNext": "次へ",
   "githubErrorGhMissingTitle": "GitHub CLIが見つかりません",
   "githubErrorGhMissingBody": "Bridgeを動かしているマシンにGitHub CLI（gh）をインストールしてから、再度お試しください。",
   "githubErrorUnauthenticatedTitle": "GitHub CLIがログインしていません",
@@ -1666,6 +1660,5 @@
   "githubErrorUnsupportedBody": "このBridgeはIssue / PRの表示に対応していません。Bridgeを最新版に更新してから、再度お試しください。",
   "githubChecksSuccess": "CI成功",
   "githubChecksFailure": "CI失敗",
-  "githubChecksPending": "CI実行中",
-  "githubTriageSendFailed": "送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。"
+  "githubChecksPending": "CI実行中"
 }

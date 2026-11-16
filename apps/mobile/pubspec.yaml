@@ -159,6 +159,7 @@ flutter:
     - assets/icon.png
     - assets/icon_light_outline.png
     - assets/icon_pro_copper_emerald.png
+    - assets/icons/
     - assets/docs/
     - assets/store/
 

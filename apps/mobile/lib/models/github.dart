@@ -1,4 +1,4 @@
-/// Data models for the GitHub triage screen (`github_list` / `github_item`).
+/// Data models for the Issues / PRs screen (`github_list` / `github_item`).
 ///
 /// The wire contract is defined in `docs/github-triage.md`.
 library;

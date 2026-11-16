@@ -862,9 +862,7 @@ as String?,
 mixin _$GitHubListState {
 
  GitHubTabState get prs; GitHubTabState get issues;/// `owner/name`.
- String? get repository; GitHubFilters get filters; bool get selectionMode;/// Selected item numbers. Issues and pull requests share one number space,
-/// so a selection can span both tabs.
- Set<int> get selected;
+ String? get repository; GitHubFilters get filters;
 /// Create a copy of GitHubListState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -876,20 +874,20 @@ $GitHubListStateCopyWith<GitHubListState> get copyWith => _$GitHubListStateCopyW
 @override
 bool operator ==(Object other) {
   final _this = this as GitHubListState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GitHubListState&&(identical(other.prs, _this.prs) || other.prs == _this.prs)&&(identical(other.issues, _this.issues) || other.issues == _this.issues)&&(identical(other.repository, _this.repository) || other.repository == _this.repository)&&(identical(other.filters, _this.filters) || other.filters == _this.filters)&&(identical(other.selectionMode, _this.selectionMode) || other.selectionMode == _this.selectionMode)&&const DeepCollectionEquality().equals(other.selected, _this.selected));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GitHubListState&&(identical(other.prs, _this.prs) || other.prs == _this.prs)&&(identical(other.issues, _this.issues) || other.issues == _this.issues)&&(identical(other.repository, _this.repository) || other.repository == _this.repository)&&(identical(other.filters, _this.filters) || other.filters == _this.filters));
 }
 
 
 @override
 int get hashCode {
   final _this = this as GitHubListState;
-  return Object.hash(runtimeType,_this.prs,_this.issues,_this.repository,_this.filters,_this.selectionMode,const DeepCollectionEquality().hash(_this.selected));
+  return Object.hash(runtimeType,_this.prs,_this.issues,_this.repository,_this.filters);
 }
 
 @override
 String toString() {
   final _this = this as GitHubListState;
-  return 'GitHubListState(prs: ${_this.prs}, issues: ${_this.issues}, repository: ${_this.repository}, filters: ${_this.filters}, selectionMode: ${_this.selectionMode}, selected: ${_this.selected})';
+  return 'GitHubListState(prs: ${_this.prs}, issues: ${_this.issues}, repository: ${_this.repository}, filters: ${_this.filters})';
 }
 
 
@@ -900,7 +898,7 @@ abstract mixin class $GitHubListStateCopyWith<$Res>  {
   factory $GitHubListStateCopyWith(GitHubListState value, $Res Function(GitHubListState) _then) = _$GitHubListStateCopyWithImpl;
 @useResult
 $Res call({
- GitHubTabState prs, GitHubTabState issues, String? repository, GitHubFilters filters, bool selectionMode, Set<int> selected
+ GitHubTabState prs, GitHubTabState issues, String? repository, GitHubFilters filters
 });
 
 
@@ -917,15 +915,13 @@ class _$GitHubListStateCopyWithImpl<$Res>
 
 /// Create a copy of GitHubListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? prs = null,Object? issues = null,Object? repository = freezed,Object? filters = null,Object? selectionMode = null,Object? selected = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? prs = null,Object? issues = null,Object? repository = freezed,Object? filters = null,}) {
   return _then(GitHubListState(
 prs: null == prs ? _self.prs : prs // ignore: cast_nullable_to_non_nullable
 as GitHubTabState,issues: null == issues ? _self.issues : issues // ignore: cast_nullable_to_non_nullable
 as GitHubTabState,repository: freezed == repository ? _self.repository : repository // ignore: cast_nullable_to_non_nullable
 as String?,filters: null == filters ? _self.filters : filters // ignore: cast_nullable_to_non_nullable
-as GitHubFilters,selectionMode: null == selectionMode ? _self.selectionMode : selectionMode // ignore: cast_nullable_to_non_nullable
-as bool,selected: null == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
-as Set<int>,
+as GitHubFilters,
   ));
 }
 /// Create a copy of GitHubListState
@@ -1037,10 +1033,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters,  bool selectionMode,  Set<int> selected)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GitHubListState() when $default != null:
-return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.selectionMode,_that.selected);case _:
+return $default(_that.prs,_that.issues,_that.repository,_that.filters);case _:
   return orElse();
 
 }
@@ -1058,10 +1054,10 @@ return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.sele
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters,  bool selectionMode,  Set<int> selected)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters)  $default,) {final _that = this;
 switch (_that) {
 case _GitHubListState():
-return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.selectionMode,_that.selected);case _:
+return $default(_that.prs,_that.issues,_that.repository,_that.filters);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1078,10 +1074,10 @@ return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.sele
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters,  bool selectionMode,  Set<int> selected)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( GitHubTabState prs,  GitHubTabState issues,  String? repository,  GitHubFilters filters)?  $default,) {final _that = this;
 switch (_that) {
 case _GitHubListState() when $default != null:
-return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.selectionMode,_that.selected);case _:
+return $default(_that.prs,_that.issues,_that.repository,_that.filters);case _:
   return null;
 
 }
@@ -1093,7 +1089,7 @@ return $default(_that.prs,_that.issues,_that.repository,_that.filters,_that.sele
 
 
 class _GitHubListState extends GitHubListState {
-  const _GitHubListState({this.prs = const GitHubTabState(), this.issues = const GitHubTabState(), this.repository, this.filters = const GitHubFilters(), this.selectionMode = false,  Set<int> selected = const {}}): _selected = selected,super._();
+  const _GitHubListState({this.prs = const GitHubTabState(), this.issues = const GitHubTabState(), this.repository, this.filters = const GitHubFilters()}): super._();
   
 
 @override@JsonKey() final  GitHubTabState prs;
@@ -1101,18 +1097,6 @@ class _GitHubListState extends GitHubListState {
 /// `owner/name`.
 @override final  String? repository;
 @override@JsonKey() final  GitHubFilters filters;
-@override@JsonKey() final  bool selectionMode;
-/// Selected item numbers. Issues and pull requests share one number space,
-/// so a selection can span both tabs.
- final  Set<int> _selected;
-/// Selected item numbers. Issues and pull requests share one number space,
-/// so a selection can span both tabs.
-@override@JsonKey() Set<int> get selected {
-  if (_selected is EqualUnmodifiableSetView) return _selected;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableSetView(_selected);
-}
-
 
 /// Create a copy of GitHubListState
 /// with the given fields replaced by the non-null parameter values.
@@ -1124,18 +1108,18 @@ _$GitHubListStateCopyWith<_GitHubListState> get copyWith => __$GitHubListStateCo
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GitHubListState&&(identical(other.prs, prs) || other.prs == prs)&&(identical(other.issues, issues) || other.issues == issues)&&(identical(other.repository, repository) || other.repository == repository)&&(identical(other.filters, filters) || other.filters == filters)&&(identical(other.selectionMode, selectionMode) || other.selectionMode == selectionMode)&&const DeepCollectionEquality().equals(other.selected, _selected));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GitHubListState&&(identical(other.prs, prs) || other.prs == prs)&&(identical(other.issues, issues) || other.issues == issues)&&(identical(other.repository, repository) || other.repository == repository)&&(identical(other.filters, filters) || other.filters == filters));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,prs,issues,repository,filters,selectionMode,const DeepCollectionEquality().hash(_selected));
+    return Object.hash(runtimeType,prs,issues,repository,filters);
 }
 
 @override
 String toString() {
-    return 'GitHubListState(prs: $prs, issues: $issues, repository: $repository, filters: $filters, selectionMode: $selectionMode, selected: $selected)';
+    return 'GitHubListState(prs: $prs, issues: $issues, repository: $repository, filters: $filters)';
 }
 
 
@@ -1146,7 +1130,7 @@ abstract mixin class _$GitHubListStateCopyWith<$Res> implements $GitHubListState
   factory _$GitHubListStateCopyWith(_GitHubListState value, $Res Function(_GitHubListState) _then) = __$GitHubListStateCopyWithImpl;
 @override @useResult
 $Res call({
- GitHubTabState prs, GitHubTabState issues, String? repository, GitHubFilters filters, bool selectionMode, Set<int> selected
+ GitHubTabState prs, GitHubTabState issues, String? repository, GitHubFilters filters
 });
 
 
@@ -1163,15 +1147,13 @@ class __$GitHubListStateCopyWithImpl<$Res>
 
 /// Create a copy of GitHubListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? prs = null,Object? issues = null,Object? repository = freezed,Object? filters = null,Object? selectionMode = null,Object? selected = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? prs = null,Object? issues = null,Object? repository = freezed,Object? filters = null,}) {
   return _then(_GitHubListState(
 prs: null == prs ? _self.prs : prs // ignore: cast_nullable_to_non_nullable
 as GitHubTabState,issues: null == issues ? _self.issues : issues // ignore: cast_nullable_to_non_nullable
 as GitHubTabState,repository: freezed == repository ? _self.repository : repository // ignore: cast_nullable_to_non_nullable
 as String?,filters: null == filters ? _self.filters : filters // ignore: cast_nullable_to_non_nullable
-as GitHubFilters,selectionMode: null == selectionMode ? _self.selectionMode : selectionMode // ignore: cast_nullable_to_non_nullable
-as bool,selected: null == selected ? _self._selected : selected // ignore: cast_nullable_to_non_nullable
-as Set<int>,
+as GitHubFilters,
   ));
 }
 

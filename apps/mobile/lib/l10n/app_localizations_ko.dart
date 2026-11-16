@@ -3859,46 +3859,27 @@ class AppLocalizationsKo extends AppLocalizations {
   String get githubSelectAll => '모두 선택';
 
   @override
-  String get githubSelectAllSkipsDrafts => 'Draft는 제외됩니다. 포함하려면 개별로 탭하세요.';
+  String get githubOpenIssuesAndPrs => 'Issue / PR 열기';
 
   @override
-  String get githubCancelSelection => '선택 취소';
+  String get githubSelect => '선택';
+
+  @override
+  String get githubSelected => '선택됨';
+
+  @override
+  String get githubDeselect => '선택 해제';
+
+  @override
+  String get githubClearSelection => '선택 모두 해제';
+
+  @override
+  String get githubSelectAllSkipsDrafts => 'Draft는 제외됩니다. 포함하려면 개별로 탭하세요.';
 
   @override
   String githubSelectedCount(int count) {
     return '$count개 선택됨';
   }
-
-  @override
-  String get githubRequestTriage => '트리아지 요청';
-
-  @override
-  String get githubTriagePresetMerge => '조사 후 머지';
-
-  @override
-  String get githubTriagePresetMergeHint => 'triage 스킬의 기본 동작';
-
-  @override
-  String get githubTriagePresetRelease => '처리 후 릴리스까지';
-
-  @override
-  String get githubTriagePresetContentOnly => '내용 확인 / 리뷰만';
-
-  @override
-  String get githubTriagePresetClose => '해결 여부 확인 후 댓글 달고 닫기';
-
-  @override
-  String get githubTriageNoteHint => '추가 지시 (선택)';
-
-  @override
-  String get githubTriageStartsNewSession =>
-      '이 프로젝트에서 새 세션을 시작합니다. 에이전트와 effort는 다음 화면에서 선택합니다.';
-
-  @override
-  String get githubTriageSendsToSession => '이 세션의 첫 메시지로 전송합니다.';
-
-  @override
-  String get githubTriageNext => '다음';
 
   @override
   String get githubErrorGhMissingTitle => 'GitHub CLI를 찾을 수 없습니다';
@@ -3942,8 +3923,4 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 실행 중';
-
-  @override
-  String get githubTriageSendFailed =>
-      '전송하지 못했습니다. 이 채팅에 이미 메시지가 있거나 세션이 준비되지 않았습니다. 프로젝트에서 새 세션으로 요청하세요.';
 }

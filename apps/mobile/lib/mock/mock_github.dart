@@ -2,7 +2,7 @@
 
 import '../models/messages.dart';
 
-/// Project paths understood by the mock Bridge for the GitHub triage screen.
+/// Project paths understood by the mock Bridge for the Issues / PRs screen.
 ///
 /// The path selects the answer, so each state of the screen can be opened
 /// without a real Bridge.
@@ -42,7 +42,7 @@ DateTime _ago(Duration duration) => DateTime.now().toUtc().subtract(duration);
 List<GitHubItemSummary> mockGitHubPullRequests() => [
   GitHubItemSummary(
     number: 342,
-    title: 'feat(mobile): add GitHub triage screen',
+    title: 'feat(mobile): add Issues / PRs screen',
     url: 'https://github.com/K9i-0/ccpocket/pull/342',
     author: const GitHubAuthor(login: 'K9i-0'),
     labels: const ['enhancement'],

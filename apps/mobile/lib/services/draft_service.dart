@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/github/state/github_selection_cubit.dart';
 import '../features/media_feedback/state/media_feedback_cubit.dart';
 
 /// Persists unsent chat input text and image attachments per session.
@@ -12,6 +13,9 @@ import '../features/media_feedback/state/media_feedback_cubit.dart';
 class DraftService {
   final SharedPreferences _prefs;
   late final mediaFeedback = MediaFeedbackCubit(_prefs);
+
+  /// Issues and pull requests picked for each session.
+  late final githubSelection = GitHubSelectionCubit(_prefs);
   final Map<String, String> _cache = {};
   final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache =
       {};
@@ -77,6 +81,7 @@ class DraftService {
   /// This is called when the Bridge Server assigns a real session ID.
   void migrateDraft(String oldId, String newId) {
     mediaFeedback.migrate(oldId, newId);
+    githubSelection.migrate(oldId, newId);
     final text = _cache[oldId];
     if (text == null) return;
     _cache[newId] = text;

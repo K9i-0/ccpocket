@@ -20,7 +20,7 @@ ccpocket covers that loop only. It is not a general GitHub client.
 | Topic | Decision | Reason |
 |---|---|---|
 | Data source | `gh` CLI on the Bridge host | Already authenticated for the triage skill; no token in the app |
-| Entry point | Separate project-level screen next to the Git screen | Usable without an open session |
+| Entry point | A screen bound to a session, opened from an empty chat or from a project (which starts a session first) | The picked items are a draft of that session's next message |
 | Write actions | None from the app | Merge, comment, close, and label changes are done by the agent under the triage skill rules |
 
 ## Bridge
@@ -101,30 +101,47 @@ inside the screen (not through chat `_unsupportedActions`).
 
 ## App
 
+The model follows media feedback (`MediaFeedbackCubit`): what the user picks is
+a per-session draft that is shown above the composer and added to the next
+message.
+
 - Tabs: Issues / PRs. Results are cached per project like
   `git_view_cache_service`, with pull-to-refresh.
 - PR row: number, title, author, Draft badge, dependabot marker, CI state.
 - Issue row: number, title, labels, created time.
 - Filters: hide drafts, dependabot only, label.
-- Tapping a row shows the detail and offers opening it on GitHub.
-- Long press starts multi-select. "Select all" skips drafts by default; drafts
-  can still be selected one by one.
-- Selected items are handed to the agent as their GitHub URLs. The app does
-  not know any skill: the user types the instruction and any skill name
-  (`/triage`, `$review`, ...) in the normal chat composer, so skill completion,
-  `/` ↔ `$` conversion, and attachments work as usual. (2026-11-16: replaced
-  the earlier triage-specific presets; ccpocket's `/triage` is a repository
-  skill, not a product feature.)
-- The bottom bar action "Add to chat" inserts one URL per line into the chat
-  composer and closes the screen:
-  - empty composer: the text becomes an empty first line followed by the URLs,
-    and the cursor is placed on the first line so the instruction (and a
-    leading `/skill`) goes first;
-  - non-empty composer: the URLs are appended on new lines after the existing
-    text, which is kept.
-- Opened from a project (no session): "Add to chat" opens `NewSessionSheet`
-  with the project locked; the new session starts with no message and its
-  composer is pre-filled as above. Nothing is sent automatically.
+- There is no selection mode. Each row has a leading selection circle that
+  toggles the item (a long press does the same); tapping the rest of the row
+  shows the detail, which offers opening it on GitHub and the same
+  select / deselect toggle.
+- The app bar shows the selected count and has "select all" and "clear
+  selection". "Select all" adds the visible items of the current tab and skips
+  drafts; drafts can still be selected one by one. A notice says so only while
+  something is selected and the current tab shows drafts.
+- The screen always works for one session. The selection is that session's
+  draft in `GitHubSelectionCubit` (owned by `DraftService`): persisted in
+  SharedPreferences per session, migrated with the session id
+  (`pending_*` → real id, session switches), and kept until sent or removed.
+  It is not pruned when an item leaves the open list.
+- Selecting or deselecting is reflected at once as cards above that
+  session's composer (`#331 title`, with × to deselect). The cards stay
+  visible after the screen is closed and after the chat has messages.
+- On send, the URLs of the selected items are appended to the message, one
+  per line, after the user's text, so a leading `/skill` or `$skill` stays at
+  the start. The app does not know any skill: the user types the instruction
+  and any skill name in the normal composer, so skill completion, `/` ↔ `$`
+  conversion, and attachments work as usual. With no text the message is just
+  the URLs (media feedback allows the same). The selection is cleared only
+  after the send is accepted; a rejected send keeps it. Nothing is ever sent
+  by the screen itself. (2026-11-16: replaced the earlier triage-specific
+  presets; ccpocket's `/triage` is a repository skill, not a product
+  feature.)
+- Opened from a project (recent-session menu item / group header icon): the
+  app opens `NewSessionSheet` with the project locked and starts the session
+  with no message. Once the new chat is ready it opens the Issues / PRs
+  screen bound to that session by itself (`GitHubSelectionCubit.requestOpen`,
+  consumed by the empty chat entry). If the start is queued while offline, no
+  chat opens and the request is dropped.
 
 ### Entry from an empty chat
 
@@ -136,7 +153,7 @@ centered "Open Issues / PRs" button with the GitHub mark.
   entries do not hide it.
 - Shown for both Claude and Codex sessions. A non-GitHub project or an older
   Bridge is handled inside the screen, so the button does not call the Bridge.
-- "Add to chat" fills this session's composer; nothing is sent.
+- The screen it opens is bound to this session.
 - On wide layouts the screen opens as a workspace tool pane like Git.
 
 ## Triage skill change
@@ -155,5 +172,5 @@ external repository search, and write actions from the app.
   mapping, and the request validation in `parser.ts`.
 - App: cubit unit tests, an `unsupported_message` test, `dart analyze`,
   `dart format`, and a mock scenario in `mock_scenarios.dart`.
-- UI: Marionette runs of list → multi-select → "Add to chat" from both entry
-  points, checking the composer text and cursor and that nothing is sent.
+- UI: Marionette runs of list → select → cards above the composer from both
+  entry points, checking that nothing is sent until the user sends.

@@ -6,7 +6,9 @@ import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import 'github_list_state.dart';
 
-/// Open pull requests and issues of one project, plus the triage selection.
+/// Open pull requests and issues of one project.
+///
+/// What a session picked from them lives in `GitHubSelectionCubit`.
 ///
 /// Every request carries a `requestId`. A result is applied only when it
 /// answers the latest request of its tab and echoes this project's path, so a
@@ -122,9 +124,6 @@ class GitHubListCubit extends Cubit<GitHubListState> {
       return;
     }
     _pending.remove(kind)?.dispose();
-    final previous = state.tab(kind).items.map((item) => item.number).toSet();
-    final current = message.items.map((item) => item.number).toSet();
-    final closed = previous.difference(current);
     final label = state.filters.label;
     final next = _withTab(
       kind,
@@ -133,10 +132,6 @@ class GitHubListCubit extends Cubit<GitHubListState> {
     emit(
       next.copyWith(
         repository: message.repository ?? state.repository,
-        // Items that left the open list can no longer be triaged from here.
-        selected: closed.isEmpty
-            ? state.selected
-            : state.selected.difference(closed),
         filters: label != null && !_labelInUse(next, label)
             ? state.filters.copyWith(label: null)
             : state.filters,
@@ -179,37 +174,6 @@ class GitHubListCubit extends Cubit<GitHubListState> {
 
   void setLabel(String? label) =>
       emit(state.copyWith(filters: state.filters.copyWith(label: label)));
-
-  // ---- Selection ----
-
-  /// Enters multi-select with [number] selected (long press on a row).
-  void startSelection(int number) => emit(
-    state.copyWith(selectionMode: true, selected: {...state.selected, number}),
-  );
-
-  /// Toggles one item. Drafts can be picked here even though
-  /// [selectAllVisible] skips them.
-  void toggleSelected(int number) {
-    final selected = {...state.selected};
-    if (!selected.remove(number)) selected.add(number);
-    emit(state.copyWith(selectionMode: true, selected: selected));
-  }
-
-  /// Adds every visible item of [kind] except drafts, which are not ready for
-  /// triage unless picked on purpose.
-  void selectAllVisible(GitHubItemKind kind) => emit(
-    state.copyWith(
-      selectionMode: true,
-      selected: {
-        ...state.selected,
-        for (final item in state.visibleItems(kind))
-          if (!item.isDraft) item.number,
-      },
-    ),
-  );
-
-  void clearSelection() =>
-      emit(state.copyWith(selectionMode: false, selected: const {}));
 
   @override
   Future<void> close() async {

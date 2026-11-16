@@ -3788,45 +3788,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubSelectAll => '全选';
 
   @override
-  String get githubSelectAllSkipsDrafts => 'Draft 会被跳过。点按即可单独加入。';
+  String get githubOpenIssuesAndPrs => '打开 Issue / PR';
 
   @override
-  String get githubCancelSelection => '取消选择';
+  String get githubSelect => '选择';
+
+  @override
+  String get githubSelected => '已选择';
+
+  @override
+  String get githubDeselect => '取消选择';
+
+  @override
+  String get githubClearSelection => '清除全部选择';
+
+  @override
+  String get githubSelectAllSkipsDrafts => 'Draft 会被跳过。点按即可单独加入。';
 
   @override
   String githubSelectedCount(int count) {
     return '已选择 $count 项';
   }
-
-  @override
-  String get githubRequestTriage => '请求分诊';
-
-  @override
-  String get githubTriagePresetMerge => '调查并合并';
-
-  @override
-  String get githubTriagePresetMergeHint => 'triage 技能的默认行为';
-
-  @override
-  String get githubTriagePresetRelease => '处理并发布';
-
-  @override
-  String get githubTriagePresetContentOnly => '仅查看内容 / 评审';
-
-  @override
-  String get githubTriagePresetClose => '确认是否已解决，评论并关闭';
-
-  @override
-  String get githubTriageNoteHint => '补充说明（可选）';
-
-  @override
-  String get githubTriageStartsNewSession => '将在此项目中开始新会话。下一步选择代理和 effort。';
-
-  @override
-  String get githubTriageSendsToSession => '将作为此会话的第一条消息发送。';
-
-  @override
-  String get githubTriageNext => '下一步';
 
   @override
   String get githubErrorGhMissingTitle => '未找到 GitHub CLI';
@@ -3868,7 +3850,4 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 运行中';
-
-  @override
-  String get githubTriageSendFailed => '无法发送。此聊天已有消息，或会话尚未就绪。请从项目开始新会话后再请求。';
 }

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../models/messages.dart';
+import 'mock_github.dart';
 import 'store_screenshot_data.dart';
 
 class MockStep {
@@ -138,7 +139,9 @@ final List<MockScenario> mockScenarios = [
   generatedImageChatPreviewScenario,
   generatedImagePreviewScenario,
   imageDiffScenario,
-  githubTriageScenario,
+  githubEmptyChatScenario,
+  githubEmptyChatCodexScenario,
+  githubStatesScenario,
   storeDiffLineNumberScenario,
   // File Peek
   _filePeek,
@@ -3544,15 +3547,48 @@ const imageDiffScenario = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// Standalone: GitHub triage (Issues / PRs)
+// GitHub: Issues / PRs
 // ---------------------------------------------------------------------------
-/// Opens the Issues / PRs screen against the mock Bridge, which answers
+List<MockStep> _githubEmptyChatSteps(String sessionId) => [
+  MockStep(
+    delay: const Duration(milliseconds: 200),
+    message: SystemMessage(
+      subtype: 'init',
+      sessionId: sessionId,
+      projectPath: MockGitHubProjects.repository,
+    ),
+  ),
+  MockStep(
+    delay: const Duration(milliseconds: 300),
+    message: const StatusMessage(status: ProcessStatus.idle),
+  ),
+];
+
+/// An empty chat with the "Open Issues / PRs" entry. The mock Bridge answers
 /// `github_list` / `github_item` from `mock_github.dart` (including a draft
-/// and dependabot pull requests, and one project path per error state).
-const githubTriageScenario = MockScenario(
-  name: 'GitHub Triage',
+/// and dependabot pull requests), so items can be picked, show up above the
+/// composer, and be sent to the mock session.
+final githubEmptyChatScenario = MockScenario(
+  name: 'GitHub Issues PRs',
   icon: Icons.fact_check_outlined,
-  description: 'Issues / PRs list, multi-select, and the triage request sheet',
+  description: 'Empty chat entry, selecting items, cards above the composer',
+  steps: _githubEmptyChatSteps('mock-github-issues-prs'),
+);
+
+final githubEmptyChatCodexScenario = MockScenario(
+  name: 'GitHub Issues PRs Codex',
+  icon: Icons.fact_check_outlined,
+  description: 'Codex variant of the empty chat Issues / PRs entry',
+  provider: MockScenarioProvider.codex,
+  steps: _githubEmptyChatSteps('mock-github-issues-prs-codex'),
+);
+
+/// Opens the Issues / PRs screen directly, with one project path per error
+/// state of the mock Bridge.
+const githubStatesScenario = MockScenario(
+  name: 'GitHub Screen States',
+  icon: Icons.fact_check_outlined,
+  description: 'Issues / PRs screen: list, gh errors, older Bridge',
   section: MockScenarioSection.chat,
   steps: [],
 );

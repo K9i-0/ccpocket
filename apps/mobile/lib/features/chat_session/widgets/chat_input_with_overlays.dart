@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../github/state/github_selection_state.dart';
+import '../../github/widgets/github_selection_cards.dart';
 import '../../media_feedback/media_feedback_scope.dart';
 import '../../media_feedback/media_feedback_send.dart';
 import '../../media_feedback/state/media_feedback_state.dart';
@@ -111,6 +113,9 @@ class ChatInputWithOverlays extends HookWidget {
     useStream(feedbackCubit.stream, initialData: feedbackCubit.state);
     final feedbackEntries = feedbackCubit.items(sessionId);
     final feedbackBinding = MediaFeedbackBinding(feedbackCubit, sessionId);
+    final githubSelection = context.read<DraftService>().githubSelection;
+    useStream(githubSelection.stream, initialData: githubSelection.state);
+    final githubItems = githubSelection.items(sessionId);
 
     // Track if input is completely empty (for slash command button swap)
     final isInputEmpty = useState(inputController.text.isEmpty);
@@ -774,7 +779,8 @@ class ChatInputWithOverlays extends HookWidget {
       if (text.isEmpty &&
           attachedImages.value.isEmpty &&
           attachedDiffSelection.value == null &&
-          feedbackEntries.isEmpty) {
+          feedbackEntries.isEmpty &&
+          githubItems.isEmpty) {
         return;
       }
       HapticFeedback.lightImpact();
@@ -788,7 +794,9 @@ class ChatInputWithOverlays extends HookWidget {
 
       // Build final message text with the requested diff prepended.
       final feedbackSnapshot = List<MediaFeedback>.of(feedbackEntries);
-      var finalText = text;
+      final githubSnapshot = List<GitHubSelectedItem>.of(githubItems);
+      // The user's text stays first so a leading skill trigger keeps working.
+      var finalText = appendGitHubSelection(text, githubSnapshot);
       if (selection != null) {
         if (selection.diffText.isNotEmpty) {
           final prefix = '```diff\n${selection.diffText}\n```';
@@ -851,6 +859,7 @@ class ChatInputWithOverlays extends HookWidget {
         );
         if (!accepted) return;
         feedbackCubit.removeSent(sessionId, feedbackSnapshot);
+        githubSelection.removeSent(sessionId, githubSnapshot);
         if (!context.mounted) {
           if (draftService.getDraft(sessionId) == inputSnapshot) {
             draftService.deleteDraft(sessionId);
@@ -1287,6 +1296,10 @@ class ChatInputWithOverlays extends HookWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  GitHubSelectionCards(
+                    cubit: githubSelection,
+                    sessionId: sessionId,
+                  ),
                   MediaFeedbackCards(
                     binding: feedbackBinding,
                     entries: feedbackEntries,
@@ -1303,7 +1316,8 @@ class ChatInputWithOverlays extends HookWidget {
                         (hasInputText.value ||
                             attachedImages.value.isNotEmpty ||
                             attachedDiffSelection.value != null ||
-                            feedbackEntries.isNotEmpty),
+                            feedbackEntries.isNotEmpty ||
+                            githubItems.isNotEmpty),
                     isInputEmpty: isInputEmpty.value,
                     isVoiceAvailable:
                         !settings.hideVoiceInput && voice.isAvailable,

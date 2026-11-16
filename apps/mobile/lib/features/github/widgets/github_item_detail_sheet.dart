@@ -10,15 +10,27 @@ import '../../../services/bridge_service.dart';
 import '../../../theme/markdown_style.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/github_item_cubit.dart';
+import '../state/github_selection_cubit.dart';
+import '../state/github_selection_state.dart';
 import 'github_error_view.dart';
 import 'github_item_tile.dart';
 
+/// Selection of one item for a session, as offered by the detail sheet.
+typedef GitHubDetailSelection = ({
+  GitHubSelectionCubit cubit,
+  String sessionId,
+  GitHubSelectedItem item,
+});
+
 /// Shows the body and latest comments of one pull request or issue.
+///
+/// With a [selection] the sheet also offers selecting or deselecting it.
 Future<void> showGitHubItemDetailSheet(
   BuildContext context, {
   required String projectPath,
   required GitHubItemKind kind,
   required GitHubItemSummary summary,
+  GitHubDetailSelection? selection,
 }) {
   final bridge = context.read<BridgeService>();
   return showModalBottomSheet<void>(
@@ -34,15 +46,16 @@ Future<void> showGitHubItemDetailSheet(
         kind: kind,
         summary: summary,
       ),
-      child: GitHubItemDetailSheet(kind: kind),
+      child: GitHubItemDetailSheet(kind: kind, selection: selection),
     ),
   );
 }
 
 class GitHubItemDetailSheet extends StatelessWidget {
   final GitHubItemKind kind;
+  final GitHubDetailSelection? selection;
 
-  const GitHubItemDetailSheet({super.key, required this.kind});
+  const GitHubItemDetailSheet({super.key, required this.kind, this.selection});
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +74,11 @@ class GitHubItemDetailSheet extends StatelessWidget {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
-                  _GitHubDetailHeader(summary: state.summary, kind: kind),
+                  _GitHubDetailHeader(
+                    summary: state.summary,
+                    kind: kind,
+                    selection: selection,
+                  ),
                   const Divider(height: 24),
                   if (failure != null)
                     GitHubErrorView(
@@ -86,8 +103,13 @@ class GitHubItemDetailSheet extends StatelessWidget {
 class _GitHubDetailHeader extends StatelessWidget {
   final GitHubItemSummary summary;
   final GitHubItemKind kind;
+  final GitHubDetailSelection? selection;
 
-  const _GitHubDetailHeader({required this.summary, required this.kind});
+  const _GitHubDetailHeader({
+    required this.summary,
+    required this.kind,
+    required this.selection,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -137,16 +159,57 @@ class _GitHubDetailHeader extends StatelessWidget {
               ),
           ],
         ),
-        if (uri != null && uri.hasScheme) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            key: const ValueKey('github_open_on_github_button'),
-            onPressed: () => unawaited(launchMarkdownUri(uri)),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: Text(l.githubOpenOnGitHub),
-          ),
-        ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (selection case final selection?)
+              _GitHubDetailSelectButton(selection: selection),
+            if (uri != null && uri.hasScheme)
+              OutlinedButton.icon(
+                key: const ValueKey('github_open_on_github_button'),
+                onPressed: () => unawaited(launchMarkdownUri(uri)),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: Text(l.githubOpenOnGitHub),
+              ),
+          ],
+        ),
       ],
+    );
+  }
+}
+
+/// Selects or deselects the shown item for the session.
+class _GitHubDetailSelectButton extends StatelessWidget {
+  final GitHubDetailSelection selection;
+
+  const _GitHubDetailSelectButton({required this.selection});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final (:cubit, :sessionId, :item) = selection;
+    return BlocBuilder<GitHubSelectionCubit, GitHubSelectionState>(
+      bloc: cubit,
+      builder: (context, _) {
+        final selected = cubit.isSelected(sessionId, item.url);
+        void toggle() => cubit.toggle(sessionId, item);
+        const key = ValueKey('github_detail_select_button');
+        return selected
+            ? FilledButton.icon(
+                key: key,
+                onPressed: toggle,
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: Text(l.githubSelected),
+              )
+            : FilledButton.tonalIcon(
+                key: key,
+                onPressed: toggle,
+                icon: const Icon(Icons.radio_button_unchecked, size: 18),
+                label: Text(l.githubSelect),
+              );
+      },
     );
   }
 }

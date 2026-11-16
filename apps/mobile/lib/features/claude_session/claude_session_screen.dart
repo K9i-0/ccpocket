@@ -1382,61 +1382,79 @@ class _ChatScreenBody extends HookWidget {
                           ),
                         );
                       },
-                      content: ChatMessageList(
-                        liteMode: context.select<SettingsCubit, bool>(
-                          (cubit) => cubit.state.liteModeForSession(sessionId),
-                        ),
-                        sessionId: sessionId,
-                        scrollController: scroll.controller,
-                        httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
-                        projectPath: effectiveProjectPath,
-                        onRetryMessage: (entry) {
-                          context.read<ChatSessionCubit>().retryMessage(entry);
-                        },
-                        // In-place edit replaces the legacy conversation
-                        // rewind; file restore stays as its own action.
-                        onRewindMessage: supportsMessageEdit
-                            ? null
-                            : (entry) {
-                                _showRewindActionSheet(
-                                  context,
-                                  entry,
-                                  sessionId: sessionId,
-                                  inputController: chatInputController,
-                                  draftService: draftService,
-                                );
-                              },
-                        onEditMessage:
-                            supportsMessageEdit && status == ProcessStatus.idle
-                            ? (entry, text) => context
-                                  .read<ChatSessionCubit>()
-                                  .editMessage(entry, text)
-                            : null,
-                        onRestoreFilesMessage: supportsMessageEdit
-                            ? (entry) => _showRewindActionSheet(
-                                context,
+                      content: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ChatMessageList(
+                            liteMode: context.select<SettingsCubit, bool>(
+                              (cubit) =>
+                                  cubit.state.liteModeForSession(sessionId),
+                            ),
+                            sessionId: sessionId,
+                            scrollController: scroll.controller,
+                            httpBaseUrl: context
+                                .read<BridgeService>()
+                                .httpBaseUrl,
+                            projectPath: effectiveProjectPath,
+                            onRetryMessage: (entry) {
+                              context.read<ChatSessionCubit>().retryMessage(
                                 entry,
-                                sessionId: sessionId,
-                                inputController: chatInputController,
-                                draftService: draftService,
-                                availableModes: const [RewindMode.code],
-                              )
-                            : null,
-                        onForkMessage:
-                            context.read<BridgeService>().supportsClaudeFork
-                            ? (message) => unawaited(
-                                _forkClaudeFromAssistant(context, message),
-                              )
-                            : null,
-                        collapseToolResults: collapseToolResults,
-                        scrollToUserEntry: scrollToUserEntry,
-                        bottomPadding: 8,
-                        isCodex: false,
-                        isReadingHistory: scroll.isReadingHistory,
-                        onScrollMetricsChanged: scroll.onScrollMetricsChanged,
-                        onFilePeekOpened: context
-                            .read<ChatSessionCubit>()
-                            .recordPeekedFile,
+                              );
+                            },
+                            // In-place edit replaces the legacy conversation
+                            // rewind; file restore stays as its own action.
+                            onRewindMessage: supportsMessageEdit
+                                ? null
+                                : (entry) {
+                                    _showRewindActionSheet(
+                                      context,
+                                      entry,
+                                      sessionId: sessionId,
+                                      inputController: chatInputController,
+                                      draftService: draftService,
+                                    );
+                                  },
+                            onEditMessage:
+                                supportsMessageEdit &&
+                                    status == ProcessStatus.idle
+                                ? (entry, text) => context
+                                      .read<ChatSessionCubit>()
+                                      .editMessage(entry, text)
+                                : null,
+                            onRestoreFilesMessage: supportsMessageEdit
+                                ? (entry) => _showRewindActionSheet(
+                                    context,
+                                    entry,
+                                    sessionId: sessionId,
+                                    inputController: chatInputController,
+                                    draftService: draftService,
+                                    availableModes: const [RewindMode.code],
+                                  )
+                                : null,
+                            onForkMessage:
+                                context.read<BridgeService>().supportsClaudeFork
+                                ? (message) => unawaited(
+                                    _forkClaudeFromAssistant(context, message),
+                                  )
+                                : null,
+                            collapseToolResults: collapseToolResults,
+                            scrollToUserEntry: scrollToUserEntry,
+                            bottomPadding: 8,
+                            isCodex: false,
+                            isReadingHistory: scroll.isReadingHistory,
+                            onScrollMetricsChanged:
+                                scroll.onScrollMetricsChanged,
+                            onFilePeekOpened: context
+                                .read<ChatSessionCubit>()
+                                .recordPeekedFile,
+                          ),
+                          Positioned.fill(
+                            child: EmptyChatGitHubButton(
+                              sessionId: sessionId,
+                              projectPath: effectiveProjectPath,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     bars: Column(
@@ -1444,10 +1462,6 @@ class _ChatScreenBody extends HookWidget {
                       children: [
                         LiteModeActivityBar(sessionId: sessionId),
                         const SessionBackgroundTasksBar(),
-                        EmptyChatGitHubButton(
-                          sessionId: sessionId,
-                          projectPath: effectiveProjectPath,
-                        ),
                       ],
                     ),
                     composer: approval is ApprovalNone

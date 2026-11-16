@@ -17,22 +17,25 @@ String githubRelativeTime(BuildContext context, DateTime? time) {
 }
 
 /// One pull request or issue row.
+///
+/// The leading circle picks the item for the session; the rest of the row
+/// opens its detail, so both work without a selection mode.
 class GitHubItemTile extends StatelessWidget {
   final GitHubItemSummary item;
   final GitHubItemKind kind;
-  final bool selectionMode;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+
+  /// `null` when the item cannot be selected (it has no URL).
+  final VoidCallback? onToggleSelected;
 
   const GitHubItemTile({
     super.key,
     required this.item,
     required this.kind,
-    required this.selectionMode,
     required this.selected,
     required this.onTap,
-    required this.onLongPress,
+    required this.onToggleSelected,
   });
 
   @override
@@ -46,49 +49,51 @@ class GitHubItemTile extends StatelessWidget {
       child: InkWell(
         key: ValueKey('github_item_${item.number}'),
         onTap: onTap,
-        onLongPress: onLongPress,
+        onLongPress: onToggleSelected,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.only(left: 4, right: 16, top: 4, bottom: 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              GitHubSelectToggle(
+                number: item.number,
+                selected: selected,
+                onPressed: onToggleSelected,
+              ),
               Padding(
-                padding: const EdgeInsets.only(top: 2, right: 12),
-                child: _GitHubItemLeading(
-                  number: item.number,
-                  kind: kind,
-                  isDraft: item.isDraft,
-                  selectionMode: selectionMode,
-                  selected: selected,
-                ),
+                padding: const EdgeInsets.only(top: 14, right: 8),
+                child: _GitHubKindIcon(kind: kind, isDraft: item.isDraft),
               ),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '#${item.number} ',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '#${item.number} ',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          TextSpan(text: item.title),
-                        ],
+                            TextSpan(text: item.title),
+                          ],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    switch (kind) {
-                      GitHubItemKind.pr => _PullRequestMeta(item: item),
-                      GitHubItemKind.issue => _IssueMeta(item: item),
-                    },
-                  ],
+                      const SizedBox(height: 6),
+                      switch (kind) {
+                        GitHubItemKind.pr => _PullRequestMeta(item: item),
+                        GitHubItemKind.issue => _IssueMeta(item: item),
+                      },
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -99,40 +104,52 @@ class GitHubItemTile extends StatelessWidget {
   }
 }
 
-class _GitHubItemLeading extends StatelessWidget {
+/// Selection circle of a row, with a full-size tap target.
+class GitHubSelectToggle extends StatelessWidget {
   final int number;
-  final GitHubItemKind kind;
-  final bool isDraft;
-  final bool selectionMode;
   final bool selected;
+  final VoidCallback? onPressed;
 
-  const _GitHubItemLeading({
+  const GitHubSelectToggle({
+    super.key,
     required this.number,
-    required this.kind,
-    required this.isDraft,
-    required this.selectionMode,
     required this.selected,
+    required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
-    if (selectionMode) {
-      return Icon(
-        selected ? Icons.check_circle : Icons.radio_button_unchecked,
-        key: ValueKey('github_item_check_$number'),
-        size: 22,
-        color: selected ? colorScheme.primary : colorScheme.outline,
-      );
-    }
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    return IconButton(
+      key: ValueKey('github_item_select_$number'),
+      onPressed: onPressed,
+      isSelected: selected,
+      tooltip: selected ? l.githubDeselect : l.githubSelect,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      icon: Icon(Icons.radio_button_unchecked, color: colorScheme.outline),
+      selectedIcon: Icon(Icons.check_circle, color: colorScheme.primary),
+    );
+  }
+}
+
+class _GitHubKindIcon extends StatelessWidget {
+  final GitHubItemKind kind;
+  final bool isDraft;
+
+  const _GitHubKindIcon({required this.kind, required this.isDraft});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>()!;
     return Icon(
       switch (kind) {
         GitHubItemKind.pr => Icons.merge_type,
         GitHubItemKind.issue => Icons.adjust,
       },
-      size: 22,
-      color: isDraft ? colorScheme.outline : appColors.statusOnline,
+      size: 20,
+      color: isDraft ? theme.colorScheme.outline : appColors.statusOnline,
     );
   }
 }

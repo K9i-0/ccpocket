@@ -3831,46 +3831,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get githubSelectAll => 'すべて選択';
 
   @override
-  String get githubSelectAllSkipsDrafts => 'Draftは除外されます。含めるには個別にタップしてください。';
+  String get githubOpenIssuesAndPrs => 'Issue / PR を開く';
 
   @override
-  String get githubCancelSelection => '選択を解除';
+  String get githubSelect => '選択';
+
+  @override
+  String get githubSelected => '選択中';
+
+  @override
+  String get githubDeselect => '選択を解除';
+
+  @override
+  String get githubClearSelection => '選択をすべて解除';
+
+  @override
+  String get githubSelectAllSkipsDrafts => 'Draftは除外されます。含めるには個別にタップしてください。';
 
   @override
   String githubSelectedCount(int count) {
     return '$count件を選択中';
   }
-
-  @override
-  String get githubRequestTriage => 'トリアージを依頼';
-
-  @override
-  String get githubTriagePresetMerge => '調査してマージ';
-
-  @override
-  String get githubTriagePresetMergeHint => 'triageスキルの既定の動作';
-
-  @override
-  String get githubTriagePresetRelease => '対応してリリースまで';
-
-  @override
-  String get githubTriagePresetContentOnly => '内容確認・レビューのみ';
-
-  @override
-  String get githubTriagePresetClose => '解決済みか確認してコメント・クローズ';
-
-  @override
-  String get githubTriageNoteHint => '追加の指示（任意）';
-
-  @override
-  String get githubTriageStartsNewSession =>
-      'このプロジェクトで新しいセッションを開始します。エージェントとeffortは次の画面で選びます。';
-
-  @override
-  String get githubTriageSendsToSession => 'このセッションの最初のメッセージとして送信します。';
-
-  @override
-  String get githubTriageNext => '次へ';
 
   @override
   String get githubErrorGhMissingTitle => 'GitHub CLIが見つかりません';
@@ -3913,8 +3894,4 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI実行中';
-
-  @override
-  String get githubTriageSendFailed =>
-      '送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。';
 }

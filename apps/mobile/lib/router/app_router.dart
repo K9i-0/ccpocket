@@ -8,7 +8,6 @@ import '../features/codex_session/codex_session_screen.dart';
 import '../features/explore/explore_screen.dart';
 import '../features/explore/state/explore_state.dart';
 import '../features/git/git_screen.dart';
-import '../features/github/github_screen.dart';
 import '../features/gallery/gallery_screen.dart';
 import '../features/session_list/workspace_shell_screen.dart';
 import '../features/session_link/session_link_screen.dart';
@@ -38,7 +37,6 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: ExploreRoute.page, path: '/explore'),
     AutoRoute(page: GalleryRoute.page, path: '/gallery'),
     AutoRoute(page: GitRoute.page, path: '/git'),
-    AutoRoute(page: GitHubRoute.page, path: '/github'),
     AutoRoute(page: SettingsRoute.page, path: '/settings'),
     AutoRoute(page: LicensesRoute.page, path: '/licenses'),
     AutoRoute(page: ChangelogRoute.page, path: '/changelog'),

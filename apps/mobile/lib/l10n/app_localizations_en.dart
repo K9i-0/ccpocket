@@ -3977,49 +3977,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get githubSelectAll => 'Select all';
 
   @override
-  String get githubSelectAllSkipsDrafts =>
-      'Drafts are skipped. Tap one to include it.';
+  String get githubOpenIssuesAndPrs => 'Open Issues / PRs';
 
   @override
-  String get githubCancelSelection => 'Cancel selection';
+  String get githubSelect => 'Select';
+
+  @override
+  String get githubSelected => 'Selected';
+
+  @override
+  String get githubDeselect => 'Deselect';
+
+  @override
+  String get githubClearSelection => 'Clear selection';
+
+  @override
+  String get githubSelectAllSkipsDrafts =>
+      'Drafts are skipped. Tap one to include it.';
 
   @override
   String githubSelectedCount(int count) {
     return '$count selected';
   }
-
-  @override
-  String get githubRequestTriage => 'Request triage';
-
-  @override
-  String get githubTriagePresetMerge => 'Investigate and merge';
-
-  @override
-  String get githubTriagePresetMergeHint =>
-      'Default behavior of the triage skill';
-
-  @override
-  String get githubTriagePresetRelease => 'Handle and release';
-
-  @override
-  String get githubTriagePresetContentOnly => 'Content / review only';
-
-  @override
-  String get githubTriagePresetClose => 'Check if resolved, comment, and close';
-
-  @override
-  String get githubTriageNoteHint => 'Additional instructions (optional)';
-
-  @override
-  String get githubTriageStartsNewSession =>
-      'Starts a new session in this project. You choose the agent and effort next.';
-
-  @override
-  String get githubTriageSendsToSession =>
-      'Sent as the first message of this session.';
-
-  @override
-  String get githubTriageNext => 'Next';
 
   @override
   String get githubErrorGhMissingTitle => 'GitHub CLI not found';
@@ -4064,8 +4043,4 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI running';
-
-  @override
-  String get githubTriageSendFailed =>
-      'Couldn\'t send. This chat already has messages or the session isn\'t ready. Start a new session from the project instead.';
 }

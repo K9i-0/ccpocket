@@ -84,11 +84,6 @@ abstract class GitHubListState with _$GitHubListState {
     /// `owner/name`.
     String? repository,
     @Default(GitHubFilters()) GitHubFilters filters,
-    @Default(false) bool selectionMode,
-
-    /// Selected item numbers. Issues and pull requests share one number space,
-    /// so a selection can span both tabs.
-    @Default({}) Set<int> selected,
   }) = _GitHubListState;
 
   GitHubTabState tab(GitHubItemKind kind) => switch (kind) {
@@ -117,7 +112,4 @@ abstract class GitHubListState with _$GitHubListState {
     }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return labels;
   }
-
-  /// Selected numbers in ascending order, as sent to the triage skill.
-  List<int> get selectedNumbers => selected.toList()..sort();
 }

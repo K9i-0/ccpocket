@@ -6,13 +6,15 @@ import 'package:material_ui/material_ui.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../services/draft_service.dart';
 import '../../chat_session/state/chat_session_cubit.dart';
 import '../../chat_session/state/chat_session_state.dart';
+import '../../chat_session/widgets/floating_composer_layout.dart';
 import '../../session_list/workspace_shell_screen.dart';
 import '../github_screen.dart';
-import '../triage_prompt.dart';
+import 'github_mark_icon.dart';
 
-/// Whether a chat still offers the "Issues / PRs" entry.
+/// Whether a chat still offers the "Open Issues / PRs" entry.
 ///
 /// It is offered only until the user sends something: a sent, failed, or
 /// offline-pending message and a queued input all count. Assistant and system
@@ -32,67 +34,43 @@ bool showsEmptyChatGitHubEntry(ChatSessionState state) {
   );
 }
 
-/// Opens the Issues / PRs screen for a chat. The composed `/triage ...`
-/// request is sent through the session's normal send path, which converts
-/// the skill trigger for the session's agent.
+/// Opens the Issues / PRs screen for the chat of [sessionId]. What is picked
+/// there becomes that session's selection; nothing is sent.
 Future<void> openGitHubScreenForSession(
   BuildContext context, {
   required String projectPath,
   required String sessionId,
+  bool toggle = true,
 }) async {
-  final cubit = context.read<ChatSessionCubit>();
-  Future<bool> send(String prompt) => sendTriageAsFirstMessage(cubit, prompt);
-
   final shell = WorkspaceShellScreen.maybeOf(context);
   if (shell?.canOpenToolPane ?? false) {
     shell!.openGitHubPane(
       projectPath: projectPath,
       sessionId: sessionId,
-      onSubmitTriage: send,
+      toggle: toggle,
     );
     return;
   }
-  // Without a workspace shell (previews), keep the screen on the Bridge this
-  // chat talks to rather than whatever a new route would inherit.
+  // Keep the screen on the Bridge this chat talks to rather than whatever a
+  // new route would inherit.
   final bridge = context.read<BridgeService>();
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (_) => RepositoryProvider<BridgeService>.value(
         value: bridge,
-        child: GitHubScreen(
-          projectPath: projectPath,
-          triageTarget: GitHubTriageTarget.currentSession,
-          onSubmitTriage: send,
-        ),
+        child: GitHubScreen(projectPath: projectPath, sessionId: sessionId),
       ),
     ),
   );
 }
 
-/// Sends [prompt] only while the chat is still empty. The screen can stay
-/// open while the session moves on (another client, a queued input), and a
-/// triage request must not land in the middle of a conversation.
-///
-/// The trigger is converted here as well as in the send path, because a new
-/// Codex session may not have reported its skill list yet.
-Future<bool> sendTriageAsFirstMessage(
-  ChatSessionCubit cubit,
-  String prompt,
-) async {
-  if (cubit.isClosed || !showsEmptyChatGitHubEntry(cubit.state)) return false;
-  return cubit.sendMessage(
-    triagePromptForProvider(
-      prompt,
-      cubit.isCodex ? Provider.codex : Provider.claude,
-    ),
-  );
-}
-
-/// "Issues / PRs" shortcut shown above the composer of an empty chat.
+/// "Open Issues / PRs" entry centered in an empty chat.
 ///
 /// It never calls the Bridge itself; a non-GitHub project or an older Bridge
-/// is explained inside the screen it opens.
-class EmptyChatGitHubButton extends StatelessWidget {
+/// is explained inside the screen it opens. A session that was started from a
+/// project's Issues / PRs entry opens the screen by itself once the chat is
+/// ready (`GitHubSelectionCubit.requestOpen`).
+class EmptyChatGitHubButton extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
 
@@ -103,29 +81,61 @@ class EmptyChatGitHubButton extends StatelessWidget {
   });
 
   @override
+  State<EmptyChatGitHubButton> createState() => _EmptyChatGitHubButtonState();
+}
+
+class _EmptyChatGitHubButtonState extends State<EmptyChatGitHubButton> {
+  bool _autoOpenScheduled = false;
+
+  void _open({bool toggle = true}) {
+    final projectPath = widget.projectPath;
+    if (projectPath == null || projectPath.isEmpty) return;
+    unawaited(
+      openGitHubScreenForSession(
+        context,
+        projectPath: projectPath,
+        sessionId: widget.sessionId,
+        toggle: toggle,
+      ),
+    );
+  }
+
+  /// Runs after the frame, because opening the screen navigates.
+  void _scheduleAutoOpen() {
+    if (_autoOpenScheduled) return;
+    _autoOpenScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoOpenScheduled = false;
+      if (!mounted) return;
+      final selection = context.read<DraftService?>()?.githubSelection;
+      if (selection == null || !selection.takeOpenRequest(widget.sessionId)) {
+        return;
+      }
+      _open(toggle: false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final projectPath = this.projectPath;
+    final projectPath = widget.projectPath;
     final visible = context.select<ChatSessionCubit, bool>(
       (cubit) => showsEmptyChatGitHubEntry(cubit.state),
     );
     if (!visible || projectPath == null || projectPath.isEmpty) {
       return const SizedBox.shrink();
     }
+    _scheduleAutoOpen();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: ActionChip(
+      // The chat content extends behind the bars and the composer.
+      padding: EdgeInsets.only(
+        bottom: FloatingComposerStatus.obscuredBottomOf(context),
+      ),
+      child: Center(
+        child: FilledButton.tonalIcon(
           key: const ValueKey('empty_chat_github_button'),
-          avatar: const Icon(Icons.fact_check_outlined, size: 18),
-          label: Text(AppLocalizations.of(context).githubIssuesAndPrs),
-          onPressed: () => unawaited(
-            openGitHubScreenForSession(
-              context,
-              projectPath: projectPath,
-              sessionId: sessionId,
-            ),
-          ),
+          onPressed: _open,
+          icon: const GitHubMarkIcon(size: 20),
+          label: Text(AppLocalizations.of(context).githubOpenIssuesAndPrs),
         ),
       ),
     );

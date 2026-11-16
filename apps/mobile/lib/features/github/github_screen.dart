@@ -1,48 +1,44 @@
 import 'dart:async';
 
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
+import '../../services/draft_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'state/github_list_cubit.dart';
 import 'state/github_list_state.dart';
+import 'state/github_selection_cubit.dart';
+import 'state/github_selection_state.dart';
 import 'state/github_view_cache_service.dart';
 import 'widgets/github_error_view.dart';
 import 'widgets/github_filter_bar.dart';
 import 'widgets/github_item_detail_sheet.dart';
 import 'widgets/github_item_tile.dart';
-import 'widgets/github_triage_sheet.dart';
 
-export 'widgets/github_triage_sheet.dart'
-    show GitHubTriageSubmit, GitHubTriageTarget;
-
-/// Open issues and pull requests of a project, with multi-select to hand
-/// them to the triage skill.
+/// Open issues and pull requests of a project, picked for one session.
 ///
-/// The screen only reads from GitHub. It produces a `/triage ...` prompt and
-/// leaves sending to its opener through [onSubmitTriage]. When the prompt is
-/// accepted a pushed screen pops itself; an embedded pane is closed by its
-/// host.
-@RoutePage()
+/// The screen only reads from GitHub and sends nothing. What is picked here
+/// is the session's selection in [GitHubSelectionCubit]: it shows up at once
+/// as cards above that session's composer, and its URLs are appended to the
+/// next message the user sends.
 class GitHubScreen extends StatefulWidget {
   final String projectPath;
-  final GitHubTriageTarget triageTarget;
+
+  /// The session the selection belongs to.
+  final String sessionId;
   final bool embedded;
   final VoidCallback? onClose;
-  final GitHubTriageSubmit onSubmitTriage;
 
   const GitHubScreen({
     super.key,
     required this.projectPath,
-    this.triageTarget = GitHubTriageTarget.newSession,
+    required this.sessionId,
     this.embedded = false,
     this.onClose,
-    required this.onSubmitTriage,
   });
 
   @override
@@ -56,6 +52,7 @@ class _GitHubScreenState extends State<GitHubScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final GitHubListCubit _cubit;
+  late final GitHubSelectionCubit _selection;
   bool _ownsCubit = false;
 
   GitHubItemKind get _kind => _tabKinds[_tabController.index];
@@ -65,6 +62,7 @@ class _GitHubScreenState extends State<GitHubScreen>
     super.initState();
     _tabController = TabController(length: _tabKinds.length, vsync: this)
       ..addListener(_onTabChanged);
+    _selection = context.read<DraftService>().githubSelection;
     final bridge = context.read<BridgeService>();
     final cache = context.read<GitHubViewCacheService?>();
     if (cache == null || !cache.serves(bridge)) {
@@ -107,57 +105,55 @@ class _GitHubScreenState extends State<GitHubScreen>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
-    if (_ownsCubit) {
-      unawaited(_cubit.close());
-    } else if (!_cubit.isClosed) {
-      // The cached lists outlive the screen; a selection must not.
-      _cubit.clearSelection();
-    }
+    if (_ownsCubit) unawaited(_cubit.close());
     super.dispose();
   }
 
-  Future<void> _requestTriage() async {
-    final numbers = _cubit.state.selectedNumbers;
-    if (numbers.isEmpty) return;
-    final accepted = await showGitHubTriageSheet(
-      context,
-      numbers: numbers,
-      target: widget.triageTarget,
-      onSubmit: widget.onSubmitTriage,
-    );
-    if (accepted != true || !mounted) return;
-    _cubit.clearSelection();
-    if (!widget.embedded) Navigator.of(context).pop();
+  /// Adds every visible item of the current tab except drafts, which are
+  /// not ready for work unless picked on purpose.
+  void _selectAllVisible() {
+    final state = _cubit.state;
+    _selection.addAll(widget.sessionId, [
+      for (final item in state.visibleItems(_kind))
+        if (!item.isDraft)
+          ?GitHubSelectedItem.fromSummary(
+            item,
+            _kind,
+            repository: state.repository,
+          ),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<GitHubListCubit>.value(
-      value: _cubit,
-      child: BlocBuilder<GitHubListCubit, GitHubListState>(
-        builder: (context, state) {
-          final selecting = state.selectionMode;
-          final shell = WorkspaceShellScreen.maybeOf(context);
-          final chrome = resolveWorkspacePaneChrome(
-            platform: Theme.of(context).platform,
-            isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
-            isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
-            slot: WorkspacePaneSlot.right,
-          );
-          return PopScope(
-            canPop: !selecting,
-            onPopInvokedWithResult: (didPop, _) {
-              if (!didPop && selecting) _cubit.clearSelection();
-            },
-            child: Scaffold(
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+      isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+      slot: WorkspacePaneSlot.right,
+    );
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<GitHubListCubit>.value(value: _cubit),
+        BlocProvider<GitHubSelectionCubit>.value(value: _selection),
+      ],
+      child: BlocBuilder<GitHubSelectionCubit, GitHubSelectionState>(
+        builder: (context, _) {
+          final selectedCount = _selection.items(widget.sessionId).length;
+          return BlocBuilder<GitHubListCubit, GitHubListState>(
+            builder: (context, state) => Scaffold(
               appBar: chrome.wrapAppBar(
                 _GitHubAppBar(
                   state: state,
-                  kind: _kind,
+                  selectedCount: selectedCount,
                   chrome: chrome,
                   tabController: _tabController,
                   embedded: widget.embedded,
                   onClose: widget.onClose,
+                  onSelectAll: _selectAllVisible,
+                  onClearSelection: () => _selection.clear(widget.sessionId),
+                  onRefresh: () => unawaited(_cubit.refresh(_kind)),
                 ),
               ),
               body: Column(
@@ -170,6 +166,9 @@ class _GitHubScreenState extends State<GitHubScreen>
                     onDependabotOnlyChanged: _cubit.setDependabotOnly,
                     onLabelChanged: _cubit.setLabel,
                   ),
+                  if (selectedCount > 0 &&
+                      state.visibleItems(_kind).any((item) => item.isDraft))
+                    const _GitHubDraftNotice(),
                   const Divider(height: 1),
                   Expanded(
                     child: TabBarView(
@@ -180,21 +179,13 @@ class _GitHubScreenState extends State<GitHubScreen>
                             key: ValueKey('github_list_${kind.value}'),
                             kind: kind,
                             projectPath: widget.projectPath,
+                            sessionId: widget.sessionId,
                           ),
                       ],
                     ),
                   ),
                 ],
               ),
-              bottomNavigationBar: selecting
-                  ? GitHubSelectionBar(
-                      count: state.selected.length,
-                      showDraftNotice: state
-                          .visibleItems(_kind)
-                          .any((item) => item.isDraft),
-                      onRequestTriage: _requestTriage,
-                    )
-                  : null,
             ),
           );
         },
@@ -203,21 +194,47 @@ class _GitHubScreenState extends State<GitHubScreen>
   }
 }
 
+/// Explains that "select all" left the drafts of the current tab out.
+class _GitHubDraftNotice extends StatelessWidget {
+  const _GitHubDraftNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Text(
+        AppLocalizations.of(context).githubSelectAllSkipsDrafts,
+        key: const ValueKey('github_draft_notice'),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
 class _GitHubAppBar extends StatelessWidget implements PreferredSizeWidget {
   final GitHubListState state;
-  final GitHubItemKind kind;
+  final int selectedCount;
   final WorkspacePaneChrome chrome;
   final TabController tabController;
   final bool embedded;
   final VoidCallback? onClose;
+  final VoidCallback onSelectAll;
+  final VoidCallback onClearSelection;
+  final VoidCallback onRefresh;
 
   const _GitHubAppBar({
     required this.state,
-    required this.kind,
+    required this.selectedCount,
     required this.chrome,
     required this.tabController,
     required this.embedded,
     required this.onClose,
+    required this.onSelectAll,
+    required this.onClearSelection,
+    required this.onRefresh,
   });
 
   @override
@@ -228,17 +245,8 @@ class _GitHubAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
-    final cubit = context.read<GitHubListCubit>();
-    final selecting = state.selectionMode;
     final repository = state.repository;
-    final Widget? leading = selecting
-        ? IconButton(
-            key: const ValueKey('github_cancel_selection_button'),
-            onPressed: cubit.clearSelection,
-            tooltip: l.githubCancelSelection,
-            icon: const Icon(Icons.close),
-          )
-        : embedded
+    final Widget? leading = embedded
         ? IconButton(
             key: const ValueKey('close_github_pane_button'),
             onPressed: onClose,
@@ -248,49 +256,57 @@ class _GitHubAppBar extends StatelessWidget implements PreferredSizeWidget {
         : null;
     return AppBar(
       toolbarHeight: chrome.toolbarHeight,
-      automaticallyImplyLeading: !embedded && !selecting,
+      automaticallyImplyLeading: !embedded,
       leading: chrome.wrapLeading(leading),
       leadingWidth: chrome.resolveLeadingWidth(
         hasLeading: leading != null,
         baseWidth: kToolbarHeight,
       ),
-      title: selecting
-          ? Text(
-              l.githubSelectedCount(state.selected.length),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (selectedCount > 0)
+            Text(
+              l.githubSelectedCount(selectedCount),
               key: const ValueKey('github_selected_count'),
+              overflow: TextOverflow.ellipsis,
             )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l.githubIssuesAndPrs, overflow: TextOverflow.ellipsis),
-                if (repository != null && repository.isNotEmpty)
-                  Text(
-                    repository,
-                    key: const ValueKey('github_repository'),
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
+          else
+            Text(l.githubIssuesAndPrs, overflow: TextOverflow.ellipsis),
+          if (repository != null && repository.isNotEmpty)
+            Text(
+              repository,
+              key: const ValueKey('github_repository'),
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
+        ],
+      ),
       actions: chrome.padActions([
-        if (selecting)
-          TextButton(
-            key: const ValueKey('github_select_all_button'),
-            onPressed: () => cubit.selectAllVisible(kind),
-            child: Text(l.githubSelectAll),
-          )
-        else
+        if (selectedCount > 0)
           IconButton(
-            key: const ValueKey('github_refresh_button'),
-            // Stays enabled while loading: a request stuck on a bad
-            // connection can be replaced without waiting for its timeout.
-            onPressed: () => unawaited(cubit.refresh(kind)),
-            tooltip: l.refresh,
-            icon: const Icon(Icons.refresh),
+            key: const ValueKey('github_clear_selection_button'),
+            onPressed: onClearSelection,
+            tooltip: l.githubClearSelection,
+            icon: const Icon(Icons.deselect),
           ),
+        IconButton(
+          key: const ValueKey('github_select_all_button'),
+          onPressed: onSelectAll,
+          tooltip: l.githubSelectAll,
+          icon: const Icon(Icons.select_all),
+        ),
+        IconButton(
+          key: const ValueKey('github_refresh_button'),
+          // Stays enabled while loading: a request stuck on a bad
+          // connection can be replaced without waiting for its timeout.
+          onPressed: onRefresh,
+          tooltip: l.refresh,
+          icon: const Icon(Icons.refresh),
+        ),
       ]),
       bottom: TabBar(
         controller: tabController,
@@ -326,16 +342,19 @@ class _GitHubAppBar extends StatelessWidget implements PreferredSizeWidget {
 class GitHubItemList extends StatelessWidget {
   final GitHubItemKind kind;
   final String projectPath;
+  final String sessionId;
 
   const GitHubItemList({
     super.key,
     required this.kind,
     required this.projectPath,
+    required this.sessionId,
   });
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<GitHubListCubit>();
+    final selection = context.watch<GitHubSelectionCubit>();
     return BlocBuilder<GitHubListCubit, GitHubListState>(
       builder: (context, state) {
         final tab = state.tab(kind);
@@ -367,24 +386,35 @@ class GitHubItemList extends StatelessWidget {
             separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final item = items[index];
+              final selectable = GitHubSelectedItem.fromSummary(
+                item,
+                kind,
+                repository: state.repository,
+              );
               return GitHubItemTile(
                 item: item,
                 kind: kind,
-                selectionMode: state.selectionMode,
-                selected: state.selected.contains(item.number),
-                onTap: () => state.selectionMode
-                    ? cubit.toggleSelected(item.number)
-                    : unawaited(
-                        showGitHubItemDetailSheet(
-                          context,
-                          projectPath: projectPath,
-                          kind: kind,
-                          summary: item,
-                        ),
-                      ),
-                onLongPress: () => state.selectionMode
-                    ? cubit.toggleSelected(item.number)
-                    : cubit.startSelection(item.number),
+                selected:
+                    selectable != null &&
+                    selection.isSelected(sessionId, selectable.url),
+                onTap: () => unawaited(
+                  showGitHubItemDetailSheet(
+                    context,
+                    projectPath: projectPath,
+                    kind: kind,
+                    summary: item,
+                    selection: selectable == null
+                        ? null
+                        : (
+                            cubit: selection,
+                            sessionId: sessionId,
+                            item: selectable,
+                          ),
+                  ),
+                ),
+                onToggleSelected: selectable == null
+                    ? null
+                    : () => selection.toggle(sessionId, selectable),
               );
             },
           );
@@ -496,62 +526,6 @@ class _GitHubStaleBanner extends StatelessWidget {
             ),
             TextButton(onPressed: onRetry, child: Text(l.retry)),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom bar shown in multi-select mode.
-class GitHubSelectionBar extends StatelessWidget {
-  final int count;
-
-  /// Whether the current tab shows drafts, which "select all" skips.
-  final bool showDraftNotice;
-  final VoidCallback onRequestTriage;
-
-  const GitHubSelectionBar({
-    super.key,
-    required this.count,
-    this.showDraftNotice = false,
-    required this.onRequestTriage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainer,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showDraftNotice) ...[
-                Text(
-                  l.githubSelectAllSkipsDrafts,
-                  key: const ValueKey('github_draft_notice'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: const ValueKey('github_request_triage_button'),
-                  onPressed: count == 0 ? null : onRequestTriage,
-                  icon: const Icon(Icons.assignment_turned_in_outlined),
-                  label: Text('${l.githubRequestTriage} ($count)'),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

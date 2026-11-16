@@ -11,8 +11,17 @@ import 'package:ccpocket/features/github/state/github_item_cubit.dart';
 import 'package:ccpocket/features/github/state/github_list_cubit.dart';
 import 'package:ccpocket/features/github/state/github_list_state.dart';
 import 'package:ccpocket/features/github/state/github_view_cache_service.dart';
-import 'package:ccpocket/features/github/triage_prompt.dart';
+import 'package:ccpocket/features/github/state/github_selection_cubit.dart';
+import 'package:ccpocket/features/github/state/github_selection_state.dart';
+import 'package:ccpocket/features/chat_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/features/github/widgets/empty_chat_github_button.dart';
+import 'package:ccpocket/features/github/widgets/github_mark_icon.dart';
+import 'package:ccpocket/features/github/widgets/github_selection_cards.dart';
+import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/providers/bridge_cubits.dart';
+import 'package:ccpocket/services/database_service.dart';
+import 'package:ccpocket/services/draft_service.dart';
+import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/mock/mock_github.dart';
@@ -20,10 +29,13 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/mock_bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'chat_screen/helpers/chat_test_helpers.dart' as helpers;
 
 /// Records what the app sends and lets a test answer by hand.
 class _Bridge extends BridgeService {
@@ -593,72 +605,6 @@ void main() {
     });
   });
 
-  group('GitHubListCubit selection', () {
-    setUp(() {
-      unawaited(cubit.refresh(GitHubItemKind.pr));
-      bridge.responses.add(
-        _list(bridge, GitHubItemKind.pr, [
-          _pr(342),
-          _pr(340, draft: true),
-          _pr(338, dependabot: true),
-        ]),
-      );
-    });
-
-    test('long press starts multi-select and taps toggle', () {
-      cubit.startSelection(342);
-      expect(cubit.state.selectionMode, isTrue);
-      expect(cubit.state.selected, {342});
-
-      cubit.toggleSelected(338);
-      expect(cubit.state.selectedNumbers, [338, 342]);
-      cubit.toggleSelected(342);
-      expect(cubit.state.selected, {338});
-    });
-
-    test('select all skips drafts, which stay selectable one by one', () {
-      cubit.startSelection(342);
-      cubit.selectAllVisible(GitHubItemKind.pr);
-      expect(cubit.state.selectedNumbers, [338, 342]);
-
-      cubit.toggleSelected(340);
-      expect(cubit.state.selectedNumbers, [338, 340, 342]);
-
-      // Selecting all again keeps a draft that was picked on purpose.
-      cubit.selectAllVisible(GitHubItemKind.pr);
-      expect(cubit.state.selectedNumbers, [338, 340, 342]);
-    });
-
-    test('select all only adds what the filters show', () {
-      cubit
-        ..setDependabotOnly(true)
-        ..selectAllVisible(GitHubItemKind.pr);
-      expect(cubit.state.selected, {338});
-    });
-
-    test('clearing leaves multi-select', () {
-      cubit
-        ..startSelection(342)
-        ..clearSelection();
-      expect(cubit.state.selectionMode, isFalse);
-      expect(cubit.state.selected, isEmpty);
-    });
-
-    test('items that left the list are dropped from the selection', () {
-      unawaited(cubit.refresh(GitHubItemKind.issue));
-      bridge.responses.add(_list(bridge, GitHubItemKind.issue, [_pr(327)]));
-      cubit
-        ..startSelection(342)
-        ..toggleSelected(338)
-        ..toggleSelected(327);
-
-      unawaited(cubit.refresh(GitHubItemKind.pr));
-      bridge.responses.add(_list(bridge, GitHubItemKind.pr, [_pr(342)]));
-
-      expect(cubit.state.selectedNumbers, [327, 342]);
-    });
-  });
-
   group('GitHubItemCubit', () {
     GitHubItemCubit open() {
       final item = GitHubItemCubit(
@@ -775,54 +721,6 @@ void main() {
     });
   });
 
-  group('triage prompt', () {
-    test('the default preset adds nothing after the numbers', () {
-      expect(buildTriagePrompt(numbers: [327, 332]), '/triage 327 332');
-    });
-
-    test('appends the preset instruction and trimmed free text', () {
-      expect(
-        buildTriagePrompt(
-          numbers: [327, 332],
-          preset: TriagePreset.handleAndRelease,
-        ),
-        '/triage 327 332 対応してリリースまで',
-      );
-      expect(
-        buildTriagePrompt(
-          numbers: [5],
-          preset: TriagePreset.contentOnly,
-          note: '  英語で  ',
-        ),
-        '/triage 5 内容だけ教えて 英語で',
-      );
-      expect(
-        buildTriagePrompt(
-          numbers: [5],
-          preset: TriagePreset.checkResolvedAndClose,
-        ),
-        '/triage 5 解決済みか確認してコメントしてクローズ',
-      );
-      expect(
-        buildTriagePrompt(numbers: [5], note: 'squash merge'),
-        '/triage 5 squash merge',
-      );
-    });
-
-    test('is empty without a selection', () {
-      expect(buildTriagePrompt(numbers: const [], note: 'x'), isEmpty);
-    });
-
-    test('uses the trigger of the agent that starts the session', () {
-      const prompt = '/triage 327 332 対応してリリースまで';
-      expect(triagePromptForProvider(prompt, Provider.claude), prompt);
-      expect(
-        triagePromptForProvider(prompt, Provider.codex),
-        r'$triage 327 332 対応してリリースまで',
-      );
-    });
-  });
-
   group('empty chat entry visibility', () {
     const idle = ChatSessionState(
       status: ProcessStatus.idle,
@@ -910,20 +808,176 @@ void main() {
     });
   });
 
-  group('sending from an empty chat', () {
-    late MockBridgeService service;
-    late StreamingStateCubit streaming;
+  group('GitHubSelectionCubit', () {
+    late SharedPreferences prefs;
+    late GitHubSelectionCubit selection;
 
-    setUp(() {
-      service = MockBridgeService();
+    GitHubSelectedItem item(int number, {bool pr = true}) => GitHubSelectedItem(
+      number: number,
+      title: 'Item $number',
+      url: 'https://github.com/owner/app/${pr ? 'pull' : 'issues'}/$number',
+      isPullRequest: pr,
+    );
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      prefs = await SharedPreferences.getInstance();
+      selection = GitHubSelectionCubit(prefs);
+      addTearDown(selection.close);
+    });
+
+    test('toggle selects and deselects per session', () {
+      selection
+        ..toggle('a', item(342))
+        ..toggle('a', item(327, pr: false))
+        ..toggle('b', item(1));
+      expect(selection.items('a').map((e) => e.number), [342, 327]);
+      expect(selection.isSelected('a', item(342).url), isTrue);
+      expect(selection.isSelected('b', item(342).url), isFalse);
+
+      selection.toggle('a', item(342));
+      expect(selection.items('a').map((e) => e.number), [327]);
+      expect(selection.items('b').map((e) => e.number), [1]);
+    });
+
+    test('addAll keeps the order and skips what is already selected', () {
+      selection
+        ..toggle('a', item(338))
+        ..addAll('a', [item(342), item(338), item(331)]);
+      expect(selection.items('a').map((e) => e.number), [338, 342, 331]);
+    });
+
+    test('clear and remove', () {
+      selection.addAll('a', [item(1), item(2), item(3)]);
+      selection.remove('a', item(2).url);
+      expect(selection.items('a').map((e) => e.number), [1, 3]);
+      selection.clear('a');
+      expect(selection.items('a'), isEmpty);
+      expect(prefs.getKeys(), isEmpty);
+    });
+
+    test('removeSent keeps what was picked after the snapshot', () {
+      selection.addAll('a', [item(1), item(2)]);
+      final sent = List.of(selection.items('a'));
+      selection.toggle('a', item(3));
+      selection.removeSent('a', sent);
+      expect(selection.items('a').map((e) => e.number), [3]);
+    });
+
+    test('persists across restarts and survives damaged entries', () async {
+      selection.addAll('a', [item(342), item(327, pr: false)]);
+      await prefs.setString('github_selection_v1_broken', '{bad');
+
+      final restored = GitHubSelectionCubit(prefs);
+      addTearDown(restored.close);
+      expect(restored.items('a'), [item(342), item(327, pr: false)]);
+      expect(restored.items('broken'), isEmpty);
+    });
+
+    test('migrates with the session id and keeps an open screen bound', () {
+      final drafts = DraftService(prefs);
+      addTearDown(drafts.githubSelection.close);
+      addTearDown(drafts.mediaFeedback.close);
+      final cubit = drafts.githubSelection;
+      cubit.toggle('pending_1', item(342));
+      cubit.requestOpen('pending_1');
+
+      drafts.migrateDraft('pending_1', 'real');
+
+      expect(cubit.items('real').map((e) => e.number), [342]);
+      // A screen opened before the session got its id keeps working.
+      cubit.toggle('pending_1', item(327));
+      expect(cubit.items('real').map((e) => e.number), [342, 327]);
+      expect(GitHubSelectionCubit(prefs).items('pending_1'), isEmpty);
+      expect(cubit.takeOpenRequest('real'), isTrue);
+      expect(cubit.takeOpenRequest('real'), isFalse);
+    });
+
+    test('builds the selected item from a summary', () {
+      const summary = GitHubItemSummary(number: 7, title: 'No URL');
+      expect(
+        GitHubSelectedItem.fromSummary(
+          summary,
+          GitHubItemKind.issue,
+          repository: 'owner/app',
+        )?.url,
+        'https://github.com/owner/app/issues/7',
+      );
+      expect(
+        GitHubSelectedItem.fromSummary(
+          summary,
+          GitHubItemKind.pr,
+          repository: 'owner/app',
+        )?.url,
+        'https://github.com/owner/app/pull/7',
+      );
+      expect(
+        GitHubSelectedItem.fromSummary(summary, GitHubItemKind.pr),
+        isNull,
+      );
+    });
+
+    test('the message is the user text followed by one URL per line', () {
+      final items = [item(342), item(327, pr: false)];
+      expect(
+        appendGitHubSelection('/triage merge these', items),
+        '/triage merge these\n'
+        'https://github.com/owner/app/pull/342\n'
+        'https://github.com/owner/app/issues/327',
+      );
+      expect(
+        appendGitHubSelection('', items),
+        'https://github.com/owner/app/pull/342\n'
+        'https://github.com/owner/app/issues/327',
+      );
+      expect(appendGitHubSelection('hello', const []), 'hello');
+    });
+  });
+
+  group('sending with a selection', () {
+    late SharedPreferences prefs;
+    late DraftService drafts;
+    late helpers.MockBridgeService service;
+    late StreamingStateCubit streaming;
+    late TextEditingController input;
+
+    const first = GitHubSelectedItem(
+      number: 342,
+      title: 'feat: add screen',
+      url: 'https://github.com/owner/app/pull/342',
+      isPullRequest: true,
+    );
+    const second = GitHubSelectedItem(
+      number: 327,
+      title: 'Crash on resume',
+      url: 'https://github.com/owner/app/issues/327',
+    );
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      prefs = await SharedPreferences.getInstance();
+      drafts = DraftService(prefs);
+      service = helpers.MockBridgeService();
       streaming = StreamingStateCubit();
+      input = TextEditingController();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('ccpocket/native_paste_bridge'),
+            (_) async => null,
+          );
       addTearDown(() async {
         await streaming.close();
+        await drafts.githubSelection.close();
+        await drafts.mediaFeedback.close();
         service.dispose();
+        input.dispose();
       });
     });
 
-    Future<ChatSessionCubit> session(Provider provider) async {
+    Future<ChatSessionCubit> pumpComposer(
+      WidgetTester tester, {
+      Provider provider = Provider.claude,
+    }) async {
       final chat = ChatSessionCubit(
         sessionId: 's1',
         provider: provider,
@@ -932,62 +986,314 @@ void main() {
         initialProjectPath: _project,
       );
       addTearDown(chat.close);
-      service.loadHistory(const [StatusMessage(status: ProcessStatus.idle)]);
-      await Future<void>.delayed(Duration.zero);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          theme: AppTheme.lightTheme,
+          home: MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<BridgeService>.value(value: service),
+              RepositoryProvider<DraftService>.value(value: drafts),
+              RepositoryProvider<PromptHistoryService>.value(
+                value: PromptHistoryService(DatabaseService()),
+              ),
+            ],
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<SettingsCubit>(
+                  create: (_) => SettingsCubit(prefs),
+                ),
+                BlocProvider<FileListCubit>(
+                  create: (_) => FileListCubit(const [], service.fileList),
+                ),
+                BlocProvider<ChatSessionCubit>.value(value: chat),
+              ],
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ChatInputWithOverlays(
+                    sessionId: 's1',
+                    status: ProcessStatus.idle,
+                    onGoToLatest: () {},
+                    inputController: input,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
       return chat;
     }
 
-    List<String> userTexts(ChatSessionCubit chat) => [
-      for (final entry in chat.state.entries)
-        if (entry is UserChatEntry) entry.text,
+    List<String> sentTexts() => [
+      for (final message in service.sentMessages)
+        if (jsonDecode(message.toJson()) case {
+          'type': 'input',
+          'text': final String text,
+        })
+          text,
     ];
 
-    test('Codex gets the dollar trigger without a skill list', () async {
-      final chat = await session(Provider.codex);
-      expect(chat.state.slashCommands, isEmpty);
-      expect(showsEmptyChatGitHubEntry(chat.state), isTrue);
+    Future<void> tapSend(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('send_button')));
+      await tester.pumpAndSettle();
+    }
 
-      expect(await sendTriageAsFirstMessage(chat, '/triage 5 6'), isTrue);
-      expect(userTexts(chat), [r'$triage 5 6']);
+    testWidgets('cards follow the selection and their close button '
+        'deselects', (tester) async {
+      await pumpComposer(tester);
+      expect(
+        find.byKey(const ValueKey('github_selection_cards_list')),
+        findsNothing,
+      );
+
+      drafts.githubSelection.addAll('s1', [first, second]);
+      await tester.pumpAndSettle();
+      expect(find.text('#342 feat: add screen'), findsOneWidget);
+      expect(find.text('#327 Crash on resume'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('github_selection_card_342')),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(drafts.githubSelection.items('s1'), [second]);
+      expect(find.text('#342 feat: add screen'), findsNothing);
     });
 
-    test('Claude keeps the slash trigger', () async {
-      final chat = await session(Provider.claude);
-      expect(await sendTriageAsFirstMessage(chat, '/triage 5'), isTrue);
-      expect(userTexts(chat), ['/triage 5']);
+    testWidgets('appends the URLs after the text and clears the selection', (
+      tester,
+    ) async {
+      await pumpComposer(tester);
+      drafts.githubSelection.addAll('s1', [first, second]);
+      await tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '/review these',
+      );
+      await tester.pump();
+      await tapSend(tester);
+
+      expect(sentTexts(), [
+        '/review these\n'
+            'https://github.com/owner/app/pull/342\n'
+            'https://github.com/owner/app/issues/327',
+      ]);
+      expect(drafts.githubSelection.items('s1'), isEmpty);
+      expect(input.text, isEmpty);
     });
 
-    test('refuses once the chat is no longer empty', () async {
-      final chat = await session(Provider.claude);
-      expect(await chat.sendMessage('hello'), isTrue);
+    testWidgets('a selection alone can be sent as just the URLs', (
+      tester,
+    ) async {
+      await pumpComposer(tester);
+      drafts.githubSelection.addAll('s1', [first]);
+      await tester.pumpAndSettle();
+      await tapSend(tester);
 
-      expect(await sendTriageAsFirstMessage(chat, '/triage 5'), isFalse);
-      expect(userTexts(chat), ['hello']);
+      expect(sentTexts(), ['https://github.com/owner/app/pull/342']);
+      expect(drafts.githubSelection.items('s1'), isEmpty);
     });
 
-    test('refuses when the session is not ready or is closed', () async {
-      final starting = ChatSessionCubit(
-        sessionId: 's2',
-        provider: Provider.claude,
+    testWidgets('Codex gets its own skill trigger and untouched URLs', (
+      tester,
+    ) async {
+      await pumpComposer(tester, provider: Provider.codex);
+      service.emitMessage(
+        const SystemMessage(
+          subtype: 'supported_commands',
+          provider: 'codex',
+          skills: ['triage'],
+          skillMetadata: [
+            CodexSkillMetadata(
+              name: 'triage',
+              path: '/tmp/triage/SKILL.md',
+              description: 'Triage',
+            ),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await tester.pump();
+      drafts.githubSelection.addAll('s1', [first]);
+      await tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '/triage merge',
+      );
+      await tester.pump();
+      await tapSend(tester);
+
+      expect(sentTexts(), [
+        '\$triage merge\nhttps://github.com/owner/app/pull/342',
+      ]);
+    });
+
+    testWidgets('a rejected send keeps the selection and the text', (
+      tester,
+    ) async {
+      service.inputQueueError = StateError('Queue storage failed');
+      await pumpComposer(tester);
+      drafts.githubSelection.addAll('s1', [first]);
+      await tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        'look at this',
+      );
+      await tester.pump();
+      await tapSend(tester);
+
+      expect(sentTexts(), isEmpty);
+      expect(drafts.githubSelection.items('s1'), [first]);
+      expect(input.text, 'look at this');
+      expect(find.text('#342 feat: add screen'), findsOneWidget);
+    });
+  });
+
+  group('EmptyChatGitHubButton', () {
+    late DraftService drafts;
+    late helpers.MockBridgeService service;
+    late StreamingStateCubit streaming;
+    late ChatSessionCubit chat;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      drafts = DraftService(await SharedPreferences.getInstance());
+      service = helpers.MockBridgeService();
+      streaming = StreamingStateCubit();
+      addTearDown(() async {
+        await streaming.close();
+        await drafts.githubSelection.close();
+        await drafts.mediaFeedback.close();
+        service.dispose();
+      });
+    });
+
+    Future<void> pumpChat(WidgetTester tester) async {
+      // Created inside the test so its subscriptions run in the test zone.
+      chat = ChatSessionCubit(
+        sessionId: 'real',
         bridge: service,
         streamingCubit: streaming,
+        initialProjectPath: _project,
       );
-      expect(await sendTriageAsFirstMessage(starting, '/triage 5'), isFalse);
-      expect(userTexts(starting), isEmpty);
+      addTearDown(chat.close);
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<BridgeService>.value(value: service),
+            RepositoryProvider<DraftService>.value(value: drafts),
+          ],
+          child: MaterialApp(
+            locale: const Locale('en'),
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: BlocProvider<ChatSessionCubit>.value(
+              value: chat,
+              child: const Scaffold(
+                body: EmptyChatGitHubButton(
+                  sessionId: 'real',
+                  projectPath: _project,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
 
-      await starting.close();
-      expect(await sendTriageAsFirstMessage(starting, '/triage 5'), isFalse);
+    void becomeIdle() => service.emitMessage(
+      const StatusMessage(status: ProcessStatus.idle),
+      sessionId: 'real',
+    );
+
+    List<String> sentTypes() => [
+      for (final message in service.sentMessages)
+        (jsonDecode(message.toJson()) as Map<String, dynamic>)['type']
+            as String,
+    ];
+
+    testWidgets('is centered, labelled, and opens the screen for its '
+        'session', (tester) async {
+      await pumpChat(tester);
+      final button = find.byKey(const ValueKey('empty_chat_github_button'));
+      expect(button, findsNothing, reason: 'the session is still starting');
+
+      becomeIdle();
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: button, matching: find.text('Open Issues / PRs')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: button, matching: find.byType(GitHubMarkIcon)),
+        findsOneWidget,
+      );
+      final scaffold = tester.getRect(find.byType(Scaffold));
+      expect(tester.getCenter(button).dx, closeTo(scaffold.center.dx, 1));
+      expect(tester.getCenter(button).dy, closeTo(scaffold.center.dy, 1));
+      expect(find.byType(GitHubScreen), findsNothing);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GitHubScreen>(find.byType(GitHubScreen)).sessionId,
+        'real',
+      );
+    });
+
+    testWidgets('a session started from a project opens the screen by '
+        'itself once ready, and sends nothing', (tester) async {
+      // The session list asks for it under the pending id; the session then
+      // gets its real id before the chat is ready.
+      drafts.githubSelection.requestOpen('pending_1');
+      drafts.migrateDraft('pending_1', 'real');
+      await pumpChat(tester);
+      expect(find.byType(GitHubScreen), findsNothing);
+
+      becomeIdle();
+      await tester.pumpAndSettle();
+      final screen = tester.widget<GitHubScreen>(find.byType(GitHubScreen));
+      expect(screen.sessionId, 'real');
+      expect(screen.projectPath, _project);
+      expect(sentTypes(), everyElement('github_list'));
+      expect(chat.state.entries.whereType<UserChatEntry>(), isEmpty);
+
+      // The request is consumed: going back does not reopen the screen.
+      Navigator.of(tester.element(find.byType(GitHubScreen))).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(GitHubScreen), findsNothing);
+      expect(drafts.githubSelection.takeOpenRequest('real'), isFalse);
     });
   });
 
   group('GitHubScreen', () {
+    const session = 's1';
+    late DraftService drafts;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      drafts = DraftService(await SharedPreferences.getInstance());
+      addTearDown(() async {
+        await drafts.githubSelection.close();
+        await drafts.mediaFeedback.close();
+      });
+    });
+
+    List<int> selected() => [
+      for (final item in drafts.githubSelection.items(session)) item.number,
+    ];
+
     Future<void> pumpScreen(
       WidgetTester tester, {
       required BridgeService service,
       required String projectPath,
-      GitHubTriageSubmit? onSubmitTriage,
       GitHubViewCacheService? cache,
-      GitHubTriageTarget target = GitHubTriageTarget.newSession,
     }) async {
       tester.view.physicalSize = const Size(1200, 2400);
       tester.view.devicePixelRatio = 2;
@@ -996,6 +1302,7 @@ void main() {
         MultiRepositoryProvider(
           providers: [
             RepositoryProvider<BridgeService>.value(value: service),
+            RepositoryProvider<DraftService>.value(value: drafts),
             if (cache != null)
               RepositoryProvider<GitHubViewCacheService>.value(value: cache),
           ],
@@ -1004,11 +1311,24 @@ void main() {
             theme: AppTheme.lightTheme,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: GitHubScreen(
-              projectPath: projectPath,
-              triageTarget: target,
-              embedded: true,
-              onSubmitTriage: onSubmitTriage ?? (_) async => true,
+            home: Builder(
+              builder: (context) => Column(
+                children: [
+                  Expanded(
+                    child: GitHubScreen(
+                      projectPath: projectPath,
+                      sessionId: session,
+                      embedded: true,
+                    ),
+                  ),
+                  Material(
+                    child: GitHubSelectionCards(
+                      cubit: drafts.githubSelection,
+                      sessionId: session,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1018,32 +1338,109 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('lists PRs, selects all but drafts, and composes the request', (
+    testWidgets('the circle selects while the row opens the detail', (
       tester,
     ) async {
       final service = MockBridgeService();
       addTearDown(service.dispose);
-      String? submitted;
       await pumpScreen(
         tester,
         service: service,
         projectPath: MockGitHubProjects.repository,
-        onSubmitTriage: (prompt) async {
-          submitted = prompt;
-          return true;
-        },
-        target: GitHubTriageTarget.currentSession,
       );
 
       // Issues is the first tab.
-      expect(find.byKey(const ValueKey('github_item_341')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('github_item_select_341')));
+      await tester.pumpAndSettle();
+      expect(selected(), [341]);
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.byKey(const ValueKey('github_detail_title')), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('github_tab_prs')));
+      await tester.tap(find.byKey(const ValueKey('github_item_339')));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('github_detail_title')), findsOneWidget);
+      expect(selected(), [341], reason: 'opening the detail selects nothing');
 
-      expect(find.byKey(const ValueKey('github_item_342')), findsOneWidget);
+      // The detail sheet selects and deselects its item.
+      final toggle = find.byKey(const ValueKey('github_detail_select_button'));
+      expect(
+        find.descendant(of: toggle, matching: find.text('Select')),
+        findsOneWidget,
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(selected(), [341, 339]);
+      expect(
+        find.descendant(of: toggle, matching: find.text('Selected')),
+        findsOneWidget,
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(selected(), [341]);
+    });
+
+    testWidgets('the screen and the composer cards stay in sync', (
+      tester,
+    ) async {
+      final service = MockBridgeService();
+      addTearDown(service.dispose);
+      await pumpScreen(
+        tester,
+        service: service,
+        projectPath: MockGitHubProjects.repository,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('github_item_select_341')));
+      await tester.tap(find.byKey(const ValueKey('github_item_select_327')));
+      await tester.pumpAndSettle();
+      final card = find.byKey(const ValueKey('github_selection_card_341'));
+      expect(card, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('github_selection_card_327')),
+        findsOneWidget,
+      );
+      expect(find.text('2 selected'), findsOneWidget);
+
+      // Removing the card deselects the row.
+      await tester.tap(
+        find.descendant(of: card, matching: find.byIcon(Icons.close)),
+      );
+      await tester.pumpAndSettle();
+      expect(selected(), [327]);
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byKey(const ValueKey('github_item_select_341')),
+            )
+            .isSelected,
+        isFalse,
+      );
+
+      // Deselecting the row removes its card.
+      await tester.tap(find.byKey(const ValueKey('github_item_select_327')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('github_selection_cards_list')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
+    });
+
+    testWidgets('select all skips drafts and respects the filters; clear '
+        'empties the selection', (tester) async {
+      final service = MockBridgeService();
+      addTearDown(service.dispose);
+      await pumpScreen(
+        tester,
+        service: service,
+        projectPath: MockGitHubProjects.repository,
+      );
+      await tester.tap(find.byKey(const ValueKey('github_tab_prs')));
+      await tester.pumpAndSettle();
+
       expect(
         find.byKey(const ValueKey('github_draft_badge_340')),
         findsOneWidget,
@@ -1054,38 +1451,34 @@ void main() {
       );
       expect(find.byKey(const ValueKey('github_checks_335')), findsOneWidget);
 
-      await tester.longPress(find.byKey(const ValueKey('github_item_342')));
-      await tester.pumpAndSettle();
-      expect(find.text('1 selected'), findsOneWidget);
-
       await tester.tap(find.byKey(const ValueKey('github_select_all_button')));
       await tester.pumpAndSettle();
-      expect(find.text('4 selected'), findsOneWidget, reason: 'draft skipped');
+      expect(selected(), [342, 338, 335, 331], reason: 'draft 340 skipped');
+      expect(find.text('4 selected'), findsOneWidget);
+
+      // A draft can still be picked on purpose.
+      await tester.tap(find.byKey(const ValueKey('github_item_select_340')));
+      await tester.pumpAndSettle();
+      expect(selected(), contains(340));
 
       await tester.tap(
-        find.byKey(const ValueKey('github_request_triage_button')),
+        find.byKey(const ValueKey('github_clear_selection_button')),
       );
       await tester.pumpAndSettle();
+      expect(selected(), isEmpty);
       expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('github_triage_preview')))
-            .data,
-        '/triage 331 335 338 342',
+        find.byKey(const ValueKey('github_clear_selection_button')),
+        findsNothing,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('github_triage_preset_handleAndRelease')),
+      final listCubit = BlocProvider.of<GitHubListCubit>(
+        tester.element(find.byKey(const ValueKey('github_item_342'))),
       );
-      await tester.enterText(
-        find.byKey(const ValueKey('github_triage_note_field')),
-        'squash',
-      );
+      listCubit.setDependabotOnly(true);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('github_triage_send_button')));
+      await tester.tap(find.byKey(const ValueKey('github_select_all_button')));
       await tester.pumpAndSettle();
-
-      expect(submitted, '/triage 331 335 338 342 対応してリリースまで squash');
-      expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
+      expect(selected(), [338, 335]);
     });
 
     testWidgets('loads both tabs up front and shows the draft notice only '
@@ -1108,7 +1501,7 @@ void main() {
       );
 
       // Issues tab: selecting does not mention drafts.
-      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
+      await tester.tap(find.byKey(const ValueKey('github_item_select_341')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('github_draft_notice')), findsNothing);
 
@@ -1118,49 +1511,7 @@ void main() {
       expect(find.byKey(const ValueKey('github_draft_notice')), findsOneWidget);
     });
 
-    testWidgets('a rejected request keeps the sheet open with an error', (
-      tester,
-    ) async {
-      final service = MockBridgeService();
-      addTearDown(service.dispose);
-      var accept = false;
-      final prompts = <String>[];
-      await pumpScreen(
-        tester,
-        service: service,
-        projectPath: MockGitHubProjects.repository,
-        target: GitHubTriageTarget.currentSession,
-        onSubmitTriage: (prompt) async {
-          prompts.add(prompt);
-          return accept;
-        },
-      );
-      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('github_request_triage_button')),
-      );
-      await tester.pumpAndSettle();
-
-      final send = find.byKey(const ValueKey('github_triage_send_button'));
-      final error = find.byKey(const ValueKey('github_triage_send_error'));
-      await tester.tap(send);
-      await tester.pumpAndSettle();
-
-      expect(send, findsOneWidget, reason: 'sheet stays open');
-      expect(error, findsOneWidget);
-      expect(find.text('1 selected'), findsOneWidget, reason: 'selection kept');
-
-      accept = true;
-      await tester.tap(send);
-      await tester.pumpAndSettle();
-
-      expect(send, findsNothing);
-      expect(prompts, ['/triage 341', '/triage 341']);
-      expect(find.byKey(const ValueKey('github_selected_count')), findsNothing);
-    });
-
-    testWidgets('closing the screen drops the selection but keeps the cache', (
+    testWidgets('closing the screen keeps the selection and the cache', (
       tester,
     ) async {
       final service = MockBridgeService();
@@ -1173,19 +1524,17 @@ void main() {
         projectPath: MockGitHubProjects.repository,
         cache: cache,
       );
-      await tester.longPress(find.byKey(const ValueKey('github_item_341')));
+      await tester.tap(find.byKey(const ValueKey('github_item_select_341')));
       await tester.pumpAndSettle();
       final cached = cache.getOrCreate(MockGitHubProjects.repository).cubit;
-      expect(cached.state.selected, {341});
 
       // Any way of leaving the screen disposes it (pane close button, back).
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(cached.isClosed, isFalse);
-      expect(cached.state.selectionMode, isFalse);
-      expect(cached.state.selected, isEmpty);
       expect(cached.state.issues.items, isNotEmpty);
+      expect(selected(), [341], reason: 'the selection belongs to the session');
     });
 
     testWidgets('the refresh button stays usable while a request is stuck', (

@@ -15,7 +15,9 @@ import '../features/settings/supporter_screen.dart';
 import '../features/settings/widgets/support_section.dart';
 import '../features/git/widgets/diff_image_viewer.dart';
 import '../features/github/github_screen.dart';
-import '../features/github/triage_prompt.dart';
+import '../features/github/state/github_selection_cubit.dart';
+import '../features/github/state/github_selection_state.dart';
+import '../features/github/widgets/github_selection_cards.dart';
 import '../mock/mock_github.dart';
 import '../mock/mock_image_data.dart';
 import '../mock/mock_scenarios.dart';
@@ -137,8 +139,8 @@ Route<void>? buildMockScenarioRoute(
   if (scenario == imageDiffScenario) {
     return MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper());
   }
-  if (scenario == githubTriageScenario) {
-    return MaterialPageRoute(builder: (_) => const _MockGitHubTriageWrapper());
+  if (scenario == githubStatesScenario) {
+    return MaterialPageRoute(builder: (_) => const _MockGitHubStatesWrapper());
   }
   if (scenario == storeDiffLineNumberScenario) {
     return MaterialPageRoute(
@@ -1540,20 +1542,20 @@ class _MockNewSession20ProjectsWrapperState
 // Mock Image Diff Viewer
 // =============================================================================
 
-/// Launcher for the Issues / PRs screen against the mock Bridge. Shows the
-/// triage request the screen hands back, as each agent would receive it.
-class _MockGitHubTriageWrapper extends StatefulWidget {
-  const _MockGitHubTriageWrapper();
+/// Launcher for the Issues / PRs screen against the mock Bridge. Shows what
+/// is picked for the mock session and the message it would be sent as.
+class _MockGitHubStatesWrapper extends StatefulWidget {
+  const _MockGitHubStatesWrapper();
 
   @override
-  State<_MockGitHubTriageWrapper> createState() =>
-      _MockGitHubTriageWrapperState();
+  State<_MockGitHubStatesWrapper> createState() =>
+      _MockGitHubStatesWrapperState();
 }
 
-class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
+class _MockGitHubStatesWrapperState extends State<_MockGitHubStatesWrapper> {
+  static const _sessionId = 'mock-github-states';
   static const _variants = [
-    ('repository', 'Repository (project entry)', MockGitHubProjects.repository),
-    ('from_chat', 'Repository (from an empty chat)', null),
+    ('repository', 'Repository', MockGitHubProjects.repository),
     ('gh_missing', 'gh not installed', MockGitHubProjects.ghMissing),
     (
       'gh_unauthenticated',
@@ -1566,7 +1568,6 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
   ];
 
   final _service = MockBridgeService();
-  String? _prompt;
 
   @override
   void dispose() {
@@ -1574,21 +1575,12 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
     super.dispose();
   }
 
-  Future<void> _open(String? projectPath) async {
+  Future<void> _open(String projectPath) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => RepositoryProvider<BridgeService>.value(
           value: _service,
-          child: GitHubScreen(
-            projectPath: projectPath ?? MockGitHubProjects.repository,
-            triageTarget: projectPath == null
-                ? GitHubTriageTarget.currentSession
-                : GitHubTriageTarget.newSession,
-            onSubmitTriage: (prompt) async {
-              if (mounted) setState(() => _prompt = prompt);
-              return true;
-            },
-          ),
+          child: GitHubScreen(projectPath: projectPath, sessionId: _sessionId),
         ),
       ),
     );
@@ -1596,9 +1588,9 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final prompt = _prompt;
+    final selection = context.read<DraftService>().githubSelection;
     return Scaffold(
-      appBar: AppBar(title: const Text('GitHub Triage')),
+      appBar: AppBar(title: const Text('GitHub Screen States')),
       body: ListView(
         children: [
           for (final (id, label, projectPath) in _variants)
@@ -1608,27 +1600,17 @@ class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => unawaited(_open(projectPath)),
             ),
-          if (prompt != null)
-            Padding(
+          GitHubSelectionCards(cubit: selection, sessionId: _sessionId),
+          BlocBuilder<GitHubSelectionCubit, GitHubSelectionState>(
+            bloc: selection,
+            builder: (context, _) => Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 4,
-                children: [
-                  const Text('Claude'),
-                  SelectableText(
-                    triagePromptForProvider(prompt, Provider.claude),
-                    key: const ValueKey('mock_github_triage_prompt'),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Codex'),
-                  SelectableText(
-                    triagePromptForProvider(prompt, Provider.codex),
-                    key: const ValueKey('mock_github_triage_prompt_codex'),
-                  ),
-                ],
+              child: SelectableText(
+                appendGitHubSelection('/review', selection.items(_sessionId)),
+                key: const ValueKey('mock_github_message_preview'),
               ),
             ),
+          ),
         ],
       ),
     );

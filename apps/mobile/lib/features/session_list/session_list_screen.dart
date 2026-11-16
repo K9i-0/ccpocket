@@ -23,6 +23,7 @@ import '../../router/app_router.dart';
 import '../../services/app_update_service.dart';
 import '../../services/bridge_endpoint_probe.dart';
 import '../../services/bridge_service.dart';
+import '../../services/draft_service.dart';
 import '../../services/connect_deep_link_scope.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
@@ -33,7 +34,6 @@ import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../../widgets/soft_keyboard_dismissal.dart';
-import '../github/triage_prompt.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
 import '../../widgets/duo/duo_control_strip.dart';
@@ -931,36 +931,13 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
-  /// Opens Issues / PRs for the project of [session] without opening a
-  /// session. The composed triage request starts a new session there.
+  /// Issues / PRs entry of a project: the screen always works for a session,
+  /// so this starts one in the project of [session] with no message. The
+  /// user picks the agent and its options as for any new session, and the
+  /// new chat then opens the Issues / PRs screen by itself.
   Future<void> _openProjectGitHub(RecentSession session) async {
     // The Bridge reads the repository from the project's first root.
     final projectPath = session.workspaceRootPaths.first;
-    // The request is accepted at once: the new session sheet takes over and
-    // the Issues / PRs screen closes behind it.
-    Future<bool> submit(String prompt) async {
-      if (!mounted) return false;
-      unawaited(_startTriageSession(session, projectPath, prompt));
-      return true;
-    }
-
-    final shell = WorkspaceShellScreen.maybeOf(context);
-    if (shell?.canOpenToolPane ?? false) {
-      shell!.openGitHubPane(projectPath: projectPath, onSubmitTriage: submit);
-      return;
-    }
-    await context.router.push<void>(
-      GitHubRoute(projectPath: projectPath, onSubmitTriage: submit),
-    );
-  }
-
-  /// Lets the user pick the agent and its options as for any new session,
-  /// then starts it with [prompt] as the first message.
-  Future<void> _startTriageSession(
-    RecentSession session,
-    String projectPath,
-    String prompt,
-  ) async {
     if (!mounted) return;
     final defaults = await _loadInitialNewSessionDefaults();
     final providerDefaults = await _loadProviderSessionDefaults();
@@ -991,7 +968,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final result = await _openNewSessionSheet(
       initialParams: target,
       providerDefaults: providerDefaults,
-      // The item numbers belong to this repository.
+      // The Issues / PRs screen that follows shows this repository.
       lockProject: true,
     );
     if (result == null || !mounted) return;
@@ -999,13 +976,14 @@ class _SessionListScreenState extends State<SessionListScreen>
     _trackPendingClaudeDefaultsCorrection(result);
     await _saveProjectCodexProfileFromParams(result);
     if (!mounted) return;
-    _startNewSession(
-      result,
-      initialPrompt: triagePromptForProvider(prompt, result.provider),
-    );
+    _startNewSession(result, openGitHub: true);
   }
 
-  void _startNewSession(NewSessionParams result, {String? initialPrompt}) {
+  void _startNewSession(
+    NewSessionParams result, {
+    String? initialPrompt,
+    bool openGitHub = false,
+  }) {
     initialPrompt ??= result.initialPrompt;
     final bridge = context.read<BridgeService>();
     final settings = context.read<SettingsCubit>().state;
@@ -1123,6 +1101,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
     if (_hasPendingStart(bridge, result)) {
       return;
+    }
+    if (openGitHub) {
+      // Consumed by the chat once it is ready; see `EmptyChatGitHubButton`.
+      context.read<DraftService>().githubSelection.requestOpen(pendingId);
     }
     // Navigate immediately to chat with pending state
     _pendingNavigation = true;

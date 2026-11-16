@@ -1528,44 +1528,62 @@ class _CodexChatBody extends HookWidget {
                           ),
                         );
                       },
-                      content: ChatMessageList(
-                        liteMode: context.select<SettingsCubit, bool>(
-                          (cubit) => cubit.state.liteModeForSession(sessionId),
-                        ),
-                        sessionId: sessionId,
-                        scrollController: scroll.controller,
-                        httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
-                        projectPath: effectiveProjectPath,
-                        onRetryMessage: null,
-                        onRewindMessage: supportsMessageEdit
-                            ? null
-                            : (entry) {
-                                _showCodexRewindDialog(
-                                  context,
-                                  entry,
-                                  sessionId: sessionId,
-                                  inputController: chatInputController,
-                                  draftService: draftService,
-                                );
-                              },
-                        onEditMessage:
-                            supportsMessageEdit && status == ProcessStatus.idle
-                            ? (entry, text) => context
-                                  .read<ChatSessionCubit>()
-                                  .editMessage(entry, text)
-                            : null,
-                        onForkMessage: (message) {
-                          unawaited(_forkCodexFromAssistant(context, message));
-                        },
-                        scrollToUserEntry: scrollToUserEntry,
-                        collapseToolResults: collapseToolResults,
-                        bottomPadding: 8,
-                        isCodex: true,
-                        isReadingHistory: scroll.isReadingHistory,
-                        onScrollMetricsChanged: scroll.onScrollMetricsChanged,
-                        onFilePeekOpened: context
-                            .read<ChatSessionCubit>()
-                            .recordPeekedFile,
+                      content: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ChatMessageList(
+                            liteMode: context.select<SettingsCubit, bool>(
+                              (cubit) =>
+                                  cubit.state.liteModeForSession(sessionId),
+                            ),
+                            sessionId: sessionId,
+                            scrollController: scroll.controller,
+                            httpBaseUrl: context
+                                .read<BridgeService>()
+                                .httpBaseUrl,
+                            projectPath: effectiveProjectPath,
+                            onRetryMessage: null,
+                            onRewindMessage: supportsMessageEdit
+                                ? null
+                                : (entry) {
+                                    _showCodexRewindDialog(
+                                      context,
+                                      entry,
+                                      sessionId: sessionId,
+                                      inputController: chatInputController,
+                                      draftService: draftService,
+                                    );
+                                  },
+                            onEditMessage:
+                                supportsMessageEdit &&
+                                    status == ProcessStatus.idle
+                                ? (entry, text) => context
+                                      .read<ChatSessionCubit>()
+                                      .editMessage(entry, text)
+                                : null,
+                            onForkMessage: (message) {
+                              unawaited(
+                                _forkCodexFromAssistant(context, message),
+                              );
+                            },
+                            scrollToUserEntry: scrollToUserEntry,
+                            collapseToolResults: collapseToolResults,
+                            bottomPadding: 8,
+                            isCodex: true,
+                            isReadingHistory: scroll.isReadingHistory,
+                            onScrollMetricsChanged:
+                                scroll.onScrollMetricsChanged,
+                            onFilePeekOpened: context
+                                .read<ChatSessionCubit>()
+                                .recordPeekedFile,
+                          ),
+                          Positioned.fill(
+                            child: EmptyChatGitHubButton(
+                              sessionId: sessionId,
+                              projectPath: effectiveProjectPath,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     bars: Column(
@@ -1587,10 +1605,6 @@ class _CodexChatBody extends HookWidget {
                           ),
                         LiteModeActivityBar(sessionId: sessionId),
                         const SessionBackgroundTasksBar(),
-                        EmptyChatGitHubButton(
-                          sessionId: sessionId,
-                          projectPath: effectiveProjectPath,
-                        ),
                         if (approval is ApprovalNone)
                           if (currentGoal != null)
                             CodexGoalCard(
