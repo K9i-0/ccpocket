@@ -110,4 +110,25 @@ describe("ProjectHistory", () => {
     await ph.init();
     expect(ph.getProjects()).toEqual([]);
   });
+
+  it("accepts Windows drive and UNC project paths and normalizes worktrees on add/remove", async () => {
+    const ph = new ProjectHistory(historyFile);
+    await ph.init();
+
+    ph.addProject("C:\\Users\\alice\\project-a");
+    ph.addProject("\\\\fileserver\\share\\project-b");
+    ph.addProject("C:\\shallow"); // too shallow (2 segments)
+    ph.addProject("D:\\Users\\alice\\project-c-worktrees\\feat");
+    expect(ph.getProjects()).toEqual([
+      "D:\\Users\\alice\\project-c",
+      "\\\\fileserver\\share\\project-b",
+      "C:\\Users\\alice\\project-a",
+    ]);
+
+    ph.removeProject("D:\\Users\\alice\\project-c-worktrees\\feat");
+    expect(ph.getProjects()).toEqual([
+      "\\\\fileserver\\share\\project-b",
+      "C:\\Users\\alice\\project-a",
+    ]);
+  });
 });
