@@ -371,6 +371,42 @@ export async function checkTailscale(): Promise<CheckResult> {
   }
 }
 
+/**
+ * GitHub CLI is only needed for the GitHub triage screen, so a missing or
+ * unauthenticated `gh` never fails the doctor run.
+ */
+export async function checkGitHubCli(): Promise<CheckResult> {
+  const name = "GitHub CLI";
+  let version: string;
+  try {
+    const out = await execFileText("gh", ["--version"]); // "gh version 2.60.0 (2024-10-23)"
+    version = out.match(/gh version (\S+)/)?.[1] ?? "";
+  } catch {
+    return {
+      name,
+      status: "skip",
+      message: "Not installed (optional for GitHub triage)",
+      remediation: "Install: https://cli.github.com/",
+    };
+  }
+
+  try {
+    await execFileText("gh", ["auth", "status", "--hostname", "github.com"]);
+    return {
+      name,
+      status: "pass",
+      message: version ? `v${version} (authenticated)` : "Authenticated",
+    };
+  } catch {
+    return {
+      name,
+      status: "warn",
+      message: "Installed but not authenticated for github.com",
+      remediation: "Run: gh auth login",
+    };
+  }
+}
+
 export async function checkFirebaseConnectivity(): Promise<CheckResult> {
   // Use a read-only endpoint to avoid creating anonymous accounts as a side effect
   const FIREBASE_API_KEY = "AIzaSyAptNnokWPqJIgv2Lr3I8ETN6bqZb5BGvc";
@@ -788,6 +824,7 @@ function getAllChecks(): CheckDefinition[] {
     },
     // Optional — connectivity & services
     { name: "Tailscale", category: "optional", run: checkTailscale },
+    { name: "GitHub CLI", category: "optional", run: checkGitHubCli },
     {
       name: "Firebase connectivity",
       category: "optional",
