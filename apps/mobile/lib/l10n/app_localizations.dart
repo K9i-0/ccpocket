@@ -7084,6 +7084,264 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'以前のやり取りを表示するにはBridgeの更新が必要です。'**
   String get transcriptBridgeUpdate;
+
+  /// No description provided for @githubIssuesAndPrs.
+  ///
+  /// In ja, this message translates to:
+  /// **'Issue / PR'**
+  String get githubIssuesAndPrs;
+
+  /// No description provided for @githubTabIssues.
+  ///
+  /// In ja, this message translates to:
+  /// **'Issue'**
+  String get githubTabIssues;
+
+  /// No description provided for @githubTabPrs.
+  ///
+  /// In ja, this message translates to:
+  /// **'PR'**
+  String get githubTabPrs;
+
+  /// No description provided for @githubDraft.
+  ///
+  /// In ja, this message translates to:
+  /// **'Draft'**
+  String get githubDraft;
+
+  /// No description provided for @githubFilterHideDrafts.
+  ///
+  /// In ja, this message translates to:
+  /// **'Draftを隠す'**
+  String get githubFilterHideDrafts;
+
+  /// No description provided for @githubFilterDependabotOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'dependabotのみ'**
+  String get githubFilterDependabotOnly;
+
+  /// No description provided for @githubFilterLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ラベル'**
+  String get githubFilterLabel;
+
+  /// No description provided for @githubFilterAllLabels.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのラベル'**
+  String get githubFilterAllLabels;
+
+  /// No description provided for @githubEmptyPrs.
+  ///
+  /// In ja, this message translates to:
+  /// **'オープンなPRはありません'**
+  String get githubEmptyPrs;
+
+  /// No description provided for @githubEmptyIssues.
+  ///
+  /// In ja, this message translates to:
+  /// **'オープンなIssueはありません'**
+  String get githubEmptyIssues;
+
+  /// No description provided for @githubEmptyFiltered.
+  ///
+  /// In ja, this message translates to:
+  /// **'条件に合う項目がありません'**
+  String get githubEmptyFiltered;
+
+  /// No description provided for @githubOpenOnGitHub.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHubで開く'**
+  String get githubOpenOnGitHub;
+
+  /// No description provided for @githubRecentComments.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のコメント'**
+  String get githubRecentComments;
+
+  /// No description provided for @githubNoComments.
+  ///
+  /// In ja, this message translates to:
+  /// **'コメントはまだありません'**
+  String get githubNoComments;
+
+  /// No description provided for @githubNoDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'説明はありません'**
+  String get githubNoDescription;
+
+  /// No description provided for @githubSelectAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて選択'**
+  String get githubSelectAll;
+
+  /// No description provided for @githubSelectAllSkipsDrafts.
+  ///
+  /// In ja, this message translates to:
+  /// **'Draftは除外されます。含めるには個別にタップしてください。'**
+  String get githubSelectAllSkipsDrafts;
+
+  /// No description provided for @githubCancelSelection.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択を解除'**
+  String get githubCancelSelection;
+
+  /// No description provided for @githubSelectedCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count}件を選択中'**
+  String githubSelectedCount(int count);
+
+  /// No description provided for @githubRequestTriage.
+  ///
+  /// In ja, this message translates to:
+  /// **'トリアージを依頼'**
+  String get githubRequestTriage;
+
+  /// No description provided for @githubTriagePresetMerge.
+  ///
+  /// In ja, this message translates to:
+  /// **'調査してマージ'**
+  String get githubTriagePresetMerge;
+
+  /// No description provided for @githubTriagePresetMergeHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'triageスキルの既定の動作'**
+  String get githubTriagePresetMergeHint;
+
+  /// No description provided for @githubTriagePresetRelease.
+  ///
+  /// In ja, this message translates to:
+  /// **'対応してリリースまで'**
+  String get githubTriagePresetRelease;
+
+  /// No description provided for @githubTriagePresetContentOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'内容確認・レビューのみ'**
+  String get githubTriagePresetContentOnly;
+
+  /// No description provided for @githubTriagePresetClose.
+  ///
+  /// In ja, this message translates to:
+  /// **'解決済みか確認してコメント・クローズ'**
+  String get githubTriagePresetClose;
+
+  /// No description provided for @githubTriageNoteHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加の指示（任意）'**
+  String get githubTriageNoteHint;
+
+  /// No description provided for @githubTriageStartsNewSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'このプロジェクトで新しいセッションを開始します。エージェントとeffortは次の画面で選びます。'**
+  String get githubTriageStartsNewSession;
+
+  /// No description provided for @githubTriageSendsToSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッションの最初のメッセージとして送信します。'**
+  String get githubTriageSendsToSession;
+
+  /// No description provided for @githubTriageNext.
+  ///
+  /// In ja, this message translates to:
+  /// **'次へ'**
+  String get githubTriageNext;
+
+  /// No description provided for @githubErrorGhMissingTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub CLIが見つかりません'**
+  String get githubErrorGhMissingTitle;
+
+  /// No description provided for @githubErrorGhMissingBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを動かしているマシンにGitHub CLI（gh）をインストールしてから、再度お試しください。'**
+  String get githubErrorGhMissingBody;
+
+  /// No description provided for @githubErrorUnauthenticatedTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub CLIがログインしていません'**
+  String get githubErrorUnauthenticatedTitle;
+
+  /// No description provided for @githubErrorUnauthenticatedBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを動かしているマシンで次のコマンドを実行してから、再度お試しください。'**
+  String get githubErrorUnauthenticatedBody;
+
+  /// No description provided for @githubErrorNotGithubTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHubリポジトリではありません'**
+  String get githubErrorNotGithubTitle;
+
+  /// No description provided for @githubErrorNotGithubBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'このプロジェクトのoriginリモートはGitHubを指していません。'**
+  String get githubErrorNotGithubBody;
+
+  /// No description provided for @githubErrorFailedTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHubから読み込めませんでした'**
+  String get githubErrorFailedTitle;
+
+  /// No description provided for @githubErrorTimeoutBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeから応答がありません。接続を確認して再度お試しください。'**
+  String get githubErrorTimeoutBody;
+
+  /// No description provided for @githubErrorUnsupportedTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの更新が必要です'**
+  String get githubErrorUnsupportedTitle;
+
+  /// No description provided for @githubErrorUnsupportedBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'このBridgeはIssue / PRの表示に対応していません。Bridgeを最新版に更新してから、再度お試しください。'**
+  String get githubErrorUnsupportedBody;
+
+  /// No description provided for @githubChecksSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'CI成功'**
+  String get githubChecksSuccess;
+
+  /// No description provided for @githubChecksFailure.
+  ///
+  /// In ja, this message translates to:
+  /// **'CI失敗'**
+  String get githubChecksFailure;
+
+  /// No description provided for @githubChecksPending.
+  ///
+  /// In ja, this message translates to:
+  /// **'CI実行中'**
+  String get githubChecksPending;
+
+  /// No description provided for @githubTriageSendFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。'**
+  String get githubTriageSendFailed;
 }
 
 class _AppLocalizationsDelegate

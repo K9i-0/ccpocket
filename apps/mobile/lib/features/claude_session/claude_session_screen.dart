@@ -60,6 +60,7 @@ import '../chat_session/widgets/status_line_flexible_space.dart';
 import '../explore/state/explore_state.dart';
 import '../git/state/git_status_cubit.dart';
 import '../git/state/git_view_cache_service.dart';
+import '../github/widgets/empty_chat_github_button.dart';
 import '../../widgets/duo/duo_control_strip.dart';
 import '../workspace/widgets/workspace_pane_navigator.dart';
 import 'widgets/rewind_action_sheet.dart';
@@ -1443,6 +1444,10 @@ class _ChatScreenBody extends HookWidget {
                       children: [
                         LiteModeActivityBar(sessionId: sessionId),
                         const SessionBackgroundTasksBar(),
+                        EmptyChatGitHubButton(
+                          sessionId: sessionId,
+                          projectPath: effectiveProjectPath,
+                        ),
                       ],
                     ),
                     composer: approval is ApprovalNone

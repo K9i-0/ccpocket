@@ -36,6 +36,7 @@ import 'features/session_list/state/session_list_cubit.dart';
 import 'features/session_list/state/session_list_reflex.dart';
 import 'features/git/state/git_status_cubit.dart';
 import 'features/git/state/git_view_cache_service.dart';
+import 'features/github/state/github_view_cache_service.dart';
 import 'features/settings/state/settings_cubit.dart';
 import 'features/settings/state/settings_state.dart';
 import 'models/messages.dart';
@@ -225,6 +226,10 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
         RepositoryProvider<GitViewCacheService>(
           create: (_) => gitViewCacheService,
           lazy: false,
+          dispose: (service) => unawaited(service.dispose()),
+        ),
+        RepositoryProvider<GitHubViewCacheService>(
+          create: (_) => GitHubViewCacheService(bridge: bridge),
           dispose: (service) => unawaited(service.dispose()),
         ),
         RepositoryProvider<DatabaseService>(

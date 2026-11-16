@@ -138,6 +138,7 @@ final List<MockScenario> mockScenarios = [
   generatedImageChatPreviewScenario,
   generatedImagePreviewScenario,
   imageDiffScenario,
+  githubTriageScenario,
   storeDiffLineNumberScenario,
   // File Peek
   _filePeek,
@@ -3538,6 +3539,20 @@ const imageDiffScenario = MockScenario(
   name: 'Image Diff',
   icon: Icons.compare,
   description: 'Full-screen image diff viewer with Slider / Toggle / Overlay',
+  section: MockScenarioSection.chat,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// Standalone: GitHub triage (Issues / PRs)
+// ---------------------------------------------------------------------------
+/// Opens the Issues / PRs screen against the mock Bridge, which answers
+/// `github_list` / `github_item` from `mock_github.dart` (including a draft
+/// and dependabot pull requests, and one project path per error state).
+const githubTriageScenario = MockScenario(
+  name: 'GitHub Triage',
+  icon: Icons.fact_check_outlined,
+  description: 'Issues / PRs list, multi-select, and the triage request sheet',
   section: MockScenarioSection.chat,
   steps: [],
 );

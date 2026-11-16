@@ -14,6 +14,9 @@ import '../features/session_list/state/session_list_cubit.dart';
 import '../features/settings/supporter_screen.dart';
 import '../features/settings/widgets/support_section.dart';
 import '../features/git/widgets/diff_image_viewer.dart';
+import '../features/github/github_screen.dart';
+import '../features/github/triage_prompt.dart';
+import '../mock/mock_github.dart';
 import '../mock/mock_image_data.dart';
 import '../mock/mock_scenarios.dart';
 import '../mock/mock_sessions.dart';
@@ -133,6 +136,9 @@ Route<void>? buildMockScenarioRoute(
   }
   if (scenario == imageDiffScenario) {
     return MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper());
+  }
+  if (scenario == githubTriageScenario) {
+    return MaterialPageRoute(builder: (_) => const _MockGitHubTriageWrapper());
   }
   if (scenario == storeDiffLineNumberScenario) {
     return MaterialPageRoute(
@@ -1533,6 +1539,101 @@ class _MockNewSession20ProjectsWrapperState
 // =============================================================================
 // Mock Image Diff Viewer
 // =============================================================================
+
+/// Launcher for the Issues / PRs screen against the mock Bridge. Shows the
+/// triage request the screen hands back, as each agent would receive it.
+class _MockGitHubTriageWrapper extends StatefulWidget {
+  const _MockGitHubTriageWrapper();
+
+  @override
+  State<_MockGitHubTriageWrapper> createState() =>
+      _MockGitHubTriageWrapperState();
+}
+
+class _MockGitHubTriageWrapperState extends State<_MockGitHubTriageWrapper> {
+  static const _variants = [
+    ('repository', 'Repository (project entry)', MockGitHubProjects.repository),
+    ('from_chat', 'Repository (from an empty chat)', null),
+    ('gh_missing', 'gh not installed', MockGitHubProjects.ghMissing),
+    (
+      'gh_unauthenticated',
+      'gh not signed in',
+      MockGitHubProjects.ghUnauthenticated,
+    ),
+    ('not_github', 'Not a GitHub repository', MockGitHubProjects.notGithub),
+    ('failed', 'gh failed', MockGitHubProjects.failed),
+    ('old_bridge', 'Older Bridge', MockGitHubProjects.oldBridge),
+  ];
+
+  final _service = MockBridgeService();
+  String? _prompt;
+
+  @override
+  void dispose() {
+    _service.dispose();
+    super.dispose();
+  }
+
+  Future<void> _open(String? projectPath) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RepositoryProvider<BridgeService>.value(
+          value: _service,
+          child: GitHubScreen(
+            projectPath: projectPath ?? MockGitHubProjects.repository,
+            triageTarget: projectPath == null
+                ? GitHubTriageTarget.currentSession
+                : GitHubTriageTarget.newSession,
+            onSubmitTriage: (prompt) async {
+              if (mounted) setState(() => _prompt = prompt);
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prompt = _prompt;
+    return Scaffold(
+      appBar: AppBar(title: const Text('GitHub Triage')),
+      body: ListView(
+        children: [
+          for (final (id, label, projectPath) in _variants)
+            ListTile(
+              key: ValueKey('mock_github_$id'),
+              title: Text(label),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => unawaited(_open(projectPath)),
+            ),
+          if (prompt != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 4,
+                children: [
+                  const Text('Claude'),
+                  SelectableText(
+                    triagePromptForProvider(prompt, Provider.claude),
+                    key: const ValueKey('mock_github_triage_prompt'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Codex'),
+                  SelectableText(
+                    triagePromptForProvider(prompt, Provider.codex),
+                    key: const ValueKey('mock_github_triage_prompt_codex'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _MockImageDiffWrapper extends StatefulWidget {
   const _MockImageDiffWrapper();

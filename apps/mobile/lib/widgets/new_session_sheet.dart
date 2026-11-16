@@ -149,6 +149,52 @@ class NewSessionParams {
     );
   }
 
+  /// The same agent options aimed at another project's main checkout.
+  ///
+  /// Unlike [copyWith], the project identity is replaced as a whole and
+  /// everything tied to the previous project (worktree, extra roots, Codex
+  /// profile) is dropped.
+  NewSessionParams forProject({
+    required String projectPath,
+    String? projectId,
+    String? workspaceKind,
+  }) {
+    return NewSessionParams(
+      projectPath: projectPath,
+      projectId: projectId,
+      workspaceKind: workspaceKind,
+      provider: provider,
+      claudePermissionMode: claudePermissionMode,
+      executionMode: executionMode,
+      codexPermissionsMode: codexPermissionsMode,
+      codexApprovalPolicy: codexApprovalPolicy,
+      codexAutoReviewEnabled: codexAutoReviewEnabled,
+      codexApprovalPolicyOverridden: codexApprovalPolicyOverridden,
+      codexAutoReviewOverridden: codexAutoReviewOverridden,
+      codexModelOverridden: codexModelOverridden,
+      codexSandboxModeOverridden: codexSandboxModeOverridden,
+      codexReasoningEffortOverridden: codexReasoningEffortOverridden,
+      codexNetworkAccessOverridden: codexNetworkAccessOverridden,
+      codexWebSearchModeOverridden: codexWebSearchModeOverridden,
+      planMode: planMode,
+      model: model,
+      sandboxMode: sandboxMode,
+      modelReasoningEffort: modelReasoningEffort,
+      codexSpeed: codexSpeed,
+      networkAccessEnabled: networkAccessEnabled,
+      webSearchMode: webSearchMode,
+      claudeModel: claudeModel,
+      claudeEffort: claudeEffort,
+      claudeFastMode: claudeFastMode,
+      claudeUltracode: claudeUltracode,
+      claudeMaxTurns: claudeMaxTurns,
+      claudeMaxBudgetUsd: claudeMaxBudgetUsd,
+      claudeFallbackModel: claudeFallbackModel,
+      claudeForkSession: claudeForkSession,
+      claudePersistSession: claudePersistSession,
+    );
+  }
+
   NewSessionParams copyWith({
     String? projectPath,
     String? projectId,
@@ -444,6 +490,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   NewSessionParams? initialParams,
   Map<Provider, NewSessionParams> providerDefaults = const {},
   bool lockProvider = false,
+  bool lockProject = false,
   bool multiProjectOnly = false,
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
   bool showExtendedCodexEfforts = false,
@@ -464,6 +511,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       initialParams: initialParams,
       providerDefaults: providerDefaults,
       lockProvider: lockProvider,
+      lockProject: lockProject,
       multiProjectOnly: multiProjectOnly,
       visibleTabs: visibleTabs,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
@@ -526,6 +574,10 @@ class _NewSessionSheetContent extends StatefulWidget {
   /// that provider's own saved choices instead of hardcoded defaults.
   final Map<Provider, NewSessionParams> providerDefaults;
   final bool lockProvider;
+
+  /// The session must start in the project of [initialParams] (e.g. a
+  /// request about that repository), so the project cannot be changed.
+  final bool lockProject;
   final bool multiProjectOnly;
   final List<NewSessionTab> visibleTabs;
   final bool showExtendedCodexEfforts;
@@ -538,6 +590,7 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.initialParams,
     this.providerDefaults = const {},
     this.lockProvider = false,
+    this.lockProject = false,
     this.multiProjectOnly = false,
     this.visibleTabs = defaultNewSessionTabs,
     this.showExtendedCodexEfforts = false,
@@ -1668,10 +1721,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             onCreate:
                 widget.bridge == null ||
                     widget.multiProjectOnly ||
-                    widget.lockProvider
+                    widget.lockProvider ||
+                    widget.lockProject
                 ? null
                 : _createProject,
-            onMulti: widget.bridge == null ? null : _openProjectManager,
+            onMulti: widget.bridge == null || widget.lockProject
+                ? null
+                : _openProjectManager,
           ),
           _SelectedProjectCard(
             path: _pathController.text.trim(),
@@ -1680,9 +1736,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 .firstOrNull
                 ?.name,
             isMulti: _selectedProjectId != null,
-            onChange: widget.multiProjectOnly ? null : _changeProjectLocation,
+            onChange: widget.multiProjectOnly || widget.lockProject
+                ? null
+                : _changeProjectLocation,
           ),
-          if (_effectiveProjectChoices.isNotEmpty)
+          if (!widget.lockProject && _effectiveProjectChoices.isNotEmpty)
             _RecentProjectsSection(
               appColors: appColors,
               accentColor: accent,

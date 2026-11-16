@@ -146,6 +146,9 @@ class HomeContent extends StatefulWidget {
   final ValueChanged<String>? onLoadMoreProject;
   final ValueChanged<String>? onToggleProjectCollapsed;
   final ValueChanged<String>? onToggleProjectPinned;
+
+  /// Opens Issues / PRs for the project that [RecentSession] belongs to.
+  final ValueChanged<RecentSession>? onOpenProjectGitHub;
   final ProviderFilter providerFilter;
   final bool namedOnly;
 
@@ -215,6 +218,7 @@ class HomeContent extends StatefulWidget {
     this.onLoadMoreProject,
     this.onToggleProjectCollapsed,
     this.onToggleProjectPinned,
+    this.onOpenProjectGitHub,
     required this.providerFilter,
     required this.namedOnly,
     this.filters = const RecentSessionFilters(),
@@ -1132,6 +1136,7 @@ class HomeContentState extends State<HomeContent> {
                   onTogglePinned: widget.onToggleProjectPinned == null
                       ? null
                       : () => widget.onToggleProjectPinned!(group.groupKey),
+                  onOpenGitHub: widget.onOpenProjectGitHub,
                   onLoadMore: () =>
                       widget.onLoadMoreProject?.call(group.groupKey),
                   onArchiveSession: widget.onArchiveSession,
@@ -1388,6 +1393,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
   final bool isPinned;
   final VoidCallback onToggleCollapsed;
   final VoidCallback? onTogglePinned;
+  final ValueChanged<RecentSession>? onOpenGitHub;
   final VoidCallback onLoadMore;
   final ValueChanged<RecentSession> onArchiveSession;
   final ValueChanged<RecentSession> onResumeSession;
@@ -1408,6 +1414,7 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
     required this.isPinned,
     required this.onToggleCollapsed,
     required this.onTogglePinned,
+    this.onOpenGitHub,
     required this.onLoadMore,
     required this.onArchiveSession,
     required this.onResumeSession,
@@ -1420,6 +1427,8 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
     final visibleSessions = group.sessions.take(displayLimit).toList();
     final hasHiddenLoadedSessions = group.sessions.length > displayLimit;
     final canShowMore = hasHiddenLoadedSessions || canLoadFromBridge;
+    final onOpenGitHub = this.onOpenGitHub;
+    final representative = group.sessions.firstOrNull;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -1432,6 +1441,9 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
             isPinned: isPinned,
             onTap: onToggleCollapsed,
             onTogglePinned: onTogglePinned,
+            onOpenGitHub: onOpenGitHub == null || representative == null
+                ? null
+                : () => onOpenGitHub(representative),
           ),
           if (!isCollapsed) ...[
             const SizedBox(height: 4),
@@ -1509,6 +1521,7 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
   final bool isPinned;
   final VoidCallback onTap;
   final VoidCallback? onTogglePinned;
+  final VoidCallback? onOpenGitHub;
 
   const _ProjectRecentSessionHeader({
     required this.groupKey,
@@ -1517,6 +1530,7 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
     required this.isPinned,
     required this.onTap,
     required this.onTogglePinned,
+    this.onOpenGitHub,
   });
 
   @override
@@ -1553,6 +1567,25 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onOpenGitHub != null)
+                IconButton(
+                  key: ValueKey('project_github_$groupKey'),
+                  onPressed: onOpenGitHub,
+                  tooltip: AppLocalizations.of(context).githubIssuesAndPrs,
+                  style: IconButton.styleFrom(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 18,
+                  ),
+                  icon: Icon(
+                    Icons.fact_check_outlined,
+                    size: 17,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
               PinToggleButton(
                 key: ValueKey('pin_project_$groupKey'),
                 isPinned: isPinned,

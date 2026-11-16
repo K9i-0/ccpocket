@@ -3781,4 +3781,140 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get transcriptBridgeUpdate => '以前のやり取りを表示するにはBridgeの更新が必要です。';
+
+  @override
+  String get githubIssuesAndPrs => 'Issue / PR';
+
+  @override
+  String get githubTabIssues => 'Issue';
+
+  @override
+  String get githubTabPrs => 'PR';
+
+  @override
+  String get githubDraft => 'Draft';
+
+  @override
+  String get githubFilterHideDrafts => 'Draftを隠す';
+
+  @override
+  String get githubFilterDependabotOnly => 'dependabotのみ';
+
+  @override
+  String get githubFilterLabel => 'ラベル';
+
+  @override
+  String get githubFilterAllLabels => 'すべてのラベル';
+
+  @override
+  String get githubEmptyPrs => 'オープンなPRはありません';
+
+  @override
+  String get githubEmptyIssues => 'オープンなIssueはありません';
+
+  @override
+  String get githubEmptyFiltered => '条件に合う項目がありません';
+
+  @override
+  String get githubOpenOnGitHub => 'GitHubで開く';
+
+  @override
+  String get githubRecentComments => '最近のコメント';
+
+  @override
+  String get githubNoComments => 'コメントはまだありません';
+
+  @override
+  String get githubNoDescription => '説明はありません';
+
+  @override
+  String get githubSelectAll => 'すべて選択';
+
+  @override
+  String get githubSelectAllSkipsDrafts => 'Draftは除外されます。含めるには個別にタップしてください。';
+
+  @override
+  String get githubCancelSelection => '選択を解除';
+
+  @override
+  String githubSelectedCount(int count) {
+    return '$count件を選択中';
+  }
+
+  @override
+  String get githubRequestTriage => 'トリアージを依頼';
+
+  @override
+  String get githubTriagePresetMerge => '調査してマージ';
+
+  @override
+  String get githubTriagePresetMergeHint => 'triageスキルの既定の動作';
+
+  @override
+  String get githubTriagePresetRelease => '対応してリリースまで';
+
+  @override
+  String get githubTriagePresetContentOnly => '内容確認・レビューのみ';
+
+  @override
+  String get githubTriagePresetClose => '解決済みか確認してコメント・クローズ';
+
+  @override
+  String get githubTriageNoteHint => '追加の指示（任意）';
+
+  @override
+  String get githubTriageStartsNewSession =>
+      'このプロジェクトで新しいセッションを開始します。エージェントとeffortは次の画面で選びます。';
+
+  @override
+  String get githubTriageSendsToSession => 'このセッションの最初のメッセージとして送信します。';
+
+  @override
+  String get githubTriageNext => '次へ';
+
+  @override
+  String get githubErrorGhMissingTitle => 'GitHub CLIが見つかりません';
+
+  @override
+  String get githubErrorGhMissingBody =>
+      'Bridgeを動かしているマシンにGitHub CLI（gh）をインストールしてから、再度お試しください。';
+
+  @override
+  String get githubErrorUnauthenticatedTitle => 'GitHub CLIがログインしていません';
+
+  @override
+  String get githubErrorUnauthenticatedBody =>
+      'Bridgeを動かしているマシンで次のコマンドを実行してから、再度お試しください。';
+
+  @override
+  String get githubErrorNotGithubTitle => 'GitHubリポジトリではありません';
+
+  @override
+  String get githubErrorNotGithubBody => 'このプロジェクトのoriginリモートはGitHubを指していません。';
+
+  @override
+  String get githubErrorFailedTitle => 'GitHubから読み込めませんでした';
+
+  @override
+  String get githubErrorTimeoutBody => 'Bridgeから応答がありません。接続を確認して再度お試しください。';
+
+  @override
+  String get githubErrorUnsupportedTitle => 'Bridgeの更新が必要です';
+
+  @override
+  String get githubErrorUnsupportedBody =>
+      'このBridgeはIssue / PRの表示に対応していません。Bridgeを最新版に更新してから、再度お試しください。';
+
+  @override
+  String get githubChecksSuccess => 'CI成功';
+
+  @override
+  String get githubChecksFailure => 'CI失敗';
+
+  @override
+  String get githubChecksPending => 'CI実行中';
+
+  @override
+  String get githubTriageSendFailed =>
+      '送信できませんでした。このチャットにはすでにメッセージがあるか、セッションの準備ができていません。プロジェクトから新しいセッションで依頼してください。';
 }

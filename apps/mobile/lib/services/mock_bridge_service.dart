@@ -3,6 +3,7 @@ import '../features/explore/state/explore_cubit.dart' show buildExploreEntries;
 import 'dart:async';
 import 'dart:convert';
 
+import '../mock/mock_github.dart';
 import '../mock/mock_scenarios.dart';
 import '../models/messages.dart';
 import '../utils/media_file_types.dart';
@@ -152,6 +153,25 @@ class MockBridgeService extends BridgeService {
     final type = json['type'] as String;
 
     switch (type) {
+      case 'github_list':
+        _scheduleMessage(
+          const Duration(milliseconds: 250),
+          mockGitHubListResult(
+            requestId: json['requestId'] as String?,
+            projectPath: json['projectPath'] as String? ?? '',
+            kind: GitHubItemKind.fromWire(json['kind']),
+          ),
+        );
+      case 'github_item':
+        _scheduleMessage(
+          const Duration(milliseconds: 250),
+          mockGitHubItemResult(
+            requestId: json['requestId'] as String?,
+            projectPath: json['projectPath'] as String? ?? '',
+            kind: GitHubItemKind.fromWire(json['kind']),
+            number: (json['number'] as num?)?.toInt() ?? 0,
+          ),
+        );
       case 'get_session_transcript':
         _scheduleMessage(
           const Duration(milliseconds: 300),

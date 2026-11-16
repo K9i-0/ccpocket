@@ -3738,4 +3738,137 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get transcriptBridgeUpdate => '需要更新 Bridge 才能查看之前的消息。';
+
+  @override
+  String get githubIssuesAndPrs => 'Issue / PR';
+
+  @override
+  String get githubTabIssues => 'Issue';
+
+  @override
+  String get githubTabPrs => 'PR';
+
+  @override
+  String get githubDraft => 'Draft';
+
+  @override
+  String get githubFilterHideDrafts => '隐藏 Draft';
+
+  @override
+  String get githubFilterDependabotOnly => '仅 dependabot';
+
+  @override
+  String get githubFilterLabel => '标签';
+
+  @override
+  String get githubFilterAllLabels => '全部标签';
+
+  @override
+  String get githubEmptyPrs => '没有打开的 PR';
+
+  @override
+  String get githubEmptyIssues => '没有打开的 Issue';
+
+  @override
+  String get githubEmptyFiltered => '没有符合筛选条件的项目';
+
+  @override
+  String get githubOpenOnGitHub => '在 GitHub 中打开';
+
+  @override
+  String get githubRecentComments => '最近的评论';
+
+  @override
+  String get githubNoComments => '暂无评论';
+
+  @override
+  String get githubNoDescription => '没有描述';
+
+  @override
+  String get githubSelectAll => '全选';
+
+  @override
+  String get githubSelectAllSkipsDrafts => 'Draft 会被跳过。点按即可单独加入。';
+
+  @override
+  String get githubCancelSelection => '取消选择';
+
+  @override
+  String githubSelectedCount(int count) {
+    return '已选择 $count 项';
+  }
+
+  @override
+  String get githubRequestTriage => '请求分诊';
+
+  @override
+  String get githubTriagePresetMerge => '调查并合并';
+
+  @override
+  String get githubTriagePresetMergeHint => 'triage 技能的默认行为';
+
+  @override
+  String get githubTriagePresetRelease => '处理并发布';
+
+  @override
+  String get githubTriagePresetContentOnly => '仅查看内容 / 评审';
+
+  @override
+  String get githubTriagePresetClose => '确认是否已解决，评论并关闭';
+
+  @override
+  String get githubTriageNoteHint => '补充说明（可选）';
+
+  @override
+  String get githubTriageStartsNewSession => '将在此项目中开始新会话。下一步选择代理和 effort。';
+
+  @override
+  String get githubTriageSendsToSession => '将作为此会话的第一条消息发送。';
+
+  @override
+  String get githubTriageNext => '下一步';
+
+  @override
+  String get githubErrorGhMissingTitle => '未找到 GitHub CLI';
+
+  @override
+  String get githubErrorGhMissingBody =>
+      '请在运行 Bridge 的机器上安装 GitHub CLI（gh），然后重试。';
+
+  @override
+  String get githubErrorUnauthenticatedTitle => 'GitHub CLI 未登录';
+
+  @override
+  String get githubErrorUnauthenticatedBody => '请在运行 Bridge 的机器上执行以下命令，然后重试。';
+
+  @override
+  String get githubErrorNotGithubTitle => '不是 GitHub 仓库';
+
+  @override
+  String get githubErrorNotGithubBody => '此项目的 origin 远程仓库不是 GitHub。';
+
+  @override
+  String get githubErrorFailedTitle => '无法从 GitHub 加载';
+
+  @override
+  String get githubErrorTimeoutBody => 'Bridge 没有响应。请检查连接后重试。';
+
+  @override
+  String get githubErrorUnsupportedTitle => '需要更新 Bridge';
+
+  @override
+  String get githubErrorUnsupportedBody =>
+      '此 Bridge 尚不支持 Issue / PR。请将 Bridge 更新到最新版本后重试。';
+
+  @override
+  String get githubChecksSuccess => 'CI 通过';
+
+  @override
+  String get githubChecksFailure => 'CI 失败';
+
+  @override
+  String get githubChecksPending => 'CI 运行中';
+
+  @override
+  String get githubTriageSendFailed => '无法发送。此聊天已有消息，或会话尚未就绪。请从项目开始新会话后再请求。';
 }

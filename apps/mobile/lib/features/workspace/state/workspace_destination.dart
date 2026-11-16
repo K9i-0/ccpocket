@@ -29,6 +29,24 @@ class GitToolPaneData extends WorkspaceToolPaneData {
   String get title => 'Git';
 }
 
+/// Issues and pull requests of a project.
+///
+/// With a [sessionId] the pane was opened from that chat and sends the triage
+/// request there; without one it starts a new session in the project.
+class GitHubToolPaneData extends WorkspaceToolPaneData {
+  final String projectPath;
+  @override
+  final String? sessionId;
+
+  const GitHubToolPaneData({required this.projectPath, this.sessionId});
+
+  @override
+  String get id => 'github:$projectPath:${sessionId ?? ''}';
+
+  @override
+  String get title => 'Issues / PRs';
+}
+
 class ExploreToolPaneData extends WorkspaceToolPaneData {
   @override
   final String sessionId;

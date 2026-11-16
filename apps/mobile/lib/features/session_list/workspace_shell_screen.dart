@@ -11,6 +11,7 @@ import '../../features/explore/explore_screen.dart';
 import '../../features/explore/state/explore_state.dart';
 import '../../features/gallery/gallery_screen.dart';
 import '../../features/git/git_screen.dart';
+import '../../features/github/github_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/setup_guide/setup_guide_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -185,6 +186,17 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   final WorkspaceNavigationCubit _navigation = WorkspaceNavigationCubit();
   final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
   final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
+
+  /// Receiver of the triage prompt composed in the open GitHub pane.
+  ({String paneId, GitHubTriageSubmit submit})? _githubTriageHandler;
+
+  /// Forgets the receiver once its pane is no longer the open tool.
+  void _dropStaleGitHubTriageHandler() {
+    if (_githubTriageHandler?.paneId != _toolPane?.id) {
+      _githubTriageHandler = null;
+    }
+  }
+
   Object? _homeRouteIdentity;
   bool _rootVisible = true;
   final _centerNavigatorKey = GlobalKey<NavigatorState>();
@@ -394,6 +406,37 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     );
   }
 
+  /// Opens the Issues / PRs pane. [onSubmitTriage] receives the composed
+  /// `/triage ...` prompt; the pane closes once it accepts it.
+  void openGitHubPane({
+    required String projectPath,
+    String? sessionId,
+    required GitHubTriageSubmit onSubmitTriage,
+  }) {
+    final pane = GitHubToolPaneData(
+      projectPath: projectPath,
+      sessionId: sessionId,
+    );
+    final wasOpen = _toolPane?.id == pane.id;
+    _openToolPane(pane);
+    // Opening the pane that is already open toggles it closed.
+    _githubTriageHandler = wasOpen
+        ? null
+        : (paneId: pane.id, submit: onSubmitTriage);
+  }
+
+  Future<bool> _handleGitHubTriage(String prompt, {int? entry}) async {
+    if (entry != null && entry != _state.toolEntry) return false;
+    final pane = _toolPane;
+    final handler = _githubTriageHandler;
+    if (pane is! GitHubToolPaneData || handler?.paneId != pane.id) {
+      return false;
+    }
+    final accepted = await handler!.submit(prompt);
+    if (accepted && mounted) closeToolPane(entry: entry);
+    return accepted;
+  }
+
   void openExplorePane({
     required String sessionId,
     required String projectPath,
@@ -480,6 +523,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           worktreePath: worktreePath,
         ),
       GitToolPaneData() => null,
+      // Reopened from its entry point, which also supplies the send target.
+      GitHubToolPaneData() => null,
       ExploreToolPaneData(
         :final sessionId,
         :final projectPath,
@@ -525,6 +570,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       return;
     }
     _navigation.openTool(pane);
+    _dropStaleGitHubTriageHandler();
     _rememberVisibleToolPane();
   }
 
@@ -544,6 +590,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     if (entry != null && entry != _state.toolEntry) return;
     _forgetToolPaneForSession(_state.liveSessionId ?? _toolPane?.sessionId);
     _navigation.closeTool();
+    _dropStaleGitHubTriageHandler();
   }
 
   /// Dispose the previous machine's chat before connecting to another target.
@@ -564,6 +611,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
     _navigation.reset();
+    _githubTriageHandler = null;
   }
 
   void _handleExploreResult(ExploreScreenResult result, {int? entry}) {
@@ -609,6 +657,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       selection,
       restoredTool: _restoreToolPaneForSession(selection.sessionId),
     );
+    _dropStaleGitHubTriageHandler();
   }
 
   void clearSelectedSession({int? entry}) {
@@ -617,6 +666,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _toolPaneSnapshots.clear();
     _toolPaneBindings.clear();
     _navigation.closeSession();
+    _dropStaleGitHubTriageHandler();
   }
 
   void _clearSelectedSessionIfStopped(String sessionId) {
@@ -880,6 +930,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                             _handleDiffSelection(selection, entry: toolEntry),
                         onFilePeekOpened: (path) =>
                             _handleFilePeekOpened(path, entry: toolEntry),
+                        onGitHubTriage: (prompt) =>
+                            _handleGitHubTriage(prompt, entry: toolEntry),
                       ),
                     ),
                 ],
@@ -1100,6 +1152,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
   final ValueChanged<ExploreScreenResult> onExploreResultChanged;
   final ValueChanged<DiffSelection> onDiffSelection;
   final ValueChanged<String> onFilePeekOpened;
+  final GitHubTriageSubmit onGitHubTriage;
 
   const _WorkspaceToolPaneHost({
     required this.pane,
@@ -1107,6 +1160,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
     required this.onExploreResultChanged,
     required this.onDiffSelection,
     required this.onFilePeekOpened,
+    required this.onGitHubTriage,
   });
 
   @override
@@ -1147,6 +1201,15 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
         sessionId: sessionId,
         embedded: true,
         onClose: onClose,
+      ),
+      GitHubToolPaneData(:final projectPath, :final sessionId) => GitHubScreen(
+        projectPath: projectPath,
+        triageTarget: sessionId == null
+            ? GitHubTriageTarget.newSession
+            : GitHubTriageTarget.currentSession,
+        embedded: true,
+        onClose: onClose,
+        onSubmitTriage: onGitHubTriage,
       ),
     };
 

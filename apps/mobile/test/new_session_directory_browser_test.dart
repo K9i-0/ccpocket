@@ -164,6 +164,92 @@ void main() {
     },
   );
 
+  testWidgets('a locked project cannot be changed and is what starts', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final bridge = _DirectoryBrowserBridge();
+    addTearDown(bridge.dispose);
+    NewSessionParams? selected;
+    Future<void> open({required bool lockProject}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  selected = await showNewSessionSheet(
+                    context: context,
+                    bridge: bridge,
+                    recentProjects: const [
+                      (path: '/workspace/app', name: 'app'),
+                      (path: '/workspace/other', name: 'other'),
+                    ],
+                    initialParams: NewSessionParams(
+                      projectPath: '/workspace/app',
+                    ),
+                    lockProject: lockProject,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+    }
+
+    final otherTile = find.byKey(
+      const ValueKey('recent_project_/workspace/other_tile'),
+    );
+    final change = find.byKey(const ValueKey('change_project_location_button'));
+    TextButton button(String key) =>
+        tester.widget<TextButton>(find.byKey(ValueKey(key)));
+
+    // Other callers keep the full project picker.
+    await open(lockProject: false);
+    expect(otherTile, findsOneWidget);
+    expect(change, findsOneWidget);
+    expect(button('create_new_project_button').onPressed, isNotNull);
+    expect(button('manage_projects_button').onPressed, isNotNull);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    await open(lockProject: true);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('selected_project_path')))
+          .data,
+      '/workspace/app',
+    );
+    expect(otherTile, findsNothing);
+    expect(change, findsNothing);
+    expect(button('create_new_project_button').onPressed, isNull);
+    expect(button('manage_projects_button').onPressed, isNull);
+    await tester.tap(find.byKey(const ValueKey('selected_project_card')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('confirm_project_location_button')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('dialog_start_button')));
+    await tester.pumpAndSettle();
+    expect(selected?.projectPath, '/workspace/app');
+  });
+
   testWidgets('selects a project path from the new session browser', (
     tester,
   ) async {
