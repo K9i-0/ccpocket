@@ -26,8 +26,11 @@ export const MAX_ASSISTANT_IMAGES_PER_MESSAGE = 12;
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 
 // ![alt](destination "optional title"); destination may be <angle bracketed>.
-const MARKDOWN_IMAGE_RE =
-  /!\[([^\]\n]*)\]\(\s*(<[^>\n]+>|[^)\s]+)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g;
+//
+// A single regular expression cannot parse this syntax: markdown allows
+// balanced brackets in the alt text (`![a [b] c](x.png)`) and balanced
+// parentheses in a bare destination (`![shot](Screenshot (1).png)`), plus
+// backslash escapes for both. The scanner below tracks those depths instead.
 const FENCED_CODE_RE = /^(```|~~~)[^\n]*\n[\s\S]*?(?:^\1[^\n]*$|(?![\s\S]))/gm;
 const INLINE_CODE_RE = /`[^`\n]*`/g;
 const URL_SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/;
@@ -39,21 +42,159 @@ export function extractMarkdownImages(text: string): MarkdownImage[] {
   const prose = text.replace(FENCED_CODE_RE, "").replace(INLINE_CODE_RE, "");
   const images: MarkdownImage[] = [];
   const seen = new Set<string>();
-  for (const match of prose.matchAll(MARKDOWN_IMAGE_RE)) {
-    const path = localPathFromDestination(match[2]);
+  let index = 0;
+  while ((index = prose.indexOf("![", index)) !== -1) {
+    const altStart = index + 2;
+    index = altStart;
+    const alt = scanAltText(prose, altStart);
+    if (!alt || prose[alt.end + 1] !== "(") continue;
+    const destination = scanDestination(prose, alt.end + 2);
+    if (!destination) continue;
+    const close = scanTitleAndClose(prose, destination.end);
+    if (close === null) continue;
+    index = close;
+    const path = localPathFromDestination(
+      unescapeMarkdown(destination.value),
+    );
     if (!path || seen.has(path)) continue;
     if (!IMAGE_EXTENSIONS.has(extname(path).toLowerCase())) continue;
     seen.add(path);
-    images.push({ alt: match[1].trim(), path });
+    images.push({ alt: unescapeMarkdown(alt.value).trim(), path });
   }
   return images;
 }
 
-function localPathFromDestination(rawDestination: string): string | null {
-  let destination = rawDestination.trim();
-  if (destination.startsWith("<") && destination.endsWith(">")) {
-    destination = destination.slice(1, -1).trim();
+/** Characters CommonMark lets a backslash escape. */
+const ESCAPABLE_RE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
+
+/** Resolve backslash escapes the way a markdown renderer does. */
+function unescapeMarkdown(value: string): string {
+  let out = "";
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index];
+    if (
+      char === "\\" &&
+      index + 1 < value.length &&
+      ESCAPABLE_RE.test(value[index + 1])
+    ) {
+      out += value[index + 1];
+      index++;
+      continue;
+    }
+    out += char;
   }
+  return out;
+}
+
+interface Scanned {
+  value: string;
+  /** Index just past the scanned construct. */
+  end: number;
+}
+
+/** Alt text: single line, balanced brackets, backslash escapes. */
+function scanAltText(text: string, start: number): Scanned | null {
+  let depth = 0;
+  for (let index = start; index < text.length; index++) {
+    const char = text[index];
+    if (char === "\\") {
+      index++;
+      continue;
+    }
+    if (char === "\n") return null;
+    if (char === "[") {
+      depth++;
+      continue;
+    }
+    if (char === "]") {
+      if (depth === 0) return { value: text.slice(start, index), end: index };
+      depth--;
+    }
+  }
+  return null;
+}
+
+/**
+ * Link destination: `<angle bracketed>` (may hold spaces and parentheses) or
+ * bare, where balanced parentheses belong to the path. Ends at the first
+ * unbalanced `)` or whitespace.
+ */
+function scanDestination(text: string, start: number): Scanned | null {
+  let index = start;
+  while (text[index] === " " || text[index] === "\t") index++;
+
+  if (text[index] === "<") {
+    const begin = index + 1;
+    for (index = begin; index < text.length; index++) {
+      const char = text[index];
+      if (char === "\\") {
+        index++;
+        continue;
+      }
+      if (char === "\n" || char === "<") return null;
+      if (char === ">") {
+        return { value: text.slice(begin, index), end: index + 1 };
+      }
+    }
+    return null;
+  }
+
+  const begin = index;
+  let depth = 0;
+  for (; index < text.length; index++) {
+    const char = text[index];
+    if (char === "\\") {
+      // An escaped space is still a space, so it ends a bare destination.
+      const next = text[index + 1];
+      if (next === undefined || next === " " || next === "\t" || next === "\n") {
+        break;
+      }
+      index++;
+      continue;
+    }
+    if (char === "\n") break;
+    if (char === "(") {
+      depth++;
+      continue;
+    }
+    if (char === ")") {
+      if (depth === 0) break;
+      depth--;
+      continue;
+    }
+    if (depth === 0 && (char === " " || char === "\t")) break;
+  }
+  if (index === begin) return null;
+  return { value: text.slice(begin, index), end: index };
+}
+
+/** Skips an optional title, then requires the closing `)`. */
+function scanTitleAndClose(text: string, start: number): number | null {
+  let index = start;
+  while (text[index] === " " || text[index] === "\t") index++;
+
+  const quote = text[index];
+  if (quote === '"' || quote === "'" || quote === "(") {
+    const closer = quote === "(" ? ")" : quote;
+    for (index++; index < text.length; index++) {
+      const char = text[index];
+      if (char === "\\") {
+        index++;
+        continue;
+      }
+      if (char === "\n") return null;
+      if (char === closer) break;
+    }
+    if (index >= text.length) return null;
+    index++;
+    while (text[index] === " " || text[index] === "\t") index++;
+  }
+
+  return text[index] === ")" ? index + 1 : null;
+}
+
+function localPathFromDestination(rawDestination: string): string | null {
+  const destination = rawDestination.trim();
   if (!destination || destination.startsWith("//")) return null;
 
   if (/^file:/i.test(destination)) {
