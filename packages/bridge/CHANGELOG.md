@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.4] - 2026-11-17
+
+### Fixed
+
+- The worktree list no longer includes worktrees from a sibling directory that only shares the `<project>-worktrees` prefix (for example `<project>-worktrees-legacy/`). ([#342](https://github.com/K9i-0/ccpocket/pull/342) by @KuljeetSinghXDA)
+- A 1.0 prompt history import that contains no usable prompt (an empty list or blank text only) now leaves the Bridge history and its revision unchanged instead of erasing it. ([#343](https://github.com/K9i-0/ccpocket/pull/343) by @KuljeetSinghXDA)
+- A prompt that was deleted and then restored or used again on another device is no longer kept deleted when that device's newer copy is merged through `sync_prompt_history`. Older copies and copies without a timestamp still keep the delete. ([#344](https://github.com/K9i-0/ccpocket/pull/344) by @KuljeetSinghXDA)
+
 ## [1.107.3] - 2026-11-16
 
 ### Fixed
