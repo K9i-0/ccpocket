@@ -194,6 +194,30 @@ describe("PromptHistoryStore", () => {
     expect(store.list(true)[0].deletedAt).toBe("2026-01-03T00:00:00.000Z");
   });
 
+  it("keeps the tombstone when the client copy carries no timestamp", async () => {
+    const store = await makeStore();
+    const entry = await store.record({
+      text: "no timestamp",
+      projectPath: "/repo",
+      clientId: "phone",
+      usedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await store.mutate({
+      id: entry.id,
+      action: "delete",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    // Timestamps are optional in the protocol. The merge fills a missing one
+    // with the current time, which must not count as a restore.
+    await store.mergeClientEntries([
+      { id: entry.id, text: "no timestamp", projectPath: "/repo" },
+    ]);
+
+    expect(store.list()).toHaveLength(0);
+    expect(store.list(true)[0].deletedAt).toBe("2026-01-02T00:00:00.000Z");
+  });
+
   it("keeps the newest tombstone over an older restore", async () => {
     const store = await makeStore();
     const entry = await store.record({

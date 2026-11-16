@@ -339,6 +339,10 @@ export class PromptHistoryStore {
       const text = normalizeText(raw.text);
       if (!text) continue;
       const projectPath = normalizeProjectPath(raw.projectPath);
+      // A copy without its own timestamp gets "now" below. That default says
+      // nothing about when the client last touched the prompt, so it must not
+      // undo a delete.
+      const canRestore = Boolean(raw.updatedAt ?? raw.lastUsedAt);
       this.mergeEntry({
         id: raw.id ?? promptHistoryId(text, projectPath, raw.projectId),
         text,
@@ -355,7 +359,7 @@ export class PromptHistoryStore {
         commandKind: raw.commandKind ?? detectPromptCommandKind(text),
         clientStats: raw.clientStats ?? {},
         sessionStats: raw.sessionStats ?? {},
-      });
+      }, canRestore);
     }
     await this.saveBumped();
   }
@@ -392,7 +396,7 @@ export class PromptHistoryStore {
     };
   }
 
-  private mergeEntry(incoming: PromptHistoryEntry): void {
+  private mergeEntry(incoming: PromptHistoryEntry, canRestore = true): void {
     const existing = this.findMutable(incoming.id);
     if (!existing) {
       this.data.entries.push(cloneEntry(incoming));
@@ -426,7 +430,11 @@ export class PromptHistoryStore {
       if (!existing.deletedAt || incoming.deletedAt >= existing.deletedAt) {
         existing.deletedAt = incoming.deletedAt;
       }
-    } else if (existing.deletedAt && incoming.updatedAt > existing.deletedAt) {
+    } else if (
+      canRestore &&
+      existing.deletedAt &&
+      incoming.updatedAt > existing.deletedAt
+    ) {
       existing.deletedAt = undefined;
     }
 
