@@ -26,6 +26,8 @@ function isValidProjectPath(path: string): boolean {
 export class ProjectHistory {
   private projects: string[] = [];
   private readonly filePath: string;
+  /** Serializes index writes so concurrent saves never interleave. */
+  private saveChain: Promise<void> = Promise.resolve();
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? DEFAULT_HISTORY_FILE;
@@ -84,7 +86,15 @@ export class ProjectHistory {
     });
   }
 
-  private async saveIndex(): Promise<void> {
-    await writeFile(this.filePath, JSON.stringify(this.projects, null, 2), "utf-8");
+  private saveIndex(): Promise<void> {
+    const next = this.saveChain
+      .catch(() => {})
+      .then(() =>
+        // Snapshot at write time so the last queued save persists the latest
+        // list, whatever order the callers ran in.
+        writeFile(this.filePath, JSON.stringify(this.projects, null, 2), "utf-8"),
+      );
+    this.saveChain = next;
+    return next;
   }
 }
