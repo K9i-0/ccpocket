@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.166.0] - 2026-11-17
+
+### Removed
+
+- mDNS auto-discovery of Bridge Servers on the local network, along with its entry in the setup guide. Discovered servers were never actually listed, so nothing that worked is lost. Connect with the QR code, a saved machine, a manual URL, or Tailscale.
+
+### Changed
+
+- Updated dependencies: `flutter_local_notifications` 22.3.3 (includes a fix for notification errors on iOS 27 when permission is not granted) and `cupertino_icons` 2.0.0.
+- The app now expects Bridge 1.108.0 and offers the update when connected to an older Bridge.
+
 ## [1.165.1] - 2026-11-17
 
 ### Fixed
