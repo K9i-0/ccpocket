@@ -95,7 +95,6 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ─┤
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | 許可するプロジェクトディレクトリ (カンマ区切り) |
 | `BRIDGE_READONLY_DIRS` | 未設定 | ファイルのプレビュー・ダウンロード・Finder表示だけを許可する追加ディレクトリ (カンマ区切り、例: `/tmp,/private/tmp`)。プロジェクト・アップロード先・Git操作には使えない |
 | `BRIDGE_RECORDING` | (なし) | セッション録画を有効化 (設定時に有効化) |
-| `BRIDGE_DISABLE_MDNS` | (なし) | mDNSアドバタイズメントを無効化 (設定時に有効化) |
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` (1MB) | Diff画像の自動表示閾値 (KB単位) |
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` (5MB) | Diff画像の最大サイズ (MB単位、超過はテキストのみ) |
 | `HTTPS_PROXY` | (なし) | プロキシ設定 (`http://`, `socks5://` 対応) |

@@ -65,8 +65,7 @@ should be on npm by the time app N reaches users.
 
 Nothing is rejected that was previously accepted.
 
-- `/health` includes `auth: "required" | "none"`, with the same meaning as the
-  mDNS TXT `auth` field.
+- `/health` includes `auth: "required" | "none"`.
 - The token comparison uses `crypto.timingSafeEqual`.
 - `Access-Control-Allow-Headers` includes `Authorization`.
 - `GET /pairing` returns pairing information (connection URLs, deep link and

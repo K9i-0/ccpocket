@@ -84,7 +84,7 @@ on your own machine instead of moving into a hosted IDE.
 
 ## Remote Access
 
-On the same network, connect with the QR code, mDNS discovery, or a manual
+On the same network, connect with the QR code or a manual
 `ws://` / `wss://` URL.
 
 For access away from home or the office, Tailscale is the recommended setup:

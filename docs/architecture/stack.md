@@ -47,7 +47,6 @@ Core stack:
 - WebSocket server: `ws`
 - Claude integration: `@anthropic-ai/claude-agent-sdk`
 - Codex integration: local Codex CLI / shared app-server transport
-- Local discovery: `bonjour-service` mDNS
 - Proxy support: `undici` global dispatcher and `socks`
 - Tests: Vitest
 - Development runner: `tsx`
@@ -65,7 +64,7 @@ Key responsibilities:
 - Provide project utilities: file browsing, prompt history, image gallery,
   screenshot serving, usage metadata, and session indexes.
 - Support host setup: launchd on macOS, systemd on Linux.
-- Support remote access via QR code, mDNS, manual WebSocket URLs, and Tailscale.
+- Support remote access via QR code, manual WebSocket URLs, and Tailscale.
 
 Important files:
 
@@ -102,8 +101,7 @@ Core stack:
   `syntax_highlight`
 - File/image UX: `image_picker`, `extended_image`, `super_clipboard`,
   `super_drag_and_drop`
-- Discovery and onboarding: `bonjour-service` counterpart via `bonsoir`,
-  QR scanning via `mobile_scanner`, deep links via `app_links`
+- Onboarding: QR scanning via `mobile_scanner`, deep links via `app_links`
 - SSH host management: `dartssh2`
 - Push notifications: Firebase Messaging
 - Purchases/supporter flow: RevenueCat `purchases_flutter`

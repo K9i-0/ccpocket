@@ -33,7 +33,7 @@ This app is not affiliated with, endorsed by, or associated with Anthropic or Op
 - Stage changes, generate commit messages, commit, push, or revert
 - Recover missed streaming updates, queue outgoing messages while offline, and resend after reconnecting
 - Write prompts with Markdown, completions, voice input, and image attachments
-- Connect via QR code, mDNS, saved machines, manual URL, or Tailscale
+- Connect via QR code, saved machines, manual URL, or Tailscale
 - Optional Supporter purchases for ongoing development
 
 **How It Works**
@@ -69,7 +69,7 @@ CC Pocket は、OpenAI Codex / Claude Code のモバイル・デスクトップ�
 - stage、コミットメッセージ生成、commit、push、revert に対応
 - メッセージ差分の復元、オフライン pending、再接続後の自動再送に対応
 - Markdown、補完、音声入力、画像添付でプロンプト作成
-- QR、mDNS、保存済みマシン、手動 URL、Tailscale で接続
+- QR、保存済みマシン、手動 URL、Tailscale で接続
 - 継続開発を応援する任意の Supporter 購入
 
 **使い方**
@@ -105,7 +105,7 @@ CC Pocket 是 OpenAI Codex / Claude Code 的移动与桌面客户端。代理通
 - stage 变更、生成提交信息、commit、push 或 revert
 - 恢复消息增量、暂存离线消息，并在重连后自动重发
 - 使用 Markdown、补全、语音输入和图片附件编写提示
-- 通过二维码、mDNS、已保存机器、手动 URL 或 Tailscale 连接
+- 通过二维码、已保存机器、手动 URL 或 Tailscale 连接
 - 可选 Supporter 购买，用于支持持续开发
 
 **使用方法**
@@ -141,7 +141,7 @@ CC Pocket은 OpenAI Codex / Claude Code를 위한 모바일 및 데스크톱 클
 - 변경 사항 stage, 커밋 메시지 생성, commit, push, revert 지원
 - 메시지 델타 복구, 오프라인 pending, 재연결 후 자동 재전송 지원
 - Markdown, 자동완성, 음성 입력, 이미지 첨부로 프롬프트 작성
-- QR 코드, mDNS, 저장된 머신, 수동 URL, Tailscale로 연결
+- QR 코드, 저장된 머신, 수동 URL, Tailscale로 연결
 - 지속적인 개발을 지원하는 선택적 Supporter 구매
 
 **사용 방법**

@@ -312,7 +312,6 @@ Environment=HOME=<HOME>
 Environment=PATH=<NODE_ROOT>/bin:<HOME>/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=BRIDGE_PORT=<BRIDGE_PORT>
 Environment=BRIDGE_HOST=127.0.0.1
-Environment=BRIDGE_DISABLE_MDNS=1
 Environment=BRIDGE_ALLOWED_DIRS=<PROJECT_DIR_1>,<PROJECT_DIR_2>
 ExecStart=<ABSOLUTE_PATH_TO_CCPOCKET_BRIDGE>
 Restart=on-failure

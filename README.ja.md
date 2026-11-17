@@ -76,7 +76,7 @@ CC Pocket app  <->  自分のマシン上の Bridge Server  <->  Codex / Claude
 
 ## リモートアクセス
 
-同じネットワーク内では、QR コード、mDNS 自動発見、または手入力の
+同じネットワーク内では、QR コードまたは手入力の
 `ws://` / `wss://` URL で接続できます。
 
 自宅やオフィスの外から使う場合は、Tailscale がおすすめです。
