@@ -32,13 +32,6 @@ class GuidePageConnection extends StatelessWidget {
           const SizedBox(height: 12),
           _ConnectionMethod(
             colorScheme: cs,
-            icon: Icons.search,
-            title: l.guideConnectionMdns,
-            description: l.guideConnectionMdnsDescription,
-          ),
-          const SizedBox(height: 12),
-          _ConnectionMethod(
-            colorScheme: cs,
             icon: Icons.edit,
             title: l.guideConnectionManual,
             description: l.guideConnectionManualDescription,

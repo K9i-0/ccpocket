@@ -1819,13 +1819,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Just scan the QR code displayed in the terminal. The easiest method.';
 
   @override
-  String get guideConnectionMdns => 'Auto-discovery (mDNS)';
-
-  @override
-  String get guideConnectionMdnsDescription =>
-      'Automatically finds Bridge Servers on the same LAN.';
-
-  @override
   String get guideConnectionManual => 'Manual Entry';
 
   @override

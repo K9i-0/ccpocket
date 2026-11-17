@@ -158,9 +158,7 @@ void main() {
       expect(dropdown.initialValue, BridgeConnectionMode.automatic);
     });
 
-    testWidgets('treats a discovered machine with an empty id as new', (
-      tester,
-    ) async {
+    testWidgets('treats a machine with an empty id as new', (tester) async {
       await pumpSheet(
         tester,
         machine: const Machine(id: '', host: 'bridge.local'),

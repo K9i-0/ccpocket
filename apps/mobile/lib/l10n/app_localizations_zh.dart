@@ -1720,12 +1720,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guideConnectionQrDescription => '只需扫描终端中显示的二维码。最简单的方法。';
 
   @override
-  String get guideConnectionMdns => '自动发现（mDNS）';
-
-  @override
-  String get guideConnectionMdnsDescription => '自动查找同一局域网中的 Bridge 服务。';
-
-  @override
   String get guideConnectionManual => '手动输入';
 
   @override

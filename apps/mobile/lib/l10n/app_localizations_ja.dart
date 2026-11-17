@@ -1742,13 +1742,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'ターミナルに表示された QR コードを読み取るだけ。一番簡単です。';
 
   @override
-  String get guideConnectionMdns => '自動検出 (mDNS)';
-
-  @override
-  String get guideConnectionMdnsDescription =>
-      '同一 LAN 内の Bridge Server を自動で見つけて表示します。';
-
-  @override
   String get guideConnectionManual => '手動入力';
 
   @override

@@ -687,8 +687,6 @@
   "guideConnectionDescription": "如果处于同一个 Wi-Fi 网络下，你可以立即连接。",
   "guideConnectionQr": "扫描二维码",
   "guideConnectionQrDescription": "只需扫描终端中显示的二维码。最简单的方法。",
-  "guideConnectionMdns": "自动发现（mDNS）",
-  "guideConnectionMdnsDescription": "自动查找同一局域网中的 Bridge 服务。",
   "guideConnectionManual": "手动输入",
   "guideConnectionManualDescription": "直接输入 `ws://<IP 地址>:8765` 格式的地址。",
   "guideConnectionRecommended": "推荐",

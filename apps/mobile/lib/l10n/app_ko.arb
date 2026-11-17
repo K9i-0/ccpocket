@@ -638,8 +638,6 @@
   "guideConnectionDescription": "같은 Wi-Fi 네트워크에 있으면 바로 연결할 수 있습니다.",
   "guideConnectionQr": "QR 코드 스캔",
   "guideConnectionQrDescription": "터미널에 표시된 QR 코드를 스캔하세요. 가장 쉬운 방법입니다.",
-  "guideConnectionMdns": "자동 검색(mDNS)",
-  "guideConnectionMdnsDescription": "같은 LAN의 Bridge 서버를 자동으로 찾습니다.",
   "guideConnectionManual": "수동 입력",
   "guideConnectionManualDescription": "ws://<IP address>:8765 형식으로 직접 입력합니다.",
   "guideConnectionRecommended": "권장",

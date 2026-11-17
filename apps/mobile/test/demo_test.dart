@@ -37,13 +37,7 @@ void main() {
     locale: Locale(language),
     localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(
-      body: ConnectForm(
-        discoveredServers: const [],
-        onScanQrCode: () {},
-        onConnectToDiscovered: (_) {},
-      ),
-    ),
+    home: Scaffold(body: ConnectForm(onScanQrCode: () {})),
   );
 
   Future<void> tap(WidgetTester tester, String key) async {

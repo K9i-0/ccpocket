@@ -7,7 +7,6 @@ import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/main.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
-import 'package:ccpocket/providers/server_discovery_cubit.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/fcm_service.dart';
 
@@ -53,7 +52,6 @@ void main() {
                 bridge.projectsStream,
               ),
             ),
-            BlocProvider(create: (_) => ServerDiscoveryCubit()),
             BlocProvider(
               create: (ctx) =>
                   SessionListCubit(bridge: ctx.read<BridgeService>()),

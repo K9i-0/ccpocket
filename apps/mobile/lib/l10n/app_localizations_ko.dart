@@ -1757,12 +1757,6 @@ class AppLocalizationsKo extends AppLocalizations {
       '터미널에 표시된 QR 코드를 스캔하세요. 가장 쉬운 방법입니다.';
 
   @override
-  String get guideConnectionMdns => '자동 검색(mDNS)';
-
-  @override
-  String get guideConnectionMdnsDescription => '같은 LAN의 Bridge 서버를 자동으로 찾습니다.';
-
-  @override
   String get guideConnectionManual => '수동 입력';
 
   @override

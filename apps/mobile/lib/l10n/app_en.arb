@@ -688,8 +688,6 @@
   "guideConnectionDescription": "If on the same Wi-Fi network, you can connect right away.",
   "guideConnectionQr": "QR Code Scan",
   "guideConnectionQrDescription": "Just scan the QR code displayed in the terminal. The easiest method.",
-  "guideConnectionMdns": "Auto-discovery (mDNS)",
-  "guideConnectionMdnsDescription": "Automatically finds Bridge Servers on the same LAN.",
   "guideConnectionManual": "Manual Entry",
   "guideConnectionManualDescription": "Enter directly in the format ws://<IP address>:8765.",
   "guideConnectionRecommended": "Recommended",

@@ -50,14 +50,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_ccpocket._tcp</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>QR code scanning requires camera access to connect to bridge server</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Searching for CC Pocket bridge servers on your local network</string>
+	<string>Connecting to CC Pocket bridge servers on your local network</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voice input requires microphone access to transcribe speech to text</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

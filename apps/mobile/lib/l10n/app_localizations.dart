@@ -3317,18 +3317,6 @@ abstract class AppLocalizations {
   /// **'ターミナルに表示された QR コードを読み取るだけ。一番簡単です。'**
   String get guideConnectionQrDescription;
 
-  /// No description provided for @guideConnectionMdns.
-  ///
-  /// In ja, this message translates to:
-  /// **'自動検出 (mDNS)'**
-  String get guideConnectionMdns;
-
-  /// No description provided for @guideConnectionMdnsDescription.
-  ///
-  /// In ja, this message translates to:
-  /// **'同一 LAN 内の Bridge Server を自動で見つけて表示します。'**
-  String get guideConnectionMdnsDescription;
-
   /// No description provided for @guideConnectionManual.
   ///
   /// In ja, this message translates to:

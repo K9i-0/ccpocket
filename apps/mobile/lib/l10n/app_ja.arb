@@ -713,8 +713,6 @@
   "guideConnectionDescription": "同じ Wi-Fi ネットワーク内なら、すぐに接続できます。",
   "guideConnectionQr": "QR コードスキャン",
   "guideConnectionQrDescription": "ターミナルに表示された QR コードを読み取るだけ。一番簡単です。",
-  "guideConnectionMdns": "自動検出 (mDNS)",
-  "guideConnectionMdnsDescription": "同一 LAN 内の Bridge Server を自動で見つけて表示します。",
   "guideConnectionManual": "手動入力",
   "guideConnectionManualDescription": "ws://<IP アドレス>:8765 の形式で直接入力します。",
   "guideConnectionRecommended": "おすすめ",
