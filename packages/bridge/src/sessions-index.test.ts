@@ -3669,6 +3669,90 @@ describe("recent sessions grouped by git repository", () => {
   });
 });
 
+describe("getSessionHistory stale index paths", () => {
+  const oldHome = process.env.HOME;
+  let tempHome: string;
+
+  beforeEach(() => {
+    tempHome = mkdtempSync(join(tmpdir(), "ccpocket-history-stale-"));
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  function projectsDir(): string {
+    return join(tempHome, ".claude", "projects");
+  }
+
+  function userLine(text: string): string {
+    return JSON.stringify({
+      type: "user",
+      uuid: `u-${text}`,
+      message: { role: "user", content: text },
+    });
+  }
+
+  it("ignores a recorded path that no longer exists", async () => {
+    // The project moved, so the old project's index still points at the
+    // previous location while the transcript now lives in the new one.
+    const oldDir = join(projectsDir(), "-a-old-project");
+    const newDir = join(projectsDir(), "-z-new-project");
+    mkdirSync(oldDir, { recursive: true });
+    mkdirSync(newDir, { recursive: true });
+    writeFileSync(
+      join(oldDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId: "moved-session",
+            fullPath: join(oldDir, "moved-session.jsonl"),
+          },
+        ],
+      }),
+    );
+    writeFileSync(
+      join(newDir, "moved-session.jsonl"),
+      userLine("still readable"),
+    );
+
+    const history = await getSessionHistory("moved-session");
+
+    expect(history.map((message) => message.role)).toEqual(["user"]);
+    expect(history[0].content).toEqual([{ type: "text", text: "still readable" }]);
+  });
+
+  it("keeps using a recorded path that exists", async () => {
+    const projectDir = join(projectsDir(), "-tmp-project");
+    // The transcript does not follow the `<sessionId>.jsonl` naming rule, so
+    // only the index entry can resolve it.
+    mkdirSync(join(projectDir, "nested"), { recursive: true });
+    writeFileSync(
+      join(projectDir, "nested", "transcript.jsonl"),
+      userLine("indexed"),
+    );
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId: "indexed-session",
+            fullPath: join(projectDir, "nested", "transcript.jsonl"),
+          },
+        ],
+      }),
+    );
+
+    const history = await getSessionHistory("indexed-session");
+
+    expect(history[0].content).toEqual([{ type: "text", text: "indexed" }]);
+  });
+});
+
 describe("getSessionHistory non-prompt user entries", () => {
   const oldHome = process.env.HOME;
   let tempHome: string;

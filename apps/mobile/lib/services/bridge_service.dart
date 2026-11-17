@@ -421,6 +421,12 @@ class BridgeService implements BridgeServiceBase {
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
+
+  /// How old a handshake must be before [ensureConnected] treats it as stuck
+  /// and replaces it. Younger attempts are left alone so several screens
+  /// reacting to the same resume do not restart each other's attempt.
+  final Duration staleConnectAttemptAge;
+  DateTime? _connectAttemptStartedAt;
   bool _intentionalDisconnect = false;
   BridgeAuthRejection? _authRejection;
   bool _disposed = false;
@@ -637,6 +643,7 @@ class BridgeService implements BridgeServiceBase {
     this.recentSessionsRequestTimeout = const Duration(seconds: 10),
     this.galleryRequestTimeout = const Duration(seconds: 10),
     this.legacyWorktreeRemoveRequestTimeout = const Duration(seconds: 10),
+    this.staleConnectAttemptAge = const Duration(seconds: 2),
     WebSocketChannel Function(Uri uri)? channelFactory,
   }) : _channelFactory = channelFactory ?? WebSocketChannel.connect {
     unawaited(_ensureOfflineQueueRestored());
@@ -846,6 +853,7 @@ class BridgeService implements BridgeServiceBase {
       );
     }
     _lastUrl = url;
+    _connectAttemptStartedAt = DateTime.now();
 
     _setBridgeConnectionState(BridgeConnectionState.connecting);
     try {
@@ -5094,6 +5102,12 @@ class BridgeService implements BridgeServiceBase {
   ///
   /// Call this when the app returns to foreground — iOS may silently kill
   /// background WebSocket connections without triggering [onDone]/[onError].
+  ///
+  /// Android keeps running the reconnect loop in the background while the OS
+  /// blocks the app's network, so a resume can land on a handshake whose SYN
+  /// is stuck in kernel retransmission (up to ~2 minutes) or on a backoff
+  /// timer of up to [_maxReconnectDelay] seconds. Both are replaced with a
+  /// fresh attempt instead of making the user wait them out.
   void ensureConnected() {
     if (_intentionalDisconnect || _lastUrl == null) return;
     // Waiting for the user to re-pair; resuming must not retry the old key.
@@ -5106,8 +5120,17 @@ class BridgeService implements BridgeServiceBase {
       }
     } else if (_connectionState == BridgeConnectionState.disconnected) {
       connect(_lastUrl!);
+    } else if (_connectionState == BridgeConnectionState.reconnecting) {
+      _reconnectAttempt = 0;
+      connect(_lastUrl!);
+    } else if (_connectionState == BridgeConnectionState.connecting) {
+      final startedAt = _connectAttemptStartedAt;
+      if (startedAt == null ||
+          DateTime.now().difference(startedAt) >= staleConnectAttemptAge) {
+        _reconnectAttempt = 0;
+        connect(_lastUrl!);
+      }
     }
-    // If reconnecting, do nothing — already in progress.
   }
 
   void disconnect() {

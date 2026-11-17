@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.107.5] - 2026-11-17
+
+### Fixed
+
+- Session history is no longer empty when `sessions-index.json` still points at a transcript path that no longer exists (for example after the project moved). The Bridge now falls back to finding the transcript where it lives now. ([#345](https://github.com/K9i-0/ccpocket/pull/345) by @KuljeetSinghXDA)
+- Image paths in tool output are extracted as printed: a relative path such as `src/assets/logo.png` is no longer turned into `/assets/logo.png`, a Windows drive prefix (`C:/...`) stays attached, and directory names with non-ASCII letters no longer split the path. ([#346](https://github.com/K9i-0/ccpocket/pull/346) by @KuljeetSinghXDA)
+- Two quick project switches can no longer leave an older recent-projects list on disk; saves of `project-history.json` now run one at a time. ([#347](https://github.com/K9i-0/ccpocket/pull/347) by @KuljeetSinghXDA)
+
 ## [1.107.4] - 2026-11-17
 
 ### Fixed

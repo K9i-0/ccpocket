@@ -3518,7 +3518,13 @@ async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
 
     const entry = index.entries.find((e) => e.sessionId === sessionId);
     if (entry?.fullPath) {
-      return entry.fullPath;
+      try {
+        await stat(entry.fullPath);
+        return entry.fullPath;
+      } catch {
+        // A moved project or a renamed file leaves a stale path behind. Keep
+        // scanning so the fallback below can find the JSONL where it lives now.
+      }
     }
   }
 

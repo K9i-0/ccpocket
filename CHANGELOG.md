@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.165.1] - 2026-11-17
+
+### Fixed
+
+- Android: returning to the app from the background could show the loading skeleton for 10 seconds or more before the session list appeared. The app now reconnects to the Bridge immediately on resume instead of waiting for a connection attempt that started in the background to time out.
+
 ## [1.165.0] - 2026-11-16
 
 ### Added
