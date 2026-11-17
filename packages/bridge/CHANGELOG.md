@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.108.0] - 2026-11-17
+
+### Removed
+
+- mDNS advertisement (`_ccpocket._tcp`). The app no longer discovers Bridges over mDNS, and advertising was already off on macOS. Connect with the QR code, a saved machine, a manual URL, or Tailscale. `--no-mdns` is still accepted and ignored, so existing commands and service definitions keep working; `BRIDGE_DISABLE_MDNS` no longer has any effect. The `bonjour-service` dependency is gone.
+
+### Changed
+
+- Updated `@anthropic-ai/claude-agent-sdk` to 0.3.325.
+- Updated `ws` to 8.23.0, which fixes a memory exhaustion issue where a peer flooding Ping frames could make the Bridge run out of memory.
+
 ## [1.107.5] - 2026-11-17
 
 ### Fixed
