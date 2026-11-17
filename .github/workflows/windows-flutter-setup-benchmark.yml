@@ -77,7 +77,7 @@ jobs:
           "BENCHMARK_STARTED_AT=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" >> $env:GITHUB_ENV
       - name: Set up Flutter with mise
         id: setup
-        uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.9.1
           install_args: flutter
