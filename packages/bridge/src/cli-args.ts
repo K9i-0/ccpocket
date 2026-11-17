@@ -12,6 +12,8 @@ const VALUE_FLAGS = new Set([
 const BOOLEAN_FLAGS = new Set([
   "json",
   "uninstall",
+  // Accepted and ignored: mDNS advertisement was removed, but existing
+  // commands and service definitions may still pass it.
   "no-mdns",
   "insecure-no-auth",
 ]);

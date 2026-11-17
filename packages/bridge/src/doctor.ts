@@ -250,7 +250,6 @@ export async function checkDependencies(): Promise<CheckResult> {
   const requiredPackages = [
     "ws",
     "@anthropic-ai/claude-agent-sdk",
-    "bonjour-service",
   ];
   const missing: string[] = [];
 

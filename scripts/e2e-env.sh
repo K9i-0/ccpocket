@@ -80,7 +80,7 @@ cmd_bridge() {
   # If another agent grabbed the port meanwhile, the Bridge exits with
   # EADDRINUSE; run this command again to pick the next port.
   cd "$root"
-  BRIDGE_PORT="$port" BRIDGE_DISABLE_MDNS=1 exec npm run bridge
+  BRIDGE_PORT="$port" exec npm run bridge
 }
 
 cmd_sim() {

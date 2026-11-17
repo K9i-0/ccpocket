@@ -37,7 +37,6 @@ Options:
                          Disable API key authentication (not recommended)
       --public-ws-url <url>
                          Public ws:// or wss:// URL used in QR codes
-      --no-mdns         Disable mDNS auto-discovery advertisement
       --codex-app-server-mode <mode>
                          Codex app-server mode: private, managed, or external
       --codex-shared-app-server-url <url>
@@ -46,14 +45,14 @@ Options:
 Setup options:
       --uninstall       Remove the registered service
       setup persists --port, --host, --api-key, --public-ws-url,
-      --no-mdns, --insecure-no-auth, Codex app-server options, BRIDGE_ALLOWED_DIRS,
+      --insecure-no-auth, Codex app-server options, BRIDGE_ALLOWED_DIRS,
       BRIDGE_READONLY_DIRS, and
       BRIDGE_ALLOW_CLAUDE_OAUTH, BRIDGE_CODEX_ASSIST_MODEL, and
       BRIDGE_CODEX_ASSIST_REASONING_EFFORT
 
 Configuration can also be provided with BRIDGE_PORT, BRIDGE_HOST,
-BRIDGE_API_KEY, BRIDGE_ALLOWED_DIRS, BRIDGE_READONLY_DIRS, BRIDGE_PUBLIC_WS_URL, and
-BRIDGE_DISABLE_MDNS. Claude subscription authentication can be explicitly
+BRIDGE_API_KEY, BRIDGE_ALLOWED_DIRS, BRIDGE_READONLY_DIRS, and
+BRIDGE_PUBLIC_WS_URL. Claude subscription authentication can be explicitly
 enabled with BRIDGE_ALLOW_CLAUDE_OAUTH=1. Codex app-server configuration can be provided with
 BRIDGE_CODEX_APP_SERVER_MODE and BRIDGE_CODEX_SHARED_APP_SERVER_URL.
 Codex assist calls can be configured with BRIDGE_CODEX_ASSIST_MODEL and
@@ -104,7 +103,6 @@ if (parsed.helpRequested) {
     host: parseFlag(parsed, "host"),
     apiKey: parseFlag(parsed, "api-key"),
     publicWsUrl: parseFlag(parsed, "public-ws-url"),
-    disableMdns: hasFlag(parsed, "no-mdns"),
     insecureNoAuth: hasFlag(parsed, "insecure-no-auth"),
     codexAppServerMode: parseFlag(parsed, "codex-app-server-mode"),
     codexSharedAppServerUrl: parseFlag(parsed, "codex-shared-app-server-url"),
@@ -171,7 +169,6 @@ if (parsed.helpRequested) {
   } else if (codexAppServerUrl) {
     process.env.BRIDGE_CODEX_APP_SERVER_URL = codexAppServerUrl;
   }
-  if (hasFlag(parsed, "no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
   if (hasFlag(parsed, "insecure-no-auth")) {
     process.env.BRIDGE_INSECURE_NO_AUTH = "1";
   }

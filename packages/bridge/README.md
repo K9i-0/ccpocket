@@ -55,7 +55,6 @@ ccpocket-bridge --version
 | `BRIDGE_CODEX_ASSIST_REASONING_EFFORT` | `none` | Reasoning effort used for Codex assist calls |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 | `BRIDGE_RECORDING` | (none) | Enable session recording for debugging (enabled when set) |
-| `BRIDGE_DISABLE_MDNS` | (none) | Disable mDNS auto-discovery advertisement (macOS disables it automatically) |
 | `BRIDGE_ALLOW_CLAUDE_OAUTH` | (none) | Set exactly to `1` to explicitly enable experimental Claude subscription authentication |
 | `BRIDGE_PROMPT_HISTORY_FILE` | `$HOME/.ccpocket/prompt-history-v2.json` | Custom prompt history store path |
 | `BRIDGE_RECENT_SESSIONS_PROFILE` | (none) | Log recent-session index timing when set to `1` or `true` |
@@ -130,11 +129,6 @@ BRIDGE_PUBLIC_WS_URL=wss://example.ngrok-free.app npx @ccpocket/bridge@latest
 
 # Example: same setting via CLI flag
 ccpocket-bridge --public-ws-url wss://example.ngrok-free.app
-
-# Example: disable mDNS advertisement
-BRIDGE_DISABLE_MDNS=1 npx @ccpocket/bridge@latest
-# or via CLI flag
-ccpocket-bridge --no-mdns
 
 # Example: use an assist model provided by a custom Codex gateway
 BRIDGE_CODEX_ASSIST_MODEL=gpt-oss:20b-cloud \
@@ -261,7 +255,6 @@ that affect startup:
 - `BRIDGE_READONLY_DIRS`
 - `BRIDGE_FILE_DOWNLOAD_ALLOW_ALL_PATHS`
 - `BRIDGE_PUBLIC_WS_URL` / `--public-ws-url`
-- `BRIDGE_DISABLE_MDNS` / `--no-mdns`
 - `BRIDGE_ALLOW_CLAUDE_OAUTH`
 - `BRIDGE_CODEX_APP_SERVER_MODE` / `--codex-app-server-mode`
 - `BRIDGE_CODEX_SHARED_APP_SERVER_URL` / `--codex-shared-app-server-url`

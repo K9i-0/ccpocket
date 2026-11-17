@@ -32,7 +32,6 @@ const originalBridgeEnv = {
   port: process.env.BRIDGE_PORT,
   allowedDirs: process.env.BRIDGE_ALLOWED_DIRS,
   publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
-  disableMdns: process.env.BRIDGE_DISABLE_MDNS,
   allowClaudeOAuth: process.env.BRIDGE_ALLOW_CLAUDE_OAUTH,
   codexAssistModel: process.env.BRIDGE_CODEX_ASSIST_MODEL,
   codexAssistReasoningEffort:
@@ -84,7 +83,6 @@ describe("setup-systemd", () => {
       expect(content).toContain("WantedBy=default.target");
       expect(content).not.toContain("BRIDGE_API_KEY");
       expect(content).not.toContain("BRIDGE_ALLOWED_DIRS");
-      expect(content).not.toContain("BRIDGE_DISABLE_MDNS");
       expect(content).not.toContain("BRIDGE_ALLOW_CLAUDE_OAUTH");
       expect(content).not.toContain("BRIDGE_CODEX_ASSIST_MODEL");
       expect(content).not.toContain("BRIDGE_CODEX_ASSIST_REASONING_EFFORT");
@@ -140,13 +138,6 @@ describe("setup-systemd", () => {
       expect(content).toContain(
         "Environment=BRIDGE_ALLOWED_DIRS=/home/testuser,/scratch/testuser",
       );
-    });
-
-    it("includes BRIDGE_DISABLE_MDNS when requested", () => {
-      setupSystemd({ disableMdns: true });
-
-      const content = mockWriteFileSync.mock.calls[0]![1] as string;
-      expect(content).toContain("Environment=BRIDGE_DISABLE_MDNS=1");
     });
 
     it("persists explicit Claude OAuth opt-in", () => {
@@ -406,7 +397,6 @@ function clearBridgeEnv(): void {
   delete process.env.BRIDGE_ALLOWED_DIRS;
   delete process.env.BRIDGE_READONLY_DIRS;
   delete process.env.BRIDGE_PUBLIC_WS_URL;
-  delete process.env.BRIDGE_DISABLE_MDNS;
   delete process.env.BRIDGE_ALLOW_CLAUDE_OAUTH;
   delete process.env.BRIDGE_CODEX_ASSIST_MODEL;
   delete process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT;
@@ -420,7 +410,6 @@ function restoreBridgeEnv(): void {
   restoreEnvVar("BRIDGE_PORT", originalBridgeEnv.port);
   restoreEnvVar("BRIDGE_ALLOWED_DIRS", originalBridgeEnv.allowedDirs);
   restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
-  restoreEnvVar("BRIDGE_DISABLE_MDNS", originalBridgeEnv.disableMdns);
   restoreEnvVar(
     "BRIDGE_ALLOW_CLAUDE_OAUTH",
     originalBridgeEnv.allowClaudeOAuth,

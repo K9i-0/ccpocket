@@ -54,7 +54,6 @@ interface SetupOptions {
   host?: string;
   apiKey?: string;
   publicWsUrl?: string;
-  disableMdns?: boolean;
   insecureNoAuth?: boolean;
   codexAppServerMode?: string;
   codexSharedAppServerUrl?: string;
@@ -101,7 +100,6 @@ export function setupSystemd(opts: SetupOptions): void {
   const allowedDirs = process.env.BRIDGE_ALLOWED_DIRS ?? "";
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
-  const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
   const insecureNoAuth =
     opts.insecureNoAuth || process.env.BRIDGE_INSECURE_NO_AUTH === "1";
   const allowClaudeOAuth = process.env.BRIDGE_ALLOW_CLAUDE_OAUTH === "1";
@@ -166,9 +164,6 @@ Environment=BRIDGE_HOST=${host}`;
   }
   if (publicWsUrl) {
     envLines += `\nEnvironment=BRIDGE_PUBLIC_WS_URL=${publicWsUrl}`;
-  }
-  if (disableMdns) {
-    envLines += "\nEnvironment=BRIDGE_DISABLE_MDNS=1";
   }
   if (insecureNoAuth) {
     envLines += "\nEnvironment=BRIDGE_INSECURE_NO_AUTH=1";
