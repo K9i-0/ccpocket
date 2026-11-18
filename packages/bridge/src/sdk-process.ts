@@ -1134,6 +1134,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       prompt: this.createUserMessageStream(),
       options: {
         cwd: projectPath,
+        // Without this the SDK sends an empty system prompt, so the session
+        // misses the Claude Code instructions the `claude` CLI runs with.
+        systemPrompt: { type: "preset", preset: "claude_code" },
         ...(options?.additionalDirectories?.length
           ? { additionalDirectories: options.additionalDirectories }
           : {}),

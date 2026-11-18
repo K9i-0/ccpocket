@@ -1615,6 +1615,11 @@ describe("SdkProcess Claude authentication", () => {
     await vi.waitFor(() => expect(exits).toEqual([0]));
 
     expect(mockSdkQuery).toHaveBeenCalledOnce();
+    // Sessions run with the same system prompt as the `claude` CLI.
+    expect(mockSdkQuery.mock.calls[0][0].options.systemPrompt).toEqual({
+      type: "preset",
+      preset: "claude_code",
+    });
     expect(proc.sessionId).toBe("bedrock-session");
     expect(messages).toContainEqual(expect.objectContaining({
       type: "system",
