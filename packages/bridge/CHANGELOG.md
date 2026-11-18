@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.108.1] - 2026-11-18
+
+### Fixed
+
+- Claude sessions now start with the Claude Code system prompt (the SDK's `claude_code` preset), so they follow the same instructions as the `claude` CLI. Until now they ran with an empty system prompt. Sessions use a few thousand more input tokens as a result, and a session started on an older Bridge may keep its previous prompt until it is compacted. ([#355](https://github.com/K9i-0/ccpocket/issues/355), reported by @hustneverland)
+
 ## [1.108.0] - 2026-11-17
 
 ### Removed
