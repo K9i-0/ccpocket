@@ -12,8 +12,9 @@ import {
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AntigravityStore } from "./antigravity-store.js";
 import { resolvePlatformPath } from "./path-utils.js";
 import { MediaStore } from "./media-store.js";
 import { ImageStore } from "./image-store.js";
@@ -1320,8 +1321,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         // Later pages and filtered listings page Claude/Codex rows only.
         expect(ids(await list({ includeAntigravity: true, offset: 20 }))).toEqual(["c1"]);
         expect(
-          ids(await list({ includeAntigravity: true, searchQuery: "x" })),
+          ids(await list({ includeAntigravity: true, namedOnly: true })),
         ).toEqual(["c1"]);
+        // Title searches and a project path are filters Antigravity can apply.
+        expect(
+          ids(await list({ includeAntigravity: true, searchQuery: "x" })),
+        ).toEqual(["a2", "c1", "a1"]);
 
         const own = await list({ provider: "antigravity", limit: 1 });
         expect(ids(own)).toEqual(["a2"]);
@@ -1330,6 +1335,82 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           ids(await list({ provider: "antigravity", limit: 1, offset: 1 })),
         ).toEqual(["a1"]);
         bridge.close();
+      });
+
+      it("advertises antigravity_v2 and serves the catalog without a session", async () => {
+        const fetchAntigravityCatalog = vi.fn(async () => ({
+          models: [{ id: "gemini-3.8-flash-high", name: "Flash (High)" }],
+          modelOptions: [],
+          permissionModes: ["default" as const],
+          authMode: "login" as const,
+          tier: { name: "Google AI Ultra" },
+        }));
+        const bridge = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+          fetchAntigravityCatalog,
+        });
+        await (bridge as any).refreshAntigravityAvailability();
+        expect(catalogOf(bridge).protocolCapabilities).toContain("antigravity_v2");
+        const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+        const ask = () =>
+          (bridge as any).handleClientMessage(
+            { type: "get_antigravity_catalog", requestId: "r1" },
+            ws,
+          );
+        await ask();
+        await ask();
+        await vi.waitFor(() => expect(ws.send).toHaveBeenCalledTimes(2));
+        expect(JSON.parse(ws.send.mock.calls[0][0])).toMatchObject({
+          type: "antigravity_catalog",
+          requestId: "r1",
+          catalog: { tier: { name: "Google AI Ultra" } },
+        });
+        // One helper process answers both requests.
+        expect(fetchAntigravityCatalog).toHaveBeenCalledTimes(1);
+        bridge.close();
+      });
+
+      it("keeps the name of a recent Antigravity conversation", async () => {
+        const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-"));
+        const bridge = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+          antigravityStore: new AntigravityStore(dir),
+        });
+        const internal = bridge as any;
+        await internal.refreshAntigravityAvailability();
+        internal.antigravitySessionsCache = {
+          at: Date.now(),
+          entries: Promise.resolve([
+            { sessionId: "a1", projectPath: "/p", title: "agy title" },
+          ]),
+        };
+        const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+        await internal.handleClientMessage(
+          {
+            type: "rename_session",
+            sessionId: "a1",
+            name: "My name",
+            provider: "antigravity",
+            providerSessionId: "a1",
+            projectPath: "/p",
+          },
+          ws,
+        );
+        await vi.waitFor(() =>
+          expect(
+            ws.send.mock.calls
+              .map((call: unknown[]) => JSON.parse(call[0] as string))
+              .find((message: any) => message.type === "rename_result"),
+          ).toMatchObject({ success: true, name: "My name" }),
+        );
+        const rows = await internal.listRecentAntigravitySessions({
+          type: "list_recent_sessions",
+        });
+        expect(rows[0]).toMatchObject({ sessionId: "a1", name: "My name" });
+        bridge.close();
+        rmSync(dir, { recursive: true, force: true });
       });
 
       it("lists nothing for Antigravity while the CLI is unavailable", async () => {

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   AcpTransport,
   AntigravityProcess,
@@ -7,6 +7,9 @@ import {
   buildAntigravitySpawnSpec,
   buildUnifiedDiff,
   cleanCommandOutput,
+  describeAcpTool,
+  elicitationContentFromAnswer,
+  elicitationFieldsFromSchema,
   resolveAntigravityConfig,
   type AntigravityConfig,
 } from "./antigravity-process.js";
@@ -163,6 +166,7 @@ describe("AntigravityProcess with recorded sessions", () => {
       "acceptEdits",
       "auto",
       "plan",
+      "bypassPermissions",
     ]);
     // The login profile must never be switched to another auth method.
     expect(transport.written.map((m) => m.method)).toEqual([
@@ -276,6 +280,7 @@ describe("AntigravityProcess with recorded sessions", () => {
       "default",
       "acceptEdits",
       "plan",
+      "bypassPermissions",
     ]);
 
     proc.sendInput("1から400まで数えて");
@@ -429,7 +434,6 @@ describe("AntigravityProcess API-key guard", () => {
     await expect(proc.setPermissionMode("auto")).rejects.toThrow(
       "Auto mode is not available",
     );
-    await expect(proc.setPermissionMode("bypassPermissions")).rejects.toThrow();
     expect(proc.permissionMode).toBe("default");
   });
 });
@@ -598,5 +602,462 @@ describe("Antigravity helpers", () => {
     expect(buildUnifiedDiff("n.txt", null, "x\ny\n")).toBe(
       "--- /dev/null\n+++ b/n.txt\n@@ -0,0 +1,2 @@\n+x\n+y",
     );
+  });
+});
+
+/** A session as `agy` 1.5.12 reports it with an API key. */
+const SESSION: Json = {
+  result: {
+    sessionId: "s1",
+    models: {
+      currentModelId: "gemini-3.1-pro-low",
+      availableModels: [
+        "gemini-3.8-flash-high",
+        "gemini-3.8-flash-medium",
+        "gemini-3.8-flash-low",
+        "gemini-3.1-pro-high",
+        "gemini-3.1-pro-low",
+      ].map((modelId) => ({ modelId, name: modelId })),
+    },
+    modes: {
+      currentModeId: "default",
+      availableModes: [{ id: "default" }, { id: "accept-edits" }, { id: "plan" }],
+    },
+    configOptions: [
+      {
+        id: "model",
+        currentValue: "gemini-3.1-pro",
+        options: [
+          { value: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
+          { value: "gemini-3.1-pro", name: "Gemini 3.1 Pro" },
+        ],
+      },
+      {
+        id: "thought_level",
+        currentValue: "low",
+        options: [{ value: "low" }, { value: "high" }],
+      },
+    ],
+    _meta: { antigravity: { tier: { id: "g1-ultra", name: "Google AI Ultra" } } },
+  },
+};
+
+const configOptions = (model: string, level: string, levels: string[]): Json[] => [
+  {
+    id: "model",
+    currentValue: model,
+    options: [{ value: "gemini-3.8-flash" }, { value: "gemini-3.1-pro" }],
+  },
+  {
+    id: "thought_level",
+    currentValue: level,
+    options: levels.map((value) => ({ value })),
+  },
+];
+
+async function startSession(extra: Record<string, Json> = {}, options = {}) {
+  const transport = new ScriptedTransport({
+    initialize: {
+      result: {
+        agentInfo: { version: "1.5.12" },
+        agentCapabilities: { sessionCapabilities: { additionalDirectories: {} } },
+      },
+    },
+    "session/new": SESSION,
+    "session/set_mode": { result: {} },
+    ...extra,
+  });
+  const created = createProcess(transport);
+  created.proc.start("/workspace", options);
+  await until(() => created.proc.status === "idle", "session ready");
+  const update = (body: Json) =>
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "s1", update: body },
+    });
+  const promptId = () =>
+    transport.written.filter((m) => m.method === "session/prompt").at(-1)?.id;
+  const endTurn = () =>
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: promptId(),
+      result: { stopReason: "end_turn", usage: { inputTokens: 5, outputTokens: 2, thoughtTokens: 1 } },
+    });
+  return { ...created, transport, update, endTurn };
+}
+
+const settingsOf = (messages: ServerMessage[]) =>
+  ofType(messages, "system").at(-1)?.antigravity;
+
+describe("AntigravityProcess settings", () => {
+  it("reports model families, thinking levels, the plan and the version", async () => {
+    const { proc } = await startSession();
+    expect(proc.settings).toMatchObject({
+      model: "gemini-3.1-pro-low",
+      baseModel: "gemini-3.1-pro",
+      thoughtLevel: "low",
+      thoughtLevels: ["low", "high"],
+      tier: { id: "g1-ultra", name: "Google AI Ultra" },
+      agentVersion: "1.5.12",
+    });
+    expect(proc.settings.modelOptions).toEqual([
+      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", thoughtLevels: ["high", "medium", "low"] },
+      { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", thoughtLevels: ["high", "low"] },
+    ]);
+  });
+
+  it("switches the model family and the thinking level through config options", async () => {
+    const { proc, transport, messages } = await startSession({
+      "session/set_config_option": {
+        result: {
+          configOptions: configOptions("gemini-3.8-flash", "high", ["low", "medium", "high"]),
+        },
+      },
+    });
+    await proc.setModel("gemini-3.8-flash");
+    expect(transport.written.at(-1)).toMatchObject({
+      method: "session/set_config_option",
+      params: { configId: "model", value: "gemini-3.8-flash" },
+    });
+    expect(settingsOf(messages)).toMatchObject({
+      model: "gemini-3.8-flash-high",
+      baseModel: "gemini-3.8-flash",
+      thoughtLevel: "high",
+      thoughtLevels: ["low", "medium", "high"],
+    });
+    await expect(proc.setThoughtLevel("xhigh")).rejects.toThrow("no xhigh");
+    await proc.setThoughtLevel("medium");
+    expect(transport.written.at(-1)).toMatchObject({
+      params: { configId: "thought_level", value: "medium" },
+    });
+  });
+
+  it("follows config changes the agent reports and passes the start options", async () => {
+    const { proc, transport, update, messages } = await startSession(
+      {
+        "session/set_model": { result: {} },
+        "session/set_config_option": {
+          result: { configOptions: configOptions("gemini-3.8-flash", "low", ["low", "medium", "high"]) },
+        },
+      },
+      {
+        model: "gemini-3.8-flash-high",
+        thoughtLevel: "low",
+        additionalDirectories: ["/extra"],
+      },
+    );
+    const sent = (method: string) => transport.written.find((m) => m.method === method);
+    expect(sent("session/new")?.params).toMatchObject({ additionalDirectories: ["/extra"] });
+    expect(sent("session/set_model")?.params).toMatchObject({ modelId: "gemini-3.8-flash-high" });
+    expect(proc.settings.model).toBe("gemini-3.8-flash-low");
+
+    update({
+      sessionUpdate: "config_option_update",
+      configOptions: configOptions("gemini-3.1-pro", "high", ["low", "high"]),
+    });
+    expect(settingsOf(messages)).toMatchObject({ model: "gemini-3.1-pro-high" });
+  });
+
+  it("reports context usage and turn statistics", async () => {
+    const { proc, update, endTurn, messages } = await startSession();
+    proc.sendInput("hi");
+    update({ sessionUpdate: "usage_update", used: 900, size: 1000000 });
+    update({ sessionUpdate: "usage_update", used: 1200, size: 1000000 });
+    // Held back until the turn ends.
+    expect(settingsOf(messages)?.contextUsage).toBeUndefined();
+    update({
+      sessionUpdate: "tool_call",
+      toolCallId: "t1",
+      kind: "read",
+      name: "read_file",
+      status: "in_progress",
+      rawInput: { Path: "/workspace/a.txt" },
+    });
+    endTurn();
+    await until(() => results(messages).length > 0, "result");
+    expect(results(messages)[0]).toMatchObject({
+      subtype: "success",
+      inputTokens: 5,
+      outputTokens: 2,
+      thoughtTokens: 1,
+      toolCalls: 1,
+      fileEdits: 0,
+    });
+    expect(results(messages)[0].duration).toBeGreaterThanOrEqual(0);
+    expect(settingsOf(messages)?.contextUsage).toEqual({ used: 1200, size: 1000000 });
+    expect(
+      ofType(messages, "system").filter((m) => m.subtype === "antigravity_settings"),
+    ).toHaveLength(1);
+  });
+});
+
+describe("AntigravityProcess bypass mode", () => {
+  it("allows every request itself while the agent stays in default", async () => {
+    const { proc, transport, update, messages } = await startSession();
+    await proc.setPermissionMode("acceptEdits");
+    await proc.setPermissionMode("bypassPermissions");
+    expect(transport.written.at(-1)).toMatchObject({
+      method: "session/set_mode",
+      params: { modeId: "default" },
+    });
+    // The agent's own report of `default` is not the end of bypass.
+    update({ sessionUpdate: "current_mode_update", currentModeId: "default" });
+    expect(proc.permissionMode).toBe("bypassPermissions");
+
+    proc.sendInput("run it");
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: "1",
+      method: "session/request_permission",
+      params: {
+        toolCall: { toolCallId: "t1", kind: "execute", rawInput: { CommandLine: "ls" } },
+        options: [
+          { optionId: "allow", kind: "allow_once" },
+          { optionId: "deny", kind: "reject_once" },
+        ],
+      },
+    });
+    expect(transport.written.at(-1)).toEqual({
+      jsonrpc: "2.0",
+      id: "1",
+      result: { outcome: { outcome: "selected", optionId: "allow" } },
+    });
+    expect(ofType(messages, "permission_request")).toHaveLength(0);
+
+    update({ sessionUpdate: "current_mode_update", currentModeId: "plan" });
+    expect(proc.permissionMode).toBe("plan");
+  });
+
+  it("does not report an approval the agent offers no option for", async () => {
+    const { proc, transport } = await startSession();
+    proc.sendInput("run it");
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: "1",
+      method: "session/request_permission",
+      params: {
+        toolCall: { toolCallId: "t1", kind: "execute" },
+        options: [{ optionId: "deny", kind: "reject_once" }],
+      },
+    });
+    expect(proc.approve("t1")).toBe(false);
+    expect(proc.getPendingPermissions()).toHaveLength(1);
+  });
+});
+
+describe("AntigravityProcess questions", () => {
+  const schema = {
+    type: "object",
+    properties: {
+      q1: {
+        type: "string",
+        title: "好きな色は？",
+        oneOf: [
+          { const: "1", title: "赤" },
+          { const: "2", title: "青" },
+        ],
+      },
+      q1_other: { type: "string", title: "Other" },
+      q2: {
+        type: "array",
+        title: "使う道具は？",
+        items: { anyOf: [{ const: "a", title: "筆" }, { const: "b", title: "ペン" }] },
+      },
+    },
+  };
+
+  it("maps a form schema to questions and answers back to its values", () => {
+    const fields = elicitationFieldsFromSchema(schema);
+    expect(fields.map((f) => [f.id, f.type, f.otherId])).toEqual([
+      ["q1", "choice", "q1_other"],
+      ["q2", "multi", undefined],
+    ]);
+    expect(
+      elicitationContentFromAnswer(
+        fields,
+        JSON.stringify({ answers: { q1: "青", "使う道具は？": ["筆", "ペン"] } }),
+      ),
+    ).toEqual({ q1: "2", q2: ["a", "b"] });
+    expect(elicitationContentFromAnswer(fields, "紫")).toEqual({ q1_other: "紫" });
+  });
+
+  it("shows ask_question as a question form and answers the elicitation", async () => {
+    const { proc, transport, update, messages } = await startSession();
+    expect(
+      transport.written.find((m) => m.method === "initialize")?.params,
+    ).toMatchObject({ clientCapabilities: { elicitation: { form: {} } } });
+    proc.sendInput("ask me");
+    update({
+      sessionUpdate: "tool_call",
+      toolCallId: "t1",
+      kind: "other",
+      name: "ask_question",
+      status: "in_progress",
+      rawInput: {
+        questions: [{ question: "好きな色は？", options: ["赤", "青"], is_multi_select: false }],
+      },
+    });
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: "1",
+      method: "elicitation/create",
+      params: { sessionId: "s1", toolCallId: "t1", mode: "form", requestedSchema: schema },
+    });
+    expect(proc.status).toBe("waiting_approval");
+    const request = ofType(messages, "permission_request")[0];
+    expect(request).toMatchObject({ toolUseId: "t1", toolName: "AskUserQuestion" });
+    expect((request.input.questions as Json[])[0]).toMatchObject({
+      id: "q1",
+      question: "好きな色は？",
+      options: [{ label: "赤" }, { label: "青" }],
+      multiSelect: false,
+      isOther: true,
+    });
+    expect(proc.getPendingPermission()?.toolName).toBe("AskUserQuestion");
+
+    expect(proc.answer("t1", JSON.stringify({ answers: { q1: "赤" } }))).toBe(true);
+    expect(transport.written.at(-1)).toEqual({
+      jsonrpc: "2.0",
+      id: "1",
+      result: { action: "accept", content: { q1: "1" } },
+    });
+    expect(proc.status).toBe("running");
+    expect(ofType(messages, "tool_result").at(-1)).toMatchObject({
+      toolUseId: "t1",
+      permissionOutcome: "answered",
+    });
+    // The tool's own completion adds no second result.
+    update({ sessionUpdate: "tool_call_update", toolCallId: "t1", status: "completed" });
+    expect(ofType(messages, "tool_result")).toHaveLength(1);
+  });
+
+  it("declines a question on reject and cancels it on interrupt", async () => {
+    const { proc, transport } = await startSession();
+    proc.sendInput("ask me");
+    const ask = (id: string) =>
+      transport.emit("message", {
+        jsonrpc: "2.0",
+        id,
+        method: "elicitation/create",
+        params: { mode: "form", requestedSchema: schema },
+      });
+    ask("1");
+    expect(proc.reject()).toBe(true);
+    expect(transport.written.at(-1)).toMatchObject({ id: "1", result: { action: "decline" } });
+    ask("2");
+    proc.interrupt();
+    expect(transport.written.at(-2)).toMatchObject({ id: "2", result: { action: "cancel" } });
+    expect(transport.written.at(-1)).toMatchObject({ method: "session/cancel" });
+  });
+});
+
+describe("AntigravityProcess plan review", () => {
+  const planPath = "/home/u/.gemini/antigravity-cli/brain/s1/plan_add_subtract.md";
+  const writePlan = (update: (body: Json) => void) => {
+    const call = {
+      toolCallId: "p1",
+      kind: "edit",
+      name: "write_file",
+      rawInput: {
+        Path: planPath,
+        Content: "# Plan\n1. do it",
+        ArtifactMetadata: { RequestFeedback: true, UserFacing: true },
+      },
+      content: [{ type: "diff", path: planPath, newText: "# Plan\n1. do it" }],
+    };
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...call });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...call });
+  };
+  const planTurn = async () => {
+    const session = await startSession();
+    await session.proc.setPermissionMode("acceptEdits");
+    await session.proc.setPermissionMode("plan");
+    session.proc.sendInput("plan it");
+    writePlan(session.update);
+    session.endTurn();
+    // The plan is read from disk, which takes longer than `until` spins.
+    await vi.waitFor(() =>
+      expect(ofType(session.messages, "permission_request")).toHaveLength(1),
+    );
+    return session;
+  };
+
+  it("offers the plan for approval, then returns to the earlier mode and proceeds", async () => {
+    const { proc, transport, messages } = await planTurn();
+    expect(ofType(messages, "permission_request")[0]).toMatchObject({
+      toolName: "ExitPlanMode",
+      input: { plan: "# Plan\n1. do it" },
+    });
+    expect(proc.status).toBe("waiting_approval");
+    expect(proc.isWaitingForInput).toBe(false);
+    // The document shows under its name, not its path in the agy profile.
+    const written = ofType(messages, "assistant")
+      .flatMap((m) => m.message.content)
+      .find((c) => c.type === "tool_use" && c.name === "FileChange");
+    expect(written).toMatchObject({
+      input: { changes: [{ path: "plan_add_subtract.md" }] },
+    });
+
+    expect(proc.approve()).toBe(true);
+    await until(
+      () => transport.written.filter((m) => m.method === "session/prompt").length === 2,
+      "approval prompt",
+    );
+    expect(proc.permissionMode).toBe("acceptEdits");
+    // The message sent on the user's behalf is shown as theirs.
+    expect(ofType(messages, "user_input").at(-1)?.text).toBe(
+      "Approved. Proceed with the implementation plan.",
+    );
+    expect(transport.written.at(-1)?.params).toMatchObject({
+      prompt: [{ type: "text", text: "Approved. Proceed with the implementation plan." }],
+    });
+  });
+
+  it("sends feedback as the next message and stays in plan mode", async () => {
+    const { proc, transport, messages } = await planTurn();
+    expect(proc.reject(undefined, "テストも書いて")).toBe(true);
+    expect(proc.permissionMode).toBe("plan");
+    expect(transport.written.at(-1)?.params).toMatchObject({
+      prompt: [{ type: "text", text: "テストも書いて" }],
+    });
+    expect(ofType(messages, "tool_result").at(-1)).toMatchObject({
+      permissionOutcome: "rejected",
+    });
+  });
+
+  it("goes idle when the plan is rejected without feedback", async () => {
+    const { proc, transport } = await planTurn();
+    expect(proc.reject()).toBe(true);
+    expect(proc.status).toBe("idle");
+    expect(transport.written.filter((m) => m.method === "session/prompt")).toHaveLength(1);
+  });
+
+  it("asks for no review outside plan mode", async () => {
+    const { proc, update, endTurn, messages } = await startSession();
+    proc.sendInput("write it");
+    writePlan(update);
+    endTurn();
+    await until(() => proc.status === "idle", "idle");
+    expect(ofType(messages, "permission_request")).toHaveLength(0);
+  });
+});
+
+describe("describeAcpTool", () => {
+  it("names Antigravity tools the way clients render them", () => {
+    expect(
+      describeAcpTool({ kind: "read", name: "read_file", rawInput: { Path: "/a/b.txt" } }),
+    ).toEqual({ toolName: "Read", input: { file_path: "/a/b.txt" } });
+    expect(
+      describeAcpTool({ kind: "search", name: "search_web", rawInput: { query: "acp" } }),
+    ).toEqual({ toolName: "WebSearch", input: { query: "acp" } });
+    expect(
+      describeAcpTool({
+        kind: "search",
+        name: "grep_search",
+        rawInput: { Query: "add", SearchPath: "/a" },
+      }),
+    ).toEqual({ toolName: "Grep", input: { pattern: "add", path: "/a" } });
+    expect(describeAcpTool({ kind: "other", name: "browser" })).toBeUndefined();
   });
 });

@@ -2,7 +2,8 @@
 // エージェント検証用の agy acp ランチャー（APIキー認証を強制する）。
 // ルール: docs/antigravity-acp-integration.md
 // 使い方: node scripts/antigravity-acp-probe.mjs --cwd <作業ディレクトリ> [--trace <出力.ndjson>]
-//           [--model <modelId>（既定 gemini-3.8-flash-high）] [--mode <modeId>] [--allow] --prompt "..." [--prompt "..."]
+//           [--model <modelId>（既定 gemini-3.8-flash-high）] [--mode <modeId>] [--allow] [--caps <clientCapabilities に足す JSON>]
+//           [--load <sessionId> | --resume <sessionId>] --prompt "..." [--prompt "..."]
 // APIキー用プロファイルで起動し、authenticate(gemini-api-key) のあとモデル一覧が
 // Gemini のみであることを確認できなければ、プロンプトを送らずに終了する。
 import { spawn } from "node:child_process";
@@ -61,13 +62,14 @@ createInterface({ input: child.stdout }).on("line", (line) => {
     console.log(`  [承認リクエスト] ${m.params?.toolCall?.title ?? ""} -> ${want}`);
     send({ jsonrpc: "2.0", id: m.id, result: pick ? { outcome: { outcome: "selected", optionId: pick.optionId } } : { outcome: { outcome: "cancelled" } } });
   } else if (m.id !== undefined) {
+    console.log(`  [未対応のリクエスト] ${JSON.stringify(m).slice(0, 600)}`);
     send({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "Method not found" } });
   }
 });
 
 const init = await request("initialize", {
   protocolVersion: 1, clientInfo: { name: "ccpocket-acp-probe", version: "0.0.1" },
-  clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+  clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false, ...JSON.parse(opt("--caps") ?? "{}") },
 }, 30000);
 if (init.error) { console.error(`中止: initialize 失敗 ${JSON.stringify(init.error)}`); stop(1); }
 const auth = await request("authenticate", argv.includes("--auth-meta")

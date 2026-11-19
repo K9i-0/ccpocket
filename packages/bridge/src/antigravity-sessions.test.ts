@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AcpTransport } from "./antigravity-process.js";
 import {
   antigravityRecentSessions,
+  fetchAntigravityCatalog,
   listAntigravitySessions,
 } from "./antigravity-sessions.js";
 
@@ -98,5 +99,97 @@ describe("antigravityRecentSessions", () => {
     expect(
       antigravityRecentSessions(entries, { searchQuery: "LOGIN" }).map((r) => r.sessionId),
     ).toEqual(["old"]);
+  });
+});
+
+describe("fetchAntigravityCatalog", () => {
+  class CatalogTransport extends AcpTransport {
+    readonly written: Json[] = [];
+    cwd = "";
+    start(cwd: string): void {
+      this.cwd = cwd;
+    }
+    stop(): void {}
+    write(message: Json): void {
+      this.written.push(message);
+      const result =
+        message.method === "initialize"
+          ? { agentInfo: { version: "1.5.12" } }
+          : message.method === "session/new"
+            ? {
+                sessionId: "tmp",
+                models: {
+                  currentModelId: "gemini-3.8-flash-high",
+                  availableModels: [
+                    { modelId: "gemini-3.8-flash-high", name: "Flash (High)" },
+                    { modelId: "gemini-3.8-flash-low", name: "Flash (Low)" },
+                  ],
+                },
+                modes: {
+                  currentModeId: "default",
+                  availableModes: [{ id: "default" }, { id: "auto" }],
+                },
+                configOptions: [
+                  {
+                    id: "model",
+                    currentValue: "gemini-3.8-flash",
+                    options: [{ value: "gemini-3.8-flash", name: "Flash" }],
+                  },
+                  { id: "thought_level", currentValue: "high", options: [] },
+                ],
+                _meta: { antigravity: { tier: { name: "Google AI Ultra" } } },
+              }
+            : {};
+      setImmediate(() =>
+        this.emit("message", { jsonrpc: "2.0", id: message.id, result }),
+      );
+    }
+  }
+
+  it("opens and closes an empty session and never sends a prompt", async () => {
+    const transport = new CatalogTransport();
+    const catalog = await fetchAntigravityCatalog({
+      config: { bin: "agy", requireApiKey: false },
+      createTransport: () => transport,
+      cwd: "/tmp/catalog",
+    });
+    expect(transport.written.map((m) => m.method)).toEqual([
+      "initialize",
+      "session/new",
+      "session/close",
+    ]);
+    expect(transport.cwd).toBe("/tmp/catalog");
+    expect(catalog).toEqual({
+      model: "gemini-3.8-flash-high",
+      models: [
+        { id: "gemini-3.8-flash-high", name: "Flash (High)" },
+        { id: "gemini-3.8-flash-low", name: "Flash (Low)" },
+      ],
+      baseModel: "gemini-3.8-flash",
+      modelOptions: [
+        { id: "gemini-3.8-flash", name: "Flash", thoughtLevels: ["high", "low"] },
+      ],
+      thoughtLevel: "high",
+      permissionModes: ["default", "auto", "bypassPermissions"],
+      authMode: "login",
+      tier: { name: "Google AI Ultra" },
+      agentVersion: "1.5.12",
+    });
+  });
+
+  it("refuses the login profile when an API key is required", async () => {
+    await expect(
+      fetchAntigravityCatalog({ config: { bin: "agy", requireApiKey: true } }),
+    ).rejects.toThrow("no API key");
+  });
+});
+
+describe("antigravityRecentSessions names", () => {
+  it("prefers the name given in ccpocket and searches by it", () => {
+    const rows = antigravityRecentSessions(
+      [{ sessionId: "a", projectPath: "/p", title: "agy title" }],
+      { names: new Map([["a", "Mine"]]), searchQuery: "mine" },
+    );
+    expect(rows).toMatchObject([{ sessionId: "a", name: "Mine" }]);
   });
 });

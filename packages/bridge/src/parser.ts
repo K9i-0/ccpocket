@@ -1,4 +1,7 @@
-import type { AntigravitySettings } from "./antigravity-process.js";
+import type {
+  AntigravityCatalog,
+  AntigravitySettings,
+} from "./antigravity-process.js";
 import type { AssistantImageRef } from "./markdown-images.js";
 import type { CodexRecoveryState } from "./codex-recovery.js";
 import type { GoalNotification } from "./goal-notifications.js";
@@ -258,6 +261,18 @@ export type ClientMessage =
       sessionId?: string;
     }
   | { type: "set_antigravity_model"; sessionId: string; model: string }
+  | {
+      /** Model family and/or thinking level of an Antigravity session. */
+      type: "set_antigravity_settings";
+      sessionId: string;
+      model?: string;
+      thoughtLevel?: string;
+    }
+  | {
+      /** Models, thinking levels, modes and plan a new Antigravity session gets. */
+      type: "get_antigravity_catalog";
+      requestId?: string;
+    }
   | {
       type: "set_claude_settings";
       sessionId: string;
@@ -745,6 +760,8 @@ export type ServerMessage =
       executionMode?: ExecutionMode;
       planMode?: boolean;
       slashCommands?: string[];
+      /** Descriptions for `slashCommands`, keyed by command name. */
+      slashCommandDescriptions?: Record<string, string>;
       skills?: string[];
       skillMetadata?: Array<{
         name: string;
@@ -835,6 +852,8 @@ export type ServerMessage =
       inputTokens?: number;
       cachedInputTokens?: number;
       outputTokens?: number;
+      /** Reasoning tokens, where the provider reports them apart. */
+      thoughtTokens?: number;
       toolCalls?: number;
       fileEdits?: number;
     }
@@ -1163,6 +1182,12 @@ export type ServerMessage =
       savedBundlePath?: string;
     }
   | { type: "usage_result"; providers: UsageInfoPayload[] }
+  | {
+      type: "antigravity_catalog";
+      requestId?: string;
+      catalog?: AntigravityCatalog;
+      error?: string;
+    }
   | { type: "message_images_result"; messageUuid: string; images: ImageRef[] }
   | {
       type: "prompt_history_backup_result";
@@ -1817,6 +1842,16 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "set_antigravity_model":
         if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
         if (typeof msg.model !== "string" || msg.model.trim() === "")
+          return null;
+        break;
+      case "set_antigravity_settings":
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
+        if (!isOptionalNonEmptyString(msg.model)) return null;
+        if (!isOptionalNonEmptyString(msg.thoughtLevel)) return null;
+        if (msg.model === undefined && msg.thoughtLevel === undefined) return null;
+        break;
+      case "get_antigravity_catalog":
+        if (msg.requestId !== undefined && typeof msg.requestId !== "string")
           return null;
         break;
       case "set_claude_settings":

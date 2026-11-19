@@ -42,9 +42,12 @@ import {
 import {
   AntigravityProcess,
   AntigravityStartError,
+  type AntigravityCatalog,
 } from "./antigravity-process.js";
+import { AntigravityStore } from "./antigravity-store.js";
 import {
   antigravityRecentSessions,
+  fetchAntigravityCatalog,
   listAntigravitySessions,
   type AntigravityRecentSession,
   type AntigravitySessionEntry,
@@ -334,7 +337,13 @@ const BRIDGE_PROTOCOL_CAPABILITIES = [
   "context_compaction_v1",
 ];
 /** Advertised only while the Antigravity CLI is installed on this machine. */
-const ANTIGRAVITY_PROTOCOL_CAPABILITY = "antigravity_v1";
+const ANTIGRAVITY_PROTOCOL_CAPABILITIES = [
+  "antigravity_v1",
+  // Catalog, model family and thinking level, question forms, plan review,
+  // context usage and the bypass mode.
+  "antigravity_v2",
+];
+const ANTIGRAVITY_CATALOG_TTL_MS = 5 * 60_000;
 
 /** Default and maximum page size for `get_session_transcript`. */
 const TRANSCRIPT_PAGE_DEFAULT = 200;
@@ -1087,6 +1096,10 @@ export interface BridgeServerOptions {
    * treated as unavailable (tests); the Bridge entry point passes the real probe.
    */
   detectAntigravity?: () => Promise<boolean>;
+  /** Reads what a new Antigravity session offers. Tests replace it. */
+  fetchAntigravityCatalog?: () => Promise<AntigravityCatalog>;
+  /** Where names and models of Antigravity conversations are kept. */
+  antigravityStore?: AntigravityStore;
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
@@ -1181,6 +1194,11 @@ export class BridgeWebSocketServer {
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
+  private readonly antigravityStore: AntigravityStore;
+  private antigravityCatalogCache:
+    | { at: number; catalog: Promise<AntigravityCatalog> }
+    | undefined;
+  private readonly loadAntigravityCatalog: () => Promise<AntigravityCatalog>;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
   private codexAutoReviewDisabled = false;
@@ -1260,6 +1278,8 @@ export class BridgeWebSocketServer {
 
   constructor(options: BridgeServerOptions) {
     this.detectAntigravity = options.detectAntigravity;
+    this.loadAntigravityCatalog =
+      options.fetchAntigravityCatalog ?? (() => fetchAntigravityCatalog());
     const {
       server,
       apiKey,
@@ -1357,6 +1377,10 @@ export class BridgeWebSocketServer {
     );
 
     this.archiveStore = new ArchiveStore();
+    this.antigravityStore = options.antigravityStore ?? new AntigravityStore();
+    void this.antigravityStore.init().catch((err) => {
+      console.error("[ws] Failed to initialize Antigravity store:", err);
+    });
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
@@ -3821,11 +3845,7 @@ export class BridgeWebSocketServer {
                   | "plan"
                   | undefined) ?? legacyPermissionMode)
               : legacyPermissionMode;
-          // Antigravity has no bypass mode; such a request starts in default.
-          const antigravityPermissionMode =
-            claudePermissionMode === "bypassPermissions"
-              ? "default"
-              : claudePermissionMode;
+          const antigravityPermissionMode = claudePermissionMode;
           if (provider === "codex") {
             console.log(
               `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
@@ -3915,7 +3935,9 @@ export class BridgeWebSocketServer {
                       {
                         sessionId: msg.sessionId,
                         model: msg.model,
+                        thoughtLevel: msg.effort,
                         permissionMode: antigravityPermissionMode,
+                        additionalDirectories: additionalWritableRoots.roots,
                       },
                     ),
                     permissionMode: antigravityPermissionMode,
@@ -5158,6 +5180,54 @@ export class BridgeWebSocketServer {
             });
             this.sendAntigravityCurrentSettings(ws, session.id, session);
           });
+        break;
+      }
+
+      case "set_antigravity_settings": {
+        const session = this.resolveSession(msg.sessionId);
+        const proc = session?.process;
+        if (!session || !(proc instanceof AntigravityProcess)) {
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "These settings are only supported for Antigravity sessions.",
+            errorCode: "set_antigravity_settings_unsupported",
+          });
+          break;
+        }
+        void (async () => {
+          if (msg.model) await proc.setModel(msg.model.trim());
+          if (msg.thoughtLevel) await proc.setThoughtLevel(msg.thoughtLevel.trim());
+        })()
+          .then(() => this.broadcastSessionList())
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              sessionId: session.id,
+              message: `Failed to change Antigravity settings: ${errorMessageOf(err)}`,
+              errorCode: "set_antigravity_settings_rejected",
+            });
+            this.sendAntigravityCurrentSettings(ws, session.id, session);
+          });
+        break;
+      }
+
+      case "get_antigravity_catalog": {
+        this.antigravityCatalog()
+          .then((catalog) =>
+            this.send(ws, {
+              type: "antigravity_catalog",
+              requestId: msg.requestId,
+              catalog,
+            }),
+          )
+          .catch((err) =>
+            this.send(ws, {
+              type: "antigravity_catalog",
+              requestId: msg.requestId,
+              error: errorMessageOf(err),
+            }),
+          );
         break;
       }
 
@@ -6686,6 +6756,7 @@ export class BridgeWebSocketServer {
             liveSession.process.isRunning;
           // An exited process stays listed until eviction; replace it.
           if (liveSession && !reusable) this.sessionManager.destroy(liveSession.id);
+          const remembered = this.antigravityStore.get(msg.sessionId);
           const sessionId =
             (reusable ? liveSession?.id : undefined) ??
             this.sessionManager.create(
@@ -6698,10 +6769,15 @@ export class BridgeWebSocketServer {
               undefined,
               {
                 sessionId: msg.sessionId,
-                model: msg.model,
+                // `session/load` starts on the agent default, so put back the
+                // model the conversation last ran on.
+                model: msg.model ?? remembered?.model,
                 permissionMode: msg.permissionMode,
               },
             );
+          if (!reusable && remembered?.name) {
+            this.sessionManager.renameSession(sessionId, remembered.name);
+          }
           const resumed = this.sessionManager.get(sessionId);
           try {
             // `session/load` replays the conversation into history before
@@ -9739,6 +9815,13 @@ export class BridgeWebSocketServer {
         } catch (err) {
           console.warn(`[websocket] Failed to rename Codex thread:`, err);
         }
+      } else if (
+        runningSession.provider === "antigravity" &&
+        runningSession.claudeSessionId
+      ) {
+        // `agy` cannot rename a conversation, so the Bridge keeps the name.
+        await this.antigravityStore.setName(runningSession.claudeSessionId, name);
+        this.antigravitySessionsCache = undefined;
       }
 
       this.broadcastSessionList();
@@ -9766,6 +9849,12 @@ export class BridgeWebSocketServer {
     if (provider === "codex" && providerSessionId) {
       const success = await renameCodexSession(providerSessionId, name);
       this.send(ws, { type: "rename_result", sessionId, name, success });
+      return;
+    }
+
+    if (provider === "antigravity" && providerSessionId) {
+      await this.antigravityStore.setName(providerSessionId, name);
+      this.send(ws, { type: "rename_result", sessionId, name, success: true });
       return;
     }
 
@@ -9893,6 +9982,12 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
     exclude?: WebSocket,
   ): void {
+    if (msg.type === "system" && msg.antigravity?.model) {
+      const conversationId = this.sessionManager.get(sessionId)?.claudeSessionId;
+      if (conversationId) {
+        void this.antigravityStore.setModel(conversationId, msg.antigravity.model);
+      }
+    }
     if (this.shouldBatchDelta(msg, exclude)) {
       this.trackSessionMessage(sessionId, msg);
       let chunks: DeltaTextChunk[] | undefined;
@@ -10108,8 +10203,9 @@ export class BridgeWebSocketServer {
       };
     }
     const listing = await this.listRecentClaudeAndCodexSessions(msg);
-    // Antigravity rows only join the first page of an unfiltered listing: its
-    // list is small and the other providers page on their own offsets.
+    // Antigravity rows only join the first page: its list is small and the
+    // other providers page on their own offsets. It can be narrowed by
+    // project path and by a search on titles, but knows no other filter.
     if (
       msg.provider !== undefined ||
       !msg.includeAntigravity ||
@@ -10118,7 +10214,10 @@ export class BridgeWebSocketServer {
       msg.projectId !== undefined ||
       msg.workspaceKind !== undefined ||
       msg.pinnedOnly === true ||
-      recentSessionsFiltersRequested(msg)
+      msg.namedOnly === true ||
+      msg.modifiedAfter !== undefined ||
+      msg.modifiedBefore !== undefined ||
+      effectiveRecentProjectFilters(msg) !== undefined
     ) {
       return listing;
     }
@@ -10488,8 +10587,36 @@ export class BridgeWebSocketServer {
           : undefined,
         searchQuery: msg.searchQuery,
         archivedSessionIds: this.archiveStore.archivedIds(),
+        names: this.antigravityStore.names(),
       },
     );
+  }
+
+  /** What a new Antigravity session offers; read without sending a prompt. */
+  private antigravityCatalog(): Promise<AntigravityCatalog> {
+    // A running session already knows, and is fresher than the cache.
+    for (const summary of this.sessionManager.list()) {
+      const process = this.sessionManager.get(summary.id)?.process;
+      if (process instanceof AntigravityProcess && process.isRunning) {
+        const catalog = process.catalog;
+        if (catalog.models.length > 0) return Promise.resolve(catalog);
+      }
+    }
+    const now = Date.now();
+    if (
+      !this.antigravityCatalogCache ||
+      now - this.antigravityCatalogCache.at > ANTIGRAVITY_CATALOG_TTL_MS
+    ) {
+      const entry = { at: now, catalog: this.loadAntigravityCatalog() };
+      this.antigravityCatalogCache = entry;
+      entry.catalog.catch(() => {
+        // Ask again next time instead of repeating the failure for minutes.
+        if (this.antigravityCatalogCache === entry) {
+          this.antigravityCatalogCache = undefined;
+        }
+      });
+    }
+    return this.antigravityCatalogCache.catalog;
   }
 
   private async refreshAntigravityAvailability(): Promise<void> {
@@ -10501,7 +10628,7 @@ export class BridgeWebSocketServer {
 
   private protocolCapabilities(): string[] {
     return this.antigravityAvailable
-      ? [...BRIDGE_PROTOCOL_CAPABILITIES, ANTIGRAVITY_PROTOCOL_CAPABILITY]
+      ? [...BRIDGE_PROTOCOL_CAPABILITIES, ...ANTIGRAVITY_PROTOCOL_CAPABILITIES]
       : BRIDGE_PROTOCOL_CAPABILITIES;
   }
 
