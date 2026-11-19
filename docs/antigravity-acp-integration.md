@@ -152,7 +152,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **質問（`ask_question`）**: クライアントが `clientCapabilities.elicitation.form` を宣言すると、`elicitation/create`（`mode: "form"`、`requestedSchema`）が届く。選択肢は `oneOf` の `const` / `title`、自由記述は `<id>_other`。応答は `{action: "accept", content}` / `decline` / `cancel`。宣言しないと、質問が本文に出てターンが終わるだけになる。
 - **plan モード**: 承認リクエストは出ない。計画は `~/.gemini/<プロファイル>/brain/<セッションID>/` 配下の文書（`implementation_plan.md`、`plan_add_subtract.md` など。名前は一定しない）として `write_file` で書かれ、次の発言を待つ。計画の文書は `rawInput.ArtifactMetadata.RequestFeedback: true` で見分けられる。plan モード中もコマンド実行は承認を求める。
 - **モデルと思考レベル**: `configOptions` の `model`（系統。`gemini-3.8-flash`）と `thought_level`（`low` / `medium` / `high` / `xhigh`）を `session/set_config_option` で切り替えられる。`availableModels` の ID は「系統-レベル」。選べるレベルは系統ごとに違う。`session/set_model` の `config_option_update` は応答のあとに届く。
-- **カタログ**: `session/new` → `session/close` だけの空のセッションは `session/list` に残らない。プロンプトなしでモデル・モード・プラン名を取得できる。
+- **カタログ**: `session/new` → `session/close` だけの空のセッションは `session/list` に残らない。プロンプトなしでモデル・モード・プラン名を取得できる。ただし `agy` のプロファイルに空の会話ファイル（`conversations/<id>.db` 約 400 KB と `brain/<id>/`）が残る。Bridge は読んだ結果を `~/.ccpocket/antigravity-sessions.json` に保存して 24 時間使い回し、セッションを開始するたびにその内容で更新する。`agy` のプロファイル内のファイルは消さない。
+- **追加ディレクトリ**: `session/new` の `additionalDirectories`（絶対パスの配列）は受理された。
 - **`auto`**: Google ログインの既定プロファイルでは一覧に出て、`session/set_mode` も成功した（プロンプトは送っていない）。APIキーでは `--sandbox` を付けても不可。
 - **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
 - **利用枠の残量は取れない。** ACP に該当メソッドがない（`_antigravity/quota` などは `-32601`）。ログや内部 API は読まない。

@@ -42,6 +42,7 @@ import {
 import {
   AntigravityProcess,
   AntigravityStartError,
+  getAntigravityConfig,
   type AntigravityCatalog,
 } from "./antigravity-process.js";
 import { AntigravityStore } from "./antigravity-store.js";
@@ -343,7 +344,12 @@ const ANTIGRAVITY_PROTOCOL_CAPABILITIES = [
   // context usage and the bypass mode.
   "antigravity_v2",
 ];
-const ANTIGRAVITY_CATALOG_TTL_MS = 5 * 60_000;
+/**
+ * How long a catalog read is reused. Every read opens an empty conversation
+ * that `agy` keeps on disk (about 400 KB), and running sessions refresh the
+ * catalog for free, so a day is enough.
+ */
+const ANTIGRAVITY_CATALOG_TTL_MS = 24 * 60 * 60_000;
 
 /** Default and maximum page size for `get_session_transcript`. */
 const TRANSCRIPT_PAGE_DEFAULT = 200;
@@ -1195,9 +1201,8 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
   private readonly antigravityStore: AntigravityStore;
-  private antigravityCatalogCache:
-    | { at: number; catalog: Promise<AntigravityCatalog> }
-    | undefined;
+  /** A catalog read in flight, shared by everyone who asks meanwhile. */
+  private antigravityCatalogRead: Promise<AntigravityCatalog> | undefined;
   private readonly loadAntigravityCatalog: () => Promise<AntigravityCatalog>;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
@@ -9983,9 +9988,16 @@ export class BridgeWebSocketServer {
     exclude?: WebSocket,
   ): void {
     if (msg.type === "system" && msg.antigravity?.model) {
-      const conversationId = this.sessionManager.get(sessionId)?.claudeSessionId;
-      if (conversationId) {
-        void this.antigravityStore.setModel(conversationId, msg.antigravity.model);
+      const session = this.sessionManager.get(sessionId);
+      if (session?.claudeSessionId) {
+        void this.antigravityStore.setModel(
+          session.claudeSessionId,
+          msg.antigravity.model,
+        );
+      }
+      // Each session start is a free, fresh reading of the catalog.
+      if (msg.subtype === "init" && session?.process instanceof AntigravityProcess) {
+        void this.antigravityStore.setCatalog(session.process.catalog);
       }
     }
     if (this.shouldBatchDelta(msg, exclude)) {
@@ -10602,21 +10614,23 @@ export class BridgeWebSocketServer {
         if (catalog.models.length > 0) return Promise.resolve(catalog);
       }
     }
-    const now = Date.now();
-    if (
-      !this.antigravityCatalogCache ||
-      now - this.antigravityCatalogCache.at > ANTIGRAVITY_CATALOG_TTL_MS
-    ) {
-      const entry = { at: now, catalog: this.loadAntigravityCatalog() };
-      this.antigravityCatalogCache = entry;
-      entry.catalog.catch(() => {
-        // Ask again next time instead of repeating the failure for minutes.
-        if (this.antigravityCatalogCache === entry) {
-          this.antigravityCatalogCache = undefined;
-        }
+    const authMode = getAntigravityConfig().apiKey ? "api_key" : "login";
+    const stored = this.antigravityStore.catalog(authMode, ANTIGRAVITY_CATALOG_TTL_MS);
+    if (stored) return Promise.resolve(stored);
+    if (!this.antigravityCatalogRead) {
+      const read = this.loadAntigravityCatalog().then((catalog) => {
+        void this.antigravityStore.setCatalog(catalog);
+        return catalog;
       });
+      this.antigravityCatalogRead = read;
+      const done = () => {
+        if (this.antigravityCatalogRead === read) {
+          this.antigravityCatalogRead = undefined;
+        }
+      };
+      read.then(done, done);
     }
-    return this.antigravityCatalogCache.catalog;
+    return this.antigravityCatalogRead;
   }
 
   private async refreshAntigravityAvailability(): Promise<void> {

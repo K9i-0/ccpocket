@@ -1070,6 +1070,10 @@ describe("describeAcpTool", () => {
         rawInput: { Query: "add", SearchPath: "/a" },
       }),
     ).toEqual({ toolName: "Grep", input: { pattern: "add", path: "/a" } });
+    // Only a web tool is a web search, with or without a path.
+    expect(
+      describeAcpTool({ kind: "search", name: "find_by_name", rawInput: { Pattern: "*.ts" } }),
+    ).toEqual({ toolName: "Grep", input: { pattern: "*.ts" } });
     expect(describeAcpTool({ kind: "other", name: "browser" })).toBeUndefined();
   });
 });

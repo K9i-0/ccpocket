@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { AntigravityCatalog } from "./antigravity-process.js";
 
 /** What the Bridge remembers about an Antigravity conversation. */
 export interface AntigravitySessionRecord {
@@ -11,9 +12,16 @@ export interface AntigravitySessionRecord {
   model?: string;
 }
 
+/** The catalog as last read, per sign-in method. */
+interface StoredCatalog {
+  at: number;
+  catalog: AntigravityCatalog;
+}
+
 interface StoreData {
   version: 1;
   sessions: Record<string, AntigravitySessionRecord>;
+  catalogs?: Record<string, StoredCatalog>;
 }
 
 const MAX_SESSIONS = 2000;
@@ -25,6 +33,7 @@ const MAX_SESSIONS = 2000;
 export class AntigravityStore {
   private readonly filePath: string;
   private sessions = new Map<string, AntigravitySessionRecord>();
+  private catalogs: Record<string, StoredCatalog> = {};
   private writing: Promise<void> = Promise.resolve();
 
   constructor(private readonly dirPath = join(homedir(), ".ccpocket")) {
@@ -36,6 +45,7 @@ export class AntigravityStore {
       const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as StoreData;
       if (parsed.version === 1 && parsed.sessions && typeof parsed.sessions === "object") {
         this.sessions = new Map(Object.entries(parsed.sessions));
+        this.catalogs = parsed.catalogs ?? {};
       }
     } catch {
       // Missing or unreadable: start empty.
@@ -64,6 +74,37 @@ export class AntigravityStore {
     return this.update(sessionId, { model });
   }
 
+  /**
+   * The catalog for [authMode] if it was read within [maxAgeMs]. Reading it
+   * anew costs an empty conversation in the user's `agy` profile, so the
+   * Bridge keeps it across restarts.
+   */
+  catalog(authMode: string, maxAgeMs: number): AntigravityCatalog | undefined {
+    const stored = this.catalogs[authMode];
+    return stored && Date.now() - stored.at <= maxAgeMs ? stored.catalog : undefined;
+  }
+
+  setCatalog(catalog: AntigravityCatalog): Promise<void> {
+    const previous = this.catalogs[catalog.authMode];
+    this.catalogs[catalog.authMode] = { at: Date.now(), catalog };
+    // A session reports the same catalog again and again; skip the write.
+    if (
+      previous &&
+      Date.now() - previous.at < 60_000 &&
+      JSON.stringify(previous.catalog) === JSON.stringify(catalog)
+    ) {
+      return Promise.resolve();
+    }
+    return this.save();
+  }
+
+  private save(): Promise<void> {
+    this.writing = this.writing.then(() => this.persist()).catch((err) => {
+      console.warn("[antigravity-store] Failed to save:", err);
+    });
+    return this.writing;
+  }
+
   private update(sessionId: string, patch: AntigravitySessionRecord): Promise<void> {
     const next = { ...this.sessions.get(sessionId), ...patch };
     for (const key of Object.keys(next) as Array<keyof AntigravitySessionRecord>) {
@@ -77,10 +118,7 @@ export class AntigravityStore {
       if (oldest.done) break;
       this.sessions.delete(oldest.value);
     }
-    this.writing = this.writing.then(() => this.persist()).catch((err) => {
-      console.warn("[antigravity-store] Failed to save:", err);
-    });
-    return this.writing;
+    return this.save();
   }
 
   private async persist(): Promise<void> {
@@ -88,6 +126,7 @@ export class AntigravityStore {
     const data: StoreData = {
       version: 1,
       sessions: Object.fromEntries(this.sessions),
+      catalogs: this.catalogs,
     };
     const tmp = `${this.filePath}.${randomUUID()}.tmp`;
     await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");

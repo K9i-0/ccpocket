@@ -688,9 +688,9 @@ export function describeAcpTool(
     const query = firstString(rawInput, ["query", "Query", "Pattern", "pattern"]);
     const path = firstString(rawInput, ["SearchPath", "SearchDirectory", "Path", "path"]);
     if (query) {
-      return name.includes("web") || !path
+      return name.includes("web")
         ? { toolName: "WebSearch", input: { query } }
-        : { toolName: "Grep", input: { pattern: query, path } };
+        : { toolName: "Grep", input: { pattern: query, ...(path ? { path } : {}) } };
     }
   }
   if (kind === "fetch") {
@@ -2184,6 +2184,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     this.transport = null;
     this.pendingPermissions.clear();
+    this.pendingElicitations.clear();
+    this.pendingPlan = null;
     this.queuedInputs = [];
     for (const pending of this.pendingRequests.values()) {
       clearTimeout(pending.timer);

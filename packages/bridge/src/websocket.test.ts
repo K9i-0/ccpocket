@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { WebSocket } from "ws";
 import { createHash } from "node:crypto";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -1345,10 +1346,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           authMode: "login" as const,
           tier: { name: "Google AI Ultra" },
         }));
+        const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-"));
         const bridge = new BridgeWebSocketServer({
           server: httpServer,
           detectAntigravity: async () => true,
           fetchAntigravityCatalog,
+          antigravityStore: new AntigravityStore(dir),
         });
         await (bridge as any).refreshAntigravityAvailability();
         expect(catalogOf(bridge).protocolCapabilities).toContain("antigravity_v2");
@@ -1369,6 +1372,26 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         // One helper process answers both requests.
         expect(fetchAntigravityCatalog).toHaveBeenCalledTimes(1);
         bridge.close();
+
+        // Each read leaves an empty conversation in the agy profile, so a
+        // restarted Bridge reuses the stored catalog instead of reading again.
+        await vi.waitFor(() =>
+          expect(existsSync(join(dir, "antigravity-sessions.json"))).toBe(true),
+        );
+        const store = new AntigravityStore(dir);
+        await store.init();
+        const restarted = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+          fetchAntigravityCatalog,
+          antigravityStore: store,
+        });
+        await expect((restarted as any).antigravityCatalog()).resolves.toMatchObject({
+          tier: { name: "Google AI Ultra" },
+        });
+        expect(fetchAntigravityCatalog).toHaveBeenCalledTimes(1);
+        restarted.close();
+        rmSync(dir, { recursive: true, force: true });
       });
 
       it("keeps the name of a recent Antigravity conversation", async () => {
