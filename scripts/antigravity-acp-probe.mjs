@@ -29,7 +29,8 @@ const t0 = Date.now();
 const trace = (o) => traceFile && appendFileSync(traceFile, JSON.stringify({ t: Date.now() - t0, ...o }) + "\n");
 
 const child = spawn("agy", ["acp", "--app-data-dir", PROFILE], {
-  cwd, stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, GEMINI_API_KEY: key },
+  cwd, stdio: ["pipe", "pipe", "pipe"],
+  env: argv.includes("--auth-meta") ? { ...process.env, GEMINI_API_KEY: "" } : { ...process.env, GEMINI_API_KEY: key },
 });
 child.stderr.on("data", (d) => trace({ dir: "stderr", text: String(d) }));
 const stop = (code) => { child.stdin.end(); setTimeout(() => { child.kill(); process.exit(code); }, 1000); };
@@ -52,6 +53,8 @@ createInterface({ input: child.stdout }).on("line", (line) => {
     const u = m.params?.update ?? {};
     if (u.sessionUpdate === "agent_message_chunk") text += u.content?.text ?? "";
     else if (u.sessionUpdate === "tool_call") console.log(`  [tool] ${u.kind ?? "-"}: ${u.title ?? ""}`);
+    else if (u.sessionUpdate === "tool_call_update" && ["completed", "failed"].includes(u.status)) console.log(`  [tool ${u.status}] ${u.title ?? ""}`);
+    else if (!["agent_message_chunk", "agent_thought_chunk", "usage_update", "tool_call_update", "available_commands_update"].includes(u.sessionUpdate)) console.log(`  [${u.sessionUpdate}] ${JSON.stringify(u).slice(0, 200)}`);
   } else if (m.method === "session/request_permission") {
     const want = argv.includes("--allow") ? "allow_once" : "reject_once";
     const pick = (m.params?.options ?? []).find((o) => o.kind === want);
@@ -67,17 +70,21 @@ const init = await request("initialize", {
   clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
 }, 30000);
 if (init.error) { console.error(`中止: initialize 失敗 ${JSON.stringify(init.error)}`); stop(1); }
-const auth = await request("authenticate", { methodId: "gemini-api-key" }, 30000);
+const auth = await request("authenticate", argv.includes("--auth-meta")
+  ? { methodId: "gemini-api-key", _meta: { apiKey: key } } : { methodId: "gemini-api-key" }, 30000);
 if (auth.error) { console.error(`中止: authenticate 失敗 ${JSON.stringify(auth.error)}`); stop(1); }
-const session = await request("session/new", { cwd, mcpServers: [] }, 60000);
-if (session.error) { console.error(`中止: session/new 失敗 ${JSON.stringify(session.error)}`); stop(1); }
+const existing = opt("--load") ?? opt("--resume");
+const session = existing
+  ? await request(opt("--load") ? "session/load" : "session/resume", { sessionId: existing, cwd, mcpServers: [] }, 60000)
+  : await request("session/new", { cwd, mcpServers: [] }, 60000);
+if (session.error) { console.error(`中止: session 開始失敗 ${JSON.stringify(session.error)}`); stop(1); }
 const models = (session.result.models?.availableModels ?? []).map((m) => m.modelId);
 const foreign = models.filter((m) => !m.startsWith("gemini-"));
 if (models.length === 0 || foreign.length > 0) {
   console.error(`中止: APIキーモードを確認できません（Gemini 以外のモデル: ${foreign.join(", ") || "一覧が空"}）。プロンプトは送っていません。`);
   stop(1);
 }
-const sessionId = session.result.sessionId;
+const sessionId = session.result.sessionId ?? existing;
 console.log(`agy ${init.result.agentInfo?.version} / APIキーモード確認済み（モデル ${models.length} 件、すべて Gemini）`);
 console.log(`session=${sessionId} model=${session.result.models.currentModelId}`);
 // APIキーモードの既定は gemini-3.1-pro-low（入力 $2 / 出力 $12）なので、指定がなければ安い 3.8 Flash にする
@@ -89,8 +96,14 @@ if (opt("--mode")) console.log("set_mode:", JSON.stringify((await request("sessi
 for (const p of prompts) {
   text = "";
   console.log(`\n> ${p}`);
+  if (opt("--cancel-after")) setTimeout(() => { console.log("  [cancel 送信]"); send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId } }); }, Number(opt("--cancel-after")));
+  if (opt("--steer")) setTimeout(() => {
+    console.log(`  [steer 送信] ${opt("--steer")}`);
+    request("session/prompt", { sessionId, prompt: [{ type: "text", text: opt("--steer") }] }).then((sr) => console.log(`  [steer の結果] ${JSON.stringify(sr.result ?? sr.error)}`));
+  }, Number(opt("--steer-after") ?? 3000));
   const r = await request("session/prompt", { sessionId, prompt: [{ type: "text", text: p }] });
   console.log(text.trim());
   console.log(`  [結果] ${JSON.stringify(r.result ?? r.error)}`);
 }
+if (opt("--steer")) await new Promise((r) => setTimeout(r, 25000));
 stop(0);
