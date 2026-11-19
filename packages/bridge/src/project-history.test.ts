@@ -47,7 +47,9 @@ afterEach(async () => {
   // The store saves without blocking its caller; let those writes land before
   // the temp directory goes away.
   await new Promise((resolve) => setTimeout(resolve, 10));
-  await rm(tempDir, { recursive: true, force: true });
+  // A write that lands while the directory is being removed fails the
+  // removal with ENOTEMPTY; retrying lets it finish first.
+  await rm(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 20 });
 });
 
 describe("ProjectHistory", () => {

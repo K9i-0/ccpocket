@@ -4375,7 +4375,7 @@ void main() {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final socketReady = Completer<WebSocket>();
       final requests = <Map<String, dynamic>>[];
-      final twoRequestsReady = Completer<void>();
+      final latestRequestReady = Completer<Map<String, dynamic>>();
 
       server.transform(WebSocketTransformer()).listen((socket) {
         if (!socketReady.isCompleted) socketReady.complete(socket);
@@ -4383,8 +4383,9 @@ void main() {
           final json = jsonDecode(data as String) as Map<String, dynamic>;
           if (json['type'] != 'list_recent_sessions') return;
           requests.add(json);
-          if (requests.length == 2 && !twoRequestsReady.isCompleted) {
-            twoRequestsReady.complete();
+          if (json['searchQuery'] == 'second' &&
+              !latestRequestReady.isCompleted) {
+            latestRequestReady.complete(json);
           }
         });
       });
@@ -4400,7 +4401,15 @@ void main() {
 
       bridge.switchFilter(searchQuery: 'first');
       bridge.switchFilter(searchQuery: 'second');
-      await twoRequestsReady.future.timeout(const Duration(seconds: 1));
+      // The first request is only sent when the socket was ready for it; a
+      // request still queued when the second replaces it is dropped.
+      final latest = await latestRequestReady.future.timeout(
+        const Duration(seconds: 1),
+      );
+      final latestId = latest['requestId'] as String;
+      final olderId = requests.length == 2
+          ? requests[0]['requestId'] as String
+          : 'recent-${int.parse(latestId.split('-').last) - 1}';
 
       socket.add(
         jsonEncode({
@@ -4411,7 +4420,7 @@ void main() {
           'hasMore': false,
           'offset': 0,
           'requestScope': 'list',
-          'requestId': requests[1]['requestId'],
+          'requestId': latestId,
         }),
       );
       await bridge.recentSessionsStream.first;
@@ -4425,13 +4434,12 @@ void main() {
           'hasMore': false,
           'offset': 0,
           'requestScope': 'list',
-          'requestId': requests[0]['requestId'],
+          'requestId': olderId,
         }),
       );
       await Future<void>.delayed(const Duration(milliseconds: 30));
 
-      expect(requests[0]['requestId'], isNotNull);
-      expect(requests[1]['requestId'], isNot(requests[0]['requestId']));
+      expect(olderId, isNot(latestId));
       expect(bridge.recentSessions.single.sessionId, 'fresh');
       expect(updates, hasLength(1));
 
@@ -4981,7 +4989,7 @@ void main() {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         final socketReady = Completer<WebSocket>();
         final requests = <Map<String, dynamic>>[];
-        final threeRequestsReady = Completer<void>();
+        final lastRequestReady = Completer<void>();
 
         server.transform(WebSocketTransformer()).listen((socket) {
           if (!socketReady.isCompleted) socketReady.complete(socket);
@@ -4989,8 +4997,10 @@ void main() {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             if (json['type'] != 'list_recent_sessions') return;
             requests.add(json);
-            if (requests.length == 3 && !threeRequestsReady.isCompleted) {
-              threeRequestsReady.complete();
+            // Requests still queued when a newer one replaces them are
+            // dropped, so only the last one is sure to arrive.
+            if (json['offset'] == 20 && !lastRequestReady.isCompleted) {
+              lastRequestReady.complete();
             }
           });
         });
@@ -5007,7 +5017,7 @@ void main() {
         bridge.switchProjectFilter('/tmp/old');
         bridge.switchProjectFilter('/tmp/current');
         bridge.loadMoreRecentSessions(projectPath: '/tmp/current', offset: 20);
-        await threeRequestsReady.future.timeout(const Duration(seconds: 1));
+        await lastRequestReady.future.timeout(const Duration(seconds: 1));
 
         void sendLegacyResponse({
           required String sessionId,
