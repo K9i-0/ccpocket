@@ -13,6 +13,8 @@ void main() {
     late ProviderStyle style;
     await tester.pumpWidget(
       MaterialApp(
+        // A fresh app per call: reusing one would animate between themes.
+        key: UniqueKey(),
         theme: theme,
         home: Builder(
           builder: (context) {
