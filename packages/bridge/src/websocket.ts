@@ -1340,7 +1340,11 @@ export class BridgeWebSocketServer {
         return (
           !!session &&
           session.status === "idle" &&
-          !session.backgroundTasks?.some(isAgentBackgroundTask)
+          !session.backgroundTasks?.some(isAgentBackgroundTask) &&
+          !(
+            session.process instanceof AntigravityProcess &&
+            session.process.expectsFollowUp
+          )
         );
       },
       release: (sessionId, completion) =>
@@ -11541,9 +11545,14 @@ export class BridgeWebSocketServer {
    * starts a follow-up turn when they report back. Shells and monitors may
    * run indefinitely (dev servers), so they do not delay completion. Codex
    * never starts a follow-up turn, so its background work is ignored too.
+   * Antigravity carries on by itself when a timer fires or a background
+   * command ends; the process says for how long that is still expected.
    */
   private keepsWorkingInBackground(sessionId: string): boolean {
     const session = this.sessionManager.get(sessionId);
+    if (session?.process instanceof AntigravityProcess) {
+      return session.process.expectsFollowUp;
+    }
     return (
       session?.provider === "claude" &&
       !!session.backgroundTasks?.some(isAgentBackgroundTask)

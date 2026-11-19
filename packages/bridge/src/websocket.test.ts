@@ -542,6 +542,7 @@ import {
   recentSessionsFiltersRequested,
 } from "./websocket.js";
 import { CodexProcess, CodexRpcError } from "./codex-process.js";
+import { AntigravityProcess } from "./antigravity-process.js";
 
 describe("downloadMimeType", () => {
   it("recognizes common deliverables and falls back safely", () => {
@@ -10754,6 +10755,62 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         eventType: "session_completed",
         body: "still waiting",
       });
+      bridge.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds Antigravity completion pushes while the agent is expected to carry on", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+      globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+      const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: {
+        uid: "bridge-test", getIdToken: vi.fn(async () => "mock-token"),
+        initialize: vi.fn(async () => {}),
+      } as any });
+      (bridge as any).tokenLocales.set("token-1", "en");
+      let expectsFollowUp = true;
+      const process = Object.create(AntigravityProcess.prototype);
+      Object.defineProperty(process, "expectsFollowUp", { get: () => expectsFollowUp });
+      const tasks = [{ taskId: "t1", taskType: "antigravity_terminal", description: "flutter test" }];
+      const session: Record<string, unknown> = {
+        id: "s-1", provider: "antigravity", status: "idle", process, backgroundTasks: tasks,
+      };
+      vi.spyOn((bridge as any).sessionManager, "get").mockImplementation(
+        (id: unknown) => (id === "s-1" ? session : undefined),
+      );
+      const send = (msg: Record<string, unknown>) =>
+        (bridge as any).broadcastSessionMessage("s-1", msg);
+
+      // A pause: the tests run in the background and the agent will return.
+      send({ type: "result", subtype: "success", result: "running the tests" });
+      send({ type: "status", status: "idle" });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // The agent woke up and finished with nothing left open.
+      session.status = "running";
+      send({ type: "status", status: "running" });
+      expectsFollowUp = false;
+      session.status = "idle";
+      send({ type: "result", subtype: "success", result: "all done" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toMatchObject({ body: "all done" });
+
+      // A command that never ends: the wait runs out and the pause is reported.
+      expectsFollowUp = true;
+      send({ type: "result", subtype: "success", result: "server started" });
+      send({ type: "status", status: "idle" });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expectsFollowUp = false;
+      send({ type: "background_tasks", tasks });
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       bridge.close();
     } finally {
       vi.useRealTimers();

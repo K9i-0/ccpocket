@@ -11,6 +11,7 @@ import { basename } from "node:path";
 import { createInterface } from "node:readline";
 import type {
   AssistantContent,
+  BackgroundTaskInfo,
   PermissionMode,
   ProcessStatus,
   ServerMessage,
@@ -39,6 +40,14 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const LOAD_TIMEOUT_MS = 10 * 60_000;
 /** Silence after a usage report that ends a turn the agent started itself. */
 const SELF_TURN_SETTLE_MS = 5_000;
+/**
+ * How long a background command left open by a turn counts as "the agent will
+ * carry on when it finishes". Past this it is taken for one that never ends
+ * (a dev server), which must not hold the session's completion back forever.
+ */
+const FOLLOW_UP_WAIT_MS = 5 * 60_000;
+/** How long to wait for the agent's first word after a background call ends. */
+const WAKE_WAIT_MS = 30_000;
 
 export type AntigravityAuthMode = "login" | "api_key";
 
@@ -295,6 +304,12 @@ interface ToolCallState {
   /** A permission decision already produced the tool_result for this call. */
   rejected: boolean;
   finished: boolean;
+  /** What the call does, for the background task list. */
+  description: string;
+  /** A `schedule` timer: the agent always carries on when it fires. */
+  timer: boolean;
+  /** Still open when its turn ended. */
+  background: boolean;
 }
 
 interface ElicitationField {
@@ -916,6 +931,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    */
   private selfTurn = false;
   private selfTurnTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The self-started turn has shown nothing yet (see `expectWake`). */
+  private selfTurnSilent = false;
+  /** Until when open background commands promise a follow-up turn. */
+  private followUpDeadline = 0;
+  private followUpTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastBackgroundTasks = "[]";
   private cancelRequested = false;
   private turnUsage: PromptUsage = {};
   private turnStartedAt = 0;
@@ -988,6 +1009,22 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   get isTurnActive(): boolean {
     return this.outstandingPrompts > 0 || this.selfTurn;
+  }
+
+  /**
+   * True while the agent is expected to start another turn by itself: a timer
+   * is set, or a background command of the last turn is still running and
+   * has not run long enough to be taken for one that never ends. A turn that
+   * ends in this state is a pause, not the end of the work.
+   */
+  get expectsFollowUp(): boolean {
+    let command = false;
+    for (const call of this.toolCalls.values()) {
+      if (!call.background) continue;
+      if (call.timer) return true;
+      command = true;
+    }
+    return command && Date.now() < this.followUpDeadline;
   }
 
   get model(): string | undefined {
@@ -1572,11 +1609,57 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private dropSettledToolCalls(keepOpen: boolean): void {
     if (!keepOpen) {
       this.toolCalls.clear();
-      return;
+    } else {
+      for (const [id, call] of this.toolCalls) {
+        if (call.finished || call.rejected) this.toolCalls.delete(id);
+        else call.background = true;
+      }
     }
-    for (const [id, call] of this.toolCalls) {
-      if (call.finished || call.rejected) this.toolCalls.delete(id);
+    if (this.followUpTimer) clearTimeout(this.followUpTimer);
+    this.followUpTimer = null;
+    this.followUpDeadline = 0;
+    if ([...this.toolCalls.values()].some((call) => !call.timer)) {
+      this.followUpDeadline = Date.now() + FOLLOW_UP_WAIT_MS;
+      // Lets whoever holds the completion back look again.
+      this.followUpTimer = setTimeout(() => {
+        this.followUpTimer = null;
+        if (!this.stopped) this.emitBackgroundTasks(true);
+      }, FOLLOW_UP_WAIT_MS);
+      this.followUpTimer.unref?.();
     }
+    this.emitBackgroundTasks();
+  }
+
+  /** Calls that outlived their turn, in the shape Claude and Codex report. */
+  private emitBackgroundTasks(force = false): void {
+    const tasks: BackgroundTaskInfo[] = [];
+    for (const [taskId, call] of this.toolCalls) {
+      if (!call.background) continue;
+      tasks.push({
+        taskId,
+        taskType: call.timer ? "antigravity_timer" : "antigravity_terminal",
+        ...(call.description ? { description: call.description } : {}),
+      });
+    }
+    const key = JSON.stringify(tasks);
+    if (!force && key === this.lastBackgroundTasks) return;
+    this.lastBackgroundTasks = key;
+    this.emitMessage({ type: "background_tasks", tasks });
+  }
+
+  /**
+   * A background call ended while no turn was running. Antigravity tells the
+   * agent, whose answer only starts seconds later: run from now, so the
+   * session does not look finished in between.
+   */
+  private expectWake(): void {
+    if (this.replaying || this.stopped || !this.ready || this.isTurnActive) return;
+    this.noteAgentActivity();
+    this.selfTurnSilent = true;
+    this.selfTurnTimer = setTimeout(() => {
+      this.selfTurnTimer = null;
+      this.endSelfTurn("silent");
+    }, WAKE_WAIT_MS);
   }
 
   // ---- turns the agent starts on its own -----------------------------------
@@ -1591,6 +1674,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       clearTimeout(this.selfTurnTimer);
       this.selfTurnTimer = null;
     }
+    this.selfTurnSilent = false;
     if (
       this.selfTurn ||
       this.replaying ||
@@ -1619,7 +1703,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    * the turn the same way, without a report.
    */
   private armSelfTurnEnd(): void {
-    if (!this.selfTurn || this.outstandingPrompts > 0) return;
+    if (!this.selfTurn || this.selfTurnSilent || this.outstandingPrompts > 0) return;
     if (this.selfTurnTimer) clearTimeout(this.selfTurnTimer);
     this.selfTurnTimer = setTimeout(() => {
       this.selfTurnTimer = null;
@@ -1635,22 +1719,25 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private clearSelfTurn(): void {
     this.selfTurn = false;
+    this.selfTurnSilent = false;
     if (this.selfTurnTimer) {
       clearTimeout(this.selfTurnTimer);
       this.selfTurnTimer = null;
     }
   }
 
-  private endSelfTurn(subtype: "success" | "interrupted"): void {
+  private endSelfTurn(subtype: "success" | "interrupted" | "silent"): void {
     if (!this.selfTurn || this.stopped) return;
     this.clearSelfTurn();
     this.flushAssistant();
     this.pendingPermissions.clear();
     this.pendingElicitations.clear();
-    this.dropSettledToolCalls(subtype === "success");
+    this.dropSettledToolCalls(subtype !== "interrupted");
     const sessionId = this._sessionId ?? undefined;
     if (this.contextUsageDirty) this.emitSettings();
-    if (subtype === "interrupted") {
+    if (subtype === "silent") {
+      // The agent never answered the background call: nothing happened.
+    } else if (subtype === "interrupted") {
       this.emitMessage({ type: "result", subtype: "interrupted", sessionId });
     } else {
       // No prompt answered, so there is no token usage to report.
@@ -1997,6 +2084,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (!closing) this.noteAgentActivity();
     // Antigravity says nothing more after a denial, not even a usage report.
     else if (call?.rejected) this.armSelfTurnEnd();
+    const endsBackground = closing && !!call?.background && !call.finished;
     if (!call) {
       this.flushAssistant();
       const kind = stringOr(update.kind, "other");
@@ -2029,7 +2117,19 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         input = { ...rawInput };
       }
       if (!this.replaying) this.turnToolCalls++;
-      call = { toolName, kind, title, rejected: false, finished: false };
+      const timer = stringOr(update.name) === "schedule";
+      call = {
+        toolName,
+        kind,
+        title,
+        rejected: false,
+        finished: false,
+        description: timer
+          ? `Timer: ${stringOr(rawInput.Prompt, title)}`
+          : stringOr(rawInput.CommandLine, title),
+        timer,
+        background: false,
+      };
       this.toolCalls.set(toolUseId, call);
       this.emitMessage({
         type: "assistant",
@@ -2047,6 +2147,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const status = stringOr(update.status);
     if ((status !== "completed" && status !== "failed") || call.finished) return;
     call.finished = true;
+    if (endsBackground) {
+      call.background = false;
+      this.emitBackgroundTasks();
+      this.expectWake();
+    }
     if (status === "completed" && call.kind === "edit" && !this.replaying) {
       this.notePlanArtifact(update);
     }

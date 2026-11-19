@@ -1057,9 +1057,15 @@ describe("AntigravityProcess turns the agent starts itself", () => {
     const { proc, transport, messages, update } = await turnWithTimer();
     vi.useFakeTimers();
     try {
-      // The timer fires: its call closes, which is not a turn yet.
+      expect(proc.expectsFollowUp).toBe(true);
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+        { taskId: "sched", taskType: "antigravity_timer", description: "Timer: check the build" },
+      ]);
+      // The timer fires: the agent answers seconds later, so run from now.
       update({ sessionUpdate: "tool_call_update", status: "completed", ...timer });
-      expect(proc.status).toBe("idle");
+      expect(proc.status).toBe("running");
+      expect(proc.expectsFollowUp).toBe(false);
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
       expect(ofType(messages, "tool_result").at(-1)).toMatchObject({ toolUseId: "sched" });
       // The call is not announced a second time.
       const toolUses = () =>
@@ -1154,6 +1160,59 @@ describe("AntigravityProcess turns the agent starts itself", () => {
       vi.advanceTimersByTime(5_000);
       expect(proc.status).toBe("idle");
       expect(results(messages)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("goes back to idle without a result when the agent never answers", async () => {
+    const { proc, messages, update } = await turnWithTimer();
+    vi.useFakeTimers();
+    try {
+      update({ sessionUpdate: "tool_call_update", status: "completed", ...timer });
+      expect(proc.status).toBe("running");
+      // A usage report alone is not the agent's answer.
+      update({ sessionUpdate: "usage_update", used: 10, size: 100 });
+      vi.advanceTimersByTime(10_000);
+      expect(proc.status).toBe("running");
+      vi.advanceTimersByTime(20_000);
+      expect(proc.status).toBe("idle");
+      expect(results(messages)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("expects a follow-up from a background command only for a while", async () => {
+    const session = await startSession();
+    const { proc, messages, update, endTurn } = session;
+    vi.useFakeTimers();
+    try {
+      proc.sendInput("go");
+      const server = {
+        toolCallId: "srv",
+        name: "run_command",
+        kind: "execute",
+        rawInput: { CommandLine: "npm run dev" },
+      };
+      update({ sessionUpdate: "tool_call", status: "in_progress", ...server });
+      // A call that finished within the turn is not background work.
+      update({ sessionUpdate: "tool_call", status: "in_progress", toolCallId: "ls", kind: "execute", rawInput: { CommandLine: "ls" } });
+      update({ sessionUpdate: "tool_call_update", status: "completed", toolCallId: "ls" });
+      endTurn();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(proc.status).toBe("idle");
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+        { taskId: "srv", taskType: "antigravity_terminal", description: "npm run dev" },
+      ]);
+      expect(proc.expectsFollowUp).toBe(true);
+      const reports = ofType(messages, "background_tasks").length;
+      // Still running after five minutes: taken for one that never ends.
+      vi.advanceTimersByTime(5 * 60_000);
+      expect(proc.expectsFollowUp).toBe(false);
+      // Reported again so a held completion is looked at once more.
+      expect(ofType(messages, "background_tasks")).toHaveLength(reports + 1);
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }

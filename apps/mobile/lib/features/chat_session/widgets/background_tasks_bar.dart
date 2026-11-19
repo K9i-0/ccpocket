@@ -79,7 +79,8 @@ class BackgroundTasksBar extends StatelessWidget {
       task.subagentType ??
       switch (task.taskType) {
         'local_bash' => 'Shell',
-        'codex_terminal' => 'Terminal',
+        'codex_terminal' || 'antigravity_terminal' => 'Terminal',
+        'antigravity_timer' => 'Timer',
         'monitor' => 'Monitor',
         'local_workflow' => 'Workflow',
         'local_agent' || 'remote_agent' || 'codex_agent' => 'Agent',
