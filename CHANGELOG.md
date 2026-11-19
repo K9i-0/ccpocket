@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.168.0] - 2026-11-19
+
+### Added
+
+- Antigravity (preview) sessions, with Bridge 1.110.0 or newer, now work much like Claude and Codex sessions:
+  - The new session sheet offers the model, its thinking level, the approval modes your account has (Auto and Bypass included) and extra folders. It starts on Auto and the account's default model, like the `agy` CLI, and remembers your choices.
+  - Questions from the agent appear as a form, and a plan written in plan mode can be approved or sent back with changes.
+  - "Always allow" for a command or for file edits, and the choice between steering and queueing a message sent during a turn.
+  - Usage: the bar above the chat shows time, tokens and the context window; session cards show the model with its level and the context share; the settings usage card shows the 5-hour and weekly plan limits per model group, and the session list header shows the Gemini group.
+  - The model chip shows the model with its thinking level and switches both.
+  - Recent Antigravity conversations can be renamed.
+  - Settings: show or hide the Antigravity tab and order it with the other tabs; the plan, sign-in method and CLI version are shown with the usage.
+  - Help for the sign-in and missing-CLI errors.
+
+### Changed
+
+- The app now expects Bridge 1.110.0 and offers the update when connected to an older Bridge.
+- With three agents, the usage summary in the session list header shows agent icons instead of names so it stays on one line.
+
 ## [1.167.0] - 2026-11-19
 
 ### Added
