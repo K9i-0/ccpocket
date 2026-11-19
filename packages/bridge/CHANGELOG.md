@@ -2,6 +2,22 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.111.0] - 2026-11-20
+
+### Added
+
+- Antigravity (preview): timers and commands a turn leaves running are reported as background tasks, like those of Claude and Codex sessions.
+- Antigravity (preview): MCP tools are shown under their server and tool name instead of as a shell command, and "Always allow" covers the tool for the session whatever its arguments.
+
+### Changed
+
+- Antigravity (preview): the completion notification waits while the agent is expected to carry on by itself, and is sent once for the work instead of once per pause. That is while a timer is set, or for five minutes after a turn that left a command running.
+
+### Fixed
+
+- Antigravity (preview): a session no longer looks finished while the agent works. When a timer or a finished background command wakes the agent after its turn ended, the session runs again, returns to running after an approval, and reports the end of that turn.
+- Antigravity (preview): a timer that fires after its turn ended is no longer shown as a second tool call.
+
 ## [1.110.0] - 2026-11-19
 
 ### Added
