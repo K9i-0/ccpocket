@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.169.0] - 2026-11-20
+
+### Added
+
+- Settings: Antigravity (preview) is picked like the other agents. "Enabled agents" is now one selector where Codex, Claude and Antigravity are each switched on or off, so Antigravity can be used alone or next to a single agent. The separate "Show Antigravity for new sessions" switch is gone, and the tab sheet only orders the enabled agents. If you had a single agent enabled, Antigravity stays off until you turn it on.
+- Agent marks for Claude, Codex and Antigravity in the new session sheet, the usage summary and settings.
+- With Bridge 1.111.0, timers and commands an Antigravity session leaves running appear as background tasks.
+
+### Changed
+
+- The app now expects Bridge 1.111.0 and offers the update when connected to an older Bridge.
+
+### Fixed
+
+- Recent sessions no longer show as empty right after connecting. A list request queued while connecting was sent after a newer one and its answer was ignored, which left the list empty until a manual refresh.
+
 ## [1.168.0] - 2026-11-19
 
 ### Added
