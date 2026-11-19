@@ -254,6 +254,23 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - iOS シミュレーターのアプリから、Antigravity タブでのセッション開始、モデル切替、承認バー（「拒否」「今回だけ許可」の 2 つ）での承認と拒否、最近のセッション一覧からの再開を確認した。
 - Google ログイン認証での動作は、エージェントからは確認していない（規約上できない）。同じコード経路で `authenticate` を送らないだけの違いだが、人間の手で一度確認すること。
 
+## `agy` 側の対応待ち（サポートされたら実装する）
+
+`agy` に手段がなく、Claude / Codex との差として残っているもの。`agy` を更新したら下の「確認方法」で調べ、使えるようになっていたら実装して他のプロバイダーに揃える（2026-11-19、agy 1.5.12 時点）。
+
+| 機能 | 足りないもの | 確認方法 | 実装するときの入口 |
+|---|---|---|---|
+| 巻き戻し（会話・コード） | 会話を途中まで戻す ACP メソッド。`session/rewind`、`session/truncate` は `-32601` | `initialize` 応答の `sessionCapabilities` に新しい項目が増えていないか。メソッドを直接呼んで `-32601` 以外が返るか | `session.ts` の `Rewind is not supported for Antigravity sessions`、アプリの `supportsRewind` |
+| フォーク | `session/fork` が `-32601` | 同上（`sessionCapabilities.fork`） | `websocket.ts` の `Fork is not supported for Antigravity sessions`、アプリの `supportsFork` |
+| メッセージ編集・再送 | 巻き戻しと同じ（編集は「その発言まで戻して送り直す」ため） | 同上 | アプリの `supportsMessageEdit`、Bridge の `edit_message` |
+| 停止時の入力の取り消し | 送信済みプロンプトを会話から外す手段 | 同上 | `websocket.ts` の `retract` の分岐 |
+| 費用（USD） | `session/prompt` 応答の `usage` に金額がない。`agy -p` の JSON にもない | `usage` に `cost` 相当の項目が増えていないか | `antigravity-process.ts` の `result` に `cost` を足す（アプリの使用量バーは `cost` があれば表示する） |
+| `agy` 自身の「常に許可」 | 承認の選択肢に `allow_always` が出ない。いまは Bridge がセッション内で代行している | `session/request_permission` の `options` に `allow_always` が出るか | 出れば `approveAlways` がそのまま使う（実装済み） |
+| セッションの改名・削除 | `session/set_title`、`session/delete` が `-32601`。名前はいま Bridge が `~/.ccpocket/antigravity-sessions.json` に持つ | メソッドを直接呼ぶ | `renameSession`、`antigravity-store.ts` |
+| APIキーでの `auto` モード | APIキー認証では `auto` が一覧に出ない（OS のターミナルサンドボックスが必要） | APIキーのプロファイルで `session/new` の `modes` を見る | 対応不要（一覧に出れば自動で選べる） |
+
+確認には `scripts/antigravity-acp-probe.mjs`（APIキー）を使う。プロンプトを送らない確認（`initialize`、`session/new`、メソッドの有無）は既定プロファイルでもよい。
+
 ## 互換性方針
 
 - Antigravity は新しい `provider` の値として追加した。既存の Claude / Codex セッションの挙動とメッセージは変えていない。
