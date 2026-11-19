@@ -5,6 +5,7 @@ import {
 } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { createInterface } from "node:readline";
@@ -320,7 +321,7 @@ interface PromptUsage {
 /** Bridge-only mode: the ACP session stays in `default` and every request is allowed. */
 const BYPASS_MODE: PermissionMode = "bypassPermissions";
 const PLAN_APPROVED_PROMPT = "Approved. Proceed with the implementation plan.";
-const THOUGHT_LEVEL_PATTERN = /^(minimal|low|medium|high|xhigh|max)$/;
+const THOUGHT_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 class AcpError extends Error {
   constructor(
@@ -585,7 +586,9 @@ export function buildModelOptions(
     thoughtLevels: models
       .filter((model) => model.id.startsWith(`${base.id}-`))
       .map((model) => model.id.slice(base.id.length + 1))
-      .filter((level) => THOUGHT_LEVEL_PATTERN.test(level)),
+      .filter((level) => THOUGHT_LEVELS.includes(level))
+      // Lowest first, whatever order the models are listed in.
+      .sort((a, b) => THOUGHT_LEVELS.indexOf(a) - THOUGHT_LEVELS.indexOf(b)),
   }));
 }
 
@@ -988,6 +991,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.transport = transport;
     transport.on("message", (message) => this.handleIncoming(message));
     transport.on("error", (err) => {
+      // A missing working directory fails the spawn with ENOENT as well.
+      if (!existsSync(projectPath)) {
+        this.failStart(`Project folder not found: ${projectPath}`);
+        return;
+      }
       const notFound = (err as NodeJS.ErrnoException).code === "ENOENT";
       this.failStart(
         notFound ? ANTIGRAVITY_CLI_NOT_FOUND_MESSAGE : err.message,

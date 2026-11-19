@@ -381,6 +381,9 @@ may change.
   interactively, and do not automate them with a Google login.
 - For this reason the Bridge never sends prompts of its own to Antigravity: session
   titles come from Antigravity itself, and auto-rename is off for these sessions.
+  The only messages it sends for you are the ones a tap stands for: approving a plan
+  (`Approved. Proceed with the implementation plan.`), or the feedback or reason you
+  typed when rejecting one. They appear in the conversation as your message.
 - To use a Gemini API key instead, set `CCPOCKET_ANTIGRAVITY_API_KEY` in the Bridge
   environment (the background service setup keeps it). The Bridge then runs `agy`
   with a separate profile, so your everyday `agy` login is untouched. Usage is billed
@@ -389,11 +392,15 @@ may change.
 
 **Limits in this preview**
 
-- No rewind, fork, message editing, sandbox toggle, pinning or usage display.
-- Approvals are "allow once" or "deny"; Antigravity offers no "always allow".
-- Resuming a conversation resets the model to Antigravity's default.
+- No rewind, fork, message editing, sandbox toggle or pinning.
+- No plan usage (5-hour / weekly) and no cost: Antigravity reports neither. The app
+  shows the plan name, the context window in use, and tokens per turn.
+- Approvals are "allow once" or "deny"; Antigravity offers no "always allow". The
+  Bypass mode has the Bridge allow every request for you.
+- Auto mode is listed only for accounts that have it (Google login; not API keys).
 - Antigravity conversations appear on the first page of the recent list and under the
-  Antigravity filter, not in project-filtered or content-search results.
+  Antigravity filter. Title searches and a project path apply to them; other filters
+  do not.
 - Not verified on Windows.
 
 ## Requirements

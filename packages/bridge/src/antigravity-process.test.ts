@@ -439,6 +439,18 @@ describe("AntigravityProcess API-key guard", () => {
 });
 
 describe("AntigravityProcess failure handling", () => {
+  it("says the project folder is missing instead of blaming the CLI", async () => {
+    const transport = new ScriptedTransport({});
+    const { proc, messages } = createProcess(transport);
+    proc.start("/no/such/ccpocket-folder");
+    // Node reports a missing working directory as ENOENT, like a missing binary.
+    transport.emit("error", Object.assign(new Error("spawn agy ENOENT"), { code: "ENOENT" }));
+    expect(ofType(messages, "error")[0].message).toBe(
+      "Project folder not found: /no/such/ccpocket-folder",
+    );
+    expect(ofType(messages, "error")[0].errorCode).toBeUndefined();
+  });
+
   it("reports an exit during startup instead of leaving callers waiting", async () => {
     const transport = new ScriptedTransport({});
     const { proc, messages } = createProcess(transport);
@@ -702,8 +714,8 @@ describe("AntigravityProcess settings", () => {
       agentVersion: "1.5.12",
     });
     expect(proc.settings.modelOptions).toEqual([
-      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", thoughtLevels: ["high", "medium", "low"] },
-      { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", thoughtLevels: ["high", "low"] },
+      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", thoughtLevels: ["low", "medium", "high"] },
+      { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", thoughtLevels: ["low", "high"] },
     ]);
   });
 

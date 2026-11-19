@@ -1378,7 +1378,13 @@ class _ChatScreenBody extends HookWidget {
                                         onApprove: approveToolUse,
                                         onReject: rejectToolUse,
                                         onApproveAlways: approveAlwaysToolUse,
-                                        onApproveClearContext: isPlanApproval
+                                        // Only Claude can start over from
+                                        // the plan with a cleared context.
+                                        onApproveClearContext:
+                                            isPlanApproval &&
+                                                context
+                                                    .read<ChatSessionCubit>()
+                                                    .isClaude
                                             ? approveWithClearContext
                                             : null,
                                         onViewPlan: isPlanApproval

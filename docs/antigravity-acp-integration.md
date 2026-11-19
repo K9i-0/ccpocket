@@ -1,7 +1,7 @@
 # Antigravity（`agy acp`）連携の対応計画
 
 > 調査日: 2026-11-18 / 対象: Antigravity CLI `agy` 1.5.10（ACP protocol version 1）
-> 状態: Bridge とアプリに実装済み（2026-11-19、agy 1.5.12 で確認）。
+> 状態: Bridge とアプリに実装済み（2026-11-19、agy 1.5.12 で確認）。同日、他プロバイダーとの機能差を埋める改修（`antigravity_v2`）を追加した。
 > 公開上の位置づけ: 当面はプレビュー機能として出す（2026-11-19 決定）。`agy` があれば自動で表示し、新規セッション画面に「プレビュー」表記と注記を出す。README と Bridge の README にも preview として記載している。ストアの説明文には載せない。
 
 Google Antigravity を ccpocket の3つ目のプロバイダーとして扱うための、判断・検証ルール・実装の要点をまとめる。
@@ -50,6 +50,7 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 - **既定は Google ログイン。** Bridge は既定プロファイルで `agy acp` を起動し、`authenticate` を送らない。ユーザーが `agy` でサインイン済みの状態をそのまま使う。人間が直接操作する対話クライアントとしての利用であり、下の Issue 回答で許容側とされた形にとどめる。
 - **APIキーは任意。** Bridge の環境変数 `CCPOCKET_ANTIGRAVITY_API_KEY` を設定すると、専用プロファイル `antigravity-cli-ccpocket-apikey` で起動し、`authenticate`（`gemini-api-key`、キーは `_meta.apiKey`）を送る。キーは子プロセスの環境変数には入れない（エージェントが実行するコマンドへ渡さないため）。`GEMINI_API_KEY` は読まない（グローバルに export されたキーで黙って従量課金に切り替わらないようにするため）。
 - **Bridge が自分でプロンプトを作る機能は、Antigravity に送らない。** ログイン認証で禁止されている「人間以外による駆動」にあたるため。
+  - 例外は、ユーザーの1回の操作をそのまま1通の発言にするものだけ。plan の承認（固定文 `Approved. Proceed with the implementation plan.`）、plan への修正指示、拒否理由がこれにあたる。Bridge はその文をユーザー発言として会話に表示する。Codex の plan 承認と同じ扱い。
   - 自動リネームは Antigravity セッションでは無効。セッション名は `agy` が付けるタイトル（`session_info_update`）を使う。
   - コミットメッセージの自動生成は `agy` を使わない（既存どおり `claude` CLI を呼ぶ）。
   - `_meta.antigravity.systemPrompt.append` は使わない。
@@ -143,9 +144,25 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **画像入力**: `{type:"image", data, mimeType}` のブロックを Bridge 経由で送り、内容を答えられた。
 - **拒否後の挙動**: 拒否するとツールが `failed` になり、追加の発言なしで `end_turn` になる（再確認）。承認の選択肢は `allow_once` / `reject_once` の 2 つ（再確認）。
 
+## 追加検証の結果（2026-11-19、`antigravity_v2` の実装時）
+
+トレース: [trace-elicitation.ndjson](antigravity-acp/trace-elicitation.ndjson)（`elicitation` を宣言したクライアントに `ask_question` の `elicitation/create` が届くところまで。このプローブは応答せず `-32601` を返している）
+
+- **ACP は公開仕様。** [agentclientprotocol.com](https://agentclientprotocol.com/) にある、エディタとエージェント間の共通プロトコル。Antigravity 独自の拡張は `_meta.antigravity` に入る。
+- **質問（`ask_question`）**: クライアントが `clientCapabilities.elicitation.form` を宣言すると、`elicitation/create`（`mode: "form"`、`requestedSchema`）が届く。選択肢は `oneOf` の `const` / `title`、自由記述は `<id>_other`。応答は `{action: "accept", content}` / `decline` / `cancel`。宣言しないと、質問が本文に出てターンが終わるだけになる。
+- **plan モード**: 承認リクエストは出ない。計画は `~/.gemini/<プロファイル>/brain/<セッションID>/` 配下の文書（`implementation_plan.md`、`plan_add_subtract.md` など。名前は一定しない）として `write_file` で書かれ、次の発言を待つ。計画の文書は `rawInput.ArtifactMetadata.RequestFeedback: true` で見分けられる。plan モード中もコマンド実行は承認を求める。
+- **モデルと思考レベル**: `configOptions` の `model`（系統。`gemini-3.8-flash`）と `thought_level`（`low` / `medium` / `high` / `xhigh`）を `session/set_config_option` で切り替えられる。`availableModels` の ID は「系統-レベル」。選べるレベルは系統ごとに違う。`session/set_model` の `config_option_update` は応答のあとに届く。
+- **カタログ**: `session/new` → `session/close` だけの空のセッションは `session/list` に残らない。プロンプトなしでモデル・モード・プラン名を取得できる。
+- **`auto`**: Google ログインの既定プロファイルでは一覧に出て、`session/set_mode` も成功した（プロンプトは送っていない）。APIキーでは `--sandbox` を付けても不可。
+- **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
+- **利用枠の残量は取れない。** ACP に該当メソッドがない（`_antigravity/quota` などは `-32601`）。ログや内部 API は読まない。
+- **ツール種別**: `read_file`（`kind: read`、`rawInput.Path`）、`search_web`（`kind: search`、`rawInput.query`）、`run_command`（`execute`）、`write_file`（`edit`）。`session/set_title` と `session/delete` はない。
+- **スラッシュコマンド**: `available_commands_update` に説明文が付く。スキルも同じ一覧に入る。
+
 ## 未検証
 
-- elicitation（質問フォーム）、`plan` モードでの承認の出方
+- `auto` モードでの実際のターン（Google ログインでしか使えないため、エージェントからは確認できない）
+- 複数選択の質問（`is_multi_select`）の `requestedSchema` の形。配列型として実装してあるが、実物は未確認
 - 無料枠の APIキーで `agy` が動くか
 - 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）。確かめるには禁止側の送信になりうるので、検証しない
 - 既定プロファイルで `authenticate` を送ったときの影響と、`oauth-personal` へ戻す経路
@@ -159,7 +176,14 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から unified diff を作る）。
   - 承認リクエストは `availableDecisions: ["accept", "decline"]` を付ける。アプリは「常に許可」を出さない。
   - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
-  - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。`bypassPermissions` は非対応。
+  - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。
+  - `bypassPermissions` は Bridge 側のモード。ACP のモードは `default` のまま、承認リクエストに Bridge が `allow_once` で答える。`auto` のないアカウントでも使える。
+  - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
+  - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
+  - 読み取り・検索・取得のツールは `Read` / `Grep` / `WebSearch` / `WebFetch` として出す。`brain/` 配下の文書はファイル名だけで表示する。
+  - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れ、ターンの終わりに1回だけ送る（モデル呼び出しのたびに届くため）。
+  - `result` に `thoughtTokens`、`duration`、`toolCalls`、`fileEdits` を付ける。
+- [antigravity-store.ts](../packages/bridge/src/antigravity-store.ts): `agy` が持たない情報（ccpocket で付けた名前、最後に使ったモデル）を `~/.ccpocket/antigravity-sessions.json` に保存する。再開時にモデルを戻し、最近のセッション一覧に名前を反映する。
 - [antigravity-sessions.ts](../packages/bridge/src/antigravity-sessions.ts): 短命の `agy acp` で `session/list` を呼び、最近のセッション一覧に載せる（15 秒キャッシュ）。
 - 環境変数:
 
@@ -174,23 +198,34 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - クライアント → Bridge: `set_antigravity_model {sessionId, model}`、`list_recent_sessions.includeAntigravity`
   - Bridge → クライアント: `system` の `init` / `antigravity_settings` に `antigravity`（現在のモデル、選べるモデルとモード、認証方式）。セッション概要に `antigravitySettings`
   - 機能宣言 `antigravity_v1`（`agy acp` が使えるマシンでだけ出す）
+  - `antigravity_v2` で追加したもの:
+    - クライアント → Bridge: `set_antigravity_settings {sessionId, model?, thoughtLevel?}`（`model` は系統）、`get_antigravity_catalog {requestId?}`
+    - Bridge → クライアント: `antigravity_catalog {requestId?, catalog?, error?}`
+    - `start` の `model` に系統も指定できる。`effort` を思考レベルとして使う。`additionalWritableRoots` を `additionalDirectories` として渡す
+    - 設定オブジェクトに `baseModel`、`modelOptions`（系統ごとの `thoughtLevels`）、`thoughtLevel`、`thoughtLevels`、`tier`、`contextUsage`、`agentVersion`
+    - `system` の `init` / `supported_commands` に `slashCommandDescriptions`
+    - `permissionModes` に `bypassPermissions` が入る
 - 明示エラーを返す操作: フォーク、巻き戻し、メッセージ編集、サンドボックス切替、ゴール、Codex / Claude 用の設定変更。
 
 ### 制約
 
-- 再開（`session/load`）するとモデルが `agy` の既定に戻る。Bridge はセッションごとのモデルを保存していない。
-- 最近のセッション一覧で Antigravity の行が混ざるのは、絞り込みのない一覧の先頭ページだけ。プロジェクト絞り込み、ピン留めのみ、全文検索の一覧には出ない。プロバイダーを Antigravity に絞った一覧はページ送りできる。
-- Antigravity の会話にはプロジェクト割り当てとピン留めがない。
-- 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）はできない。ターンのキャンセルだけ行う。
-- 使用量（`get_usage`）は対象外。
+- 再開（`session/load`）するとモデルが `agy` の既定に戻るため、Bridge が保存しておいたモデルを設定し直す。Bridge を通さずに使った会話は既定のモデルで再開する。
+- 最近のセッション一覧で Antigravity の行が混ざるのは先頭ページだけ。タイトル検索とプロジェクトパスの絞り込みには対応する。プロジェクト ID、ピン留めのみ、名前付きのみ、日付の絞り込みには出ない。プロバイダーを Antigravity に絞った一覧はページ送りできる。
+- Antigravity の会話にはピン留めがない。
+- 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）、巻き戻し、フォーク、メッセージ編集はできない（ACP に手段がない）。
+- プランの利用枠（5 時間 / 週）は表示できない。プラン名、認証方式、`agy` のバージョン、セッションごとのコンテキスト使用量を出す。
+- 費用（USD）は出ない。`agy` が金額を返さない。
 - 再開時に復元した履歴には元の時刻がない（`agy` が返さない）。拒否した編集は「File change failed」と表示される。
-- 認証方式（`authMode`）はアプリに届いているが、画面には出していない。
+- 承認は「今回だけ許可」「拒否」の 2 択。`agy` が「常に許可」を出さない。
 
 ### アプリ
 
 - 3 つ目のチャット画面は作らず、Claude 用の画面を使う（モードが Claude の権限モードにそのまま対応するため）。
 - 新規セッションの Antigravity タブ、プロバイダーフィルター、モデル切替は、Bridge が `antigravity_v1` を宣言しているときだけ出す。
-- モデルの選択はセッション開始後に行う（一覧はセッション応答でしか取れないため）。
+- `antigravity_v2` の Bridge では、新規セッション画面でモデルの系統・思考レベル・承認モード（アカウントで使えるもの）を選べる。一覧は画面を開くたびに `get_antigravity_catalog` で取る。古い Bridge では承認モード 3 種だけを出し、モデルは開始後に切り替える。
+- チャット画面のモデルのチップは「系統 · 思考レベル」を表示し、シートで両方を切り替える。
+- 上部の使用量バーにトークン、所要時間、コンテキスト使用率を出す。セッション一覧のカードにもコンテキスト使用率を出す。
+- 設定の利用量の欄に、プラン名・認証方式・`agy` のバージョンを出す。
 
 ### 確認したこと（2026-11-19、APIキー認証、テスト用 Bridge）
 
@@ -202,6 +237,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 - Antigravity は新しい `provider` の値として追加した。既存の Claude / Codex セッションの挙動とメッセージは変えていない。
 - **新しいアプリ + 古い Bridge**: 古い Bridge は `antigravity_v1` を宣言しないので、アプリは Antigravity の UI を出さない。`set_antigravity_model` は `_unsupportedActions` に登録してあり、届かない場合は Bridge の更新を案内する。
+- **`antigravity_v2` のない Bridge**（1.109.0）: アプリはカタログを要求せず、新規セッション画面は承認モード 3 種だけ、チャット画面は従来のモデル一覧（`set_antigravity_model`）を出す。`set_antigravity_settings` は更新を案内し、`get_antigravity_catalog` は黙って無視する。
+- **古いアプリ（1.167.0）+ `antigravity_v2` の Bridge**: 質問フォームと plan 承認は Claude 用の画面でそのまま動く（同じ `AskUserQuestion` / `ExitPlanMode`）。`bypassPermissions` は古いアプリが一覧から読み捨てるので出ない。追加した設定の項目は無視される。
 - **古いアプリ + 新しい Bridge**: 古いアプリは Antigravity セッションを作れない。別の端末が作ったセッションは実行中の一覧に出て、古いアプリでは Claude 用の画面で開く。メッセージの形は Claude / Codex と同じなので会話と承認は動き、Claude 専用の操作（巻き戻し、フォーク、設定変更）は Bridge が明示エラーを返す。最近のセッション一覧には、`includeAntigravity` を送るアプリにだけ Antigravity の行を返す（古いアプリが Claude として再開しようとするのを防ぐ）。
 - `agy` が未導入、または ACP 非対応のバージョンのときは、`antigravity_v1` を宣言しない（`agy acp --help` で判定）。`npx @ccpocket/bridge doctor` は、導入されている場合だけ Antigravity CLI を表示する。
 

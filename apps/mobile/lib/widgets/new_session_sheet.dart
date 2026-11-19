@@ -3589,26 +3589,28 @@ class _OptionsSection extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           if (provider == Provider.antigravity)
+            if (antigravityModelOption case final option?) ...[
+              modeSelectorField(
+                key: const ValueKey('dialog_antigravity_model'),
+                label: l.model,
+                icon: Icons.memory,
+                title: antigravityThoughtLevel == null
+                    ? option.name
+                    : '${option.name} · '
+                          '${antigravityThoughtLevelLabel(antigravityThoughtLevel!)}',
+                subtitle: antigravityTierName ?? '',
+                onTap: showAntigravityModelSheet,
+              ),
+              const SizedBox(height: 12),
+            ],
+          if (provider == Provider.antigravity)
             Padding(
               key: const ValueKey('dialog_antigravity_model_note'),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (antigravityModelOption case final option?) ...[
-                    modeSelectorField(
-                      key: const ValueKey('dialog_antigravity_model'),
-                      label: l.model,
-                      icon: Icons.memory,
-                      title: antigravityThoughtLevel == null
-                          ? option.name
-                          : '${option.name} · '
-                                '${antigravityThoughtLevelLabel(antigravityThoughtLevel!)}',
-                      subtitle: antigravityTierName ?? '',
-                      onTap: showAntigravityModelSheet,
-                    ),
-                    const SizedBox(height: 12),
-                  ] else ...[
+                  if (antigravityModelOption == null) ...[
                     Text(
                       l.antigravityModelAfterStartNote,
                       style: TextStyle(

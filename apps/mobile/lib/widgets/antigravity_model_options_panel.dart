@@ -67,6 +67,7 @@ class AntigravityModelOptionsPanel extends StatelessWidget {
                           key: ValueKey('antigravity_thought_level_$level'),
                           label: Text(antigravityThoughtLevelLabel(level)),
                           selected: level == thoughtLevel,
+                          showCheckmark: false,
                           onSelected: (_) => onThoughtLevelSelected(level),
                         ),
                     ],

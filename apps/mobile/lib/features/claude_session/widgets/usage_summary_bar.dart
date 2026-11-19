@@ -30,8 +30,9 @@ class UsageSummaryBar extends StatelessWidget {
     this.contextSize,
   });
 
+  // Nothing is in the window before the first turn; `0%` says nothing.
   bool get _hasContext =>
-      contextUsed != null && contextSize != null && contextSize! > 0;
+      (contextUsed ?? 0) > 0 && contextSize != null && contextSize! > 0;
 
   bool get _hasCost => totalCost > 0;
   bool get _hasDuration =>

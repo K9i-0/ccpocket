@@ -167,7 +167,7 @@ describe("fetchAntigravityCatalog", () => {
       ],
       baseModel: "gemini-3.8-flash",
       modelOptions: [
-        { id: "gemini-3.8-flash", name: "Flash", thoughtLevels: ["high", "low"] },
+        { id: "gemini-3.8-flash", name: "Flash", thoughtLevels: ["low", "high"] },
       ],
       thoughtLevel: "high",
       permissionModes: ["default", "auto", "bypassPermissions"],

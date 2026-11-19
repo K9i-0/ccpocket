@@ -210,6 +210,7 @@ class BridgeService implements BridgeServiceBase {
   /// What a new Antigravity session offers, as last reported by the Bridge.
   AntigravitySettings? get antigravityCatalog => _antigravityCatalog;
   AntigravitySettings? _antigravityCatalog;
+  bool _antigravityCatalogRequested = false;
 
   /// Emits whenever [antigravityCatalog] is answered (also with an error).
   Stream<AntigravityCatalogMessage> get antigravityCatalogResults =>
@@ -885,6 +886,7 @@ class BridgeService implements BridgeServiceBase {
     _channel = null;
     _lastUsageResult = null;
     _antigravityCatalog = null;
+    _antigravityCatalogRequested = false;
     _promptHistoryBridgeId = null;
     if (isBridgeSwitch) {
       _clearBridgeScopedState(
@@ -1016,6 +1018,14 @@ class BridgeService implements BridgeServiceBase {
                   _antigravityAnnounced = antigravity;
                   _antigravityAtLastListRequest = null;
                   _antigravityAvailabilityController.add(antigravity);
+                }
+                // Ask ahead of the new-session sheet: the Bridge needs a few
+                // seconds to read the catalog the first time.
+                if (_antigravityCatalog == null &&
+                    !_antigravityCatalogRequested &&
+                    supportsAntigravityCatalog) {
+                  _antigravityCatalogRequested = true;
+                  requestAntigravityCatalog();
                 }
                 if (!supportsPerformanceMode) {
                   _applyDeliveryMode(supported: false);
@@ -1758,6 +1768,7 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _antigravityCatalog = null;
+    _antigravityCatalogRequested = false;
     _pendingHistoryDeltaSinceSeq.clear();
     _inFlightNonReplayableToolActions.clear();
     _respondedToolUseIds.clear();
