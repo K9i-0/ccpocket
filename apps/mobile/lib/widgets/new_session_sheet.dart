@@ -713,11 +713,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         : option.thoughtLevels.first;
   }
 
+  /// The mode was saved earlier or picked in this sheet; otherwise the sheet
+  /// follows the `agy` CLI, which starts in auto where the account has it.
+  bool _antigravityModeChosen = false;
+
   void _applyAntigravityCatalog(AntigravitySettings catalog) {
     _antigravityCatalog = catalog;
-    if (!catalog.selectablePermissionModes.contains(
-      _antigravityPermissionMode,
-    )) {
+    final modes = catalog.selectablePermissionModes;
+    if (!_antigravityModeChosen && modes.contains(PermissionMode.auto)) {
+      _antigravityPermissionMode = PermissionMode.auto;
+    } else if (!modes.contains(_antigravityPermissionMode)) {
       _antigravityPermissionMode = PermissionMode.defaultMode;
     }
     if (_antigravityModel != null &&
@@ -1290,10 +1295,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final antigravity = _sourceFor(Provider.antigravity, p);
     if (antigravity.provider == Provider.antigravity) {
       _antigravityPermissionMode = antigravity.permissionMode;
+      _antigravityModeChosen = true;
       _antigravityModel = antigravity.antigravityModel;
       _antigravityThoughtLevel = antigravity.antigravityThoughtLevel;
-      final catalog = _antigravityCatalog;
-      if (catalog != null) _applyAntigravityCatalog(catalog);
+    }
+    // Also without saved choices: the catalog decides the defaults then.
+    final antigravityCatalog = _antigravityCatalog;
+    if (antigravityCatalog != null) {
+      _applyAntigravityCatalog(antigravityCatalog);
     }
 
     // Options shared by both tabs follow the initial provider. Apply them last
@@ -1931,7 +1940,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             antigravityPermissionMode: _antigravityPermissionMode,
             antigravityPermissionModes: _antigravityPermissionModes,
             onAntigravityPermissionModeChanged: (value) {
-              setState(() => _antigravityPermissionMode = value);
+              setState(() {
+                _antigravityPermissionMode = value;
+                _antigravityModeChosen = true;
+              });
             },
             antigravityModelOptions:
                 _antigravityCatalog?.modelOptions ?? const [],

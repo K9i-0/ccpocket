@@ -24,6 +24,8 @@ String? _errorTitle(String? errorCode, AppLocalizations l) {
     'claude_oauth_opt_in_required' => 'Claude Subscription Opt-In Required',
     'codex_auth_required' => 'Codex Authentication Error',
     'codex_cli_not_found' => 'Codex CLI Not Installed',
+    'antigravity_auth_required' => 'Antigravity Sign-In Required',
+    'antigravity_cli_not_found' => 'Antigravity CLI Not Installed',
     'path_not_allowed' => 'Path Not Allowed',
     'git_not_available' => l.gitUnavailableTitle,
     'bridge_update_required' => 'Bridge Update Required',
@@ -49,6 +51,8 @@ String? _errorHint(
     'codex_auth_required' => 'Check OPENAI_API_KEY on the Bridge machine',
     'codex_cli_not_found' =>
       'Install Codex CLI on the Bridge machine, then restart Bridge',
+    'antigravity_auth_required' => 'Run "agy" on the Bridge machine and sign in, or set CCPOCKET_ANTIGRAVITY_API_KEY for the Bridge',
+    'antigravity_cli_not_found' => 'Install the Antigravity CLI (agy) on the Bridge machine, then start the session again',
     'path_not_allowed' => 'Update BRIDGE_ALLOWED_DIRS on the Bridge server',
     'git_not_available' => l.gitUnavailableHint,
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
@@ -80,6 +84,7 @@ String? _copyableCommand(String? errorCode, ErrorMessage message) {
       bridgeStableMajorSetupCommand,
     'codex_cli_not_found' =>
       'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
+    'antigravity_auth_required' => 'agy',
     _ => null,
   };
 }

@@ -28,6 +28,10 @@ class MockBridgeService extends BridgeService {
   int requestSessionContextCallCount = 0;
   bool connected = true;
   bool inputDelivery = false;
+  bool antigravityQueues = false;
+
+  @override
+  bool get supportsAntigravityCatalog => antigravityQueues;
   Object? inputQueueError;
 
   @override
@@ -288,6 +292,19 @@ void main() {
           PermissionMode.plan,
         ]);
       });
+
+      test(
+        'a Bridge that queues for Antigravity enables the delivery choice',
+        () {
+          mockBridge.inputDelivery = true;
+          mockBridge.antigravityQueues = true;
+          final cubit = createCubit('s1', provider: Provider.antigravity);
+          addTearDown(cubit.close);
+
+          expect(cubit.supportsInputDeliveryChoice, isTrue);
+          expect(cubit.usesInputQueue, isTrue);
+        },
+      );
 
       test('Claude sessions keep their capabilities', () {
         mockBridge.inputDelivery = true;

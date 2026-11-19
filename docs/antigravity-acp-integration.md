@@ -158,12 +158,13 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
 - **利用枠の残量は取れない。** ACP に該当メソッドがない（`_antigravity/quota` などは `-32601`）。ログや内部 API は読まない。
 - **ツール種別**: `read_file`（`kind: read`、`rawInput.Path`）、`search_web`（`kind: search`、`rawInput.query`）、`run_command`（`execute`）、`write_file`（`edit`）。`session/set_title` と `session/delete` はない。
+- **複数選択の質問**: `is_multi_select: true` は `{type: "array", items: {anyOf: [{const, title}]}}` と `<id>_other` で届く（APIキーで確認）。
+- **フォーク・巻き戻し**: `session/fork`、`session/rewind`、`session/truncate`、`session/delete` はどれも `-32601`。
 - **スラッシュコマンド**: `available_commands_update` に説明文が付く。スキルも同じ一覧に入る。
 
 ## 未検証
 
 - `auto` モードでの実際のターン（Google ログインでしか使えないため、エージェントからは確認できない）
-- 複数選択の質問（`is_multi_select`）の `requestedSchema` の形。配列型として実装してあるが、実物は未確認
 - 無料枠の APIキーで `agy` が動くか
 - 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）。確かめるには禁止側の送信になりうるので、検証しない
 - 既定プロファイルで `authenticate` を送ったときの影響と、`oauth-personal` へ戻す経路
@@ -178,6 +179,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - 承認リクエストは `availableDecisions: ["accept", "decline"]` を付ける。アプリは「常に許可」を出さない。
   - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
   - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。
+  - 新規セッションでモードの指定がなければ、アカウントに `auto` があるとき `auto` で始める（`agy` CLI の既定に合わせる。ACP のセッション自体は `default` で始まる）。アプリの新規セッション画面も、保存済みの選択がなければ `auto` と、アカウントの既定モデルを初期値にする。
+  - ターン実行中の入力は、クライアントが `delivery` を指定したときだけ Bridge が扱う。`queue` はターン終了まで保留し、`steer` はそのまま送る（`agy` が実行中のターンに合流させる）。指定がなければ従来どおりすぐ送る。
   - `bypassPermissions` は Bridge 側のモード。ACP のモードは `default` のまま、承認リクエストに Bridge が `allow_once` で答える。`auto` のないアカウントでも使える。
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。

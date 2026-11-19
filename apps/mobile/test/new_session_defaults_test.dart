@@ -317,6 +317,35 @@ void main() {
       expect(result?.antigravityThoughtLevel, 'low');
     });
 
+    testWidgets('with nothing saved it starts like the agy CLI', (
+      tester,
+    ) async {
+      final bridge = _AntigravityCatalogBridge()..catalog = _antigravityCatalog;
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      await _pumpSheet(
+        tester,
+        bridge: bridge,
+        initialParams: NewSessionParams(
+          projectPath: '/workspace/app',
+          provider: Provider.codex,
+          model: 'gpt-6-astra',
+        ),
+        visibleTabs: withAntigravity,
+        onResult: (value) => result = value,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('new_session_tab_antigravity')),
+      );
+      await tester.pumpAndSettle();
+      await _start(tester);
+
+      // The account's default model, and auto because the account has it.
+      expect(result?.permissionMode, PermissionMode.auto);
+      expect(result?.antigravityModel, 'gemini-3.8-flash');
+      expect(result?.antigravityThoughtLevel, 'high');
+    });
+
     testWidgets('saved Antigravity defaults do not leak into Claude', (
       tester,
     ) async {

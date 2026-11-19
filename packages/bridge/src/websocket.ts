@@ -4222,11 +4222,11 @@ export class BridgeWebSocketServer {
             ? (session.process as Partial<Pick<SdkProcess, "isTurnActive">>)
                 .isTurnActive
             : undefined;
-        // Antigravity takes a prompt during a turn itself (it steers the
-        // running turn), so nothing is held back in the Bridge queue.
+        // Antigravity steers the running turn when it gets a prompt, so a
+        // message is held back only when the client asks for a delivery.
         const turnActive =
-          session.provider === "antigravity"
-            ? false
+          session.process instanceof AntigravityProcess
+            ? session.process.isTurnActive
             : session.provider === "codex"
             ? !session.process.isWaitingForInput
             : typeof sdkTurnActive === "boolean"
@@ -4365,9 +4365,17 @@ export class BridgeWebSocketServer {
         }
 
         if (session.process instanceof AntigravityProcess) {
+          // Legacy clients name a gallery image instead of sending its bytes.
+          const galleryImage =
+            images.length === 0 && msg.imageId && this.galleryStore
+              ? await this.galleryStore
+                  .getImageAsBase64(msg.imageId)
+                  .catch(() => null)
+              : null;
+          const inputImages = galleryImage ? [galleryImage] : images;
           const accepted = session.process.sendInput(
             text,
-            images.length > 0 ? images : undefined,
+            inputImages.length > 0 ? inputImages : undefined,
           );
           if (!accepted) {
             this.send(ws, {
@@ -6778,6 +6786,11 @@ export class BridgeWebSocketServer {
                 // model the conversation last ran on.
                 model: msg.model ?? remembered?.model,
                 permissionMode: msg.permissionMode,
+                // Roots outside the allowed folders are left out.
+                additionalDirectories: this.normalizeAdditionalWritableRoots(
+                  resumeAdditionalRoots,
+                  resumeProjectPath,
+                ).roots,
               },
             );
           if (!reusable && remembered?.name) {

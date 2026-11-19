@@ -1772,6 +1772,11 @@ export class SessionManager {
         });
       } else if (session.process instanceof SdkProcess) {
         session.process.steerInput(input.text, input.images);
+      } else if (session.process instanceof AntigravityProcess) {
+        // A prompt sent during a turn joins it.
+        if (!session.process.sendInput(input.text, input.images)) {
+          return { ok: false, error: "Antigravity session is not running." };
+        }
       } else {
         return { ok: false, error: "No active session process." };
       }
@@ -1898,6 +1903,9 @@ export class SessionManager {
       if (session.process.isTurnActive || session.process.status !== "idle") {
         return;
       }
+    } else if (session.process instanceof AntigravityProcess) {
+      // Also false while a plan waits for review.
+      if (!session.process.isWaitingForInput) return;
     } else {
       return;
     }
@@ -1918,6 +1926,8 @@ export class SessionManager {
         skills: queued.skills,
         mentions: queued.mentions,
       });
+    } else if (session.process instanceof AntigravityProcess) {
+      session.process.sendInput(queued.text, queued.images);
     } else if (queued.images && queued.images.length > 0) {
       session.process.dispatchInputWithImages(queued.text, queued.images);
     } else {

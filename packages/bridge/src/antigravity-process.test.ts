@@ -150,7 +150,9 @@ describe("AntigravityProcess with recorded sessions", () => {
   it("runs turns, approvals and a denial from the recorded login session", async () => {
     const transport = new ReplayTransport(loadTrace("trace-turns"));
     const { proc, messages } = createProcess(transport);
-    proc.start("/workspace");
+    // The recording was made in default mode; a start without a mode would
+    // switch this account to auto.
+    proc.start("/workspace", { permissionMode: "default" });
     await until(() => proc.status === "idle", "session ready");
 
     const init = ofType(messages, "system").find((m) => m.subtype === "init");
@@ -801,6 +803,36 @@ describe("AntigravityProcess settings", () => {
     expect(
       ofType(messages, "system").filter((m) => m.subtype === "antigravity_settings"),
     ).toHaveLength(1);
+  });
+});
+
+describe("AntigravityProcess start mode", () => {
+  const withAuto: Json = {
+    result: {
+      ...(SESSION.result as Json),
+      modes: {
+        currentModeId: "default",
+        availableModes: [{ id: "default" }, { id: "auto" }, { id: "plan" }],
+      },
+    },
+  };
+
+  it("starts a new session in auto, like the agy CLI, when the account has it", async () => {
+    const { proc, transport } = await startSession({ "session/new": withAuto });
+    expect(proc.permissionMode).toBe("auto");
+    expect(transport.written.find((m) => m.method === "session/set_mode")?.params)
+      .toMatchObject({ modeId: "auto" });
+  });
+
+  it("keeps the mode that was asked for, and default where auto is missing", async () => {
+    const asked = await startSession(
+      { "session/new": withAuto },
+      { permissionMode: "default" },
+    );
+    expect(asked.proc.permissionMode).toBe("default");
+    const without = await startSession();
+    expect(without.proc.permissionMode).toBe("default");
+    expect(without.transport.written.map((m) => m.method)).not.toContain("session/set_mode");
   });
 });
 

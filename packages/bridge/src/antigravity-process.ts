@@ -1110,11 +1110,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         // Levels differ per model; keep the one the model starts with.
       });
     }
-    if (
-      options?.permissionMode &&
-      options.permissionMode !== this._permissionMode
-    ) {
-      await this.setPermissionMode(options.permissionMode).catch(() => {
+    // The `agy` CLI starts in auto where the account has it, while ACP
+    // sessions start in default; a new session with no mode asked for
+    // follows the CLI.
+    const startMode =
+      options?.permissionMode ??
+      (!options?.sessionId && this._permissionModes.includes("auto")
+        ? "auto"
+        : undefined);
+    if (startMode && startMode !== this._permissionMode) {
+      await this.setPermissionMode(startMode).catch(() => {
         // Modes differ per account; fall back to the agent default.
       });
     }

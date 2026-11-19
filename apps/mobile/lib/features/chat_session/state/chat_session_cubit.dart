@@ -111,16 +111,21 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   bool get supportsInputDelivery => _bridge.supportsInputDelivery;
 
   /// Whether the user chooses between steering and queueing a message sent
-  /// while a turn runs. Antigravity always steers the running turn itself.
+  /// while a turn runs.
   bool get supportsInputDeliveryChoice =>
-      supportsInputDelivery && !isAntigravity;
+      supportsInputDelivery && (!isAntigravity || _antigravityQueues);
+
+  /// Bridges with `antigravity_v2` hold a queued message until the turn ends;
+  /// older ones hand every message to Antigravity at once.
+  bool get _antigravityQueues =>
+      isAntigravity && _bridge.supportsAntigravityCatalog;
 
   /// Whether input sent during a turn is held in the Bridge's single queue
   /// slot (shown in the queue panel) instead of being added to the
-  /// transcript immediately. Claude uses it once the Bridge supports it.
-  /// The Bridge never queues for Antigravity, so its messages go straight to
-  /// the transcript.
-  bool get usesInputQueue => isCodex || (isClaude && supportsInputDelivery);
+  /// transcript immediately. Claude and Antigravity use it once the Bridge
+  /// supports it.
+  bool get usesInputQueue =>
+      isCodex || ((isClaude || _antigravityQueues) && supportsInputDelivery);
 
   /// Rewinding code or conversation to an earlier message.
   bool get supportsRewind => !isAntigravity;
