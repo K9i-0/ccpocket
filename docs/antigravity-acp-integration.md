@@ -22,7 +22,7 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 2. **毎回、最初に `authenticate`（`methodId: "gemini-api-key"`）を送る。** まっさらなプロファイルは、何もしないと Google ログインで動く（ログイン情報はプロファイル間で共有される）。
 3. **`session/new` の応答でモデル一覧を確認してから、プロンプトを送る。** APIキーモードでは Gemini のみが返る。`claude-*` や `gpt-oss-*` が含まれていたら Google ログイン側で動いているので、送らずに中止する。
 4. **既定プロファイルには `authenticate` を送らない。** 普段の `agy` が APIキーモードに切り替わる恐れがあり、戻す経路を確認できていない。
-5. **APIキーは gitignore 済みの場所に置く。** `.env.local` など。`~/.zshrc` でのグローバル export とコミットは不可（グローバルに置くと普段の `agy` / `gemini` まで従量課金側に切り替わる恐れがある）。
+5. **APIキーはリポジトリ直下の `.env.antigravity.local` に `GEMINI_API_KEY=...` として置く。** gitignore 済みで、worktree にも複製される。`node scripts/antigravity-check-key.mjs` で、プロンプトを送らずに有効性を確認できる（キーの値は表示しない）。`~/.zshrc` でのグローバル export とコミットは不可（グローバルに置くと普段の `agy` / `gemini` まで従量課金側に切り替わる恐れがある）。
 6. **本物のキーでの最初の1ターンのあと、AI Studio の使用量に計上されたことを確認する。** 無効なキーのときにログイン側へ落ちないかは未検証のため。
 
 プロンプトを送らない操作（`initialize`、`session/new`、`session/list`、`session/load`、モードや設定の切替）は、既定プロファイルでも行ってよい。

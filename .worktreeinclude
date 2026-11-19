@@ -6,6 +6,7 @@
 .env
 .env.local
 packages/bridge/.env
+.env.antigravity.local
 
 # Firebase / platform config needed to build the app
 apps/mobile/android/app/google-services.json
