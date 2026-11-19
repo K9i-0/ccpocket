@@ -184,7 +184,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 - [antigravity-process.ts](../packages/bridge/src/antigravity-process.ts): `agy acp` の起動、ACP の往復、Bridge メッセージへの変換。`CodexProcess` / `SdkProcess` と同じイベント（`message` / `status` / `exit` / `input_ready`）を出す。
   - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から unified diff を作る）。
-  - 承認リクエストは `availableDecisions: ["accept", "decline"]` を付ける。アプリは「常に許可」を出さない。
+  - 承認リクエストは、コマンドとファイル編集に `availableDecisions: ["accept", "acceptForSession", "decline"]` を付ける（それ以外のツールは `accept` / `decline`）。
   - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
   - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。
   - 新規セッションでモードの指定がなければ、アカウントに `auto` があるとき `auto` で始める（`agy` CLI の既定に合わせる。ACP のセッション自体は `default` で始まる）。アプリの新規セッション画面も、保存済みの選択がなければ `auto` と、アカウントの既定モデルを初期値にする。
@@ -228,7 +228,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - プランの利用枠（5 時間 / 週）は表示できない。プラン名、認証方式、`agy` のバージョン、セッションごとのコンテキスト使用量を出す。
 - 費用（USD）は出ない。`agy` が金額を返さない。
 - 再開時に復元した履歴には元の時刻がない（`agy` が返さない）。拒否した編集は「File change failed」と表示される。
-- 承認は「今回だけ許可」「拒否」の 2 択。`agy` が「常に許可」を出さない。
+- `agy` の承認は「今回だけ許可」「拒否」の 2 択。「常に許可」は Bridge が受け持つ: 選ぶと、そのセッションの間、同じコマンド（文字列が完全に一致するもの）またはすべてのファイル編集に Bridge が `allow_once` で答える。Bridge を再起動するかセッションを再開すると消える。
 
 ### アプリ
 

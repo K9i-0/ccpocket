@@ -198,7 +198,12 @@ describe("AntigravityProcess with recorded sessions", () => {
     await until(() => proc.status === "waiting_approval", "edit approval");
     const editRequest = ofType(messages, "permission_request")[0];
     expect(editRequest.toolName).toBe("FileChange");
-    expect(editRequest.input.availableDecisions).toEqual(["accept", "decline"]);
+    // "Always allow" is the Bridge's own offer; agy lists once / deny only.
+    expect(editRequest.input.availableDecisions).toEqual([
+      "accept",
+      "acceptForSession",
+      "decline",
+    ]);
     expect(editRequest.input.changes).toEqual([
       {
         path: "/workspace/hello.txt",
@@ -241,7 +246,7 @@ describe("AntigravityProcess with recorded sessions", () => {
     const command = ofType(messages, "permission_request")[2];
     expect(command).toMatchObject({
       toolName: "Bash",
-      input: { command: "ls -la", availableDecisions: ["accept", "decline"] },
+      input: { command: "ls -la", availableDecisions: ["accept", "acceptForSession", "decline"] },
     });
     proc.approve(command.toolUseId);
     await until(() => results(messages).length === 4, "turn 4");
@@ -887,6 +892,74 @@ describe("AntigravityProcess bypass mode", () => {
     });
     expect(proc.approve("t1")).toBe(false);
     expect(proc.getPendingPermissions()).toHaveLength(1);
+  });
+});
+
+describe("AntigravityProcess always allow", () => {
+  const options = [
+    { optionId: "allow", kind: "allow_once" },
+    { optionId: "deny", kind: "reject_once" },
+  ];
+  const ask = (
+    transport: ScriptedTransport,
+    id: string,
+    toolCall: Json,
+  ) =>
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id,
+      method: "session/request_permission",
+      params: { toolCall, options },
+    });
+  const run = (toolCallId: string, CommandLine: string): Json => ({
+    toolCallId,
+    kind: "execute",
+    rawInput: { CommandLine },
+  });
+
+  it("remembers a command for the session and answers its repeats itself", async () => {
+    const { proc, transport, messages } = await startSession();
+    proc.sendInput("go");
+    ask(transport, "1", run("t1", "npm test"));
+    const request = ofType(messages, "permission_request")[0];
+    expect(request.input.availableDecisions).toEqual([
+      "accept",
+      "acceptForSession",
+      "decline",
+    ]);
+    expect(proc.approveAlways("t1")).toBe(true);
+    // Antigravity only knows "once"; the session grant lives in the Bridge.
+    expect(transport.written.at(-1)).toMatchObject({
+      id: "1",
+      result: { outcome: { optionId: "allow" } },
+    });
+    expect(ofType(messages, "tool_result").at(-1)).toMatchObject({
+      permissionOutcome: "approved_for_session",
+    });
+
+    ask(transport, "2", run("t2", "npm test"));
+    expect(transport.written.at(-1)).toMatchObject({
+      id: "2",
+      result: { outcome: { optionId: "allow" } },
+    });
+    // Another command still asks.
+    ask(transport, "3", run("t3", "rm -rf build"));
+    expect(ofType(messages, "permission_request")).toHaveLength(2);
+  });
+
+  it("allows every later file edit once edits were allowed for the session", async () => {
+    const { proc, transport, messages } = await startSession();
+    proc.sendInput("go");
+    ask(transport, "1", { toolCallId: "e1", kind: "edit" });
+    ask(transport, "2", { toolCallId: "e2", kind: "edit" });
+    expect(proc.approveAlways("e1")).toBe(true);
+    // The edit that was already waiting is settled with it.
+    expect(proc.getPendingPermissions()).toHaveLength(0);
+    ask(transport, "3", { toolCallId: "e3", kind: "edit" });
+    expect(ofType(messages, "permission_request")).toHaveLength(2);
+    // Commands are a separate grant.
+    ask(transport, "4", run("t1", "ls"));
+    expect(ofType(messages, "permission_request")).toHaveLength(3);
   });
 });
 

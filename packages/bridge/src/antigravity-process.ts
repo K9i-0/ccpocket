@@ -279,6 +279,8 @@ interface PendingPermission {
   toolName: string;
   input: Record<string, unknown>;
   options: Array<{ optionId: string; kind: string }>;
+  /** What "always allow" would cover: every edit, or this exact command. */
+  sessionGrant?: { kind: "edit" } | { kind: "execute"; command: string };
 }
 
 interface ToolCallState {
@@ -892,6 +894,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private readonly toolCalls = new Map<string, ToolCallState>();
   private readonly pendingPermissions = new Map<string, PendingPermission>();
   private readonly pendingElicitations = new Map<string, PendingElicitation>();
+  /**
+   * "Always allow" choices of this session. Antigravity only offers allow
+   * once, so the Bridge remembers the choice and answers repeats itself.
+   */
+  private allowEditsForSession = false;
+  private readonly allowedCommands = new Set<string>();
 
   constructor(options?: {
     config?: AntigravityConfig;
@@ -1399,7 +1407,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     return this.resolvePermission(toolUseId, "allow_once", "approved");
   }
 
-  /** Antigravity offers no session-wide grant unless it lists `allow_always`. */
+  /**
+   * Allows the request and its repeats for the rest of the session: through
+   * Antigravity's own `allow_always` when it lists one, otherwise by
+   * remembering the choice here (every file edit, or this exact command).
+   */
   approveAlways(toolUseId?: string): boolean {
     if (this.isPendingPlan(toolUseId)) {
       this.approvePlan();
@@ -1408,11 +1420,30 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const pending = this.findPendingPermission(toolUseId);
     if (!pending) return false;
     const always = pending.options.some((o) => o.kind === "allow_always");
-    return this.resolvePermission(
+    const grant = always ? undefined : pending.sessionGrant;
+    const resolved = this.resolvePermission(
       pending.toolUseId,
       always ? "allow_always" : "allow_once",
-      always ? "approved_for_session" : "approved",
+      always || grant ? "approved_for_session" : "approved",
     );
+    if (resolved && grant) {
+      if (grant.kind === "edit") this.allowEditsForSession = true;
+      else this.allowedCommands.add(grant.command);
+      // Requests of the same kind that are already waiting are covered too.
+      for (const other of [...this.pendingPermissions.values()]) {
+        if (this.isGrantedForSession(other.sessionGrant)) {
+          this.resolvePermission(other.toolUseId, "allow_once", "approved_for_session");
+        }
+      }
+    }
+    return resolved;
+  }
+
+  private isGrantedForSession(grant: PendingPermission["sessionGrant"]): boolean {
+    if (!grant) return false;
+    return grant.kind === "edit"
+      ? this.allowEditsForSession
+      : this.allowedCommands.has(grant.command);
   }
 
   reject(toolUseId?: string, message?: string): boolean {
@@ -1958,23 +1989,36 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       }
     }
 
+    const kind = stringOr(toolCall.kind, this.toolCalls.get(toolUseId)?.kind ?? "other");
+    const rawInput = isRecord(toolCall.rawInput) ? toolCall.rawInput : {};
+    const allowOnce = options.find((o) => o.kind === "allow_once");
+    const command = stringOr(rawInput.CommandLine, stringOr(toolCall.title));
+    // Edits and commands can be allowed for the session by the Bridge.
+    const sessionGrant: PendingPermission["sessionGrant"] = !allowOnce
+      ? undefined
+      : kind === "edit"
+        ? { kind: "edit" }
+        : kind === "execute" && command
+          ? { kind: "execute", command }
+          : undefined;
+    if (allowOnce && this.isGrantedForSession(sessionGrant)) {
+      this.respond(requestId, {
+        outcome: { outcome: "selected", optionId: allowOnce.optionId },
+      });
+      return;
+    }
     const availableDecisions = [
-      ...(options.some((o) => o.kind === "allow_once") ? ["accept"] : []),
-      ...(options.some((o) => o.kind === "allow_always")
+      ...(allowOnce ? ["accept"] : []),
+      ...(options.some((o) => o.kind === "allow_always") || sessionGrant
         ? ["acceptForSession"]
         : []),
       ...(options.some((o) => o.kind.startsWith("reject")) ? ["decline"] : []),
     ];
-    const kind = stringOr(toolCall.kind, this.toolCalls.get(toolUseId)?.kind ?? "other");
-    const rawInput = isRecord(toolCall.rawInput) ? toolCall.rawInput : {};
     let toolName: string;
     let input: Record<string, unknown>;
     if (kind === "execute") {
       toolName = "Bash";
-      input = {
-        command: stringOr(rawInput.CommandLine, stringOr(toolCall.title)),
-        availableDecisions,
-      };
+      input = { command, availableDecisions };
     } else if (kind === "edit") {
       toolName = "FileChange";
       const changes = fileChangesFromContent(toolCall.content, this.cwd);
@@ -1999,6 +2043,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       toolName,
       input,
       options,
+      ...(sessionGrant ? { sessionGrant } : {}),
     });
     // Status first: the session summary broadcast with the request must
     // already say "waiting_approval", or clients drop the approval again.

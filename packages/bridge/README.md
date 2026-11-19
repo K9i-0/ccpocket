@@ -395,8 +395,9 @@ may change.
 - No rewind, fork, message editing, sandbox toggle or pinning.
 - No plan usage (5-hour / weekly) and no cost: Antigravity reports neither. The app
   shows the plan name, the context window in use, and tokens per turn.
-- Approvals are "allow once" or "deny"; Antigravity offers no "always allow". The
-  Bypass mode has the Bridge allow every request for you.
+- Antigravity itself only offers "allow once" and "deny". "Always allow" is kept by
+  the Bridge for the session: it covers the same command again, or every later file
+  edit. The Bypass mode has the Bridge allow every request for you.
 - Auto mode is listed only for accounts that have it (Google login; not API keys).
 - Antigravity conversations appear on the first page of the recent list and under the
   Antigravity filter. Title searches and a project path apply to them; other filters
