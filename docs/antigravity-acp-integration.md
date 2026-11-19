@@ -162,6 +162,18 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **フォーク・巻き戻し**: `session/fork`、`session/rewind`、`session/truncate`、`session/delete` はどれも `-32601`。
 - **スラッシュコマンド**: `available_commands_update` に説明文が付く。スキルも同じ一覧に入る。
 
+### 自発的なターンと MCP ツール（2026-11-20、APIキー、agy 1.5.12）
+
+本番のセッションで「完了扱いなのにツールが動く」「`auto` なのに承認を求められる」が起きたため調べた。
+
+- **`agy` はプロンプトなしでターンを始める。** `schedule`（タイマー）やバックグラウンドタスクが終わると、`agy` が会話にシステムメッセージを足してモデルを起こす。`session/prompt` はすでに応答済みなので、このターンは `session/update` と `session/request_permission` だけで届く。サブエージェントではなく、同じ会話の続き。
+  - `schedule` の `tool_call` は `in_progress` のままターンが終わり、タイマーが切れた時点で `tool_call_update`（`completed`）が届く。
+  - このターンの終わりを示すメッセージはない。`usage_update` はモデル呼び出しのたびに届き、ターンが続くなら数ミリ秒以内に `tool_call` が続く。最後の `usage_update` のあとは何も届かない。
+- **MCP ツール**は `name: "call_mcp_tool"`、`kind: "execute"`、`title: "MCP Tool <ツール名>"`、`rawInput: {ServerName, ToolName, Arguments}` で届く（`Arguments` はオブジェクト。`agy` の記録では JSON 文字列のこともある）。
+- **MCP ツールは `auto` でも承認を求める。** `auto` が自動で通すのはワークスペース内の編集とサンドボックス内のコマンドで、許可ルールのない MCP ツールは毎回 Ask になる。ACP の選択肢は `allow_once` / `reject_once` だけなので、承認しても `agy` 側には残らない。
+- **許可ルールの保存先**は `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow`（Antigravity アプリと共有。`--app-data-dir` のプロファイルを問わず効く）。`mcp(<サーバー>/<ツール>)` と `mcp(<サーバー>/*)` が書ける。`mcp(dart-mcp/*)` を足すと承認リクエストなしで実行された。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
+- セッション開始直後は MCP サーバーの起動が間に合わず、モデルに `call_mcp_tool` が見えないことがある。
+
 ### Google ログインでの確認（2026-11-19、所有者の指示による例外）
 
 所有者の明示の指示で、ccpocket のアプリ画面から 2 セッション（計 3 発言）だけ確認した（上の認証ルールは変えていない。以後もエージェントは APIキーを使う）。
@@ -184,12 +196,15 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 - [antigravity-process.ts](../packages/bridge/src/antigravity-process.ts): `agy acp` の起動、ACP の往復、Bridge メッセージへの変換。`CodexProcess` / `SdkProcess` と同じイベント（`message` / `status` / `exit` / `input_ready`）を出す。
   - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から unified diff を作る）。
-  - 承認リクエストは、コマンドとファイル編集に `availableDecisions: ["accept", "acceptForSession", "decline"]` を付ける（それ以外のツールは `accept` / `decline`）。
+  - 承認リクエストは、コマンド・ファイル編集・MCP ツールに `availableDecisions: ["accept", "acceptForSession", "decline"]` を付ける（それ以外のツールは `accept` / `decline`）。
   - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
   - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。
   - 新規セッションでモードの指定がなければ、アカウントに `auto` があるとき `auto` で始める（`agy` CLI の既定に合わせる。ACP のセッション自体は `default` で始まる）。アプリの新規セッション画面も、保存済みの選択がなければ `auto` と、アカウントの既定モデルを初期値にする。
   - ターン実行中の入力は、クライアントが `delivery` を指定したときだけ Bridge が扱う。`queue` はターン終了まで保留し、`steer` はそのまま送る（`agy` が実行中のターンに合流させる）。指定がなければ従来どおりすぐ送る。
   - `bypassPermissions` は Bridge 側のモード。ACP のモードは `default` のまま、承認リクエストに Bridge が `allow_once` で答える。`auto` のないアカウントでも使える。
+  - MCP ツール（`call_mcp_tool`）は Claude と同じ `mcp__<サーバー>__<ツール>` の名前で出し、入力は `Arguments` の中身にする。「常に許可」は Bridge がサーバーとツールの組で覚える（引数が違っても効く。セッションの間だけ）。
+  - `agy` が自分で始めたターン（タイマーやバックグラウンドタスクでの再開）も実行中として扱う。プロンプトが出ていないときに発言・思考・新しいツール呼び出し・承認リクエストが届いたら `running` にし、`usage_update` のあと 2 秒何も届かなければ `result`（`success`、トークン数なし）と `idle` を出す。承認待ちの間は終わらせない。割り込みは `session/cancel` を送ってその場で `interrupted` にする。この間に送った入力はそのターンに合流し、その `session/prompt` の応答でターンが終わる。
+  - 正常に終わったターンで開いたままのツール呼び出し（タイマー、バックグラウンドのコマンド）は覚えておき、あとから届く結果を元の呼び出しに付ける。キャンセルやエラーで終わったターンの呼び出しは捨て、遅れて届いた結果は無視する。
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
   - 読み取り・検索・取得のツールは `Read` / `Grep` / `WebSearch` / `WebFetch` として出す。`brain/` 配下の文書はファイル名だけで表示する。

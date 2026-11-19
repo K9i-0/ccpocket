@@ -3,7 +3,7 @@
 // ルール: docs/antigravity-acp-integration.md
 // 使い方: node scripts/antigravity-acp-probe.mjs --cwd <作業ディレクトリ> [--trace <出力.ndjson>]
 //           [--model <modelId>（既定 gemini-3.8-flash-high）] [--mode <modeId>] [--allow] [--caps <clientCapabilities に足す JSON>]
-//           [--load <sessionId> | --resume <sessionId>] --prompt "..." [--prompt "..."]
+//           [--load <sessionId> | --resume <sessionId>] [--wait <プロンプト完了後に待つミリ秒>] --prompt "..." [--prompt "..."]
 // APIキー用プロファイルで起動し、authenticate(gemini-api-key) のあとモデル一覧が
 // Gemini のみであることを確認できなければ、プロンプトを送らずに終了する。
 import { spawn } from "node:child_process";
@@ -108,4 +108,6 @@ for (const p of prompts) {
   console.log(`  [結果] ${JSON.stringify(r.result ?? r.error)}`);
 }
 if (opt("--steer")) await new Promise((r) => setTimeout(r, 25000));
+// タイマー（schedule）やバックグラウンドタスクでの自発的な再開を見るために残る
+if (opt("--wait")) { await new Promise((r) => setTimeout(r, Number(opt("--wait")))); console.log(text.trim()); }
 stop(0);

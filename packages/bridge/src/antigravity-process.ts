@@ -37,6 +37,8 @@ const ACP_PROTOCOL_VERSION = 1;
 const REQUEST_TIMEOUT_MS = 60_000;
 /** `session/load` replays the whole conversation before it answers. */
 const LOAD_TIMEOUT_MS = 10 * 60_000;
+/** Silence after a usage report that ends a turn the agent started itself. */
+const SELF_TURN_SETTLE_MS = 2_000;
 
 export type AntigravityAuthMode = "login" | "api_key";
 
@@ -279,8 +281,11 @@ interface PendingPermission {
   toolName: string;
   input: Record<string, unknown>;
   options: Array<{ optionId: string; kind: string }>;
-  /** What "always allow" would cover: every edit, or this exact command. */
-  sessionGrant?: { kind: "edit" } | { kind: "execute"; command: string };
+  /** What "always allow" would cover: every edit, this exact command, or this MCP tool. */
+  sessionGrant?:
+    | { kind: "edit" }
+    | { kind: "execute"; command: string }
+    | { kind: "mcp"; tool: string };
 }
 
 interface ToolCallState {
@@ -668,12 +673,42 @@ function questionsFromAskQuestion(rawInput: Record<string, unknown>): Array<Reco
  * Tool name and input clients already know how to render. Antigravity's own
  * names (`read_file`, `search_web`, ...) would otherwise show as raw JSON.
  */
+/**
+ * An MCP tool call. Antigravity reports every one as its own `call_mcp_tool`
+ * of kind `execute`, which would otherwise show as a shell command.
+ */
+function mcpToolFromAcp(
+  update: Record<string, unknown>,
+): { key: string; toolName: string; input: Record<string, unknown> } | undefined {
+  if (stringOr(update.name) !== "call_mcp_tool") return undefined;
+  const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
+  const server = stringOr(rawInput.ServerName);
+  const tool = stringOr(rawInput.ToolName);
+  if (!server || !tool) return undefined;
+  let args: unknown = rawInput.Arguments;
+  if (typeof args === "string") {
+    try {
+      args = JSON.parse(args);
+    } catch {
+      args = { arguments: args };
+    }
+  }
+  return {
+    key: `${server}/${tool}`,
+    // The name Claude sessions use, which clients already render.
+    toolName: `mcp__${server}__${tool}`,
+    input: isRecord(args) ? { ...args } : {},
+  };
+}
+
 export function describeAcpTool(
   update: Record<string, unknown>,
 ): { toolName: string; input: Record<string, unknown> } | undefined {
   const kind = stringOr(update.kind, "other");
   const name = stringOr(update.name);
   const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
+  const mcp = mcpToolFromAcp(update);
+  if (mcp) return { toolName: mcp.toolName, input: mcp.input };
   if (name === "ask_question") {
     return {
       toolName: "AskUserQuestion",
@@ -874,6 +909,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   /** `session/prompt` requests that have not answered yet. */
   private outstandingPrompts = 0;
+  /**
+   * A turn Antigravity started on its own: a `schedule` timer or a finished
+   * background task woke the agent after the last prompt had answered. No
+   * request frames such a turn, so its end is read from the stream.
+   */
+  private selfTurn = false;
+  private selfTurnTimer: ReturnType<typeof setTimeout> | null = null;
   private cancelRequested = false;
   private turnUsage: PromptUsage = {};
   private turnStartedAt = 0;
@@ -900,6 +942,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    */
   private allowEditsForSession = false;
   private readonly allowedCommands = new Set<string>();
+  private readonly allowedMcpTools = new Set<string>();
 
   constructor(options?: {
     config?: AntigravityConfig;
@@ -935,11 +978,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   }
 
   get isWaitingForInput(): boolean {
-    return this.ready && this.outstandingPrompts === 0 && !this.pendingPlan;
+    return (
+      this.ready &&
+      this.outstandingPrompts === 0 &&
+      !this.selfTurn &&
+      !this.pendingPlan
+    );
   }
 
   get isTurnActive(): boolean {
-    return this.outstandingPrompts > 0;
+    return this.outstandingPrompts > 0 || this.selfTurn;
   }
 
   get model(): string | undefined {
@@ -1165,6 +1213,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.pendingPlan = null;
     this.queuedInputs = [];
     this.outstandingPrompts = 0;
+    this.clearSelfTurn();
     const transport = this.transport;
     this.transport = null;
     transport?.stop();
@@ -1177,8 +1226,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.emit("input_ready");
       return;
     }
-    if (!this._sessionId || this.outstandingPrompts === 0) return;
-    this.cancelRequested = true;
+    if (!this._sessionId || !this.isTurnActive) return;
+    const selfTurn = this.outstandingPrompts === 0;
+    if (!selfTurn) this.cancelRequested = true;
     // ACP requires pending permission requests to be answered as cancelled.
     for (const pending of this.pendingPermissions.values()) {
       this.respond(pending.requestId, { outcome: { outcome: "cancelled" } });
@@ -1195,6 +1245,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     this.pendingElicitations.clear();
     this.notify("session/cancel", { sessionId: this._sessionId });
+    // No prompt is open to answer `cancelled`, so the turn ends here.
+    if (selfTurn) this.endSelfTurn("interrupted");
   }
 
   /** Returns false when the process cannot take the input. */
@@ -1218,7 +1270,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     images?: Array<{ base64: string; mimeType: string }>,
   ): void {
     if (!this._sessionId) return;
-    if (this.outstandingPrompts === 0) {
+    // A prompt sent into a turn the agent started steers it and owns its end.
+    const steersSelfTurn = this.selfTurn;
+    this.clearSelfTurn();
+    if (this.outstandingPrompts === 0 && !steersSelfTurn) {
       this.turnUsage = {};
       this.turnStartedAt = Date.now();
       this.turnToolCalls = 0;
@@ -1272,13 +1327,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.flushAssistant();
     this.pendingPermissions.clear();
     this.pendingElicitations.clear();
-    // Finished calls are never updated again; drop them so a long session
-    // does not keep every call it ever made.
-    this.toolCalls.clear();
     const sessionId = this._sessionId ?? undefined;
     if (this.contextUsageDirty) this.emitSettings();
     const succeeded =
       !err && this.lastStopReason !== "cancelled" && !this.cancelRequested;
+    this.dropSettledToolCalls(succeeded);
     if (err) {
       this.emitMessage({
         type: "result",
@@ -1410,7 +1463,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   /**
    * Allows the request and its repeats for the rest of the session: through
    * Antigravity's own `allow_always` when it lists one, otherwise by
-   * remembering the choice here (every file edit, or this exact command).
+   * remembering the choice here (every file edit, this exact command, or
+   * this MCP tool).
    */
   approveAlways(toolUseId?: string): boolean {
     if (this.isPendingPlan(toolUseId)) {
@@ -1428,6 +1482,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     );
     if (resolved && grant) {
       if (grant.kind === "edit") this.allowEditsForSession = true;
+      else if (grant.kind === "mcp") this.allowedMcpTools.add(grant.tool);
       else this.allowedCommands.add(grant.command);
       // Requests of the same kind that are already waiting are covered too.
       for (const other of [...this.pendingPermissions.values()]) {
@@ -1441,9 +1496,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private isGrantedForSession(grant: PendingPermission["sessionGrant"]): boolean {
     if (!grant) return false;
-    return grant.kind === "edit"
-      ? this.allowEditsForSession
-      : this.allowedCommands.has(grant.command);
+    if (grant.kind === "edit") return this.allowEditsForSession;
+    if (grant.kind === "mcp") return this.allowedMcpTools.has(grant.tool);
+    return this.allowedCommands.has(grant.command);
   }
 
   reject(toolUseId?: string, message?: string): boolean {
@@ -1501,10 +1556,117 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (
       this.pendingPermissions.size === 0 &&
       this.pendingElicitations.size === 0 &&
-      this.outstandingPrompts > 0
+      this.isTurnActive
     ) {
       this.setStatus("running");
     }
+  }
+
+  /**
+   * Finished calls are never updated again; drop them so a long session does
+   * not keep every call it ever made. Calls still open after a turn that
+   * ended normally run in the background (a timer, a long command) and
+   * report their result later.
+   */
+  private dropSettledToolCalls(keepOpen: boolean): void {
+    if (!keepOpen) {
+      this.toolCalls.clear();
+      return;
+    }
+    for (const [id, call] of this.toolCalls) {
+      if (call.finished || call.rejected) this.toolCalls.delete(id);
+    }
+  }
+
+  // ---- turns the agent starts on its own -----------------------------------
+
+  /**
+   * Called for everything the agent sends that belongs to a turn. Outside a
+   * prompt it means the agent woke up by itself: show the session as running
+   * again instead of leaving it "done" while tools run.
+   */
+  private noteAgentActivity(): void {
+    if (this.selfTurnTimer) {
+      clearTimeout(this.selfTurnTimer);
+      this.selfTurnTimer = null;
+    }
+    if (
+      this.selfTurn ||
+      this.replaying ||
+      this.stopped ||
+      !this.ready ||
+      this.outstandingPrompts > 0
+    ) {
+      return;
+    }
+    this.selfTurn = true;
+    this.turnUsage = {};
+    this.turnStartedAt = Date.now();
+    this.turnToolCalls = 0;
+    this.turnFileEdits = 0;
+    this.planArtifact = null;
+    this.lastResultText = "";
+    this.lastStopReason = undefined;
+    if (this.pendingPlan) this.settlePlan("Plan review dismissed", "rejected");
+    this.setStatus("running");
+  }
+
+  /**
+   * Antigravity reports context usage after each model call. A tool call
+   * follows within milliseconds when the turn goes on, so a report followed
+   * by silence is the end of a turn nothing else marks.
+   */
+  private armSelfTurnEnd(): void {
+    if (!this.selfTurn || this.outstandingPrompts > 0) return;
+    if (this.selfTurnTimer) clearTimeout(this.selfTurnTimer);
+    this.selfTurnTimer = setTimeout(() => {
+      this.selfTurnTimer = null;
+      if (
+        this.pendingPermissions.size > 0 ||
+        this.pendingElicitations.size > 0
+      ) {
+        return;
+      }
+      this.endSelfTurn("success");
+    }, SELF_TURN_SETTLE_MS);
+  }
+
+  private clearSelfTurn(): void {
+    this.selfTurn = false;
+    if (this.selfTurnTimer) {
+      clearTimeout(this.selfTurnTimer);
+      this.selfTurnTimer = null;
+    }
+  }
+
+  private endSelfTurn(subtype: "success" | "interrupted"): void {
+    if (!this.selfTurn || this.stopped) return;
+    this.clearSelfTurn();
+    this.flushAssistant();
+    this.pendingPermissions.clear();
+    this.pendingElicitations.clear();
+    this.dropSettledToolCalls(subtype === "success");
+    const sessionId = this._sessionId ?? undefined;
+    if (this.contextUsageDirty) this.emitSettings();
+    if (subtype === "interrupted") {
+      this.emitMessage({ type: "result", subtype: "interrupted", sessionId });
+    } else {
+      // No prompt answered, so there is no token usage to report.
+      this.emitMessage({
+        type: "result",
+        subtype: "success",
+        sessionId,
+        ...(this.lastResultText ? { result: this.lastResultText } : {}),
+        ...(this.turnStartedAt > 0
+          ? { duration: Date.now() - this.turnStartedAt }
+          : {}),
+        toolCalls: this.turnToolCalls,
+        fileEdits: this.turnFileEdits,
+      });
+    }
+    this.planArtifact = null;
+    this.setStatus("idle");
+    this.emit("input_ready");
   }
 
   getPendingPermissions(): Array<{
@@ -1700,10 +1862,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     if (typeof id !== "number" && typeof id !== "string") return;
     if (method === "session/request_permission") {
+      this.noteAgentActivity();
       this.handlePermissionRequest(id, params);
       return;
     }
     if (method === "elicitation/create") {
+      this.noteAgentActivity();
       this.handleElicitation(id, params);
       return;
     }
@@ -1719,6 +1883,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       case "agent_message_chunk": {
         const text = isRecord(update.content) ? stringOr(update.content.text) : "";
         if (!text) return;
+        this.noteAgentActivity();
         this.textBuffer += text;
         if (!this.replaying) this.emitMessage({ type: "stream_delta", text });
         return;
@@ -1726,6 +1891,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       case "agent_thought_chunk": {
         const text = isRecord(update.content) ? stringOr(update.content.text) : "";
         if (!text) return;
+        this.noteAgentActivity();
         this.thinkingBuffer += text;
         if (!this.replaying) this.emitMessage({ type: "thinking_delta", text });
         return;
@@ -1771,6 +1937,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         return;
       }
       case "usage_update": {
+        this.armSelfTurnEnd();
         const used = numberOr(update.used);
         const size = numberOr(update.size);
         if (used === undefined || size === undefined || size <= 0) return;
@@ -1820,15 +1987,24 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const toolUseId = stringOr(update.toolCallId);
     if (!toolUseId) return;
     let call = this.toolCalls.get(toolUseId);
+    // A background call (a timer, a long command) finishing is not a turn:
+    // only what the agent does next is.
+    const closing = ["completed", "failed"].includes(stringOr(update.status));
+    // The result of a call that was dropped with its cancelled turn.
+    if (!call && closing && !this.replaying && !this.isTurnActive) return;
+    if (!closing) this.noteAgentActivity();
     if (!call) {
       this.flushAssistant();
       const kind = stringOr(update.kind, "other");
       const title = stringOr(update.title);
       const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
       const known = describeAcpTool(update);
+      const mcp = mcpToolFromAcp(update);
       let toolName: string;
       let input: Record<string, unknown>;
-      if (kind === "execute") {
+      if (mcp) {
+        ({ toolName, input } = mcp);
+      } else if (kind === "execute") {
         toolName = "Bash";
         const summary = stringOr(rawInput.toolSummary);
         input = {
@@ -1993,14 +2169,17 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const rawInput = isRecord(toolCall.rawInput) ? toolCall.rawInput : {};
     const allowOnce = options.find((o) => o.kind === "allow_once");
     const command = stringOr(rawInput.CommandLine, stringOr(toolCall.title));
-    // Edits and commands can be allowed for the session by the Bridge.
+    const mcp = mcpToolFromAcp(toolCall);
+    // Edits, commands and MCP tools can be allowed for the session by the Bridge.
     const sessionGrant: PendingPermission["sessionGrant"] = !allowOnce
       ? undefined
-      : kind === "edit"
-        ? { kind: "edit" }
-        : kind === "execute" && command
-          ? { kind: "execute", command }
-          : undefined;
+      : mcp
+        ? { kind: "mcp", tool: mcp.key }
+        : kind === "edit"
+          ? { kind: "edit" }
+          : kind === "execute" && command
+            ? { kind: "execute", command }
+            : undefined;
     if (allowOnce && this.isGrantedForSession(sessionGrant)) {
       this.respond(requestId, {
         outcome: { outcome: "selected", optionId: allowOnce.optionId },
@@ -2016,7 +2195,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     ];
     let toolName: string;
     let input: Record<string, unknown>;
-    if (kind === "execute") {
+    if (mcp) {
+      toolName = mcp.toolName;
+      input = { ...mcp.input, availableDecisions };
+    } else if (kind === "execute") {
       toolName = "Bash";
       input = { command, availableDecisions };
     } else if (kind === "edit") {
@@ -2244,7 +2426,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.pendingRequests.clear();
     this.stopped = true;
     this.ready = false;
-    if (!wasStopped && this.outstandingPrompts > 0) {
+    const turnWasActive = this.isTurnActive;
+    this.clearSelfTurn();
+    if (!wasStopped && turnWasActive) {
       this.flushAssistant();
       this.emitMessage({
         type: "result",

@@ -963,6 +963,209 @@ describe("AntigravityProcess always allow", () => {
   });
 });
 
+describe("AntigravityProcess MCP tools", () => {
+  const options = [
+    { optionId: "allow", kind: "allow_once" },
+    { optionId: "deny", kind: "reject_once" },
+  ];
+  // As recorded from agy 1.5.12: an MCP call is `call_mcp_tool`, kind execute.
+  const mcpCall = (toolCallId: string, ToolName: string): Json => ({
+    toolCallId,
+    name: "call_mcp_tool",
+    kind: "execute",
+    title: `MCP Tool ${ToolName}`,
+    rawInput: { ServerName: "dart-mcp", ToolName, Arguments: { command: "listDtdUris" } },
+  });
+  const ask = (transport: ScriptedTransport, id: string, toolCall: Json) =>
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id,
+      method: "session/request_permission",
+      params: { toolCall, options },
+    });
+
+  it("shows an MCP call under its server and tool, not as a shell command", async () => {
+    const { proc, messages, update } = await startSession();
+    proc.sendInput("go");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...mcpCall("m1", "dtd") });
+    expect(ofType(messages, "assistant").at(-1)?.message.content).toEqual([
+      {
+        type: "tool_use",
+        id: "m1",
+        name: "mcp__dart-mcp__dtd",
+        input: { command: "listDtdUris" },
+      },
+    ]);
+    // Arguments also arrive as a JSON string.
+    expect(
+      describeAcpTool({
+        name: "call_mcp_tool",
+        kind: "execute",
+        rawInput: { ServerName: "marionette", ToolName: "connect", Arguments: '{"uri":"ws://x"}' },
+      }),
+    ).toEqual({ toolName: "mcp__marionette__connect", input: { uri: "ws://x" } });
+  });
+
+  it("remembers an MCP tool for the session whatever its arguments", async () => {
+    const { proc, transport, messages } = await startSession();
+    proc.sendInput("go");
+    ask(transport, "1", mcpCall("m1", "dtd"));
+    const request = ofType(messages, "permission_request")[0];
+    expect(request.toolName).toBe("mcp__dart-mcp__dtd");
+    expect(request.input).toEqual({
+      command: "listDtdUris",
+      availableDecisions: ["accept", "acceptForSession", "decline"],
+    });
+    expect(proc.approveAlways("m1")).toBe(true);
+
+    ask(transport, "2", {
+      ...mcpCall("m2", "dtd"),
+      rawInput: { ServerName: "dart-mcp", ToolName: "dtd", Arguments: { command: "connect" } },
+    });
+    expect(transport.written.at(-1)).toMatchObject({
+      id: "2",
+      result: { outcome: { optionId: "allow" } },
+    });
+    // Another tool of the same server still asks.
+    ask(transport, "3", mcpCall("m3", "hot_reload"));
+    expect(ofType(messages, "permission_request")).toHaveLength(2);
+  });
+});
+
+describe("AntigravityProcess turns the agent starts itself", () => {
+  const timer = {
+    toolCallId: "sched",
+    name: "schedule",
+    kind: "other",
+    title: "Run schedule",
+    rawInput: { DurationSeconds: 10, Prompt: "check the build" },
+  };
+  /** A turn that sets a timer and ends, as recorded from agy 1.5.12. */
+  const turnWithTimer = async () => {
+    const session = await startSession();
+    session.proc.sendInput("go");
+    session.update({ sessionUpdate: "tool_call", status: "in_progress", ...timer });
+    session.update({ sessionUpdate: "agent_message_chunk", content: { text: "waiting" } });
+    session.endTurn();
+    await until(() => session.proc.status === "idle", "first turn done");
+    return session;
+  };
+  const statuses = (messages: ServerMessage[]) =>
+    ofType(messages, "status").map((m) => m.status);
+
+  it("runs again when a timer wakes the agent and ends on the last usage report", async () => {
+    const { proc, transport, messages, update } = await turnWithTimer();
+    vi.useFakeTimers();
+    try {
+      // The timer fires: its call closes, which is not a turn yet.
+      update({ sessionUpdate: "tool_call_update", status: "completed", ...timer });
+      expect(proc.status).toBe("idle");
+      expect(ofType(messages, "tool_result").at(-1)).toMatchObject({ toolUseId: "sched" });
+      // The call is not announced a second time.
+      const toolUses = () =>
+        ofType(messages, "assistant").filter((m) =>
+          m.message.content.some((c) => c.type === "tool_use"),
+        );
+      expect(toolUses()).toHaveLength(1);
+
+      update({ sessionUpdate: "usage_update", used: 10, size: 100 });
+      update({
+        sessionUpdate: "tool_call",
+        status: "in_progress",
+        toolCallId: "c1",
+        name: "run_command",
+        kind: "execute",
+        rawInput: { CommandLine: "echo woke" },
+      });
+      expect(proc.status).toBe("running");
+      expect(proc.isTurnActive).toBe(true);
+      expect(proc.isWaitingForInput).toBe(false);
+
+      transport.emit("message", {
+        jsonrpc: "2.0",
+        id: "p1",
+        method: "session/request_permission",
+        params: {
+          toolCall: { toolCallId: "c1", kind: "execute", rawInput: { CommandLine: "echo woke" } },
+          options: [
+            { optionId: "allow", kind: "allow_once" },
+            { optionId: "deny", kind: "reject_once" },
+          ],
+        },
+      });
+      expect(proc.status).toBe("waiting_approval");
+      // Waiting for the user is not the end of the turn.
+      vi.advanceTimersByTime(60_000);
+      expect(proc.status).toBe("waiting_approval");
+      expect(proc.approve("c1")).toBe(true);
+      expect(proc.status).toBe("running");
+
+      update({ sessionUpdate: "tool_call_update", status: "completed", toolCallId: "c1" });
+      // A usage report followed at once by more work does not end the turn.
+      update({ sessionUpdate: "usage_update", used: 20, size: 100 });
+      update({ sessionUpdate: "agent_message_chunk", content: { text: "finished" } });
+      vi.advanceTimersByTime(60_000);
+      expect(proc.status).toBe("running");
+      expect(results(messages)).toHaveLength(1);
+
+      update({ sessionUpdate: "usage_update", used: 30, size: 100 });
+      vi.advanceTimersByTime(2_000);
+      expect(proc.status).toBe("idle");
+      expect(results(messages)).toHaveLength(2);
+      expect(results(messages)[1]).toMatchObject({
+        subtype: "success",
+        result: "finished",
+        toolCalls: 1,
+      });
+      expect(statuses(messages).slice(-4)).toEqual([
+        "running",
+        "waiting_approval",
+        "running",
+        "idle",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("interrupts a turn no prompt is open for", async () => {
+    const { proc, transport, messages, update } = await turnWithTimer();
+    update({ sessionUpdate: "agent_thought_chunk", content: { text: "checking" } });
+    expect(proc.status).toBe("running");
+    proc.interrupt();
+    expect(transport.written.at(-1)).toMatchObject({ method: "session/cancel" });
+    expect(results(messages).at(-1)).toMatchObject({ subtype: "interrupted" });
+    expect(proc.status).toBe("idle");
+    expect(proc.isTurnActive).toBe(false);
+  });
+
+  it("lets a prompt take over the turn and end it with its answer", async () => {
+    const { proc, messages, update, endTurn } = await turnWithTimer();
+    vi.useFakeTimers();
+    try {
+      update({ sessionUpdate: "agent_message_chunk", content: { text: "building" } });
+      update({ sessionUpdate: "usage_update", used: 10, size: 100 });
+      proc.sendInput("also run the tests");
+      vi.advanceTimersByTime(60_000);
+      expect(proc.status).toBe("running");
+      expect(results(messages)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    endTurn();
+    await until(() => results(messages).length === 2, "prompt answered");
+    expect(proc.status).toBe("idle");
+  });
+
+  it("ignores the late result of a call it no longer tracks", async () => {
+    const { proc, messages, update } = await turnWithTimer();
+    // Such as a background command of a turn that was cancelled.
+    update({ sessionUpdate: "tool_call_update", status: "completed", toolCallId: "gone" });
+    expect(proc.status).toBe("idle");
+    expect(ofType(messages, "tool_result").some((m) => m.toolUseId === "gone")).toBe(false);
+  });
+});
+
 describe("AntigravityProcess questions", () => {
   const schema = {
     type: "object",
