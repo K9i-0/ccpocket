@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.167.0] - 2026-11-19
+
+### Added
+
+- Preview: Google Antigravity sessions. When the Antigravity CLI (`agy`) is installed on the Bridge machine (Bridge 1.109.0 or newer), the new session sheet shows an Antigravity tab. Start and resume conversations, approve file edits and commands, switch the model and mode from the chat screen, attach images, and filter recent sessions by Antigravity. Rewind, fork, message editing, pinning and usage display are not available for these sessions yet. See "Preview: Antigravity" in the README for setup and the notes on Google's terms.
+
+### Changed
+
+- The app now expects Bridge 1.109.0 and offers the update when connected to an older Bridge.
+
+### Fixed
+
+- A pending approval could disappear from the chat screen when a session update arrived just before the session switched to waiting for approval. The approval bar now comes back as soon as the session reports that it is waiting.
+- App icon colors are kept under the `material_ui` compatibility bridge.
+
 ## [1.166.0] - 2026-11-17
 
 ### Removed
