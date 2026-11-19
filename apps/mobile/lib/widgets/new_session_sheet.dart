@@ -1195,8 +1195,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     if (p.provider == Provider.claude) _executionMode = p.executionMode;
     if (p.provider == Provider.antigravity) {
       // Antigravity's mode lives in its own field; it must not seed the
-      // execution / plan mode of the Claude and Codex tabs.
-      _executionMode = ExecutionMode.defaultMode;
+      // plan mode of the Claude and Codex tabs. The execution mode keeps the
+      // value derived from the saved Codex defaults above.
       _planMode = false;
     } else {
       _planMode = p.planMode;

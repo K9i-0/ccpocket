@@ -378,6 +378,80 @@ void main() {
         expect(cubit.state.antigravitySettings?.model, 'gemini-a');
       });
 
+      test(
+        'a stale summary does not undo an unconfirmed model switch',
+        () async {
+          final cubit = createCubit('s1', provider: Provider.antigravity);
+          addTearDown(cubit.close);
+          await pumpEventQueue();
+          SessionInfo summary(String model) => SessionInfo.fromJson({
+            'id': 's1',
+            'provider': 'antigravity',
+            'projectPath': '/tmp/project',
+            'status': 'idle',
+            'antigravitySettings': {
+              'model': model,
+              'models': [
+                {'id': 'gemini-a', 'name': 'Gemini A'},
+                {'id': 'gemini-b', 'name': 'Gemini B'},
+              ],
+              'permissionMode': 'default',
+              'permissionModes': ['default'],
+              'authMode': 'login',
+            },
+          });
+          mockBridge.emitSessionList([summary('gemini-a')]);
+          await pumpEventQueue();
+
+          cubit.setAntigravityModel('gemini-b');
+          // Any session update republishes the list with the old model.
+          mockBridge.emitSessionList([summary('gemini-a')]);
+          await pumpEventQueue();
+          expect(cubit.state.antigravitySettings?.model, 'gemini-b');
+
+          // The Bridge confirms through a summary; later ones win again.
+          mockBridge.emitSessionList([summary('gemini-b')]);
+          mockBridge.emitSessionList([summary('gemini-a')]);
+          await pumpEventQueue();
+          expect(cubit.state.antigravitySettings?.model, 'gemini-a');
+        },
+      );
+
+      test('an approval cleared by a running summary comes back', () async {
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+        SessionInfo summary(String status) => SessionInfo.fromJson({
+          'id': 's1',
+          'provider': 'antigravity',
+          'projectPath': '/tmp/project',
+          'status': status,
+        });
+
+        mockBridge.emitMessage(
+          const PermissionRequestMessage(
+            toolUseId: 'tool-1',
+            toolName: 'Bash',
+            input: {'command': 'ls'},
+          ),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+
+        // A summary built before the Bridge switched to waiting_approval.
+        mockBridge.emitSessionList([summary('running')]);
+        await pumpEventQueue();
+        expect(cubit.state.approval, isA<ApprovalNone>());
+
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.waitingApproval),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+      });
+
       test('a history reload keeps settings newer than the context', () async {
         final cubit = createCubit('s1', provider: Provider.antigravity);
         addTearDown(cubit.close);

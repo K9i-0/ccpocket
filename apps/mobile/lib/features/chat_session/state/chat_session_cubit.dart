@@ -703,7 +703,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             : codexSpeedFromRaw(context.codexServiceTier),
         antigravitySettings: keepAntigravityModes
             ? state.antigravitySettings
-            : (context.antigravitySettings ?? state.antigravitySettings),
+            : _antigravitySettingsFromContext(context.antigravitySettings),
         planMode: keepAntigravityModes
             ? state.planMode
             : context.resolvedPlanMode,
@@ -1057,6 +1057,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           toolUseId: toolUseId,
           input: update.askInput ?? {},
         );
+      }
+    }
+
+    // A session summary that still said "running" can have cleared the
+    // request the Bridge is waiting on; the tracked request brings it back.
+    if (update.status == ProcessStatus.waitingApproval &&
+        approval is ApprovalNone) {
+      final tracked = _handler.pendingInputs.first;
+      if (tracked != null &&
+          !_respondedToolUseIds.contains(tracked.toolUseId)) {
+        approval = _approvalStateForPermission(tracked);
       }
     }
 
@@ -2422,6 +2433,23 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
       _SessionSettingsHelper.save(claudeSid, {'permissionMode': mode.value});
     }
+  }
+
+  /// Settings from a session summary. While a model switch is unconfirmed,
+  /// summaries still carry the old model and must not flip the chip back.
+  AntigravitySettings? _antigravitySettingsFromContext(
+    AntigravitySettings? incoming,
+  ) {
+    final current = state.antigravitySettings;
+    if (incoming == null) return current;
+    if (_pendingAntigravityModelRollback == null || current == null) {
+      return incoming;
+    }
+    if (incoming.model == current.model) {
+      _pendingAntigravityModelRollback = null;
+      return incoming;
+    }
+    return incoming.copyWith(model: current.model);
   }
 
   /// Switch the model of an Antigravity session. [modelId] is an id from
