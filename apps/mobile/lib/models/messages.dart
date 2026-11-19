@@ -281,26 +281,134 @@ class AntigravityModel {
   int get hashCode => Object.hash(id, name);
 }
 
+/// A model family Antigravity offers (`gemini-3.8-flash`) with the thinking
+/// levels it can run at. Family and level together make an [AntigravityModel]
+/// id (`gemini-3.8-flash-high`).
+class AntigravityModelOption {
+  final String id;
+  final String name;
+  final List<String> thoughtLevels;
+
+  const AntigravityModelOption({
+    required this.id,
+    required this.name,
+    this.thoughtLevels = const [],
+  });
+
+  static AntigravityModelOption? fromJsonOrNull(Object? json) {
+    if (json is! Map) return null;
+    final id = json['id'];
+    if (id is! String || id.isEmpty) return null;
+    final name = json['name'];
+    return AntigravityModelOption(
+      id: id,
+      name: name is String && name.trim().isNotEmpty ? name : id,
+      thoughtLevels: [
+        for (final level in json['thoughtLevels'] as List? ?? const [])
+          if (level is String && level.isNotEmpty) level,
+      ],
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AntigravityModelOption &&
+      other.id == id &&
+      other.name == name &&
+      _listEquals(other.thoughtLevels, thoughtLevels);
+
+  @override
+  int get hashCode => Object.hash(id, name, Object.hashAll(thoughtLevels));
+}
+
+/// Tokens in an Antigravity session's context window.
+class AntigravityContextUsage {
+  final int used;
+  final int size;
+
+  const AntigravityContextUsage({required this.used, required this.size});
+
+  static AntigravityContextUsage? fromJsonOrNull(Object? json) {
+    if (json is! Map) return null;
+    final used = json['used'];
+    final size = json['size'];
+    if (used is! num || size is! num || size <= 0) return null;
+    return AntigravityContextUsage(used: used.toInt(), size: size.toInt());
+  }
+
+  /// Share of the window in use, 0 to 1.
+  double get fraction => (used / size).clamp(0, 1).toDouble();
+
+  /// Whole percent in use; at least 1 once anything is used.
+  int get percent => used <= 0 ? 0 : (fraction * 100).round().clamp(1, 100);
+
+  @override
+  bool operator ==(Object other) =>
+      other is AntigravityContextUsage &&
+      other.used == used &&
+      other.size == size;
+
+  @override
+  int get hashCode => Object.hash(used, size);
+}
+
 /// Permission modes offered when the Bridge has not reported the account's
-/// own list yet. `bypassPermissions` is never valid for Antigravity.
+/// own list yet.
 const defaultAntigravityPermissionModes = <PermissionMode>[
   PermissionMode.defaultMode,
   PermissionMode.acceptEdits,
   PermissionMode.plan,
 ];
 
-/// Clamp [mode] to a mode a new Antigravity session can start in.
-PermissionMode antigravityStartPermissionMode(PermissionMode? mode) =>
-    defaultAntigravityPermissionModes.contains(mode)
-    ? mode!
-    : PermissionMode.defaultMode;
+/// Clamp [mode] to a mode a new Antigravity session can start in. [available]
+/// is the account's list from the Bridge, when known.
+PermissionMode antigravityStartPermissionMode(
+  PermissionMode? mode, {
+  List<PermissionMode>? available,
+}) {
+  final modes = available == null || available.isEmpty
+      ? defaultAntigravityPermissionModes
+      : available;
+  return modes.contains(mode) ? mode! : PermissionMode.defaultMode;
+}
+
+PermissionMode? _antigravityPermissionMode(Object? raw) => switch (raw) {
+  'default' => PermissionMode.defaultMode,
+  'acceptEdits' => PermissionMode.acceptEdits,
+  'auto' => PermissionMode.auto,
+  'plan' => PermissionMode.plan,
+  'bypassPermissions' => PermissionMode.bypassPermissions,
+  _ => null,
+};
+
+/// Short label for a thinking level id (`xhigh` -> `XHigh`).
+String antigravityThoughtLevelLabel(String level) => switch (level) {
+  'minimal' => 'Minimal',
+  'low' => 'Low',
+  'medium' => 'Medium',
+  'high' => 'High',
+  'xhigh' => 'XHigh',
+  'max' => 'Max',
+  _ => level,
+};
 
 /// Current and selectable model / permission mode of an Antigravity session
-/// (`antigravity` on system messages, `antigravitySettings` on summaries).
+/// (`antigravity` on system messages, `antigravitySettings` on summaries),
+/// and what a new session offers (`antigravity_catalog`).
 /// The Bridge always sends the whole object, so it replaces the previous one.
 class AntigravitySettings {
+  /// Model id: family and thinking level in one (`gemini-3.8-flash-high`).
   final String? model;
   final List<AntigravityModel> models;
+
+  /// Current model family (`gemini-3.8-flash`). Bridges before
+  /// `antigravity_v2` do not report it.
+  final String? baseModel;
+  final List<AntigravityModelOption> modelOptions;
+  final String? thoughtLevel;
+
+  /// Thinking levels the current model offers.
+  final List<String> thoughtLevels;
   final PermissionMode? permissionMode;
 
   /// Modes this account can use, in the Bridge's order.
@@ -309,38 +417,60 @@ class AntigravitySettings {
   /// `login` (Google account) or `api_key`.
   final String? authMode;
 
+  /// Name of the plan the account is on (`Google AI Ultra`).
+  final String? tierName;
+  final AntigravityContextUsage? contextUsage;
+
+  /// Version of the `agy` CLI on the Bridge machine.
+  final String? agentVersion;
+
   const AntigravitySettings({
     this.model,
     this.models = const [],
+    this.baseModel,
+    this.modelOptions = const [],
+    this.thoughtLevel,
+    this.thoughtLevels = const [],
     this.permissionMode,
     this.permissionModes = const [],
     this.authMode,
+    this.tierName,
+    this.contextUsage,
+    this.agentVersion,
   });
 
   static AntigravitySettings? fromJsonOrNull(Object? json) {
     if (json is! Map) return null;
-    PermissionMode? mode(Object? raw) => switch (raw) {
-      'default' => PermissionMode.defaultMode,
-      'acceptEdits' => PermissionMode.acceptEdits,
-      'auto' => PermissionMode.auto,
-      'plan' => PermissionMode.plan,
-      // bypassPermissions and unknown values are not Antigravity modes.
-      _ => null,
-    };
-    final model = json['model'];
+    String? text(Object? raw) => raw is String && raw.isNotEmpty ? raw : null;
+    final tier = json['tier'];
     return AntigravitySettings(
-      model: model is String && model.isNotEmpty ? model : null,
+      model: text(json['model']),
       models: [
         for (final entry in json['models'] as List? ?? const [])
           if (entry is Map && entry['id'] is String)
             AntigravityModel.fromJson(Map<String, dynamic>.from(entry)),
       ],
-      permissionMode: mode(json['permissionMode']),
+      baseModel: text(json['baseModel']),
+      modelOptions: [
+        for (final entry in json['modelOptions'] as List? ?? const [])
+          ?AntigravityModelOption.fromJsonOrNull(entry),
+      ],
+      thoughtLevel: text(json['thoughtLevel']),
+      thoughtLevels: [
+        for (final level in json['thoughtLevels'] as List? ?? const [])
+          if (level is String && level.isNotEmpty) level,
+      ],
+      permissionMode: _antigravityPermissionMode(json['permissionMode']),
       permissionModes: [
         for (final entry in json['permissionModes'] as List? ?? const [])
-          ?mode(entry),
+          ?_antigravityPermissionMode(entry),
       ],
       authMode: json['authMode'] as String?,
+      tierName: tier is Map ? text(tier['name']) : null,
+      contextUsage: AntigravityContextUsage.fromJsonOrNull(
+        json['contextUsage'],
+      ),
+      agentVersion: text(json['agentVersion']),
     );
   }
 
@@ -348,6 +478,19 @@ class AntigravitySettings {
   List<PermissionMode> get selectablePermissionModes => permissionModes.isEmpty
       ? defaultAntigravityPermissionModes
       : permissionModes;
+
+  /// Whether the Bridge reports model families and thinking levels apart.
+  bool get hasModelOptions => modelOptions.isNotEmpty;
+
+  /// The current model family, when the Bridge reports families.
+  AntigravityModelOption? get currentModelOption {
+    final current = baseModel;
+    if (current == null) return null;
+    for (final option in modelOptions) {
+      if (option.id == current) return option;
+    }
+    return null;
+  }
 
   /// Display name of [model], falling back to its id.
   String? get modelLabel {
@@ -359,32 +502,70 @@ class AntigravitySettings {
     return current;
   }
 
+  /// Display name of the model family, falling back to [modelLabel].
+  String? get baseModelLabel => currentModelOption?.name ?? modelLabel;
+
+  /// Model family with its thinking level (`Gemini 3.8 Flash · High`), or
+  /// the full model name on Bridges that do not report families.
+  String? get modelSummary {
+    final family = currentModelOption?.name;
+    if (family == null) return modelLabel;
+    final level = thoughtLevel;
+    return level == null || !thoughtLevels.contains(level)
+        ? family
+        : '$family · ${antigravityThoughtLevelLabel(level)}';
+  }
+
   AntigravitySettings copyWith({
     String? model,
+    String? baseModel,
+    String? thoughtLevel,
+    List<String>? thoughtLevels,
     PermissionMode? permissionMode,
   }) => AntigravitySettings(
     model: model ?? this.model,
     models: models,
+    baseModel: baseModel ?? this.baseModel,
+    modelOptions: modelOptions,
+    thoughtLevel: thoughtLevel ?? this.thoughtLevel,
+    thoughtLevels: thoughtLevels ?? this.thoughtLevels,
     permissionMode: permissionMode ?? this.permissionMode,
     permissionModes: permissionModes,
     authMode: authMode,
+    tierName: tierName,
+    contextUsage: contextUsage,
+    agentVersion: agentVersion,
   );
 
   @override
   bool operator ==(Object other) =>
       other is AntigravitySettings &&
       other.model == model &&
+      other.baseModel == baseModel &&
+      other.thoughtLevel == thoughtLevel &&
       other.permissionMode == permissionMode &&
       other.authMode == authMode &&
+      other.tierName == tierName &&
+      other.contextUsage == contextUsage &&
+      other.agentVersion == agentVersion &&
       _listEquals(other.models, models) &&
+      _listEquals(other.modelOptions, modelOptions) &&
+      _listEquals(other.thoughtLevels, thoughtLevels) &&
       _listEquals(other.permissionModes, permissionModes);
 
   @override
   int get hashCode => Object.hash(
     model,
+    baseModel,
+    thoughtLevel,
     permissionMode,
     authMode,
+    tierName,
+    contextUsage,
+    agentVersion,
     Object.hashAll(models),
+    Object.hashAll(modelOptions),
+    Object.hashAll(thoughtLevels),
     Object.hashAll(permissionModes),
   );
 }
@@ -1067,6 +1248,13 @@ sealed class ServerMessage {
                 ?.map((e) => e as String)
                 .toList() ??
             const [],
+        slashCommandDescriptions: {
+          for (final entry
+              in (json['slashCommandDescriptions'] as Map?)?.entries ??
+                  const <MapEntry<Object?, Object?>>[])
+            if (entry.key is String && entry.value is String)
+              entry.key as String: entry.value as String,
+        },
         skills:
             (json['skills'] as List?)?.map((e) => e as String).toList() ??
             const [],
@@ -1608,6 +1796,11 @@ sealed class ServerMessage {
         clientMessageId: json['clientMessageId'] as String?,
         reason: json['reason'] as String?,
       ),
+      'antigravity_catalog' => AntigravityCatalogMessage(
+        requestId: json['requestId'] as String?,
+        catalog: AntigravitySettings.fromJsonOrNull(json['catalog']),
+        error: json['error'] as String?,
+      ),
       'usage_result' => UsageResultMessage(
         providers: (json['providers'] as List)
             .map((p) => UsageInfo.fromJson(p as Map<String, dynamic>))
@@ -2012,6 +2205,9 @@ class SystemMessage implements ServerMessage {
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String> slashCommands;
+
+  /// Descriptions for [slashCommands] the session reported, by command name.
+  final Map<String, String> slashCommandDescriptions;
   final List<String> skills;
   final List<CodexSkillMetadata> skillMetadata;
   final List<String> apps;
@@ -2055,6 +2251,7 @@ class SystemMessage implements ServerMessage {
     this.networkAccessEnabled,
     this.webSearchMode,
     this.slashCommands = const [],
+    this.slashCommandDescriptions = const {},
     this.skills = const [],
     this.skillMetadata = const [],
     this.apps = const [],
@@ -4113,6 +4310,14 @@ class UsageResultMessage implements ServerMessage {
   const UsageResultMessage({required this.providers});
 }
 
+/// What a new Antigravity session offers, or why it could not be read.
+class AntigravityCatalogMessage implements ServerMessage {
+  final String? requestId;
+  final AntigravitySettings? catalog;
+  final String? error;
+  const AntigravityCatalogMessage({this.requestId, this.catalog, this.error});
+}
+
 class RecordingListMessage implements ServerMessage {
   final List<RecordingInfo> recordings;
   const RecordingListMessage({required this.recordings});
@@ -5917,6 +6122,27 @@ class ClientMessage {
     'sessionId': sessionId,
     'model': model,
   });
+
+  /// Switch the model family and/or thinking level of a running Antigravity
+  /// session. Needs a Bridge with `antigravity_v2`.
+  factory ClientMessage.setAntigravitySettings({
+    required String sessionId,
+    String? model,
+    String? thoughtLevel,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'set_antigravity_settings',
+    'sessionId': sessionId,
+    'model': ?model,
+    'thoughtLevel': ?thoughtLevel,
+  });
+
+  /// Ask what a new Antigravity session offers (models, thinking levels,
+  /// modes, plan, CLI version). Needs a Bridge with `antigravity_v2`.
+  factory ClientMessage.getAntigravityCatalog({String? requestId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'get_antigravity_catalog',
+        'requestId': ?requestId,
+      });
 
   factory ClientMessage.resumeSession(
     String sessionId,

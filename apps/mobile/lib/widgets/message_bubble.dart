@@ -353,6 +353,7 @@ class ServerMessageWidget extends StatelessWidget {
       GoalStateMessage() => const SizedBox.shrink(),
       CodexRecoveryStateMessage() => const SizedBox.shrink(),
       UsageResultMessage() => const SizedBox.shrink(),
+      AntigravityCatalogMessage() => const SizedBox.shrink(),
       RecordingListMessage() => const SizedBox.shrink(),
       RecordingContentMessage() => const SizedBox.shrink(),
       MessageImagesResultMessage() => const SizedBox.shrink(),

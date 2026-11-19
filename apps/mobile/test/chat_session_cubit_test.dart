@@ -277,7 +277,8 @@ void main() {
         expect(cubit.supportsMessageEdit, isFalse);
         expect(cubit.supportsSandboxToggle, isFalse);
         expect(cubit.supportsClaudeSessionSettings, isFalse);
-        expect(cubit.showsUsageSummary, isFalse);
+        // Tokens, time and the context window are reported per turn.
+        expect(cubit.showsUsageSummary, isTrue);
         expect(cubit.supportsBackgroundTaskStop, isFalse);
         expect(cubit.supportsInputDeliveryChoice, isFalse);
         expect(cubit.usesInputQueue, isFalse);
@@ -376,6 +377,68 @@ void main() {
         mockBridge.emitMessage(settings(), sessionId: 's1');
         await pumpEventQueue();
         expect(cubit.state.antigravitySettings?.model, 'gemini-a');
+      });
+
+      test('model family and thinking level go out as settings', () async {
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          ServerMessage.fromJson({
+            'type': 'system',
+            'subtype': 'antigravity_settings',
+            'sessionId': 's1',
+            'provider': 'antigravity',
+            'antigravity': {
+              'model': 'flash-high',
+              'models': [
+                {'id': 'flash-high', 'name': 'Flash (High)'},
+              ],
+              'baseModel': 'flash',
+              'modelOptions': [
+                {
+                  'id': 'flash',
+                  'name': 'Flash',
+                  'thoughtLevels': ['high', 'low'],
+                },
+                {
+                  'id': 'pro',
+                  'name': 'Pro',
+                  'thoughtLevels': ['high'],
+                },
+              ],
+              'thoughtLevel': 'low',
+              'thoughtLevels': ['low', 'high'],
+              'permissionModes': ['default'],
+            },
+          }),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        mockBridge.sentMessages.clear();
+
+        // Nothing to change, or a family the account does not have.
+        cubit.setAntigravitySettings(model: 'flash', thoughtLevel: 'low');
+        cubit.setAntigravitySettings(model: 'unknown');
+        expect(mockBridge.sentMessages, isEmpty);
+
+        cubit.setAntigravitySettings(thoughtLevel: 'high');
+        expect(jsonDecode(mockBridge.sentMessages.last.toJson()), {
+          'type': 'set_antigravity_settings',
+          'sessionId': 's1',
+          'thoughtLevel': 'high',
+        });
+        expect(cubit.state.antigravitySettings?.thoughtLevel, 'high');
+
+        cubit.setAntigravitySettings(model: 'pro');
+        expect(jsonDecode(mockBridge.sentMessages.last.toJson()), {
+          'type': 'set_antigravity_settings',
+          'sessionId': 's1',
+          'model': 'pro',
+        });
+        // Shown at once, with the levels of the chosen family.
+        expect(cubit.state.antigravitySettings?.baseModel, 'pro');
+        expect(cubit.state.antigravitySettings?.thoughtLevels, ['high']);
       });
 
       test(

@@ -129,10 +129,12 @@ SlashCommand buildSlashCommand(
   SlashCommandCategory category = SlashCommandCategory.builtin,
   CodexSkillMetadata? skillMeta,
   String? insertText,
+  String? description,
 }) {
   final known = knownCommands[name];
-  // Prefer rich metadata from Codex skills/list when available
-  final description = skillMeta?.summary ?? known?.description ?? name;
+  // Prefer rich metadata from Codex skills/list, then what the session
+  // itself said about the command.
+  description = skillMeta?.summary ?? description ?? known?.description ?? name;
   final icon = known?.icon ?? Icons.terminal;
   return SlashCommand(
     command: '/$name',

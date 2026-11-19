@@ -1166,6 +1166,16 @@ class AppLocalizationsKo extends AppLocalizations {
       'Antigravity 지원은 프리뷰 버전입니다. 동작이 바뀌거나 일부 기능을 사용할 수 없을 수 있습니다.';
 
   @override
+  String get antigravityAuthLogin => 'Google 로그인';
+
+  @override
+  String get antigravityAuthApiKey => 'API 키';
+
+  @override
+  String get antigravityUsageUnavailable =>
+      'Antigravity는 플랜 잔여량을 제공하지 않습니다. 컨텍스트 사용량은 각 세션에 표시됩니다.';
+
+  @override
   String get permissionAcceptEditsDescription => '파일 편집 자동 승인';
 
   @override

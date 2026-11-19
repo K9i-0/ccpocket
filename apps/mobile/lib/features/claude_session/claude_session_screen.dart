@@ -1326,6 +1326,10 @@ class _ChatScreenBody extends HookWidget {
                     outputTokens: tokenUsage.outputTokens,
                     toolCalls: toolUsage.toolCalls,
                     fileEdits: toolUsage.fileEdits,
+                    contextUsed:
+                        sessionState.antigravitySettings?.contextUsage?.used,
+                    contextSize:
+                        sessionState.antigravitySettings?.contextUsage?.size,
                   ),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
@@ -1355,7 +1359,10 @@ class _ChatScreenBody extends HookWidget {
                                       AskUserQuestionWidget(
                                         toolUseId: askToolUseId,
                                         input: askInput,
-                                        agentName: 'Claude',
+                                        agentName: context
+                                            .read<ChatSessionCubit>()
+                                            .effectiveProvider
+                                            .label,
                                         onAnswer: answerQuestion,
                                       ),
                                     if (pendingToolUseId != null)

@@ -296,7 +296,7 @@ final List<SettingsEntry> settingsEntries = [
     id: SettingsEntryIds.enabledAgents,
     category: SettingsCategory.agents,
     title: (l) => l.settingsEnabledAgents,
-    keywords: 'claude codex agent エージェント',
+    keywords: 'claude codex antigravity agent エージェント',
   ),
   SettingsEntry(
     id: SettingsEntryIds.newSessionTabs,

@@ -42,6 +42,60 @@ class _CatalogBridge extends BridgeService {
   }
 }
 
+/// Bridge that knows what a new Antigravity session offers (`antigravity_v2`).
+class _AntigravityCatalogBridge extends _CatalogBridge {
+  _AntigravityCatalogBridge() : super(const ['gpt-6-astra']);
+
+  final _results = StreamController<AntigravityCatalogMessage>.broadcast();
+  AntigravitySettings? catalog;
+  int requests = 0;
+
+  @override
+  bool get supportsAntigravityCatalog => true;
+  @override
+  AntigravitySettings? get antigravityCatalog => catalog;
+  @override
+  Stream<AntigravityCatalogMessage> get antigravityCatalogResults =>
+      _results.stream;
+  @override
+  void requestAntigravityCatalog() => requests++;
+
+  void publish(AntigravitySettings next) {
+    catalog = next;
+    _results.add(AntigravityCatalogMessage(catalog: next));
+  }
+
+  @override
+  void dispose() {
+    _results.close();
+    super.dispose();
+  }
+}
+
+final _antigravityCatalog = AntigravitySettings.fromJsonOrNull({
+  'model': 'gemini-3.8-flash-high',
+  'models': [
+    {'id': 'gemini-3.8-flash-high', 'name': 'Gemini 3.8 Flash (High)'},
+  ],
+  'baseModel': 'gemini-3.8-flash',
+  'modelOptions': [
+    {
+      'id': 'gemini-3.8-flash',
+      'name': 'Gemini 3.8 Flash',
+      'thoughtLevels': ['high', 'medium', 'low'],
+    },
+    {
+      'id': 'gemini-3.1-pro',
+      'name': 'Gemini 3.1 Pro',
+      'thoughtLevels': ['high', 'low'],
+    },
+  ],
+  'thoughtLevel': 'high',
+  'permissionModes': ['default', 'acceptEdits', 'auto', 'plan'],
+  'authMode': 'login',
+  'tier': {'name': 'Google AI Ultra'},
+})!;
+
 Future<void> _pumpSheet(
   WidgetTester tester, {
   required BridgeService bridge,
@@ -196,6 +250,71 @@ void main() {
       expect(result?.claudeModel, isNull);
       expect(result?.sandboxMode, isNull);
       expect(result?.projectPath, '/workspace/app');
+    });
+
+    testWidgets('offers the model, thinking level and account modes', (
+      tester,
+    ) async {
+      final bridge = _AntigravityCatalogBridge();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      await _pumpSheet(
+        tester,
+        bridge: bridge,
+        initialParams: NewSessionParams(
+          projectPath: '/workspace/app',
+          provider: Provider.antigravity,
+          // Saved on another account; this one has no bypass mode.
+          antigravityPermissionMode: PermissionMode.bypassPermissions,
+          antigravityModel: 'gone-model',
+        ),
+        visibleTabs: withAntigravity,
+        onResult: (value) => result = value,
+      );
+      expect(bridge.requests, 1);
+      // Until the Bridge answers there is nothing to pick a model from.
+      expect(
+        find.byKey(const ValueKey('dialog_antigravity_model')),
+        findsNothing,
+      );
+
+      bridge.publish(_antigravityCatalog);
+      await tester.pumpAndSettle();
+      expect(find.text('Gemini 3.8 Flash · High'), findsOne);
+      expect(find.text('Google AI Ultra'), findsOne);
+
+      await tester.tap(find.byKey(const ValueKey('dialog_antigravity_model')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_model_option_gemini-3.1-pro')),
+      );
+      await tester.pumpAndSettle();
+      // Pro has no medium level.
+      expect(
+        find.byKey(const ValueKey('antigravity_thought_level_medium')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_thought_level_low')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.text('Gemini 3.1 Pro · Low'), findsOne);
+
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_antigravity_permission_mode')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bypass All'), findsNothing);
+      await tester.tap(find.text('Auto').last);
+      await tester.pumpAndSettle();
+      await _start(tester);
+
+      expect(result?.provider, Provider.antigravity);
+      expect(result?.permissionMode, PermissionMode.auto);
+      expect(result?.antigravityModel, 'gemini-3.1-pro');
+      expect(result?.antigravityThoughtLevel, 'low');
     });
 
     testWidgets('saved Antigravity defaults do not leak into Claude', (

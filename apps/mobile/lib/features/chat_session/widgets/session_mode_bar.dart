@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
+import '../../../widgets/antigravity_model_options_panel.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/claude_settings_panel.dart';
 import '../../../widgets/codex_effort_slider.dart';
@@ -151,7 +152,7 @@ class SessionModeBar extends StatelessWidget {
                     AntigravityModelChip(
                       key: const ValueKey('antigravity_model_chip'),
                       label:
-                          antigravitySettings.modelLabel ??
+                          antigravitySettings.modelSummary ??
                           AppLocalizations.of(context).model,
                       onTap: () => showAntigravityModelMenu(context, chatCubit),
                     ),
@@ -537,6 +538,15 @@ void showAntigravityModelMenu(
           HapticFeedback.lightImpact();
           chatCubit.setAntigravityModel(model.id);
         },
+        // The sheet stays open after these, so the level can follow the model.
+        onFamilySelected: (family) {
+          HapticFeedback.lightImpact();
+          chatCubit.setAntigravitySettings(model: family.id);
+        },
+        onThoughtLevelSelected: (level) {
+          HapticFeedback.lightImpact();
+          chatCubit.setAntigravitySettings(thoughtLevel: level);
+        },
       ),
     ),
   );
@@ -546,16 +556,37 @@ class AntigravityModelSheet extends StatelessWidget {
   final AntigravitySettings? settings;
   final ValueChanged<AntigravityModel> onSelected;
 
+  /// Picking a model family or a thinking level. Used instead of [onSelected]
+  /// when the Bridge reports families (`antigravity_v2`).
+  final ValueChanged<AntigravityModelOption>? onFamilySelected;
+  final ValueChanged<String>? onThoughtLevelSelected;
+
   const AntigravityModelSheet({
     super.key,
     required this.settings,
     required this.onSelected,
+    this.onFamilySelected,
+    this.onThoughtLevelSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final settings = this.settings;
+    if (settings != null &&
+        settings.hasModelOptions &&
+        onFamilySelected != null &&
+        onThoughtLevelSelected != null) {
+      return AntigravityModelOptionsPanel(
+        modelOptions: settings.modelOptions,
+        model: settings.baseModel,
+        thoughtLevel: settings.thoughtLevel,
+        thoughtLevels: settings.thoughtLevels,
+        onModelSelected: onFamilySelected!,
+        onThoughtLevelSelected: onThoughtLevelSelected!,
+      );
+    }
     final models = settings?.models ?? const <AntigravityModel>[];
     final current = settings?.model;
     return SafeArea(
@@ -1364,7 +1395,7 @@ class AntigravityModelChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 130),
+                constraints: const BoxConstraints(maxWidth: 170),
                 child: Text(
                   label,
                   maxLines: 1,

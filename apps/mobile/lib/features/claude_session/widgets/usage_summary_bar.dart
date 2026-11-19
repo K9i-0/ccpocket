@@ -12,6 +12,11 @@ class UsageSummaryBar extends StatelessWidget {
   final int toolCalls;
   final int fileEdits;
 
+  /// Tokens in the context window and its size, where the agent reports them
+  /// (Antigravity).
+  final int? contextUsed;
+  final int? contextSize;
+
   const UsageSummaryBar({
     super.key,
     required this.totalCost,
@@ -21,7 +26,12 @@ class UsageSummaryBar extends StatelessWidget {
     required this.outputTokens,
     required this.toolCalls,
     required this.fileEdits,
+    this.contextUsed,
+    this.contextSize,
   });
+
+  bool get _hasContext =>
+      contextUsed != null && contextSize != null && contextSize! > 0;
 
   bool get _hasCost => totalCost > 0;
   bool get _hasDuration =>
@@ -32,7 +42,7 @@ class UsageSummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasCost && !_hasDuration && !_hasTokenUsage) {
+    if (!_hasCost && !_hasDuration && !_hasTokenUsage && !_hasContext) {
       return const SizedBox.shrink();
     }
 
@@ -65,6 +75,15 @@ class UsageSummaryBar extends StatelessWidget {
             cachedInputTokens: cachedInputTokens,
             outputTokens: outputTokens,
           ),
+        ),
+      );
+    }
+    if (_hasContext) {
+      items.add(
+        _UsageStat(
+          key: const ValueKey('usage_summary_context'),
+          icon: Icons.donut_large_outlined,
+          text: formatContextUsage(contextUsed!, contextSize!),
         ),
       );
     }
@@ -106,6 +125,13 @@ class UsageSummaryBar extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
+  }
+
+  /// `ctx 12% (126k / 1.0M)`: share of the context window in use.
+  static String formatContextUsage(int used, int size) {
+    final percent = used <= 0 ? 0 : (used / size * 100).round().clamp(1, 100);
+    return 'ctx $percent% (${_formatCompactNumber(used)} / '
+        '${_formatCompactNumber(size)})';
   }
 
   static String _formatDuration(Duration duration) {
@@ -160,7 +186,7 @@ class _UsageStat extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _UsageStat({required this.icon, required this.text});
+  const _UsageStat({super.key, required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {

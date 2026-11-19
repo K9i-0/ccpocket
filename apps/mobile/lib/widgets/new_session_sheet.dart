@@ -19,6 +19,7 @@ import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/project_usage.dart';
+import 'antigravity_model_options_panel.dart';
 import 'directory_browser_sheet.dart';
 import 'workspace_pane_chrome.dart';
 import 'claude_settings_panel.dart';
@@ -66,6 +67,14 @@ class NewSessionParams {
   final bool? claudeForkSession;
   final bool? claudePersistSession;
 
+  /// Antigravity start options. The mode is kept apart from [executionMode]
+  /// and [planMode], which cannot say `auto` or `bypassPermissions`.
+  final PermissionMode? antigravityPermissionMode;
+
+  /// Model family (`gemini-3.8-flash`); null starts on the account default.
+  final String? antigravityModel;
+  final String? antigravityThoughtLevel;
+
   NewSessionParams({
     required this.projectPath,
     this.initialPrompt,
@@ -107,7 +116,13 @@ class NewSessionParams {
     this.claudeFallbackModel,
     this.claudeForkSession,
     this.claudePersistSession,
-  }) : claudePermissionMode = provider == Provider.claude
+    PermissionMode? antigravityPermissionMode,
+    this.antigravityModel,
+    this.antigravityThoughtLevel,
+  }) : antigravityPermissionMode = provider == Provider.antigravity
+           ? (antigravityPermissionMode ?? permissionMode)
+           : null,
+       claudePermissionMode = provider == Provider.claude
            ? (claudePermissionMode ?? permissionMode)
            : null,
        executionMode =
@@ -149,10 +164,9 @@ class NewSessionParams {
       executionMode: executionMode,
       planMode: planMode,
     );
-    // Antigravity starts in default, acceptEdits or plan only.
-    return provider == Provider.antigravity
-        ? antigravityStartPermissionMode(mode)
-        : mode;
+    if (provider != Provider.antigravity) return mode;
+    // What the account really offers is checked when the session starts.
+    return antigravityPermissionMode ?? antigravityStartPermissionMode(mode);
   }
 
   /// The same agent options aimed at another project's main checkout.
@@ -198,6 +212,9 @@ class NewSessionParams {
       claudeFallbackModel: claudeFallbackModel,
       claudeForkSession: claudeForkSession,
       claudePersistSession: claudePersistSession,
+      antigravityPermissionMode: antigravityPermissionMode,
+      antigravityModel: antigravityModel,
+      antigravityThoughtLevel: antigravityThoughtLevel,
     );
   }
 
@@ -234,6 +251,9 @@ class NewSessionParams {
     ClaudeEffort? claudeEffort,
     bool? claudeFastMode,
     bool? claudeUltracode,
+    PermissionMode? antigravityPermissionMode,
+    String? antigravityModel,
+    String? antigravityThoughtLevel,
     int? claudeMaxTurns,
     double? claudeMaxBudgetUsd,
     String? claudeFallbackModel,
@@ -287,6 +307,11 @@ class NewSessionParams {
       claudeEffort: claudeEffort ?? this.claudeEffort,
       claudeFastMode: claudeFastMode ?? this.claudeFastMode,
       claudeUltracode: claudeUltracode ?? this.claudeUltracode,
+      antigravityPermissionMode:
+          antigravityPermissionMode ?? this.antigravityPermissionMode,
+      antigravityModel: antigravityModel ?? this.antigravityModel,
+      antigravityThoughtLevel:
+          antigravityThoughtLevel ?? this.antigravityThoughtLevel,
       claudeMaxTurns: claudeMaxTurns ?? this.claudeMaxTurns,
       claudeMaxBudgetUsd: claudeMaxBudgetUsd ?? this.claudeMaxBudgetUsd,
       claudeFallbackModel: claudeFallbackModel ?? this.claudeFallbackModel,
@@ -418,6 +443,8 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'claudeFallbackModel': params.claudeFallbackModel,
     'claudeForkSession': params.claudeForkSession,
     'claudePersistSession': params.claudePersistSession,
+    'antigravityModel': params.antigravityModel,
+    'antigravityThoughtLevel': params.antigravityThoughtLevel,
   };
 }
 
@@ -473,6 +500,11 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     claudeFallbackModel: json['claudeFallbackModel'] as String?,
     claudeForkSession: json['claudeForkSession'] as bool?,
     claudePersistSession: json['claudePersistSession'] as bool?,
+    antigravityPermissionMode: permissionModeFromRaw(
+      json['permissionMode'] as String?,
+    ),
+    antigravityModel: json['antigravityModel'] as String?,
+    antigravityThoughtLevel: json['antigravityThoughtLevel'] as String?,
   );
 }
 
@@ -638,6 +670,62 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   /// Antigravity keeps its own mode: sharing the Claude one would leak
   /// `auto` / `bypassPermissions`, which a new Antigravity session cannot use.
   var _antigravityPermissionMode = PermissionMode.defaultMode;
+
+  /// What a new Antigravity session offers; null until the Bridge answers
+  /// (and with Bridges that cannot tell before a session starts).
+  AntigravitySettings? _antigravityCatalog;
+  StreamSubscription<AntigravityCatalogMessage>? _antigravityCatalogSub;
+
+  /// Model family to start on; null keeps the account default.
+  String? _antigravityModel;
+  String? _antigravityThoughtLevel;
+
+  List<PermissionMode> get _antigravityPermissionModes {
+    final modes =
+        _antigravityCatalog?.selectablePermissionModes ??
+        defaultAntigravityPermissionModes;
+    // A saved mode stays selectable until the catalog says otherwise.
+    return modes.contains(_antigravityPermissionMode) ||
+            _antigravityCatalog != null
+        ? modes
+        : [...modes, _antigravityPermissionMode];
+  }
+
+  /// The family the session will start on: the chosen one, or the default.
+  AntigravityModelOption? get _antigravityModelOption {
+    final catalog = _antigravityCatalog;
+    if (catalog == null) return null;
+    for (final option in catalog.modelOptions) {
+      if (option.id == _antigravityModel) return option;
+    }
+    return catalog.currentModelOption;
+  }
+
+  /// The level the session will start at, if the family has levels.
+  String? get _antigravityEffectiveThoughtLevel {
+    final option = _antigravityModelOption;
+    if (option == null || option.thoughtLevels.isEmpty) return null;
+    final chosen = _antigravityThoughtLevel;
+    if (chosen != null && option.thoughtLevels.contains(chosen)) return chosen;
+    final fallback = _antigravityCatalog?.thoughtLevel;
+    return fallback != null && option.thoughtLevels.contains(fallback)
+        ? fallback
+        : option.thoughtLevels.first;
+  }
+
+  void _applyAntigravityCatalog(AntigravitySettings catalog) {
+    _antigravityCatalog = catalog;
+    if (!catalog.selectablePermissionModes.contains(
+      _antigravityPermissionMode,
+    )) {
+      _antigravityPermissionMode = PermissionMode.defaultMode;
+    }
+    if (_antigravityModel != null &&
+        !catalog.modelOptions.any((o) => o.id == _antigravityModel)) {
+      _antigravityModel = null;
+    }
+  }
+
   var _executionMode = ExecutionMode.defaultMode;
   var _codexPermissionsMode = CodexPermissionsMode.defaultPermissions;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
@@ -931,6 +1019,19 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         .clamp(0, widget.visibleTabs.length - 1);
     _pageController = PageController(initialPage: initialPage);
     _provider = initialProvider;
+    final bridge = widget.bridge;
+    if (bridge != null &&
+        bridge.supportsAntigravityCatalog &&
+        widget.visibleTabs.any((t) => t.toProvider() == Provider.antigravity)) {
+      _antigravityCatalog = bridge.antigravityCatalog;
+      _antigravityCatalogSub = bridge.antigravityCatalogResults.listen((msg) {
+        final catalog = msg.catalog;
+        if (catalog == null || !mounted) return;
+        setState(() => _applyAntigravityCatalog(catalog));
+      });
+      // Ask every time: the plan and the model list change with the account.
+      bridge.requestAntigravityCatalog();
+    }
     // Use the latest cached recent sessions from BridgeService if available,
     // because the broadcast stream may have already fired before this listener
     // was registered.
@@ -1025,6 +1126,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexAutoReviewPolicySub?.cancel();
     _codexCatalogSub?.cancel();
     _codexConnectionSub?.cancel();
+    _antigravityCatalogSub?.cancel();
     _pageController.dispose();
     _pathController.dispose();
     _branchController.dispose();
@@ -1187,9 +1289,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _applyClaudeParams(claude);
     final antigravity = _sourceFor(Provider.antigravity, p);
     if (antigravity.provider == Provider.antigravity) {
-      _antigravityPermissionMode = antigravityStartPermissionMode(
-        antigravity.permissionMode,
-      );
+      _antigravityPermissionMode = antigravity.permissionMode;
+      _antigravityModel = antigravity.antigravityModel;
+      _antigravityThoughtLevel = antigravity.antigravityThoughtLevel;
+      final catalog = _antigravityCatalog;
+      if (catalog != null) _applyAntigravityCatalog(catalog);
     }
 
     // Options shared by both tabs follow the initial provider. Apply them last
@@ -1599,6 +1703,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     return true;
   }
 
+  bool get _antigravityTakesExtraRoots =>
+      widget.bridge?.supportsAntigravityCatalog ?? false;
+
   NewSessionParams _buildParams() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
@@ -1661,9 +1768,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       codexSpeed: isCodex ? _codexSpeed : CodexSpeed.standard,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
-      additionalWritableRoots: isAntigravity
+      // Bridges before `antigravity_v2` ignore extra roots for Antigravity.
+      additionalWritableRoots: isAntigravity && !_antigravityTakesExtraRoots
           ? const []
           : _additionalWritableRoots,
+      antigravityPermissionMode: isAntigravity
+          ? _antigravityPermissionMode
+          : null,
+      antigravityModel: isAntigravity ? _antigravityModelOption?.id : null,
+      antigravityThoughtLevel: isAntigravity
+          ? _antigravityEffectiveThoughtLevel
+          : null,
       claudeModel: isClaude ? _selectedClaudeModel : null,
       claudeEffort: isClaude ? _claudeEffort : null,
       claudeFastMode: isClaude ? _claudeFastMode : null,
@@ -1794,9 +1909,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               },
             ),
           const Divider(indent: 16, endIndent: 16, height: 24),
-          // Antigravity has no extra writable roots.
           if (_selectedProjectId == null &&
-              pageProvider != Provider.antigravity) ...[
+              (pageProvider != Provider.antigravity ||
+                  _antigravityTakesExtraRoots)) ...[
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
               roots: _additionalWritableRoots,
@@ -1814,8 +1929,20 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               setState(() => _claudePermissionMode = value);
             },
             antigravityPermissionMode: _antigravityPermissionMode,
+            antigravityPermissionModes: _antigravityPermissionModes,
             onAntigravityPermissionModeChanged: (value) {
               setState(() => _antigravityPermissionMode = value);
+            },
+            antigravityModelOptions:
+                _antigravityCatalog?.modelOptions ?? const [],
+            antigravityModelOption: _antigravityModelOption,
+            antigravityThoughtLevel: _antigravityEffectiveThoughtLevel,
+            antigravityTierName: _antigravityCatalog?.tierName,
+            onAntigravityModelChanged: (value) {
+              setState(() => _antigravityModel = value);
+            },
+            onAntigravityThoughtLevelChanged: (value) {
+              setState(() => _antigravityThoughtLevel = value);
             },
             executionMode: _executionMode,
             onExecutionModeChanged: (value) {
@@ -2840,7 +2967,16 @@ class _OptionsSection extends StatelessWidget {
   final PermissionMode claudePermissionMode;
   final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
   final PermissionMode antigravityPermissionMode;
+  final List<PermissionMode> antigravityPermissionModes;
   final ValueChanged<PermissionMode> onAntigravityPermissionModeChanged;
+
+  /// Model families from the Bridge's catalog; empty when it is not known.
+  final List<AntigravityModelOption> antigravityModelOptions;
+  final AntigravityModelOption? antigravityModelOption;
+  final String? antigravityThoughtLevel;
+  final String? antigravityTierName;
+  final ValueChanged<String> onAntigravityModelChanged;
+  final ValueChanged<String> onAntigravityThoughtLevelChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexPermissionsMode codexPermissionsMode;
@@ -2916,7 +3052,14 @@ class _OptionsSection extends StatelessWidget {
     required this.claudePermissionMode,
     required this.onClaudePermissionModeChanged,
     required this.antigravityPermissionMode,
+    required this.antigravityPermissionModes,
     required this.onAntigravityPermissionModeChanged,
+    required this.antigravityModelOptions,
+    required this.antigravityModelOption,
+    required this.antigravityThoughtLevel,
+    required this.antigravityTierName,
+    required this.onAntigravityModelChanged,
+    required this.onAntigravityThoughtLevelChanged,
     required this.executionMode,
     required this.onExecutionModeChanged,
     required this.codexPermissionsMode,
@@ -3113,6 +3256,46 @@ class _OptionsSection extends StatelessWidget {
 
     // -- BottomSheet helpers --
 
+    String antigravityPermissionDescription(PermissionMode mode) =>
+        mode == PermissionMode.auto
+        ? l.permissionAutoDescriptionAntigravity
+        : permissionDescription(mode);
+
+    // Model family and thinking level, as in the chat screen's model sheet.
+    void showAntigravityModelSheet() {
+      var model = antigravityModelOption;
+      var level = antigravityThoughtLevel;
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) =>
+              AntigravityModelOptionsPanel(
+                modelOptions: antigravityModelOptions,
+                model: model?.id,
+                thoughtLevel: level,
+                thoughtLevels: model?.thoughtLevels ?? const [],
+                onModelSelected: (option) {
+                  onAntigravityModelChanged(option.id);
+                  setSheetState(() {
+                    model = option;
+                    // Keep the level when the new family has it too.
+                    if (!option.thoughtLevels.contains(level)) {
+                      level = option.thoughtLevels.firstOrNull;
+                      if (level != null)
+                        onAntigravityThoughtLevelChanged(level!);
+                    }
+                  });
+                },
+                onThoughtLevelSelected: (value) {
+                  onAntigravityThoughtLevelChanged(value);
+                  setSheetState(() => level = value);
+                },
+              ),
+        ),
+      );
+    }
+
     void showModeSheet<T>({
       required String title,
       String? subtitle,
@@ -3308,19 +3491,31 @@ class _OptionsSection extends StatelessWidget {
                   label: l.approval,
                   icon: permissionIcon(antigravityPermissionMode),
                   title: antigravityPermissionMode.label,
-                  subtitle: permissionDescription(antigravityPermissionMode),
+                  subtitle: antigravityPermissionDescription(
+                    antigravityPermissionMode,
+                  ),
+                  accentColor: switch (antigravityPermissionMode) {
+                    PermissionMode.auto => autoModeColor,
+                    PermissionMode.bypassPermissions => Theme.of(
+                      context,
+                    ).colorScheme.error,
+                    _ => null,
+                  },
                   onTap: () => showModeSheet<PermissionMode>(
                     title: l.approval,
                     subtitle: l.sheetSubtitleApproval,
-                    // Only these can be chosen before the session reports
-                    // what the account supports.
-                    modes: defaultAntigravityPermissionModes,
+                    // The account's own list once the Bridge reported it.
+                    modes: antigravityPermissionModes,
                     currentMode: antigravityPermissionMode,
                     iconFor: permissionIcon,
                     labelFor: (m) => m.label,
-                    descriptionFor: permissionDescription,
+                    descriptionFor: antigravityPermissionDescription,
                     onSelected: onAntigravityPermissionModeChanged,
-                    colorFor: (mode, cs) => cs.tertiary,
+                    colorFor: (mode, cs) => switch (mode) {
+                      PermissionMode.auto => autoModeColor,
+                      PermissionMode.bypassPermissions => cs.error,
+                      _ => cs.tertiary,
+                    },
                   ),
                 )
               : modeSelectorField(
@@ -3400,15 +3595,30 @@ class _OptionsSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    l.antigravityModelAfterStartNote,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: appColors.subtleText,
-                      height: 1.4,
+                  if (antigravityModelOption case final option?) ...[
+                    modeSelectorField(
+                      key: const ValueKey('dialog_antigravity_model'),
+                      label: l.model,
+                      icon: Icons.memory,
+                      title: antigravityThoughtLevel == null
+                          ? option.name
+                          : '${option.name} · '
+                                '${antigravityThoughtLevelLabel(antigravityThoughtLevel!)}',
+                      subtitle: antigravityTierName ?? '',
+                      onTap: showAntigravityModelSheet,
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    Text(
+                      l.antigravityModelAfterStartNote,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: appColors.subtleText,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

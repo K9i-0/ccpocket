@@ -1157,6 +1157,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get antigravityPreviewNote => 'Antigravity 支持目前为预览版。行为可能会变化，部分功能暂不可用。';
 
   @override
+  String get antigravityAuthLogin => 'Google 登录';
+
+  @override
+  String get antigravityAuthApiKey => 'API 密钥';
+
+  @override
+  String get antigravityUsageUnavailable =>
+      'Antigravity 不提供套餐剩余用量。上下文用量会显示在各会话中。';
+
+  @override
   String get permissionAcceptEditsDescription => '自动批准文件编辑';
 
   @override

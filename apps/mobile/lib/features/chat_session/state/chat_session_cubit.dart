@@ -131,8 +131,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// The sandbox chip (Claude restarts the session to toggle it).
   bool get supportsSandboxToggle => isClaude;
 
-  /// The Claude usage summary bar (`get_usage` is Claude/Codex only).
-  bool get showsUsageSummary => isClaude;
+  /// The usage summary bar above the chat (cost, time, tokens, tool calls).
+  bool get showsUsageSummary => !isCodex;
 
   /// Stopping background tasks between turns (Claude shells and agents).
   bool get supportsBackgroundTaskStop => isClaude;
@@ -2471,6 +2471,47 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
+  /// Switch the model family and/or thinking level of an Antigravity session.
+  /// [model] is an id from `antigravitySettings.modelOptions`.
+  void setAntigravitySettings({String? model, String? thoughtLevel}) {
+    final settings = state.antigravitySettings;
+    if (!isAntigravity || settings == null) return;
+    final nextModel = model == settings.baseModel ? null : model;
+    final nextLevel = thoughtLevel == settings.thoughtLevel
+        ? null
+        : thoughtLevel;
+    if (nextModel == null && nextLevel == null) return;
+    AntigravityModelOption? family;
+    for (final option in settings.modelOptions) {
+      if (option.id == (nextModel ?? settings.baseModel)) family = option;
+    }
+    if (nextModel != null && family == null) return;
+    logger.info(
+      '[session:$sessionId] setAntigravitySettings model=$nextModel '
+      'thoughtLevel=$nextLevel',
+    );
+    // The Bridge answers with the whole settings object; until then show the
+    // choice, and the levels of the chosen family.
+    final levels = family?.thoughtLevels ?? settings.thoughtLevels;
+    final level = nextLevel ?? settings.thoughtLevel;
+    emit(
+      state.copyWith(
+        antigravitySettings: settings.copyWith(
+          baseModel: nextModel,
+          thoughtLevel: level != null && levels.contains(level) ? level : null,
+          thoughtLevels: levels,
+        ),
+      ),
+    );
+    _bridge.send(
+      ClientMessage.setAntigravitySettings(
+        sessionId: sessionId,
+        model: nextModel,
+        thoughtLevel: nextLevel,
+      ),
+    );
+  }
+
   void setSessionModes({ExecutionMode? executionMode, bool? planMode}) {
     final nextExecution = executionMode ?? state.executionMode;
     final nextPlanMode = planMode ?? state.planMode;
@@ -2953,6 +2994,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   bool _isAntigravityModelFailure(ErrorMessage msg) {
     return msg.errorCode == 'set_antigravity_model_rejected' ||
         msg.errorCode == 'set_antigravity_model_unsupported';
+    // A rejected `set_antigravity_settings` needs no rollback here: the
+    // Bridge sends the session's real settings right after the error.
   }
 
   bool _isSandboxModeFailure(ErrorMessage msg) {

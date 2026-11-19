@@ -184,6 +184,9 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'set_codex_speed': UnsupportedAction.showUpdateHint,
   'set_claude_settings': UnsupportedAction.showUpdateHint,
   'set_antigravity_model': UnsupportedAction.showUpdateHint,
+  'set_antigravity_settings': UnsupportedAction.showUpdateHint,
+  // The new-session sheet falls back to its fixed choices on its own.
+  'get_antigravity_catalog': UnsupportedAction.suppress,
   'set_goal': UnsupportedAction.showUpdateHint,
   'set_codex_recovery': UnsupportedAction.showUpdateHint,
   'cancel_codex_recovery': UnsupportedAction.showUpdateHint,
@@ -758,6 +761,7 @@ class ChatMessageHandler {
               m.appMetadata,
               plugins: m.plugins,
               pluginMetadata: m.pluginMetadata,
+              descriptions: m.slashCommandDescriptions,
               includeDollarEntities: isCodexSession,
             );
           }
@@ -871,6 +875,9 @@ class ChatMessageHandler {
         appMetadata,
         plugins: plugins,
         pluginMetadata: pluginMetadata,
+        descriptions: msg is SystemMessage
+            ? msg.slashCommandDescriptions
+            : const {},
         includeDollarEntities: isCodex,
       );
     }
@@ -1074,6 +1081,7 @@ class ChatMessageHandler {
     List<CodexAppMetadata> appMetadata, {
     List<String> plugins = const [],
     List<CodexPluginMetadata> pluginMetadata = const [],
+    Map<String, String> descriptions = const {},
     required bool includeDollarEntities,
   }) {
     final skillSet = skills.toSet();
@@ -1100,7 +1108,12 @@ class ChatMessageHandler {
           ? SlashCommandCategory.builtin
           : SlashCommandCategory.project;
       final meta = metaMap[name];
-      return buildSlashCommand(name, category: category, skillMeta: meta);
+      return buildSlashCommand(
+        name,
+        category: category,
+        skillMeta: meta,
+        description: descriptions[name],
+      );
     }).toList();
     final slashCommands = result.map((item) => item.command).toSet();
     if (includeDollarEntities) {

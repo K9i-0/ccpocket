@@ -120,13 +120,15 @@ bool autoRenameForProvider(SettingsState settings, Provider provider) {
 
 /// `start` for a new Antigravity session.
 ///
-/// Antigravity takes a permission mode and the shared project / worktree
-/// options only. Claude and Codex options are left out, as is the model (its
-/// list is known only after the session starts) and auto rename.
+/// Antigravity takes a permission mode, a model family with its thinking
+/// level, and the shared project / worktree options. Claude and Codex options
+/// and auto rename are left out. [permissionModes] is the account's list from
+/// the Bridge, when known; a mode outside it starts in default.
 ClientMessage antigravityStartMessage(
   NewSessionParams params, {
   String? initialPrompt,
   String? projectName,
+  List<PermissionMode>? permissionModes,
   required String requestId,
 }) => ClientMessage.start(
   params.projectPath,
@@ -134,7 +136,15 @@ ClientMessage antigravityStartMessage(
   projectId: params.projectId,
   projectName: projectName,
   workspaceKind: params.workspaceKind,
-  permissionMode: antigravityStartPermissionMode(params.permissionMode).value,
+  permissionMode: antigravityStartPermissionMode(
+    params.permissionMode,
+    available: permissionModes,
+  ).value,
+  model: params.antigravityModel,
+  effort: params.antigravityThoughtLevel,
+  additionalWritableRoots: params.additionalWritableRoots.isEmpty
+      ? null
+      : params.additionalWritableRoots,
   useWorktree: params.useWorktree ? true : null,
   worktreeBranch: params.worktreeBranch,
   existingWorktreePath: params.existingWorktreePath,
@@ -1092,6 +1102,13 @@ class _SessionListScreenState extends State<SessionListScreen>
               result,
               initialPrompt: initialPrompt,
               projectName: workspace?.projectName,
+              // Without the catalog a newer Bridge still checks the mode
+              // itself and falls back to default.
+              permissionModes:
+                  bridge.antigravityCatalog?.selectablePermissionModes ??
+                  (bridge.supportsAntigravityCatalog
+                      ? PermissionMode.values
+                      : null),
               requestId: pendingId,
             )
           : ClientMessage.start(
@@ -1412,9 +1429,10 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : session.workspaceKind,
         provider: provider,
-        permissionMode: antigravityStartPermissionMode(
-          permissionModeFromRaw(session.rawPermissionMode),
-        ),
+        // The sheet checks it against the account's modes once it knows them.
+        permissionMode:
+            permissionModeFromRaw(session.rawPermissionMode) ??
+            PermissionMode.defaultMode,
         useWorktree: hasExistingWorktree,
         worktreeBranch: session.gitBranch.isNotEmpty ? session.gitBranch : null,
         existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,

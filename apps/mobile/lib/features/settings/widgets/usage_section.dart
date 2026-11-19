@@ -39,7 +39,12 @@ class _UsageSectionState extends State<UsageSection> {
   bool _loading = false;
   StreamSubscription<UsageResultMessage>? _sub;
   StreamSubscription<BridgeConnectionState>? _connSub;
+  StreamSubscription<AntigravityCatalogMessage>? _antigravitySub;
   DateTime? _lastFetchAt;
+
+  /// Plan, sign-in and CLI version of Antigravity. It reports no plan usage,
+  /// so its card carries these instead of bars.
+  AntigravitySettings? _antigravity;
 
   /// Providers to render as cards, Claude first. Providers whose plan limits
   /// do not apply are omitted by the Bridge, so no empty card is shown.
@@ -72,6 +77,15 @@ class _UsageSectionState extends State<UsageSection> {
         });
       }
     });
+    if (widget.bridgeService.isConnected) {
+      _antigravity = widget.bridgeService.antigravityCatalog;
+    }
+    _antigravitySub = widget.bridgeService.antigravityCatalogResults.listen((
+      msg,
+    ) {
+      final catalog = msg.catalog;
+      if (mounted && catalog != null) setState(() => _antigravity = catalog);
+    });
     _connSub = widget.bridgeService.connectionStatus.listen((state) {
       if (mounted && state == BridgeConnectionState.connected) {
         _fetchUsage(onlyIfMissing: true);
@@ -84,6 +98,7 @@ class _UsageSectionState extends State<UsageSection> {
   void dispose() {
     _sub?.cancel();
     _connSub?.cancel();
+    _antigravitySub?.cancel();
     super.dispose();
   }
 
@@ -102,6 +117,7 @@ class _UsageSectionState extends State<UsageSection> {
     _lastFetchAt = now;
     setState(() => _loading = true);
     widget.bridgeService.requestUsage();
+    widget.bridgeService.requestAntigravityCatalog();
   }
 
   @override
@@ -221,7 +237,86 @@ class _UsageSectionState extends State<UsageSection> {
               ),
             ),
           ),
+        if (_antigravity case final antigravity?
+            when widget.bridgeService.supportsAntigravityCatalog) ...[
+          SizedBox(height: widget.embedded ? 4 : 8),
+          _UsageContainer(
+            key: const ValueKey('usage_card_antigravity'),
+            embedded: widget.embedded,
+            child: _AntigravityAccount(
+              settings: antigravity,
+              embedded: widget.embedded,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+/// Antigravity's plan, sign-in method and CLI version.
+class _AntigravityAccount extends StatelessWidget {
+  const _AntigravityAccount({required this.settings, required this.embedded});
+
+  final AntigravitySettings settings;
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final details = [
+      ?settings.tierName,
+      switch (settings.authMode) {
+        'api_key' => l.antigravityAuthApiKey,
+        'login' => l.antigravityAuthLogin,
+        _ => null,
+      },
+      if (settings.agentVersion case final version?) 'agy $version',
+    ].nonNulls.join(' · ');
+    return Padding(
+      padding: embedded
+          ? const EdgeInsets.symmetric(vertical: 4)
+          : const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                Provider.antigravity.label,
+                style: TextStyle(
+                  fontSize: embedded ? 12 : 14,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  details,
+                  key: const ValueKey('usage_antigravity_details'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: embedded ? 11 : 12,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            l.antigravityUsageUnavailable,
+            style: TextStyle(
+              fontSize: 11,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

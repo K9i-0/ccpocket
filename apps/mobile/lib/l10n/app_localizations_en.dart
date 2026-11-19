@@ -1200,6 +1200,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Antigravity support is a preview. Behavior may change and some features are not available yet.';
 
   @override
+  String get antigravityAuthLogin => 'Google sign-in';
+
+  @override
+  String get antigravityAuthApiKey => 'API key';
+
+  @override
+  String get antigravityUsageUnavailable =>
+      'Antigravity does not report how much of the plan is left. Context usage is shown in each session.';
+
+  @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';
 
   @override

@@ -2279,6 +2279,24 @@ abstract class AppLocalizations {
   /// **'Antigravity 対応はプレビュー版です。動作が変わったり、一部の機能が使えなかったりすることがあります。'**
   String get antigravityPreviewNote;
 
+  /// No description provided for @antigravityAuthLogin.
+  ///
+  /// In ja, this message translates to:
+  /// **'Google ログイン'**
+  String get antigravityAuthLogin;
+
+  /// No description provided for @antigravityAuthApiKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキー'**
+  String get antigravityAuthApiKey;
+
+  /// No description provided for @antigravityUsageUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。'**
+  String get antigravityUsageUnavailable;
+
   /// No description provided for @permissionAcceptEditsDescription.
   ///
   /// In ja, this message translates to:

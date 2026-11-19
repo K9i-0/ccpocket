@@ -79,8 +79,9 @@ void main() {
             'acceptEdits',
             'auto',
             'plan',
-            // Never an Antigravity mode, even if a Bridge sent it.
+            // The Bridge's own mode: it allows every request itself.
             'bypassPermissions',
+            'something-new',
           ],
         },
       }) as SystemMessage;
@@ -91,7 +92,77 @@ void main() {
         PermissionMode.acceptEdits,
         PermissionMode.auto,
         PermissionMode.plan,
+        PermissionMode.bypassPermissions,
       ]);
+    });
+
+    test('settings carry families, levels, plan, context and version', () {
+      final settings = AntigravitySettings.fromJsonOrNull({
+        ..._settingsJson,
+        'baseModel': 'gemini-3.8-flash',
+        'modelOptions': [
+          {
+            'id': 'gemini-3.8-flash',
+            'name': 'Gemini 3.8 Flash',
+            'thoughtLevels': ['high', 'medium', 'low'],
+          },
+          {'id': 'gpt-oss-120b-medium', 'name': 'GPT-OSS 120B (Medium)'},
+        ],
+        'thoughtLevel': 'high',
+        'thoughtLevels': ['low', 'medium', 'high'],
+        'tier': {'id': 'g1-ultra', 'name': 'Google AI Ultra'},
+        'contextUsage': {'used': 12349, 'size': 1048576},
+        'agentVersion': '1.5.12',
+      })!;
+
+      expect(settings.hasModelOptions, isTrue);
+      expect(settings.currentModelOption?.thoughtLevels, [
+        'high',
+        'medium',
+        'low',
+      ]);
+      expect(settings.modelSummary, 'Gemini 3.8 Flash · High');
+      expect(settings.modelOptions.last.thoughtLevels, isEmpty);
+      expect(settings.tierName, 'Google AI Ultra');
+      expect(settings.contextUsage?.percent, 1);
+      expect(settings.agentVersion, '1.5.12');
+      // Older Bridges report the full model name only.
+      expect(
+        AntigravitySettings.fromJsonOrNull(_settingsJson)!.modelSummary,
+        'Gemini 3.8 Flash (High)',
+      );
+    });
+
+    test('the catalog answer and the command descriptions parse', () {
+      final catalog = ServerMessage.fromJson({
+        'type': 'antigravity_catalog',
+        'requestId': 'r1',
+        'catalog': {
+          ..._settingsJson,
+          'permissionModes': ['default', 'auto'],
+        },
+      }) as AntigravityCatalogMessage;
+      expect(catalog.catalog?.permissionModes, [
+        PermissionMode.defaultMode,
+        PermissionMode.auto,
+      ]);
+      final failed = ServerMessage.fromJson({
+        'type': 'antigravity_catalog',
+        'error': 'not signed in',
+      }) as AntigravityCatalogMessage;
+      expect(failed.catalog, isNull);
+      expect(failed.error, 'not signed in');
+
+      final commands = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'supported_commands',
+        'provider': 'antigravity',
+        'slashCommands': ['goal'],
+        'slashCommandDescriptions': {'goal': 'Run until the goal is done.'},
+      }) as SystemMessage;
+      expect(commands.slashCommandDescriptions, {
+        'goal': 'Run until the goal is done.',
+      });
     });
 
     test('unknown modes fall back to default / acceptEdits / plan', () {
@@ -274,7 +345,7 @@ void main() {
         // Left over from other tabs; none of it applies.
         model: 'gpt-5.3-codex',
         claudeModel: 'opus',
-        additionalWritableRoots: const ['/tmp/other'],
+        claudeEffort: ClaudeEffort.max,
       );
 
       final json = _json(antigravityStartMessage(params, requestId: 'req-1'));
@@ -290,17 +361,64 @@ void main() {
       });
     });
 
-    test('a mode Antigravity cannot start in is clamped to default', () {
+    test('start carries the model family, thinking level and extra roots', () {
       final params = NewSessionParams(
+        projectPath: '/tmp/project',
+        provider: Provider.antigravity,
+        antigravityPermissionMode: PermissionMode.auto,
+        antigravityModel: 'gemini-3.8-flash',
+        antigravityThoughtLevel: 'low',
+        additionalWritableRoots: const ['/tmp/other'],
+      );
+
+      final json = _json(
+        antigravityStartMessage(
+          params,
+          permissionModes: const [
+            PermissionMode.defaultMode,
+            PermissionMode.auto,
+          ],
+          requestId: 'req-1',
+        ),
+      );
+
+      expect(json['permissionMode'], 'auto');
+      expect(json['model'], 'gemini-3.8-flash');
+      expect(json['effort'], 'low');
+      expect(json['additionalWritableRoots'], ['/tmp/other']);
+    });
+
+    test('a mode the account does not offer starts in default', () {
+      final legacy = NewSessionParams(
         projectPath: '/tmp/project',
         provider: Provider.antigravity,
         executionMode: ExecutionMode.fullAccess,
       );
+      expect(legacy.permissionMode, PermissionMode.defaultMode);
 
-      expect(params.permissionMode, PermissionMode.defaultMode);
+      final auto = NewSessionParams(
+        projectPath: '/tmp/project',
+        provider: Provider.antigravity,
+        antigravityPermissionMode: PermissionMode.auto,
+      );
+      expect(auto.permissionMode, PermissionMode.auto);
+      // Unknown account (older Bridge): only the modes every account has.
       expect(
         _json(
-          antigravityStartMessage(params, requestId: 'req-1'),
+          antigravityStartMessage(auto, requestId: 'req-1'),
+        )['permissionMode'],
+        'default',
+      );
+      expect(
+        _json(
+          antigravityStartMessage(
+            auto,
+            permissionModes: const [
+              PermissionMode.defaultMode,
+              PermissionMode.plan,
+            ],
+            requestId: 'req-1',
+          ),
         )['permissionMode'],
         'default',
       );
@@ -319,6 +437,21 @@ void main() {
 
       expect(restored.provider, Provider.antigravity);
       expect(restored.permissionMode, PermissionMode.acceptEdits);
+
+      final full = sessionStartDefaultsFromJson(
+        sessionStartDefaultsToJson(
+          NewSessionParams(
+            projectPath: '/tmp/project',
+            provider: Provider.antigravity,
+            antigravityPermissionMode: PermissionMode.bypassPermissions,
+            antigravityModel: 'gemini-3.8-flash',
+            antigravityThoughtLevel: 'medium',
+          ),
+        ),
+      )!;
+      expect(full.permissionMode, PermissionMode.bypassPermissions);
+      expect(full.antigravityModel, 'gemini-3.8-flash');
+      expect(full.antigravityThoughtLevel, 'medium');
     });
 
     test('resume command uses agy', () {

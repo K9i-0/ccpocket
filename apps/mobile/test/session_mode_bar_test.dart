@@ -381,7 +381,7 @@ void main() {
       );
     });
 
-    testWidgets('auto is offered when the account has it, bypass never', (
+    testWidgets('auto and bypass are offered when the Bridge lists them', (
       tester,
     ) async {
       await pumpBar(
@@ -406,7 +406,80 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('permission_mode_option_bypassPermissions')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('families and thinking levels replace the flat model list', (
+      tester,
+    ) async {
+      await pumpBar(
+        tester,
+        ServerMessage.fromJson({
+          'type': 'system',
+          'subtype': 'antigravity_settings',
+          'sessionId': 'antigravity-session',
+          'provider': 'antigravity',
+          'antigravity': {
+            'model': 'gemini-3.8-flash-high',
+            'models': [
+              {
+                'id': 'gemini-3.8-flash-high',
+                'name': 'Gemini 3.8 Flash (High)',
+              },
+            ],
+            'baseModel': 'gemini-3.8-flash',
+            'modelOptions': [
+              {
+                'id': 'gemini-3.8-flash',
+                'name': 'Gemini 3.8 Flash',
+                'thoughtLevels': ['high', 'medium', 'low'],
+              },
+              {
+                'id': 'gemini-3.1-pro',
+                'name': 'Gemini 3.1 Pro',
+                'thoughtLevels': ['high', 'low'],
+              },
+            ],
+            'thoughtLevel': 'high',
+            'thoughtLevels': ['low', 'medium', 'high'],
+            'permissionMode': 'default',
+            'permissionModes': ['default'],
+          },
+        }) as SystemMessage,
+      );
+
+      expect(find.text('Gemini 3.8 Flash · High'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('antigravity_model_chip')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_thought_level_medium')),
+      );
+      await tester.pumpAndSettle();
+      expect(_decode(bridge.sentMessages.single), {
+        'type': 'set_antigravity_settings',
+        'sessionId': 'antigravity-session',
+        'thoughtLevel': 'medium',
+      });
+
+      // The sheet stays open; picking a family shows that family's levels.
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_model_option_gemini-3.1-pro')),
+      );
+      await tester.pumpAndSettle();
+      expect(_decode(bridge.sentMessages.last), {
+        'type': 'set_antigravity_settings',
+        'sessionId': 'antigravity-session',
+        'model': 'gemini-3.1-pro',
+      });
+      expect(
+        find.byKey(const ValueKey('antigravity_thought_level_medium')),
         findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('antigravity_thought_level_low')),
+        findsOneWidget,
       );
     });
 

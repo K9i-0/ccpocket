@@ -1169,6 +1169,16 @@ class AppLocalizationsJa extends AppLocalizations {
       'Antigravity 対応はプレビュー版です。動作が変わったり、一部の機能が使えなかったりすることがあります。';
 
   @override
+  String get antigravityAuthLogin => 'Google ログイン';
+
+  @override
+  String get antigravityAuthApiKey => 'APIキー';
+
+  @override
+  String get antigravityUsageUnavailable =>
+      'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。';
+
+  @override
   String get permissionAcceptEditsDescription => 'ファイル編集を自動で承認します';
 
   @override

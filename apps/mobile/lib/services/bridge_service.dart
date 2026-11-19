@@ -202,6 +202,28 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsAntigravity =>
       _protocolCapabilities.contains('antigravity_v1');
 
+  /// The Bridge reports model families, thinking levels, the plan and context
+  /// usage for Antigravity, and serves [requestAntigravityCatalog].
+  bool get supportsAntigravityCatalog =>
+      _protocolCapabilities.contains('antigravity_v2');
+
+  /// What a new Antigravity session offers, as last reported by the Bridge.
+  AntigravitySettings? get antigravityCatalog => _antigravityCatalog;
+  AntigravitySettings? _antigravityCatalog;
+
+  /// Emits whenever [antigravityCatalog] is answered (also with an error).
+  Stream<AntigravityCatalogMessage> get antigravityCatalogResults =>
+      _antigravityCatalogController.stream;
+  final _antigravityCatalogController =
+      StreamController<AntigravityCatalogMessage>.broadcast();
+
+  /// Asks the Bridge for the Antigravity catalog. It reads it without sending
+  /// a prompt, and answers on [antigravityCatalogResults].
+  void requestAntigravityCatalog() {
+    if (!supportsAntigravityCatalog) return;
+    send(ClientMessage.getAntigravityCatalog());
+  }
+
   /// Emits [supportsAntigravity] when the Bridge announces a different value
   /// than before, or than the one the last list request was built with (the
   /// capability arrives after the first request, and the CLI can be installed
@@ -862,6 +884,7 @@ class BridgeService implements BridgeServiceBase {
     _channel?.sink.close();
     _channel = null;
     _lastUsageResult = null;
+    _antigravityCatalog = null;
     _promptHistoryBridgeId = null;
     if (isBridgeSwitch) {
       _clearBridgeScopedState(
@@ -1096,6 +1119,9 @@ class BridgeService implements BridgeServiceBase {
               case UsageResultMessage():
                 _lastUsageResult = msg;
                 _usageController.add(msg);
+              case AntigravityCatalogMessage(:final catalog):
+                if (catalog != null) _antigravityCatalog = catalog;
+                _antigravityCatalogController.add(msg);
               case RecordingListMessage():
                 _recordingListController.add(msg);
               case RecordingContentMessage():
@@ -1731,6 +1757,7 @@ class BridgeService implements BridgeServiceBase {
     _protocolCapabilities = const {};
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
+    _antigravityCatalog = null;
     _pendingHistoryDeltaSinceSeq.clear();
     _inFlightNonReplayableToolActions.clear();
     _respondedToolUseIds.clear();
@@ -5285,6 +5312,7 @@ class BridgeService implements BridgeServiceBase {
     _offlinePendingActionsController.close();
     _debugBundleController.close();
     _usageController.close();
+    _antigravityCatalogController.close();
     _backupResultController.close();
     _restoreResultController.close();
     _backupInfoController.close();
