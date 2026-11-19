@@ -39,7 +39,10 @@ import {
   type CodexThreadSourceKind,
   type CodexThreadSummary,
 } from "./codex-process.js";
-import { AntigravityProcess } from "./antigravity-process.js";
+import {
+  AntigravityProcess,
+  AntigravityStartError,
+} from "./antigravity-process.js";
 import {
   antigravityRecentSessions,
   listAntigravitySessions,
@@ -2660,6 +2663,9 @@ export class BridgeWebSocketServer {
         session.process instanceof CodexProcess ? session.process : undefined,
       );
     }
+    // Antigravity keeps no transcript file the Bridge can read; the replayed
+    // conversation lives in session history instead.
+    if (session.provider === "antigravity") return [];
     if (!session.claudeSessionId) return [];
     return getSessionHistory(session.claudeSessionId);
   }
@@ -3815,6 +3821,11 @@ export class BridgeWebSocketServer {
                   | "plan"
                   | undefined) ?? legacyPermissionMode)
               : legacyPermissionMode;
+          // Antigravity has no bypass mode; such a request starts in default.
+          const antigravityPermissionMode =
+            claudePermissionMode === "bypassPermissions"
+              ? "default"
+              : claudePermissionMode;
           if (provider === "codex") {
             console.log(
               `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
@@ -3904,11 +3915,12 @@ export class BridgeWebSocketServer {
                       {
                         sessionId: msg.sessionId,
                         model: msg.model,
-                        permissionMode: claudePermissionMode,
+                        permissionMode: antigravityPermissionMode,
                       },
                     ),
-                    permissionMode: claudePermissionMode,
-                    executionMode,
+                    permissionMode: antigravityPermissionMode,
+                    executionMode:
+                      executionMode === "fullAccess" ? "default" : executionMode,
                     planMode,
                     usedFallback: false,
                   }
@@ -3987,14 +3999,14 @@ export class BridgeWebSocketServer {
                 projectPath,
                 session: createdSession,
                 permissionMode:
-                  provider === "claude"
+                  provider !== "codex"
                     ? effectivePermissionMode
                     : claudePermissionMode,
                 executionMode:
-                  provider === "claude"
+                  provider !== "codex"
                     ? effectiveExecutionMode
                     : executionMode,
-                planMode: provider === "claude" ? effectivePlanMode : planMode,
+                planMode: provider !== "codex" ? effectivePlanMode : planMode,
                 sandboxMode: createdSession?.codexSettings?.sandboxMode
                   ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
                   : msg.sandboxMode,
@@ -4262,6 +4274,19 @@ export class BridgeWebSocketServer {
             queued: outcome === "queued",
           });
           this.broadcastSessionList();
+          break;
+        }
+
+        if (
+          session.process instanceof AntigravityProcess &&
+          !session.process.isRunning
+        ) {
+          // Rejected before it reaches history, so no ghost turn is left.
+          this.send(ws, {
+            type: "error",
+            sessionId: session.id,
+            message: "Antigravity session is not running. Start it again.",
+          });
           break;
         }
 
@@ -6655,8 +6680,14 @@ export class BridgeWebSocketServer {
                 candidate.provider === "antigravity" &&
                 candidate.claudeSessionId === msg.sessionId,
             );
+          const liveSession = live ? this.sessionManager.get(live.id) : undefined;
+          const reusable =
+            liveSession?.process instanceof AntigravityProcess &&
+            liveSession.process.isRunning;
+          // An exited process stays listed until eviction; replace it.
+          if (liveSession && !reusable) this.sessionManager.destroy(liveSession.id);
           const sessionId =
-            live?.id ??
+            (reusable ? liveSession?.id : undefined) ??
             this.sessionManager.create(
               resumeProjectPath,
               {},
@@ -6691,6 +6722,9 @@ export class BridgeWebSocketServer {
               sessionId: msg.sessionId,
               requestId: msg.resumeRequestId,
               message: `Failed to restore Antigravity session: ${errorMessageOf(err)}`,
+              ...(err instanceof AntigravityStartError && err.errorCode
+                ? { errorCode: err.errorCode }
+                : {}),
             });
             break;
           }

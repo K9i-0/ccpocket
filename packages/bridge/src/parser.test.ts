@@ -298,6 +298,17 @@ describe("parseClientMessage", () => {
     ).toMatchObject({ provider: "antigravity", includeAntigravity: true });
   });
 
+  it("accepts archiving an Antigravity session", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"archive_session","sessionId":"s","provider":"antigravity","projectPath":"/p"}',
+      ),
+    ).toMatchObject({ provider: "antigravity" });
+    expect(
+      parseClientMessage('{"type":"archive_session","sessionId":"s","projectPath":"/p"}'),
+    ).toBeNull();
+  });
+
   it("validates set_antigravity_model", () => {
     expect(
       parseClientMessage(

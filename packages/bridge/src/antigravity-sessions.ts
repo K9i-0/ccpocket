@@ -1,7 +1,7 @@
 import {
   AcpTransport,
   StdioAcpTransport,
-  resolveAntigravityConfig,
+  getAntigravityConfig,
   type AntigravityConfig,
 } from "./antigravity-process.js";
 
@@ -29,7 +29,9 @@ export function listAntigravitySessions(options?: {
   createTransport?: (config: AntigravityConfig) => AcpTransport;
   timeoutMs?: number;
 }): Promise<AntigravitySessionEntry[]> {
-  const config = options?.config ?? resolveAntigravityConfig();
+  const config = options?.config ?? getAntigravityConfig();
+  // Agent-driven Bridges never touch the Google login profile.
+  if (config.requireApiKey && !config.apiKey) return Promise.resolve([]);
   const transport = (
     options?.createTransport ?? ((c) => new StdioAcpTransport(c))
   )(config);

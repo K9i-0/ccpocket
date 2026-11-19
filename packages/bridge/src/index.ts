@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
-import { isAntigravityCliAvailable } from "./antigravity-process.js";
+import {
+  getAntigravityConfig,
+  isAntigravityCliAvailable,
+} from "./antigravity-process.js";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { setupProxy } from "./proxy.js";
@@ -356,6 +359,8 @@ export async function startServer() {
   // Other HTTP requests retain a five-minute total deadline above.
   httpServer.requestTimeout = 60 * 60 * 1000;
 
+  // Capture the Antigravity key before any provider child can inherit it.
+  getAntigravityConfig();
   wsServer = new BridgeWebSocketServer({
     detectAntigravity: () => isAntigravityCliAvailable(),
     server: httpServer,

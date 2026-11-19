@@ -2593,7 +2593,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "archive_session":
         if (typeof msg.sessionId !== "string") return null;
-        if (msg.provider !== "claude" && msg.provider !== "codex") return null;
+        if (!isOptionalEnum(msg.provider, PROVIDERS) || msg.provider === undefined)
+          return null;
         if (typeof msg.projectPath !== "string") return null;
         break;
       default:

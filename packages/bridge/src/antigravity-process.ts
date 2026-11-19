@@ -32,6 +32,8 @@ export const ANTIGRAVITY_API_KEY_PROFILE = "antigravity-cli-ccpocket-apikey";
 
 const ACP_PROTOCOL_VERSION = 1;
 const REQUEST_TIMEOUT_MS = 60_000;
+/** `session/load` replays the whole conversation before it answers. */
+const LOAD_TIMEOUT_MS = 10 * 60_000;
 
 export type AntigravityAuthMode = "login" | "api_key";
 
@@ -48,6 +50,31 @@ export interface AntigravityConfig {
   requireApiKey: boolean;
 }
 
+let capturedConfig: AntigravityConfig | undefined;
+
+/**
+ * The Bridge's Antigravity configuration, read once. The API key is then
+ * removed from `process.env` so no other child process (Codex, Claude, the
+ * commands they run) inherits it.
+ */
+export function getAntigravityConfig(): AntigravityConfig {
+  if (!capturedConfig) {
+    capturedConfig = resolveAntigravityConfig();
+    delete process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+  }
+  return capturedConfig;
+}
+
+/** Start failure with the error code clients can act on. */
+export class AntigravityStartError extends Error {
+  constructor(
+    message: string,
+    readonly errorCode?: string,
+  ) {
+    super(message);
+  }
+}
+
 export function resolveAntigravityConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): AntigravityConfig {
@@ -62,7 +89,7 @@ export function resolveAntigravityConfig(
 
 /** True when the configured CLI is installed and speaks ACP. */
 export function isAntigravityCliAvailable(
-  config: AntigravityConfig = resolveAntigravityConfig(),
+  config: AntigravityConfig = getAntigravityConfig(),
 ): Promise<boolean> {
   return new Promise((resolve) => {
     execFile(config.bin, ["acp", "--help"], { timeout: 10_000 }, (err) =>
@@ -156,6 +183,9 @@ export class StdioAcpTransport extends AcpTransport {
     child.on("exit", (code) => {
       this.child = null;
       this.emit("exit", code);
+    });
+    child.stdin.on("error", () => {
+      // EPIPE while the child is going away; its exit is reported separately.
     });
     child.stderr.on("data", () => {
       // agy writes its own log file; stderr only repeats it.
@@ -415,6 +445,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private ready = false;
   /** History replay from `session/load` must not look like a live turn. */
   private replaying = false;
+  private replayedUserTurns = 0;
 
   private resolveReady: (() => void) | null = null;
   private rejectReady: ((err: Error) => void) | null = null;
@@ -451,7 +482,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     createTransport?: (config: AntigravityConfig) => AcpTransport;
   }) {
     super();
-    this.config = options?.config ?? resolveAntigravityConfig();
+    this.config = options?.config ?? getAntigravityConfig();
     this.createTransport =
       options?.createTransport ?? ((config) => new StdioAcpTransport(config));
     this.readyPromise = new Promise<void>((resolve, reject) => {
@@ -580,11 +611,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (options?.sessionId) {
       this.replaying = true;
       try {
-        session = await this.request("session/load", {
-          sessionId: options.sessionId,
-          cwd: projectPath,
-          mcpServers: [],
-        });
+        session = await this.request(
+          "session/load",
+          { sessionId: options.sessionId, cwd: projectPath, mcpServers: [] },
+          LOAD_TIMEOUT_MS,
+        );
       } finally {
         this.flushAssistant();
         this.replaying = false;
@@ -697,6 +728,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.lastStopReason = undefined;
       this.cancelRequested = false;
     }
+    // A prompt sent after a cancel starts over; the cancelled request still
+    // answers, but it no longer decides how the turn ends.
+    this.cancelRequested = false;
     this.outstandingPrompts++;
     this.setStatus("running");
     const prompt: Array<Record<string, unknown>> = [];
@@ -820,8 +854,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   }
 
   async setPermissionMode(mode: PermissionMode): Promise<void> {
+    if (!this._sessionId) throw new Error("Antigravity session is not ready");
     const modeId = acpModeFromPermissionMode(mode);
-    if (!modeId || !this._sessionId) {
+    if (!modeId) {
       throw new Error(`Antigravity does not support the ${mode} mode`);
     }
     await this.request("session/set_mode", {
@@ -905,7 +940,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         // Only `session/load` replays user turns.
         this.flushAssistant();
         const text = isRecord(update.content) ? stringOr(update.content.text) : "";
-        if (text) this.emitMessage({ type: "user_input", text });
+        if (text) {
+          // Without an id, two identical prompts would be merged into one.
+          this.emitMessage({
+            type: "user_input",
+            text,
+            userMessageUuid: `antigravity:replay:${++this.replayedUserTurns}`,
+          });
+        }
         return;
       }
       case "tool_call":
@@ -1250,16 +1292,20 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     });
   }
 
-  private failStart(message: string, errorCode?: string): void {
+  private failStart(rawMessage: string, errorCode?: string): void {
     if (this.stopped) return;
+    const message = this.config.apiKey
+      ? rawMessage.split(this.config.apiKey).join("<redacted>")
+      : rawMessage;
     this.emitMessage({
       type: "error",
       message,
       ...(errorCode ? { errorCode } : {}),
     });
+    // Before stop(), which would report a generic "stopped" instead.
+    this.rejectReady?.(new AntigravityStartError(message, errorCode));
     this.stop();
     this.ready = false;
-    this.rejectReady?.(new Error(message));
     this.setStatus("idle");
     this.emitExit(null);
   }
@@ -1272,7 +1318,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private handleExit(code: number | null): void {
     const wasStopped = this.stopped;
+    if (!wasStopped && !this.ready) {
+      // Died while starting: report it instead of leaving callers waiting.
+      this.failStart(`Antigravity exited before the session was ready (code ${code})`);
+      return;
+    }
     this.transport = null;
+    this.pendingPermissions.clear();
+    this.queuedInputs = [];
     for (const pending of this.pendingRequests.values()) {
       clearTimeout(pending.timer);
       pending.reject(new Error("Antigravity exited"));

@@ -324,6 +324,10 @@ describe("AntigravityProcess with recorded sessions", () => {
       "session/load",
     ]);
     expect(ofType(messages, "user_input")).toHaveLength(5);
+    // Identical prompts must stay separate turns in history.
+    expect(
+      new Set(ofType(messages, "user_input").map((m) => m.userMessageUuid)).size,
+    ).toBe(5);
     expect(ofType(messages, "stream_delta")).toHaveLength(0);
     expect(ofType(messages, "thinking_delta")).toHaveLength(0);
     expect(results(messages)).toHaveLength(0);
@@ -430,7 +434,116 @@ describe("AntigravityProcess API-key guard", () => {
   });
 });
 
+describe("AntigravityProcess failure handling", () => {
+  it("reports an exit during startup instead of leaving callers waiting", async () => {
+    const transport = new ScriptedTransport({});
+    const { proc, messages } = createProcess(transport);
+    proc.start("/workspace");
+    proc.sendInput("queued while starting");
+    transport.emit("exit", 1);
+
+    await expect(proc.waitUntilReady()).rejects.toThrow(
+      "exited before the session was ready",
+    );
+    expect(ofType(messages, "error")).toHaveLength(1);
+    expect(transport.written.map((m) => m.method)).toEqual(["initialize"]);
+    expect(proc.sendInput("after exit")).toBe(false);
+  });
+
+  it("hands the real start failure and its code to resume callers", async () => {
+    const transport = new ScriptedTransport({
+      initialize: { result: {} },
+      "session/load": {
+        error: { code: -32000, message: "Authentication required" },
+      },
+    });
+    const { proc } = createProcess(transport);
+    proc.start("/workspace", { sessionId: "s1" });
+    await expect(proc.waitUntilReady()).rejects.toMatchObject({
+      errorCode: "antigravity_auth_required",
+    });
+  });
+
+  it("never shows the API key in a start error", async () => {
+    const transport = new ScriptedTransport({
+      initialize: { result: {} },
+      authenticate: { error: { code: -32602, message: "bad key test-key" } },
+    });
+    const { proc, messages } = createProcess(transport, API_KEY);
+    proc.start("/workspace");
+    await until(() => ofType(messages, "error").length > 0, "error");
+    expect(ofType(messages, "error")[0].message).toBe("bad key <redacted>");
+  });
+
+  it("drops pending approvals when the process dies mid-turn", async () => {
+    const transport = new ReplayTransport(loadTrace("trace-turns").slice(0, 26));
+    const { proc, messages } = createProcess(transport);
+    proc.start("/workspace");
+    await until(() => proc.status === "idle", "session ready");
+    proc.sendInput("first");
+    await until(() => results(messages).length === 1, "turn 1");
+    proc.sendInput("edit");
+    await until(() => proc.status === "waiting_approval", "approval");
+    transport.emit("exit", 1);
+
+    expect(proc.getPendingPermissions()).toHaveLength(0);
+    expect(results(messages).at(-1)).toMatchObject({ subtype: "error" });
+    expect(proc.status).toBe("idle");
+  });
+
+  it("lets a prompt sent after a cancel finish normally", async () => {
+    const answers: Json[] = [];
+    const transport = new (class extends AcpTransport {
+      start(): void {}
+      stop(): void {}
+      write(message: Json): void {
+        answers.push(message);
+        if (message.method === "initialize" || message.method === "session/new") {
+          const result =
+            message.method === "initialize"
+              ? {}
+              : {
+                  sessionId: "s1",
+                  models: { currentModelId: "gemini-x", availableModels: [] },
+                  modes: { currentModeId: "default", availableModes: [] },
+                };
+          setImmediate(() =>
+            this.emit("message", { jsonrpc: "2.0", id: message.id, result }),
+          );
+        }
+      }
+    })();
+    const { proc, messages } = createProcess(transport);
+    proc.start("/workspace");
+    await until(() => proc.status === "idle", "session ready");
+
+    proc.sendInput("first");
+    proc.interrupt();
+    proc.sendInput("second");
+    const [first, second] = answers.filter((m) => m.method === "session/prompt");
+    transport.emit("message", { id: first.id, result: { stopReason: "cancelled" } });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(results(messages)).toHaveLength(0);
+    transport.emit("message", { id: second.id, result: { stopReason: "end_turn" } });
+    await until(() => results(messages).length === 1, "second prompt");
+    expect(results(messages)[0].subtype).toBe("success");
+  });
+});
+
 describe("Antigravity helpers", () => {
+  it("captures the key once and removes it from the Bridge environment", async () => {
+    const { getAntigravityConfig } = await import("./antigravity-process.js");
+    const previous = process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+    process.env.CCPOCKET_ANTIGRAVITY_API_KEY = "captured-key";
+    try {
+      expect(getAntigravityConfig().apiKey).toBe("captured-key");
+      expect(process.env.CCPOCKET_ANTIGRAVITY_API_KEY).toBeUndefined();
+      expect(getAntigravityConfig().apiKey).toBe("captured-key");
+    } finally {
+      if (previous !== undefined) process.env.CCPOCKET_ANTIGRAVITY_API_KEY = previous;
+    }
+  });
+
   it("keeps API keys out of the agent environment and picks the profile", () => {
     const env = { PATH: "/bin", GEMINI_API_KEY: "g", CCPOCKET_ANTIGRAVITY_API_KEY: "k" };
     const login = buildAntigravitySpawnSpec("/p", LOGIN, env);
