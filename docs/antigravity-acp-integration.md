@@ -187,6 +187,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **MCP ツール**は `name: "call_mcp_tool"`、`kind: "execute"`、`title: "MCP Tool <ツール名>"`、`rawInput: {ServerName, ToolName, Arguments}` で届く（`Arguments` はオブジェクト。`agy` の記録では JSON 文字列のこともある）。
 - **MCP ツールは `auto` でも承認を求める。** `auto` が自動で通すのはワークスペース内の編集とサンドボックス内のコマンドで、許可ルールのない MCP ツールは Ask になる（公式ドキュメントの記述。本番では 4 回とも別のツールで、同じツールの 2 回目は観測していない）。ACP の選択肢は `allow_once` / `reject_once` だけなので、承認しても `agy` 側には残らない。
 - **許可ルールの保存先**は `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow`（Antigravity アプリと共有。`--app-data-dir` のプロファイルを問わず効く）。`mcp(<サーバー>/<ツール>)` と `mcp(<サーバー>/*)` が書ける。`mcp(dart-mcp/*)` を足すと承認リクエストなしで実行された（APIキーのプロファイルで 1 回。Google ログインのプロファイルと、起動済みのセッションへの反映は未確認）。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
+- **ワークスペース外の読み取り**（`read_file`）も `auto` で承認を求める。`read_file(<ディレクトリの絶対パス>)` で、その配下の読み取りが承認なしになる。効くのはディレクトリの完全指定だけで、名前の前方一致（`.../work.madogiwa.madogiwaFrontier` で `...madogiwaFrontier.verify.credits` を許可する）、`*`、`regex:` は効かなかった（APIキーのプロファイルで各 1 回）。
 - セッション開始直後は MCP サーバーの起動が間に合わず、モデルに `call_mcp_tool` が見えないことがある。
 
 ### Google ログインでの確認（2026-11-19、所有者の指示による例外）
