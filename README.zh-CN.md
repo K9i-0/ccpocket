@@ -35,6 +35,18 @@ npx @ccpocket/bridge@latest
 | **Linux（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux) 下载最新 `.tar.gz`。请查找带有 `linux/v*` 标签的发行版。也可以使用 `yay -S cc-pocket-bin` 安装由社区维护的 [AUR 软件包](https://aur.archlinux.org/packages/cc-pocket-bin)。 |
 | **Windows（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows) 下载最新 `.zip`。请查找带有 `windows/v*` 标签的发行版。 |
 
+## 预览：Antigravity
+
+CC Pocket 也可以通过 CLI（`agy`）使用 [Google Antigravity](https://antigravity.google/)。
+这是预览功能：行为可能变化，部分 Codex / Claude 支持的功能暂不可用。
+
+- 在运行 Bridge 的机器上安装 Antigravity CLI，并运行一次 `agy` 完成登录。
+  新建会话界面会出现 **Antigravity** 标签。
+- 默认使用 `agy` 的 Google 登录。请以交互方式使用。
+  Google 的条款限制第三方使用该登录，请先阅读
+  [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)。
+- 暂不支持：回退、分叉、编辑消息、置顶、用量显示。
+
 ## 免费使用
 
 CC Pocket 可以免费使用。如果它对你的开发流程有帮助，欢迎在应用内成为 Supporter。Supporter 购买会用于覆盖 AI 工具费用，并帮助持续开发。

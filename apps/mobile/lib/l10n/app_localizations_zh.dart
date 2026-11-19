@@ -1154,6 +1154,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get antigravityModelAfterStartNote => '会话开始后可以切换模型。';
 
   @override
+  String get antigravityPreviewNote => 'Antigravity 支持目前为预览版。行为可能会变化，部分功能暂不可用。';
+
+  @override
   String get permissionAcceptEditsDescription => '自动批准文件编辑';
 
   @override

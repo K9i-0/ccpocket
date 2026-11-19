@@ -1196,6 +1196,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'You can switch the model after the session starts.';
 
   @override
+  String get antigravityPreviewNote =>
+      'Antigravity support is a preview. Behavior may change and some features are not available yet.';
+
+  @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';
 
   @override

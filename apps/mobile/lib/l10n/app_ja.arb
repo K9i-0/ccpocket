@@ -440,6 +440,7 @@
   "permissionAutoDescription": "Claude が安全チェック付きで承認を自動処理します",
   "permissionAutoDescriptionAntigravity": "Antigravity が承認の要否を自動で判断します",
   "antigravityModelAfterStartNote": "モデルはセッション開始後に切り替えられます。",
+  "antigravityPreviewNote": "Antigravity 対応はプレビュー版です。動作が変わったり、一部の機能が使えなかったりすることがあります。",
   "permissionAcceptEditsDescription": "ファイル編集を自動で承認します",
   "permissionPlanDescription": "変更を実行する前に分析と計画を行います",
   "permissionBypassDescription": "ほとんどの承認確認なしで実行します",

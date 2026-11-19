@@ -1,3 +1,5 @@
+import 'preview_badge.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show listEquals;
@@ -3395,13 +3397,43 @@ class _OptionsSection extends StatelessWidget {
             Padding(
               key: const ValueKey('dialog_antigravity_model_note'),
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                l.antigravityModelAfterStartNote,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: appColors.subtleText,
-                  height: 1.4,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.antigravityModelAfterStartNote,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appColors.subtleText,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1, right: 6),
+                        child: PreviewBadge(
+                          key: const ValueKey(
+                            'dialog_antigravity_preview_badge',
+                          ),
+                          label: l.terminalAppExperimental,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          l.antigravityPreviewNote,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: appColors.subtleText,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           if (provider == Provider.claude)

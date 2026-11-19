@@ -351,6 +351,7 @@
   "permissionAutoDescription": "让 Claude 通过内置安全检查自动处理审批",
   "permissionAutoDescriptionAntigravity": "让 Antigravity 自动判断哪些操作需要审批",
   "antigravityModelAfterStartNote": "会话开始后可以切换模型。",
+  "antigravityPreviewNote": "Antigravity 支持目前为预览版。行为可能会变化，部分功能暂不可用。",
   "permissionAcceptEditsDescription": "自动批准文件编辑",
   "permissionPlanDescription": "仅分析和规划，不执行",
   "permissionBypassDescription": "跳过所有权限提示",

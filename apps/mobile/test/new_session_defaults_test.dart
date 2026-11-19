@@ -168,6 +168,11 @@ void main() {
         find.byKey(const ValueKey('dialog_antigravity_model_note')),
         findsOne,
       );
+      // Antigravity ships as a preview and says so before a session starts.
+      expect(
+        find.byKey(const ValueKey('dialog_antigravity_preview_badge')),
+        findsOne,
+      );
       expect(
         find.byKey(const ValueKey('dialog_advanced_antigravity')),
         findsNothing,

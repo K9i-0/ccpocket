@@ -51,6 +51,7 @@ ccpocket-bridge --version
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
 | `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
+| `CCPOCKET_ANTIGRAVITY_API_KEY` | (none) | Preview. Gemini API key for Antigravity sessions. Without it they use the Google login from `agy`. See [Preview: Antigravity](#preview-antigravity) |
 | `BRIDGE_CODEX_ASSIST_MODEL` | `gpt-5.6-luna` | Codex model used for auto-rename and commit-message assist calls |
 | `BRIDGE_CODEX_ASSIST_REASONING_EFFORT` | `none` | Reasoning effort used for Codex assist calls |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
@@ -354,10 +355,52 @@ This is experimental and currently targets Codex CLI co-presence only. Codex App
 compatibility is not guaranteed and may use a different integration model in the
 future.
 
+## Preview: Antigravity
+
+The Bridge can run [Google Antigravity](https://antigravity.google/) sessions through
+the Antigravity CLI's Agent Client Protocol server (`agy acp`). This is a preview and
+may change.
+
+**Setup**
+
+1. Install the Antigravity CLI on the Bridge machine so that `agy` is on the `PATH`
+   the Bridge runs with.
+2. Sign in once by running `agy` in a terminal.
+3. Restart the Bridge. `npx @ccpocket/bridge@latest doctor` lists
+   `Antigravity CLI` when it is found, and the app shows an Antigravity tab in the
+   new session sheet.
+
+**Authentication**
+
+- By default the Bridge uses the Google login stored by `agy` and never changes it.
+  Google's [Antigravity terms](https://antigravity.google/terms/) restrict using that
+  login through third-party software. Google's maintainers have described interactive
+  clients, where a person writes every prompt, as permitted, and agents or background
+  loops that generate prompts as not permitted. That is guidance in an issue thread,
+  not part of the terms, and your account carries the risk. Use Antigravity sessions
+  interactively, and do not automate them with a Google login.
+- For this reason the Bridge never sends prompts of its own to Antigravity: session
+  titles come from Antigravity itself, and auto-rename is off for these sessions.
+- To use a Gemini API key instead, set `CCPOCKET_ANTIGRAVITY_API_KEY` in the Bridge
+  environment (the background service setup keeps it). The Bridge then runs `agy`
+  with a separate profile, so your everyday `agy` login is untouched. Usage is billed
+  to the key, the model list is Gemini only, and conversations started with the key
+  are separate from those started with the Google login.
+
+**Limits in this preview**
+
+- No rewind, fork, message editing, sandbox toggle, pinning or usage display.
+- Approvals are "allow once" or "deny"; Antigravity offers no "always allow".
+- Resuming a conversation resets the model to Antigravity's default.
+- Antigravity conversations appear on the first page of the recent list and under the
+  Antigravity filter, not in project-filtered or content-search results.
+- Not verified on Windows.
+
 ## Requirements
 
 - Node.js v22.19.0+
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
+- Optional (preview): [Antigravity CLI](https://antigravity.google/product/antigravity-cli)
 
 Current Codex CLI docs recommend the standalone installer for macOS/Linux:
 

@@ -35,6 +35,18 @@ npx @ccpocket/bridge@latest
 | **Linux（実験的）** | 最新の `.tar.gz` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux) からダウンロードできます。`linux/v*` タグのリリースを探してください。コミュニティ管理の [AUR パッケージ](https://aur.archlinux.org/packages/cc-pocket-bin)を `yay -S cc-pocket-bin` でインストールすることもできます。 |
 | **Windows（実験的）** | 最新の `.zip` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows) からダウンロードできます。`windows/v*` タグのリリースを探してください。 |
 
+## プレビュー: Antigravity
+
+CC Pocket は [Google Antigravity](https://antigravity.google/) も CLI（`agy`）経由で操作できます。
+プレビュー機能のため、動作が変わることがあり、Codex / Claude で使える機能の一部はまだ使えません。
+
+- Bridge を動かすマシンに Antigravity CLI を入れ、`agy` を一度実行してサインインします。
+  新規セッション画面に **Antigravity** タブが表示されます。
+- 既定では `agy` の Google ログインを使います。対話的に使ってください。
+  Google の規約はこのログインのサードパーティ経由の利用を制限しているため、先に
+  [Bridge の注意事項](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)を確認してください。
+- 未対応: 巻き戻し、フォーク、メッセージ編集、ピン留め、使用量の表示。
+
 ## 無料で利用できます
 
 CC Pocket は無料で利用できます。もし開発ワークフローに役立ったら、アプリ内の Supporter から応援してもらえると助かります。いただいた支援は、AI ツール利用料や継続開発の維持に使われます。

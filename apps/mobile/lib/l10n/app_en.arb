@@ -428,6 +428,7 @@
   "permissionAutoDescription": "Let Claude auto-handle approvals with built-in safety checks",
   "permissionAutoDescriptionAntigravity": "Let Antigravity decide which actions need your approval",
   "antigravityModelAfterStartNote": "You can switch the model after the session starts.",
+  "antigravityPreviewNote": "Antigravity support is a preview. Behavior may change and some features are not available yet.",
   "permissionAcceptEditsDescription": "Auto-approve file edits",
   "permissionPlanDescription": "Analyze and plan before executing changes",
   "permissionBypassDescription": "Run without most approval prompts",

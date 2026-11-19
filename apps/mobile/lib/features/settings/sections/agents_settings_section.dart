@@ -1,3 +1,5 @@
+import '../../../widgets/preview_badge.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -151,7 +153,7 @@ class AgentsSettingsSection extends StatelessWidget {
                     children: [
                       Flexible(child: Text(l.terminalApp)),
                       const SizedBox(width: 8),
-                      _ExperimentalBadge(label: l.terminalAppExperimental),
+                      PreviewBadge(label: l.terminalAppExperimental),
                     ],
                   ),
                   subtitle: state.terminalApp.isConfigured
@@ -168,28 +170,6 @@ class AgentsSettingsSection extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _ExperimentalBadge extends StatelessWidget {
-  const _ExperimentalBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: cs.tertiaryContainer,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, color: cs.onTertiaryContainer),
-      ),
     );
   }
 }

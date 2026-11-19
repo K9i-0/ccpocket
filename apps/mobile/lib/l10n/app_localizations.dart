@@ -2273,6 +2273,12 @@ abstract class AppLocalizations {
   /// **'モデルはセッション開始後に切り替えられます。'**
   String get antigravityModelAfterStartNote;
 
+  /// No description provided for @antigravityPreviewNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravity 対応はプレビュー版です。動作が変わったり、一部の機能が使えなかったりすることがあります。'**
+  String get antigravityPreviewNote;
+
   /// No description provided for @permissionAcceptEditsDescription.
   ///
   /// In ja, this message translates to:
