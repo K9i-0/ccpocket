@@ -4644,6 +4644,43 @@ void main() {
       },
     );
 
+    test('a queued list request replaced by a newer one is not sent', () async {
+      // The Bridge answers only the last list request it gets. An older
+      // request flushed after the newer one would win, and its answer is
+      // ignored as stale: the list stayed empty until the timeout.
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requests = <Map<String, dynamic>>[];
+      final sockets = <WebSocket>[];
+      server.transform(WebSocketTransformer()).listen((socket) {
+        sockets.add(socket);
+        socket.listen((data) {
+          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (json['type'] == 'list_recent_sessions') requests.add(json);
+        });
+      });
+
+      final bridge = BridgeService();
+      // Both are queued: there is no connection yet.
+      bridge.requestRecentSessions();
+      bridge.switchFilter(searchQuery: 'newer');
+      final connected = bridge.connectionStatus.firstWhere(
+        (state) => state == BridgeConnectionState.connected,
+      );
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      await connected.timeout(const Duration(seconds: 2));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(requests, hasLength(1));
+      expect(requests.single['searchQuery'], 'newer');
+
+      bridge.disconnect();
+      for (final socket in sockets) {
+        unawaited(socket.close());
+      }
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test(
       'scoped requests can retry after replacing a same-target socket',
       () async {

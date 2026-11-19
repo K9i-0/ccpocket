@@ -2520,7 +2520,7 @@ class BridgeService implements BridgeServiceBase {
             }
           }
         }
-        send(msg);
+        if (!_isSupersededRecentSessionsRequest(msg)) send(msg);
         _flushingMessageQueue.removeWhere(
           (candidate) => identical(candidate, msg),
         );
@@ -2547,6 +2547,21 @@ class BridgeService implements BridgeServiceBase {
         );
       }
     }
+  }
+
+  /// A queued list request that a newer one has replaced since it was queued.
+  ///
+  /// The Bridge answers only the last list request it gets. Sent after the
+  /// newer one, this older request would be the one answered, and its answer
+  /// is dropped here as stale: the list would stay empty until it times out.
+  bool _isSupersededRecentSessionsRequest(ClientMessage message) {
+    if (message.type != 'list_recent_sessions') return false;
+    final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+    final requestId = json['requestId'];
+    if (requestId is! String) return false;
+    return !_pendingRecentSessionsRequests.values.any(
+      (pending) => pending.requestId == requestId,
+    );
   }
 
   Future<void> _ensureOfflineQueueRestored() {
