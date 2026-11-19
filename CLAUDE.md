@@ -25,6 +25,7 @@ Claude Code / Codex 対応モバイルクライアント。Bridge は `packages/
 - ブラウザでのプレビューが必要な場合: [.claude/skills/web-preview/SKILL.md](.claude/skills/web-preview/SKILL.md)
 - シミュレーターをリモートで見せる場合: [.claude/skills/sim-preview/SKILL.md](.claude/skills/sim-preview/SKILL.md)
 - プロジェクト構成・接続設定・環境変数・プロトコルの概要: [docs/agent-project-reference.md](docs/agent-project-reference.md)。実際の型・設定はコードと照合する。
+- Antigravity（`agy acp`）連携の開発・改修・検証: [docs/antigravity-acp-integration.md](docs/antigravity-acp-integration.md)。着手前に認証ルールを読む。
 
 Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。文書のみの変更は参照・形式・内容を検証する。
 
@@ -34,6 +35,7 @@ Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。�
 - ランタイム操作は dart-mcp / Marionette（debug・profile）、権限ダイアログ等のネイティブUIは `mise exec -- agent-device`、テスト・静的解析・フォーマットはCLIを使う。詳細は `mobile-automation` を参照。
 - 新しいクライアントメッセージは古いBridgeの `unsupported_message` に対応する。通常チャットは `_unsupportedActions`、直接応答を待つ専用UIはそのUI内で更新案内を扱う。
 - TypeScript は ESM / strict / NodeNext module resolution。
+- Antigravity（`agy`）にエージェントがプロンプトを送るときは、必ず APIキー認証を使う（サブエージェント・E2E を含む）。APIキー用プロファイル（`--app-data-dir`）で起動し、`authenticate`（`gemini-api-key`）を先に送り、モデル一覧が Gemini のみであることを確認してから送る。Google ログイン（サブスク枠）でのエージェント駆動は規約違反でアカウント停止の対象になる。既定プロファイルには `authenticate` を送らない。人間の手入力による検証は Google ログインでもよい。詳細は [docs/antigravity-acp-integration.md](docs/antigravity-acp-integration.md)。
 
 ## リリース・配布
 
