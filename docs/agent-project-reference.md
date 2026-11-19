@@ -98,6 +98,8 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ─┤
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` (1MB) | Diff画像の自動表示閾値 (KB単位) |
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` (5MB) | Diff画像の最大サイズ (MB単位、超過はテキストのみ) |
 | `HTTPS_PROXY` | (なし) | プロキシ設定 (`http://`, `socks5://` 対応) |
+| `CCPOCKET_ANTIGRAVITY_API_KEY` | (なし) | Antigravity 用の Gemini APIキー。未設定なら `agy` の Google ログインを使う。詳細は [antigravity-acp-integration.md](antigravity-acp-integration.md) |
+| `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY` | (なし) | `1` で、APIキー認証を確認できない限り Antigravity にプロンプトを送らない（エージェント検証用。`scripts/e2e-env.sh bridge` が設定する） |
 
 ### プッシュ通知 (FCM)
 

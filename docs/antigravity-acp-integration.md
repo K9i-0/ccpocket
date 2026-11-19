@@ -1,9 +1,9 @@
 # Antigravity（`agy acp`）連携の対応計画
 
 > 調査日: 2026-11-18 / 対象: Antigravity CLI `agy` 1.5.10（ACP protocol version 1）
-> 状態: 調査と手動検証まで完了。実装は未着手。
+> 状態: Bridge とアプリに実装済み（2026-11-19、agy 1.5.12 で確認）。
 
-Google Antigravity を ccpocket の3つ目のプロバイダーとして追加するための、判断・検証ルール・作業計画をまとめる。
+Google Antigravity を ccpocket の3つ目のプロバイダーとして扱うための、判断・検証ルール・実装の要点をまとめる。
 
 ## 最重要: 検証時の認証ルール
 
@@ -18,6 +18,7 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 
 手順は次のとおり。
 
+0. **Bridge 経由の検証は `bash scripts/e2e-env.sh bridge` のテスト用 Bridge で行う。** このスクリプトは `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY=1` を立て、`.env.antigravity.local` のキーを `CCPOCKET_ANTIGRAVITY_API_KEY` として渡す。この状態の Bridge は、キーがなければ `agy` を起動せず、モデル一覧が Gemini のみでなければプロンプトを送らない。本番 Bridge（8765）や、このフラグのない Bridge に対して、エージェントが Antigravity セッションへ入力を送ってはいけない。`agy` を直接動かす検証は `scripts/antigravity-acp-probe.mjs` を使う。以下の 1〜4 は、どちらの経路でもコードが強制している内容。
 1. **APIキー用プロファイルで起動する。** `agy acp --app-data-dir <APIキー用の名前>` を使う。既定プロファイル（`~/.gemini/antigravity-cli`）ではエージェントからプロンプトを送らない。
 2. **毎回、最初に `authenticate`（`methodId: "gemini-api-key"`）を送る。** まっさらなプロファイルは、何もしないと Google ログインで動く（ログイン情報はプロファイル間で共有される）。
 3. **`session/new` の応答でモデル一覧を確認してから、プロンプトを送る。** APIキーモードでは Gemini のみが返る。`claude-*` や `gpt-oss-*` が含まれていたら Google ログイン側で動いているので、送らずに中止する。
@@ -43,9 +44,15 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 | `agy -p` ヘッドレス（`stream-json`） | 承認の往復ができない（承認が必要な操作は soft-deny）。制御メッセージも不可 |
 | `language_server agentapi` | 文書化されていない内部ツール |
 
-## 未決定事項
+## 認証方式（2026-11-19 決定）
 
-- **エンドユーザーにサブスク認証（Google ログイン）を出すか。** 規約上の位置づけが確定していない（次節）。APIキーを既定にしてサブスク認証を自己責任のオプトインにする案と、事前に Google へ確認する案がある。
+- **既定は Google ログイン。** Bridge は既定プロファイルで `agy acp` を起動し、`authenticate` を送らない。ユーザーが `agy` でサインイン済みの状態をそのまま使う。人間が直接操作する対話クライアントとしての利用であり、下の Issue 回答で許容側とされた形にとどめる。
+- **APIキーは任意。** Bridge の環境変数 `CCPOCKET_ANTIGRAVITY_API_KEY` を設定すると、専用プロファイル `antigravity-cli-ccpocket-apikey` で起動し、`authenticate`（`gemini-api-key`、キーは `_meta.apiKey`）を送る。キーは子プロセスの環境変数には入れない（エージェントが実行するコマンドへ渡さないため）。`GEMINI_API_KEY` は読まない（グローバルに export されたキーで黙って従量課金に切り替わらないようにするため）。
+- **Bridge が自分でプロンプトを作る機能は、Antigravity に送らない。** ログイン認証で禁止されている「人間以外による駆動」にあたるため。
+  - 自動リネームは Antigravity セッションでは無効。セッション名は `agy` が付けるタイトル（`session_info_update`）を使う。
+  - コミットメッセージの自動生成は `agy` を使わない（既存どおり `claude` CLI を呼ぶ）。
+  - `_meta.antigravity.systemPrompt.append` は使わない。
+- セッション履歴はプロファイルごとに別なので、認証方式を切り替えると、もう一方で作った会話は一覧に出ない。
 
 ## 規約上の位置づけ
 
@@ -59,13 +66,6 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 
 Issue の回答は規約本文ではない。フレームワークがシステムプロンプトや履歴を自動で付ける場合の追加質問には回答がない。**配布アプリとしての ccpocket がサブスク認証で許容されるとは確定していない。**
 
-### 製品側の前提
-
-サブスク認証を出す場合、人間が打っていないプロンプトを送る機能は Antigravity プロバイダーで無効にする。
-
-- 自動リネームなど、Bridge が裏でプロンプトを生成する機能
-- ゴール通知後の自動継続、バックグラウンドの自動再開
-- `_meta.antigravity.systemPrompt.append` によるシステムプロンプトへの追記
 
 ## 検証で分かった仕様
 
@@ -128,33 +128,73 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - 1ターン（入力 10,958、出力 142 トークン）のあと、AI Studio の使用状況に、このキー名でリクエスト 1 件が計上された。Google ログイン側ではなく APIキーで課金されている。
 - クレジット残高への反映は未確認。費用の表示には数時間から 24 時間以上かかると課金ページに書かれている。送信前の残高は、クレジット合計 ¥14,244（¥6,329 が 1 件、¥1,583 が 5 件）、前払い残高 ¥391。
 
+## 追加検証の結果（2026-11-19、APIキー）
+
+トレース: [trace-cancel.ndjson](antigravity-acp/trace-cancel.ndjson)、[trace-steer.ndjson](antigravity-acp/trace-steer.ndjson)、[trace-accept-edits.ndjson](antigravity-acp/trace-accept-edits.ndjson)、[trace-resume.ndjson](antigravity-acp/trace-resume.ndjson)
+
+- **`_meta.apiKey`**: `authenticate` の `_meta.apiKey` でキーを渡せる。環境変数は不要。
+- **キャンセル**: `session/cancel` を送ると、実行中の `session/prompt` が `stopReason: "cancelled"` で返る。
+- **ステア**: ターン実行中に 2 本目の `session/prompt` を送ると、1 本目が `usage` なしの `{"stopReason":"end_turn"}` で即座に返り、2 本目がターンの残りを引き継ぐ。モデルは進行中の出力を終えてから追加の指示に応じた。ターンの終了は「未完了の `session/prompt` が 0 になったとき」で判定する。
+- **`session/resume`**: 履歴をリプレイせずに会話を継続できる。Bridge は履歴を表示するため `session/load` を使う。
+- **`accept-edits`**: ファイル編集は承認なしで実行され、コマンド実行は承認を求める。
+- **`auto`**: APIキー認証ではモード一覧に出ず、`session/set_mode` は `-32602`（OS のターミナルサンドボックスが必要）で失敗した。モードはセッション応答の一覧から出す。
+- **モデル**: `availableModels` の ID はモデルと思考レベルの組（`gemini-3.8-flash-high` など）。`session/set_model` で切り替わる。`session/load` で再開するとモデルは `agy` の既定に戻る（APIキー認証では `gemini-3.1-pro-low`）。
+- **画像入力**: `{type:"image", data, mimeType}` のブロックを Bridge 経由で送り、内容を答えられた。
+- **拒否後の挙動**: 拒否するとツールが `failed` になり、追加の発言なしで `end_turn` になる（再確認）。承認の選択肢は `allow_once` / `reject_once` の 2 つ（再確認）。
+
 ## 未検証
 
-- キャンセル（`session/cancel`）と、実行中ターンへの追加入力（ステア）
-- `session/resume`、モデル切替後の応答、画像入力、elicitation（質問フォーム）
-- `accept-edits` / `auto` / `plan` モードでの承認の出方
-- `_meta.apiKey` での認証が実際に通るか
+- elicitation（質問フォーム）、`plan` モードでの承認の出方
 - 無料枠の APIキーで `agy` が動くか
-- 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）
+- 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）。確かめるには禁止側の送信になりうるので、検証しない
 - 既定プロファイルで `authenticate` を送ったときの影響と、`oauth-personal` へ戻す経路
-- Google AI プラン付属の Cloud クレジットが、`agy` の APIキー経由の利用に適用されるか（最初の検証ターンのあと、AI Studio の課金ページでクレジット残高が減ったことを確認する）
+- Google AI プラン付属の Cloud クレジットが、`agy` の APIキー経由の利用に適用されるか（AI Studio の課金ページでクレジット残高が減ったことを確認する。費用の反映に数時間以上かかる）
 
-## 作業計画
+## 実装の要点
 
-1. **ガード付きの検証ランチャーを使う（作成済み）。** `node scripts/antigravity-acp-probe.mjs --cwd <dir> --prompt "..."`。APIキー用プロファイル `antigravity-cli-apikey` で起動し、`authenticate` を送り、モデル一覧が Gemini のみであることを確認できなければプロンプトを送らずに終了する。エージェントによる検証は必ずこれを通す。承認リクエストは既定で拒否し、`--allow` で許可する。
-2. **未検証の項目を APIキーで埋める。** 上の一覧のうち、キャンセル、ステア、`session/resume`、モデル切替、各モードの承認を優先する。
-3. **Bridge に ACP クライアントを実装する。** `CodexProcess` / `SdkProcess` と並ぶプロセスクラスとして、`agy acp` の起動、JSON-RPC の往復、`session/update` から Bridge の `ServerMessage` への変換、承認リクエストの対応づけを行う。ユニットテストはトレースをフィクスチャにする。
-4. **セッション管理をつなぐ。** `Provider` に Antigravity を追加し、作成、再開（`session/load`）、一覧（`cwd` での絞り込み）、モード・モデル・思考レベルの切替を対応させる。
-5. **認証設定を追加する。** APIキーの保管と、起動時のプロファイル選択。サブスク認証の扱いは未決定事項の結論に従う。
-6. **アプリ側を対応させる。** プロバイダー選択、モデル・モードの表示、承認 UI（選択肢が2つの場合と、拒否後に無言で終わる場合の表示）。
-7. **E2E を APIキーで行う。**
+### Bridge
+
+- [antigravity-process.ts](../packages/bridge/src/antigravity-process.ts): `agy acp` の起動、ACP の往復、Bridge メッセージへの変換。`CodexProcess` / `SdkProcess` と同じイベント（`message` / `status` / `exit` / `input_ready`）を出す。
+  - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から unified diff を作る）。
+  - 承認リクエストは `availableDecisions: ["accept", "decline"]` を付ける。アプリは「常に許可」を出さない。
+  - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
+  - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。`bypassPermissions` は非対応。
+- [antigravity-sessions.ts](../packages/bridge/src/antigravity-sessions.ts): 短命の `agy acp` で `session/list` を呼び、最近のセッション一覧に載せる（15 秒キャッシュ）。
+- 環境変数:
+
+| 変数 | 意味 |
+|------|------|
+| `CCPOCKET_ANTIGRAVITY_API_KEY` | Gemini APIキー。設定すると APIキー用プロファイルで動く |
+| `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY` | `1` で、APIキー認証を確認できない限りプロンプトを送らない（エージェント検証用） |
+| `CCPOCKET_ANTIGRAVITY_BIN` | `agy` の実行ファイル（既定 `agy`） |
+
+- プロトコルの追加:
+  - `provider: "antigravity"`（`start` / `resume_session` / `list_recent_sessions`）
+  - クライアント → Bridge: `set_antigravity_model {sessionId, model}`、`list_recent_sessions.includeAntigravity`
+  - Bridge → クライアント: `system` の `init` / `antigravity_settings` に `antigravity`（現在のモデル、選べるモデルとモード、認証方式）。セッション概要に `antigravitySettings`
+  - 機能宣言 `antigravity_v1`（`agy acp` が使えるマシンでだけ出す）
+- 明示エラーを返す操作: フォーク、巻き戻し、メッセージ編集、サンドボックス切替、ゴール、Codex / Claude 用の設定変更。
+
+### 制約
+
+- 再開（`session/load`）するとモデルが `agy` の既定に戻る。Bridge はセッションごとのモデルを保存していない。
+- 最近のセッション一覧で Antigravity の行が混ざるのは、絞り込みのない一覧の先頭ページだけ。プロジェクト絞り込み、ピン留めのみ、全文検索の一覧には出ない。プロバイダーを Antigravity に絞った一覧はページ送りできる。
+- Antigravity の会話にはプロジェクト割り当てとピン留めがない。
+- 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）はできない。ターンのキャンセルだけ行う。
+- 使用量（`get_usage`）は対象外。
+
+### アプリ
+
+- 3 つ目のチャット画面は作らず、Claude 用の画面を使う（モードが Claude の権限モードにそのまま対応するため）。
+- 新規セッションの Antigravity タブ、プロバイダーフィルター、モデル切替は、Bridge が `antigravity_v1` を宣言しているときだけ出す。
+- モデルの選択はセッション開始後に行う（一覧はセッション応答でしか取れないため）。
 
 ## 互換性方針
 
-- Antigravity は新しい `provider` の値として追加する。既存の Claude / Codex セッションの挙動とメッセージは変えない。
-- 新しいアプリが古い Bridge に Antigravity セッションの作成を送った場合は、`unsupported_message` として扱い、Bridge の更新を案内する。
-- 古いアプリが新しい Bridge に接続した場合に、Antigravity セッションを一覧にどう出すか（隠すか、読み取り専用で出すか）は、実装時にプロトコルバージョンと合わせて決めてここに追記する。
-- `agy` が未導入、または ACP 非対応のバージョンのときは、プロバイダーを利用不可として示す（`agy acp --help` で判定できる）。
+- Antigravity は新しい `provider` の値として追加した。既存の Claude / Codex セッションの挙動とメッセージは変えていない。
+- **新しいアプリ + 古い Bridge**: 古い Bridge は `antigravity_v1` を宣言しないので、アプリは Antigravity の UI を出さない。`set_antigravity_model` は `_unsupportedActions` に登録してあり、届かない場合は Bridge の更新を案内する。
+- **古いアプリ + 新しい Bridge**: 古いアプリは Antigravity セッションを作れない。別の端末が作ったセッションは実行中の一覧に出て、古いアプリでは Claude 用の画面で開く。メッセージの形は Claude / Codex と同じなので会話と承認は動き、Claude 専用の操作（巻き戻し、フォーク、設定変更）は Bridge が明示エラーを返す。最近のセッション一覧には、`includeAntigravity` を送るアプリにだけ Antigravity の行を返す（古いアプリが Claude として再開しようとするのを防ぐ）。
+- `agy` が未導入、または ACP 非対応のバージョンのときは、`antigravity_v1` を宣言しない（`agy acp --help` で判定）。`npx @ccpocket/bridge doctor` は、導入されている場合だけ Antigravity CLI を表示する。
 
 ## 検証費用の目安
 
