@@ -2,6 +2,11 @@ import 'package:material_ui/material_ui.dart';
 
 import '../models/messages.dart';
 
+/// Antigravity accent (Blue 600 / Blue 400), next to Claude's orange and
+/// Codex's teal.
+const antigravityAccentLight = Color(0xFF2563EB);
+const antigravityAccentDark = Color(0xFF60A5FA);
+
 /// Visual tokens for rendering provider-specific labels and badges.
 class ProviderStyle {
   final Color foreground;
@@ -22,7 +27,11 @@ ProviderStyle providerStyleFor(BuildContext context, Provider provider) {
   final accent = switch (provider) {
     Provider.claude => colorScheme.primary,
     Provider.codex => colorScheme.secondary,
-    Provider.antigravity => colorScheme.tertiary,
+    // Its own blue: the theme's tertiary is an amber too close to Claude.
+    Provider.antigravity =>
+      colorScheme.brightness == Brightness.dark
+          ? antigravityAccentDark
+          : antigravityAccentLight,
   };
 
   return ProviderStyle(
