@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 
 export interface ArchivedSession {
   sessionId: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   projectPath: string;
   archivedAt: string;
 }
@@ -54,7 +54,7 @@ export class ArchiveStore {
   /** Archive a session. Idempotent – archiving an already-archived session is a no-op. */
   async archive(
     sessionId: string,
-    provider: "claude" | "codex",
+    provider: "claude" | "codex" | "antigravity",
     projectPath: string,
   ): Promise<void> {
     if (this.cache.has(sessionId)) return;

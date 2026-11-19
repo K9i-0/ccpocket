@@ -13,6 +13,8 @@
 #   E2E_BRIDGE_PORT       use this port instead of picking one
 #   E2E_SIM_DEVICE_TYPE   simulator device type for new simulators (default: "iPhone 17")
 #   BRIDGE_API_KEY        token for `connect` (default: ~/.ccpocket/bridge-api-key)
+#   CCPOCKET_ANTIGRAVITY_API_KEY  Gemini API key for Antigravity sessions
+#                         (default: GEMINI_API_KEY in .env.antigravity.local)
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
@@ -80,6 +82,15 @@ cmd_bridge() {
   # If another agent grabbed the port meanwhile, the Bridge exits with
   # EADDRINUSE; run this command again to pick the next port.
   cd "$root"
+  # Agents drive this Bridge, so Antigravity must never run on a Google login
+  # here (docs/antigravity-acp-integration.md). The Bridge refuses to send a
+  # prompt unless the API key below is verified.
+  export CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY=1
+  local key_file="$root/.env.antigravity.local"
+  if [[ -z "${CCPOCKET_ANTIGRAVITY_API_KEY:-}" && -f "$key_file" ]]; then
+    CCPOCKET_ANTIGRAVITY_API_KEY="$(sed -n 's/^GEMINI_API_KEY=//p' "$key_file" | head -1)"
+    export CCPOCKET_ANTIGRAVITY_API_KEY
+  fi
   BRIDGE_PORT="$port" exec npm run bridge
 }
 

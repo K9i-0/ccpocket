@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { isAntigravityCliAvailable } from "./antigravity-process.js";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { setupProxy } from "./proxy.js";
@@ -356,6 +357,7 @@ export async function startServer() {
   httpServer.requestTimeout = 60 * 60 * 1000;
 
   wsServer = new BridgeWebSocketServer({
+    detectAntigravity: () => isAntigravityCliAvailable(),
     server: httpServer,
     apiKey: API_KEY,
     allowedDirs: ALLOWED_DIRS,

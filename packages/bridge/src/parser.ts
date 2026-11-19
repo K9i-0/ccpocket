@@ -1,3 +1,4 @@
+import type { AntigravitySettings } from "./antigravity-process.js";
 import type { AssistantImageRef } from "./markdown-images.js";
 import type { CodexRecoveryState } from "./codex-recovery.js";
 import type { GoalNotification } from "./goal-notifications.js";
@@ -76,7 +77,7 @@ export type CodexPermissionsMode =
   | "fullAccess"
   | "custom";
 
-export type Provider = "claude" | "codex";
+export type Provider = "claude" | "codex" | "antigravity";
 
 export type CodexGoalStatus =
   | "active"
@@ -256,6 +257,7 @@ export type ClientMessage =
       serviceTier: string;
       sessionId?: string;
     }
+  | { type: "set_antigravity_model"; sessionId: string; model: string }
   | {
       type: "set_claude_settings";
       sessionId: string;
@@ -324,7 +326,12 @@ export type ClientMessage =
       workspaceKind?: "project" | "unassigned";
       requestScope?: "list" | "project";
       requestId?: string;
-      provider?: "claude" | "codex";
+      provider?: Provider;
+      /**
+       * Also list Antigravity conversations when no provider is selected.
+       * Clients that can open them send it (capability `antigravity_v1`).
+       */
+      includeAntigravity?: boolean;
       namedOnly?: boolean;
       searchQuery?: string;
       /**
@@ -791,6 +798,8 @@ export type ServerMessage =
       requestId?: string;
       tipCode?: string;
       codexCliJoin?: CodexCliJoinTarget;
+      /** Antigravity session settings: current and selectable models/modes. */
+      antigravity?: AntigravitySettings;
     }
   | {
       type: "assistant";
@@ -1387,7 +1396,7 @@ export function normalizeToolResultContent(
   return typeof content === "string" ? content : String(content ?? "");
 }
 
-const PROVIDERS = ["claude", "codex"] as const;
+const PROVIDERS = ["claude", "codex", "antigravity"] as const;
 const CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 const PERMISSION_MODES = [
   "default",
@@ -1805,6 +1814,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
           return null;
         break;
+      case "set_antigravity_model":
+        if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
+        if (typeof msg.model !== "string" || msg.model.trim() === "")
+          return null;
+        break;
       case "set_claude_settings":
         if (typeof msg.sessionId !== "string" || !msg.sessionId) return null;
         if (!isOptionalNonEmptyString(msg.model)) return null;
@@ -1912,7 +1926,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.provider !== undefined &&
           msg.provider !== "claude" &&
-          msg.provider !== "codex"
+          msg.provider !== "codex" &&
+          msg.provider !== "antigravity"
         )
           return null;
         break;
@@ -1967,7 +1982,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.provider !== undefined &&
           msg.provider !== "claude" &&
-          msg.provider !== "codex"
+          msg.provider !== "codex" &&
+          msg.provider !== "antigravity"
         )
           return null;
         if (

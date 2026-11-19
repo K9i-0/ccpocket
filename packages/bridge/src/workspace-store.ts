@@ -4,7 +4,7 @@ import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export type WorkspaceProvider = "claude" | "codex";
+export type WorkspaceProvider = "claude" | "codex" | "antigravity";
 export type WorkspaceKind = "project";
 
 export interface WorkspaceProject {
@@ -82,7 +82,9 @@ function validAssignment(value: unknown): value is SessionWorkspaceAssignment {
   if (!value || typeof value !== "object") return false;
   const assignment = value as Partial<SessionWorkspaceAssignment>;
   return (
-    (assignment.provider === "claude" || assignment.provider === "codex") &&
+    (assignment.provider === "claude" ||
+      assignment.provider === "codex" ||
+      assignment.provider === "antigravity") &&
     isNonEmptyString(assignment.providerSessionId) &&
     assignment.kind === "project" &&
     (assignment.projectId === undefined || isNonEmptyString(assignment.projectId)) &&

@@ -39,6 +39,13 @@ import {
   type CodexThreadSourceKind,
   type CodexThreadSummary,
 } from "./codex-process.js";
+import { AntigravityProcess } from "./antigravity-process.js";
+import {
+  antigravityRecentSessions,
+  listAntigravitySessions,
+  type AntigravityRecentSession,
+  type AntigravitySessionEntry,
+} from "./antigravity-sessions.js";
 import {
   normalizeCodexServiceTierForClient,
   isCodexServiceTierSupported,
@@ -323,6 +330,8 @@ const BRIDGE_PROTOCOL_CAPABILITIES = [
   "recent_sessions_filters_v1",
   "context_compaction_v1",
 ];
+/** Advertised only while the Antigravity CLI is installed on this machine. */
+const ANTIGRAVITY_PROTOCOL_CAPABILITY = "antigravity_v1";
 
 /** Default and maximum page size for `get_session_transcript`. */
 const TRANSCRIPT_PAGE_DEFAULT = 200;
@@ -892,6 +901,7 @@ export function recentSessionsCoalescingKey(
     workspaceKind: msg.workspaceKind ?? null,
     requestScope: msg.requestScope ?? null,
     provider: msg.provider ?? null,
+    includeAntigravity: msg.includeAntigravity ?? null,
     namedOnly: msg.namedOnly ?? null,
     searchQuery: msg.searchQuery ?? null,
     searchContent: msg.searchContent ?? null,
@@ -1069,6 +1079,11 @@ function mergeRecentSessionPages(sessions: unknown[]): unknown[] {
 }
 
 export interface BridgeServerOptions {
+  /**
+   * Reports whether the Antigravity CLI can be used. Left out, Antigravity is
+   * treated as unavailable (tests); the Bridge entry point passes the real probe.
+   */
+  detectAntigravity?: () => Promise<boolean>;
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
@@ -1166,6 +1181,12 @@ export class BridgeWebSocketServer {
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
   private codexAutoReviewDisabled = false;
+  /** `agy acp` is installed; gates the `antigravity_v1` capability. */
+  private antigravityAvailable = false;
+  private readonly detectAntigravity: (() => Promise<boolean>) | undefined;
+  private antigravitySessionsCache:
+    | { at: number; entries: Promise<AntigravitySessionEntry[]> }
+    | undefined;
   private codexAutoReviewPolicyLoaded = false;
   private codexMetadataRequest: Promise<void> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
@@ -1235,6 +1256,7 @@ export class BridgeWebSocketServer {
   private resumeOperations = new Map<string, ResumeOperation>();
 
   constructor(options: BridgeServerOptions) {
+    this.detectAntigravity = options.detectAntigravity;
     const {
       server,
       apiKey,
@@ -2003,6 +2025,12 @@ export class BridgeWebSocketServer {
     session: SessionInfo,
   ): Promise<void> {
     const sessionId = session.id;
+    if (session.process instanceof AntigravityProcess) {
+      // Antigravity cannot drop a turn from its conversation, so the prompt
+      // stays in history and only the turn is cancelled.
+      session.process.interrupt();
+      return;
+    }
     let candidate = this.sessionManager.retractableUserInput(sessionId);
     if (session.status === "idle") {
       // Stop can be tapped right after sending, before the turn has started
@@ -2970,6 +2998,26 @@ export class BridgeWebSocketServer {
     this.send(ws, this.claudeSettingsMessage(sessionId, session));
   }
 
+  private sendAntigravityCurrentSettings(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    if (!(session.process instanceof AntigravityProcess)) return;
+    const settings = session.process.settings;
+    this.send(ws, {
+      type: "system",
+      subtype: "antigravity_settings",
+      sessionId,
+      provider: "antigravity",
+      ...(settings.model ? { model: settings.model } : {}),
+      ...(settings.permissionMode
+        ? { permissionMode: settings.permissionMode }
+        : {}),
+      antigravity: settings,
+    });
+  }
+
   private sendCodexCurrentSettings(
     ws: WebSocket,
     sessionId: string,
@@ -3578,6 +3626,7 @@ export class BridgeWebSocketServer {
     this.lastConnectMetadataRefreshAt = now;
     void this.refreshCodexMetadata();
     void this.refreshClaudeModels();
+    void this.refreshAntigravityAvailability();
     // Load the Codex thread snapshot before the first search / filter.
     this.codexThreadSnapshot.warm();
   }
@@ -3757,7 +3806,7 @@ export class BridgeWebSocketServer {
             planMode,
           );
           const claudePermissionMode =
-            provider === "claude"
+            provider !== "codex"
               ? ((msg.permissionMode as
                   | "default"
                   | "auto"
@@ -3838,6 +3887,31 @@ export class BridgeWebSocketServer {
                     existingWorktreePath: msg.existingWorktreePath,
                   },
                 })
+              : provider === "antigravity"
+                ? {
+                    sessionId: this.sessionManager.create(
+                      projectPath,
+                      {},
+                      undefined,
+                      {
+                        useWorktree: msg.useWorktree,
+                        worktreeBranch: msg.worktreeBranch,
+                        existingWorktreePath: msg.existingWorktreePath,
+                      },
+                      provider,
+                      undefined,
+                      undefined,
+                      {
+                        sessionId: msg.sessionId,
+                        model: msg.model,
+                        permissionMode: claudePermissionMode,
+                      },
+                    ),
+                    permissionMode: claudePermissionMode,
+                    executionMode,
+                    planMode,
+                    usedFallback: false,
+                  }
               : {
                   sessionId: this.sessionManager.create(
                     projectPath,
@@ -3951,7 +4025,7 @@ export class BridgeWebSocketServer {
             this.broadcastSessionList();
             if (provider === "codex") {
               void this.refreshCodexMetadata(projectPath);
-            } else {
+            } else if (provider === "claude") {
               void this.refreshClaudeModels(projectPath);
             }
             if (autoFallbackUsed) {
@@ -4109,8 +4183,12 @@ export class BridgeWebSocketServer {
             ? (session.process as Partial<Pick<SdkProcess, "isTurnActive">>)
                 .isTurnActive
             : undefined;
+        // Antigravity takes a prompt during a turn itself (it steers the
+        // running turn), so nothing is held back in the Bridge queue.
         const turnActive =
-          session.provider === "codex"
+          session.provider === "antigravity"
+            ? false
+            : session.provider === "codex"
             ? !session.process.isWaitingForInput
             : typeof sdkTurnActive === "boolean"
               ? sdkTurnActive
@@ -4232,6 +4310,29 @@ export class BridgeWebSocketServer {
                 console.warn(`[ws] Failed to persist image to gallery: ${err}`);
               });
           }
+        }
+
+        if (session.process instanceof AntigravityProcess) {
+          const accepted = session.process.sendInput(
+            text,
+            images.length > 0 ? images : undefined,
+          );
+          if (!accepted) {
+            this.send(ws, {
+              type: "error",
+              sessionId: session.id,
+              message: "Antigravity session is not running. Start it again.",
+            });
+            break;
+          }
+          this.send(ws, {
+            type: "input_ack",
+            sessionId: session.id,
+            ...(clientMessageId ? { clientMessageId } : {}),
+            acceptedSeq,
+            queued: false,
+          });
+          break;
         }
 
         // Codex input path
@@ -4966,6 +5067,24 @@ export class BridgeWebSocketServer {
             });
           break;
         }
+        if (session.process instanceof AntigravityProcess) {
+          session.process.setPermissionMode(msg.mode).catch((err) => {
+            // Modes differ per account: auto needs the OS terminal sandbox.
+            this.send(ws, {
+              type: "error",
+              sessionId: msg.sessionId,
+              message:
+                msg.mode === "auto"
+                  ? "Auto mode is unavailable in this environment. Keeping the current permission mode."
+                  : `Failed to set permission mode: ${errorMessageOf(err)}`,
+              errorCode:
+                msg.mode === "auto"
+                  ? "auto_mode_unavailable"
+                  : "set_permission_mode_rejected",
+            });
+          });
+          break;
+        }
         (session.process as SdkProcess)
           .setPermissionMode(msg.mode)
           .catch((err) => {
@@ -4987,6 +5106,32 @@ export class BridgeWebSocketServer {
               sessionId: msg.sessionId,
               message: `Failed to set permission mode: ${errorMessageOf(err)}`,
             });
+          });
+        break;
+      }
+
+      case "set_antigravity_model": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!(session?.process instanceof AntigravityProcess)) {
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "Model switching here is only supported for Antigravity sessions.",
+            errorCode: "set_antigravity_model_unsupported",
+          });
+          break;
+        }
+        session.process
+          .setModel(msg.model.trim())
+          .then(() => this.broadcastSessionList())
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              sessionId: session.id,
+              message: `Failed to switch model: ${errorMessageOf(err)}`,
+              errorCode: "set_antigravity_model_rejected",
+            });
+            this.sendAntigravityCurrentSettings(ws, session.id, session);
           });
         break;
       }
@@ -5299,6 +5444,15 @@ export class BridgeWebSocketServer {
             message: `Invalid sandbox mode: ${msg.sandboxMode}`,
           });
           return;
+        }
+        if (session.provider === "antigravity") {
+          this.send(ws, {
+            type: "error",
+            sessionId: msg.sessionId,
+            message: "Sandbox mode cannot be changed for Antigravity sessions.",
+            errorCode: "set_sandbox_mode_rejected",
+          });
+          break;
         }
 
         // ---- Claude sandbox toggle ----
@@ -5621,8 +5775,10 @@ export class BridgeWebSocketServer {
           this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
-        if (session.provider === "codex") {
-          const handled = (session.process as CodexProcess).approve(msg.id);
+        if (session.provider !== "claude") {
+          const handled = (
+            session.process as CodexProcess | AntigravityProcess
+          ).approve(msg.id);
           if (handled === false) {
             this.sendToolActionError(
               ws,
@@ -5717,8 +5873,10 @@ export class BridgeWebSocketServer {
           this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
-        if (session.provider === "codex") {
-          const handled = (session.process as CodexProcess).approveAlways(
+        if (session.provider !== "claude") {
+          const handled = (
+            session.process as CodexProcess | AntigravityProcess
+          ).approveAlways(
             msg.id,
           );
           if (handled === false) {
@@ -5747,8 +5905,10 @@ export class BridgeWebSocketServer {
           this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
-        if (session.provider === "codex") {
-          const handled = (session.process as CodexProcess).reject(
+        if (session.provider !== "claude") {
+          const handled = (
+            session.process as CodexProcess | AntigravityProcess
+          ).reject(
             msg.id,
             msg.message,
           );
@@ -5781,8 +5941,10 @@ export class BridgeWebSocketServer {
           this.sendToolActionError(ws, msg, "No active session.");
           return;
         }
-        if (session.provider === "codex") {
-          const handled = (session.process as CodexProcess).answer(
+        if (session.provider !== "claude") {
+          const handled = (
+            session.process as CodexProcess | AntigravityProcess
+          ).answer(
             msg.toolUseId,
             msg.result,
           );
@@ -5909,6 +6071,7 @@ export class BridgeWebSocketServer {
             this.sendCodexCurrentSettings(ws, msg.sessionId, session);
           } else {
             this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
+            this.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
           }
           this.send(ws, {
             type: "status",
@@ -6023,12 +6186,16 @@ export class BridgeWebSocketServer {
         }
 
         try {
-          const { sessions } = await getAllRecentSessions({
-            limit: 1,
-            provider,
-            sessionId: msg.sessionId,
-            archivedSessionIds: this.archiveStore.archivedIds(),
-          });
+          // Antigravity keeps no index the Bridge can search by id.
+          const { sessions } =
+            provider === "antigravity"
+              ? { sessions: [] }
+              : await getAllRecentSessions({
+                  limit: 1,
+                  provider,
+                  sessionId: msg.sessionId,
+                  archivedSessionIds: this.archiveStore.archivedIds(),
+                });
           const recentSession = sessions[0];
           this.send(ws, {
             type: "session_link_resolution",
@@ -6140,6 +6307,7 @@ export class BridgeWebSocketServer {
               : {}),
           } as ServerMessage);
           this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
+          this.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
           this.sendBackgroundTasksState(ws, msg.sessionId, session);
         } else {
@@ -6478,6 +6646,72 @@ export class BridgeWebSocketServer {
           ).catch((error) => {
             console.error("[workspace] Failed to persist resume assignment:", error);
           });
+        }
+        if (provider === "antigravity") {
+          const live = this.sessionManager
+            .list()
+            .find(
+              (candidate) =>
+                candidate.provider === "antigravity" &&
+                candidate.claudeSessionId === msg.sessionId,
+            );
+          const sessionId =
+            live?.id ??
+            this.sessionManager.create(
+              resumeProjectPath,
+              {},
+              undefined,
+              undefined,
+              "antigravity",
+              undefined,
+              undefined,
+              {
+                sessionId: msg.sessionId,
+                model: msg.model,
+                permissionMode: msg.permissionMode,
+              },
+            );
+          const resumed = this.sessionManager.get(sessionId);
+          try {
+            // `session/load` replays the conversation into history before
+            // the client asks for it.
+            if (resumed?.process instanceof AntigravityProcess) {
+              await resumed.process.waitUntilReady();
+            }
+          } catch (err) {
+            this.sessionManager.destroy(sessionId);
+            this.sendResumeFailed(ws, {
+              provider,
+              sourceSessionId: msg.sessionId,
+              projectPath: resumeProjectPath,
+              resumeRequestId: msg.resumeRequestId,
+            });
+            this.send(ws, {
+              type: "error",
+              sessionId: msg.sessionId,
+              requestId: msg.resumeRequestId,
+              message: `Failed to restore Antigravity session: ${errorMessageOf(err)}`,
+            });
+            break;
+          }
+          if (resolvedResumeWorkspace) {
+            this.pendingSessionWorkspaces.set(sessionId, resolvedResumeWorkspace);
+          }
+          this.send(
+            ws,
+            this.buildSessionCreatedMessage({
+              sessionId,
+              provider,
+              projectPath: resumeProjectPath,
+              session: resumed,
+              permissionMode: resumed?.process instanceof AntigravityProcess
+                ? resumed.process.permissionMode
+                : msg.permissionMode,
+              resumeRequestId: msg.resumeRequestId,
+            }),
+          );
+          this.broadcastSessionList();
+          break;
         }
         const normalizedCodexPermissionsMode =
           provider === "codex"
@@ -8574,6 +8808,10 @@ export class BridgeWebSocketServer {
           });
         };
 
+        if (session.provider === "antigravity") {
+          handleError(new Error("Rewind is not supported for Antigravity sessions"));
+          break;
+        }
         if (session.provider === "codex") {
           this.rewindCodexConversation(ws, msg.sessionId, msg.targetUuid, msg.mode)
             .catch(handleError);
@@ -8698,9 +8936,13 @@ export class BridgeWebSocketServer {
       case "fork": {
         const forkSource = this.sessionManager.get(msg.sessionId);
         const fork =
-          forkSource?.provider === "claude"
-            ? this.forkClaudeSession(ws, msg.sessionId, msg.targetUuid)
-            : this.forkCodexSession(ws, msg.sessionId, msg.targetUuid);
+          forkSource?.provider === "antigravity"
+            ? Promise.reject(
+                new Error("Fork is not supported for Antigravity sessions"),
+              )
+            : forkSource?.provider === "claude"
+              ? this.forkClaudeSession(ws, msg.sessionId, msg.targetUuid)
+              : this.forkCodexSession(ws, msg.sessionId, msg.targetUuid);
         fork.catch((err) => {
           const errMsg = err instanceof Error ? err.message : String(err);
           this.send(ws, {
@@ -9374,11 +9616,13 @@ export class BridgeWebSocketServer {
    * the provider to report them; on timeout the prompt is sent unchanged.
    */
   private async prepareInitialPrompt(
-    provider: "claude" | "codex",
+    provider: Provider,
     effectiveCwd: string,
     sessionId: string,
     text: string,
   ): Promise<{ text: string; skills: Array<{ name: string; path: string }> }> {
+    // Antigravity has no skill catalog to translate triggers against.
+    if (provider === "antigravity") return { text, skills: [] };
     if (!hasForeignSkillTrigger(text, provider)) return { text, skills: [] };
     const deadline = Date.now() + INITIAL_PROMPT_SKILL_WAIT_MS;
     let catalog = catalogFromCachedCommands(
@@ -9528,7 +9772,7 @@ export class BridgeWebSocketServer {
       bridgeInstanceId: this.promptHistoryStore?.bridgeInstanceId,
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
-      protocolCapabilities: BRIDGE_PROTOCOL_CAPABILITIES,
+      protocolCapabilities: this.protocolCapabilities(),
     });
   }
 
@@ -9571,7 +9815,7 @@ export class BridgeWebSocketServer {
       bridgeInstanceId: this.promptHistoryStore?.bridgeInstanceId,
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
-      protocolCapabilities: BRIDGE_PROTOCOL_CAPABILITIES,
+      protocolCapabilities: this.protocolCapabilities(),
     });
   }
 
@@ -9808,6 +10052,52 @@ export class BridgeWebSocketServer {
   }
 
   private async listRecentSessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<RecentSessionsListing> {
+    if (msg.provider === "antigravity") {
+      // Antigravity conversations have no project assignment or pins.
+      if (
+        msg.projectId !== undefined ||
+        msg.workspaceKind !== undefined ||
+        msg.pinnedOnly === true
+      ) {
+        return { sessions: [], hasMore: false };
+      }
+      const limit = msg.limit ?? 20;
+      const offset = msg.offset ?? 0;
+      const sessions = await this.listRecentAntigravitySessions(msg);
+      return {
+        sessions: sessions
+          .slice(offset, offset + limit)
+          .map((session) => this.enrichRecentSessionWorkspace(session)),
+        hasMore: sessions.length > offset + limit,
+      };
+    }
+    const listing = await this.listRecentClaudeAndCodexSessions(msg);
+    // Antigravity rows only join the first page of an unfiltered listing: its
+    // list is small and the other providers page on their own offsets.
+    if (
+      msg.provider !== undefined ||
+      !msg.includeAntigravity ||
+      !this.antigravityAvailable ||
+      (msg.offset ?? 0) > 0 ||
+      msg.projectId !== undefined ||
+      msg.workspaceKind !== undefined ||
+      msg.pinnedOnly === true ||
+      recentSessionsFiltersRequested(msg)
+    ) {
+      return listing;
+    }
+    const antigravity = (await this.listRecentAntigravitySessions(msg))
+      .slice(0, msg.limit ?? 20)
+      .map((session) => this.enrichRecentSessionWorkspace(session));
+    return {
+      ...listing,
+      sessions: mergeRecentSessionPages([...listing.sessions, ...antigravity]),
+    };
+  }
+
+  private async listRecentClaudeAndCodexSessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<RecentSessionsListing> {
     const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
@@ -10068,6 +10358,10 @@ export class BridgeWebSocketServer {
     incomplete: boolean;
     filesRead?: number;
   }> {
+    // Antigravity conversations carry no project assignment to filter by.
+    if (msg.provider === "antigravity") {
+      return { sessions: [], incomplete: false };
+    }
     const result = await getAllRecentSessions({
       limit,
       offset: 0,
@@ -10122,12 +10416,59 @@ export class BridgeWebSocketServer {
       limit: msg.limit,
       offset: msg.offset,
       projectPath: msg.projectPath,
-      provider: msg.provider,
+      // Codex and unfiltered requests returned above; Antigravity never
+      // reaches this index scan.
+      provider: "claude",
       namedOnly: msg.namedOnly,
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
       pinnedSessionKeys: pinnedKeys,
     });
+  }
+
+  /** Antigravity conversations matching the request filters, newest first. */
+  private async listRecentAntigravitySessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<AntigravityRecentSession[]> {
+    if (!this.antigravityAvailable) return [];
+    const now = Date.now();
+    if (
+      !this.antigravitySessionsCache ||
+      now - this.antigravitySessionsCache.at > 15_000
+    ) {
+      this.antigravitySessionsCache = {
+        at: now,
+        entries: listAntigravitySessions().catch((err) => {
+          console.warn(
+            `[ws] Failed to list Antigravity sessions: ${errorMessageOf(err)}`,
+          );
+          return [];
+        }),
+      };
+    }
+    return antigravityRecentSessions(
+      await this.antigravitySessionsCache.entries,
+      {
+        projectPath: msg.projectPath
+          ? resolvePlatformPath(msg.projectPath, this.platform)
+          : undefined,
+        searchQuery: msg.searchQuery,
+        archivedSessionIds: this.archiveStore.archivedIds(),
+      },
+    );
+  }
+
+  private async refreshAntigravityAvailability(): Promise<void> {
+    const available = (await this.detectAntigravity?.().catch(() => false)) ?? false;
+    if (available === this.antigravityAvailable) return;
+    this.antigravityAvailable = available;
+    this.broadcastSessionList();
+  }
+
+  private protocolCapabilities(): string[] {
+    return this.antigravityAvailable
+      ? [...BRIDGE_PROTOCOL_CAPABILITIES, ANTIGRAVITY_PROTOCOL_CAPABILITY]
+      : BRIDGE_PROTOCOL_CAPABILITIES;
   }
 
   private enrichRecentSessionWorkspace(session: unknown): unknown {
@@ -10137,7 +10478,9 @@ export class BridgeWebSocketServer {
     const providerSessionId = value.sessionId;
     const projectPath = value.projectPath;
     if (
-      (provider !== "claude" && provider !== "codex") ||
+      (provider !== "claude" &&
+        provider !== "codex" &&
+        provider !== "antigravity") ||
       typeof providerSessionId !== "string" ||
       typeof projectPath !== "string"
     ) {

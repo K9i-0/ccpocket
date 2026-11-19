@@ -24,6 +24,11 @@ import {
   normalizeCodexReasoningEffortForModel,
   type CodexStartOptions,
 } from "./codex-process.js";
+import {
+  AntigravityProcess,
+  type AntigravitySettings,
+  type AntigravityStartOptions,
+} from "./antigravity-process.js";
 import type {
   ServerMessage,
   ProcessStatus,
@@ -59,7 +64,7 @@ export interface WorktreeOptions {
 
 export interface SessionInfo {
   id: string;
-  process: SdkProcess | CodexProcess;
+  process: SdkProcess | CodexProcess | AntigravityProcess;
   provider: Provider;
   history: ServerMessage[];
   historyEntries: HistoryEntry[];
@@ -174,6 +179,14 @@ export interface QueuedSessionInput extends QueuedInputItem {
   imageRefs?: ImageRef[];
 }
 
+export function providerLabel(provider: Provider): string {
+  return provider === "codex"
+    ? "Codex"
+    : provider === "antigravity"
+      ? "Antigravity"
+      : "Claude";
+}
+
 export interface SessionSummary {
   id: string;
   provider: Provider;
@@ -210,6 +223,7 @@ export interface SessionSummary {
     additionalWritableRoots?: string[];
   };
   /** User-selected Claude model, effort and fast mode. */
+  antigravitySettings?: AntigravitySettings;
   claudeSettings?: {
     model?: string;
     effort?: string;
@@ -416,6 +430,7 @@ export class SessionManager {
     provider?: Provider,
     codexOptions?: CodexStartOptions,
     creationOptions?: { deferProcessMessages?: boolean },
+    antigravityOptions?: AntigravityStartOptions,
   ): string {
     const id = randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
@@ -429,7 +444,11 @@ export class SessionManager {
         }
       : undefined;
     const proc =
-      effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
+      effectiveProvider === "codex"
+        ? new CodexProcess()
+        : effectiveProvider === "antigravity"
+          ? new AntigravityProcess()
+          : new SdkProcess();
     const messageDelivery: ProcessMessageDeliveryState = {
       deferred: creationOptions?.deferProcessMessages === true,
       discarded: false,
@@ -491,7 +510,9 @@ export class SessionManager {
       gitBranch,
       worktreePath: wtPath,
       worktreeBranch: wtBranch,
+      // Antigravity titles its own sessions; the Bridge never prompts for one.
       autoRename:
+        effectiveProvider !== "antigravity" &&
         options?.autoRename === true &&
         !options.sessionId &&
         !options.continueMode &&
@@ -499,7 +520,12 @@ export class SessionManager {
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       // A fork gets a new provider id from system/init instead.
-      claudeSessionId: options?.forkSession ? undefined : options?.sessionId,
+      claudeSessionId:
+        effectiveProvider === "antigravity"
+          ? antigravityOptions?.sessionId
+          : options?.forkSession
+            ? undefined
+            : options?.sessionId,
     };
     if (effectiveProvider === "codex") {
       this.seedCodexPastUserTurnUuidMap(session);
@@ -630,6 +656,11 @@ export class SessionManager {
             if (cachedName) {
               msg = { ...msg, toolName: cachedName };
             }
+          }
+        } else if (effectiveProvider === "antigravity") {
+          if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
+            session.claudeSessionId = msg.sessionId;
+            this.saveWorktreeMapping(session);
           }
         } else {
           // Codex: capture thread_id for session tracking and worktree restore.
@@ -868,6 +899,14 @@ export class SessionManager {
       }
     });
 
+    if (proc instanceof AntigravityProcess) {
+      proc.on("title", (title) => {
+        if (this.sessions.get(id) !== session || session.name) return;
+        session.name = title;
+        this.onSessionUpdated?.(session.id);
+      });
+    }
+
     proc.on("usage_limit", (retryAt?: number) => {
       if (this.sessions.get(id) !== session) return;
       session.usageLimitRevision = (session.usageLimitRevision ?? 0) + 1;
@@ -968,10 +1007,12 @@ export class SessionManager {
     }
 
     try {
-      if (effectiveProvider === "codex") {
-        (proc as CodexProcess).start(effectiveCwd, effectiveCodexOptions);
+      if (proc instanceof CodexProcess) {
+        proc.start(effectiveCwd, effectiveCodexOptions);
+      } else if (proc instanceof AntigravityProcess) {
+        proc.start(effectiveCwd, antigravityOptions);
       } else {
-        (proc as SdkProcess).start(effectiveCwd, options);
+        proc.start(effectiveCwd, options);
       }
     } catch (error) {
       messageDelivery.discarded = true;
@@ -1129,13 +1170,15 @@ export class SessionManager {
               session.process.approvalPolicy) === "never"
             ? "fullAccess"
             : "default"
-          : undefined;
+          : session.process.permissionMode === "acceptEdits"
+            ? "acceptEdits"
+            : "default";
     const planMode =
       session.process instanceof SdkProcess
         ? session.process.permissionMode === "plan"
         : session.process instanceof CodexProcess
           ? session.process.collaborationMode === "plan"
-          : undefined;
+          : session.process.permissionMode === "plan";
     return {
       id: session.id,
       provider: session.provider,
@@ -1160,14 +1203,17 @@ export class SessionManager {
                   session.process.approvalPolicy) === "never"
                 ? "bypassPermissions"
                 : "acceptEdits"
-            : undefined,
+            : session.process.permissionMode,
       executionMode,
       planMode,
       model:
-        session.process instanceof SdkProcess
-          ? session.process.model
-          : undefined,
+        session.process instanceof CodexProcess
+          ? undefined
+          : session.process.model,
       codexSettings,
+      ...(session.process instanceof AntigravityProcess
+        ? { antigravitySettings: session.process.settings }
+        : {}),
       ...(session.process instanceof SdkProcess
         ? { claudeSettings: session.process.settings }
         : {}),
@@ -1802,7 +1848,9 @@ export class SessionManager {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       reset = await Promise.race([
-        session.process.readUsageLimitResetAt(),
+        session.process instanceof AntigravityProcess
+          ? Promise.resolve(undefined)
+          : session.process.readUsageLimitResetAt(),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error("Usage lookup timed out")), 10_000);
           timeout.unref?.();
@@ -1946,10 +1994,10 @@ export class SessionManager {
     if (!session) {
       return { canRewind: false, error: "Session not found" };
     }
-    if (session.provider === "codex") {
+    if (session.provider !== "claude") {
       return {
         canRewind: false,
-        error: "Rewind is not supported for Codex sessions",
+        error: `Rewind is not supported for ${providerLabel(session.provider)} sessions`,
       };
     }
     return (session.process as SdkProcess).rewindFiles(targetUuid, dryRun);
@@ -1971,8 +2019,10 @@ export class SessionManager {
     if (!session) {
       throw new Error(`Session ${id} not found`);
     }
-    if (session.provider === "codex") {
-      throw new Error("Rewind is not supported for Codex sessions");
+    if (session.provider !== "claude") {
+      throw new Error(
+        `Rewind is not supported for ${providerLabel(session.provider)} sessions`,
+      );
     }
 
     const claudeSessionId = session.claudeSessionId;
@@ -1999,6 +2049,9 @@ export class SessionManager {
   ): Promise<{ text: string }> {
     const session = this.sessions.get(id);
     if (!session) throw new Error(`Session ${id} not found`);
+    if (session.process instanceof AntigravityProcess) {
+      throw new Error("Rewind is not supported for Antigravity sessions");
+    }
     if (session.status !== "idle") {
       throw new Error("Cannot rewind while the agent is running");
     }

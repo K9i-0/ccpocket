@@ -108,7 +108,10 @@ export async function checkGit(): Promise<CheckResult> {
   }
 }
 
-/** Check both Claude Code CLI and Codex CLI. At least one must be installed. */
+/**
+ * Check the Claude Code and Codex CLIs (at least one must be installed) and
+ * report the optional Antigravity CLI when present.
+ */
 export async function checkCliProviders(): Promise<
   CheckResult & { providers: ProviderResult[] }
 > {
@@ -219,6 +222,25 @@ export async function checkCliProviders(): Promise<
       authMessage,
       remediation,
     });
+  }
+
+  // --- Antigravity CLI (optional: listed only when installed) ---
+  try {
+    const version = execQuiet("agy --version").split("\n")[0];
+    const apiKey = Boolean(process.env.CCPOCKET_ANTIGRAVITY_API_KEY?.trim());
+    providers.push({
+      name: "Antigravity CLI",
+      installed: true,
+      version,
+      // Signing in is only checked when a session starts: asking the CLI
+      // would mean starting it.
+      authenticated: true,
+      authMessage: apiKey
+        ? "API key configured (CCPOCKET_ANTIGRAVITY_API_KEY)"
+        : "Uses the Google login from `agy`; checked when a session starts",
+    });
+  } catch {
+    // Not installed: Antigravity sessions are simply not offered.
   }
 
   const installedCount = providers.filter((p) => p.installed).length;

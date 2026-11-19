@@ -280,6 +280,42 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("accepts Antigravity as a provider", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","provider":"antigravity","model":"gemini-3.8-flash-high"}',
+      ),
+    ).toMatchObject({ provider: "antigravity" });
+    expect(
+      parseClientMessage(
+        '{"type":"resume_session","sessionId":"s","projectPath":"/p","provider":"antigravity"}',
+      ),
+    ).toMatchObject({ provider: "antigravity" });
+    expect(
+      parseClientMessage(
+        '{"type":"list_recent_sessions","provider":"antigravity","includeAntigravity":true}',
+      ),
+    ).toMatchObject({ provider: "antigravity", includeAntigravity: true });
+  });
+
+  it("validates set_antigravity_model", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_antigravity_model","sessionId":"s","model":"gemini-3.8-flash-low"}',
+      ),
+    ).toEqual({
+      type: "set_antigravity_model",
+      sessionId: "s",
+      model: "gemini-3.8-flash-low",
+    });
+    expect(
+      parseClientMessage('{"type":"set_antigravity_model","sessionId":"s","model":" "}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage('{"type":"set_antigravity_model","model":"m"}'),
+    ).toBeNull();
+  });
+
   it("rejects start without projectPath", () => {
     expect(parseClientMessage('{"type":"start"}')).toBeNull();
   });

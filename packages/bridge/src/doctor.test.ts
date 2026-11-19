@@ -170,11 +170,29 @@ describe("doctor checks", () => {
       vi.unstubAllEnvs();
     });
 
+    it("lists the optional Antigravity CLI only when it is installed", async () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "claude --version") return "1.0.23";
+        if (cmd === "claude auth status") return "Logged in";
+        if (cmd === "agy --version") return "1.5.12";
+        throw new Error("not found");
+      });
+      const result = await checkCliProviders();
+      expect(result.message).toBe("2 of 3 available");
+      expect(result.providers.at(-1)).toMatchObject({
+        name: "Antigravity CLI",
+        installed: true,
+        version: "1.5.12",
+        authenticated: true,
+      });
+    });
+
     it("passes when both CLIs are installed and authenticated", async () => {
       mockExecSync.mockImplementation((cmd: string) => {
         if (cmd === "claude --version") return "1.0.23";
         if (cmd === "claude auth status") return "Logged in";
         if (cmd === "codex --version") return "0.104.0";
+        if (cmd === "agy --version") throw new Error("not found");
         return "";
       });
       const originalEnv = process.env.OPENAI_API_KEY;
