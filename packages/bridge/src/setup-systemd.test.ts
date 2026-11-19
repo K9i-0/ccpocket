@@ -149,6 +149,26 @@ describe("setup-systemd", () => {
       expect(content).toContain("Environment=BRIDGE_ALLOW_CLAUDE_OAUTH=1");
     });
 
+    it("persists the Antigravity API key only when it is set", () => {
+      const previous = process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+      try {
+        delete process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+        setupSystemd({});
+        expect(mockWriteFileSync.mock.calls[0]![1] as string).not.toContain(
+          "CCPOCKET_ANTIGRAVITY_API_KEY",
+        );
+
+        process.env.CCPOCKET_ANTIGRAVITY_API_KEY = "key-1";
+        setupSystemd({});
+        expect(mockWriteFileSync.mock.calls[1]![1] as string).toContain(
+          "Environment=CCPOCKET_ANTIGRAVITY_API_KEY=key-1",
+        );
+      } finally {
+        if (previous === undefined) delete process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+        else process.env.CCPOCKET_ANTIGRAVITY_API_KEY = previous;
+      }
+    });
+
     it("persists Codex assist environment overrides", () => {
       process.env.BRIDGE_CODEX_ASSIST_MODEL = "gpt-oss:20b-cloud";
       process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT = "low";

@@ -171,6 +171,12 @@ Environment=BRIDGE_HOST=${host}`;
   if (allowClaudeOAuth) {
     envLines += "\nEnvironment=BRIDGE_ALLOW_CLAUDE_OAUTH=1";
   }
+  // Optional Gemini API key for Antigravity sessions; without it they use
+  // the Google login from `agy`.
+  const antigravityApiKey = process.env.CCPOCKET_ANTIGRAVITY_API_KEY?.trim() ?? "";
+  if (antigravityApiKey) {
+    envLines += `\nEnvironment=CCPOCKET_ANTIGRAVITY_API_KEY=${antigravityApiKey}`;
+  }
   if (codexAssistModel) {
     envLines += `\nEnvironment=BRIDGE_CODEX_ASSIST_MODEL=${codexAssistModel}`;
   }

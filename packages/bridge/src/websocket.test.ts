@@ -1255,6 +1255,94 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridge.close();
     });
 
+    describe("Antigravity", () => {
+      function catalogOf(bridge: BridgeWebSocketServer): any {
+        const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+        (bridge as any).sendSessionList(ws);
+        return ws.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .find((message: any) => message.type === "session_list");
+      }
+
+      it("advertises antigravity_v1 only once the CLI is detected", async () => {
+        const absent = new BridgeWebSocketServer({ server: httpServer });
+        await (absent as any).refreshAntigravityAvailability();
+        expect(catalogOf(absent).protocolCapabilities).not.toContain(
+          "antigravity_v1",
+        );
+        absent.close();
+
+        const present = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+        });
+        expect(catalogOf(present).protocolCapabilities).not.toContain(
+          "antigravity_v1",
+        );
+        await (present as any).refreshAntigravityAvailability();
+        expect(catalogOf(present).protocolCapabilities).toContain(
+          "antigravity_v1",
+        );
+        present.close();
+      });
+
+      it("merges Antigravity rows only for clients that ask for them", async () => {
+        const bridge = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+        });
+        const internal = bridge as any;
+        await internal.refreshAntigravityAvailability();
+        const claude = {
+          sessionId: "c1",
+          provider: "claude",
+          modified: "2026-11-02T00:00:00Z",
+        };
+        const antigravity = [
+          { sessionId: "a2", provider: "antigravity", modified: "2026-11-03T00:00:00Z", projectPath: "/p" },
+          { sessionId: "a1", provider: "antigravity", modified: "2026-11-01T00:00:00Z", projectPath: "/p" },
+        ];
+        vi.spyOn(internal, "listRecentClaudeAndCodexSessions").mockResolvedValue({
+          sessions: [claude],
+          hasMore: true,
+        });
+        vi.spyOn(internal, "listRecentAntigravitySessions").mockResolvedValue(
+          antigravity,
+        );
+        const list = (msg: Record<string, unknown>) =>
+          internal.listRecentSessions({ type: "list_recent_sessions", ...msg });
+
+        // Older apps would resume these rows as Claude sessions.
+        expect(ids(await list({}))).toEqual(["c1"]);
+        const merged = await list({ includeAntigravity: true });
+        expect(ids(merged)).toEqual(["a2", "c1", "a1"]);
+        expect(merged.hasMore).toBe(true);
+        // Later pages and filtered listings page Claude/Codex rows only.
+        expect(ids(await list({ includeAntigravity: true, offset: 20 }))).toEqual(["c1"]);
+        expect(
+          ids(await list({ includeAntigravity: true, searchQuery: "x" })),
+        ).toEqual(["c1"]);
+
+        const own = await list({ provider: "antigravity", limit: 1 });
+        expect(ids(own)).toEqual(["a2"]);
+        expect(own.hasMore).toBe(true);
+        expect(
+          ids(await list({ provider: "antigravity", limit: 1, offset: 1 })),
+        ).toEqual(["a1"]);
+        bridge.close();
+      });
+
+      it("lists nothing for Antigravity while the CLI is unavailable", async () => {
+        const bridge = new BridgeWebSocketServer({ server: httpServer });
+        expect(
+          await (bridge as any).listRecentAntigravitySessions({
+            type: "list_recent_sessions",
+          }),
+        ).toEqual([]);
+        bridge.close();
+      });
+    });
+
     it("ORs projectFilters by path and project id", async () => {
       mockIndexedListing();
       const bridge = new BridgeWebSocketServer({

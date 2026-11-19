@@ -127,6 +127,26 @@ describe("setup-launchd", () => {
       expect(content).toContain("<string>1</string>");
     });
 
+    it("persists the Antigravity API key only when it is set", () => {
+      const previous = process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+      try {
+        delete process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+        setupLaunchd({});
+        expect(mockWriteFileSync.mock.calls[0]![1] as string).not.toContain(
+          "CCPOCKET_ANTIGRAVITY_API_KEY",
+        );
+
+        process.env.CCPOCKET_ANTIGRAVITY_API_KEY = " key-1 ";
+        setupLaunchd({});
+        const content = mockWriteFileSync.mock.calls[1]![1] as string;
+        expect(content).toContain("<key>CCPOCKET_ANTIGRAVITY_API_KEY</key>");
+        expect(content).toContain("<string>key-1</string>");
+      } finally {
+        if (previous === undefined) delete process.env.CCPOCKET_ANTIGRAVITY_API_KEY;
+        else process.env.CCPOCKET_ANTIGRAVITY_API_KEY = previous;
+      }
+    });
+
     it("persists Codex assist environment overrides", () => {
       process.env.BRIDGE_CODEX_ASSIST_MODEL = "gpt-oss:20b-cloud";
       process.env.BRIDGE_CODEX_ASSIST_REASONING_EFFORT = "low";

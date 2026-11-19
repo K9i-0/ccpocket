@@ -138,6 +138,15 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>1</string>`;
   }
 
+  // Optional Gemini API key for Antigravity sessions; without it they use
+  // the Google login from `agy`.
+  const antigravityApiKey = process.env.CCPOCKET_ANTIGRAVITY_API_KEY?.trim() ?? "";
+  if (antigravityApiKey) {
+    envBlock += `
+        <key>CCPOCKET_ANTIGRAVITY_API_KEY</key>
+        <string>${antigravityApiKey}</string>`;
+  }
+
   if (codexAssistModel) {
     envBlock += `
         <key>BRIDGE_CODEX_ASSIST_MODEL</key>
