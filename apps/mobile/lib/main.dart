@@ -67,6 +67,7 @@ import 'services/ssh_startup_service.dart';
 import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
+import 'theme/legacy_material_bridge.dart';
 import 'theme/markdown_style.dart';
 import 'widgets/duo/duo_control_strip.dart';
 import 'widgets/release_error_widget.dart';
@@ -581,12 +582,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
             ),
             builder: (context, child) {
               final mediaQuery = MediaQuery.maybeOf(context);
-              // Dependencies that still import package:flutter/material.dart
-              // (flutter_markdown, skeletonizer, talker_flutter, ...) read the
-              // legacy Theme and MaterialLocalizations, which
-              // package:material_ui no longer provides.
-              // ignore: deprecated_member_use
-              final app = MaterialUiCompatibilityBridge(
+              final app = LegacyMaterialBridge(
                 child: child ?? const SizedBox.shrink(),
               );
               if (mediaQuery == null) return app;
