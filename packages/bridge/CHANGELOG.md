@@ -2,6 +2,31 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.110.0] - 2026-11-19
+
+### Added
+
+- Antigravity (preview) sessions now cover most of what Claude and Codex sessions do:
+  - Question forms: `ask_question` reaches the app as a form to answer.
+  - Plan review: a plan written in plan mode is offered for approval; approving returns to the earlier mode and proceeds.
+  - Model family and thinking level, chosen before the session starts or while it runs. The app can read the models, levels, modes and plan of the account without starting a conversation.
+  - New sessions start in Auto where the account has it, as the `agy` CLI does.
+  - "Always allow" for the same command or for file edits, kept by the Bridge for the session, and a Bypass mode in which the Bridge allows every request.
+  - Messages sent during a turn can be queued until it ends, or steered into it.
+  - Plan usage (5-hour and weekly) from `agy -p /usage`, read only when a client asks for usage and never with an API key.
+  - Context window usage, thinking tokens, duration and tool counts per turn.
+  - Extra directories, descriptions for slash commands, and familiar names for read, search and fetch tools.
+  - Conversations can be renamed, and resume on the model they last used.
+
+### Changed
+
+- Antigravity conversations join searched and project-path listings of recent sessions.
+
+### Fixed
+
+- A missing project folder is reported as such instead of as a missing Antigravity CLI.
+- The question notification no longer says "Claude" for other agents.
+
 ## [1.109.0] - 2026-11-19
 
 ### Added
