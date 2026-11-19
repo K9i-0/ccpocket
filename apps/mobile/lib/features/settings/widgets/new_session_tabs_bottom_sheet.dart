@@ -11,6 +11,7 @@ Future<void> showNewSessionTabsBottomSheet({
   required BuildContext context,
   required List<NewSessionTab> current,
   required ValueChanged<List<NewSessionTab>> onChanged,
+  bool showAntigravity = false,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -22,6 +23,7 @@ Future<void> showNewSessionTabsBottomSheet({
     ),
     builder: (ctx) => _TabsBottomSheetContent(
       current: current,
+      showAntigravity: showAntigravity,
       onChanged: (tabs) {
         onChanged(tabs);
         Navigator.pop(ctx);
@@ -34,9 +36,13 @@ class _TabsBottomSheetContent extends StatefulWidget {
   final List<NewSessionTab> current;
   final ValueChanged<List<NewSessionTab>> onChanged;
 
+  /// Offer Antigravity for ordering (its tab is enabled in settings).
+  final bool showAntigravity;
+
   const _TabsBottomSheetContent({
     required this.current,
     required this.onChanged,
+    this.showAntigravity = false,
   });
 
   @override
@@ -54,16 +60,27 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
     // Build ordered list: enabled tabs first (in order), then disabled ones.
     final enabledSet = widget.current.toSet();
     _items = [
-      for (final tab in widget.current) (tab: tab, enabled: true),
+      for (final tab in widget.current)
+        if (tab != NewSessionTab.antigravity || widget.showAntigravity)
+          (tab: tab, enabled: true),
       for (final tab in configurableNewSessionTabs)
         if (!enabledSet.contains(tab)) (tab: tab, enabled: false),
+      // Antigravity can be ordered here; whether it shows is its own setting.
+      if (widget.showAntigravity &&
+          !enabledSet.contains(NewSessionTab.antigravity))
+        (tab: NewSessionTab.antigravity, enabled: true),
     ];
   }
 
-  bool get _canDisableMore => _items.where((i) => i.enabled).length > 1;
+  bool get _canDisableMore =>
+      _items
+          .where((i) => i.enabled && i.tab != NewSessionTab.antigravity)
+          .length >
+      1;
 
   void _toggle(int index) {
     final item = _items[index];
+    if (item.tab == NewSessionTab.antigravity) return;
     if (item.enabled && !_canDisableMore) return;
     setState(() {
       _items[index] = (tab: item.tab, enabled: !item.enabled);
@@ -141,11 +158,17 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
               key: ValueKey(item.tab.value),
               index: index,
               child: ListTile(
-                leading: Checkbox(
-                  value: item.enabled,
-                  onChanged: canToggle ? (_) => _toggle(index) : null,
-                  activeColor: style.foreground,
-                ),
+                leading: item.tab == NewSessionTab.antigravity
+                    // Shown or hidden by its own setting, and by the Bridge.
+                    ? SizedBox(
+                        width: 48,
+                        child: Icon(style.icon, color: style.foreground),
+                      )
+                    : Checkbox(
+                        value: item.enabled,
+                        onChanged: canToggle ? (_) => _toggle(index) : null,
+                        activeColor: style.foreground,
+                      ),
                 title: Text(
                   item.tab.localizedLabel(l),
                   style: TextStyle(

@@ -299,16 +299,17 @@ void main() {
       );
     });
 
-    test('Antigravity is not part of the saved tab setting', () {
+    test('Antigravity is saved as a position, never as the only agent', () {
       expect(tabsFromJson('["claude","antigravity","codex"]'), [
         NewSessionTab.claude,
+        NewSessionTab.antigravity,
         NewSessionTab.codex,
       ]);
       expect(
         tabsForEnabledAgentsMode(EnabledAgentsMode.both, const [
           NewSessionTab.antigravity,
         ]),
-        [NewSessionTab.codex, NewSessionTab.claude],
+        [NewSessionTab.antigravity, NewSessionTab.codex, NewSessionTab.claude],
       );
     });
 
@@ -472,6 +473,48 @@ void main() {
         buildResumeCommand(session),
         "cd '/tmp/project' && agy --conversation 'conv-1'",
       );
+    });
+  });
+
+  group('tab order', () {
+    const saved = [
+      NewSessionTab.antigravity,
+      NewSessionTab.claude,
+      NewSessionTab.codex,
+    ];
+
+    test('Antigravity keeps its saved position, else comes last', () {
+      expect(visibleNewSessionTabs(saved, supportsAntigravity: true), saved);
+      expect(
+        visibleNewSessionTabs(const [
+          NewSessionTab.claude,
+          NewSessionTab.codex,
+        ], supportsAntigravity: true),
+        [NewSessionTab.claude, NewSessionTab.codex, NewSessionTab.antigravity],
+      );
+      // Not offered by the Bridge, or next to a single agent: left out.
+      expect(visibleNewSessionTabs(saved, supportsAntigravity: false), [
+        NewSessionTab.claude,
+        NewSessionTab.codex,
+      ]);
+      expect(
+        visibleNewSessionTabs(const [
+          NewSessionTab.antigravity,
+          NewSessionTab.codex,
+        ], supportsAntigravity: true),
+        [NewSessionTab.codex],
+      );
+    });
+
+    test('the position survives saving and switching agents', () {
+      expect(tabsFromJson(tabsToJson(saved)), saved);
+      // Antigravity alone enables no agent.
+      expect(tabsFromJson('["antigravity"]'), isNull);
+      expect(enabledAgentsModeFromTabs(saved), EnabledAgentsMode.both);
+      expect(tabsForEnabledAgentsMode(EnabledAgentsMode.both, saved), saved);
+      expect(tabsForEnabledAgentsMode(EnabledAgentsMode.claude, saved), [
+        NewSessionTab.claude,
+      ]);
     });
   });
 

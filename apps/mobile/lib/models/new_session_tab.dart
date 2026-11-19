@@ -8,8 +8,8 @@ enum NewSessionTab {
   codex('codex', 'Codex'),
   claude('claude', 'Claude'),
 
-  /// Offered only while the Bridge advertises `antigravity_v1`. It is never
-  /// part of the saved tab setting; see [visibleNewSessionTabs].
+  /// Offered only while the Bridge advertises `antigravity_v1`. In the saved
+  /// tab setting it only marks a position; see [visibleNewSessionTabs].
   antigravity('antigravity', 'Antigravity');
 
   final String value;
@@ -46,14 +46,15 @@ extension NewSessionTabL10n on NewSessionTab {
 /// Default tab order when no user preference is saved.
 const defaultNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
 
-/// Tabs the user can enable and order in settings. Antigravity is not one of
-/// them: it follows the Bridge capability instead.
+/// Tabs the user can enable in settings. Antigravity is not one of them: it
+/// follows the Bridge capability and its own setting instead.
 const configurableNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
 
 /// Tabs to show in the new session sheet for the saved [enabledTabs].
 ///
-/// Antigravity is appended after the user's tabs when all agents are enabled
-/// and the Bridge advertises `antigravity_v1` ([supportsAntigravity]).
+/// Antigravity is shown when all agents are enabled and the Bridge advertises
+/// `antigravity_v1` ([supportsAntigravity]): at its saved position when the
+/// user ordered it, after the other tabs otherwise.
 List<NewSessionTab> visibleNewSessionTabs(
   List<NewSessionTab> enabledTabs, {
   required bool supportsAntigravity,
@@ -63,12 +64,14 @@ List<NewSessionTab> visibleNewSessionTabs(
       if (configurableNewSessionTabs.contains(tab)) tab,
   ];
   final base = tabs.isEmpty ? defaultNewSessionTabs : tabs;
-  return [
-    ...base,
-    if (supportsAntigravity &&
-        enabledAgentsModeFromTabs(base) == EnabledAgentsMode.both)
-      NewSessionTab.antigravity,
-  ];
+  if (!supportsAntigravity ||
+      enabledAgentsModeFromTabs(base) != EnabledAgentsMode.both) {
+    return base;
+  }
+  if (tabs.isNotEmpty && enabledTabs.contains(NewSessionTab.antigravity)) {
+    return enabledTabs.toSet().toList();
+  }
+  return [...base, NewSessionTab.antigravity];
 }
 
 EnabledAgentsMode enabledAgentsModeFromTabs(List<NewSessionTab> tabs) {
@@ -86,10 +89,8 @@ List<NewSessionTab> tabsForEnabledAgentsMode(
 ) {
   switch (mode) {
     case EnabledAgentsMode.both:
-      final ordered = [
-        for (final tab in current)
-          if (configurableNewSessionTabs.contains(tab)) tab,
-      ];
+      // Keeps Antigravity's saved position.
+      final ordered = [...current];
       final set = ordered.toSet();
       if (!set.contains(NewSessionTab.codex)) {
         ordered.add(NewSessionTab.codex);
@@ -124,9 +125,10 @@ List<NewSessionTab>? tabsFromJson(String json) {
     final tabs = list
         .map(NewSessionTab.fromValue)
         .whereType<NewSessionTab>()
-        .where(configurableNewSessionTabs.contains)
+        .toSet()
         .toList();
-    return tabs.isEmpty ? null : tabs;
+    // Antigravity alone enables nothing; it only has a position.
+    return tabs.any(configurableNewSessionTabs.contains) ? tabs : null;
   } catch (_) {
     return null;
   }

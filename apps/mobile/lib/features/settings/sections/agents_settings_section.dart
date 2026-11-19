@@ -69,11 +69,17 @@ class AgentsSettingsSection extends StatelessWidget {
                   icon: Icons.tab_rounded,
                   title: Text(l.settingsNewSessionTabs),
                   subtitle: state.newSessionTabs
+                      .where(
+                        (t) =>
+                            t != NewSessionTab.antigravity ||
+                            state.showAntigravityTab,
+                      )
                       .map((t) => t.localizedLabel(l))
                       .join(', '),
                   onTap: () => showNewSessionTabsBottomSheet(
                     context: context,
                     current: state.newSessionTabs,
+                    showAntigravity: state.showAntigravityTab,
                     onChanged: cubit.setNewSessionTabs,
                   ),
                 ),
