@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.109.0] - 2026-11-19
+
+### Added
+
+- Preview: Google Antigravity sessions through the Antigravity CLI (`agy acp`). When `agy` is installed on the Bridge machine, the app offers an Antigravity tab: start and resume conversations, approve file edits and commands, switch model and mode, attach images, and find Antigravity conversations in the recent list. Sessions use the Google login stored by `agy`, or a Gemini API key when `CCPOCKET_ANTIGRAVITY_API_KEY` is set; the Bridge never sends prompts of its own to Antigravity. Rewind, fork, message editing and usage display are not available for these sessions yet. See "Preview: Antigravity" in the README for setup, authentication and limits.
+- `doctor` lists the Antigravity CLI when it is installed.
+- `setup` keeps `CCPOCKET_ANTIGRAVITY_API_KEY` in the launchd / systemd service when it is set.
+
 ## [1.108.1] - 2026-11-18
 
 ### Fixed
