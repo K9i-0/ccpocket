@@ -1128,8 +1128,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       input,
       options,
     });
-    this.emitMessage({ type: "permission_request", toolUseId, toolName, input });
+    // Status first: the session summary broadcast with the request must
+    // already say "waiting_approval", or clients drop the approval again.
     this.setStatus("waiting_approval");
+    this.emitMessage({ type: "permission_request", toolUseId, toolName, input });
   }
 
   private findPendingPermission(toolUseId?: string): PendingPermission | undefined {
