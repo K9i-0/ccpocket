@@ -8,18 +8,32 @@ Google Antigravity を ccpocket の3つ目のプロバイダーとして扱う�
 
 ## 最重要: 検証時の認証ルール
 
-**エージェントが `agy` にプロンプトを送るときは、必ず APIキー認証を使う。**
+**エージェントが `agy` にプロンプトを送るときは、APIキー認証を使う。例外は、APIキーでは見えない機能を ccpocket の UI から確かめる場合だけ（下記「例外」）。**
 
 Google は、個人向け Google アカウントのログイン（`oauth-personal`。Free / Plus / Pro / Ultra のサブスク枠）で、別のエージェントや自律ループが `agy acp` / `agy -p` を駆動することを禁止している。違反はアカウント停止の対象になる。Claude Code、Codex、サブエージェント、`e2e-verifier` がプロンプトを書いて送る検証は、すべてこの「別エージェントによる駆動」にあたる。
 
 | 誰がプロンプトを書くか | 使ってよい認証 |
 |---|---|
 | エージェント（サブエージェント、E2E、スクリプトの自動生成を含む） | APIキー（`gemini-api-key`）または Google Cloud（`agent-platform`）のみ |
+| エージェントが、APIキーでは見えない機能を ccpocket の UI から人間と同じ操作で確かめる | Google ログインも可（下記「例外」の条件をすべて満たすとき） |
 | 人間が手入力する | どちらでも可 |
+
+### 例外: APIキーでは見えない機能の UI 検証（2026-11-20、所有者の決定）
+
+APIキー認証では出ない・動かない機能は、APIキーでは検証できない。その検証に限り、エージェントが Google ログインのセッションを操作してよい。
+
+- **対象**: APIキー認証では確認できない機能だけ。`auto` モード（選択、承認なしの実行、サンドボックス、`auto` でも承認が出るツール）、プラン名、Google ログインでだけ出るモデル、利用枠の表示など。APIキーで確かめられることは、これまでどおり APIキーで確かめる。
+- **方法**: ccpocket のアプリ画面を、人間と同じ手順で操作する（シミュレーターや実機で、入力欄に打ち、ボタンを押す。操作には Marionette / dart-mcp / `agent-device` を使う）。`agy` を直接動かすこと（`scripts/antigravity-acp-probe.mjs`、`agy -p`）と、Bridge に WebSocket で直接つないで入力を送ることは、この例外に入らない。
+- **量**: その機能を確かめるのに必要な最小限のプロンプトにとどめる。ループ、一括実行、長時間の放置、複数セッションの並行はしない。モデルは安いものを選ぶ。
+- **Bridge**: `bash scripts/e2e-env.sh bridge --antigravity-login` で起動したテスト用 Bridge を使う（APIキーの強制を外し、既定プロファイルの Google ログインで動く）。本番 Bridge（8765）で動いているユーザーのセッションには入力を送らない。
+- **既定プロファイルには `authenticate` を送らない**（手順 4 と同じ）。
+- **記録**: 何を確かめるために何通送ったかを、報告に書く。
+
+これは規約の解釈ではなく、アカウント所有者の判断による運用。Issue #1493 の回答は、エージェントがプロンプトを作って駆動することを consumer OAuth で認めておらず、UI を経由する場合の扱いには触れていない。範囲を広げない。
 
 手順は次のとおり。
 
-0. **Bridge 経由の検証は `bash scripts/e2e-env.sh bridge` のテスト用 Bridge で行う。** このスクリプトは `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY=1` を立て、`.env.antigravity.local` のキーを `CCPOCKET_ANTIGRAVITY_API_KEY` として渡す。この状態の Bridge は、キーがなければ `agy` を起動せず、モデル一覧が Gemini のみでなければプロンプトを送らない。本番 Bridge（8765）や、このフラグのない Bridge に対して、エージェントが Antigravity セッションへ入力を送ってはいけない。`agy` を直接動かす検証は `scripts/antigravity-acp-probe.mjs` を使う。以下の 1〜4 は、どちらの経路でもコードが強制している内容。
+0. **Bridge 経由の検証は `bash scripts/e2e-env.sh bridge` のテスト用 Bridge で行う。** このスクリプトは `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY=1` を立て、`.env.antigravity.local` のキーを `CCPOCKET_ANTIGRAVITY_API_KEY` として渡す。この状態の Bridge は、キーがなければ `agy` を起動せず、モデル一覧が Gemini のみでなければプロンプトを送らない。本番 Bridge（8765）や、このフラグのない Bridge に対して、エージェントが Antigravity セッションへ入力を送ってはいけない（上記「例外」の `--antigravity-login` を除く）。`agy` を直接動かす検証は `scripts/antigravity-acp-probe.mjs` を使う。以下の 1〜4 は、どちらの経路でもコードが強制している内容。
 1. **APIキー用プロファイルで起動する。** `agy acp --app-data-dir <APIキー用の名前>` を使う。既定プロファイル（`~/.gemini/antigravity-cli`）ではエージェントからプロンプトを送らない。
 2. **毎回、最初に `authenticate`（`methodId: "gemini-api-key"`）を送る。** まっさらなプロファイルは、何もしないと Google ログインで動く（ログイン情報はプロファイル間で共有される）。
 3. **`session/new` の応答でモデル一覧を確認してから、プロンプトを送る。** APIキーモードでは Gemini のみが返る。`claude-*` や `gpt-oss-*` が含まれていたら Google ログイン側で動いているので、送らずに中止する。
@@ -35,7 +49,7 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 
 - **連携経路は `agy acp` を使う。** stdio 上の JSON-RPC（Agent Client Protocol）で、Codex の app-server と同じ構図になる。
 - **認証の切替はプロファイル分離で行う。** Bridge が `agy acp` を起動するときに `--app-data-dir` を選ぶ。
-- **エージェントによる開発・検証は APIキーで行う。**
+- **エージェントによる開発・検証は APIキーで行う。** APIキーでは見えない機能だけ、ccpocket の UI からの検証を認める（2026-11-20）。
 
 採用しなかった経路:
 

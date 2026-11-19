@@ -35,7 +35,7 @@ Bridge と Flutter の両方を変更する場合は両方の検証を選ぶ。�
 - ランタイム操作は dart-mcp / Marionette（debug・profile）、権限ダイアログ等のネイティブUIは `mise exec -- agent-device`、テスト・静的解析・フォーマットはCLIを使う。詳細は `mobile-automation` を参照。
 - 新しいクライアントメッセージは古いBridgeの `unsupported_message` に対応する。通常チャットは `_unsupportedActions`、直接応答を待つ専用UIはそのUI内で更新案内を扱う。
 - TypeScript は ESM / strict / NodeNext module resolution。
-- Antigravity（`agy`）にエージェントがプロンプトを送るときは、必ず APIキー認証を使う（サブエージェント・E2E を含む）。APIキー用プロファイル（`--app-data-dir`）で起動し、`authenticate`（`gemini-api-key`）を先に送り、モデル一覧が Gemini のみであることを確認してから送る。Google ログイン（サブスク枠）でのエージェント駆動は規約違反でアカウント停止の対象になる。既定プロファイルには `authenticate` を送らない。Bridge 経由で試すときは `bash scripts/e2e-env.sh bridge` のテスト用 Bridge（APIキー認証を強制する）だけを使い、本番 Bridge の Antigravity セッションには入力を送らない。`agy` を直接動かすときは `scripts/antigravity-acp-probe.mjs` を使う。人間の手入力による検証は Google ログインでもよい。詳細は [docs/antigravity-acp-integration.md](docs/antigravity-acp-integration.md)。
+- Antigravity（`agy`）にエージェントがプロンプトを送るときは、必ず APIキー認証を使う（サブエージェント・E2E を含む）。APIキー用プロファイル（`--app-data-dir`）で起動し、`authenticate`（`gemini-api-key`）を先に送り、モデル一覧が Gemini のみであることを確認してから送る。Google ログイン（サブスク枠）でのエージェント駆動は規約違反でアカウント停止の対象になる。既定プロファイルには `authenticate` を送らない。Bridge 経由で試すときは `bash scripts/e2e-env.sh bridge` のテスト用 Bridge（APIキー認証を強制する）だけを使い、本番 Bridge の Antigravity セッションには入力を送らない。`agy` を直接動かすときは `scripts/antigravity-acp-probe.mjs` を使う。例外として、`auto` モードなど APIキーでは見えない機能の検証に限り、`bash scripts/e2e-env.sh bridge --antigravity-login` のテスト用 Bridge に ccpocket のアプリ画面から人間と同じ操作で入力してよい（最小限のプロンプトで。`agy` や WebSocket を直接動かすのは不可）。人間の手入力による検証は Google ログインでもよい。詳細は [docs/antigravity-acp-integration.md](docs/antigravity-acp-integration.md)。
 
 ## リリース・配布
 

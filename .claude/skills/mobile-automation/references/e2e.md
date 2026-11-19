@@ -10,6 +10,8 @@ bash scripts/e2e-env.sh bridge
 # 8766, 8769-8799 から空きポートを選び、前景実行する（exec）。
 # 長時間実行を管理できるツールで起動し、その実行セッションIDと、出力1行目のポートを控える。
 # 同時に別エージェントが同じポートを取ると EADDRINUSE で終了するので、再実行して次のポートを使う。
+# Antigravity は APIキー認証で動く。auto モードなど APIキーでは見えない機能をアプリ画面から確かめるときだけ
+# `--antigravity-login` を付ける（条件は docs/antigravity-acp-integration.md の「例外」）。
 
 # Step 2: シミュレーター準備
 bash scripts/e2e-env.sh sim

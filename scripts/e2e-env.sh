@@ -5,6 +5,9 @@
 #
 # Usage (from any directory inside the checkout or worktree):
 #   bash scripts/e2e-env.sh bridge              # pick a free port, run Bridge in the foreground
+#   bash scripts/e2e-env.sh bridge --antigravity-login
+#                                               # same, but Antigravity runs on the Google login: only for
+#                                               # checking, through the app UI, what an API key cannot show
 #   bash scripts/e2e-env.sh sim [name]          # create/reuse + slim + boot a simulator, print its UDID
 #   bash scripts/e2e-env.sh connect <udid> <port>   # connect the app on <udid> to the Bridge on <port>
 #   bash scripts/e2e-env.sh sim-delete [name|udid]  # shut down and delete the simulator
@@ -82,6 +85,17 @@ cmd_bridge() {
   # If another agent grabbed the port meanwhile, the Bridge exits with
   # EADDRINUSE; run this command again to pick the next port.
   cd "$root"
+  if [[ "${1:-}" == "--antigravity-login" ]]; then
+    # The one exception to the rule below: features an API key cannot show
+    # (auto mode, the plan name, ...), checked through the app UI the way a
+    # person would, with as few prompts as it takes.
+    echo "e2e-env: Antigravity runs on the Google login. Use it only from the ccpocket UI, only for what an API key cannot show (docs/antigravity-acp-integration.md)." >&2
+    unset CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY CCPOCKET_ANTIGRAVITY_API_KEY
+    BRIDGE_PORT="$port" exec npm run bridge
+  elif [[ -n "${1:-}" ]]; then
+    echo "e2e-env: unknown bridge option: $1" >&2
+    exit 1
+  fi
   # Agents drive this Bridge, so Antigravity must never run on a Google login
   # here (docs/antigravity-acp-integration.md). The Bridge refuses to send a
   # prompt unless the API key below is verified.
