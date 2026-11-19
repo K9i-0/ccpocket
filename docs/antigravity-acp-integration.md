@@ -46,7 +46,6 @@ Google は、個人向け Google アカウントのログイン（`oauth-persona
 ## 未決定事項
 
 - **エンドユーザーにサブスク認証（Google ログイン）を出すか。** 規約上の位置づけが確定していない（次節）。APIキーを既定にしてサブスク認証を自己責任のオプトインにする案と、事前に Google へ確認する案がある。
-- **検証費用の出どころ。** 無料枠、従量課金、Google AI プラン付属の Cloud クレジットのどれを使うか。
 
 ## 規約上の位置づけ
 
@@ -131,7 +130,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - 無料枠の APIキーで `agy` が動くか
 - 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）
 - 既定プロファイルで `authenticate` を送ったときの影響と、`oauth-personal` へ戻す経路
-- Google AI プラン付属の Cloud クレジットが、`agy` の APIキー経由の利用に適用されるか
+- Google AI プラン付属の Cloud クレジットが、`agy` の APIキー経由の利用に適用されるか（最初の検証ターンのあと、AI Studio の課金ページでクレジット残高が減ったことを確認する）
 
 ## 作業計画
 
@@ -158,7 +157,8 @@ Gemini 3.8 Flash（`agy` の既定モデル）の標準料金は、100万トー�
 - 開発と E2E を合わせて 5〜20 ドル程度の見込み。ターン数は仮定に基づく。
 - Gemini 4 Carbon / Argon は入力 $2・出力 $10（2026-12-01 から倍）。モデル切替の確認は数ターンにとどめる。
 - 3.8 Flash には無料枠がある。レート制限と、`agy` の APIキー認証で使えるかは未確認。
-- Google AI Pro / Ultra には Gemini API に充てられる月ごとの Cloud クレジットが付くとされる（Pro $10、Ultra 5x $40、Ultra 20x $100。Plus はなし）。金額と条件（AI Studio での受け取り手続き、プリペイド時の最低入金）は検索結果の要約に基づくもので、公式ページを直接は確認できていない。
+- Google AI Pro / Ultra には Gemini API に充てられる月ごとの Cloud クレジットが付く（Pro $10、Ultra 5x $40、Ultra 20x $100。Plus はなし。各月分の有効期限は 12 か月）。AI Studio の左メニューのカードから請求先アカウントを選んで受け取る。利用には $5 の前払いが必要。（[公式ページ](https://aistudio.google.com/learn/claim-google-ai-plan-credits-in-ai-studio)、2026-11-19 確認）
+- 検証用の APIキーは AI Studio の `Default Gemini Project` に `ccpocket-antigravity-verify` という名前で発行した（2026-11-19）。請求先アカウントは `ccpocket`（前払い）で、プラン付属のクレジットをここに受け取り済み。今後の月次分も自動で適用される設定にしてある。
 
 ## 参考
 
