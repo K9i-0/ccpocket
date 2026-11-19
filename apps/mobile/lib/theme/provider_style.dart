@@ -22,6 +22,7 @@ ProviderStyle providerStyleFor(BuildContext context, Provider provider) {
   final accent = switch (provider) {
     Provider.claude => colorScheme.primary,
     Provider.codex => colorScheme.secondary,
+    Provider.antigravity => colorScheme.tertiary,
   };
 
   return ProviderStyle(
@@ -31,9 +32,12 @@ ProviderStyle providerStyleFor(BuildContext context, Provider provider) {
     icon: switch (provider) {
       Provider.claude => Icons.smart_toy_outlined,
       Provider.codex => Icons.code,
+      Provider.antigravity => Icons.rocket_launch_outlined,
     },
   );
 }
 
+/// Provider of a wire-format value. Missing or unknown values are Claude,
+/// which is what Bridges sent before the `provider` field existed.
 Provider providerFromRaw(String? provider) =>
-    provider == Provider.codex.value ? Provider.codex : Provider.claude;
+    Provider.fromValue(provider) ?? Provider.claude;

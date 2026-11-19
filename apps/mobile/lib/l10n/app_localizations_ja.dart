@@ -1158,6 +1158,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get permissionAutoDescription => 'Claude が安全チェック付きで承認を自動処理します';
 
   @override
+  String get permissionAutoDescriptionAntigravity =>
+      'Antigravity が承認の要否を自動で判断します';
+
+  @override
+  String get antigravityModelAfterStartNote => 'モデルはセッション開始後に切り替えられます。';
+
+  @override
   String get permissionAcceptEditsDescription => 'ファイル編集を自動で承認します';
 
   @override
@@ -1352,6 +1359,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get codexMessagePlaceholder => 'Codex にメッセージ...';
+
+  @override
+  String get antigravityMessagePlaceholder => 'Antigravity にメッセージ...';
 
   @override
   String get queuedInputForReconnect => '再接続待ちキュー';

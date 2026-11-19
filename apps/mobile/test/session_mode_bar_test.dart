@@ -297,6 +297,221 @@ void main() {
     expect(find.byKey(const ValueKey('plan_mode_chip_glow')), findsNothing);
   });
 
+  group('antigravity mode bar', () {
+    late ChatSessionCubit antigravityCubit;
+
+    SystemMessage settings({
+      String model = 'gemini-3.8-flash-high',
+      String permissionMode = 'default',
+      List<String> permissionModes = const ['default', 'acceptEdits', 'plan'],
+      String subtype = 'antigravity_settings',
+    }) => ServerMessage.fromJson({
+      'type': 'system',
+      'subtype': subtype,
+      'sessionId': 'antigravity-session',
+      'provider': 'antigravity',
+      'model': model,
+      'permissionMode': permissionMode,
+      'antigravity': {
+        'model': model,
+        'models': [
+          {'id': 'gemini-3.8-flash-high', 'name': 'Gemini 3.8 Flash (High)'},
+          {'id': 'gemini-3.1-pro-low', 'name': 'Gemini 3.1 Pro (Low)'},
+        ],
+        'permissionMode': permissionMode,
+        'permissionModes': permissionModes,
+        'authMode': 'api_key',
+      },
+    }) as SystemMessage;
+
+    Future<void> pumpBar(WidgetTester tester, SystemMessage message) async {
+      antigravityCubit = ChatSessionCubit(
+        sessionId: 'antigravity-session',
+        provider: Provider.antigravity,
+        bridge: bridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(antigravityCubit.close);
+      // The Claude chip must stay hidden even on a Bridge that supports it.
+      bridge.claudeSessionSettings = true;
+      bridge.emitMessage(message, sessionId: 'antigravity-session');
+      await tester.pumpWidget(_wrap(antigravityCubit));
+      await tester.pump(const Duration(milliseconds: 100));
+      bridge.sentMessages.clear();
+    }
+
+    testWidgets('shows the model and mode without Claude or Codex chips', (
+      tester,
+    ) async {
+      await pumpBar(tester, settings(subtype: 'init'));
+
+      expect(find.text('Gemini 3.8 Flash (High)'), findsOneWidget);
+      expect(find.byType(PermissionModeChip), findsOneWidget);
+      expect(find.byType(SandboxModeChip), findsNothing);
+      expect(find.byType(ClaudeModelChip), findsNothing);
+      expect(find.byType(CodexModelChip), findsNothing);
+      expect(find.byType(PlanModeChip), findsNothing);
+    });
+
+    testWidgets('offers only the modes the account supports', (tester) async {
+      await pumpBar(tester, settings());
+
+      await tester.tap(find.byType(PermissionModeChip));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_default')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_acceptEdits')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_plan')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_auto')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_bypassPermissions')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('auto is offered when the account has it, bypass never', (
+      tester,
+    ) async {
+      await pumpBar(
+        tester,
+        settings(
+          permissionModes: const [
+            'default',
+            'acceptEdits',
+            'auto',
+            'plan',
+            'bypassPermissions',
+          ],
+        ),
+      );
+
+      await tester.tap(find.byType(PermissionModeChip));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_auto')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('permission_mode_option_bypassPermissions')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('selecting a mode applies it without a restart dialog', (
+      tester,
+    ) async {
+      await pumpBar(tester, settings());
+
+      await tester.tap(find.byType(PermissionModeChip));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('permission_mode_option_plan')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(_decode(bridge.sentMessages.single), {
+        'type': 'set_permission_mode',
+        'mode': 'plan',
+        'sessionId': 'antigravity-session',
+      });
+      expect(antigravityCubit.state.permissionMode, PermissionMode.plan);
+    });
+
+    testWidgets('a rejected mode returns to the previous one', (tester) async {
+      await pumpBar(
+        tester,
+        settings(permissionModes: const ['default', 'acceptEdits', 'auto']),
+      );
+
+      antigravityCubit.setPermissionMode(PermissionMode.auto);
+      expect(antigravityCubit.state.permissionMode, PermissionMode.auto);
+      bridge.emitMessage(
+        const ErrorMessage(
+          message: 'Auto mode is unavailable in this environment.',
+          errorCode: 'auto_mode_unavailable',
+        ),
+        sessionId: 'antigravity-session',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(antigravityCubit.state.permissionMode, PermissionMode.defaultMode);
+      expect(find.text('Default'), findsOneWidget);
+    });
+
+    testWidgets('model chip lists the models and sends set_antigravity_model', (
+      tester,
+    ) async {
+      await pumpBar(tester, settings());
+
+      await tester.tap(find.byKey(const ValueKey('antigravity_model_chip')));
+      await tester.pumpAndSettle();
+      expect(find.text('Gemini 3.1 Pro (Low)'), findsOneWidget);
+      await tester.tap(
+        find.byKey(
+          const ValueKey('antigravity_model_option_gemini-3.1-pro-low'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_decode(bridge.sentMessages.single), {
+        'type': 'set_antigravity_model',
+        'sessionId': 'antigravity-session',
+        'model': 'gemini-3.1-pro-low',
+      });
+      // Shown optimistically until the Bridge confirms.
+      expect(find.text('Gemini 3.1 Pro (Low)'), findsOneWidget);
+    });
+
+    testWidgets('a rejected model switch shows the model still in use', (
+      tester,
+    ) async {
+      await pumpBar(tester, settings());
+
+      antigravityCubit.setAntigravityModel('gemini-3.1-pro-low');
+      bridge.emitMessage(
+        const ErrorMessage(
+          message: 'Failed to switch model: nope',
+          errorCode: 'set_antigravity_model_rejected',
+        ),
+        sessionId: 'antigravity-session',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        antigravityCubit.state.antigravitySettings?.model,
+        'gemini-3.8-flash-high',
+      );
+      expect(find.text('Gemini 3.8 Flash (High)'), findsOneWidget);
+    });
+
+    testWidgets('follows settings pushed by the Bridge', (tester) async {
+      await pumpBar(tester, settings());
+
+      bridge.emitMessage(
+        settings(model: 'gemini-3.1-pro-low', permissionMode: 'acceptEdits'),
+        sessionId: 'antigravity-session',
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Gemini 3.1 Pro (Low)'), findsOneWidget);
+      expect(find.text('Edits'), findsOneWidget);
+    });
+  });
+
   group('claude model settings', () {
     late ChatSessionCubit claudeCubit;
 

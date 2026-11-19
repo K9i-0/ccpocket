@@ -1155,6 +1155,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get permissionAutoDescription => '내장 안전 확인으로 Claude가 승인을 자동 처리합니다';
 
   @override
+  String get permissionAutoDescriptionAntigravity =>
+      'Antigravity가 승인이 필요한 작업을 자동으로 판단합니다';
+
+  @override
+  String get antigravityModelAfterStartNote => '모델은 세션 시작 후에 전환할 수 있습니다.';
+
+  @override
   String get permissionAcceptEditsDescription => '파일 편집 자동 승인';
 
   @override
@@ -1348,6 +1355,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get codexMessagePlaceholder => 'Codex에게 메시지...';
+
+  @override
+  String get antigravityMessagePlaceholder => 'Antigravity에게 메시지...';
 
   @override
   String get queuedInputForReconnect => '재연결 대기열에 추가됨';

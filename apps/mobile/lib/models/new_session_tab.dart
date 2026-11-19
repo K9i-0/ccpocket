@@ -6,7 +6,11 @@ import 'messages.dart';
 /// Tabs available in the new session sheet.
 enum NewSessionTab {
   codex('codex', 'Codex'),
-  claude('claude', 'Claude');
+  claude('claude', 'Claude'),
+
+  /// Offered only while the Bridge advertises `antigravity_v1`. It is never
+  /// part of the saved tab setting; see [visibleNewSessionTabs].
+  antigravity('antigravity', 'Antigravity');
 
   final String value;
   final String label;
@@ -16,6 +20,7 @@ enum NewSessionTab {
   Provider toProvider() => switch (this) {
     NewSessionTab.claude => Provider.claude,
     NewSessionTab.codex => Provider.codex,
+    NewSessionTab.antigravity => Provider.antigravity,
   };
 
   /// Look up a tab by its wire-format value.
@@ -33,11 +38,38 @@ extension NewSessionTabL10n on NewSessionTab {
   String localizedLabel(AppLocalizations l) => switch (this) {
     NewSessionTab.codex => l.newSessionTabCodex,
     NewSessionTab.claude => l.newSessionTabClaudeCode,
+    // Product name, not translated.
+    NewSessionTab.antigravity => NewSessionTab.antigravity.label,
   };
 }
 
 /// Default tab order when no user preference is saved.
 const defaultNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
+
+/// Tabs the user can enable and order in settings. Antigravity is not one of
+/// them: it follows the Bridge capability instead.
+const configurableNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
+
+/// Tabs to show in the new session sheet for the saved [enabledTabs].
+///
+/// Antigravity is appended after the user's tabs when all agents are enabled
+/// and the Bridge advertises `antigravity_v1` ([supportsAntigravity]).
+List<NewSessionTab> visibleNewSessionTabs(
+  List<NewSessionTab> enabledTabs, {
+  required bool supportsAntigravity,
+}) {
+  final tabs = [
+    for (final tab in enabledTabs)
+      if (configurableNewSessionTabs.contains(tab)) tab,
+  ];
+  final base = tabs.isEmpty ? defaultNewSessionTabs : tabs;
+  return [
+    ...base,
+    if (supportsAntigravity &&
+        enabledAgentsModeFromTabs(base) == EnabledAgentsMode.both)
+      NewSessionTab.antigravity,
+  ];
+}
 
 EnabledAgentsMode enabledAgentsModeFromTabs(List<NewSessionTab> tabs) {
   final set = tabs.toSet();
@@ -56,7 +88,7 @@ List<NewSessionTab> tabsForEnabledAgentsMode(
     case EnabledAgentsMode.both:
       final ordered = [
         for (final tab in current)
-          if (NewSessionTab.values.contains(tab)) tab,
+          if (configurableNewSessionTabs.contains(tab)) tab,
       ];
       final set = ordered.toSet();
       if (!set.contains(NewSessionTab.codex)) {
@@ -92,6 +124,7 @@ List<NewSessionTab>? tabsFromJson(String json) {
     final tabs = list
         .map(NewSessionTab.fromValue)
         .whereType<NewSessionTab>()
+        .where(configurableNewSessionTabs.contains)
         .toList();
     return tabs.isEmpty ? null : tabs;
   } catch (_) {

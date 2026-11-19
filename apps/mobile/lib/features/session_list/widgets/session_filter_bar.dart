@@ -167,6 +167,7 @@ class SessionFilterBar extends StatelessWidget {
         ProviderFilter.all => l.allAiTools,
         ProviderFilter.claude => 'Claude',
         ProviderFilter.codex => 'Codex',
+        ProviderFilter.antigravity => 'Antigravity',
       };
 }
 

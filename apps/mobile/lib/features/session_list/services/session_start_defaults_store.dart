@@ -9,6 +9,7 @@ const _legacyKey = 'session_start_defaults_v1';
 const _lastProviderKey = 'session_start_defaults_last_provider_v1';
 const _claudeKey = 'session_start_defaults_claude_v1';
 const _codexKey = 'session_start_defaults_codex_v1';
+const _antigravityKey = 'session_start_defaults_antigravity_v1';
 
 /// Owns persistence and one-time migration of new-session defaults.
 class SessionStartDefaultsStore {
@@ -133,7 +134,7 @@ class SessionStartDefaultsStore {
   Future<void> _removeObsoleteProjectlessDefaults(
     SharedPreferences prefs,
   ) async {
-    for (final key in [_legacyKey, _claudeKey, _codexKey]) {
+    for (final key in [_legacyKey, _claudeKey, _codexKey, _antigravityKey]) {
       final raw = prefs.getString(key);
       if (raw == null || raw.isEmpty) continue;
       try {
@@ -150,11 +151,8 @@ class SessionStartDefaultsStore {
   String _keyFor(Provider provider) => switch (provider) {
     Provider.claude => _claudeKey,
     Provider.codex => _codexKey,
+    Provider.antigravity => _antigravityKey,
   };
 
-  Provider? _providerFromRaw(String? raw) => switch (raw) {
-    'claude' => Provider.claude,
-    'codex' => Provider.codex,
-    _ => null,
-  };
+  Provider? _providerFromRaw(String? raw) => Provider.fromValue(raw);
 }

@@ -27,9 +27,15 @@ String recentSessionPinKey(RecentSession session) => sessionPinKey(
   sessionId: session.sessionId,
 );
 
+/// Whether sessions of [provider] can be pinned. The Bridge cannot return
+/// pinned Antigravity conversations, so they offer no pin action.
+bool isPinnableProvider(String? provider) =>
+    provider != Provider.antigravity.value;
+
 String? runningSessionPinKey(SessionInfo session) {
   final providerSessionId = session.claudeSessionId;
   if (providerSessionId == null || providerSessionId.isEmpty) return null;
+  if (!isPinnableProvider(session.provider)) return null;
   return sessionPinKey(
     provider: session.provider,
     projectPath: session.projectPath,
@@ -44,6 +50,8 @@ RecentSessionRef? recentSessionRefFromPinKey(String key) {
   final provider = parts.first;
   final sessionId = parts.last;
   if (sessionId.isEmpty ||
+      // Antigravity conversations cannot be pinned: the Bridge has no pin
+      // lookup for them.
       (provider != Provider.claude.value && provider != Provider.codex.value)) {
     return null;
   }
@@ -118,6 +126,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   StreamSubscription<List<String>>? _projectHistorySub;
   StreamSubscription<ServerMessage>? _messageSub;
   StreamSubscription<void>? _filtersAvailableSub;
+  StreamSubscription<bool>? _antigravitySub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
 
@@ -138,6 +147,17 @@ class SessionListCubit extends Cubit<SessionListState> {
     _filtersAvailableSub = _bridge.recentSessionFiltersAvailable.listen((_) {
       if (!isClosed && state.filters.isActive) _requestWithCurrentFilters();
     });
+    // Antigravity rows and the Antigravity filter depend on a capability
+    // that arrives after the first request and can change while connected.
+    _antigravitySub = _bridge.antigravityAvailabilityChanged.listen((_) {
+      if (isClosed || !_hasRequestedList) return;
+      switch (state.providerFilter) {
+        case ProviderFilter.all || ProviderFilter.antigravity:
+          _requestWithCurrentFilters();
+        case ProviderFilter.claude || ProviderFilter.codex:
+          break;
+      }
+    });
     _preferencesLoaded = _loadPreferences();
   }
 
@@ -154,12 +174,10 @@ class SessionListCubit extends Cubit<SessionListState> {
         prefs.getStringList(_pinnedProjectPathsKey)?.toSet() ??
         const <String>{};
 
-    var provider = ProviderFilter.all;
-    if (providerStr == ProviderFilter.claude.name) {
-      provider = ProviderFilter.claude;
-    } else if (providerStr == ProviderFilter.codex.name) {
-      provider = ProviderFilter.codex;
-    }
+    final provider = ProviderFilter.values.firstWhere(
+      (filter) => filter.name == providerStr,
+      orElse: () => ProviderFilter.all,
+    );
 
     if (isClosed) return;
     emit(
@@ -361,16 +379,18 @@ class SessionListCubit extends Cubit<SessionListState> {
     });
   }
 
-  /// Toggle provider filter: All → Codex → Claude → All.
+  /// Toggle provider filter: All → Codex → Claude → (Antigravity) → All.
   void toggleProviderFilter({List<ProviderFilter>? allowedFilters}) {
     final options = allowedFilters == null || allowedFilters.isEmpty
-        ? const [
-            ProviderFilter.all,
-            ProviderFilter.codex,
-            ProviderFilter.claude,
-          ]
+        ? providerFiltersForEnabledTabs(
+            defaultNewSessionTabs,
+            supportsAntigravity: _bridge.supportsAntigravity,
+          )
         : allowedFilters;
-    final currentIndex = options.indexOf(state.providerFilter);
+    // An Antigravity filter without the capability is shown as All.
+    final currentIndex = options.indexOf(
+      coerceProviderFilter(state.providerFilter, options),
+    );
     final next = options[(currentIndex + 1) % options.length];
     setProviderFilter(next);
   }
@@ -385,8 +405,16 @@ class SessionListCubit extends Cubit<SessionListState> {
     );
   }
 
+  /// Drop a filter the enabled agents setting no longer allows.
+  ///
+  /// The Antigravity capability is deliberately not considered here: it
+  /// arrives after connecting and can come and go, so a saved Antigravity
+  /// filter is kept and only treated as All while the capability is missing.
   void applyEnabledAgents(List<NewSessionTab> enabledTabs) {
-    final allowed = providerFiltersForEnabledTabs(enabledTabs);
+    final allowed = providerFiltersForEnabledTabs(
+      enabledTabs,
+      supportsAntigravity: true,
+    );
     final next = coerceProviderFilter(state.providerFilter, allowed);
     setProviderFilter(next);
   }
@@ -414,13 +442,14 @@ class SessionListCubit extends Cubit<SessionListState> {
         state.loadingProjectPaths.contains(projectPath)) {
       return;
     }
-    // Pinned extras are not part of the loaded pages, so they must not shift
-    // the project-scoped offset.
+    // Pinned extras and merged Antigravity rows are not part of the loaded
+    // pages, so they must not shift the project-scoped offset.
     final loadedCount = state.sessions
         .where(
           (session) =>
               session.workspaceGroupKey == projectPath &&
-              !_bridge.isPinnedRecentExtra(session),
+              !_bridge.isPinnedRecentExtra(session) &&
+              !_bridge.isMergedAntigravityRecent(session),
         )
         .length;
     final currentLimit =
@@ -476,6 +505,7 @@ class SessionListCubit extends Cubit<SessionListState> {
       state.pinnedProjectPaths.contains(projectPath);
 
   Future<void> toggleRecentSessionPinned(RecentSession session) async {
+    if (!isPinnableProvider(session.provider)) return;
     await _preferencesLoaded;
     if (isClosed) return;
     await _toggleSessionPin(recentSessionPinKey(session));
@@ -570,7 +600,10 @@ class SessionListCubit extends Cubit<SessionListState> {
     final dateFilter = filters.dateFilter;
     _bridge.switchFilter(
       projectPath: singleProject,
-      provider: _providerToString(state.providerFilter),
+      provider: _providerToString(
+        state.providerFilter,
+        supportsAntigravity: _bridge.supportsAntigravity,
+      ),
       namedOnly: state.namedOnly ? true : null,
       searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
       extraFilters: RecentSessionsExtraFilters(
@@ -600,10 +633,16 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   /// Convert [ProviderFilter] enum to the wire-format string (or null for all).
-  static String? _providerToString(ProviderFilter f) => switch (f) {
+  static String? _providerToString(
+    ProviderFilter f, {
+    required bool supportsAntigravity,
+  }) => switch (f) {
     ProviderFilter.all => null,
-    ProviderFilter.claude => 'claude',
-    ProviderFilter.codex => 'codex',
+    ProviderFilter.claude => Provider.claude.value,
+    ProviderFilter.codex => Provider.codex.value,
+    // Without the capability the Bridge has no Antigravity rows; list all.
+    ProviderFilter.antigravity =>
+      supportsAntigravity ? Provider.antigravity.value : null,
   };
 
   @override
@@ -613,18 +652,23 @@ class SessionListCubit extends Cubit<SessionListState> {
     _projectHistorySub?.cancel();
     _messageSub?.cancel();
     _filtersAvailableSub?.cancel();
+    _antigravitySub?.cancel();
     return super.close();
   }
 }
 
+/// Provider filters to offer. Antigravity is offered only when all agents
+/// are enabled and the Bridge advertises `antigravity_v1`.
 List<ProviderFilter> providerFiltersForEnabledTabs(
-  List<NewSessionTab> enabledTabs,
-) {
+  List<NewSessionTab> enabledTabs, {
+  required bool supportsAntigravity,
+}) {
   return switch (enabledAgentsModeFromTabs(enabledTabs)) {
-    EnabledAgentsMode.both => const [
+    EnabledAgentsMode.both => [
       ProviderFilter.all,
       ProviderFilter.codex,
       ProviderFilter.claude,
+      if (supportsAntigravity) ProviderFilter.antigravity,
     ],
     EnabledAgentsMode.codex => const [ProviderFilter.codex],
     EnabledAgentsMode.claude => const [ProviderFilter.claude],

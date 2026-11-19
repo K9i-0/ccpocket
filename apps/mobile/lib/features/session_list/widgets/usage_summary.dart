@@ -39,10 +39,14 @@ class UsageStreamSummary extends StatelessWidget {
   }
 }
 
+/// Providers the Bridge reports usage for (`get_usage`), in display order.
+/// Antigravity has no usage endpoint.
+const usageProviders = [Provider.claude, Provider.codex];
+
 /// Providers with usage data, in display order (Claude first, then Codex).
 List<UsageInfo> usageSummaryProviders(List<UsageInfo> providers) {
   return [
-    for (final provider in Provider.values)
+    for (final provider in usageProviders)
       ...providers.where(
         (usage) => usage.provider == provider.value && usage.hasData,
       ),
@@ -261,10 +265,7 @@ class _UsageMetric extends StatelessWidget {
 }
 
 String _providerLabel(UsageInfo usage) {
-  for (final provider in Provider.values) {
-    if (provider.value == usage.provider) return provider.label;
-  }
-  return usage.provider;
+  return Provider.fromValue(usage.provider)?.label ?? usage.provider;
 }
 
 List<String> _semanticMetrics(

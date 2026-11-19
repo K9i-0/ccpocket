@@ -33,6 +33,10 @@ String? inferStructuredErrorCode({
     return 'git_not_available';
   }
 
+  // The auth hints below describe Claude sign-in. Antigravity reports its own
+  // explicit codes; its uncoded errors are shown as written.
+  if (normalized.contains('antigravity')) return null;
+
   if (_containsAny(normalized, const [
     'session expired',
     'token has expired',

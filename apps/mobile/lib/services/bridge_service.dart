@@ -197,6 +197,23 @@ class BridgeService implements BridgeServiceBase {
   final _recentFiltersAvailableController = StreamController<void>.broadcast();
   bool _recentFiltersPendingCapabilities = false;
 
+  /// The Antigravity CLI is installed on the Bridge machine. Without it no
+  /// Antigravity UI is offered.
+  bool get supportsAntigravity =>
+      _protocolCapabilities.contains('antigravity_v1');
+
+  /// Emits [supportsAntigravity] when the Bridge announces a different value
+  /// than before, or than the one the last list request was built with (the
+  /// capability arrives after the first request, and the CLI can be installed
+  /// while connected). Listeners rebuild gated UI and request the list again.
+  Stream<bool> get antigravityAvailabilityChanged =>
+      _antigravityAvailabilityController.stream;
+  final _antigravityAvailabilityController = StreamController<bool>.broadcast();
+  bool _antigravityAnnounced = false;
+
+  /// [supportsAntigravity] when the last first list page was requested.
+  bool? _antigravityAtLastListRequest;
+
   void retainSessionHistory(String sessionId) {
     _historyObservers.update(
       sessionId,
@@ -968,6 +985,14 @@ class BridgeService implements BridgeServiceBase {
                     supportsRecentSessionFilters) {
                   _recentFiltersPendingCapabilities = false;
                   _recentFiltersAvailableController.add(null);
+                }
+                final antigravity = supportsAntigravity;
+                if (antigravity != _antigravityAnnounced ||
+                    (_antigravityAtLastListRequest != null &&
+                        _antigravityAtLastListRequest != antigravity)) {
+                  _antigravityAnnounced = antigravity;
+                  _antigravityAtLastListRequest = null;
+                  _antigravityAvailabilityController.add(antigravity);
                 }
                 if (!supportsPerformanceMode) {
                   _applyDeliveryMode(supported: false);
@@ -3350,12 +3375,19 @@ class BridgeService implements BridgeServiceBase {
       // reconnecting): the filters were dropped, so ask again once known.
       _recentFiltersPendingCapabilities = true;
     }
+    // Antigravity conversations join the unfiltered listing only when asked
+    // for; the Bridge advertises them when the CLI is installed.
+    final includeAntigravity = provider == null && supportsAntigravity;
+    if (requestScope == 'list' && (offset ?? 0) == 0) {
+      _antigravityAtLastListRequest = supportsAntigravity;
+    }
     final queryKey = jsonEncode([
       limit,
       offset,
       projectPath,
       requestScope,
       provider,
+      includeAntigravity,
       namedOnly,
       searchQuery,
       [for (final pin in pinnedSessions) '${pin.provider}:${pin.sessionId}'],
@@ -3391,6 +3423,7 @@ class BridgeService implements BridgeServiceBase {
         requestScope: requestScope,
         requestId: requestId,
         provider: provider,
+        includeAntigravity: includeAntigravity,
         namedOnly: namedOnly,
         searchQuery: searchQuery,
         pinnedSessions: pinnedSessions,
@@ -3640,6 +3673,18 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
+  /// Offset of the next list page. Antigravity rows are merged into the
+  /// first unfiltered page only and are not part of the Claude/Codex paging,
+  /// so they must not shift it.
+  int get recentSessionsPagingOffset => _currentProvider == null
+      ? _recentSessions.where((s) => !isMergedAntigravityRecent(s)).length
+      : _recentSessions.length;
+
+  /// Whether [session] is an Antigravity row merged into an unfiltered list.
+  bool isMergedAntigravityRecent(RecentSession session) =>
+      _currentProvider == null &&
+      session.provider == Provider.antigravity.value;
+
   /// Load the next page of recent sessions (append mode).
   void loadMoreRecentSessions({
     int pageSize = 20,
@@ -3651,7 +3696,7 @@ class BridgeService implements BridgeServiceBase {
     if (requestScope != 'project') _appendMode = true;
     _sendRecentSessionsRequest(
       limit: pageSize,
-      offset: offset ?? _recentSessions.length,
+      offset: offset ?? recentSessionsPagingOffset,
       projectPath: requestedProjectPath,
       requestScope: requestScope,
       provider: _currentProvider,
@@ -4794,6 +4839,7 @@ class BridgeService implements BridgeServiceBase {
         codexNetworkAccessEnabled:
             message.networkAccessEnabled ?? current.codexNetworkAccessEnabled,
         codexWebSearchMode: message.webSearchMode ?? current.codexWebSearchMode,
+        antigravitySettings: message.antigravity,
       );
     _publishSessionList();
   }
@@ -5230,6 +5276,7 @@ class BridgeService implements BridgeServiceBase {
     _projectsController.close();
     _codexAutoReviewPolicyController.close();
     _recentFiltersAvailableController.close();
+    _antigravityAvailabilityController.close();
     _diffResultController.close();
     _diffImageResultController.close();
     _worktreeListController.close();

@@ -115,9 +115,8 @@ class _SessionLinkScreenBody extends StatelessWidget {
     String? approvalPolicy,
     String? approvalsReviewer,
   }) {
-    final normalizedProvider = provider == Provider.codex.value
-        ? Provider.codex.value
-        : Provider.claude.value;
+    final resolvedProvider = Provider.fromValue(provider) ?? Provider.claude;
+    final normalizedProvider = resolvedProvider.value;
     if (SessionStackNavigation.revealStackedSession(
       context.router,
       sessionId: sessionId,
@@ -127,9 +126,7 @@ class _SessionLinkScreenBody extends StatelessWidget {
     }
     final selection = WorkspaceSessionSelection(
       sessionId: sessionId,
-      provider: normalizedProvider == 'codex'
-          ? Provider.codex
-          : Provider.claude,
+      provider: resolvedProvider,
       projectPath: projectPath,
       workspace: workspace,
       gitBranch: gitBranch,

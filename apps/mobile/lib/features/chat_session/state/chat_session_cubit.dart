@@ -90,21 +90,67 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   bool? _pendingPlanRollback;
   SandboxMode? _pendingSandboxRollback;
 
+  /// Model to restore when the Bridge rejects an Antigravity model switch.
+  String? _pendingAntigravityModelRollback;
+
   /// Whether this session is a Codex session.
   bool get isCodex => provider == Provider.codex;
+
+  /// Whether this session is an Antigravity session. It shares the
+  /// Claude-style screen; the capability flags below say what differs.
+  bool get isAntigravity => provider == Provider.antigravity;
+
+  /// Whether this session is a Claude session (the default when the provider
+  /// is unknown).
+  bool get isClaude => !isCodex && !isAntigravity;
+
+  /// Provider used for provider-specific rendering and skill triggers.
+  Provider get effectiveProvider => provider ?? Provider.claude;
 
   /// Whether the Bridge accepts per-message steer/queue delivery.
   bool get supportsInputDelivery => _bridge.supportsInputDelivery;
 
+  /// Whether the user chooses between steering and queueing a message sent
+  /// while a turn runs. Antigravity always steers the running turn itself.
+  bool get supportsInputDeliveryChoice =>
+      supportsInputDelivery && !isAntigravity;
+
   /// Whether input sent during a turn is held in the Bridge's single queue
   /// slot (shown in the queue panel) instead of being added to the
   /// transcript immediately. Claude uses it once the Bridge supports it.
-  bool get usesInputQueue => isCodex || supportsInputDelivery;
+  /// The Bridge never queues for Antigravity, so its messages go straight to
+  /// the transcript.
+  bool get usesInputQueue => isCodex || (isClaude && supportsInputDelivery);
+
+  /// Rewinding code or conversation to an earlier message.
+  bool get supportsRewind => !isAntigravity;
+
+  /// Forking the conversation from an earlier message.
+  bool get supportsFork => isClaude && _bridge.supportsClaudeFork;
+
+  /// The sandbox chip (Claude restarts the session to toggle it).
+  bool get supportsSandboxToggle => isClaude;
+
+  /// The Claude usage summary bar (`get_usage` is Claude/Codex only).
+  bool get showsUsageSummary => isClaude;
+
+  /// Stopping background tasks between turns (Claude shells and agents).
+  bool get supportsBackgroundTaskStop => isClaude;
+
+  /// Changing the permission mode applies to the live session, without the
+  /// restart confirmation Claude and Codex show.
+  bool get appliesPermissionModeLive => isAntigravity;
+
+  /// Permission modes to offer in the mode bar.
+  List<PermissionMode> get selectablePermissionModes => isAntigravity
+      ? (state.antigravitySettings?.selectablePermissionModes ??
+            defaultAntigravityPermissionModes)
+      : PermissionMode.values;
 
   List<String> get codexModels => _bridge.codexModels;
 
   bool get supportsClaudeSessionSettings =>
-      !isCodex && _bridge.supportsClaudeSessionSettings;
+      isClaude && _bridge.supportsClaudeSessionSettings;
 
   List<String> get claudeModels => _bridge.claudeModels;
 
@@ -561,7 +607,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       _applyUpdate(update, msg);
       _recordAgentActivity(msg);
       if (msg is HistoryMessage && _latestSessionContext != null) {
-        _applySessionContext(_latestSessionContext!);
+        _applySessionContext(_latestSessionContext!, fresh: false);
       }
     } catch (e, st) {
       logger.error(
@@ -573,7 +619,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
   }
 
-  void _applySessionContext(SessionInfo context) {
+  /// [fresh] is false when an earlier context is re-applied after a history
+  /// load. Antigravity's model and mode then keep the values its settings
+  /// messages delivered since, which are newer than that snapshot.
+  void _applySessionContext(SessionInfo context, {bool fresh = true}) {
     if (context.id != sessionId) return;
     if (context.provider?.isNotEmpty == true &&
         provider != null &&
@@ -592,6 +641,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             false => SandboxMode.off,
             null => null,
           };
+    final keepAntigravityModes =
+        !fresh && isAntigravity && state.antigravitySettings != null;
     final pendingPermission = context.pendingPermission;
     _handler.pendingInputs.apply(
       StatusMessage(status: ProcessStatus.fromString(context.status)),
@@ -630,7 +681,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         projectPath: projectPath.isNotEmpty ? projectPath : null,
         worktreePath: worktreePath?.isNotEmpty == true ? worktreePath : null,
         gitBranch: branch.isNotEmpty ? branch : null,
-        permissionMode: permissionMode ?? state.permissionMode,
+        permissionMode: keepAntigravityModes
+            ? state.permissionMode
+            : (permissionMode ?? state.permissionMode),
         executionMode: context.resolvedExecutionMode,
         codexApprovalPolicy:
             codexApprovalPolicyFromRaw(context.codexApprovalPolicy) ??
@@ -648,8 +701,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         codexSpeed: context.codexServiceTier == null
             ? state.codexSpeed
             : codexSpeedFromRaw(context.codexServiceTier),
-        planMode: context.resolvedPlanMode,
-        inPlanMode: context.resolvedPlanMode,
+        antigravitySettings: keepAntigravityModes
+            ? state.antigravitySettings
+            : (context.antigravitySettings ?? state.antigravitySettings),
+        planMode: keepAntigravityModes
+            ? state.planMode
+            : context.resolvedPlanMode,
+        inPlanMode: keepAntigravityModes
+            ? state.inPlanMode
+            : context.resolvedPlanMode,
         sandboxMode: sandboxMode ?? state.sandboxMode,
         queuedInput: context.queuedInput,
         sessionUnavailable: false,
@@ -1129,6 +1189,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       );
     }
     final usage = _calculateUsageTotals(nextEntries);
+    // Antigravity sends its whole settings object; the Bridge's value wins
+    // over any optimistic model or mode.
+    final antigravity = isAntigravity ? update.antigravitySettings : null;
+    final antigravityMode = antigravity?.permissionMode;
+    if (antigravity != null) _pendingAntigravityModelRollback = null;
     emit(
       current.copyWith(
         status: update.status ?? current.status,
@@ -1139,8 +1204,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         approval: approval,
         totalCost: usage.totalCost,
         totalDuration: usage.totalDuration,
-        inPlanMode: update.inPlanMode ?? current.inPlanMode,
-        permissionMode: update.permissionMode ?? current.permissionMode,
+        inPlanMode:
+            update.inPlanMode ??
+            (antigravityMode == null
+                ? current.inPlanMode
+                : antigravityMode == PermissionMode.plan),
+        permissionMode:
+            antigravityMode ?? update.permissionMode ?? current.permissionMode,
+        antigravitySettings: antigravity ?? current.antigravitySettings,
         executionMode: update.executionMode ?? current.executionMode,
         codexApprovalPolicy:
             update.codexApprovalPolicy ?? current.codexApprovalPolicy,
@@ -1182,7 +1253,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final persistedClaudeSessionId =
         newClaudeSessionId ?? current.claudeSessionId;
     if (update.replaceClaudeSettings &&
-        provider != Provider.codex &&
+        isClaude &&
         persistedClaudeSessionId != null) {
       unawaited(
         _SessionSettingsHelper.save(persistedClaudeSessionId, {
@@ -1197,7 +1268,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // Persist initial Claude settings when claudeSessionId is first known.
     if (update.claudeSessionId != null &&
         current.claudeSessionId == null &&
-        provider != Provider.codex) {
+        isClaude) {
       unawaited(
         _SessionSettingsHelper.save(update.claudeSessionId!, {
           'permissionMode': current.permissionMode.value,
@@ -2286,7 +2357,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   String? _pendingEditClientMessageId;
 
   /// Whether sent messages can be edited and resent (Codex App style).
-  bool get supportsMessageEdit => _bridge.supportsMessageEdit;
+  bool get supportsMessageEdit => _bridge.supportsMessageEdit && !isAntigravity;
 
   /// Edit a sent message and resend it: the Bridge removes [entry] and every
   /// later turn, then sends [text] as a new prompt in the same session.
@@ -2329,8 +2400,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _bridge.interrupt(sessionId, retract: retract);
   }
 
-  /// Change permission mode for Claude sessions.
+  /// Change permission mode for Claude and Antigravity sessions.
   void setPermissionMode(PermissionMode mode) {
+    // Antigravity only accepts the modes its account offers.
+    if (isAntigravity && !selectablePermissionModes.contains(mode)) return;
     logger.info('[session:$sessionId] setPermissionMode=${mode.value}');
     _pendingPermissionRollback = state.permissionMode;
     emit(
@@ -2346,9 +2419,28 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Persist per-session so that future resumes use this mode.
     final claudeSid = state.claudeSessionId;
-    if (claudeSid != null && claudeSid.isNotEmpty) {
+    if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
       _SessionSettingsHelper.save(claudeSid, {'permissionMode': mode.value});
     }
+  }
+
+  /// Switch the model of an Antigravity session. [modelId] is an id from
+  /// `antigravitySettings.models`.
+  void setAntigravityModel(String modelId) {
+    final settings = state.antigravitySettings;
+    if (!isAntigravity || settings == null || settings.model == modelId) {
+      return;
+    }
+    if (!settings.models.any((model) => model.id == modelId)) return;
+    logger.info('[session:$sessionId] setAntigravityModel=$modelId');
+    // Keep the first known value so repeated taps roll back to it.
+    _pendingAntigravityModelRollback ??= settings.model;
+    emit(
+      state.copyWith(antigravitySettings: settings.copyWith(model: modelId)),
+    );
+    _bridge.send(
+      ClientMessage.setAntigravityModel(modelId, sessionId: sessionId),
+    );
   }
 
   void setSessionModes({ExecutionMode? executionMode, bool? planMode}) {
@@ -2409,7 +2501,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
 
     final claudeSid = state.claudeSessionId;
-    if (claudeSid != null && claudeSid.isNotEmpty) {
+    if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
       _SessionSettingsHelper.save(claudeSid, {
         'permissionMode': legacyMode.value,
         'executionMode': nextExecution.value,
@@ -2709,6 +2801,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Change sandbox mode (Claude & Codex).
   /// Bridge destroys and resumes the session with new sandbox settings.
   void setSandboxMode(SandboxMode mode) {
+    // The Bridge rejects sandbox changes for Antigravity sessions.
+    if (!supportsSandboxToggle && !isCodex) return;
     _pendingSandboxRollback = state.sandboxMode;
     emit(state.copyWith(sandboxMode: mode));
     if (isCodex) {
@@ -2719,12 +2813,24 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
     // Persist per-session so that future resumes use this mode.
     final claudeSid = state.claudeSessionId;
-    if (claudeSid != null && claudeSid.isNotEmpty) {
+    if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
       _SessionSettingsHelper.save(claudeSid, {'sandboxMode': mode.value});
     }
   }
 
   void _rollbackFailedModeChange(ErrorMessage msg) {
+    if (_isAntigravityModelFailure(msg)) {
+      final previous = _pendingAntigravityModelRollback;
+      _pendingAntigravityModelRollback = null;
+      final settings = state.antigravitySettings;
+      if (previous != null && settings != null) {
+        emit(
+          state.copyWith(
+            antigravitySettings: settings.copyWith(model: previous),
+          ),
+        );
+      }
+    }
     if (_isPermissionModeFailure(msg)) {
       final previous = _pendingPermissionRollback;
       _pendingPermissionRollback = null;
@@ -2765,7 +2871,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                   .value,
         );
         final claudeSid = state.claudeSessionId;
-        if (claudeSid != null && claudeSid.isNotEmpty) {
+        if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
           _SessionSettingsHelper.save(claudeSid, {
             'permissionMode': previous.value,
             'executionMode':
@@ -2790,7 +2896,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           _bridge.patchSessionSandboxMode(sessionId, previous.value);
         }
         final claudeSid = state.claudeSessionId;
-        if (claudeSid != null && claudeSid.isNotEmpty) {
+        if (!isAntigravity && claudeSid != null && claudeSid.isNotEmpty) {
           _SessionSettingsHelper.save(claudeSid, {
             'sandboxMode': previous.value,
           });
@@ -2814,6 +2920,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         msg.message.startsWith(
           'Failed to restart session for permission mode change:',
         );
+  }
+
+  bool _isAntigravityModelFailure(ErrorMessage msg) {
+    return msg.errorCode == 'set_antigravity_model_rejected' ||
+        msg.errorCode == 'set_antigravity_model_unsupported';
   }
 
   bool _isSandboxModeFailure(ErrorMessage msg) {
@@ -2954,6 +3065,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Rewrite skills typed with the other agent's trigger (`/` vs `$`) into
   /// this session's native form. Unknown names are left untouched.
   String toNativeSkillTriggers(String text) {
+    // Antigravity has no `$` skill mentions; its commands are sent as typed.
+    if (isAntigravity) return text;
     return convertSkillTriggers(
       text,
       SkillTriggerCatalog.fromCompletionItems(

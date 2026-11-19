@@ -141,6 +141,20 @@ class MockBridgeService extends BridgeService {
     _projectFilter = projectPath;
   }
 
+  bool antigravity = false;
+  final _antigravityChanged = StreamController<bool>.broadcast();
+
+  @override
+  bool get supportsAntigravity => antigravity;
+
+  @override
+  Stream<bool> get antigravityAvailabilityChanged => _antigravityChanged.stream;
+
+  void announceAntigravity(bool available) {
+    antigravity = available;
+    _antigravityChanged.add(available);
+  }
+
   bool supportsFilters = false;
   final _filtersAvailable = StreamController<void>.broadcast();
 
@@ -184,6 +198,7 @@ class MockBridgeService extends BridgeService {
     _recentSessionsController.close();
     _projectHistoryController.close();
     _messageController.close();
+    _antigravityChanged.close();
   }
 }
 
@@ -541,11 +556,94 @@ void main() {
       cubit.toggleProviderFilter(
         allowedFilters: providerFiltersForEnabledTabs(const [
           NewSessionTab.codex,
-        ]),
+        ], supportsAntigravity: true),
       );
 
       expect(cubit.state.providerFilter, ProviderFilter.codex);
       expect(mockBridge.sentMessages, isEmpty);
+    });
+
+    group('Antigravity provider filter', () {
+      test('is part of the toggle cycle only with the capability', () {
+        cubit.setProviderFilter(ProviderFilter.claude);
+        cubit.toggleProviderFilter();
+        expect(cubit.state.providerFilter, ProviderFilter.all);
+
+        mockBridge.antigravity = true;
+        cubit.setProviderFilter(ProviderFilter.claude);
+        cubit.toggleProviderFilter();
+        expect(cubit.state.providerFilter, ProviderFilter.antigravity);
+        expect(mockBridge.lastJson['provider'], 'antigravity');
+      });
+
+      test('requests Antigravity rows when selected', () {
+        mockBridge.antigravity = true;
+
+        cubit.setProviderFilter(ProviderFilter.antigravity);
+
+        expect(mockBridge.lastJson['provider'], 'antigravity');
+      });
+
+      test('a saved filter survives a missing capability and lists all '
+          'until the Bridge announces it', () async {
+        await cubit.close();
+        mockBridge.dispose();
+        SharedPreferences.setMockInitialValues({
+          'session_list_provider': 'antigravity',
+        });
+        mockBridge = MockBridgeService();
+        cubit = SessionListCubit(bridge: mockBridge);
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state.providerFilter, ProviderFilter.antigravity);
+
+        // The agents setting allows it, so it is not rewritten.
+        cubit.applyEnabledAgents(defaultNewSessionTabs);
+        expect(cubit.state.providerFilter, ProviderFilter.antigravity);
+
+        cubit.refresh();
+        expect(mockBridge.lastJson.containsKey('provider'), isFalse);
+
+        mockBridge.announceAntigravity(true);
+        await Future<void>.delayed(Duration.zero);
+        expect(mockBridge.lastJson['provider'], 'antigravity');
+      });
+
+      test('a single-agent setting drops the Antigravity filter', () {
+        mockBridge.antigravity = true;
+        cubit.setProviderFilter(ProviderFilter.antigravity);
+
+        cubit.applyEnabledAgents(const [NewSessionTab.claude]);
+
+        expect(cubit.state.providerFilter, ProviderFilter.claude);
+      });
+
+      test('the unfiltered list is requested again when the capability '
+          'changes', () async {
+        cubit.refresh();
+        mockBridge.sentMessages.clear();
+
+        mockBridge.announceAntigravity(true);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockBridge.sentMessages, hasLength(1));
+      });
+
+      test('Antigravity sessions are never pinned', () async {
+        const session = RecentSession(
+          sessionId: 'conv-1',
+          provider: 'antigravity',
+          firstPrompt: '',
+          created: '2025-01-01T00:00:00Z',
+          modified: '2025-01-01T00:00:00Z',
+          gitBranch: '',
+          projectPath: '/a/proj1',
+          isSidechain: false,
+        );
+
+        await cubit.toggleRecentSessionPinned(session);
+
+        expect(cubit.state.pinnedSessionKeys, isEmpty);
+      });
     });
 
     test('toggleNamedOnly triggers server re-fetch', () {

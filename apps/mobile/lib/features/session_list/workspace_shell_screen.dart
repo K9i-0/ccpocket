@@ -271,9 +271,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           routeIdentity: routeIdentity,
           owner: this,
           sessionId: id,
-          provider: _selectedSession?.provider == Provider.codex
-              ? 'codex'
-              : 'claude',
+          provider: (_selectedSession?.provider ?? Provider.claude).value,
         );
       } else {
         SessionRouteRegistry.instance.remove(
@@ -292,9 +290,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       NotificationService.instance.setActiveSession(
         owner: this,
         sessionId: _state.liveSessionId!,
-        provider: _selectedSession?.provider == Provider.codex
-            ? 'codex'
-            : 'claude',
+        provider: (_selectedSession?.provider ?? Provider.claude).value,
       );
     } else {
       NotificationService.instance.clearActiveSession(owner: this);
@@ -1277,9 +1273,15 @@ class _WorkspaceContentHost extends StatelessWidget {
             shell?.clearSelectedSession(entry: sessionEntry),
         hideSessionBackButton: !(shell?.isSinglePane ?? true),
       ),
-      _ => ClaudeSessionScreen(
-        key: ValueKey('workspace_claude_${selection.sessionId}'),
+      // Antigravity shares the Claude-style screen. An unknown provider is
+      // Claude: Bridges that predate the field only ran Claude.
+      Provider.claude || Provider.antigravity || null => ClaudeSessionScreen(
+        key: ValueKey(
+          'workspace_${(selection.provider ?? Provider.claude).value}_'
+          '${selection.sessionId}',
+        ),
         sessionId: selection.sessionId,
+        provider: selection.provider ?? Provider.claude,
         projectPath: selection.projectPath,
         workspace: selection.workspace,
         gitBranch: selection.gitBranch,

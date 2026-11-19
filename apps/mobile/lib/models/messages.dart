@@ -239,11 +239,162 @@ class CodexGoal {
 
 enum Provider {
   claude('claude', 'Claude'),
-  codex('codex', 'Codex');
+  codex('codex', 'Codex'),
+  antigravity('antigravity', 'Antigravity');
 
   final String value;
   final String label;
   const Provider(this.value, this.label);
+
+  /// Look up a provider by its wire-format value.
+  static Provider? fromValue(String? value) {
+    for (final provider in values) {
+      if (provider.value == value) return provider;
+    }
+    return null;
+  }
+}
+
+// ---- Antigravity session settings ----
+
+/// A model Antigravity offers for the current account.
+class AntigravityModel {
+  final String id;
+  final String name;
+
+  const AntigravityModel({required this.id, required this.name});
+
+  factory AntigravityModel.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] as String? ?? '';
+    final name = json['name'] as String?;
+    return AntigravityModel(
+      id: id,
+      name: name == null || name.trim().isEmpty ? id : name,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AntigravityModel && other.id == id && other.name == name;
+
+  @override
+  int get hashCode => Object.hash(id, name);
+}
+
+/// Permission modes offered when the Bridge has not reported the account's
+/// own list yet. `bypassPermissions` is never valid for Antigravity.
+const defaultAntigravityPermissionModes = <PermissionMode>[
+  PermissionMode.defaultMode,
+  PermissionMode.acceptEdits,
+  PermissionMode.plan,
+];
+
+/// Clamp [mode] to a mode a new Antigravity session can start in.
+PermissionMode antigravityStartPermissionMode(PermissionMode? mode) =>
+    defaultAntigravityPermissionModes.contains(mode)
+    ? mode!
+    : PermissionMode.defaultMode;
+
+/// Current and selectable model / permission mode of an Antigravity session
+/// (`antigravity` on system messages, `antigravitySettings` on summaries).
+/// The Bridge always sends the whole object, so it replaces the previous one.
+class AntigravitySettings {
+  final String? model;
+  final List<AntigravityModel> models;
+  final PermissionMode? permissionMode;
+
+  /// Modes this account can use, in the Bridge's order.
+  final List<PermissionMode> permissionModes;
+
+  /// `login` (Google account) or `api_key`.
+  final String? authMode;
+
+  const AntigravitySettings({
+    this.model,
+    this.models = const [],
+    this.permissionMode,
+    this.permissionModes = const [],
+    this.authMode,
+  });
+
+  static AntigravitySettings? fromJsonOrNull(Object? json) {
+    if (json is! Map) return null;
+    PermissionMode? mode(Object? raw) => switch (raw) {
+      'default' => PermissionMode.defaultMode,
+      'acceptEdits' => PermissionMode.acceptEdits,
+      'auto' => PermissionMode.auto,
+      'plan' => PermissionMode.plan,
+      // bypassPermissions and unknown values are not Antigravity modes.
+      _ => null,
+    };
+    final model = json['model'];
+    return AntigravitySettings(
+      model: model is String && model.isNotEmpty ? model : null,
+      models: [
+        for (final entry in json['models'] as List? ?? const [])
+          if (entry is Map && entry['id'] is String)
+            AntigravityModel.fromJson(Map<String, dynamic>.from(entry)),
+      ],
+      permissionMode: mode(json['permissionMode']),
+      permissionModes: [
+        for (final entry in json['permissionModes'] as List? ?? const [])
+          ?mode(entry),
+      ],
+      authMode: json['authMode'] as String?,
+    );
+  }
+
+  /// Modes to offer in the UI: the account's list, or the safe fallback.
+  List<PermissionMode> get selectablePermissionModes => permissionModes.isEmpty
+      ? defaultAntigravityPermissionModes
+      : permissionModes;
+
+  /// Display name of [model], falling back to its id.
+  String? get modelLabel {
+    final current = model;
+    if (current == null) return null;
+    for (final entry in models) {
+      if (entry.id == current) return entry.name;
+    }
+    return current;
+  }
+
+  AntigravitySettings copyWith({
+    String? model,
+    PermissionMode? permissionMode,
+  }) => AntigravitySettings(
+    model: model ?? this.model,
+    models: models,
+    permissionMode: permissionMode ?? this.permissionMode,
+    permissionModes: permissionModes,
+    authMode: authMode,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is AntigravitySettings &&
+      other.model == model &&
+      other.permissionMode == permissionMode &&
+      other.authMode == authMode &&
+      _listEquals(other.models, models) &&
+      _listEquals(other.permissionModes, permissionModes);
+
+  @override
+  int get hashCode => Object.hash(
+    model,
+    permissionMode,
+    authMode,
+    Object.hashAll(models),
+    Object.hashAll(permissionModes),
+  );
+}
+
+bool _listEquals<T>(List<T> a, List<T> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 String? sanitizeCodexModelName(String? model) {
@@ -960,6 +1111,7 @@ sealed class ServerMessage {
                 json['codexCliJoin'] as Map<String, dynamic>,
               )
             : null,
+        antigravity: AntigravitySettings.fromJsonOrNull(json['antigravity']),
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -1877,6 +2029,9 @@ class SystemMessage implements ServerMessage {
   final String? requestId;
   final String? tipCode;
   final CodexCliJoinTarget? codexCliJoin;
+
+  /// Antigravity session settings (`init`, `antigravity_settings`).
+  final AntigravitySettings? antigravity;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -1915,6 +2070,7 @@ class SystemMessage implements ServerMessage {
     this.requestId,
     this.tipCode,
     this.codexCliJoin,
+    this.antigravity,
   });
 }
 
@@ -4981,6 +5137,9 @@ class SessionInfo {
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
 
+  /// Model and permission modes of an Antigravity session.
+  final AntigravitySettings? antigravitySettings;
+
   /// Oldest unresolved user prompt, including permissions and questions.
   final PermissionRequestMessage? pendingPermission;
   final QueuedInputItem? queuedInput;
@@ -5026,6 +5185,7 @@ class SessionInfo {
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
+    this.antigravitySettings,
     this.pendingPermission,
     this.queuedInput,
     this.backgroundTaskCount = 0,
@@ -5088,6 +5248,7 @@ class SessionInfo {
     bool? codexNetworkAccessEnabled,
     String? codexWebSearchMode,
     List<String>? codexAdditionalWritableRoots,
+    AntigravitySettings? antigravitySettings,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
     QueuedInputItem? queuedInput,
@@ -5133,6 +5294,7 @@ class SessionInfo {
       codexWebSearchMode: codexWebSearchMode ?? this.codexWebSearchMode,
       codexAdditionalWritableRoots:
           codexAdditionalWritableRoots ?? this.codexAdditionalWritableRoots,
+      antigravitySettings: antigravitySettings ?? this.antigravitySettings,
       pendingPermission: clearPermission
           ? null
           : (pendingPermission ?? this.pendingPermission),
@@ -5197,6 +5359,9 @@ class SessionInfo {
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
       codexAdditionalWritableRoots: _stringList(
         codexSettings?['additionalWritableRoots'],
+      ),
+      antigravitySettings: AntigravitySettings.fromJsonOrNull(
+        json['antigravitySettings'],
       ),
       pendingPermission: permJson != null
           ? PermissionRequestMessage(
@@ -5710,6 +5875,7 @@ class ClientMessage {
     bool? pinnedOnly,
     List<RecentProjectFilter>? pinnedProjects,
     bool? searchContent,
+    bool includeAntigravity = false,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'list_recent_sessions',
@@ -5737,8 +5903,20 @@ class ClientMessage {
       if (pinnedProjects != null && pinnedProjects.isNotEmpty)
         'pinnedProjects': [for (final f in pinnedProjects) f.toJson()],
       'searchContent': ?searchContent,
+      // Antigravity rows join the unfiltered listing only on request.
+      if (includeAntigravity && provider == null) 'includeAntigravity': true,
     });
   }
+
+  /// Switch the model of a running Antigravity session.
+  factory ClientMessage.setAntigravityModel(
+    String model, {
+    required String sessionId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'set_antigravity_model',
+    'sessionId': sessionId,
+    'model': model,
+  });
 
   factory ClientMessage.resumeSession(
     String sessionId,

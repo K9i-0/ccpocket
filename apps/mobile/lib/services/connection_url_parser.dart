@@ -1,3 +1,5 @@
+import '../models/messages.dart' show Provider;
+
 sealed class DeepLinkParams {}
 
 class ConnectionParams extends DeepLinkParams {
@@ -38,9 +40,10 @@ class ConnectionUrlParser {
         if (segments.isEmpty) return null;
         final sessionId = segments.first;
         if (sessionId.isEmpty) return null;
-        final provider = uri.queryParameters['provider'] == 'codex'
-            ? 'codex'
-            : 'claude';
+        final provider =
+            (Provider.fromValue(uri.queryParameters['provider']) ??
+                    Provider.claude)
+                .value;
         return SessionLinkParams(sessionId: sessionId, provider: provider);
       }
 

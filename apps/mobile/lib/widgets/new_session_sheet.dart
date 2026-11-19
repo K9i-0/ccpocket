@@ -142,11 +142,15 @@ class NewSessionParams {
     if (provider == Provider.claude && claudePermissionMode != null) {
       return claudePermissionMode!;
     }
-    return legacyPermissionModeFromModes(
+    final mode = legacyPermissionModeFromModes(
       provider,
       executionMode: executionMode,
       planMode: planMode,
     );
+    // Antigravity starts in default, acceptEdits or plan only.
+    return provider == Provider.antigravity
+        ? antigravityStartPermissionMode(mode)
+        : mode;
   }
 
   /// The same agent options aimed at another project's main checkout.
@@ -628,6 +632,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   late final PageController _pageController;
   var _provider = Provider.codex;
   var _claudePermissionMode = PermissionMode.auto;
+
+  /// Antigravity keeps its own mode: sharing the Claude one would leak
+  /// `auto` / `bypassPermissions`, which a new Antigravity session cannot use.
+  var _antigravityPermissionMode = PermissionMode.defaultMode;
   var _executionMode = ExecutionMode.defaultMode;
   var _codexPermissionsMode = CodexPermissionsMode.defaultPermissions;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
@@ -1175,11 +1183,24 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _claudeSource = claude;
     _applyCodexParams(codex);
     _applyClaudeParams(claude);
+    final antigravity = _sourceFor(Provider.antigravity, p);
+    if (antigravity.provider == Provider.antigravity) {
+      _antigravityPermissionMode = antigravityStartPermissionMode(
+        antigravity.permissionMode,
+      );
+    }
 
     // Options shared by both tabs follow the initial provider. Apply them last
     // because Codex permissions also derive the shared execution mode.
     if (p.provider == Provider.claude) _executionMode = p.executionMode;
-    _planMode = p.planMode;
+    if (p.provider == Provider.antigravity) {
+      // Antigravity's mode lives in its own field; it must not seed the
+      // execution / plan mode of the Claude and Codex tabs.
+      _executionMode = ExecutionMode.defaultMode;
+      _planMode = false;
+    } else {
+      _planMode = p.planMode;
+    }
     _useWorktree = p.useWorktree || p.existingWorktreePath != null;
     _branchController.text = p.worktreeBranch ?? "";
     if (_selectedProjectId == null) {
@@ -1580,6 +1601,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
     final isCodex = _provider == Provider.codex;
+    final isClaude = _provider == Provider.claude;
+    final isAntigravity = _provider == Provider.antigravity;
     final claudeMaxTurns = int.tryParse(_claudeMaxTurnsController.text.trim());
     final claudeMaxBudgetUsd = double.tryParse(
       _claudeMaxBudgetController.text.trim(),
@@ -1598,8 +1621,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       projectId: _selectedProjectId,
       workspaceKind: _workspaceKind,
       provider: _provider,
-      claudePermissionMode: !isCodex ? _claudePermissionMode : null,
-      executionMode: _executionMode,
+      claudePermissionMode: isClaude ? _claudePermissionMode : null,
+      // Antigravity only has a permission mode (default / acceptEdits / plan),
+      // carried as the matching execution + plan mode.
+      executionMode: isAntigravity
+          ? (_antigravityPermissionMode == PermissionMode.acceptEdits
+                ? ExecutionMode.acceptEdits
+                : ExecutionMode.defaultMode)
+          : _executionMode,
       codexPermissionsMode: _codexPermissionsMode,
       codexApprovalPolicy: _codexApprovalPolicy,
       codexAutoReviewEnabled:
@@ -1614,7 +1643,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       codexReasoningEffortOverridden: isCodex && _codexReasoningEffortTouched,
       codexNetworkAccessOverridden: isCodex && _codexNetworkAccessTouched,
       codexWebSearchModeOverridden: isCodex && _codexWebSearchTouched,
-      planMode: isCodex ? false : _planMode,
+      planMode: isAntigravity
+          ? _antigravityPermissionMode == PermissionMode.plan
+          : (isCodex ? false : _planMode),
       useWorktree: useExisting ? false : _useWorktree,
       worktreeBranch: useExisting
           ? _selectedWorktree?.branch
@@ -1623,21 +1654,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           ? _selectedWorktree?.worktreePath
           : null,
       model: isCodex ? _codexSpeedModel : null,
-      sandboxMode: _sandboxMode,
+      sandboxMode: isAntigravity ? null : _sandboxMode,
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
       codexSpeed: isCodex ? _codexSpeed : CodexSpeed.standard,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
-      additionalWritableRoots: _additionalWritableRoots,
-      claudeModel: !isCodex ? _selectedClaudeModel : null,
-      claudeEffort: !isCodex ? _claudeEffort : null,
-      claudeFastMode: !isCodex ? _claudeFastMode : null,
-      claudeUltracode: !isCodex ? _claudeUltracode : null,
-      claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
-      claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
-      claudeFallbackModel: !isCodex ? _selectedClaudeFallbackModel : null,
-      claudeForkSession: !isCodex ? _claudeForkSession : null,
-      claudePersistSession: !isCodex ? _claudePersistSession : null,
+      additionalWritableRoots: isAntigravity
+          ? const []
+          : _additionalWritableRoots,
+      claudeModel: isClaude ? _selectedClaudeModel : null,
+      claudeEffort: isClaude ? _claudeEffort : null,
+      claudeFastMode: isClaude ? _claudeFastMode : null,
+      claudeUltracode: isClaude ? _claudeUltracode : null,
+      claudeMaxTurns: isClaude ? claudeMaxTurns : null,
+      claudeMaxBudgetUsd: isClaude ? claudeMaxBudgetUsd : null,
+      claudeFallbackModel: isClaude ? _selectedClaudeFallbackModel : null,
+      claudeForkSession: isClaude ? _claudeForkSession : null,
+      claudePersistSession: isClaude ? _claudePersistSession : null,
     );
   }
 
@@ -1759,7 +1792,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               },
             ),
           const Divider(indent: 16, endIndent: 16, height: 24),
-          if (_selectedProjectId == null) ...[
+          // Antigravity has no extra writable roots.
+          if (_selectedProjectId == null &&
+              pageProvider != Provider.antigravity) ...[
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
               roots: _additionalWritableRoots,
@@ -1775,6 +1810,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             claudePermissionMode: _claudePermissionMode,
             onClaudePermissionModeChanged: (value) {
               setState(() => _claudePermissionMode = value);
+            },
+            antigravityPermissionMode: _antigravityPermissionMode,
+            onAntigravityPermissionModeChanged: (value) {
+              setState(() => _antigravityPermissionMode = value);
             },
             executionMode: _executionMode,
             onExecutionModeChanged: (value) {
@@ -2125,6 +2164,7 @@ class _SheetTitle extends StatelessWidget {
                   for (final tab in visibleTabs)
                     Expanded(
                       child: _ProviderToggleButton(
+                        key: ValueKey('new_session_tab_${tab.value}'),
                         provider: tab.toProvider(),
                         isSelected: provider == tab.toProvider(),
                         isLocked: lockProvider,
@@ -2797,6 +2837,8 @@ class _OptionsSection extends StatelessWidget {
   final bool showExtendedCodexEfforts;
   final PermissionMode claudePermissionMode;
   final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
+  final PermissionMode antigravityPermissionMode;
+  final ValueChanged<PermissionMode> onAntigravityPermissionModeChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexPermissionsMode codexPermissionsMode;
@@ -2871,6 +2913,8 @@ class _OptionsSection extends StatelessWidget {
     required this.showExtendedCodexEfforts,
     required this.claudePermissionMode,
     required this.onClaudePermissionModeChanged,
+    required this.antigravityPermissionMode,
+    required this.onAntigravityPermissionModeChanged,
     required this.executionMode,
     required this.onExecutionModeChanged,
     required this.codexPermissionsMode,
@@ -2933,13 +2977,15 @@ class _OptionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final selectedPermissionMode = provider == Provider.claude
-        ? claudePermissionMode
-        : legacyPermissionModeFromModes(
-            provider,
-            executionMode: executionMode,
-            planMode: planMode,
-          );
+    final selectedPermissionMode = switch (provider) {
+      Provider.claude => claudePermissionMode,
+      Provider.antigravity => antigravityPermissionMode,
+      Provider.codex => legacyPermissionModeFromModes(
+        provider,
+        executionMode: executionMode,
+        planMode: planMode,
+      ),
+    };
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final autoModeColor = isDark
         ? appColors.warningText
@@ -3254,6 +3300,27 @@ class _OptionsSection extends StatelessWidget {
                     },
                   ),
                 )
+              : provider == Provider.antigravity
+              ? modeSelectorField(
+                  key: const ValueKey('dialog_antigravity_permission_mode'),
+                  label: l.approval,
+                  icon: permissionIcon(antigravityPermissionMode),
+                  title: antigravityPermissionMode.label,
+                  subtitle: permissionDescription(antigravityPermissionMode),
+                  onTap: () => showModeSheet<PermissionMode>(
+                    title: l.approval,
+                    subtitle: l.sheetSubtitleApproval,
+                    // Only these can be chosen before the session reports
+                    // what the account supports.
+                    modes: defaultAntigravityPermissionModes,
+                    currentMode: antigravityPermissionMode,
+                    iconFor: permissionIcon,
+                    labelFor: (m) => m.label,
+                    descriptionFor: permissionDescription,
+                    onSelected: onAntigravityPermissionModeChanged,
+                    colorFor: (mode, cs) => cs.tertiary,
+                  ),
+                )
               : modeSelectorField(
                   key: const ValueKey('dialog_permission_mode'),
                   label: l.approval,
@@ -3324,6 +3391,19 @@ class _OptionsSection extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
+          if (provider == Provider.antigravity)
+            Padding(
+              key: const ValueKey('dialog_antigravity_model_note'),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                l.antigravityModelAfterStartNote,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: appColors.subtleText,
+                  height: 1.4,
+                ),
+              ),
+            ),
           if (provider == Provider.claude)
             ClaudeSettingsPanel(
               key: const ValueKey('dialog_claude_settings'),
@@ -3375,28 +3455,30 @@ class _OptionsSection extends StatelessWidget {
                 : null,
           ),
           const SizedBox(height: 8),
-          _AdvancedOptions(
-            provider: provider,
-            buildInputDecoration: buildInputDecoration,
-            claudeModels: claudeModels,
-            claudeModelOptions: claudeModelOptions,
-            claudeMaxTurnsController: claudeMaxTurnsController,
-            maxTurnsError: maxTurnsError,
-            onMaxTurnsChanged: onMaxTurnsChanged,
-            claudeMaxBudgetController: claudeMaxBudgetController,
-            maxBudgetError: maxBudgetError,
-            onMaxBudgetChanged: onMaxBudgetChanged,
-            selectedClaudeFallbackModel: selectedClaudeFallbackModel,
-            onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
-            claudeForkSession: claudeForkSession,
-            onClaudeForkSessionChanged: onClaudeForkSessionChanged,
-            claudePersistSession: claudePersistSession,
-            onClaudePersistSessionChanged: onClaudePersistSessionChanged,
-            webSearchMode: webSearchMode,
-            onWebSearchModeChanged: onWebSearchModeChanged,
-            networkAccessEnabled: networkAccessEnabled,
-            onNetworkAccessChanged: onNetworkAccessChanged,
-          ),
+          // Antigravity has no Claude / Codex advanced options.
+          if (provider != Provider.antigravity)
+            _AdvancedOptions(
+              provider: provider,
+              buildInputDecoration: buildInputDecoration,
+              claudeModels: claudeModels,
+              claudeModelOptions: claudeModelOptions,
+              claudeMaxTurnsController: claudeMaxTurnsController,
+              maxTurnsError: maxTurnsError,
+              onMaxTurnsChanged: onMaxTurnsChanged,
+              claudeMaxBudgetController: claudeMaxBudgetController,
+              maxBudgetError: maxBudgetError,
+              onMaxBudgetChanged: onMaxBudgetChanged,
+              selectedClaudeFallbackModel: selectedClaudeFallbackModel,
+              onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
+              claudeForkSession: claudeForkSession,
+              onClaudeForkSessionChanged: onClaudeForkSessionChanged,
+              claudePersistSession: claudePersistSession,
+              onClaudePersistSessionChanged: onClaudePersistSessionChanged,
+              webSearchMode: webSearchMode,
+              onWebSearchModeChanged: onWebSearchModeChanged,
+              networkAccessEnabled: networkAccessEnabled,
+              onNetworkAccessChanged: onNetworkAccessChanged,
+            ),
         ],
       ),
     );
@@ -4321,6 +4403,7 @@ class _ProviderToggleButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ProviderToggleButton({
+    super.key,
     required this.provider,
     required this.isSelected,
     required this.isLocked,
@@ -4352,12 +4435,17 @@ class _ProviderToggleButton extends StatelessWidget {
               color: isSelected ? style.foreground : cs.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
-            Text(
-              provider.label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? style.foreground : cs.onSurfaceVariant,
+            // Three tabs share the row when Antigravity is available.
+            Flexible(
+              child: Text(
+                provider.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? style.foreground : cs.onSurfaceVariant,
+                ),
               ),
             ),
           ],

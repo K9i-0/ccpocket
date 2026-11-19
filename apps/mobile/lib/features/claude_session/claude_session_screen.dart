@@ -93,8 +93,15 @@ class _NoopListenable implements Listenable {
 ///
 /// When [isPending] is true, shows a loading overlay until [session_created]
 /// is received from the bridge, then swaps to the real session.
+///
+/// Antigravity sessions use this screen too ([provider]): their permission
+/// modes map onto the Claude chip. [ChatSessionCubit]'s capability flags hide
+/// what Antigravity does not support.
 class ClaudeSessionScreen extends StatefulWidget {
   final String sessionId;
+
+  /// [Provider.claude] or [Provider.antigravity].
+  final Provider provider;
   final String? projectPath;
   final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
@@ -112,6 +119,7 @@ class ClaudeSessionScreen extends StatefulWidget {
   const ClaudeSessionScreen({
     super.key,
     required this.sessionId,
+    this.provider = Provider.claude,
     this.projectPath,
     this.workspace,
     this.gitBranch,
@@ -131,6 +139,9 @@ class ClaudeSessionScreen extends StatefulWidget {
 @RoutePage(name: 'ClaudeSessionRoute')
 class WorkspaceClaudeSessionScreen extends StatelessWidget {
   final String sessionId;
+
+  /// [Provider.claude] or [Provider.antigravity].
+  final Provider provider;
   final String? projectPath;
   final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
@@ -145,6 +156,7 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
   const WorkspaceClaudeSessionScreen({
     super.key,
     required this.sessionId,
+    this.provider = Provider.claude,
     this.projectPath,
     this.workspace,
     this.gitBranch,
@@ -162,7 +174,7 @@ class WorkspaceClaudeSessionScreen extends StatelessWidget {
     return WorkspaceSessionRouteAdapter(
       selection: WorkspaceSessionSelection(
         sessionId: sessionId,
-        provider: Provider.claude,
+        provider: provider,
         projectPath: projectPath,
         workspace: workspace,
         gitBranch: gitBranch,
@@ -240,7 +252,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
       routeIdentity: routeIdentity,
       owner: _sessionRouteOwner,
       sessionId: _sessionId,
-      provider: 'claude',
+      provider: widget.provider.value,
     );
     final shell = WorkspaceShellScreen.maybeOf(context);
     if (shell != null) {
@@ -248,7 +260,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     } else if (ModalRoute.of(context)?.isCurrent ?? false) {
       NotificationService.instance.setActiveSession(
         sessionId: _sessionId,
-        provider: 'claude',
+        provider: widget.provider.value,
       );
     }
   }
@@ -503,6 +515,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     return _ChatScreenProviders(
       key: ValueKey(_sessionId),
       sessionId: _sessionId,
+      provider: widget.provider,
       projectPath: _projectPath,
       workspace: _workspace,
       gitBranch: _gitBranch,
@@ -520,6 +533,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
 /// Wrapper that creates screen-scoped cubits once per session.
 class _ChatScreenProviders extends StatelessWidget {
   final String sessionId;
+  final Provider provider;
   final String? projectPath;
   final SessionWorkspaceInfo? workspace;
   final String? gitBranch;
@@ -534,6 +548,7 @@ class _ChatScreenProviders extends StatelessWidget {
   const _ChatScreenProviders({
     super.key,
     required this.sessionId,
+    required this.provider,
     this.projectPath,
     this.workspace,
     this.gitBranch,
@@ -555,7 +570,7 @@ class _ChatScreenProviders extends StatelessWidget {
         BlocProvider(
           create: (context) => ChatSessionCubit(
             sessionId: sessionId,
-            provider: Provider.claude,
+            provider: provider,
             bridge: bridge,
             streamingCubit: context.read<StreamingStateCubit>(),
             initialExplorerCurrentPath: explorerCurrentPath,
@@ -873,6 +888,16 @@ class _ChatScreenBody extends HookWidget {
     final supportsMessageEdit = context.select<ChatSessionCubit, bool>(
       (cubit) => cubit.supportsMessageEdit,
     );
+    // Provider capabilities (Antigravity has no rewind, fork or usage bar).
+    final supportsRewind = context.select<ChatSessionCubit, bool>(
+      (cubit) => cubit.supportsRewind,
+    );
+    final supportsFork = context.select<ChatSessionCubit, bool>(
+      (cubit) => cubit.supportsFork,
+    );
+    final showsUsageSummary = context.select<ChatSessionCubit, bool>(
+      (cubit) => cubit.showsUsageSummary,
+    );
     final queuedInput = sessionState.queuedInput;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
@@ -1020,7 +1045,9 @@ class _ChatScreenBody extends HookWidget {
                   title: chrome.wrapTitle(
                     SessionNameTitle(
                       sessionId: sessionId,
-                      provider: Provider.claude,
+                      provider: context
+                          .read<ChatSessionCubit>()
+                          .effectiveProvider,
                       projectPath: effectiveProjectPath,
                       workspace: workspace,
                     ),
@@ -1290,15 +1317,16 @@ class _ChatScreenBody extends HookWidget {
             },
             child: Column(
               children: [
-                UsageSummaryBar(
-                  totalCost: sessionState.totalCost,
-                  totalDuration: sessionState.totalDuration,
-                  inputTokens: tokenUsage.inputTokens,
-                  cachedInputTokens: tokenUsage.cachedInputTokens,
-                  outputTokens: tokenUsage.outputTokens,
-                  toolCalls: toolUsage.toolCalls,
-                  fileEdits: toolUsage.fileEdits,
-                ),
+                if (showsUsageSummary)
+                  UsageSummaryBar(
+                    totalCost: sessionState.totalCost,
+                    totalDuration: sessionState.totalDuration,
+                    inputTokens: tokenUsage.inputTokens,
+                    cachedInputTokens: tokenUsage.cachedInputTokens,
+                    outputTokens: tokenUsage.outputTokens,
+                    toolCalls: toolUsage.toolCalls,
+                    fileEdits: toolUsage.fileEdits,
+                  ),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
@@ -1415,7 +1443,8 @@ class _ChatScreenBody extends HookWidget {
                             },
                             // In-place edit replaces the legacy conversation
                             // rewind; file restore stays as its own action.
-                            onRewindMessage: supportsMessageEdit
+                            onRewindMessage:
+                                supportsMessageEdit || !supportsRewind
                                 ? null
                                 : (entry) {
                                     _showRewindActionSheet(
@@ -1433,7 +1462,8 @@ class _ChatScreenBody extends HookWidget {
                                       .read<ChatSessionCubit>()
                                       .editMessage(entry, text)
                                 : null,
-                            onRestoreFilesMessage: supportsMessageEdit
+                            onRestoreFilesMessage:
+                                supportsMessageEdit && supportsRewind
                                 ? (entry) => _showRewindActionSheet(
                                     context,
                                     entry,
@@ -1443,8 +1473,7 @@ class _ChatScreenBody extends HookWidget {
                                     availableModes: const [RewindMode.code],
                                   )
                                 : null,
-                            onForkMessage:
-                                context.read<BridgeService>().supportsClaudeFork
+                            onForkMessage: supportsFork
                                 ? (message) => unawaited(
                                     _forkClaudeFromAssistant(context, message),
                                   )
@@ -1489,6 +1518,13 @@ class _ChatScreenBody extends HookWidget {
                                 sessionId: sessionId,
                                 workspace: workspace,
                                 status: status,
+                                hintText:
+                                    context
+                                        .read<ChatSessionCubit>()
+                                        .isAntigravity
+                                    ? AppLocalizations.of(context)
+                                          .antigravityMessagePlaceholder
+                                    : null,
                                 onGoToLatest: scroll.goToLatest,
                                 inputController: chatInputController,
                                 inputBlocked: queuedInput != null,
@@ -1878,7 +1914,7 @@ void _showUserMessageHistory(
       onScrollToMessage: (msg) {
         scrollToUserEntry.value = msg;
       },
-      onRewindMessage: cubit.supportsMessageEdit
+      onRewindMessage: cubit.supportsMessageEdit || !cubit.supportsRewind
           ? null
           : (msg) => _showRewindActionSheet(
               context,

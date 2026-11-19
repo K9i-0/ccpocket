@@ -775,6 +775,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
   ClaudeSessionRoute({
     Key? key,
     required String sessionId,
+    Provider provider = Provider.claude,
     String? projectPath,
     SessionWorkspaceInfo? workspace,
     String? gitBranch,
@@ -791,6 +792,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
          args: ClaudeSessionRouteArgs(
            key: key,
            sessionId: sessionId,
+           provider: provider,
            projectPath: projectPath,
            workspace: workspace,
            gitBranch: gitBranch,
@@ -814,6 +816,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
       return WorkspaceClaudeSessionScreen(
         key: args.key,
         sessionId: args.sessionId,
+        provider: args.provider,
         projectPath: args.projectPath,
         workspace: args.workspace,
         gitBranch: args.gitBranch,
@@ -833,6 +836,7 @@ class ClaudeSessionRouteArgs {
   const ClaudeSessionRouteArgs({
     this.key,
     required this.sessionId,
+    this.provider = Provider.claude,
     this.projectPath,
     this.workspace,
     this.gitBranch,
@@ -848,6 +852,8 @@ class ClaudeSessionRouteArgs {
   final Key? key;
 
   final String sessionId;
+
+  final Provider provider;
 
   final String? projectPath;
 
@@ -871,7 +877,7 @@ class ClaudeSessionRouteArgs {
 
   @override
   String toString() {
-    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
+    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, provider: $provider, projectPath: $projectPath, workspace: $workspace, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated, onBackToSessions: $onBackToSessions, hideSessionBackButton: $hideSessionBackButton}';
   }
 
   @override
@@ -880,6 +886,7 @@ class ClaudeSessionRouteArgs {
     if (other is! ClaudeSessionRouteArgs) return false;
     return key == other.key &&
         sessionId == other.sessionId &&
+        provider == other.provider &&
         projectPath == other.projectPath &&
         workspace == other.workspace &&
         gitBranch == other.gitBranch &&
@@ -896,6 +903,7 @@ class ClaudeSessionRouteArgs {
   int get hashCode =>
       key.hashCode ^
       sessionId.hashCode ^
+      provider.hashCode ^
       projectPath.hashCode ^
       workspace.hashCode ^
       gitBranch.hashCode ^

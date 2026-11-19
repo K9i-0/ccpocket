@@ -55,7 +55,7 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
     final enabledSet = widget.current.toSet();
     _items = [
       for (final tab in widget.current) (tab: tab, enabled: true),
-      for (final tab in NewSessionTab.values)
+      for (final tab in configurableNewSessionTabs)
         if (!enabledSet.contains(tab)) (tab: tab, enabled: false),
     ];
   }

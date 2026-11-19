@@ -21,7 +21,9 @@ class SessionBackgroundTasksBar extends StatelessWidget {
     // Between Claude turns, interrupting stops the background tasks. While a
     // turn runs, the input bar's stop button interrupts the turn instead.
     final canStop = context.select<ChatSessionCubit, bool>(
-      (cubit) => !cubit.isCodex && cubit.state.status == ProcessStatus.idle,
+      (cubit) =>
+          cubit.supportsBackgroundTaskStop &&
+          cubit.state.status == ProcessStatus.idle,
     );
     return BackgroundTasksBar(
       tasks: tasks,

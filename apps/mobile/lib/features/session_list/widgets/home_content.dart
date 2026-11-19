@@ -1072,7 +1072,9 @@ class HomeContentState extends State<HomeContent> {
                     archivingSessionIds: widget.archivingSessionIds,
                     onArchiveSession: widget.onArchiveSession,
                     onResumeSession: widget.onResumeSession,
-                    onTogglePinned: widget.onToggleRecentSessionPinned == null
+                    onTogglePinned:
+                        widget.onToggleRecentSessionPinned == null ||
+                            !isPinnableProvider(session.provider)
                         ? null
                         : () => widget.onToggleRecentSessionPinned!(session),
                     onLongPressRecentSession: widget.onLongPressRecentSession,
@@ -1097,7 +1099,9 @@ class HomeContentState extends State<HomeContent> {
                   archivingSessionIds: widget.archivingSessionIds,
                   onArchiveSession: widget.onArchiveSession,
                   onResumeSession: widget.onResumeSession,
-                  onTogglePinned: widget.onToggleRecentSessionPinned == null
+                  onTogglePinned:
+                      widget.onToggleRecentSessionPinned == null ||
+                          !isPinnableProvider(session.provider)
                       ? null
                       : () => widget.onToggleRecentSessionPinned!(session),
                   onLongPressRecentSession: widget.onLongPressRecentSession,
@@ -1457,7 +1461,9 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
                 archivingSessionIds: archivingSessionIds,
                 onArchiveSession: onArchiveSession,
                 onResumeSession: onResumeSession,
-                onTogglePinned: onToggleSessionPinned == null
+                onTogglePinned:
+                    onToggleSessionPinned == null ||
+                        !isPinnableProvider(session.provider)
                     ? null
                     : () => onToggleSessionPinned!(session),
                 onLongPressRecentSession: onLongPressRecentSession,

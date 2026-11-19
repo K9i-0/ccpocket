@@ -69,6 +69,7 @@ import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/legacy_material_bridge.dart';
 import 'theme/markdown_style.dart';
+import 'theme/provider_style.dart';
 import 'widgets/duo/duo_control_strip.dart';
 import 'widgets/release_error_widget.dart';
 
@@ -501,8 +502,10 @@ class _CcpocketAppState extends State<CcpocketApp> {
     _appRouter.push(route);
   }
 
+  /// Provider of a notification payload. Payloads without one predate the
+  /// field and belong to Claude.
   String _normalizeProvider(String? provider) {
-    return provider == 'codex' ? 'codex' : 'claude';
+    return providerFromRaw(provider).value;
   }
 
   int _notificationId(String sessionId, String provider, String eventType) {

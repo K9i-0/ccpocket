@@ -57,6 +57,10 @@ abstract class ChatSessionState with _$ChatSessionState {
     ClaudeEffort? claudeEffort,
     @Default(false) bool claudeFastMode,
     @Default(false) bool claudeUltracode,
+
+    // Antigravity model / permission modes (system init, antigravity_settings
+    // and session summaries). Null until the Bridge reports them.
+    AntigravitySettings? antigravitySettings,
     @Default(false) bool planMode,
 
     // Sandbox mode - Freezed default is .on but Cubit constructor overrides

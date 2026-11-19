@@ -13,6 +13,7 @@ import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
 import '../../models/machine.dart';
+import '../../models/new_session_tab.dart';
 import '../../models/offline_pending_action.dart';
 import '../../models/protocol_version.dart';
 import '../../providers/bridge_cubits.dart';
@@ -29,6 +30,7 @@ import '../../services/platform_environment_service.dart';
 import '../../services/ssh_bridge_tunnel_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/adaptive_context_menu.dart';
+import '../../theme/provider_style.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../../widgets/soft_keyboard_dismissal.dart';
@@ -110,8 +112,83 @@ bool autoRenameForProvider(SettingsState settings, Provider provider) {
   return switch (provider) {
     Provider.codex => settings.autoRenameCodexSessions,
     Provider.claude => settings.autoRenameClaudeSessions,
+    // Antigravity titles its own sessions. Auto rename would also have the
+    // Bridge send a prompt the user did not write.
+    Provider.antigravity => false,
   };
 }
+
+/// `start` for a new Antigravity session.
+///
+/// Antigravity takes a permission mode and the shared project / worktree
+/// options only. Claude and Codex options are left out, as is the model (its
+/// list is known only after the session starts) and auto rename.
+ClientMessage antigravityStartMessage(
+  NewSessionParams params, {
+  String? initialPrompt,
+  String? projectName,
+  required String requestId,
+}) => ClientMessage.start(
+  params.projectPath,
+  initialPrompt: initialPrompt?.isNotEmpty == true ? initialPrompt : null,
+  projectId: params.projectId,
+  projectName: projectName,
+  workspaceKind: params.workspaceKind,
+  permissionMode: antigravityStartPermissionMode(params.permissionMode).value,
+  useWorktree: params.useWorktree ? true : null,
+  worktreeBranch: params.worktreeBranch,
+  existingWorktreePath: params.existingWorktreePath,
+  provider: Provider.antigravity.value,
+  requestId: requestId,
+);
+
+/// Route of the chat screen for a session of [provider].
+///
+/// Antigravity shares the Claude-style screen (its permission modes map onto
+/// the Claude chip); the route carries the provider so the screen knows which
+/// one it hosts.
+PageRouteInfo<dynamic> chatRouteForProvider(
+  Provider? provider, {
+  required String sessionId,
+  String? projectPath,
+  SessionWorkspaceInfo? workspace,
+  String? gitBranch,
+  String? worktreePath,
+  bool isPending = false,
+  String? permissionMode,
+  String? sandboxMode,
+  String? approvalPolicy,
+  String? approvalsReviewer,
+  ValueNotifier<SystemMessage?>? pendingSessionCreated,
+}) => switch (provider) {
+  // Unknown provider: Bridges that predate the field only ran Claude.
+  Provider.claude || Provider.antigravity || null => ClaudeSessionRoute(
+    sessionId: sessionId,
+    // Antigravity shares the Claude-style screen.
+    provider: provider ?? Provider.claude,
+    projectPath: projectPath,
+    workspace: workspace,
+    gitBranch: gitBranch,
+    worktreePath: worktreePath,
+    isPending: isPending,
+    initialPermissionMode: permissionMode,
+    initialSandboxMode: sandboxMode,
+    pendingSessionCreated: pendingSessionCreated,
+  ),
+  Provider.codex => CodexSessionRoute(
+    sessionId: sessionId,
+    projectPath: projectPath,
+    workspace: workspace,
+    gitBranch: gitBranch,
+    worktreePath: worktreePath,
+    isPending: isPending,
+    initialSandboxMode: sandboxMode,
+    initialPermissionMode: permissionMode,
+    initialApprovalPolicy: approvalPolicy,
+    initialApprovalsReviewer: approvalsReviewer,
+    pendingSessionCreated: pendingSessionCreated,
+  ),
+};
 
 /// Quote a shell argument so it can be pasted safely into POSIX shells.
 String shellQuote(String value) {
@@ -125,16 +202,16 @@ String buildResumeCommand(RecentSession session) {
   final cwd = (session.resumeCwd?.isNotEmpty ?? false)
       ? session.resumeCwd!
       : session.projectPath;
-  final provider = session.provider == Provider.codex.value
-      ? Provider.codex
-      : Provider.claude;
+  final provider = providerFromRaw(session.provider);
 
   String resumeCommand;
   final additionalRoots = (session.workspace?.rootPaths ?? const <String>[])
       .skip(1)
       .where((root) => root.isNotEmpty && root != cwd)
       .toList();
-  if (provider == Provider.codex) {
+  if (provider == Provider.antigravity) {
+    resumeCommand = 'agy --conversation ${shellQuote(session.sessionId)}';
+  } else if (provider == Provider.codex) {
     final addDirs = additionalRoots
         .map((root) => '--add-dir ${shellQuote(root)}')
         .join(' ');
@@ -304,6 +381,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   // Unseen session tracking
   final _unseenCubit = UnseenSessionsCubit();
   StreamSubscription<List<SessionInfo>>? _activeSessionsSub;
+  StreamSubscription<bool>? _antigravitySub;
 
   // Last built list content, reused while [SessionListScreen.obscured] so
   // data changes behind a covering chat do not rebuild the whole list.
@@ -330,6 +408,11 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (bridge.isConnected && bridge.lastUsageResult == null) {
       bridge.requestUsage();
     }
+    // The Antigravity filter option follows a capability that arrives after
+    // connecting and can change while connected.
+    _antigravitySub = bridge.antigravityAvailabilityChanged.listen((_) {
+      if (mounted) setState(() {});
+    });
     _messageSub = bridge.messages.listen((msg) {
       if (!mounted) return;
       if (msg is SystemMessage && msg.subtype == 'session_created') {
@@ -372,9 +455,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               workspace: msg.workspace ?? _pendingResumeWorkspace,
               gitBranch: _pendingResumeGitBranch,
               worktreePath: msg.worktreePath,
-              provider: Provider.values
-                  .where((p) => p.value == msg.provider)
-                  .firstOrNull,
+              provider: Provider.fromValue(msg.provider),
               permissionMode: msg.permissionMode,
               sandboxMode: msg.sandboxMode,
               approvalPolicy: msg.approvalPolicy,
@@ -793,6 +874,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     _deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
     _activeSessionsSub?.cancel();
+    _antigravitySub?.cancel();
     _unseenCubit.close();
     super.dispose();
   }
@@ -923,7 +1005,10 @@ class _SessionListScreenState extends State<SessionListScreen>
       lockProvider: lockProvider,
       lockProject: lockProject,
       multiProjectOnly: multiProjectOnly,
-      visibleTabs: settings.newSessionTabs,
+      visibleTabs: visibleNewSessionTabs(
+        settings.newSessionTabs,
+        supportsAntigravity: bridge.supportsAntigravity,
+      ),
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
       showHiddenDirectories: settings.showHiddenDirectories,
     );
@@ -1002,92 +1087,108 @@ class _SessionListScreenState extends State<SessionListScreen>
     _pendingResumeSessionId = null;
     _pendingResumeRequestId = null;
     bridge.send(
-      ClientMessage.start(
-        result.projectPath,
-        initialPrompt: initialPrompt?.isNotEmpty == true ? initialPrompt : null,
-        projectId: result.projectId,
-        projectName: workspace?.projectName,
-        workspaceKind: result.workspaceKind,
-        permissionMode: result.provider == Provider.codex && useCodexProfile
-            ? null
-            : result.permissionMode.value,
-        executionMode: result.provider == Provider.codex && useCodexProfile
-            ? null
-            : result.executionMode.value,
-        approvalPolicy: result.provider == Provider.codex
-            ? (useCodexCustomPermissions
+      result.provider == Provider.antigravity
+          ? antigravityStartMessage(
+              result,
+              initialPrompt: initialPrompt,
+              projectName: workspace?.projectName,
+              requestId: pendingId,
+            )
+          : ClientMessage.start(
+              result.projectPath,
+              initialPrompt: initialPrompt?.isNotEmpty == true
+                  ? initialPrompt
+                  : null,
+              projectId: result.projectId,
+              projectName: workspace?.projectName,
+              workspaceKind: result.workspaceKind,
+              permissionMode:
+                  result.provider == Provider.codex && useCodexProfile
                   ? null
-                  : result.codexApprovalPolicy.value)
-            : null,
-        approvalsReviewer: result.provider == Provider.codex
-            ? (useCodexCustomPermissions ? null : result.codexApprovalsReviewer)
-            : null,
-        codexPermissionsMode: result.provider == Provider.codex
-            ? (useCodexCustomPermissions
-                  ? CodexPermissionsMode.custom.value
-                  : result.codexPermissionsMode.value)
-            : null,
-        planMode: result.provider == Provider.codex && useCodexProfile
-            ? null
-            : result.planMode,
-        effort: result.provider == Provider.claude
-            ? result.claudeEffort?.value
-            : null,
-        claudeFastMode: result.provider == Provider.claude
-            ? result.claudeFastMode
-            : null,
-        claudeUltracode: result.provider == Provider.claude
-            ? result.claudeUltracode
-            : null,
-        maxTurns: result.provider == Provider.claude
-            ? result.claudeMaxTurns
-            : null,
-        maxBudgetUsd: result.provider == Provider.claude
-            ? result.claudeMaxBudgetUsd
-            : null,
-        fallbackModel: result.provider == Provider.claude
-            ? result.claudeFallbackModel
-            : null,
-        // --fork-session applies to resume/continue only.
-        forkSession: null,
-        persistSession: result.provider == Provider.claude
-            ? result.claudePersistSession
-            : null,
-        useWorktree: result.useWorktree ? true : null,
-        worktreeBranch: result.worktreeBranch,
-        existingWorktreePath: result.existingWorktreePath,
-        provider: result.provider.value,
-        profile: result.provider == Provider.codex ? result.codexProfile : null,
-        model: result.provider == Provider.claude
-            ? result.claudeModel
-            : (useCodexProfile ? null : result.model),
-        sandboxMode:
-            result.provider == Provider.codex && useCodexCustomPermissions
-            ? null
-            : result.sandboxMode?.value,
-        modelReasoningEffort:
-            result.provider == Provider.codex && useCodexProfile
-            ? null
-            : result.modelReasoningEffort?.value,
-        serviceTier: result.provider == Provider.codex
-            ? result.codexSpeed.value
-            : null,
-        networkAccessEnabled:
-            result.provider == Provider.codex && useCodexCustomPermissions
-            ? null
-            : result.networkAccessEnabled,
-        webSearchMode: result.provider == Provider.codex && useCodexProfile
-            ? null
-            : result.webSearchMode?.value,
-        additionalWritableRoots:
-            result.provider == Provider.claude ||
-                result.projectId != null ||
-                !useCodexCustomPermissions
-            ? result.additionalWritableRoots
-            : null,
-        autoRename: autoRenameForProvider(settings, result.provider),
-        requestId: pendingId,
-      ),
+                  : result.permissionMode.value,
+              executionMode:
+                  result.provider == Provider.codex && useCodexProfile
+                  ? null
+                  : result.executionMode.value,
+              approvalPolicy: result.provider == Provider.codex
+                  ? (useCodexCustomPermissions
+                        ? null
+                        : result.codexApprovalPolicy.value)
+                  : null,
+              approvalsReviewer: result.provider == Provider.codex
+                  ? (useCodexCustomPermissions
+                        ? null
+                        : result.codexApprovalsReviewer)
+                  : null,
+              codexPermissionsMode: result.provider == Provider.codex
+                  ? (useCodexCustomPermissions
+                        ? CodexPermissionsMode.custom.value
+                        : result.codexPermissionsMode.value)
+                  : null,
+              planMode: result.provider == Provider.codex && useCodexProfile
+                  ? null
+                  : result.planMode,
+              effort: result.provider == Provider.claude
+                  ? result.claudeEffort?.value
+                  : null,
+              claudeFastMode: result.provider == Provider.claude
+                  ? result.claudeFastMode
+                  : null,
+              claudeUltracode: result.provider == Provider.claude
+                  ? result.claudeUltracode
+                  : null,
+              maxTurns: result.provider == Provider.claude
+                  ? result.claudeMaxTurns
+                  : null,
+              maxBudgetUsd: result.provider == Provider.claude
+                  ? result.claudeMaxBudgetUsd
+                  : null,
+              fallbackModel: result.provider == Provider.claude
+                  ? result.claudeFallbackModel
+                  : null,
+              // --fork-session applies to resume/continue only.
+              forkSession: null,
+              persistSession: result.provider == Provider.claude
+                  ? result.claudePersistSession
+                  : null,
+              useWorktree: result.useWorktree ? true : null,
+              worktreeBranch: result.worktreeBranch,
+              existingWorktreePath: result.existingWorktreePath,
+              provider: result.provider.value,
+              profile: result.provider == Provider.codex
+                  ? result.codexProfile
+                  : null,
+              model: result.provider == Provider.claude
+                  ? result.claudeModel
+                  : (useCodexProfile ? null : result.model),
+              sandboxMode:
+                  result.provider == Provider.codex && useCodexCustomPermissions
+                  ? null
+                  : result.sandboxMode?.value,
+              modelReasoningEffort:
+                  result.provider == Provider.codex && useCodexProfile
+                  ? null
+                  : result.modelReasoningEffort?.value,
+              serviceTier: result.provider == Provider.codex
+                  ? result.codexSpeed.value
+                  : null,
+              networkAccessEnabled:
+                  result.provider == Provider.codex && useCodexCustomPermissions
+                  ? null
+                  : result.networkAccessEnabled,
+              webSearchMode:
+                  result.provider == Provider.codex && useCodexProfile
+                  ? null
+                  : result.webSearchMode?.value,
+              additionalWritableRoots:
+                  result.provider == Provider.claude ||
+                      result.projectId != null ||
+                      !useCodexCustomPermissions
+                  ? result.additionalWritableRoots
+                  : null,
+              autoRename: autoRenameForProvider(settings, result.provider),
+              requestId: pendingId,
+            ),
     );
     if (isOffline) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1115,7 +1216,9 @@ class _SessionListScreenState extends State<SessionListScreen>
       isPending: true,
       provider: result.provider,
       permissionMode: result.permissionMode.value,
-      sandboxMode: result.sandboxMode?.value,
+      sandboxMode: result.provider == Provider.antigravity
+          ? null
+          : result.sandboxMode?.value,
       approvalPolicy: result.provider == Provider.codex
           ? result.codexApprovalPolicy.value
           : null,
@@ -1168,7 +1271,14 @@ class _SessionListScreenState extends State<SessionListScreen>
   Future<Map<Provider, NewSessionParams>> _loadProviderSessionDefaults() async {
     final claude = await _sessionStartDefaultsStore.loadFor(Provider.claude);
     final codex = await _sessionStartDefaultsStore.loadFor(Provider.codex);
-    return {Provider.claude: ?claude, Provider.codex: ?codex};
+    final antigravity = await _sessionStartDefaultsStore.loadFor(
+      Provider.antigravity,
+    );
+    return {
+      Provider.claude: ?claude,
+      Provider.codex: ?codex,
+      Provider.antigravity: ?antigravity,
+    };
   }
 
   Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
@@ -1288,13 +1398,28 @@ class _SessionListScreenState extends State<SessionListScreen>
   Future<NewSessionParams> _newSessionFromRecentSession(
     RecentSession session,
   ) async {
-    final provider = session.provider == Provider.codex.value
-        ? Provider.codex
-        : Provider.claude;
+    final provider = providerFromRaw(session.provider);
     final codexModels = context.read<BridgeService>().codexModels;
     final existingWorktreePath = session.resumeCwd;
     final hasExistingWorktree =
         existingWorktreePath != null && existingWorktreePath.isNotEmpty;
+    if (provider == Provider.antigravity) {
+      // Antigravity rows carry no start settings; only the place is reused.
+      return NewSessionParams(
+        projectPath: session.projectPath,
+        projectId: session.workspace?.projectId,
+        workspaceKind: session.workspaceKind == 'unassigned'
+            ? null
+            : session.workspaceKind,
+        provider: provider,
+        permissionMode: antigravityStartPermissionMode(
+          permissionModeFromRaw(session.rawPermissionMode),
+        ),
+        useWorktree: hasExistingWorktree,
+        worktreeBranch: session.gitBranch.isNotEmpty ? session.gitBranch : null,
+        existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,
+      );
+    }
 
     // Load per-session Claude settings (saved from previous runs).
     final sessionSettings = provider == Provider.claude
@@ -1590,32 +1715,22 @@ class _SessionListScreenState extends State<SessionListScreen>
       return;
     }
 
-    final navigation = context.router.push(switch (provider) {
-      Provider.codex => CodexSessionRoute(
+    final navigation = context.router.push(
+      chatRouteForProvider(
+        provider,
         sessionId: sessionId,
         projectPath: projectPath,
         workspace: workspace,
         gitBranch: gitBranch,
         worktreePath: worktreePath,
         isPending: isPending,
-        initialSandboxMode: sandboxMode,
-        initialPermissionMode: permissionMode,
-        initialApprovalPolicy: approvalPolicy,
-        initialApprovalsReviewer: approvalsReviewer,
+        permissionMode: permissionMode,
+        sandboxMode: sandboxMode,
+        approvalPolicy: approvalPolicy,
+        approvalsReviewer: approvalsReviewer,
         pendingSessionCreated: pendingNotifier,
       ),
-      _ => ClaudeSessionRoute(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        workspace: workspace,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        isPending: isPending,
-        initialPermissionMode: permissionMode,
-        initialSandboxMode: sandboxMode,
-        pendingSessionCreated: pendingNotifier,
-      ),
-    });
+    );
     navigation.then((_) {
       if (!mounted) return;
       final isConnected =
@@ -1682,6 +1797,29 @@ class _SessionListScreenState extends State<SessionListScreen>
       workspace: workspace,
     );
 
+    if (edited.provider == Provider.antigravity) {
+      // Only the permission mode applies; the Bridge restores the rest.
+      bridge.resumeSession(
+        session.sessionId,
+        resumeProjectPath,
+        permissionMode: edited.permissionMode.value,
+        provider: Provider.antigravity.value,
+        projectId: edited.projectId,
+        projectName: workspace?.projectName,
+        workspaceKind: edited.workspaceKind,
+        resumeRequestId: resumeRequestId,
+      );
+      if (!bridge.isConnected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).resumeQueuedForReconnect,
+            ),
+          ),
+        );
+      }
+      return;
+    }
     final isCodex = edited.provider == Provider.codex;
     final useCodexProfile =
         isCodex && (edited.codexProfile?.isNotEmpty ?? false);
@@ -2202,12 +2340,20 @@ class _SessionListScreenState extends State<SessionListScreen>
       final settingsState = context.watch<SettingsCubit>().state;
       final allowedProviderFilters = providerFiltersForEnabledTabs(
         settingsState.newSessionTabs,
+        supportsAntigravity: bridge.supportsAntigravity,
       );
       final effectiveProviderFilter = coerceProviderFilter(
         slState.providerFilter,
         allowedProviderFilters,
       );
-      if (effectiveProviderFilter != slState.providerFilter) {
+      // Only the agents setting rewrites the saved filter. A saved
+      // Antigravity filter survives a missing capability (it arrives after
+      // connecting) and is shown as All meanwhile.
+      final settingsAllowedFilters = providerFiltersForEnabledTabs(
+        settingsState.newSessionTabs,
+        supportsAntigravity: true,
+      );
+      if (!settingsAllowedFilters.contains(slState.providerFilter)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           context.read<SessionListCubit>().applyEnabledAgents(
@@ -2267,7 +2413,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     workspace: workspace,
                     gitBranch: gitBranch,
                     worktreePath: worktreePath,
-                    provider: provider == 'codex' ? Provider.codex : null,
+                    provider: Provider.fromValue(provider),
                     permissionMode: permissionMode,
                     sandboxMode: sandboxMode,
                     approvalPolicy: approvalPolicy,

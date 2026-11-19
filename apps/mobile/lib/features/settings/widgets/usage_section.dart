@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/provider_style.dart';
 import '../models/usage_pace.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
@@ -46,7 +47,8 @@ class _UsageSectionState extends State<UsageSection> {
     final providers = _providers;
     if (providers == null) return const [];
     return [
-      for (final provider in Provider.values)
+      // Usage is reported for Claude and Codex only.
+      for (final provider in const [Provider.claude, Provider.codex])
         ...providers.where(
           (info) =>
               info.provider == provider.value &&
@@ -291,10 +293,11 @@ class _ProviderUsageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final providerLabel = info.provider == 'claude' ? 'Claude' : 'Codex';
-    final providerIcon = info.provider == 'claude'
-        ? Icons.smart_toy_outlined
-        : Icons.code;
+    final provider = Provider.fromValue(info.provider);
+    final providerLabel = provider?.label ?? info.provider;
+    final providerIcon = provider == null
+        ? Icons.code
+        : providerStyleFor(context, provider).icon;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -665,7 +668,8 @@ class _CompactProviderUsage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final providerLabel = info.provider == 'claude' ? 'Claude' : 'Codex';
+    final providerLabel =
+        Provider.fromValue(info.provider)?.label ?? info.provider;
     final labelWidth = windowLabelWidth;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

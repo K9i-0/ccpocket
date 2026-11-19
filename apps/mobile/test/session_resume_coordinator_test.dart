@@ -59,6 +59,44 @@ void main() {
     bridge.dispose();
   });
 
+  test('resumes an Antigravity conversation with its id only', () async {
+    const session = RecentSession(
+      sessionId: 'conv-1',
+      provider: 'antigravity',
+      name: 'Fix the parser',
+      firstPrompt: '',
+      created: '2026-11-19T00:00:00Z',
+      modified: '2026-11-19T01:00:00Z',
+      gitBranch: '',
+      projectPath: '/workspace/app',
+      isSidechain: false,
+    );
+    // Claude defaults must not leak into the request.
+    SharedPreferences.setMockInitialValues({
+      'session_start_defaults_claude_v1': jsonEncode({
+        'projectPath': '/workspace/app',
+        'provider': 'claude',
+        'permissionMode': 'bypassPermissions',
+        'claudeModel': 'opus',
+        'sandboxMode': 'on',
+      }),
+    });
+
+    final result = await SessionResumeCoordinator(bridge: bridge)
+        .resume(session, resumeRequestId: 'resume-1');
+
+    expect(result.disposition, SessionResumeDisposition.dispatched);
+    expect(jsonDecode(bridge.sentMessages.single.toJson()), {
+      'type': 'resume_session',
+      'sessionId': 'conv-1',
+      'projectPath': '/workspace/app',
+      'provider': 'antigravity',
+      'resumeRequestId': 'resume-1',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('claude_session_settings_conv-1'), isNull);
+  });
+
   test('resumes a deep link with the same persisted Claude settings', () async {
     final result = await SessionResumeCoordinator(bridge: bridge)
         .resume(_session, resumeRequestId: 'link-request-1');

@@ -1147,6 +1147,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get permissionAutoDescription => '让 Claude 通过内置安全检查自动处理审批';
 
   @override
+  String get permissionAutoDescriptionAntigravity =>
+      '让 Antigravity 自动判断哪些操作需要审批';
+
+  @override
+  String get antigravityModelAfterStartNote => '会话开始后可以切换模型。';
+
+  @override
   String get permissionAcceptEditsDescription => '自动批准文件编辑';
 
   @override
@@ -1335,6 +1342,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get codexMessagePlaceholder => '给 Codex 发消息...';
+
+  @override
+  String get antigravityMessagePlaceholder => '给 Antigravity 发消息...';
 
   @override
   String get queuedInputForReconnect => '已加入重连队列';

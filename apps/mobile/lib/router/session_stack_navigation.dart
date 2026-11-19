@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'app_router.dart';
 import '../features/workspace/state/workspace_destination.dart';
+import '../models/messages.dart' show Provider;
 
 @immutable
 class SessionRouteIdentity {
@@ -139,13 +140,14 @@ class SessionStackNavigation {
     if (liveIdentity != null) {
       return liveIdentity.matches(sessionId: sessionId, provider: provider);
     }
+    // The Claude-style route hosts Claude and Antigravity sessions.
     if (routeName == ClaudeSessionRoute.name &&
-        provider == 'claude' &&
         arguments is ClaudeSessionRouteArgs) {
-      return arguments.sessionId == sessionId;
+      return arguments.provider.value == provider &&
+          arguments.sessionId == sessionId;
     }
     if (routeName == CodexSessionRoute.name &&
-        provider == 'codex' &&
+        provider == Provider.codex.value &&
         arguments is CodexSessionRouteArgs) {
       return arguments.sessionId == sessionId;
     }

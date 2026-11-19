@@ -59,8 +59,10 @@ bool isClaudeSkillCommand(SlashCommand command) {
 }
 
 /// The agent's own trigger for skills.
-String nativeSkillTrigger(Provider provider) =>
-    provider == Provider.codex ? r'$' : '/';
+String nativeSkillTrigger(Provider provider) => switch (provider) {
+  Provider.codex => r'$',
+  Provider.claude || Provider.antigravity => '/',
+};
 
 /// The trigger the composer inserts for a skill picked from completion.
 String composerSkillTrigger(Provider provider, SkillTriggerStyle style) {

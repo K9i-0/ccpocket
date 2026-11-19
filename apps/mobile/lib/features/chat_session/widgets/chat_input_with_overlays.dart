@@ -212,10 +212,11 @@ class ChatInputWithOverlays extends HookWidget {
     // Slash commands from cubit
     final chatCubit = context.read<ChatSessionCubit>();
     final isCodex = chatCubit.isCodex;
+    final isAntigravity = chatCubit.isAntigravity;
     // Steer/queue choice is only meaningful while a turn is running and the
-    // Bridge understands per-message delivery.
+    // Bridge understands per-message delivery. Antigravity steers by itself.
     final busyDelivery =
-        chatCubit.supportsInputDelivery && status != ProcessStatus.idle
+        chatCubit.supportsInputDeliveryChoice && status != ProcessStatus.idle
         ? settings.defaultInputDelivery
         : null;
     final completionItems = context
@@ -225,8 +226,11 @@ class ChatInputWithOverlays extends HookWidget {
     final sessionSlashCommands = completionItems
         .where((c) => c.command.startsWith('/'))
         .toList();
+    // Antigravity reports its own commands; the Claude built-ins do not apply.
     final fallbackCommands = isCodex
         ? fallbackCodexSlashCommands
+        : isAntigravity
+        ? const <SlashCommand>[]
         : fallbackSlashCommands;
     final commands = [
       ...fallbackCommands,
@@ -236,12 +240,13 @@ class ChatInputWithOverlays extends HookWidget {
         ),
       ),
     ];
-    final provider = isCodex ? Provider.codex : Provider.claude;
+    final provider = chatCubit.effectiveProvider;
     final skillTriggerStyle = settings.skillTriggerStyle;
     // Codex always needs `$` for apps; Claude only when skills may be typed
-    // with `$` (converted back to `/` on send).
+    // with `$` (converted back to `/` on send). Antigravity has no `$` form.
     final dollarEnabled =
-        isCodex || skillTriggerStyle != SkillTriggerStyle.slash;
+        isCodex ||
+        (!isAntigravity && skillTriggerStyle != SkillTriggerStyle.slash);
     final dollarEntities = isCodex
         ? completionItems.where((c) => c.command.startsWith(r'$')).toList()
         : dollarEnabled
@@ -492,6 +497,8 @@ class ChatInputWithOverlays extends HookWidget {
     /// Skills are inserted with the trigger the user chose in settings; the
     /// cubit converts them to the agent's native form when sending.
     String? skillInsertText(SlashCommand command) {
+      // Antigravity commands are inserted exactly as reported.
+      if (isAntigravity) return null;
       final isSkill = isCodex
           ? command.skillInfo != null
           : command.command.startsWith(r'$') || isClaudeSkillCommand(command);
@@ -1352,7 +1359,9 @@ class ChatInputWithOverlays extends HookWidget {
                     onSlashCommand: insertSlashPrefix,
                     onMention: insertMention,
                     onDollarMention:
-                        isCodex || skillTriggerStyle == SkillTriggerStyle.dollar
+                        isCodex ||
+                            (!isAntigravity &&
+                                skillTriggerStyle == SkillTriggerStyle.dollar)
                         ? insertDollar
                         : null,
                     showDollarButton: isCodex,

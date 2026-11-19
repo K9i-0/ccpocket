@@ -6,6 +6,7 @@ import 'package:ccpocket/features/session_list/session_list_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
@@ -46,6 +47,7 @@ Future<void> _pumpSheet(
   required BridgeService bridge,
   required NewSessionParams initialParams,
   Map<Provider, NewSessionParams> providerDefaults = const {},
+  List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
   required void Function(NewSessionParams?) onResult,
 }) async {
   SharedPreferences.setMockInitialValues({});
@@ -70,6 +72,7 @@ Future<void> _pumpSheet(
                   bridge: bridge,
                   initialParams: initialParams,
                   providerDefaults: providerDefaults,
+                  visibleTabs: visibleTabs,
                 ),
               );
             },
@@ -101,6 +104,130 @@ SystemMessage _created({
 );
 
 void main() {
+  group('new session sheet Antigravity tab', () {
+    final withAntigravity = visibleNewSessionTabs(
+      defaultNewSessionTabs,
+      supportsAntigravity: true,
+    );
+
+    testWidgets('is hidden without the Bridge capability', (tester) async {
+      final bridge = _CatalogBridge(const ['gpt-6-astra']);
+      addTearDown(bridge.dispose);
+      await _pumpSheet(
+        tester,
+        bridge: bridge,
+        initialParams: NewSessionParams(projectPath: '/workspace/app'),
+        visibleTabs: visibleNewSessionTabs(
+          defaultNewSessionTabs,
+          supportsAntigravity: false,
+        ),
+        onResult: (_) {},
+      );
+
+      expect(find.byKey(const ValueKey('new_session_tab_codex')), findsOne);
+      expect(find.byKey(const ValueKey('new_session_tab_claude')), findsOne);
+      expect(
+        find.byKey(const ValueKey('new_session_tab_antigravity')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('offers only a permission mode and starts with it', (
+      tester,
+    ) async {
+      final bridge = _CatalogBridge(const ['gpt-6-astra']);
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      await _pumpSheet(
+        tester,
+        bridge: bridge,
+        initialParams: NewSessionParams(
+          projectPath: '/workspace/app',
+          provider: Provider.codex,
+          model: 'gpt-6-astra',
+        ),
+        providerDefaults: {
+          Provider.claude: NewSessionParams(
+            projectPath: '/workspace/other',
+            provider: Provider.claude,
+            claudePermissionMode: PermissionMode.bypassPermissions,
+            claudeModel: 'opus',
+          ),
+        },
+        visibleTabs: withAntigravity,
+        onResult: (value) => result = value,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('new_session_tab_antigravity')),
+      );
+      await tester.pumpAndSettle();
+
+      // No model picker and none of the Claude / Codex options.
+      expect(
+        find.byKey(const ValueKey('dialog_antigravity_model_note')),
+        findsOne,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_advanced_antigravity')),
+        findsNothing,
+      );
+      // Claude's bypass default does not leak into this tab.
+      expect(find.text('Default'), findsWidgets);
+
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_antigravity_permission_mode')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bypass All'), findsNothing);
+      expect(find.text('Auto'), findsNothing);
+      await tester.tap(find.text('Plan').last);
+      await tester.pumpAndSettle();
+      await _start(tester);
+
+      expect(result?.provider, Provider.antigravity);
+      expect(result?.permissionMode, PermissionMode.plan);
+      expect(result?.model, isNull);
+      expect(result?.claudeModel, isNull);
+      expect(result?.sandboxMode, isNull);
+      expect(result?.projectPath, '/workspace/app');
+    });
+
+    testWidgets('saved Antigravity defaults do not leak into Claude', (
+      tester,
+    ) async {
+      final bridge = _CatalogBridge(const ['gpt-6-astra']);
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+      await _pumpSheet(
+        tester,
+        bridge: bridge,
+        initialParams: NewSessionParams(
+          projectPath: '/workspace/app',
+          provider: Provider.antigravity,
+          permissionMode: PermissionMode.plan,
+        ),
+        providerDefaults: {
+          Provider.claude: NewSessionParams(
+            projectPath: '/workspace/other',
+            provider: Provider.claude,
+            claudePermissionMode: PermissionMode.acceptEdits,
+          ),
+        },
+        visibleTabs: withAntigravity,
+        onResult: (value) => result = value,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('new_session_tab_claude')));
+      await tester.pumpAndSettle();
+      await _start(tester);
+
+      expect(result?.provider, Provider.claude);
+      expect(result?.permissionMode, PermissionMode.acceptEdits);
+      expect(result?.planMode, isFalse);
+    });
+  });
+
   group('new session sheet provider defaults', () {
     testWidgets('Claude tab uses saved Claude defaults when opened on Codex', (
       tester,

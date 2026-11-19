@@ -748,6 +748,7 @@ class _RecentAdvancedSearchSheetState extends State<RecentAdvancedSearchSheet> {
                               ProviderFilter.all => l.all,
                               ProviderFilter.claude => 'Claude',
                               ProviderFilter.codex => 'Codex',
+                              ProviderFilter.antigravity => 'Antigravity',
                             }),
                           ),
                       ],

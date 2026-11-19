@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/widgets.dart';
 
+import '../models/messages.dart' show Provider;
 import '../services/notification_service.dart';
 import 'app_router.dart';
 
@@ -48,16 +49,21 @@ class SessionRouteObserver extends AutoRouterObserver {
     }
 
     if (name == ClaudeSessionRoute.name) {
+      // The Claude-style route also hosts Antigravity sessions.
+      final arguments = settings.arguments;
+      final provider = arguments is ClaudeSessionRouteArgs
+          ? arguments.provider
+          : Provider.claude;
       NotificationService.instance.setActiveSession(
         sessionId: sessionId,
-        provider: 'claude',
+        provider: provider.value,
       );
       return;
     }
     if (name == CodexSessionRoute.name) {
       NotificationService.instance.setActiveSession(
         sessionId: sessionId,
-        provider: 'codex',
+        provider: Provider.codex.value,
       );
       return;
     }

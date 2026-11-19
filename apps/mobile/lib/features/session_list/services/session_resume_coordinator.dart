@@ -168,6 +168,23 @@ class SessionResumeCoordinator {
       );
     }
 
+    if (provider == Provider.antigravity.value) {
+      // The Bridge loads the conversation and restores its model and mode;
+      // no Claude or Codex start options apply, and no Claude per-session
+      // settings are read or written under this id.
+      _bridge.resumeSession(
+        session.sessionId,
+        projectPath,
+        provider: provider,
+        resumeRequestId: resumeRequestId,
+      );
+      return SessionResumeDispatch(
+        disposition: SessionResumeDisposition.dispatched,
+        projectPath: projectPath,
+        gitBranch: session.gitBranch,
+      );
+    }
+
     final isCodex = provider == Provider.codex.value;
     final sessionSettings = isCodex
         ? null

@@ -1188,6 +1188,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Let Claude auto-handle approvals with built-in safety checks';
 
   @override
+  String get permissionAutoDescriptionAntigravity =>
+      'Let Antigravity decide which actions need your approval';
+
+  @override
+  String get antigravityModelAfterStartNote =>
+      'You can switch the model after the session starts.';
+
+  @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';
 
   @override
@@ -1399,6 +1407,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get codexMessagePlaceholder => 'Message Codex...';
+
+  @override
+  String get antigravityMessagePlaceholder => 'Message Antigravity...';
 
   @override
   String get queuedInputForReconnect => 'Queued for reconnect';

@@ -518,7 +518,10 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     Text(
                       _buildSettingsSummary(
                         isCodex: false,
-                        model: session.model,
+                        // Antigravity reports a display name for its model.
+                        model:
+                            session.antigravitySettings?.modelLabel ??
+                            session.model,
                         effort: session.claudeEffort,
                         fastMode: session.claudeFastMode,
                         ultracode: session.claudeUltracode,
@@ -2930,16 +2933,20 @@ class RecentSessionCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      PinToggleButton(
-                        key: ValueKey(
-                          'recent_session_pin_${session.sessionId}_button',
+                      // Sessions that cannot be pinned (Antigravity) show no
+                      // pin at all rather than a dead button.
+                      if (onTogglePinned != null || isPinned) ...[
+                        const SizedBox(width: 8),
+                        PinToggleButton(
+                          key: ValueKey(
+                            'recent_session_pin_${session.sessionId}_button',
+                          ),
+                          isPinned: isPinned,
+                          onPressed: onTogglePinned,
+                          pinTooltip: AppLocalizations.of(context).pin,
+                          unpinTooltip: AppLocalizations.of(context).unpin,
                         ),
-                        isPinned: isPinned,
-                        onPressed: onTogglePinned,
-                        pinTooltip: AppLocalizations.of(context).pin,
-                        unpinTooltip: AppLocalizations.of(context).unpin,
-                      ),
+                      ],
                     ],
                   ),
                   if (agentLabel != null) ...[

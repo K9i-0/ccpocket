@@ -8,6 +8,7 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/utils/request_user_input.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Minimal mock BridgeService for testing the cubit.
 class MockBridgeService extends BridgeService {
@@ -242,6 +243,219 @@ void main() {
         expect(cubit.state.queuedInput, isNull);
       },
     );
+
+    group('Antigravity', () {
+      SystemMessage settings({String model = 'gemini-a'}) =>
+          ServerMessage.fromJson({
+            'type': 'system',
+            'subtype': 'antigravity_settings',
+            'sessionId': 's1',
+            'provider': 'antigravity',
+            'model': model,
+            'permissionMode': 'default',
+            'antigravity': {
+              'model': model,
+              'models': [
+                {'id': 'gemini-a', 'name': 'Gemini A'},
+                {'id': 'gemini-b', 'name': 'Gemini B'},
+              ],
+              'permissionMode': 'default',
+              'permissionModes': ['default', 'acceptEdits', 'plan'],
+              'authMode': 'api_key',
+            },
+          }) as SystemMessage;
+
+      test('capability flags hide what Antigravity does not support', () {
+        mockBridge.inputDelivery = true;
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+
+        expect(cubit.isAntigravity, isTrue);
+        expect(cubit.isClaude, isFalse);
+        expect(cubit.supportsRewind, isFalse);
+        expect(cubit.supportsFork, isFalse);
+        expect(cubit.supportsMessageEdit, isFalse);
+        expect(cubit.supportsSandboxToggle, isFalse);
+        expect(cubit.supportsClaudeSessionSettings, isFalse);
+        expect(cubit.showsUsageSummary, isFalse);
+        expect(cubit.supportsBackgroundTaskStop, isFalse);
+        expect(cubit.supportsInputDeliveryChoice, isFalse);
+        expect(cubit.usesInputQueue, isFalse);
+        expect(cubit.selectablePermissionModes, [
+          PermissionMode.defaultMode,
+          PermissionMode.acceptEdits,
+          PermissionMode.plan,
+        ]);
+      });
+
+      test('Claude sessions keep their capabilities', () {
+        mockBridge.inputDelivery = true;
+        final cubit = createCubit('s1', provider: Provider.claude);
+        addTearDown(cubit.close);
+
+        expect(cubit.isClaude, isTrue);
+        expect(cubit.supportsRewind, isTrue);
+        expect(cubit.supportsSandboxToggle, isTrue);
+        expect(cubit.showsUsageSummary, isTrue);
+        expect(cubit.supportsInputDeliveryChoice, isTrue);
+        expect(cubit.usesInputQueue, isTrue);
+        expect(cubit.selectablePermissionModes, PermissionMode.values);
+      });
+
+      test(
+        'input during a running turn goes straight to the transcript',
+        () async {
+          // The Bridge steers the turn itself and answers queued:false.
+          mockBridge.inputDelivery = true;
+          final cubit = createCubit('s1', provider: Provider.antigravity);
+          addTearDown(cubit.close);
+          await pumpEventQueue();
+          mockBridge.emitMessage(
+            const StatusMessage(status: ProcessStatus.running),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+
+          await cubit.sendMessage('Also check the tests');
+          final payload = jsonDecode(
+            mockBridge.sentMessages.last.toJson(),
+          ) as Map<String, dynamic>;
+          expect(payload['type'], 'input');
+          expect(payload.containsKey('delivery'), isFalse);
+          expect(cubit.state.queuedInput, isNull);
+          expect(
+            cubit.state.entries.whereType<UserChatEntry>().single.status,
+            MessageStatus.sending,
+          );
+
+          mockBridge.emitMessage(
+            InputAckMessage(
+              sessionId: 's1',
+              clientMessageId: payload['clientMessageId'] as String,
+              queued: false,
+            ),
+            sessionId: 's1',
+          );
+          await pumpEventQueue();
+
+          final entry = cubit.state.entries.whereType<UserChatEntry>().single;
+          expect(entry.text, 'Also check the tests');
+          expect(entry.status, MessageStatus.sent);
+          expect(cubit.state.queuedInput, isNull);
+        },
+      );
+
+      test('settings from the Bridge replace model and mode', () async {
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+
+        mockBridge.emitMessage(settings(), sessionId: 's1');
+        await pumpEventQueue();
+        expect(cubit.state.antigravitySettings?.model, 'gemini-a');
+        expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+        // The Bridge session id is not the conversation id.
+        expect(cubit.state.claudeSessionId, isNull);
+
+        cubit.setAntigravityModel('gemini-b');
+        expect(cubit.state.antigravitySettings?.model, 'gemini-b');
+        expect(jsonDecode(mockBridge.sentMessages.last.toJson()), {
+          'type': 'set_antigravity_model',
+          'sessionId': 's1',
+          'model': 'gemini-b',
+        });
+
+        // Rejected: error first, then the unchanged settings.
+        mockBridge.emitMessage(
+          const ErrorMessage(
+            message: 'Failed to switch model',
+            errorCode: 'set_antigravity_model_rejected',
+          ),
+          sessionId: 's1',
+        );
+        mockBridge.emitMessage(settings(), sessionId: 's1');
+        await pumpEventQueue();
+        expect(cubit.state.antigravitySettings?.model, 'gemini-a');
+      });
+
+      test('a history reload keeps settings newer than the context', () async {
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+        final context = SessionInfo.fromJson({
+          'id': 's1',
+          'provider': 'antigravity',
+          'projectPath': '/tmp/project',
+          'status': 'idle',
+          'permissionMode': 'default',
+          'antigravitySettings': {
+            'model': 'gemini-a',
+            'models': [
+              {'id': 'gemini-a', 'name': 'Gemini A'},
+              {'id': 'gemini-b', 'name': 'Gemini B'},
+            ],
+            'permissionMode': 'default',
+            'permissionModes': ['default', 'acceptEdits', 'plan'],
+            'authMode': 'api_key',
+          },
+        });
+        mockBridge.emitMessage(
+          SessionContextMessage(sessionId: 's1', context: context),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(cubit.state.antigravitySettings?.model, 'gemini-a');
+
+        mockBridge.emitMessage(settings(model: 'gemini-b'), sessionId: 's1');
+        mockBridge.emitMessage(
+          const HistoryMessage(messages: []),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+
+        expect(cubit.state.antigravitySettings?.model, 'gemini-b');
+      });
+
+      test('ignores a model the Bridge did not list and bypass mode', () async {
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+        mockBridge.emitMessage(settings(), sessionId: 's1');
+        await pumpEventQueue();
+        mockBridge.sentMessages.clear();
+
+        cubit.setAntigravityModel('not-listed');
+        cubit.setPermissionMode(PermissionMode.bypassPermissions);
+
+        expect(mockBridge.sentMessages, isEmpty);
+        expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+      });
+
+      test('does not write Claude per-session settings', () async {
+        SharedPreferences.setMockInitialValues({});
+        final cubit = createCubit('s1', provider: Provider.antigravity);
+        addTearDown(cubit.close);
+        await pumpEventQueue();
+        mockBridge.emitMessage(
+          ServerMessage.fromJson({
+            'type': 'system',
+            'subtype': 'init',
+            'sessionId': 'conv-1',
+            'provider': 'antigravity',
+            'permissionMode': 'default',
+          }),
+          sessionId: 's1',
+        );
+        await pumpEventQueue();
+        expect(cubit.state.claudeSessionId, 'conv-1');
+
+        cubit.setPermissionMode(PermissionMode.plan);
+        await pumpEventQueue();
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('claude_session_settings_conv-1'), isNull);
+      });
+    });
 
     for (final provider in [Provider.claude, Provider.codex]) {
       test(

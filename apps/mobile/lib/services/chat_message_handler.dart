@@ -60,6 +60,10 @@ class ChatStateUpdate {
   /// The Claude settings fields are a full snapshot (null = default), not a
   /// partial update.
   final bool replaceClaudeSettings;
+
+  /// Antigravity session settings. Always the whole object (current and
+  /// selectable models / modes), so it replaces the previous one.
+  final AntigravitySettings? antigravitySettings;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -125,6 +129,7 @@ class ChatStateUpdate {
     this.claudeFastMode,
     this.claudeUltracode,
     this.replaceClaudeSettings = false,
+    this.antigravitySettings,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -178,6 +183,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'set_codex_model': UnsupportedAction.showUpdateHint,
   'set_codex_speed': UnsupportedAction.showUpdateHint,
   'set_claude_settings': UnsupportedAction.showUpdateHint,
+  'set_antigravity_model': UnsupportedAction.showUpdateHint,
   'set_goal': UnsupportedAction.showUpdateHint,
   'set_codex_recovery': UnsupportedAction.showUpdateHint,
   'cancel_codex_recovery': UnsupportedAction.showUpdateHint,
@@ -673,6 +679,7 @@ class ChatMessageHandler {
     bool? claudeFastMode;
     bool? claudeUltracode;
     var sawClaudeSettings = false;
+    AntigravitySettings? antigravitySettings;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
 
@@ -723,7 +730,8 @@ class ChatMessageHandler {
                 m.subtype != 'set_codex_model' &&
                 m.subtype != 'set_codex_speed' &&
                 m.subtype != 'codex_settings' &&
-                m.subtype != 'claude_settings')) {
+                m.subtype != 'claude_settings' &&
+                m.subtype != 'antigravity_settings')) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
         // Restore slash commands from history (init, supported_commands, or
@@ -764,13 +772,18 @@ class ChatMessageHandler {
         if (m is SystemMessage && m.projectPath?.trim().isNotEmpty == true) {
           projectPath = m.projectPath;
         }
+        if (m is SystemMessage && m.antigravity != null) {
+          // The whole object is sent each time; the latest one wins.
+          antigravitySettings = m.antigravity;
+        }
         if (m is SystemMessage && m.subtype == 'claude_settings') {
           sawClaudeSettings = true;
           claudeModel = m.model?.trim().isNotEmpty == true ? m.model : null;
           claudeEffort = claudeEffortByValue(m.effort);
           claudeFastMode = m.fastMode;
           claudeUltracode = m.ultracode;
-        } else if (m is SystemMessage) {
+        } else if (m is SystemMessage &&
+            m.provider != Provider.antigravity.value) {
           if (m.model?.trim().isNotEmpty == true) {
             codexModel = m.model;
           }
@@ -806,6 +819,7 @@ class ChatMessageHandler {
       claudeFastMode: claudeFastMode,
       claudeUltracode: claudeUltracode,
       replaceClaudeSettings: sawClaudeSettings,
+      antigravitySettings: antigravitySettings,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
     );
@@ -949,8 +963,12 @@ class ChatMessageHandler {
     // Extract claudeSessionId from session_created or init messages.
     // Prefer the full Claude CLI UUID (claudeSessionId) over the Bridge's
     // internal 8-char ID (sessionId) for JSONL file lookups.
-    // claude_settings carries the Bridge session id, not the provider id.
-    final sessionId = msg is SystemMessage && subtype != 'claude_settings'
+    // claude_settings and antigravity_settings carry the Bridge session id,
+    // not the provider id.
+    final sessionId =
+        msg is SystemMessage &&
+            subtype != 'claude_settings' &&
+            subtype != 'antigravity_settings'
         ? (msg.claudeSessionId ?? msg.sessionId)
         : null;
     // Track git tip to suppress duplicate git errors later
@@ -980,6 +998,7 @@ class ChatMessageHandler {
       claudeFastMode: claudeFastMode,
       claudeUltracode: claudeUltracode,
       replaceClaudeSettings: subtype == 'claude_settings',
+      antigravitySettings: msg is SystemMessage ? msg.antigravity : null,
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

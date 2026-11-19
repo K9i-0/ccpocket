@@ -426,6 +426,8 @@
   "approveSessionSub": "allow",
   "permissionDefaultDescription": "Standard permission prompts",
   "permissionAutoDescription": "Let Claude auto-handle approvals with built-in safety checks",
+  "permissionAutoDescriptionAntigravity": "Let Antigravity decide which actions need your approval",
+  "antigravityModelAfterStartNote": "You can switch the model after the session starts.",
   "permissionAcceptEditsDescription": "Auto-approve file edits",
   "permissionPlanDescription": "Analyze and plan before executing changes",
   "permissionBypassDescription": "Run without most approval prompts",
@@ -524,6 +526,7 @@
 
   "messagePlaceholder": "Message Claude...",
   "codexMessagePlaceholder": "Message Codex...",
+  "antigravityMessagePlaceholder": "Message Antigravity...",
   "queuedInputForReconnect": "Queued for reconnect",
   "queuedInputPendingDelivery": "Pending delivery",
   "queuedInputWaitingForUsageLimit": "Waiting for usage limit · checking reset time",

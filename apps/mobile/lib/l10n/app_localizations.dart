@@ -2261,6 +2261,18 @@ abstract class AppLocalizations {
   /// **'Claude が安全チェック付きで承認を自動処理します'**
   String get permissionAutoDescription;
 
+  /// No description provided for @permissionAutoDescriptionAntigravity.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravity が承認の要否を自動で判断します'**
+  String get permissionAutoDescriptionAntigravity;
+
+  /// No description provided for @antigravityModelAfterStartNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデルはセッション開始後に切り替えられます。'**
+  String get antigravityModelAfterStartNote;
+
   /// No description provided for @permissionAcceptEditsDescription.
   ///
   /// In ja, this message translates to:
@@ -2620,6 +2632,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Codex にメッセージ...'**
   String get codexMessagePlaceholder;
+
+  /// No description provided for @antigravityMessagePlaceholder.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravity にメッセージ...'**
+  String get antigravityMessagePlaceholder;
 
   /// No description provided for @queuedInputForReconnect.
   ///

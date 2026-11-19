@@ -36,7 +36,10 @@ class SessionModeBar extends StatelessWidget {
         status == ProcessStatus.compacting;
     final sandboxMode = chatCubit.state.sandboxMode;
     final permissionMode = chatCubit.state.permissionMode;
-    final isCodex = chatCubit.provider == Provider.codex;
+    final isCodex = chatCubit.isCodex;
+    final antigravitySettings = chatCubit.isAntigravity
+        ? chatCubit.state.antigravitySettings
+        : null;
     final codexModel = isCodex ? _currentCodexModel(chatCubit) : null;
     final codexReasoningEffort = codexModel == null
         ? null
@@ -143,7 +146,26 @@ class SessionModeBar extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (antigravitySettings != null &&
+                      antigravitySettings.models.isNotEmpty) ...[
+                    AntigravityModelChip(
+                      key: const ValueKey('antigravity_model_chip'),
+                      label:
+                          antigravitySettings.modelLabel ??
+                          AppLocalizations.of(context).model,
+                      onTap: () => showAntigravityModelMenu(context, chatCubit),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
                   PermissionModeChip(
+                    key: const ValueKey('permission_mode_chip'),
                     currentMode: permissionMode,
                     onTap: () => showPermissionModeMenu(
                       context,
@@ -152,7 +174,7 @@ class SessionModeBar extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (!isCodex) ...[
+                if (chatCubit.supportsSandboxToggle) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: VerticalDivider(
@@ -491,6 +513,98 @@ void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
       ),
     ),
   );
+}
+
+/// Model picker of an Antigravity session. Lists the models the Bridge
+/// reported for this account and follows the Bridge's confirmed value, so a
+/// rejected switch shows the model that is really in use.
+void showAntigravityModelMenu(
+  BuildContext context,
+  ChatSessionCubit chatCubit,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => BlocBuilder<ChatSessionCubit, ChatSessionState>(
+      bloc: chatCubit,
+      buildWhen: (prev, next) =>
+          prev.antigravitySettings != next.antigravitySettings,
+      builder: (sheetContext, state) => AntigravityModelSheet(
+        settings: state.antigravitySettings,
+        onSelected: (model) {
+          Navigator.pop(sheetContext);
+          if (model.id == state.antigravitySettings?.model) return;
+          HapticFeedback.lightImpact();
+          chatCubit.setAntigravityModel(model.id);
+        },
+      ),
+    ),
+  );
+}
+
+class AntigravityModelSheet extends StatelessWidget {
+  final AntigravitySettings? settings;
+  final ValueChanged<AntigravityModel> onSelected;
+
+  const AntigravityModelSheet({
+    super.key,
+    required this.settings,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final models = settings?.models ?? const <AntigravityModel>[];
+    final current = settings?.model;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  l.model,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                key: const ValueKey('antigravity_model_list'),
+                shrinkWrap: true,
+                itemCount: models.length,
+                itemBuilder: (context, index) {
+                  final model = models[index];
+                  final selected = model.id == current;
+                  return ListTile(
+                    key: ValueKey('antigravity_model_option_${model.id}'),
+                    title: Text(model.name),
+                    trailing: selected
+                        ? Icon(Icons.check, color: cs.tertiary, size: 20)
+                        : null,
+                    onTap: () => onSelected(model),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 void showCodexPermissionsMenu(
@@ -847,7 +961,9 @@ void showPermissionModeMenu(
         ),
         PermissionMode.auto: (
           icon: Icons.auto_mode_outlined,
-          description: l.permissionAutoDescription,
+          description: chatCubit.isAntigravity
+              ? l.permissionAutoDescriptionAntigravity
+              : l.permissionAutoDescription,
           color: autoModeColor,
         ),
         PermissionMode.acceptEdits: (
@@ -890,8 +1006,9 @@ void showPermissionModeMenu(
                   ),
                 ),
               ),
-              for (final mode in PermissionMode.values)
+              for (final mode in chatCubit.selectablePermissionModes)
                 ListTile(
+                  key: ValueKey('permission_mode_option_${mode.value}'),
                   leading: Icon(
                     modeDetails[mode]!.icon,
                     color: mode == currentMode
@@ -914,6 +1031,11 @@ void showPermissionModeMenu(
                     Navigator.pop(sheetContext);
                     if (mode == currentMode) return;
                     HapticFeedback.lightImpact();
+                    if (chatCubit.appliesPermissionModeLive) {
+                      // No restart, so nothing to confirm.
+                      chatCubit.setPermissionMode(mode);
+                      return;
+                    }
                     _confirmPermissionModeChange(
                       context,
                       chatCubit,
@@ -1216,6 +1338,56 @@ String _codexPermissionsSubtitle(
     cs.primary,
   ),
 };
+
+class AntigravityModelChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const AntigravityModelChip({
+    super.key,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: fg.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class ClaudeModelChip extends StatelessWidget {
   final String label;

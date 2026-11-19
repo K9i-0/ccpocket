@@ -1,0 +1,408 @@
+import 'dart:convert';
+
+import 'package:ccpocket/features/session_list/session_list_screen.dart';
+import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/session_list/state/session_list_state.dart';
+import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
+import 'package:ccpocket/router/app_router.dart';
+import 'package:ccpocket/router/session_stack_navigation.dart';
+import 'package:ccpocket/services/chat_message_handler.dart';
+import 'package:ccpocket/theme/provider_style.dart';
+import 'package:ccpocket/widgets/new_session_sheet.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+const _settingsJson = <String, dynamic>{
+  'model': 'gemini-3.8-flash-high',
+  'models': [
+    {'id': 'gemini-3.8-flash-high', 'name': 'Gemini 3.8 Flash (High)'},
+    {'id': 'gemini-3.1-pro-low', 'name': 'Gemini 3.1 Pro (Low)'},
+  ],
+  'permissionMode': 'acceptEdits',
+  'permissionModes': ['default', 'acceptEdits', 'plan'],
+  'authMode': 'api_key',
+};
+
+Map<String, dynamic> _json(ClientMessage message) =>
+    jsonDecode(message.toJson()) as Map<String, dynamic>;
+
+void main() {
+  group('Antigravity provider parsing', () {
+    test('wire value resolves to the provider', () {
+      expect(Provider.fromValue('antigravity'), Provider.antigravity);
+      expect(providerFromRaw('antigravity'), Provider.antigravity);
+      expect(providerFromRaw('codex'), Provider.codex);
+      // Missing or unknown values keep meaning Claude.
+      expect(providerFromRaw(null), Provider.claude);
+      expect(providerFromRaw('something-else'), Provider.claude);
+    });
+
+    test('system init carries the settings object', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'init',
+        'sessionId': 'conv-1',
+        'provider': 'antigravity',
+        'model': 'gemini-3.8-flash-high',
+        'permissionMode': 'acceptEdits',
+        'slashCommands': ['goal', 'compact'],
+        'antigravity': _settingsJson,
+      }) as SystemMessage;
+
+      final settings = msg.antigravity!;
+      expect(settings.model, 'gemini-3.8-flash-high');
+      expect(settings.modelLabel, 'Gemini 3.8 Flash (High)');
+      expect(settings.models.map((m) => m.id), [
+        'gemini-3.8-flash-high',
+        'gemini-3.1-pro-low',
+      ]);
+      expect(settings.permissionMode, PermissionMode.acceptEdits);
+      expect(settings.permissionModes, [
+        PermissionMode.defaultMode,
+        PermissionMode.acceptEdits,
+        PermissionMode.plan,
+      ]);
+      expect(settings.authMode, 'api_key');
+    });
+
+    test('antigravity_settings with auto keeps the account modes', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'antigravity_settings',
+        'sessionId': 'bridge-1',
+        'provider': 'antigravity',
+        'antigravity': {
+          ..._settingsJson,
+          'permissionMode': 'auto',
+          'permissionModes': [
+            'default',
+            'acceptEdits',
+            'auto',
+            'plan',
+            // Never an Antigravity mode, even if a Bridge sent it.
+            'bypassPermissions',
+          ],
+        },
+      }) as SystemMessage;
+
+      expect(msg.antigravity!.permissionMode, PermissionMode.auto);
+      expect(msg.antigravity!.selectablePermissionModes, [
+        PermissionMode.defaultMode,
+        PermissionMode.acceptEdits,
+        PermissionMode.auto,
+        PermissionMode.plan,
+      ]);
+    });
+
+    test('unknown modes fall back to default / acceptEdits / plan', () {
+      final settings = AntigravitySettings.fromJsonOrNull({
+        'models': <Object>[],
+        'permissionModes': <Object>[],
+        'authMode': 'login',
+      })!;
+
+      expect(settings.model, isNull);
+      expect(settings.modelLabel, isNull);
+      expect(
+        settings.selectablePermissionModes,
+        defaultAntigravityPermissionModes,
+      );
+      expect(
+        settings.selectablePermissionModes,
+        isNot(contains(PermissionMode.bypassPermissions)),
+      );
+    });
+
+    test('session summary carries provider, title and settings', () {
+      final session = SessionInfo.fromJson({
+        'id': 'bridge-1',
+        'provider': 'antigravity',
+        'projectPath': '/tmp/project',
+        'name': 'Fix the parser',
+        'status': 'idle',
+        'permissionMode': 'acceptEdits',
+        'model': 'gemini-3.8-flash-high',
+        'antigravitySettings': _settingsJson,
+      });
+
+      expect(session.provider, 'antigravity');
+      expect(session.name, 'Fix the parser');
+      expect(session.effectivePermissionMode, 'acceptEdits');
+      expect(
+        session.antigravitySettings!.modelLabel,
+        'Gemini 3.8 Flash (High)',
+      );
+      // Status patches rebuild the summary; the settings must survive.
+      expect(
+        session.copyWith(status: 'running').antigravitySettings,
+        session.antigravitySettings,
+      );
+    });
+  });
+
+  group('Antigravity system messages in the chat handler', () {
+    test('antigravity_settings updates settings without a chat entry', () {
+      final handler = ChatMessageHandler();
+      final update = handler.handle(
+        ServerMessage.fromJson({
+          'type': 'system',
+          'subtype': 'antigravity_settings',
+          'sessionId': 'bridge-1',
+          'provider': 'antigravity',
+          'model': 'gemini-3.8-flash-high',
+          'permissionMode': 'acceptEdits',
+          'antigravity': _settingsJson,
+        }),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.antigravitySettings!.model, 'gemini-3.8-flash-high');
+      expect(update.permissionMode, PermissionMode.acceptEdits);
+      // It carries the Bridge session id, not the conversation id.
+      expect(update.claudeSessionId, isNull);
+      // Never read as a Codex model.
+      expect(update.codexModel, isNull);
+    });
+
+    test('history restores the latest settings and hides the messages', () {
+      final handler = ChatMessageHandler();
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            ServerMessage.fromJson({
+              'type': 'system',
+              'subtype': 'init',
+              'sessionId': 'conv-1',
+              'provider': 'antigravity',
+              'antigravity': _settingsJson,
+            }),
+            ServerMessage.fromJson({
+              'type': 'system',
+              'subtype': 'antigravity_settings',
+              'sessionId': 'bridge-1',
+              'provider': 'antigravity',
+              'antigravity': {..._settingsJson, 'model': 'gemini-3.1-pro-low'},
+            }),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.antigravitySettings!.model, 'gemini-3.1-pro-low');
+      expect(update.claudeSessionId, 'conv-1');
+      expect(update.codexModel, isNull);
+    });
+  });
+
+  group('new session tabs', () {
+    test('Antigravity tab follows the Bridge capability', () {
+      expect(
+        visibleNewSessionTabs(defaultNewSessionTabs, supportsAntigravity: true),
+        [NewSessionTab.codex, NewSessionTab.claude, NewSessionTab.antigravity],
+      );
+      expect(
+        visibleNewSessionTabs(
+          defaultNewSessionTabs,
+          supportsAntigravity: false,
+        ),
+        [NewSessionTab.codex, NewSessionTab.claude],
+      );
+    });
+
+    test('single-agent modes never show the Antigravity tab', () {
+      expect(
+        visibleNewSessionTabs(const [
+          NewSessionTab.codex,
+        ], supportsAntigravity: true),
+        [NewSessionTab.codex],
+      );
+      expect(
+        visibleNewSessionTabs(const [
+          NewSessionTab.claude,
+        ], supportsAntigravity: true),
+        [NewSessionTab.claude],
+      );
+    });
+
+    test('Antigravity is not part of the saved tab setting', () {
+      expect(tabsFromJson('["claude","antigravity","codex"]'), [
+        NewSessionTab.claude,
+        NewSessionTab.codex,
+      ]);
+      expect(
+        tabsForEnabledAgentsMode(EnabledAgentsMode.both, const [
+          NewSessionTab.antigravity,
+        ]),
+        [NewSessionTab.codex, NewSessionTab.claude],
+      );
+    });
+
+    test('provider filters offer Antigravity only with the capability', () {
+      expect(
+        providerFiltersForEnabledTabs(
+          defaultNewSessionTabs,
+          supportsAntigravity: true,
+        ),
+        contains(ProviderFilter.antigravity),
+      );
+      expect(
+        providerFiltersForEnabledTabs(
+          defaultNewSessionTabs,
+          supportsAntigravity: false,
+        ),
+        isNot(contains(ProviderFilter.antigravity)),
+      );
+      expect(
+        providerFiltersForEnabledTabs(const [
+          NewSessionTab.codex,
+        ], supportsAntigravity: true),
+        [ProviderFilter.codex],
+      );
+    });
+  });
+
+  group('starting an Antigravity session', () {
+    test('start sends only what Antigravity supports', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project',
+        provider: Provider.antigravity,
+        permissionMode: PermissionMode.plan,
+        useWorktree: true,
+        worktreeBranch: 'feature/x',
+        // Left over from other tabs; none of it applies.
+        model: 'gpt-5.3-codex',
+        claudeModel: 'opus',
+        additionalWritableRoots: const ['/tmp/other'],
+      );
+
+      final json = _json(antigravityStartMessage(params, requestId: 'req-1'));
+
+      expect(json, {
+        'type': 'start',
+        'projectPath': '/tmp/project',
+        'permissionMode': 'plan',
+        'useWorktree': true,
+        'worktreeBranch': 'feature/x',
+        'provider': 'antigravity',
+        'requestId': 'req-1',
+      });
+    });
+
+    test('a mode Antigravity cannot start in is clamped to default', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project',
+        provider: Provider.antigravity,
+        executionMode: ExecutionMode.fullAccess,
+      );
+
+      expect(params.permissionMode, PermissionMode.defaultMode);
+      expect(
+        _json(
+          antigravityStartMessage(params, requestId: 'req-1'),
+        )['permissionMode'],
+        'default',
+      );
+    });
+
+    test('defaults round-trip through persistence', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project',
+        provider: Provider.antigravity,
+        permissionMode: PermissionMode.acceptEdits,
+      );
+
+      final restored = sessionStartDefaultsFromJson(
+        sessionStartDefaultsToJson(params),
+      )!;
+
+      expect(restored.provider, Provider.antigravity);
+      expect(restored.permissionMode, PermissionMode.acceptEdits);
+    });
+
+    test('resume command uses agy', () {
+      const session = RecentSession(
+        sessionId: 'conv-1',
+        provider: 'antigravity',
+        firstPrompt: '',
+        created: '2026-11-19T00:00:00Z',
+        modified: '2026-11-19T00:00:00Z',
+        gitBranch: '',
+        projectPath: '/tmp/project',
+        isSidechain: false,
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/tmp/project' && agy --conversation 'conv-1'",
+      );
+    });
+  });
+
+  group('route selection', () {
+    test('Antigravity opens the Claude-style screen with its provider', () {
+      final route = chatRouteForProvider(
+        Provider.antigravity,
+        sessionId: 's1',
+        permissionMode: 'plan',
+      );
+
+      expect(route, isA<ClaudeSessionRoute>());
+      final args = route.args as ClaudeSessionRouteArgs;
+      expect(args.provider, Provider.antigravity);
+      expect(args.sessionId, 's1');
+      expect(args.initialPermissionMode, 'plan');
+    });
+
+    test('Claude and Codex keep their routes', () {
+      final claude = chatRouteForProvider(Provider.claude, sessionId: 's1');
+      expect((claude.args as ClaudeSessionRouteArgs).provider, Provider.claude);
+      expect(
+        (chatRouteForProvider(null, sessionId: 's1').args
+                as ClaudeSessionRouteArgs)
+            .provider,
+        Provider.claude,
+      );
+      expect(
+        chatRouteForProvider(Provider.codex, sessionId: 's1'),
+        isA<CodexSessionRoute>(),
+      );
+    });
+
+    test('a stacked Antigravity route only matches its own provider', () {
+      final route = chatRouteForProvider(Provider.antigravity, sessionId: 's1');
+      bool matches(String provider) =>
+          SessionStackNavigation.matchesDestination(
+            routeIdentity: Object(),
+            routeName: route.routeName,
+            arguments: route.args,
+            sessionId: 's1',
+            provider: provider,
+          );
+
+      expect(matches('antigravity'), isTrue);
+      expect(matches('claude'), isFalse);
+    });
+
+    test('Antigravity sessions are not pinnable', () {
+      expect(isPinnableProvider('antigravity'), isFalse);
+      expect(isPinnableProvider('claude'), isTrue);
+      expect(isPinnableProvider(null), isTrue);
+      expect(
+        runningSessionPinKey(
+          const SessionInfo(
+            id: 'bridge-1',
+            provider: 'antigravity',
+            projectPath: '/tmp/project',
+            claudeSessionId: 'conv-1',
+            status: 'idle',
+            createdAt: '',
+            lastActivityAt: '',
+          ),
+        ),
+        isNull,
+      );
+    });
+  });
+}
