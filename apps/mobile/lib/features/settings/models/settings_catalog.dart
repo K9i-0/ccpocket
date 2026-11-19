@@ -110,6 +110,7 @@ abstract final class SettingsEntryIds {
   static const newSessionTabs = 'new_session_tabs';
   static const autoRenameCodex = 'auto_rename_codex';
   static const extendedCodexEfforts = 'extended_codex_efforts';
+  static const antigravityTab = 'antigravity_tab';
   static const autoRenameClaude = 'auto_rename_claude';
   static const showHiddenDirectories = 'show_hidden_directories';
   static const showBridgeName = 'show_bridge_name';
@@ -311,6 +312,13 @@ final List<SettingsEntry> settingsEntries = [
     title: (l) => l.autoRenameCodexSessions,
     keywords: 'codex rename title 名前',
     visibleWhen: (v) => v.codexEnabled,
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.antigravityTab,
+    category: SettingsCategory.agents,
+    title: (l) => l.showAntigravityTab,
+    keywords: 'antigravity agy gemini google preview プレビュー',
+    visibleWhen: (v) => v.bothAgents,
   ),
   SettingsEntry(
     id: SettingsEntryIds.extendedCodexEfforts,

@@ -2297,6 +2297,18 @@ abstract class AppLocalizations {
   /// **'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。'**
   String get antigravityUsageUnavailable;
 
+  /// No description provided for @showAntigravityTab.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションに Antigravity を表示'**
+  String get showAntigravityTab;
+
+  /// No description provided for @showAntigravityTabSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます（プレビュー）'**
+  String get showAntigravityTabSubtitle;
+
   /// No description provided for @permissionAcceptEditsDescription.
   ///
   /// In ja, this message translates to:

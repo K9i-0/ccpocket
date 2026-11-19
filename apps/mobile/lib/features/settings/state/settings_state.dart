@@ -128,6 +128,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether Max and Ultra appear in Codex Effort sliders when supported.
     @Default(false) bool showExtendedCodexEfforts,
 
+    /// Offer Antigravity in the new-session sheet when the Bridge has it.
+    @Default(true) bool showAntigravityTab,
+
     /// Whether new Claude sessions should be automatically named after the first turn.
     @Default(false) bool autoRenameClaudeSessions,
 

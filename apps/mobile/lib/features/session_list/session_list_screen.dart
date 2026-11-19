@@ -1017,7 +1017,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       multiProjectOnly: multiProjectOnly,
       visibleTabs: visibleNewSessionTabs(
         settings.newSessionTabs,
-        supportsAntigravity: bridge.supportsAntigravity,
+        supportsAntigravity:
+            bridge.supportsAntigravity && settings.showAntigravityTab,
       ),
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
       showHiddenDirectories: settings.showHiddenDirectories,

@@ -1179,6 +1179,13 @@ class AppLocalizationsJa extends AppLocalizations {
       'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。';
 
   @override
+  String get showAntigravityTab => '新規セッションに Antigravity を表示';
+
+  @override
+  String get showAntigravityTabSubtitle =>
+      'Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます（プレビュー）';
+
+  @override
   String get permissionAcceptEditsDescription => 'ファイル編集を自動で承認します';
 
   @override

@@ -408,6 +408,8 @@
   "antigravityAuthLogin": "Google 로그인",
   "antigravityAuthApiKey": "API 키",
   "antigravityUsageUnavailable": "Antigravity는 플랜 잔여량을 제공하지 않습니다. 컨텍스트 사용량은 각 세션에 표시됩니다.",
+  "showAntigravityTab": "새 세션에 Antigravity 표시",
+  "showAntigravityTabSubtitle": "Bridge 머신에 Antigravity CLI(agy)가 있을 때만 표시됩니다(프리뷰)",
   "permissionAcceptEditsDescription": "파일 편집 자동 승인",
   "permissionPlanDescription": "변경 실행 전에 분석하고 계획",
   "permissionBypassDescription": "대부분의 승인 확인 없이 실행",

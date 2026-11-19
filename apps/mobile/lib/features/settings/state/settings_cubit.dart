@@ -65,6 +65,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyShowHiddenDirectories = 'settings_show_hidden_directories';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
   static const _keyAutoRenameCodexSessions = 'autoRenameCodexSessions';
+  static const _keyShowAntigravityTab = 'settings_show_antigravity_tab';
   static const _keyShowExtendedCodexEfforts =
       'settings_show_extended_codex_efforts';
   static const _keyAutoRenameClaudeSessions = 'autoRenameClaudeSessions';
@@ -311,6 +312,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       usageDisplayMode: usageDisplayMode,
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
+      showAntigravityTab: prefs.getBool(_keyShowAntigravityTab) ?? true,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
       defaultInputDelivery: defaultInputDelivery,
       skillTriggerStyle: skillTriggerStyle,
@@ -561,6 +563,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (style == state.skillTriggerStyle) return;
     _prefs.setString(_keySkillTriggerStyle, style.value);
     emit(state.copyWith(skillTriggerStyle: style));
+  }
+
+  void setShowAntigravityTab(bool enabled) {
+    _prefs.setBool(_keyShowAntigravityTab, enabled);
+    emit(state.copyWith(showAntigravityTab: enabled));
   }
 
   void setShowExtendedCodexEfforts(bool enabled) {

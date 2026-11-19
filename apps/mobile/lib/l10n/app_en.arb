@@ -432,6 +432,8 @@
   "antigravityAuthLogin": "Google sign-in",
   "antigravityAuthApiKey": "API key",
   "antigravityUsageUnavailable": "Antigravity does not report how much of the plan is left. Context usage is shown in each session.",
+  "showAntigravityTab": "Show Antigravity for new sessions",
+  "showAntigravityTabSubtitle": "Shown only when the Bridge machine has the Antigravity CLI (agy). Preview.",
   "permissionAcceptEditsDescription": "Auto-approve file edits",
   "permissionPlanDescription": "Analyze and plan before executing changes",
   "permissionBypassDescription": "Run without most approval prompts",

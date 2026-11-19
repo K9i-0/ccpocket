@@ -1167,6 +1167,13 @@ class AppLocalizationsZh extends AppLocalizations {
       'Antigravity 不提供套餐剩余用量。上下文用量会显示在各会话中。';
 
   @override
+  String get showAntigravityTab => '在新会话中显示 Antigravity';
+
+  @override
+  String get showAntigravityTabSubtitle =>
+      '仅当 Bridge 机器上装有 Antigravity CLI（agy）时显示（预览）';
+
+  @override
   String get permissionAcceptEditsDescription => '自动批准文件编辑';
 
   @override

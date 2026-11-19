@@ -1210,6 +1210,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Antigravity does not report how much of the plan is left. Context usage is shown in each session.';
 
   @override
+  String get showAntigravityTab => 'Show Antigravity for new sessions';
+
+  @override
+  String get showAntigravityTabSubtitle =>
+      'Shown only when the Bridge machine has the Antigravity CLI (agy). Preview.';
+
+  @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';
 
   @override

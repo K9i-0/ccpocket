@@ -10,7 +10,9 @@ import 'package:ccpocket/router/session_stack_navigation.dart';
 import 'package:ccpocket/services/chat_message_handler.dart';
 import 'package:ccpocket/theme/provider_style.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
+import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _settingsJson = <String, dynamic>{
   'model': 'gemini-3.8-flash-high',
@@ -471,6 +473,24 @@ void main() {
         "cd '/tmp/project' && agy --conversation 'conv-1'",
       );
     });
+  });
+
+  group('settings', () {
+    test(
+      'the Antigravity tab is on by default and can be turned off',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final cubit = SettingsCubit(await SharedPreferences.getInstance());
+        addTearDown(cubit.close);
+        expect(cubit.state.showAntigravityTab, isTrue);
+
+        cubit.setShowAntigravityTab(false);
+        expect(cubit.state.showAntigravityTab, isFalse);
+        final reloaded = SettingsCubit(await SharedPreferences.getInstance());
+        addTearDown(reloaded.close);
+        expect(reloaded.state.showAntigravityTab, isFalse);
+      },
+    );
   });
 
   group('route selection', () {

@@ -444,6 +444,8 @@
   "antigravityAuthLogin": "Google ログイン",
   "antigravityAuthApiKey": "APIキー",
   "antigravityUsageUnavailable": "プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。",
+  "showAntigravityTab": "新規セッションに Antigravity を表示",
+  "showAntigravityTabSubtitle": "Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます（プレビュー）",
   "permissionAcceptEditsDescription": "ファイル編集を自動で承認します",
   "permissionPlanDescription": "変更を実行する前に分析と計画を行います",
   "permissionBypassDescription": "ほとんどの承認確認なしで実行します",

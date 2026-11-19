@@ -1176,6 +1176,13 @@ class AppLocalizationsKo extends AppLocalizations {
       'Antigravity는 플랜 잔여량을 제공하지 않습니다. 컨텍스트 사용량은 각 세션에 표시됩니다.';
 
   @override
+  String get showAntigravityTab => '새 세션에 Antigravity 표시';
+
+  @override
+  String get showAntigravityTabSubtitle =>
+      'Bridge 머신에 Antigravity CLI(agy)가 있을 때만 표시됩니다(프리뷰)';
+
+  @override
   String get permissionAcceptEditsDescription => '파일 편집 자동 승인';
 
   @override

@@ -78,6 +78,19 @@ class AgentsSettingsSection extends StatelessWidget {
                   ),
                 ),
               ),
+            // Antigravity joins the sheet only next to both other agents.
+            if (visibility.bothAgents)
+              SettingsItem(
+                id: SettingsEntryIds.antigravityTab,
+                child: SettingsSwitchTile(
+                  key: const ValueKey('show_antigravity_tab_toggle'),
+                  icon: Icons.rocket_launch_outlined,
+                  title: l.showAntigravityTab,
+                  subtitle: l.showAntigravityTabSubtitle,
+                  value: state.showAntigravityTab,
+                  onChanged: cubit.setShowAntigravityTab,
+                ),
+              ),
           ],
         ),
         if (hasSessionOptions)
