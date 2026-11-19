@@ -1163,8 +1163,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get antigravityAuthApiKey => 'API 密钥';
 
   @override
-  String get antigravityUsageUnavailable =>
-      'Antigravity 不提供套餐剩余用量。上下文用量会显示在各会话中。';
+  String get antigravityUsageRefreshHint => '点按刷新即可获取套餐剩余用量（5 小时和每周）。';
+
+  @override
+  String get antigravityUsageApiKeyNote => '使用 API 密钥时没有套餐额度。上下文用量会显示在各会话中。';
 
   @override
   String get showAntigravityTab => '在新会话中显示 Antigravity';

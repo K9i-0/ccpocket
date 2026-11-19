@@ -52,8 +52,8 @@ class _UsageSectionState extends State<UsageSection> {
     final providers = _providers;
     if (providers == null) return const [];
     return [
-      // Usage is reported for Claude and Codex only.
-      for (final provider in const [Provider.claude, Provider.codex])
+      // Antigravity reports one entry per quota group.
+      for (final provider in Provider.values)
         ...providers.where(
           (info) =>
               info.provider == provider.value &&
@@ -116,7 +116,9 @@ class _UsageSectionState extends State<UsageSection> {
 
     _lastFetchAt = now;
     setState(() => _loading = true);
-    widget.bridgeService.requestUsage();
+    // Antigravity's quota comes from its CLI, which is only asked when a
+    // person taps refresh; otherwise the Bridge returns its last reading.
+    widget.bridgeService.requestUsage(refreshAntigravity: force);
     widget.bridgeService.requestAntigravityCatalog();
   }
 
@@ -180,7 +182,7 @@ class _UsageSectionState extends State<UsageSection> {
           for (final (index, info) in visibleProviders.indexed) ...[
             if (index > 0) SizedBox(height: widget.embedded ? 4 : 8),
             _UsageContainer(
-              key: ValueKey('usage_card_${info.provider}'),
+              key: ValueKey('usage_card_${info.usageKey}'),
               embedded: widget.embedded,
               child: widget.embedded
                   ? _CompactProviderUsage(
@@ -246,6 +248,9 @@ class _UsageSectionState extends State<UsageSection> {
             child: _AntigravityAccount(
               settings: antigravity,
               embedded: widget.embedded,
+              hasUsage: visibleProviders.any(
+                (info) => info.provider == Provider.antigravity.value,
+              ),
             ),
           ),
         ],
@@ -256,10 +261,17 @@ class _UsageSectionState extends State<UsageSection> {
 
 /// Antigravity's plan, sign-in method and CLI version.
 class _AntigravityAccount extends StatelessWidget {
-  const _AntigravityAccount({required this.settings, required this.embedded});
+  const _AntigravityAccount({
+    required this.settings,
+    required this.embedded,
+    required this.hasUsage,
+  });
 
   final AntigravitySettings settings;
   final bool embedded;
+
+  /// The quota bars are shown above; no hint is needed then.
+  final bool hasUsage;
 
   @override
   Widget build(BuildContext context) {
@@ -306,15 +318,20 @@ class _AntigravityAccount extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            l.antigravityUsageUnavailable,
-            style: TextStyle(
-              fontSize: 11,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-              height: 1.3,
+          if (!hasUsage) ...[
+            const SizedBox(height: 2),
+            Text(
+              settings.authMode == 'api_key'
+                  ? l.antigravityUsageApiKeyNote
+                  : l.antigravityUsageRefreshHint,
+              key: const ValueKey('usage_antigravity_hint'),
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                height: 1.3,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -389,7 +406,10 @@ class _ProviderUsageTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final provider = Provider.fromValue(info.provider);
-    final providerLabel = provider?.label ?? info.provider;
+    final providerName = provider?.label ?? info.provider;
+    final providerLabel = info.groupLabel == null
+        ? providerName
+        : '$providerName · ${info.groupLabel}';
     final providerIcon = provider == null
         ? Icons.code
         : providerStyleFor(context, provider).icon;
@@ -763,8 +783,11 @@ class _CompactProviderUsage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    // A group name stands for its provider; the account row below names it.
     final providerLabel =
-        Provider.fromValue(info.provider)?.label ?? info.provider;
+        info.compactGroupLabel ??
+        Provider.fromValue(info.provider)?.label ??
+        info.provider;
     final labelWidth = windowLabelWidth;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

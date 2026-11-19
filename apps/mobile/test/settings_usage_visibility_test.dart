@@ -72,8 +72,12 @@ class _FakeBridgeService extends BridgeService {
       cachedUsage ??
       (_connected ? const UsageResultMessage(providers: []) : null);
 
+  /// `refreshAntigravity` of each usage request, in order.
+  final usageRefreshes = <bool>[];
+
   @override
-  void requestUsage() {}
+  void requestUsage({bool refreshAntigravity = false}) =>
+      usageRefreshes.add(refreshAntigravity);
 
   @override
   void disconnect() {
@@ -1135,6 +1139,68 @@ void main() {
       expect(find.text(l.showExtendedCodexEfforts), findsOneWidget);
       expect(find.text(l.settingsNewSessionTabs), findsNothing);
       expect(find.text(l.autoRenameClaudeSessions), findsNothing);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('shows a card per Antigravity quota group', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final resetsAt = DateTime.now()
+          .add(const Duration(hours: 3))
+          .toIso8601String();
+      UsageInfo group(String label) => UsageInfo(
+        provider: 'antigravity',
+        label: label,
+        fiveHour: UsageWindow(utilization: 1, resetsAt: resetsAt),
+        sevenDay: UsageWindow(utilization: 2, resetsAt: resetsAt),
+      );
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+        cachedUsage: UsageResultMessage(
+          providers: [group('Gemini Models'), group('Claude and GPT models')],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gemini = find.byKey(
+        const ValueKey('usage_card_antigravity:Gemini Models'),
+      );
+      await tester.scrollUntilVisible(
+        gemini,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(gemini, findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('usage_card_antigravity:Claude and GPT models'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: gemini, matching: find.text('5h')),
+        findsOneWidget,
+      );
+      // Opening the screen never asks the Antigravity CLI.
+      expect(bridge.usageRefreshes.any((refresh) => refresh), isFalse);
 
       await settingsCubit.close();
       await machineManagerCubit.close();

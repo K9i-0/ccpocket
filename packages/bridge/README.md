@@ -393,8 +393,10 @@ may change.
 **Limits in this preview**
 
 - No rewind, fork, message editing, sandbox toggle or pinning.
-- No plan usage (5-hour / weekly) and no cost: Antigravity reports neither. The app
-  shows the plan name, the context window in use, and tokens per turn.
+- Plan usage (5-hour / weekly) is read with `agy -p /usage`, a report the CLI answers
+  itself without calling a model. The Bridge runs it only when a client asks for
+  usage (at most every 15 minutes, or once a minute on a manual refresh), and never
+  with an API key. There is no cost figure: Antigravity reports none.
 - Antigravity itself only offers "allow once" and "deny". "Always allow" is kept by
   the Bridge for the session: it covers the same command again, or every later file
   edit. The Bypass mode has the Bridge allow every request for you.

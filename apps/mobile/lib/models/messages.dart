@@ -1140,6 +1140,10 @@ class UsageModelWindow extends UsageWindow {
 
 class UsageInfo {
   final String provider;
+
+  /// Name of the quota group, for providers that report several (Antigravity:
+  /// `Gemini Models`, `Claude and GPT models`).
+  final String? label;
   final UsageWindow? fiveHour;
   final UsageWindow? sevenDay;
 
@@ -1150,6 +1154,7 @@ class UsageInfo {
 
   const UsageInfo({
     required this.provider,
+    this.label,
     this.fiveHour,
     this.sevenDay,
     this.modelWindows = const [],
@@ -1159,6 +1164,7 @@ class UsageInfo {
   factory UsageInfo.fromJson(Map<String, dynamic> json) {
     return UsageInfo(
       provider: json['provider'] as String,
+      label: json['label'] as String?,
       fiveHour: json['fiveHour'] != null
           ? UsageWindow.fromJson(json['fiveHour'] as Map<String, dynamic>)
           : null,
@@ -1175,6 +1181,27 @@ class UsageInfo {
 
   bool get hasData => fiveHour != null || sevenDay != null;
   bool get hasError => error != null && !hasData;
+
+  /// Short name of the quota group (`Gemini`, `Claude · GPT`), or null when
+  /// the provider has a single set of limits.
+  String? get groupLabel {
+    final raw = label?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    return raw
+        .replaceFirst(RegExp(r'\s+models$', caseSensitive: false), '')
+        .replaceAll(' and ', ' · ');
+  }
+
+  /// [groupLabel] cut to its first name for narrow columns (`Gemini`,
+  /// `Claude+` for "Claude and GPT").
+  String? get compactGroupLabel {
+    final names = groupLabel?.split(' · ');
+    if (names == null) return null;
+    return names.length > 1 ? '${names.first}+' : names.first;
+  }
+
+  /// Key that tells groups of one provider apart.
+  String get usageKey => label == null ? provider : '$provider:$label';
 }
 
 // ---- Helpers ----
@@ -6517,7 +6544,13 @@ class ClientMessage {
   factory ClientMessage.listWindows() =>
       ClientMessage._({'type': 'list_windows'});
 
-  factory ClientMessage.getUsage() => ClientMessage._({'type': 'get_usage'});
+  /// [refreshAntigravity] has the Bridge ask the Antigravity CLI for the
+  /// plan quota anew; it is set only when a person asks for a refresh.
+  factory ClientMessage.getUsage({bool refreshAntigravity = false}) =>
+      ClientMessage._({
+        'type': 'get_usage',
+        if (refreshAntigravity) 'refreshAntigravity': true,
+      });
 
   factory ClientMessage.listRecordings() =>
       ClientMessage._({'type': 'list_recordings'});

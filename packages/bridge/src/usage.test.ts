@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchAllUsage, fetchCodexUsage, isGlobalCodexRateLimit, mapCodexRateLimits } from "./usage.js";
+import {
+  fetchAllUsage,
+  fetchCodexUsage,
+  isGlobalCodexRateLimit,
+  mapCodexRateLimits,
+  parseAntigravityUsage,
+} from "./usage.js";
 
 const fiveHourWindow = {
   usedPercent: 35,
@@ -200,5 +206,68 @@ describe("fetchAllUsage", () => {
     claudeUsageMock.mockRejectedValue(new Error("unexpected"));
     const providers = await fetchAllUsage();
     expect(providers.map((p) => p.provider)).toEqual(["codex"]);
+  });
+});
+
+describe("parseAntigravityUsage", () => {
+  // Shape of `agy -p /usage --output-format json` (agy 1.5.12).
+  const report = JSON.stringify({
+    status: "SUCCESS",
+    response: "Gemini Models\tWeekly Limit Remaining\t100%",
+    command: {
+      name: "usage",
+      data: {
+        groups: [
+          {
+            name: "Gemini Models",
+            buckets: [
+              {
+                id: "gemini-weekly",
+                window: "weekly",
+                remaining_fraction: 0.75,
+                reset_time: "2026-11-26T12:30:14Z",
+              },
+              {
+                id: "gemini-5h",
+                window: "5h",
+                remaining_fraction: 0.994420051574707,
+                reset_time: "2026-11-19T17:30:14Z",
+              },
+            ],
+          },
+          {
+            name: "Claude and GPT models",
+            buckets: [
+              { id: "3p-weekly", window: "weekly", remaining_fraction: 1, reset_time: "2026-11-26T14:16:16Z" },
+            ],
+          },
+          { name: "Empty", buckets: [] },
+        ],
+      },
+    },
+  });
+
+  it("turns each quota group into its own entry with used percentages", () => {
+    const usage = parseAntigravityUsage(report);
+    expect(usage).toHaveLength(2);
+    expect(usage[0]).toMatchObject({
+      provider: "antigravity",
+      label: "Gemini Models",
+      sevenDay: { utilization: 25, resetsAt: "2026-11-26T12:30:14Z" },
+      fiveHour: { resetsAt: "2026-11-19T17:30:14Z" },
+    });
+    expect(usage[0].fiveHour?.utilization).toBeCloseTo(0.558, 2);
+    // A group may lack a window.
+    expect(usage[1]).toEqual({
+      provider: "antigravity",
+      label: "Claude and GPT models",
+      fiveHour: null,
+      sevenDay: { utilization: 0, resetsAt: "2026-11-26T14:16:16Z" },
+    });
+  });
+
+  it("returns nothing for a report without groups and rejects non-JSON", () => {
+    expect(parseAntigravityUsage('{"status":"SUCCESS"}')).toEqual([]);
+    expect(() => parseAntigravityUsage("not json")).toThrow();
   });
 });

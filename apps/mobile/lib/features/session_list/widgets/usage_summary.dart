@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../theme/provider_style.dart';
 import '../../settings/state/settings_state.dart';
 
 /// Compact plan usage for the Running header, fed by the Bridge usage stream.
@@ -40,16 +41,26 @@ class UsageStreamSummary extends StatelessWidget {
 }
 
 /// Providers the Bridge reports usage for (`get_usage`), in display order.
-/// Antigravity has no usage endpoint.
-const usageProviders = [Provider.claude, Provider.codex];
+const usageProviders = [Provider.claude, Provider.codex, Provider.antigravity];
 
-/// Providers with usage data, in display order (Claude first, then Codex).
+/// Entries with usage data, in display order (Claude, Codex, Antigravity).
+/// Antigravity has several quota groups; the summary shows the Gemini one
+/// (its own models), and the settings card shows them all.
 List<UsageInfo> usageSummaryProviders(List<UsageInfo> providers) {
   return [
     for (final provider in usageProviders)
-      ...providers.where(
-        (usage) => usage.provider == provider.value && usage.hasData,
-      ),
+      ...() {
+        final entries = providers
+            .where((usage) => usage.provider == provider.value && usage.hasData)
+            .toList();
+        if (provider != Provider.antigravity || entries.length <= 1) {
+          return entries;
+        }
+        final gemini = entries.where(
+          (usage) => usage.label?.toLowerCase().contains('gemini') ?? false,
+        );
+        return [gemini.isEmpty ? entries.first : gemini.first];
+      }(),
   ];
 }
 
@@ -109,13 +120,16 @@ class UsageSummary extends StatelessWidget {
             children: [
               Text(modeLabel, style: labelStyle),
               for (final usage in visible) ...[
-                const SizedBox(width: 10),
+                SizedBox(width: visible.length > 2 ? 8 : 10),
                 _ProviderUsageLine(
                   key: ValueKey('usage_summary_${usage.provider}'),
                   usage: usage,
                   displayMode: displayMode,
                   label: _providerLabel(usage),
                   fontSize: 11,
+                  // Three agents do not fit by name: show their icons and a
+                  // shorter bar instead.
+                  compact: visible.length > 2,
                 ),
               ],
             ],
@@ -159,35 +173,49 @@ class _ProviderUsageLine extends StatelessWidget {
   final String label;
   final double fontSize;
 
+  /// Show the agent's icon instead of its name, and a shorter bar.
+  final bool compact;
+
   const _ProviderUsageLine({
     super.key,
     required this.usage,
     required this.displayMode,
     required this.label,
     required this.fontSize,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final selected = usageSummaryWindow(usage);
+    final provider = Provider.fromValue(usage.provider);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        if (compact && provider != null)
+          Icon(
+            providerStyleFor(context, provider).icon,
+            key: ValueKey('usage_summary_icon_${usage.provider}'),
+            size: fontSize + 2,
+            color: providerStyleFor(context, provider).foreground,
+          )
+        else
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-        const SizedBox(width: 6),
+        SizedBox(width: compact ? 3 : 6),
         _UsageMetric(
           key: ValueKey('${usage.provider}_usage_${selected.label}_indicator'),
           label: selected.label,
           window: selected.window,
           displayMode: displayMode,
           fontSize: fontSize,
+          barWidth: compact ? 14 : 24,
         ),
       ],
     );
@@ -219,6 +247,7 @@ class _UsageMetric extends StatelessWidget {
   final UsageWindow window;
   final UsageDisplayMode displayMode;
   final double fontSize;
+  final double barWidth;
 
   const _UsageMetric({
     super.key,
@@ -226,6 +255,7 @@ class _UsageMetric extends StatelessWidget {
     required this.window,
     required this.displayMode,
     required this.fontSize,
+    this.barWidth = 24,
   });
 
   @override
@@ -246,7 +276,7 @@ class _UsageMetric extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         SizedBox(
-          width: 24,
+          width: barWidth,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(

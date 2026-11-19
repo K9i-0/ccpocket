@@ -1206,8 +1206,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get antigravityAuthApiKey => 'API key';
 
   @override
-  String get antigravityUsageUnavailable =>
-      'Antigravity does not report how much of the plan is left. Context usage is shown in each session.';
+  String get antigravityUsageRefreshHint =>
+      'Tap refresh to read how much of the plan is left (5-hour and weekly).';
+
+  @override
+  String get antigravityUsageApiKeyNote =>
+      'API key usage has no plan limits. Context usage is shown in each session.';
 
   @override
   String get showAntigravityTab => 'Show Antigravity for new sessions';

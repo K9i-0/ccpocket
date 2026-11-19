@@ -2291,11 +2291,17 @@ abstract class AppLocalizations {
   /// **'APIキー'**
   String get antigravityAuthApiKey;
 
-  /// No description provided for @antigravityUsageUnavailable.
+  /// No description provided for @antigravityUsageRefreshHint.
   ///
   /// In ja, this message translates to:
-  /// **'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。'**
-  String get antigravityUsageUnavailable;
+  /// **'更新ボタンを押すと、プランの残量（5時間・週）を取得します。'**
+  String get antigravityUsageRefreshHint;
+
+  /// No description provided for @antigravityUsageApiKeyNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーでの利用にはプランの枠がありません。コンテキスト使用量は各セッションに表示されます。'**
+  String get antigravityUsageApiKeyNote;
 
   /// No description provided for @showAntigravityTab.
   ///

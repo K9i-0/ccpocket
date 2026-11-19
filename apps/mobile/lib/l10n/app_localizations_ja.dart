@@ -1175,8 +1175,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get antigravityAuthApiKey => 'APIキー';
 
   @override
-  String get antigravityUsageUnavailable =>
-      'プランの残量は Antigravity から取得できません。コンテキスト使用量は各セッションに表示されます。';
+  String get antigravityUsageRefreshHint => '更新ボタンを押すと、プランの残量（5時間・週）を取得します。';
+
+  @override
+  String get antigravityUsageApiKeyNote =>
+      'APIキーでの利用にはプランの枠がありません。コンテキスト使用量は各セッションに表示されます。';
 
   @override
   String get showAntigravityTab => '新規セッションに Antigravity を表示';

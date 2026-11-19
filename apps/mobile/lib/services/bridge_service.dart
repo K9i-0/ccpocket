@@ -4122,8 +4122,8 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
-  void requestUsage() {
-    send(ClientMessage.getUsage());
+  void requestUsage({bool refreshAntigravity = false}) {
+    send(ClientMessage.getUsage(refreshAntigravity: refreshAntigravity));
   }
 
   void requestPromptHistorySync({

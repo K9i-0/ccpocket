@@ -163,7 +163,11 @@ import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
 import { type PushLocale, normalizePushLocale, t } from "./push-i18n.js";
-import { fetchAllUsage } from "./usage.js";
+import {
+  fetchAllUsage,
+  fetchAntigravityUsage,
+  type UsageInfo,
+} from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 import type { PromptHistoryStore } from "./prompt-history-store.js";
 import { getPackageVersion } from "./version.js";
@@ -1104,6 +1108,8 @@ export interface BridgeServerOptions {
   detectAntigravity?: () => Promise<boolean>;
   /** Reads what a new Antigravity session offers. Tests replace it. */
   fetchAntigravityCatalog?: () => Promise<AntigravityCatalog>;
+  /** Reads Antigravity's plan quota from the CLI. Tests replace it. */
+  fetchAntigravityUsage?: (bin: string) => Promise<UsageInfo[]>;
   /** Where names and models of Antigravity conversations are kept. */
   antigravityStore?: AntigravityStore;
   server: HttpServer;
@@ -1201,6 +1207,9 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
   private readonly antigravityStore: AntigravityStore;
+  private antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
+  private antigravityUsageRead: Promise<UsageInfo[]> | undefined;
+  private readonly loadAntigravityUsage: (bin: string) => Promise<UsageInfo[]>;
   /** A catalog read in flight, shared by everyone who asks meanwhile. */
   private antigravityCatalogRead: Promise<AntigravityCatalog> | undefined;
   private readonly loadAntigravityCatalog: () => Promise<AntigravityCatalog>;
@@ -1283,6 +1292,8 @@ export class BridgeWebSocketServer {
 
   constructor(options: BridgeServerOptions) {
     this.detectAntigravity = options.detectAntigravity;
+    this.loadAntigravityUsage =
+      options.fetchAntigravityUsage ?? fetchAntigravityUsage;
     this.loadAntigravityCatalog =
       options.fetchAntigravityCatalog ?? (() => fetchAntigravityCatalog());
     const {
@@ -6517,12 +6528,25 @@ export class BridgeWebSocketServer {
       }
 
       case "get_usage": {
+        // The Antigravity CLI takes seconds to answer, so the other agents
+        // go out first with its last reading, and a second result follows
+        // when the new one differs.
+        const lastAntigravity = this.antigravityUsageCache?.usage ?? [];
+        const antigravityRead = this.antigravityUsage(
+          msg.refreshAntigravity === true,
+        );
         fetchAllUsage({ readClaudeLive: () => this.readClaudePlanUsage() })
-          .then((providers) => {
-            this.send(ws, { type: "usage_result", providers } as Record<
-              string,
-              unknown
-            >);
+          .then(async (usage) => {
+            const sendUsage = (antigravity: UsageInfo[]) =>
+              this.send(ws, {
+                type: "usage_result",
+                providers: [...usage, ...antigravity],
+              } as Record<string, unknown>);
+            sendUsage(lastAntigravity);
+            const antigravity = await antigravityRead;
+            if (JSON.stringify(antigravity) !== JSON.stringify(lastAntigravity)) {
+              sendUsage(antigravity);
+            }
           })
           .catch((err) => {
             this.send(ws, {
@@ -10615,6 +10639,44 @@ export class BridgeWebSocketServer {
         names: this.antigravityStore.names(),
       },
     );
+  }
+
+  /**
+   * Antigravity's plan quota. The CLI is asked when a client requests usage
+   * and the last reading is older than fifteen minutes, or a minute when
+   * [refresh] is set (a person tapped refresh). Nothing runs on a timer: no
+   * client asking means no read. Never read with an API key (it has no plan)
+   * or on a Bridge that must not touch the Google login.
+   */
+  private async antigravityUsage(refresh: boolean): Promise<UsageInfo[]> {
+    const config = getAntigravityConfig();
+    if (!this.antigravityAvailable || config.apiKey || config.requireApiKey) {
+      return [];
+    }
+    const cached = this.antigravityUsageCache;
+    const maxAge = refresh ? 60_000 : 15 * 60_000;
+    if (cached && Date.now() - cached.at < maxAge) return cached.usage;
+    // Several clients asking at once share one read.
+    this.antigravityUsageRead ??= this.loadAntigravityUsage(config.bin)
+      .then(
+        (usage) => {
+          this.antigravityUsageCache = { at: Date.now(), usage };
+          return usage;
+        },
+        (err) => {
+          console.warn(
+            `[ws] Failed to read Antigravity usage: ${errorMessageOf(err)}`,
+          );
+          // Keep the last reading, and do not ask again right away.
+          const usage = cached?.usage ?? [];
+          this.antigravityUsageCache = { at: Date.now(), usage };
+          return usage;
+        },
+      )
+      .finally(() => {
+        this.antigravityUsageRead = undefined;
+      });
+    return this.antigravityUsageRead;
   }
 
   /** What a new Antigravity session offers; read without sending a prompt. */

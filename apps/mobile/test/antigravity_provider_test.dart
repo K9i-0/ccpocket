@@ -518,6 +518,37 @@ void main() {
     });
   });
 
+  group('plan usage', () {
+    test('quota groups get short names and their own keys', () {
+      final usage = UsageInfo.fromJson({
+        'provider': 'antigravity',
+        'label': 'Claude and GPT models',
+        'fiveHour': null,
+        'sevenDay': {'utilization': 0, 'resetsAt': '2026-11-26T14:16:16Z'},
+      });
+      expect(usage.groupLabel, 'Claude · GPT');
+      expect(usage.compactGroupLabel, 'Claude+');
+      expect(usage.usageKey, 'antigravity:Claude and GPT models');
+      expect(
+        const UsageInfo(
+          provider: 'antigravity',
+          label: 'Gemini Models',
+        ).groupLabel,
+        'Gemini',
+      );
+      expect(const UsageInfo(provider: 'codex').groupLabel, isNull);
+      expect(const UsageInfo(provider: 'codex').usageKey, 'codex');
+    });
+
+    test('only an explicit refresh asks for a new Antigravity reading', () {
+      expect(_json(ClientMessage.getUsage()), {'type': 'get_usage'});
+      expect(_json(ClientMessage.getUsage(refreshAntigravity: true)), {
+        'type': 'get_usage',
+        'refreshAntigravity': true,
+      });
+    });
+  });
+
   group('settings', () {
     test(
       'the Antigravity tab is on by default and can be turned off',

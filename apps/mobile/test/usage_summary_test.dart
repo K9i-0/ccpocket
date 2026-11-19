@@ -203,6 +203,45 @@ void main() {
       );
     });
 
+    testWidgets('adds Antigravity as its Gemini group, with icons for names', (
+      tester,
+    ) async {
+      const gemini = UsageInfo(
+        provider: 'antigravity',
+        label: 'Gemini Models',
+        fiveHour: UsageWindow(utilization: 1, resetsAt: ''),
+      );
+      const others = UsageInfo(
+        provider: 'antigravity',
+        label: 'Claude and GPT models',
+        fiveHour: UsageWindow(utilization: 40, resetsAt: ''),
+      );
+      expect(
+        usageSummaryProviders(const [others, gemini, _usage])
+            .map((usage) => usage.usageKey),
+        ['codex', 'antigravity:Gemini Models'],
+      );
+
+      await tester.pumpWidget(
+        _buildSummary(
+          UsageDisplayMode.remaining,
+          providers: const [_usage, _claudeUsage, others, gemini],
+          width: 402,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      // Three agents: names give way to icons so the line still fits.
+      for (final provider in ['claude', 'codex', 'antigravity']) {
+        expect(
+          find.byKey(ValueKey('usage_summary_icon_$provider')),
+          findsOneWidget,
+        );
+      }
+      expect(find.text('Claude'), findsNothing);
+      expect(find.text('5h 99%'), findsOneWidget);
+      expect(find.text('5h 60%'), findsNothing);
+    });
+
     testWidgets('falls back to the weekly window without 5h', (tester) async {
       await tester.pumpWidget(
         _buildSummary(

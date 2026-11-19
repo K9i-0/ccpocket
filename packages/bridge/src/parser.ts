@@ -555,7 +555,14 @@ export type ClientMessage =
       traceLimit?: number;
       includeDiff?: boolean;
     }
-  | { type: "get_usage" }
+  | {
+      type: "get_usage";
+      /**
+       * Also read Antigravity's plan quota anew. Clients send it only when a
+       * person asks for a refresh; without it the last reading is returned.
+       */
+      refreshAntigravity?: boolean;
+    }
   | { type: "list_recordings" }
   | { type: "get_recording"; sessionId: string }
   | { type: "get_message_images"; claudeSessionId: string; messageUuid: string }
@@ -1392,7 +1399,9 @@ export interface UsageWindowPayload {
 }
 
 export interface UsageInfoPayload {
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
+  /** Quota group name, for providers with several groups (Antigravity). */
+  label?: string;
   fiveHour: UsageWindowPayload | null;
   sevenDay: UsageWindowPayload | null;
   modelWindows?: Array<UsageWindowPayload & { label: string }>;
@@ -2380,6 +2389,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "get_usage":
+        if (!isOptionalBoolean(msg.refreshAntigravity)) return null;
         break;
       case "list_recordings":
         break;

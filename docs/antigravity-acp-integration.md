@@ -156,7 +156,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **追加ディレクトリ**: `session/new` の `additionalDirectories`（絶対パスの配列）は受理された。
 - **`auto`**: Google ログインの既定プロファイルでは一覧に出て、`session/set_mode` も成功した（プロンプトは送っていない）。APIキーでは `--sandbox` を付けても不可。
 - **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
-- **利用枠の残量は取れない。** ACP に該当メソッドがない（`_antigravity/quota` などは `-32601`）。ログや内部 API は読まない。
+- **利用枠の残量は ACP では取れない**（`_antigravity/quota` などは `-32601`）。代わりに CLI の `agy -p /usage --output-format json` を使う（下記「利用量」）。ログや内部 API、Google の OAuth エンドポイントは読まない。
 - **ツール種別**: `read_file`（`kind: read`、`rawInput.Path`）、`search_web`（`kind: search`、`rawInput.query`）、`run_command`（`execute`）、`write_file`（`edit`）。`session/set_title` と `session/delete` はない。
 - **複数選択の質問**: `is_multi_select: true` は `{type: "array", items: {anyOf: [{const, title}]}}` と `<id>_other` で届く（APIキーで確認）。
 - **フォーク・巻き戻し**: `session/fork`、`session/rewind`、`session/truncate`、`session/delete` はどれも `-32601`。
@@ -219,13 +219,21 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
     - `permissionModes` に `bypassPermissions` が入る
 - 明示エラーを返す操作: フォーク、巻き戻し、メッセージ編集、サンドボックス切替、ゴール、Codex / Claude 用の設定変更。
 
+### 利用量（2026-11-19 追加）
+
+- `agy -p /usage --output-format json` は CLI 自身が答えるコマンドで、モデルを呼ばず会話も作らない（`num_turns: 0`、トークン 0）。`command.data.groups[]` に枠のグループ（`Gemini Models`、`Claude and GPT models`）があり、各 `buckets[]` に `window`（`5h` / `weekly`）、`remaining_fraction`、`reset_time` が入る。
+- Bridge は `get_usage` の結果に、グループごとの項目（`provider: "antigravity"`、`label` にグループ名）を足す。Claude / Codex の結果を先に返し、Antigravity の値が変わっていれば同じ `usage_result` をもう一度送る。
+- 読むのは、クライアントが利用量を求めたときに前回から 15 分以上たっている場合と、利用者が更新を押したとき（`get_usage.refreshAntigravity`、1 分に 1 回まで）だけ。タイマーでは動かさない。APIキー認証と `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY` の Bridge では実行しない。
+- `agy -p` をプログラムから動かすことは、Issue #1493 の回答で消費者ログインでは不可とされた範囲に入り得る。モデルを呼ばない状態確認であること、アプリを開いている人の操作に応じてだけ動くことを理由に採用した（所有者の判断）。
+- アプリは設定の利用量カードに全グループを、セッション一覧ヘッダーには Gemini のグループだけを出す。ヘッダーは 3 つ並ぶと名前の代わりにアイコンを使う。
+
 ### 制約
 
 - 再開（`session/load`）するとモデルが `agy` の既定に戻るため、Bridge が保存しておいたモデルを設定し直す。Bridge を通さずに使った会話は既定のモデルで再開する。
 - 最近のセッション一覧で Antigravity の行が混ざるのは先頭ページだけ。タイトル検索とプロジェクトパスの絞り込みには対応する。プロジェクト ID、ピン留めのみ、名前付きのみ、日付の絞り込みには出ない。プロバイダーを Antigravity に絞った一覧はページ送りできる。
 - Antigravity の会話にはピン留めがない。
 - 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）、巻き戻し、フォーク、メッセージ編集はできない（ACP に手段がない）。
-- プランの利用枠（5 時間 / 週）は表示できない。プラン名、認証方式、`agy` のバージョン、セッションごとのコンテキスト使用量を出す。
+- プランの利用枠（5 時間 / 週）は Google ログインのときだけ表示する（下記「利用量」）。APIキーではプランの枠がないので、認証方式・`agy` のバージョン・セッションごとのコンテキスト使用量だけを出す。
 - 費用（USD）は出ない。`agy` が金額を返さない。
 - 再開時に復元した履歴には元の時刻がない（`agy` が返さない）。拒否した編集は「File change failed」と表示される。
 - `agy` の承認は「今回だけ許可」「拒否」の 2 択。「常に許可」は Bridge が受け持つ: 選ぶと、そのセッションの間、同じコマンド（文字列が完全に一致するもの）またはすべてのファイル編集に Bridge が `allow_once` で答える。Bridge を再起動するかセッションを再開すると消える。
