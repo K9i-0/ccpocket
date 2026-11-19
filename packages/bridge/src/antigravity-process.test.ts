@@ -1109,7 +1109,7 @@ describe("AntigravityProcess turns the agent starts itself", () => {
       expect(results(messages)).toHaveLength(1);
 
       update({ sessionUpdate: "usage_update", used: 30, size: 100 });
-      vi.advanceTimersByTime(2_000);
+      vi.advanceTimersByTime(5_000);
       expect(proc.status).toBe("idle");
       expect(results(messages)).toHaveLength(2);
       expect(results(messages)[1]).toMatchObject({
@@ -1123,6 +1123,37 @@ describe("AntigravityProcess turns the agent starts itself", () => {
         "running",
         "idle",
       ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ends the turn after a denial, which the agent follows with silence", async () => {
+    const { proc, transport, messages, update } = await turnWithTimer();
+    vi.useFakeTimers();
+    try {
+      const call = { toolCallId: "c1", kind: "execute", rawInput: { CommandLine: "echo woke" } };
+      update({ sessionUpdate: "tool_call", status: "in_progress", ...call });
+      transport.emit("message", {
+        jsonrpc: "2.0",
+        id: "p1",
+        method: "session/request_permission",
+        params: {
+          toolCall: call,
+          options: [
+            { optionId: "allow", kind: "allow_once" },
+            { optionId: "deny", kind: "reject_once" },
+          ],
+        },
+      });
+      expect(proc.reject("c1")).toBe(true);
+      // As recorded: the call goes in progress, fails, and nothing follows.
+      update({ sessionUpdate: "tool_call_update", status: "in_progress", ...call });
+      update({ sessionUpdate: "tool_call_update", status: "failed", ...call });
+      expect(proc.status).toBe("running");
+      vi.advanceTimersByTime(5_000);
+      expect(proc.status).toBe("idle");
+      expect(results(messages)).toHaveLength(2);
     } finally {
       vi.useRealTimers();
     }

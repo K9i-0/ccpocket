@@ -168,10 +168,11 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 - **`agy` はプロンプトなしでターンを始める。** `schedule`（タイマー）やバックグラウンドタスクが終わると、`agy` が会話にシステムメッセージを足してモデルを起こす。`session/prompt` はすでに応答済みなので、このターンは `session/update` と `session/request_permission` だけで届く。サブエージェントではなく、同じ会話の続き。
   - `schedule` の `tool_call` は `in_progress` のままターンが終わり、タイマーが切れた時点で `tool_call_update`（`completed`）が届く。
-  - このターンの終わりを示すメッセージはない。`usage_update` はモデル呼び出しのたびに届き、ターンが続くなら数ミリ秒以内に `tool_call` が続く。最後の `usage_update` のあとは何も届かない。
+  - このターンの終わりを示すメッセージはない。`usage_update` はモデル呼び出しのたびに届き、ターンが続くなら数ミリ秒以内に `tool_call` が続く。最後の `usage_update` のあとは何も届かない。記録済みの全トレースで、ターン途中の `usage_update` から次のメッセージまでは 13 ミリ秒以内だった。例外はターン冒頭の `used: 0` と、ステアで入力が合流した直後（2.7 秒後に本文）。
+  - このターンの中で承認を拒否すると、`tool_call_update`（`in_progress` → `failed`）のあと何も届かない（`usage_update` もない）。
 - **MCP ツール**は `name: "call_mcp_tool"`、`kind: "execute"`、`title: "MCP Tool <ツール名>"`、`rawInput: {ServerName, ToolName, Arguments}` で届く（`Arguments` はオブジェクト。`agy` の記録では JSON 文字列のこともある）。
-- **MCP ツールは `auto` でも承認を求める。** `auto` が自動で通すのはワークスペース内の編集とサンドボックス内のコマンドで、許可ルールのない MCP ツールは毎回 Ask になる。ACP の選択肢は `allow_once` / `reject_once` だけなので、承認しても `agy` 側には残らない。
-- **許可ルールの保存先**は `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow`（Antigravity アプリと共有。`--app-data-dir` のプロファイルを問わず効く）。`mcp(<サーバー>/<ツール>)` と `mcp(<サーバー>/*)` が書ける。`mcp(dart-mcp/*)` を足すと承認リクエストなしで実行された。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
+- **MCP ツールは `auto` でも承認を求める。** `auto` が自動で通すのはワークスペース内の編集とサンドボックス内のコマンドで、許可ルールのない MCP ツールは Ask になる（公式ドキュメントの記述。本番では 4 回とも別のツールで、同じツールの 2 回目は観測していない）。ACP の選択肢は `allow_once` / `reject_once` だけなので、承認しても `agy` 側には残らない。
+- **許可ルールの保存先**は `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow`（Antigravity アプリと共有。`--app-data-dir` のプロファイルを問わず効く）。`mcp(<サーバー>/<ツール>)` と `mcp(<サーバー>/*)` が書ける。`mcp(dart-mcp/*)` を足すと承認リクエストなしで実行された（APIキーのプロファイルで 1 回。Google ログインのプロファイルと、起動済みのセッションへの反映は未確認）。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
 - セッション開始直後は MCP サーバーの起動が間に合わず、モデルに `call_mcp_tool` が見えないことがある。
 
 ### Google ログインでの確認（2026-11-19、所有者の指示による例外）
@@ -203,7 +204,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - ターン実行中の入力は、クライアントが `delivery` を指定したときだけ Bridge が扱う。`queue` はターン終了まで保留し、`steer` はそのまま送る（`agy` が実行中のターンに合流させる）。指定がなければ従来どおりすぐ送る。
   - `bypassPermissions` は Bridge 側のモード。ACP のモードは `default` のまま、承認リクエストに Bridge が `allow_once` で答える。`auto` のないアカウントでも使える。
   - MCP ツール（`call_mcp_tool`）は Claude と同じ `mcp__<サーバー>__<ツール>` の名前で出し、入力は `Arguments` の中身にする。「常に許可」は Bridge がサーバーとツールの組で覚える（引数が違っても効く。セッションの間だけ）。
-  - `agy` が自分で始めたターン（タイマーやバックグラウンドタスクでの再開）も実行中として扱う。プロンプトが出ていないときに発言・思考・新しいツール呼び出し・承認リクエストが届いたら `running` にし、`usage_update` のあと 2 秒何も届かなければ `result`（`success`、トークン数なし）と `idle` を出す。承認待ちの間は終わらせない。割り込みは `session/cancel` を送ってその場で `interrupted` にする。この間に送った入力はそのターンに合流し、その `session/prompt` の応答でターンが終わる。
+  - `agy` が自分で始めたターン（タイマーやバックグラウンドタスクでの再開）も実行中として扱う。プロンプトが出ていないときに発言・思考・新しいツール呼び出し・承認リクエストが届いたら `running` にし、`usage_update` のあと 5 秒何も届かなければ `result`（`success`、トークン数なし）と `idle` を出す。拒否したツール呼び出しが失敗で閉じたあとも同じ。承認待ちの間は終わらせない。早く終わらせてしまった場合は、次に届いたメッセージでまた `running` になる（`auto` モードの Google ログインでは未検証）。割り込みは `session/cancel` を送ってその場で `interrupted` にする。この間に送った入力はそのターンに合流し、その `session/prompt` の応答でターンが終わる（単体テストのみ。`agy` では未確認）。
   - 正常に終わったターンで開いたままのツール呼び出し（タイマー、バックグラウンドのコマンド）は覚えておき、あとから届く結果を元の呼び出しに付ける。キャンセルやエラーで終わったターンの呼び出しは捨て、遅れて届いた結果は無視する。
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。

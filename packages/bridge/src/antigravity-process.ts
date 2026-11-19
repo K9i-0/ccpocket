@@ -38,7 +38,7 @@ const REQUEST_TIMEOUT_MS = 60_000;
 /** `session/load` replays the whole conversation before it answers. */
 const LOAD_TIMEOUT_MS = 10 * 60_000;
 /** Silence after a usage report that ends a turn the agent started itself. */
-const SELF_TURN_SETTLE_MS = 2_000;
+const SELF_TURN_SETTLE_MS = 5_000;
 
 export type AntigravityAuthMode = "login" | "api_key";
 
@@ -1514,6 +1514,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       if (call) call.rejected = true;
       this.emitToolResult(elicitation.toolUseId, "Rejected", "rejected");
       this.resumeRunningIfSettled();
+      this.armSelfTurnEnd();
       return true;
     }
     if (!this.resolvePermission(toolUseId, "reject_once", "rejected")) return false;
@@ -1614,7 +1615,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   /**
    * Antigravity reports context usage after each model call. A tool call
    * follows within milliseconds when the turn goes on, so a report followed
-   * by silence is the end of a turn nothing else marks.
+   * by silence is the end of a turn nothing else marks. A denied call ends
+   * the turn the same way, without a report.
    */
   private armSelfTurnEnd(): void {
     if (!this.selfTurn || this.outstandingPrompts > 0) return;
@@ -1993,6 +1995,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     // The result of a call that was dropped with its cancelled turn.
     if (!call && closing && !this.replaying && !this.isTurnActive) return;
     if (!closing) this.noteAgentActivity();
+    // Antigravity says nothing more after a denial, not even a usage report.
+    else if (call?.rejected) this.armSelfTurnEnd();
     if (!call) {
       this.flushAssistant();
       const kind = stringOr(update.kind, "other");
@@ -2270,6 +2274,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.emitToolResult(pending.toolUseId, "Approved", outcome);
     }
     this.resumeRunningIfSettled();
+    if (outcome === "rejected") this.armSelfTurnEnd();
     return true;
   }
 
