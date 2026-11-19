@@ -34,7 +34,7 @@ class SettingsVisibility {
     this.terminalAppEnabled = false,
     this.isMacOS = false,
     this.isMobile = false,
-    this.bothAgents = true,
+    this.multipleAgents = true,
     this.codexEnabled = true,
     this.claudeEnabled = true,
     this.fcmEnabled = false,
@@ -54,7 +54,7 @@ class SettingsVisibility {
   final bool terminalAppEnabled;
   final bool isMacOS;
   final bool isMobile;
-  final bool bothAgents;
+  final bool multipleAgents;
   final bool codexEnabled;
   final bool claudeEnabled;
   final bool fcmEnabled;
@@ -110,7 +110,6 @@ abstract final class SettingsEntryIds {
   static const newSessionTabs = 'new_session_tabs';
   static const autoRenameCodex = 'auto_rename_codex';
   static const extendedCodexEfforts = 'extended_codex_efforts';
-  static const antigravityTab = 'antigravity_tab';
   static const autoRenameClaude = 'auto_rename_claude';
   static const showHiddenDirectories = 'show_hidden_directories';
   static const showBridgeName = 'show_bridge_name';
@@ -297,14 +296,15 @@ final List<SettingsEntry> settingsEntries = [
     id: SettingsEntryIds.enabledAgents,
     category: SettingsCategory.agents,
     title: (l) => l.settingsEnabledAgents,
-    keywords: 'claude codex antigravity agent エージェント',
+    keywords:
+        'claude codex antigravity agy gemini google preview agent エージェント プレビュー',
   ),
   SettingsEntry(
     id: SettingsEntryIds.newSessionTabs,
     category: SettingsCategory.agents,
     title: (l) => l.settingsNewSessionTabs,
     keywords: 'new session tab order タブ 新規',
-    visibleWhen: (v) => v.bothAgents,
+    visibleWhen: (v) => v.multipleAgents,
   ),
   SettingsEntry(
     id: SettingsEntryIds.autoRenameCodex,
@@ -312,13 +312,6 @@ final List<SettingsEntry> settingsEntries = [
     title: (l) => l.autoRenameCodexSessions,
     keywords: 'codex rename title 名前',
     visibleWhen: (v) => v.codexEnabled,
-  ),
-  SettingsEntry(
-    id: SettingsEntryIds.antigravityTab,
-    category: SettingsCategory.agents,
-    title: (l) => l.showAntigravityTab,
-    keywords: 'antigravity agy gemini google preview プレビュー',
-    visibleWhen: (v) => v.bothAgents,
   ),
   SettingsEntry(
     id: SettingsEntryIds.extendedCodexEfforts,

@@ -10,7 +10,6 @@ import '../../../models/new_session_tab.dart';
 import '../../../providers/machine_manager_cubit.dart';
 import '../../../services/bridge_service.dart';
 import '../models/settings_catalog.dart';
-import '../sections/agents_settings_section.dart';
 import '../sections/appearance_settings_section.dart';
 import '../sections/connection_settings_section.dart';
 import '../state/settings_state.dart';
@@ -276,10 +275,10 @@ class _CategoryList extends StatelessWidget {
         if (!state.hideVoiceInput)
           getSpeechLocaleLabel(context, state.speechLocaleId),
       ].join(' · '),
-      SettingsCategory.agents => enabledAgentsLabel(
-        l,
-        enabledAgentsModeFromTabs(state.newSessionTabs),
-      ),
+      SettingsCategory.agents => enabledAgents(
+        state.newSessionTabs,
+        antigravity: state.showAntigravityTab,
+      ).map((agent) => agent.localizedLabel(l)).join(', '),
       SettingsCategory.git => switch (state.gitDiffInteractionMode) {
         GitDiffInteractionMode.quickActions => l.gitDiffQuickActions,
         GitDiffInteractionMode.scrollFirst => l.gitDiffScrollFirst,

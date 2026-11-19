@@ -6,12 +6,12 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 
-/// Shows a bottom sheet for configuring visible new-session tabs and their order.
+/// Shows a bottom sheet for ordering the new-session tabs. [current] is the
+/// enabled agents in their order; which agents are enabled is set elsewhere.
 Future<void> showNewSessionTabsBottomSheet({
   required BuildContext context,
   required List<NewSessionTab> current,
   required ValueChanged<List<NewSessionTab>> onChanged,
-  bool showAntigravity = false,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -23,7 +23,6 @@ Future<void> showNewSessionTabsBottomSheet({
     ),
     builder: (ctx) => _TabsBottomSheetContent(
       current: current,
-      showAntigravity: showAntigravity,
       onChanged: (tabs) {
         onChanged(tabs);
         Navigator.pop(ctx);
@@ -36,13 +35,9 @@ class _TabsBottomSheetContent extends StatefulWidget {
   final List<NewSessionTab> current;
   final ValueChanged<List<NewSessionTab>> onChanged;
 
-  /// Offer Antigravity for ordering (its tab is enabled in settings).
-  final bool showAntigravity;
-
   const _TabsBottomSheetContent({
     required this.current,
     required this.onChanged,
-    this.showAntigravity = false,
   });
 
   @override
@@ -51,46 +46,16 @@ class _TabsBottomSheetContent extends StatefulWidget {
 }
 
 class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
-  /// All tabs in display order, with enabled/disabled state.
-  late List<({NewSessionTab tab, bool enabled})> _items;
+  /// The enabled tabs in display order.
+  late List<NewSessionTab> _items;
 
   @override
   void initState() {
     super.initState();
-    // Build ordered list: enabled tabs first (in order), then disabled ones.
-    final enabledSet = widget.current.toSet();
-    _items = [
-      for (final tab in widget.current)
-        if (tab != NewSessionTab.antigravity || widget.showAntigravity)
-          (tab: tab, enabled: true),
-      for (final tab in configurableNewSessionTabs)
-        if (!enabledSet.contains(tab)) (tab: tab, enabled: false),
-      // Antigravity can be ordered here; whether it shows is its own setting.
-      if (widget.showAntigravity &&
-          !enabledSet.contains(NewSessionTab.antigravity))
-        (tab: NewSessionTab.antigravity, enabled: true),
-    ];
+    _items = [...widget.current];
   }
 
-  bool get _canDisableMore =>
-      _items
-          .where((i) => i.enabled && i.tab != NewSessionTab.antigravity)
-          .length >
-      1;
-
-  void _toggle(int index) {
-    final item = _items[index];
-    if (item.tab == NewSessionTab.antigravity) return;
-    if (item.enabled && !_canDisableMore) return;
-    setState(() {
-      _items[index] = (tab: item.tab, enabled: !item.enabled);
-    });
-  }
-
-  void _save() {
-    final tabs = _items.where((i) => i.enabled).map((i) => i.tab).toList();
-    widget.onChanged(tabs);
-  }
+  void _save() => widget.onChanged([..._items]);
 
   @override
   Widget build(BuildContext context) {
@@ -150,39 +115,27 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
             });
           },
           itemBuilder: (context, index) {
-            final item = _items[index];
-            final style = providerStyleFor(context, item.tab.toProvider());
-            final canToggle = item.enabled ? _canDisableMore : true;
+            final tab = _items[index];
+            final style = providerStyleFor(context, tab.toProvider());
 
             return ReorderableDragStartListener(
-              key: ValueKey(item.tab.value),
+              key: ValueKey(tab.value),
               index: index,
               child: ListTile(
-                leading: item.tab == NewSessionTab.antigravity
-                    // Shown or hidden by its own setting, and by the Bridge.
-                    ? SizedBox(
-                        width: 48,
-                        child: Center(
-                          child: ProviderIcon(
-                            item.tab.toProvider(),
-                            color: style.foreground,
-                          ),
-                        ),
-                      )
-                    : Checkbox(
-                        value: item.enabled,
-                        onChanged: canToggle ? (_) => _toggle(index) : null,
-                        activeColor: style.foreground,
-                      ),
+                leading: SizedBox(
+                  width: 48,
+                  child: Center(
+                    child: ProviderIcon(
+                      tab.toProvider(),
+                      color: style.foreground,
+                    ),
+                  ),
+                ),
                 title: Text(
-                  item.tab.localizedLabel(l),
+                  tab.localizedLabel(l),
                   style: TextStyle(
-                    color: item.enabled
-                        ? style.foreground
-                        : cs.onSurfaceVariant,
-                    fontWeight: item.enabled
-                        ? FontWeight.w600
-                        : FontWeight.w400,
+                    color: style.foreground,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 trailing: Icon(Icons.drag_handle, color: cs.onSurfaceVariant),

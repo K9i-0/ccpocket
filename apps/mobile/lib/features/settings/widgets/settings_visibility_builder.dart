@@ -100,9 +100,12 @@ SettingsVisibility resolveSettingsVisibility(
     ),
     isMacOS: isMacOSPlatform,
     isMobile: isMobilePlatform,
-    bothAgents:
-        enabledAgentsModeFromTabs(state.newSessionTabs) ==
-        EnabledAgentsMode.both,
+    multipleAgents:
+        enabledAgents(
+          state.newSessionTabs,
+          antigravity: state.showAntigravityTab,
+        ).length >
+        1,
     codexEnabled: isNewSessionTabEnabled(
       state.newSessionTabs,
       NewSessionTab.codex,

@@ -1214,9 +1214,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'API key usage has no plan limits. Context usage is shown in each session.';
 
   @override
-  String get showAntigravityTab => 'Show Antigravity for new sessions';
-
-  @override
   String get showAntigravityTabSubtitle =>
       'Shown only when the Bridge machine has the Antigravity CLI (agy). Preview.';
 
@@ -2192,9 +2189,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsEnabledAgents => 'Enabled agents';
 
   @override
-  String get settingsAgentsBoth => 'Both';
-
-  @override
   String get settingsBridgeMachine => 'Bridge machine';
 
   @override
@@ -2570,7 +2564,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsNewSessionTabsDescription =>
-      'Choose which AI tools appear for new sessions and change their order.';
+      'Change the order of the AI tools offered for new sessions.';
 
   @override
   String get showHiddenDirectories => 'Show Hidden Folders';

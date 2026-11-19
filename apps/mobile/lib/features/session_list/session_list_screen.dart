@@ -2359,7 +2359,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       final settingsState = context.watch<SettingsCubit>().state;
       final allowedProviderFilters = providerFiltersForEnabledTabs(
         settingsState.newSessionTabs,
-        supportsAntigravity: bridge.supportsAntigravity,
+        supportsAntigravity:
+            bridge.supportsAntigravity && settingsState.showAntigravityTab,
       );
       final effectiveProviderFilter = coerceProviderFilter(
         slState.providerFilter,
@@ -2370,13 +2371,14 @@ class _SessionListScreenState extends State<SessionListScreen>
       // connecting) and is shown as All meanwhile.
       final settingsAllowedFilters = providerFiltersForEnabledTabs(
         settingsState.newSessionTabs,
-        supportsAntigravity: true,
+        supportsAntigravity: settingsState.showAntigravityTab,
       );
       if (!settingsAllowedFilters.contains(slState.providerFilter)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           context.read<SessionListCubit>().applyEnabledAgents(
             settingsState.newSessionTabs,
+            antigravity: settingsState.showAntigravityTab,
           );
         });
       }

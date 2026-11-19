@@ -2197,7 +2197,6 @@ void main() {
         'new_session_tabs',
         'auto_rename_codex',
         'extended_codex_efforts',
-        'antigravity_tab',
         'auto_rename_claude',
         'show_hidden_directories',
         'show_bridge_name',

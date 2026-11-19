@@ -156,28 +156,17 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final cubit = SettingsCubit(prefs);
 
-      expect(
-        enabledAgentsModeFromTabs(cubit.state.newSessionTabs),
-        EnabledAgentsMode.both,
-      );
+      expect(cubit.state.newSessionTabs, defaultNewSessionTabs);
 
-      cubit.setEnabledAgentsMode(EnabledAgentsMode.codex);
+      cubit.setAgentEnabled(NewSessionTab.claude, false);
       expect(cubit.state.newSessionTabs, [NewSessionTab.codex]);
-      expect(
-        enabledAgentsModeFromTabs(cubit.state.newSessionTabs),
-        EnabledAgentsMode.codex,
-      );
 
       await cubit.close();
 
       final restored = SettingsCubit(prefs);
       expect(restored.state.newSessionTabs, [NewSessionTab.codex]);
-      expect(
-        enabledAgentsModeFromTabs(restored.state.newSessionTabs),
-        EnabledAgentsMode.codex,
-      );
 
-      restored.setEnabledAgentsMode(EnabledAgentsMode.both);
+      restored.setAgentEnabled(NewSessionTab.claude, true);
       expect(restored.state.newSessionTabs.toSet(), {
         NewSessionTab.codex,
         NewSessionTab.claude,

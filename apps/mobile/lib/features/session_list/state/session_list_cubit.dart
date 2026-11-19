@@ -410,10 +410,13 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// The Antigravity capability is deliberately not considered here: it
   /// arrives after connecting and can come and go, so a saved Antigravity
   /// filter is kept and only treated as All while the capability is missing.
-  void applyEnabledAgents(List<NewSessionTab> enabledTabs) {
+  void applyEnabledAgents(
+    List<NewSessionTab> enabledTabs, {
+    required bool antigravity,
+  }) {
     final allowed = providerFiltersForEnabledTabs(
       enabledTabs,
-      supportsAntigravity: true,
+      supportsAntigravity: antigravity,
     );
     final next = coerceProviderFilter(state.providerFilter, allowed);
     setProviderFilter(next);
@@ -657,22 +660,20 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 }
 
-/// Provider filters to offer. Antigravity is offered only when all agents
-/// are enabled and the Bridge advertises `antigravity_v1`.
+/// Provider filters to offer: one per enabled agent, and All when there is
+/// more than one. [supportsAntigravity] is true when Antigravity is enabled
+/// in settings and the Bridge advertises `antigravity_v1`.
 List<ProviderFilter> providerFiltersForEnabledTabs(
   List<NewSessionTab> enabledTabs, {
   required bool supportsAntigravity,
 }) {
-  return switch (enabledAgentsModeFromTabs(enabledTabs)) {
-    EnabledAgentsMode.both => [
-      ProviderFilter.all,
-      ProviderFilter.codex,
-      ProviderFilter.claude,
-      if (supportsAntigravity) ProviderFilter.antigravity,
-    ],
-    EnabledAgentsMode.codex => const [ProviderFilter.codex],
-    EnabledAgentsMode.claude => const [ProviderFilter.claude],
-  };
+  final agents = enabledAgents(enabledTabs, antigravity: supportsAntigravity);
+  final filters = [
+    if (agents.contains(NewSessionTab.codex)) ProviderFilter.codex,
+    if (agents.contains(NewSessionTab.claude)) ProviderFilter.claude,
+    if (agents.contains(NewSessionTab.antigravity)) ProviderFilter.antigravity,
+  ];
+  return filters.length == 1 ? filters : [ProviderFilter.all, ...filters];
 }
 
 ProviderFilter coerceProviderFilter(

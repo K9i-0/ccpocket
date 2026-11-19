@@ -2303,12 +2303,6 @@ abstract class AppLocalizations {
   /// **'APIキーでの利用にはプランの枠がありません。コンテキスト使用量は各セッションに表示されます。'**
   String get antigravityUsageApiKeyNote;
 
-  /// No description provided for @showAntigravityTab.
-  ///
-  /// In ja, this message translates to:
-  /// **'新規セッションに Antigravity を表示'**
-  String get showAntigravityTab;
-
   /// No description provided for @showAntigravityTabSubtitle.
   ///
   /// In ja, this message translates to:
@@ -3989,12 +3983,6 @@ abstract class AppLocalizations {
   /// **'使うエージェント'**
   String get settingsEnabledAgents;
 
-  /// No description provided for @settingsAgentsBoth.
-  ///
-  /// In ja, this message translates to:
-  /// **'両方'**
-  String get settingsAgentsBoth;
-
   /// No description provided for @settingsBridgeMachine.
   ///
   /// In ja, this message translates to:
@@ -4676,7 +4664,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsNewSessionTabsDescription.
   ///
   /// In ja, this message translates to:
-  /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
+  /// **'新規セッションで表示する AI ツールの並び順を変更できます。'**
   String get settingsNewSessionTabsDescription;
 
   /// No description provided for @showHiddenDirectories.

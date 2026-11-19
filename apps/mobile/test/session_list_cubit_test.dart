@@ -544,7 +544,7 @@ void main() {
     });
 
     test('enabled agents constrain provider filter', () {
-      cubit.applyEnabledAgents(const [NewSessionTab.codex]);
+      cubit.applyEnabledAgents(const [NewSessionTab.codex], antigravity: false);
 
       expect(cubit.state.providerFilter, ProviderFilter.codex);
       expect(
@@ -556,7 +556,7 @@ void main() {
       cubit.toggleProviderFilter(
         allowedFilters: providerFiltersForEnabledTabs(const [
           NewSessionTab.codex,
-        ], supportsAntigravity: true),
+        ], supportsAntigravity: false),
       );
 
       expect(cubit.state.providerFilter, ProviderFilter.codex);
@@ -597,7 +597,7 @@ void main() {
         expect(cubit.state.providerFilter, ProviderFilter.antigravity);
 
         // The agents setting allows it, so it is not rewritten.
-        cubit.applyEnabledAgents(defaultNewSessionTabs);
+        cubit.applyEnabledAgents(defaultNewSessionTabs, antigravity: true);
         expect(cubit.state.providerFilter, ProviderFilter.antigravity);
 
         cubit.refresh();
@@ -608,13 +608,36 @@ void main() {
         expect(mockBridge.lastJson['provider'], 'antigravity');
       });
 
-      test('a single-agent setting drops the Antigravity filter', () {
+      test('switching Antigravity off drops the Antigravity filter', () {
         mockBridge.antigravity = true;
         cubit.setProviderFilter(ProviderFilter.antigravity);
 
-        cubit.applyEnabledAgents(const [NewSessionTab.claude]);
+        cubit.applyEnabledAgents(const [
+          NewSessionTab.claude,
+        ], antigravity: false);
 
         expect(cubit.state.providerFilter, ProviderFilter.claude);
+      });
+
+      test('Antigravity next to one agent keeps its filter and All', () {
+        mockBridge.antigravity = true;
+        cubit.setProviderFilter(ProviderFilter.antigravity);
+
+        cubit.applyEnabledAgents(const [
+          NewSessionTab.claude,
+        ], antigravity: true);
+
+        expect(cubit.state.providerFilter, ProviderFilter.antigravity);
+        expect(
+          providerFiltersForEnabledTabs(const [
+            NewSessionTab.claude,
+          ], supportsAntigravity: true),
+          [
+            ProviderFilter.all,
+            ProviderFilter.claude,
+            ProviderFilter.antigravity,
+          ],
+        );
       });
 
       test('the unfiltered list is requested again when the capability '

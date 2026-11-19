@@ -1169,9 +1169,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get antigravityUsageApiKeyNote => '使用 API 密钥时没有套餐额度。上下文用量会显示在各会话中。';
 
   @override
-  String get showAntigravityTab => '在新会话中显示 Antigravity';
-
-  @override
   String get showAntigravityTabSubtitle =>
       '仅当 Bridge 机器上装有 Antigravity CLI（agy）时显示（预览）';
 
@@ -2080,9 +2077,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsEnabledAgents => '启用的智能体';
 
   @override
-  String get settingsAgentsBoth => '两者';
-
-  @override
   String get settingsBridgeMachine => 'Bridge 机器';
 
   @override
@@ -2448,7 +2442,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNewSessionTabs => '新建会话标签页';
 
   @override
-  String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
+  String get settingsNewSessionTabsDescription => '更改新建会话时显示的 AI 工具顺序。';
 
   @override
   String get showHiddenDirectories => '显示隐藏文件夹';

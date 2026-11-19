@@ -1179,9 +1179,6 @@ class AppLocalizationsKo extends AppLocalizations {
       'API 키 사용에는 플랜 한도가 없습니다. 컨텍스트 사용량은 각 세션에 표시됩니다.';
 
   @override
-  String get showAntigravityTab => '새 세션에 Antigravity 표시';
-
-  @override
   String get showAntigravityTabSubtitle =>
       'Bridge 머신에 Antigravity CLI(agy)가 있을 때만 표시됩니다(프리뷰)';
 
@@ -2121,9 +2118,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsEnabledAgents => '사용할 에이전트';
 
   @override
-  String get settingsAgentsBoth => '모두';
-
-  @override
   String get settingsBridgeMachine => 'Bridge 머신';
 
   @override
@@ -2491,7 +2485,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNewSessionTabs => '새 세션 탭';
 
   @override
-  String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
+  String get settingsNewSessionTabsDescription =>
+      '새 세션에 표시되는 AI 도구의 순서를 변경할 수 있습니다.';
 
   @override
   String get showHiddenDirectories => '숨김 폴더 표시';

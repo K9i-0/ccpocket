@@ -312,7 +312,11 @@ class SettingsCubit extends Cubit<SettingsState> {
       usageDisplayMode: usageDisplayMode,
       autoRenameCodexSessions: autoRenameCodexSessions,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
-      showAntigravityTab: prefs.getBool(_keyShowAntigravityTab) ?? true,
+      // Antigravity used to be offered only next to both other agents. A
+      // setting saved with a single agent keeps it off unless it was chosen.
+      showAntigravityTab:
+          prefs.getBool(_keyShowAntigravityTab) ??
+          newSessionTabs.where(configurableNewSessionTabs.contains).length != 1,
       autoRenameClaudeSessions: autoRenameClaudeSessions,
       defaultInputDelivery: defaultInputDelivery,
       skillTriggerStyle: skillTriggerStyle,
@@ -539,8 +543,23 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(showHiddenDirectories: show));
   }
 
-  void setEnabledAgentsMode(EnabledAgentsMode mode) {
-    setNewSessionTabs(tabsForEnabledAgentsMode(mode, state.newSessionTabs));
+  /// Switches one agent on or off. The last enabled agent stays on.
+  void setAgentEnabled(NewSessionTab agent, bool enabled) {
+    final current = enabledAgents(
+      state.newSessionTabs,
+      antigravity: state.showAntigravityTab,
+    );
+    if (current.contains(agent) == enabled) return;
+    if (!enabled && current.length == 1) return;
+    // From here on the Antigravity choice is the user's, not a default.
+    if (!_prefs.containsKey(_keyShowAntigravityTab)) {
+      _prefs.setBool(_keyShowAntigravityTab, state.showAntigravityTab);
+    }
+    if (agent == NewSessionTab.antigravity) {
+      setShowAntigravityTab(enabled);
+    } else {
+      setNewSessionTabs(tabsWithAgent(state.newSessionTabs, agent, enabled));
+    }
   }
 
   void setUsageDisplayMode(UsageDisplayMode mode) {

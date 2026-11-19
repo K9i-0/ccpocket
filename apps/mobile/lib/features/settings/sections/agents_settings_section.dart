@@ -4,9 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../models/messages.dart' show Provider;
 import '../../../models/new_session_tab.dart';
-import '../../../theme/provider_style.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
@@ -14,12 +12,12 @@ import '../widgets/new_session_tabs_bottom_sheet.dart';
 import '../widgets/settings_tiles.dart';
 import '../widgets/terminal_app_bottom_sheet.dart';
 
-String enabledAgentsLabel(AppLocalizations l, EnabledAgentsMode mode) =>
-    switch (mode) {
-      EnabledAgentsMode.both => l.settingsAgentsBoth,
-      EnabledAgentsMode.codex => 'Codex',
-      EnabledAgentsMode.claude => 'Claude',
-    };
+/// Agents offered by the selector, in its fixed order.
+const _selectableAgents = [
+  NewSessionTab.codex,
+  NewSessionTab.claude,
+  NewSessionTab.antigravity,
+];
 
 class AgentsSettingsSection extends StatelessWidget {
   const AgentsSettingsSection({
@@ -35,7 +33,10 @@ class AgentsSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cubit = context.read<SettingsCubit>();
-    final mode = enabledAgentsModeFromTabs(state.newSessionTabs);
+    final agents = enabledAgents(
+      state.newSessionTabs,
+      antigravity: state.showAntigravityTab,
+    );
     final hasSessionOptions =
         visibility.codexEnabled || visibility.claudeEnabled;
     return Column(
@@ -48,55 +49,45 @@ class AgentsSettingsSection extends StatelessWidget {
               child: SettingsControlTile(
                 icon: Icons.smart_toy_rounded,
                 title: l.settingsEnabledAgents,
-                control: SegmentedButton<EnabledAgentsMode>(
+                // Antigravity is offered only by a Bridge that has its CLI.
+                description: l.showAntigravityTabSubtitle,
+                control: SegmentedButton<NewSessionTab>(
                   key: const ValueKey('enabled_agents_selector'),
+                  multiSelectionEnabled: true,
                   segments: [
-                    for (final value in EnabledAgentsMode.values)
+                    for (final agent in _selectableAgents)
                       ButtonSegment(
-                        value: value,
-                        label: Text(enabledAgentsLabel(l, value)),
+                        value: agent,
+                        label: Text(
+                          agent.label,
+                          key: ValueKey('enabled_agent_${agent.value}'),
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
                       ),
                   ],
-                  selected: {mode},
+                  selected: agents.toSet(),
                   showSelectedIcon: false,
-                  onSelectionChanged: (selection) =>
-                      cubit.setEnabledAgentsMode(selection.single),
+                  onSelectionChanged: (selection) {
+                    for (final agent in _selectableAgents) {
+                      cubit.setAgentEnabled(agent, selection.contains(agent));
+                    }
+                  },
                 ),
               ),
             ),
-            if (visibility.bothAgents)
+            if (visibility.multipleAgents)
               SettingsItem(
                 id: SettingsEntryIds.newSessionTabs,
                 child: SettingsNavTile(
                   icon: Icons.tab_rounded,
                   title: Text(l.settingsNewSessionTabs),
-                  subtitle: state.newSessionTabs
-                      .where(
-                        (t) =>
-                            t != NewSessionTab.antigravity ||
-                            state.showAntigravityTab,
-                      )
-                      .map((t) => t.localizedLabel(l))
-                      .join(', '),
+                  subtitle: agents.map((t) => t.localizedLabel(l)).join(', '),
                   onTap: () => showNewSessionTabsBottomSheet(
                     context: context,
-                    current: state.newSessionTabs,
-                    showAntigravity: state.showAntigravityTab,
+                    current: agents,
                     onChanged: cubit.setNewSessionTabs,
                   ),
-                ),
-              ),
-            // Antigravity joins the sheet only next to both other agents.
-            if (visibility.bothAgents)
-              SettingsItem(
-                id: SettingsEntryIds.antigravityTab,
-                child: SettingsSwitchTile(
-                  key: const ValueKey('show_antigravity_tab_toggle'),
-                  iconWidget: const ProviderIcon(Provider.antigravity),
-                  title: l.showAntigravityTab,
-                  subtitle: l.showAntigravityTabSubtitle,
-                  value: state.showAntigravityTab,
-                  onChanged: cubit.setShowAntigravityTab,
                 ),
               ),
           ],

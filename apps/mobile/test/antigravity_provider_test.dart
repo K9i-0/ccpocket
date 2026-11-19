@@ -284,33 +284,48 @@ void main() {
       );
     });
 
-    test('single-agent modes never show the Antigravity tab', () {
+    test('a single agent shows the Antigravity tab only when it is on', () {
       expect(
         visibleNewSessionTabs(const [
           NewSessionTab.codex,
-        ], supportsAntigravity: true),
+        ], supportsAntigravity: false),
         [NewSessionTab.codex],
       );
       expect(
         visibleNewSessionTabs(const [
           NewSessionTab.claude,
         ], supportsAntigravity: true),
-        [NewSessionTab.claude],
+        [NewSessionTab.claude, NewSessionTab.antigravity],
       );
     });
 
-    test('Antigravity is saved as a position, never as the only agent', () {
+    test('Antigravity is saved as a position and can be the only agent', () {
       expect(tabsFromJson('["claude","antigravity","codex"]'), [
         NewSessionTab.claude,
         NewSessionTab.antigravity,
         NewSessionTab.codex,
       ]);
+      const only = [NewSessionTab.antigravity];
       expect(
-        tabsForEnabledAgentsMode(EnabledAgentsMode.both, const [
-          NewSessionTab.antigravity,
-        ]),
-        [NewSessionTab.antigravity, NewSessionTab.codex, NewSessionTab.claude],
+        tabsWithAgent(
+          const [NewSessionTab.claude],
+          NewSessionTab.claude,
+          false,
+        ),
+        only,
       );
+      expect(tabsFromJson(tabsToJson(only)), only);
+      expect(enabledAgents(only, antigravity: true), only);
+      expect(visibleNewSessionTabs(only, supportsAntigravity: true), only);
+      // Without a Bridge that offers it, a session can still be started.
+      expect(
+        visibleNewSessionTabs(only, supportsAntigravity: false),
+        defaultNewSessionTabs,
+      );
+      expect(tabsWithAgent(only, NewSessionTab.codex, true), [
+        NewSessionTab.antigravity,
+        NewSessionTab.codex,
+      ]);
     });
 
     test('provider filters offer Antigravity only with the capability', () {
@@ -331,8 +346,15 @@ void main() {
       expect(
         providerFiltersForEnabledTabs(const [
           NewSessionTab.codex,
-        ], supportsAntigravity: true),
+        ], supportsAntigravity: false),
         [ProviderFilter.codex],
+      );
+      // Antigravity alone needs no All either.
+      expect(
+        providerFiltersForEnabledTabs(const [
+          NewSessionTab.antigravity,
+        ], supportsAntigravity: true),
+        [ProviderFilter.antigravity],
       );
     });
   });
@@ -492,29 +514,29 @@ void main() {
         ], supportsAntigravity: true),
         [NewSessionTab.claude, NewSessionTab.codex, NewSessionTab.antigravity],
       );
-      // Not offered by the Bridge, or next to a single agent: left out.
+      // Not offered by the Bridge, or switched off: left out.
       expect(visibleNewSessionTabs(saved, supportsAntigravity: false), [
         NewSessionTab.claude,
         NewSessionTab.codex,
       ]);
+      // Next to a single agent it is offered like any other.
       expect(
         visibleNewSessionTabs(const [
           NewSessionTab.antigravity,
           NewSessionTab.codex,
         ], supportsAntigravity: true),
-        [NewSessionTab.codex],
+        [NewSessionTab.antigravity, NewSessionTab.codex],
       );
     });
 
     test('the position survives saving and switching agents', () {
       expect(tabsFromJson(tabsToJson(saved)), saved);
-      // Antigravity alone enables no agent.
-      expect(tabsFromJson('["antigravity"]'), isNull);
-      expect(enabledAgentsModeFromTabs(saved), EnabledAgentsMode.both);
-      expect(tabsForEnabledAgentsMode(EnabledAgentsMode.both, saved), saved);
-      expect(tabsForEnabledAgentsMode(EnabledAgentsMode.claude, saved), [
+      expect(enabledAgents(saved, antigravity: true), saved);
+      expect(tabsWithAgent(saved, NewSessionTab.codex, false), [
+        NewSessionTab.antigravity,
         NewSessionTab.claude,
       ]);
+      expect(tabsWithAgent(saved, NewSessionTab.codex, true), saved);
     });
   });
 
@@ -563,6 +585,65 @@ void main() {
         final reloaded = SettingsCubit(await SharedPreferences.getInstance());
         addTearDown(reloaded.close);
         expect(reloaded.state.showAntigravityTab, isFalse);
+      },
+    );
+
+    test('each agent switches on and off, and one always stays on', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+      addTearDown(cubit.close);
+      List<NewSessionTab> agents(SettingsCubit c) => enabledAgents(
+        c.state.newSessionTabs,
+        antigravity: c.state.showAntigravityTab,
+      );
+      expect(agents(cubit), [
+        NewSessionTab.codex,
+        NewSessionTab.claude,
+        NewSessionTab.antigravity,
+      ]);
+
+      cubit.setAgentEnabled(NewSessionTab.codex, false);
+      cubit.setAgentEnabled(NewSessionTab.claude, false);
+      expect(agents(cubit), [NewSessionTab.antigravity]);
+      // The last one cannot be switched off.
+      cubit.setAgentEnabled(NewSessionTab.antigravity, false);
+      expect(agents(cubit), [NewSessionTab.antigravity]);
+
+      final reloaded = SettingsCubit(prefs);
+      addTearDown(reloaded.close);
+      expect(agents(reloaded), [NewSessionTab.antigravity]);
+      reloaded.setAgentEnabled(NewSessionTab.claude, true);
+      reloaded.setAgentEnabled(NewSessionTab.antigravity, false);
+      expect(agents(reloaded), [NewSessionTab.claude]);
+    });
+
+    test('a single agent saved before keeps Antigravity off', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_new_session_tabs': '["claude"]',
+      });
+      final cubit = SettingsCubit(await SharedPreferences.getInstance());
+      addTearDown(cubit.close);
+      expect(cubit.state.showAntigravityTab, isFalse);
+      // Chosen with the new selector, it stays on across restarts.
+      cubit.setAgentEnabled(NewSessionTab.antigravity, true);
+      final reloaded = SettingsCubit(await SharedPreferences.getInstance());
+      addTearDown(reloaded.close);
+      expect(reloaded.state.showAntigravityTab, isTrue);
+    });
+
+    test(
+      'switching an agent off keeps the untouched Antigravity default',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final cubit = SettingsCubit(prefs);
+        addTearDown(cubit.close);
+        cubit.setAgentEnabled(NewSessionTab.codex, false);
+        final reloaded = SettingsCubit(prefs);
+        addTearDown(reloaded.close);
+        expect(reloaded.state.newSessionTabs, [NewSessionTab.claude]);
+        expect(reloaded.state.showAntigravityTab, isTrue);
       },
     );
   });

@@ -32,8 +32,6 @@ enum NewSessionTab {
   }
 }
 
-enum EnabledAgentsMode { both, codex, claude }
-
 extension NewSessionTabL10n on NewSessionTab {
   String localizedLabel(AppLocalizations l) => switch (this) {
     NewSessionTab.codex => l.newSessionTabCodex,
@@ -46,64 +44,56 @@ extension NewSessionTabL10n on NewSessionTab {
 /// Default tab order when no user preference is saved.
 const defaultNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
 
-/// Tabs the user can enable in settings. Antigravity is not one of them: it
-/// follows the Bridge capability and its own setting instead.
+/// Tabs saved by name. Antigravity is not one of them: whether it is used is
+/// its own setting, and in the saved list it only marks a position.
 const configurableNewSessionTabs = [NewSessionTab.codex, NewSessionTab.claude];
+
+/// Agents the saved settings enable, in their saved order.
+///
+/// [antigravity] is the Antigravity setting. Antigravity sits at its saved
+/// position, or after the others when it has none. A setting that enables
+/// nothing falls back to the defaults.
+List<NewSessionTab> enabledAgents(
+  List<NewSessionTab> savedTabs, {
+  required bool antigravity,
+}) {
+  final saved = savedTabs.isEmpty ? defaultNewSessionTabs : savedTabs;
+  final agents = <NewSessionTab>[
+    for (final tab in saved.toSet())
+      if (tab != NewSessionTab.antigravity || antigravity) tab,
+  ];
+  if (antigravity && !agents.contains(NewSessionTab.antigravity)) {
+    agents.add(NewSessionTab.antigravity);
+  }
+  return agents.isEmpty ? defaultNewSessionTabs : agents;
+}
 
 /// Tabs to show in the new session sheet for the saved [enabledTabs].
 ///
-/// Antigravity is shown when all agents are enabled and the Bridge advertises
-/// `antigravity_v1` ([supportsAntigravity]): at its saved position when the
-/// user ordered it, after the other tabs otherwise.
+/// [supportsAntigravity] is true when Antigravity is enabled in settings and
+/// the Bridge advertises `antigravity_v1`. With only Antigravity enabled and
+/// no such Bridge, the default tabs are shown so a session can still start.
 List<NewSessionTab> visibleNewSessionTabs(
   List<NewSessionTab> enabledTabs, {
   required bool supportsAntigravity,
-}) {
-  final tabs = [
-    for (final tab in enabledTabs)
-      if (configurableNewSessionTabs.contains(tab)) tab,
-  ];
-  final base = tabs.isEmpty ? defaultNewSessionTabs : tabs;
-  if (!supportsAntigravity ||
-      enabledAgentsModeFromTabs(base) != EnabledAgentsMode.both) {
-    return base;
-  }
-  if (tabs.isNotEmpty && enabledTabs.contains(NewSessionTab.antigravity)) {
-    return enabledTabs.toSet().toList();
-  }
-  return [...base, NewSessionTab.antigravity];
-}
+}) => enabledAgents(enabledTabs, antigravity: supportsAntigravity);
 
-EnabledAgentsMode enabledAgentsModeFromTabs(List<NewSessionTab> tabs) {
-  final set = tabs.toSet();
-  final hasCodex = set.contains(NewSessionTab.codex);
-  final hasClaude = set.contains(NewSessionTab.claude);
-  if (hasCodex && !hasClaude) return EnabledAgentsMode.codex;
-  if (hasClaude && !hasCodex) return EnabledAgentsMode.claude;
-  return EnabledAgentsMode.both;
-}
-
-List<NewSessionTab> tabsForEnabledAgentsMode(
-  EnabledAgentsMode mode,
-  List<NewSessionTab> current,
+/// The saved tab list with Codex or Claude switched on or off. Antigravity
+/// keeps its position marker either way.
+List<NewSessionTab> tabsWithAgent(
+  List<NewSessionTab> savedTabs,
+  NewSessionTab agent,
+  bool enabled,
 ) {
-  switch (mode) {
-    case EnabledAgentsMode.both:
-      // Keeps Antigravity's saved position.
-      final ordered = [...current];
-      final set = ordered.toSet();
-      if (!set.contains(NewSessionTab.codex)) {
-        ordered.add(NewSessionTab.codex);
-      }
-      if (!set.contains(NewSessionTab.claude)) {
-        ordered.add(NewSessionTab.claude);
-      }
-      return ordered;
-    case EnabledAgentsMode.codex:
-      return const [NewSessionTab.codex];
-    case EnabledAgentsMode.claude:
-      return const [NewSessionTab.claude];
-  }
+  assert(agent != NewSessionTab.antigravity);
+  final saved = savedTabs.isEmpty ? defaultNewSessionTabs : savedTabs;
+  if (enabled) return saved.contains(agent) ? saved : [...saved, agent];
+  final rest = [
+    for (final tab in saved)
+      if (tab != agent) tab,
+  ];
+  // An empty list would read as "nothing saved", which enables the defaults.
+  return rest.isEmpty ? const [NewSessionTab.antigravity] : rest;
 }
 
 bool isNewSessionTabEnabled(
@@ -127,8 +117,7 @@ List<NewSessionTab>? tabsFromJson(String json) {
         .whereType<NewSessionTab>()
         .toSet()
         .toList();
-    // Antigravity alone enables nothing; it only has a position.
-    return tabs.any(configurableNewSessionTabs.contains) ? tabs : null;
+    return tabs.isEmpty ? null : tabs;
   } catch (_) {
     return null;
   }

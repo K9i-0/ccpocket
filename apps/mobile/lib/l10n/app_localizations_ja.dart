@@ -1182,9 +1182,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'APIキーでの利用にはプランの枠がありません。コンテキスト使用量は各セッションに表示されます。';
 
   @override
-  String get showAntigravityTab => '新規セッションに Antigravity を表示';
-
-  @override
   String get showAntigravityTabSubtitle =>
       'Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます（プレビュー）';
 
@@ -2107,9 +2104,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsEnabledAgents => '使うエージェント';
 
   @override
-  String get settingsAgentsBoth => '両方';
-
-  @override
   String get settingsBridgeMachine => 'Bridgeマシン';
 
   @override
@@ -2478,7 +2472,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsNewSessionTabsDescription =>
-      '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
+      '新規セッションで表示する AI ツールの並び順を変更できます。';
 
   @override
   String get showHiddenDirectories => '隠しフォルダを表示';
