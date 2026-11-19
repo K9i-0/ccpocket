@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../models/messages.dart' show pathBasename;
+import '../../../models/messages.dart' show Provider, pathBasename;
 import '../../../theme/app_theme.dart';
+import '../../../theme/provider_style.dart';
 import '../state/recent_session_filters.dart';
 import '../state/session_list_state.dart';
 import 'recent_session_filter_sheets.dart';
@@ -68,13 +69,28 @@ class SessionFilterBar extends StatelessWidget {
         _DropdownChip<ProviderFilter>(
           anchorKey: const ValueKey('provider_filter_chip'),
           icon: Icons.smart_toy_outlined,
+          iconWidget: switch (_providerForFilter(providerFilter)) {
+            final provider? => ProviderIcon(provider),
+            null => null,
+          },
           label: providerFilter == ProviderFilter.all
               ? l.recentAiTool
               : _providerLabel(l, providerFilter),
           tooltip: l.tooltipProviderFilter,
           items: [
             for (final option in providerOptions)
-              (value: option, label: _providerLabel(l, option)),
+              (
+                value: option,
+                label: _providerLabel(l, option),
+                leading: switch (_providerForFilter(option)) {
+                  final provider? => ProviderIcon(
+                    provider,
+                    size: 16,
+                    color: providerStyleFor(context, provider).foreground,
+                  ),
+                  null => null,
+                },
+              ),
           ],
           onSelected: onProviderSelected,
           isActive: providerFilter != ProviderFilter.all,
@@ -85,9 +101,13 @@ class SessionFilterBar extends StatelessWidget {
           icon: Icons.event_outlined,
           label: recentDateFilterLabel(context, filters.dateFilter),
           items: [
-            (value: null, label: l.recentDateAnyTime),
+            (value: null, label: l.recentDateAnyTime, leading: null),
             for (final preset in RecentDatePreset.values)
-              (value: preset, label: recentDatePresetLabel(l, preset)),
+              (
+                value: preset,
+                label: recentDatePresetLabel(l, preset),
+                leading: null,
+              ),
           ],
           onSelected: (preset) {
             if (preset == RecentDatePreset.custom) {
@@ -161,6 +181,14 @@ class SessionFilterBar extends StatelessWidget {
         ? first
         : l.recentFilterProjectsSummary(first, keys.length - 1);
   }
+
+  static Provider? _providerForFilter(ProviderFilter filter) =>
+      switch (filter) {
+        ProviderFilter.all => null,
+        ProviderFilter.claude => Provider.claude,
+        ProviderFilter.codex => Provider.codex,
+        ProviderFilter.antigravity => Provider.antigravity,
+      };
 
   static String _providerLabel(AppLocalizations l, ProviderFilter filter) =>
       switch (filter) {
@@ -259,15 +287,17 @@ class _ActionChip extends StatelessWidget {
 class _DropdownChip<T> extends StatelessWidget {
   final Key? anchorKey;
   final IconData icon;
+  final Widget? iconWidget;
   final String label;
   final String? tooltip;
-  final List<({T value, String label})> items;
+  final List<({T value, String label, Widget? leading})> items;
   final ValueChanged<T> onSelected;
   final bool isActive;
 
   const _DropdownChip({
     this.anchorKey,
     required this.icon,
+    this.iconWidget,
     required this.label,
     this.tooltip,
     required this.items,
@@ -280,6 +310,7 @@ class _DropdownChip<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final appColors = theme.extension<AppColors>()!;
+    final iconColor = isActive ? cs.onPrimaryContainer : appColors.subtleText;
 
     Widget chip = MenuAnchor(
       key: anchorKey,
@@ -309,32 +340,24 @@ class _DropdownChip<T> extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 14,
-                    color: isActive
-                        ? cs.onPrimaryContainer
-                        : appColors.subtleText,
-                  ),
+                  if (iconWidget != null)
+                    IconTheme.merge(
+                      data: IconThemeData(size: 14, color: iconColor),
+                      child: iconWidget!,
+                    )
+                  else
+                    Icon(icon, size: 14, color: iconColor),
                   const SizedBox(width: 6),
                   Text(
                     label,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: isActive
-                          ? cs.onPrimaryContainer
-                          : appColors.subtleText,
+                      color: iconColor,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    size: 16,
-                    color: isActive
-                        ? cs.onPrimaryContainer
-                        : appColors.subtleText,
-                  ),
+                  Icon(Icons.arrow_drop_down, size: 16, color: iconColor),
                 ],
               ),
             ),
@@ -343,6 +366,7 @@ class _DropdownChip<T> extends StatelessWidget {
       },
       menuChildren: items.map((item) {
         return MenuItemButton(
+          leadingIcon: item.leading,
           onPressed: () => onSelected(item.value),
           child: Text(item.label),
         );

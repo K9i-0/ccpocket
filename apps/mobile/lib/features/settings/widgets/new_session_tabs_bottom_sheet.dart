@@ -162,7 +162,12 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
                     // Shown or hidden by its own setting, and by the Bridge.
                     ? SizedBox(
                         width: 48,
-                        child: Icon(style.icon, color: style.foreground),
+                        child: Center(
+                          child: ProviderIcon(
+                            item.tab.toProvider(),
+                            color: style.foreground,
+                          ),
+                        ),
                       )
                     : Checkbox(
                         value: item.enabled,

@@ -4685,8 +4685,8 @@ class _ProviderToggleButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              style.icon,
+            ProviderIcon(
+              provider,
               size: 16,
               color: isSelected ? style.foreground : cs.onSurfaceVariant,
             ),

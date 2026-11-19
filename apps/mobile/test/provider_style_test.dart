@@ -1,6 +1,7 @@
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/provider_style.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,5 +52,32 @@ void main() {
       );
     }
     expect(accents, hasLength(Provider.values.length));
+  });
+
+  testWidgets('each provider has a distinct custom SVG mark', (tester) async {
+    final assets = <String>{};
+    for (final provider in Provider.values) {
+      final asset = providerIconAsset(provider);
+      expect(asset, startsWith('assets/icons/provider_'));
+      expect(asset, endsWith('.svg'));
+      assets.add(asset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IconTheme(
+            data: const IconThemeData(size: 18, color: Color(0xFF123456)),
+            child: ProviderIcon(provider),
+          ),
+        ),
+      );
+      final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
+      expect(svg.width, 18);
+      expect(svg.height, 18);
+      expect(
+        svg.colorFilter,
+        const ColorFilter.mode(Color(0xFF123456), BlendMode.srcIn),
+      );
+    }
+    expect(assets, hasLength(Provider.values.length));
   });
 }

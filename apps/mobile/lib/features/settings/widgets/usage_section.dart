@@ -411,8 +411,12 @@ class _ProviderUsageTile extends StatelessWidget {
         ? providerName
         : '$providerName · ${info.groupLabel}';
     final providerIcon = provider == null
-        ? Icons.code
-        : providerStyleFor(context, provider).icon;
+        ? Icon(Icons.code, size: 20, color: cs.primary)
+        : ProviderIcon(
+            provider,
+            size: 20,
+            color: providerStyleFor(context, provider).foreground,
+          );
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -421,7 +425,7 @@ class _ProviderUsageTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(providerIcon, size: 20, color: cs.primary),
+              providerIcon,
               const SizedBox(width: 8),
               Text(
                 providerLabel,

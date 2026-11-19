@@ -4,7 +4,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/messages.dart' show Provider;
 import '../../../models/new_session_tab.dart';
+import '../../../theme/provider_style.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
@@ -90,7 +92,7 @@ class AgentsSettingsSection extends StatelessWidget {
                 id: SettingsEntryIds.antigravityTab,
                 child: SettingsSwitchTile(
                   key: const ValueKey('show_antigravity_tab_toggle'),
-                  icon: Icons.rocket_launch_outlined,
+                  iconWidget: const ProviderIcon(Provider.antigravity),
                   title: l.showAntigravityTab,
                   subtitle: l.showAntigravityTabSubtitle,
                   value: state.showAntigravityTab,

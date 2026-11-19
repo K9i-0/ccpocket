@@ -5,6 +5,7 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/theme/provider_style.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -100,7 +101,7 @@ void main() {
       expect(find.text('5h 68%'), findsOneWidget);
       // The weekly window is left to the settings card when 5h exists.
       expect(find.text('1w 42%'), findsNothing);
-      expect(find.byIcon(Icons.code), findsNothing);
+      expect(find.byType(ProviderIcon), findsNothing);
       expect(_indicator(tester, 'codex_usage_5h_indicator').value, 0.68);
       expect(
         find.byKey(const ValueKey('codex_usage_1w_indicator')),

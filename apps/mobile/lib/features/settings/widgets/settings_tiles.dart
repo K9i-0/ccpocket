@@ -203,9 +203,14 @@ class SettingsAccent extends InheritedWidget {
 
 /// Rounded, tinted icon used as the leading widget of settings rows.
 class SettingsLeadingIcon extends StatelessWidget {
-  const SettingsLeadingIcon(this.icon, {super.key, this.color});
+  const SettingsLeadingIcon(this.icon, {super.key, this.color})
+    : iconWidget = null;
 
-  final IconData icon;
+  const SettingsLeadingIcon.widget(this.iconWidget, {super.key, this.color})
+    : icon = null;
+
+  final IconData? icon;
+  final Widget? iconWidget;
   final Color? color;
 
   @override
@@ -219,7 +224,12 @@ class SettingsLeadingIcon extends StatelessWidget {
         color: accent.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, size: 19, color: accent),
+      child: iconWidget != null
+          ? IconTheme.merge(
+              data: IconThemeData(size: 19, color: accent),
+              child: iconWidget!,
+            )
+          : Icon(icon, size: 19, color: accent),
     );
   }
 }
@@ -496,14 +506,16 @@ class SettingsNavTile extends StatelessWidget {
 class SettingsSwitchTile extends StatelessWidget {
   const SettingsSwitchTile({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.title,
     required this.value,
     required this.onChanged,
     this.subtitle,
-  });
+  }) : assert(icon != null || iconWidget != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String title;
   final String? subtitle;
   final bool value;
@@ -512,7 +524,9 @@ class SettingsSwitchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
-      secondary: SettingsLeadingIcon(icon),
+      secondary: iconWidget != null
+          ? SettingsLeadingIcon.widget(iconWidget!)
+          : SettingsLeadingIcon(icon!),
       title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle!),
       value: value,

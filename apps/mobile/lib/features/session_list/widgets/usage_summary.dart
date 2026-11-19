@@ -193,8 +193,8 @@ class _ProviderUsageLine extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (compact && provider != null)
-          Icon(
-            providerStyleFor(context, provider).icon,
+          ProviderIcon(
+            provider,
             key: ValueKey('usage_summary_icon_${usage.provider}'),
             size: fontSize + 2,
             color: providerStyleFor(context, provider).foreground,
