@@ -373,17 +373,27 @@ may change.
 **Authentication**
 
 - By default the Bridge uses the Google login stored by `agy` and never changes it.
-  Google's [Antigravity terms](https://antigravity.google/terms/) restrict using that
-  login through third-party software. Google's maintainers have described interactive
-  clients, where a person writes every prompt, as permitted, and agents or background
-  loops that generate prompts as not permitted. That is guidance in an issue thread,
-  not part of the terms, and your account carries the risk. Use Antigravity sessions
-  interactively, and do not automate them with a Google login.
-- For this reason the Bridge never sends prompts of its own to Antigravity: session
-  titles come from Antigravity itself, and auto-rename is off for these sessions.
-  The only messages it sends for you are the ones a tap stands for: approving a plan
-  (`Approved. Proceed with the implementation plan.`), or the feedback or reason you
-  typed when rejecting one. They appear in the conversation as your message.
+- **Using that login from CC Pocket is the permitted kind of use.** Google's
+  Antigravity team has said that any interactive ACP client, including non-editor
+  ones, "may launch the unmodified agy acp binary when a human user is directly
+  driving the session"
+  ([antigravity-cli#1493](https://github.com/google-antigravity/antigravity-cli/issues/1493)).
+  That is how CC Pocket works: the Bridge starts the unmodified `agy acp`, and every
+  prompt is one you typed or tapped in the app.
+- What the same answer rules out for a Google login, and what the
+  [Antigravity terms](https://antigravity.google/terms/) are aimed at, is different:
+  another agent, an autonomous loop or a background queue writing the prompts;
+  taking the login out of `agy` to use its quota from another harness; overriding
+  Antigravity's system instructions; rotating accounts. CC Pocket does none of these,
+  and you should not build them on top of it. For automation, use an API key (below).
+- To stay inside that line the Bridge never sends prompts of its own to Antigravity:
+  session titles come from Antigravity itself, and auto-rename is off for these
+  sessions. The only messages it sends for you are the ones a tap stands for:
+  approving a plan (`Approved. Proceed with the implementation plan.`), or the
+  feedback or reason you typed when rejecting one. They appear in the conversation
+  as your message.
+- The statement above is the Antigravity team's answer on GitHub rather than text in
+  the terms themselves, so check the linked sources if your situation differs.
 - To use a Gemini API key instead, set `CCPOCKET_ANTIGRAVITY_API_KEY` in the Bridge
   environment (the background service setup keeps it). The Bridge then runs `agy`
   with a separate profile, so your everyday `agy` login is untouched. Usage is billed

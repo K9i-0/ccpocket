@@ -42,10 +42,11 @@ CC Pocket 也可以通过 CLI（`agy`）使用 [Google Antigravity](https://anti
 
 - 在运行 Bridge 的机器上安装 Antigravity CLI，并运行一次 `agy` 完成登录。
   新建会话界面会出现 **Antigravity** 标签。
-- 默认使用 `agy` 的 Google 登录。请以交互方式使用。
-  Google 的条款限制第三方使用该登录，请先阅读
+- 默认使用 `agy` 的 Google 登录。CC Pocket 运行的是未经修改的 `agy` CLI，
+  每条提示都由你本人输入。这正是 Google 的 Antigravity 团队说明可以使用该登录的方式。
+  它不会自动发送提示，也不会在 `agy` 之外复用你的登录。详情见
   [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)。
-- 暂不支持：回退、分叉、编辑消息、置顶、用量显示。
+- 暂不支持（`agy` 没有提供相应能力）：回退、分叉、编辑消息、费用显示。
 
 ## 免费使用
 

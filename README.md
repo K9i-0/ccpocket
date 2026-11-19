@@ -43,10 +43,13 @@ and Claude are not available yet.
 
 - Install the Antigravity CLI on the Bridge machine and sign in once by running `agy`.
   An **Antigravity** tab then appears in the new session sheet.
-- Sessions use your `agy` Google login by default. Use them interactively. Google's
-  terms restrict third-party use of that login, so read
-  [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity) first.
-- Not available yet: rewind, fork, message editing, pinning, and usage display.
+- Sessions use your `agy` Google login by default. CC Pocket runs the unmodified `agy`
+  CLI and you write every prompt yourself, which is the kind of client Google's
+  Antigravity team has said may use that login. It does not automate prompts or reuse
+  your login outside `agy`. Details are in
+  [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity).
+- Not available yet, because `agy` has no way to do them: rewind, fork, message
+  editing and cost display.
 
 ## Free to Use
 

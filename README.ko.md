@@ -42,10 +42,12 @@ CC Pocket은 [Google Antigravity](https://antigravity.google/)도 CLI(`agy`)를 
 
 - Bridge를 실행하는 기기에 Antigravity CLI를 설치하고 `agy`를 한 번 실행해 로그인합니다.
   새 세션 화면에 **Antigravity** 탭이 나타납니다.
-- 기본적으로 `agy`의 Google 로그인을 사용합니다. 대화형으로 사용하세요.
-  Google 약관은 이 로그인의 서드파티 이용을 제한하므로 먼저
-  [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)를 확인하세요.
-- 미지원: 되감기, 포크, 메시지 편집, 고정, 사용량 표시.
+- 기본적으로 `agy`의 Google 로그인을 사용합니다. CC Pocket은 수정하지 않은 `agy` CLI를
+  실행하고, 모든 프롬프트는 사용자가 직접 작성합니다. 이는 Google의 Antigravity 팀이
+  이 로그인으로 사용해도 된다고 설명한 방식입니다. 프롬프트를 자동으로 보내거나 `agy` 밖에서
+  로그인을 재사용하지 않습니다. 자세한 내용은
+  [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)를 참고하세요.
+- 미지원(`agy`에 방법이 없음): 되감기, 포크, 메시지 편집, 비용 표시.
 
 ## 무료로 사용할 수 있습니다
 
