@@ -6,9 +6,6 @@ PODS:
     - FlutterMacOS
   - audio_session (0.0.1):
     - FlutterMacOS
-  - bonsoir_darwin (0.0.1):
-    - Flutter
-    - FlutterMacOS
   - CwlCatchException (2.2.1):
     - CwlCatchExceptionSupport (~> 2.2.1)
   - CwlCatchExceptionSupport (2.2.1)
@@ -100,16 +97,16 @@ PODS:
   - nanopb/encode (3.30910.0)
   - package_info_plus (0.0.1):
     - FlutterMacOS
-  - pdfium_flutter (0.4.1):
+  - pdfium_flutter (0.4.2):
     - Flutter
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (10.19.0):
+  - purchases_flutter (11.0.3):
     - FlutterMacOS
-    - PurchasesHybridCommon (= 19.17.0)
-  - PurchasesHybridCommon (19.17.0):
-    - RevenueCat (= 5.99.0)
-  - RevenueCat (5.99.0)
+    - PurchasesHybridCommon (= 20.9.0)
+  - PurchasesHybridCommon (20.9.0):
+    - RevenueCat (= 5.103.0)
+  - RevenueCat (5.103.0)
   - share_plus (0.0.1):
     - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
@@ -136,7 +133,6 @@ DEPENDENCIES:
   - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
   - audio_service (from `Flutter/ephemeral/.symlinks/plugins/audio_service/darwin`)
   - audio_session (from `Flutter/ephemeral/.symlinks/plugins/audio_session/macos`)
-  - bonsoir_darwin (from `Flutter/ephemeral/.symlinks/plugins/bonsoir_darwin/darwin`)
   - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
@@ -184,8 +180,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_service/darwin
   audio_session:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_session/macos
-  bonsoir_darwin:
-    :path: Flutter/ephemeral/.symlinks/plugins/bonsoir_darwin/darwin
   device_info_plus:
     :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
   file_selector_macos:
@@ -237,7 +231,6 @@ SPEC CHECKSUMS:
   app_links: 05a6ec2341985eb05e9f97dc63f5837c39895c3f
   audio_service: aa99a6ba2ae7565996015322b0bb024e1d25c6fd
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
-  bonsoir_darwin: 14bd7429acb51db6a8e51f6574ac3b1ea0037a87
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
   device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
@@ -249,7 +242,7 @@ SPEC CHECKSUMS:
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
   FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
   FirebaseMessaging: c15f48126adbe8b4d3238a5e1fa24bab3ad3e472
-  flutter_local_notifications: 4bf37a31afde695b56091b4ae3e4d9c7a7e6cda0
+  flutter_local_notifications: 1fc7ffb10a83d6a2eeeeddb152d43f1944b0aad0
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
   GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
@@ -261,13 +254,13 @@ SPEC CHECKSUMS:
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
-  pdfium_flutter: 40fe1ba3e38784900c4e1dfc5b2bb391beb7b1e6
+  pdfium_flutter: 0d5445288f185431023e76bce901fe315d2f0602
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: b218e775bb240617eba131a2a73099ea3b24ba32
-  PurchasesHybridCommon: 46a92170257b674766b5ed5366be53c9d1603bbd
-  RevenueCat: 8e91d216b71708bb2c97be0aa86f47bfdb450655
+  purchases_flutter: bc1adf80a06a524f35a4c73a5a6cc08b9321304f
+  PurchasesHybridCommon: 6f43160f66c966baf5d4b5d3e5fb448d48904382
+  RevenueCat: ceb7b3d27ecf3ac26674ef9a75b45cbd57c8f699
   share_plus: 510bf0af1a42cd602274b4629920c9649c52f4cc
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189

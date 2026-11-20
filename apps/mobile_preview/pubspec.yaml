@@ -15,6 +15,13 @@ dependencies:
   multi_device_preview: ^1.3.1
   multi_device_preview_marionette: ^1.1.0
 
+# device_preview 3.0.0 does not compile on Flutter 3.50
+# (PlatformDispatcher.resetInternalState). Drop this override and
+# third_party/device_preview once a fixed release is published.
+dependency_overrides:
+  device_preview:
+    path: third_party/device_preview
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
