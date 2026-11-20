@@ -1,5 +1,7 @@
-• 新增“Issues / PRs”页面：可在应用内浏览项目中未关闭的 GitHub Issue 和 Pull Request，支持按标签筛选、隐藏草稿或仅显示 dependabot 的 PR，点按条目即可阅读正文和最近的评论。
-• 选择 Issue 和 PR 后，它们的 GitHub URL 会添加到你发送的下一条消息中，可与任意指令或技能搭配使用。
-• 可从空白聊天、聊天菜单（⋯）、最近会话的长按菜单或项目标题打开。
-• 需要 Bridge 1.107.0 或更高版本，并在 Bridge 主机上登录 GitHub CLI（gh）。
-• 更新了购买 SDK。
+• 支持 Google Antigravity。Bridge 机器上装有 Antigravity CLI（agy）时，可以像 Codex 和 Claude 一样开始和恢复 Antigravity 会话。支持选择模型、思考级别和审批模式，回答代理的提问，审阅计划，生成图片，查看用量和上下文。需要 Bridge 1.113.1 或更高版本。
+• 启用的代理：在设置中分别开启或关闭 Codex、Claude 和 Antigravity。
+• 实时活动栏：聊天底部显示代理当前的动作（思考中、执行命令、编辑或读取文件），并实时预览思考内容。
+• 为 Claude 会话新增会话回顾卡片。
+• 后台任务显示实时进度。
+• 修复了连接后最近会话显示为空、待审批项从聊天中消失、之前的代理输出显示在新发送消息下方的问题。
+• 移除了从未列出服务器的 mDNS 自动发现。可通过二维码、已保存的机器、手动输入 URL 或 Tailscale 连接。

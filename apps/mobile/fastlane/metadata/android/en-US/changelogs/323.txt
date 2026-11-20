@@ -1,0 +1,6 @@
+• Google Antigravity support: with the Antigravity CLI (agy) on your Bridge machine, run Antigravity sessions next to Codex and Claude. Requires Bridge 1.113.1 or later.
+• Switch Codex, Claude, and Antigravity on or off in Settings.
+• Live activity bar shows what the agent is doing, with a thinking preview.
+• Session Recap card for Claude; live progress for background tasks.
+• Fixes for an empty recent list after connecting and approvals disappearing.
+• Removed mDNS auto-discovery.

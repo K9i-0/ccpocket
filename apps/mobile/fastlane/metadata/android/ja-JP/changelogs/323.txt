@@ -1,0 +1,6 @@
+• Google Antigravity に対応。Bridge のマシンに Antigravity CLI（agy）があれば、Codex・Claude と並んで Antigravity のセッションを使えます。Bridge 1.113.1 以降が必要です。
+• 設定で Codex・Claude・Antigravity をそれぞれオン・オフできます。
+• ライブアクティビティバー: エージェントの現在の動作と思考内容のプレビューを表示。
+• Claude のセッション要約カード、バックグラウンドタスクの進行状況表示を追加。
+• 接続直後に最近のセッションが空になる問題、承認待ちが消える問題を修正。
+• mDNS 自動検出を削除。

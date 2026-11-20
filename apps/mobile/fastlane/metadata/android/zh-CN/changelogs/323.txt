@@ -1,0 +1,6 @@
+• 支持 Google Antigravity。Bridge 机器上装有 Antigravity CLI（agy）时，可以像 Codex 和 Claude 一样使用 Antigravity 会话。需要 Bridge 1.113.1 或更高版本。
+• 在设置中分别开启或关闭 Codex、Claude 和 Antigravity。
+• 实时活动栏：显示代理当前的动作和思考预览。
+• 新增 Claude 会话回顾卡片和后台任务实时进度。
+• 修复了连接后最近会话显示为空、待审批项消失的问题。
+• 移除了 mDNS 自动发现。

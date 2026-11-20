@@ -1,0 +1,6 @@
+• Google Antigravity 지원. Bridge 머신에 Antigravity CLI(agy)가 있으면 Codex, Claude와 함께 Antigravity 세션을 사용할 수 있습니다. Bridge 1.113.1 이상이 필요합니다.
+• 설정에서 Codex, Claude, Antigravity를 각각 켜거나 끌 수 있습니다.
+• 실시간 활동 바: 에이전트가 지금 하는 일과 생각 미리보기를 표시합니다.
+• Claude 세션 요약 카드, 백그라운드 작업 진행 상황 표시 추가.
+• 연결 직후 최근 세션이 비어 보이는 문제, 승인 대기가 사라지는 문제 수정.
+• mDNS 자동 검색 제거.
