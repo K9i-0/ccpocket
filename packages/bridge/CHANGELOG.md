@@ -2,6 +2,23 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.113.0] - 2026-11-20
+
+### Added
+
+- Opt-in `agent_activity` server message (and snapshot delivery on open/resync) carrying ephemeral mid-turn progress across Claude and Codex sessions: streaming tool JSON preparation hints (`content_block_start` / `input_json_delta`), tool execution elapsed seconds (`tool_progress`), classifier `task_summary` phrases, foreground/background subagent progress summaries (`agentProgressSummaries: true` / `system/task_progress`), redacted thinking token estimates (`system/thinking_tokens`), and Codex `item/mcpToolCall/progress` updates.
+- Opt-in `session_recap` server message and `past_history` `recap` entries surfacing Claude Code's Session Recap (`away_summary` in `.jsonl` transcripts and live frames, plus `/recap` command output).
+
+### Changed
+
+- Claude sessions request summarized thinking display (`--thinking-display=summarized`, and `{ type: "adaptive", display: "summarized" }` on Opus 4.7+) so adaptive thinking streams live `thinking_delta` progress instead of silent omitted blocks.
+- Codex sessions emit `assistant(tool_use)` immediately on `item/started` for `mcpToolCall` and `webSearch` items instead of waiting until `item/completed`.
+
+### Fixed
+
+- Claude parallel tool calls now emit all `tool_result` blocks from a multi-result `user` message instead of dropping results after the first.
+- Codex reasoning items no longer duplicate already-streamed `thinking_delta` text on `item/completed`, properly separate multi-part summaries (`summaryPartAdded`), and support string arrays in `item.summary`.
+
 ## [1.112.0] - 2026-11-20
 
 ### Added
