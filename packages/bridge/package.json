@@ -1,7 +1,7 @@
 {
   "name": "@ccpocket/bridge",
   "version": "1.113.1",
-  "description": "Bridge server that connects Claude Agent SDK and Codex CLI sessions to mobile devices via WebSocket",
+  "description": "Bridge server that connects Claude Agent SDK, Codex CLI, and Antigravity CLI sessions to mobile devices via WebSocket",
   "private": false,
   "type": "module",
   "license": "MIT",
@@ -18,6 +18,8 @@
   "keywords": [
     "claude-code",
     "codex",
+    "antigravity",
+    "acp",
     "bridge",
     "websocket",
     "mobile",
