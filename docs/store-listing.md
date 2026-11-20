@@ -19,7 +19,7 @@ AI coding agents can now implement complete features. You still need to guide th
 
 CC Pocket is a mobile and desktop companion for OpenAI Codex and Claude Code. Your agents run through a self-hosted Bridge Server on your own Mac or Linux machine, while you start sessions, make decisions, inspect files, and manage changes from iPhone, iPad, Android, or macOS.
 
-This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
+This app is not affiliated with, endorsed by, or associated with Anthropic, OpenAI, or Google.
 
 **Key Features**
 

@@ -36,19 +36,6 @@ npx @ccpocket/bridge@latest
 | **Linux(실험적)** | 최신 `.tar.gz`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux)에서 다운로드할 수 있습니다. `linux/v*` 태그가 붙은 릴리스를 찾으세요. 커뮤니티에서 관리하는 [AUR 패키지](https://aur.archlinux.org/packages/cc-pocket-bin)를 `yay -S cc-pocket-bin`으로 설치할 수도 있습니다. |
 | **Windows(실험적)** | 최신 `.zip`은 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows)에서 다운로드할 수 있습니다. `windows/v*` 태그가 붙은 릴리스를 찾으세요. |
 
-## Antigravity
-
-CC Pocket은 Codex / Claude와 마찬가지로 [Google Antigravity](https://antigravity.google/)를 CLI(`agy`)를 통해 사용할 수 있습니다.
-
-- Bridge를 실행하는 기기에 Antigravity CLI를 설치하고 `agy`를 한 번 실행해 로그인합니다.
-  새 세션 화면에 **Antigravity** 탭이 나타납니다.
-- 기본적으로 `agy`의 Google 로그인을 사용합니다. CC Pocket은 수정하지 않은 `agy` CLI를
-  실행하고, 모든 프롬프트는 사용자가 직접 작성합니다. 이는 Google의 Antigravity 팀이
-  이 로그인으로 사용해도 된다고 설명한 방식입니다. 프롬프트를 자동으로 보내거나 `agy` 밖에서
-  로그인을 재사용하지 않습니다. 자세한 내용은
-  [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)를 참고하세요.
-- 미지원(`agy`에 방법이 없음): 되감기, 포크, 메시지 편집, 비용 표시.
-
 ## 무료로 사용할 수 있습니다
 
 CC Pocket은 무료로 사용할 수 있습니다. 개발 워크플로에 도움이 된다면 앱 안에서 Supporter가 되어 주세요. Supporter 구매는 AI 도구 비용을 감당하고 지속적인 개발을 이어가는 데 사용됩니다.
@@ -104,11 +91,16 @@ macOS에서는 Mac이 잠자기 상태인 동안 Bridge가 오프라인이 됩�
   어떻게 적용되는지 명확하지 않으므로 구독 인증은 Bridge에서
   `BRIDGE_ALLOW_CLAUDE_OAUTH=1`로 명시적으로 활성화해야 합니다.
   자세한 내용은 [Claude 인증 문제 해결](docs/auth-troubleshooting.ko.md)을 확인하세요.
+- Antigravity 세션은 기본적으로 `agy` CLI의 Google 로그인을 사용합니다. Bridge를 실행하는
+  기기에서 `agy`를 한 번 실행해 로그인하세요. CC Pocket은 수정하지 않은 CLI를 실행하고,
+  모든 프롬프트는 사용자가 직접 작성합니다. Gemini API 키도 사용할 수 있습니다.
+  되감기, 포크, 메시지 편집, 비용 표시는 `agy`에 방법이 없어 지원하지 않습니다.
+  자세한 내용은 [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)를 확인하세요.
 - CC Pocket은 셀프 호스팅과 최소한의 데이터 수집을 전제로 설계되었습니다. Supporter 구매는
   같은 Apple ID / Google 계정 안에서 복원할 수 있지만, 스토어 간에는 공유되지 않습니다.
   자세한 내용은 [Supporter / Purchases](docs/supporter_ko.md)를 확인하세요.
 - macOS 스크린샷 캡처에는 Bridge Server를 실행하는 터미널 앱에 화면 기록 권한이 필요합니다.
-- CC Pocket은 Anthropic 또는 OpenAI와 제휴, 보증 또는 공식 관계가 없습니다.
+- CC Pocket은 Anthropic, OpenAI 또는 Google과 제휴, 보증 또는 공식 관계가 없습니다.
 
 ## 개발
 

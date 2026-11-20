@@ -36,21 +36,6 @@ npx @ccpocket/bridge@latest
 | **Linux (experimental)** | Download the latest `.tar.gz` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux). Look for releases tagged `linux/v*`. Alternatively, install the community-maintained [AUR package](https://aur.archlinux.org/packages/cc-pocket-bin) with `yay -S cc-pocket-bin`. |
 | **Windows (experimental)** | Download the latest `.zip` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows). Look for releases tagged `windows/v*`. |
 
-## Antigravity
-
-CC Pocket drives [Google Antigravity](https://antigravity.google/) through its CLI
-(`agy`), next to Codex and Claude.
-
-- Install the Antigravity CLI on the Bridge machine and sign in once by running `agy`.
-  An **Antigravity** tab then appears in the new session sheet.
-- Sessions use your `agy` Google login by default. CC Pocket runs the unmodified `agy`
-  CLI and you write every prompt yourself, which is the kind of client Google's
-  Antigravity team has said may use that login. It does not automate prompts or reuse
-  your login outside `agy`. Details are in
-  [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity).
-- Not available yet, because `agy` has no way to do them: rewind, fork, message
-  editing and cost display.
-
 ## Free to Use
 
 CC Pocket is free to use. If it helps your workflow, please consider becoming a Supporter in the app. Supporter purchases help cover development and AI tooling costs.
@@ -130,12 +115,17 @@ see the [Bridge package README](packages/bridge/README.md#configuration).
   requires explicit Bridge opt-in with `BRIDGE_ALLOW_CLAUDE_OAUTH=1` because
   Anthropic's current official guidance has an unclear scope for this architecture.
   See [Claude authentication troubleshooting](docs/auth-troubleshooting.md).
+- Antigravity sessions use the Google login stored by the `agy` CLI by default, so sign
+  in once by running `agy` on the Bridge machine. CC Pocket runs the unmodified CLI and
+  you write every prompt yourself; a Gemini API key can be used instead. Rewind, fork,
+  message editing and cost display are not available because `agy` does not offer them.
+  See [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity).
 - CC Pocket is designed around self-hosting and minimal data collection. Supporter purchases
   restore within the same Apple ID or Google account, but do not sync across stores.
   See [Supporter / Purchases](docs/supporter.md).
 - Screenshot capture on macOS requires Screen Recording permission for the terminal app
   running the Bridge Server.
-- CC Pocket is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
+- CC Pocket is not affiliated with, endorsed by, or associated with Anthropic, OpenAI, or Google.
 
 ## Development
 

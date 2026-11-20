@@ -90,7 +90,7 @@ const translations = {
     faq3A:
       "はい。CC Pocketは無料で使えます。任意のアプリ内サポーター購入も用意しています。Codex、Claude、Antigravityの利用環境は別途必要です。",
     footerNote:
-      "個人開発のツールです。OpenAI・Anthropicの公式アプリではありません。",
+      "個人開発のツールです。OpenAI・Anthropic・Googleの公式アプリではありません。",
     copy: "コマンドをコピー",
     copied: "コピーしました",
     copyFailed: "上のコマンドを選択してコピーしてください。",
@@ -168,7 +168,7 @@ const translations = {
     faq3Q: "免费吗？",
     faq3A:
       "是的。CC Pocket 免费使用，也提供可选的应用内支持者购买。你需要自行准备 Codex、Claude 或 Antigravity 的使用权限。",
-    footerNote: "独立开发工具，与 OpenAI 或 Anthropic 无官方关联。",
+    footerNote: "独立开发工具，与 OpenAI、Anthropic 或 Google 无官方关联。",
     copy: "复制命令",
     copied: "已复制",
     copyFailed: "请选择并复制上方命令。",
@@ -251,7 +251,7 @@ const translations = {
     faq3A:
       "네. CC Pocket은 무료이며 선택적인 앱 내 서포터 구매가 있습니다. Codex, Claude 또는 Antigravity 이용 권한은 별도로 필요합니다.",
     footerNote:
-      "독립 개발 도구입니다. OpenAI 또는 Anthropic의 공식 앱이 아닙니다.",
+      "독립 개발 도구입니다. OpenAI, Anthropic 또는 Google의 공식 앱이 아닙니다.",
     copy: "명령어 복사",
     copied: "복사됨",
     copyFailed: "위 명령어를 선택하여 복사하세요.",

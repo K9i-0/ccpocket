@@ -36,19 +36,6 @@ npx @ccpocket/bridge@latest
 | **Linux（実験的）** | 最新の `.tar.gz` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux) からダウンロードできます。`linux/v*` タグのリリースを探してください。コミュニティ管理の [AUR パッケージ](https://aur.archlinux.org/packages/cc-pocket-bin)を `yay -S cc-pocket-bin` でインストールすることもできます。 |
 | **Windows（実験的）** | 最新の `.zip` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows) からダウンロードできます。`windows/v*` タグのリリースを探してください。 |
 
-## Antigravity
-
-CC Pocket は Codex / Claude と同じように、[Google Antigravity](https://antigravity.google/) を CLI（`agy`）経由で操作できます。
-
-- Bridge を動かすマシンに Antigravity CLI を入れ、`agy` を一度実行してサインインします。
-  新規セッション画面に **Antigravity** タブが表示されます。
-- 既定では `agy` の Google ログインを使います。CC Pocket は改変していない `agy` CLI を
-  起動し、プロンプトはすべてあなた自身が書きます。これは Google の Antigravity チームが
-  このログインで使ってよいと説明している形です。プロンプトの自動送信や、`agy` の外で
-  ログインを使い回すことはしません。詳しくは
-  [Bridge の注意事項](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)を見てください。
-- 未対応（`agy` 側に手段がないため）: 巻き戻し、フォーク、メッセージ編集、費用の表示。
-
 ## 無料で利用できます
 
 CC Pocket は無料で利用できます。もし開発ワークフローに役立ったら、アプリ内の Supporter から応援してもらえると助かります。いただいた支援は、AI ツール利用料や継続開発の維持に使われます。
@@ -120,12 +107,17 @@ macOS では Mac がスリープしている間 Bridge はオフラインにな�
   明確でないため、サブスクリプション認証には `BRIDGE_ALLOW_CLAUDE_OAUTH=1` による
   Bridge 側の明示的な有効化が必要です。
   詳細は [Claude 認証トラブルシューティング](docs/auth-troubleshooting.ja.md) を参照してください。
+- Antigravity セッションは既定で `agy` CLI の Google ログインを使います。Bridge を動かす
+  マシンで `agy` を一度実行してサインインしてください。CC Pocket は改変していない CLI を
+  起動し、プロンプトはすべてあなた自身が書きます。Gemini の APIキーも使えます。
+  巻き戻し、フォーク、メッセージ編集、費用の表示は `agy` 側に手段がないため未対応です。
+  詳細は [Bridge の注意事項](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity) を参照してください。
 - CC Pocket はセルフホストと最小限のデータ収集を前提にしています。Supporter 購入は
   同じ Apple ID / Google アカウント内で復元できますが、ストア間では共有されません。
   詳細は [Supporter / Purchases](docs/supporter_ja.md) を参照してください。
 - macOS のスクリーンショット取得には、Bridge Server を実行するターミナルアプリへの
   画面収録権限が必要です。
-- CC Pocket は Anthropic / OpenAI と提携、後援、または公式連携しているものではありません。
+- CC Pocket は Anthropic / OpenAI / Google と提携、後援、または公式連携しているものではありません。
 
 ## 開発
 

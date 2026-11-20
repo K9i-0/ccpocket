@@ -36,18 +36,6 @@ npx @ccpocket/bridge@latest
 | **Linux（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux) 下载最新 `.tar.gz`。请查找带有 `linux/v*` 标签的发行版。也可以使用 `yay -S cc-pocket-bin` 安装由社区维护的 [AUR 软件包](https://aur.archlinux.org/packages/cc-pocket-bin)。 |
 | **Windows（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows) 下载最新 `.zip`。请查找带有 `windows/v*` 标签的发行版。 |
 
-## Antigravity
-
-与 Codex / Claude 一样，CC Pocket 可以通过 CLI（`agy`）使用 [Google Antigravity](https://antigravity.google/)。
-
-- 在运行 Bridge 的机器上安装 Antigravity CLI，并运行一次 `agy` 完成登录。
-  新建会话界面会出现 **Antigravity** 标签。
-- 默认使用 `agy` 的 Google 登录。CC Pocket 运行的是未经修改的 `agy` CLI，
-  每条提示都由你本人输入。这正是 Google 的 Antigravity 团队说明可以使用该登录的方式。
-  它不会自动发送提示，也不会在 `agy` 之外复用你的登录。详情见
-  [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)。
-- 暂不支持（`agy` 没有提供相应能力）：回退、分叉、编辑消息、费用显示。
-
 ## 免费使用
 
 CC Pocket 可以免费使用。如果它对你的开发流程有帮助，欢迎在应用内成为 Supporter。Supporter 购买会用于覆盖 AI 工具费用，并帮助持续开发。
@@ -102,11 +90,15 @@ npx @ccpocket/bridge@1 setup
 - Claude 会话默认使用 `ANTHROPIC_API_KEY`。由于官方文档对此架构的适用范围尚不明确，
   订阅认证需要在 Bridge 上通过 `BRIDGE_ALLOW_CLAUDE_OAUTH=1` 明确启用。
   详情请见 [Claude 认证排查](docs/auth-troubleshooting.zh-CN.md)。
+- Antigravity 会话默认使用 `agy` CLI 保存的 Google 登录。请在运行 Bridge 的机器上运行一次
+  `agy` 完成登录。CC Pocket 运行的是未经修改的 CLI，每条提示都由你本人输入；也可以改用
+  Gemini API 密钥。由于 `agy` 没有提供相应能力，暂不支持回退、分叉、编辑消息和费用显示。
+  详情请见 [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)。
 - CC Pocket 围绕自托管和最少数据收集设计。Supporter 购买可以在同一个
   Apple ID / Google 账号内恢复，但不会在不同商店之间同步。
   详情请见 [Supporter / Purchases](docs/supporter_zh.md)。
 - macOS 截图功能需要为运行 Bridge Server 的终端应用授予屏幕录制权限。
-- CC Pocket 与 Anthropic 或 OpenAI 没有任何关联，也未获得其认可、赞助或官方合作。
+- CC Pocket 与 Anthropic、OpenAI 或 Google 没有任何关联，也未获得其认可、赞助或官方合作。
 
 ## 开发
 
