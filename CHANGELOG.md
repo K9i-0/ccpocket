@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.170.0] - 2026-11-20
+
+### Added
+
+- Live agent activity bar at the bottom of the chat (`Thinking...`, `Running: ...`, `Editing <file>...`, `Reading <file>...`) and live `ThinkingBubble` streaming with a 2-line preview while the agent thinks.
+- Antigravity (preview), with Bridge 1.112.0 or newer:
+  - Image generation through the `image-generator` subagent (Nano Banana) appears as an `ImageGeneration` card, shows as a background agent while running, and saves to the gallery.
+  - Context compaction (`/compact` and automatic compaction) shows a boundary card with "View earlier messages", and full transcripts can be read past the 100-message window or before compaction.
+  - Recent sessions can be pinned, filtered by project/period/named/pinned, and opened from session links.
+  - Thinking token counts appear in the usage bar and turn result chips, and file edits show inline colored unified diffs.
+
+### Changed
+
+- The app now expects Bridge 1.112.0 and offers the update when connected to an older Bridge.
+- Antigravity (preview): resuming a session keeps its approval mode (including Bypass), worktree, extra folders and project assignment, shows context usage right away on load, and labels session-scoped approval as "Allow for session".
+- The usage bar above the chat scrolls horizontally on narrow screens instead of clipping long token and context counts, and redundant `Read Done` result rows are hidden.
+
+### Fixed
+
+- Antigravity (preview): switching to a model without thinking levels clears the previous thinking level, rejecting a plan keeps Plan mode active, and replayed or transcript `FileChange` diffs no longer render twice.
+
 ## [1.169.0] - 2026-11-20
 
 ### Added

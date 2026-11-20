@@ -651,7 +651,7 @@ void main() {
         expect(mockBridge.sentMessages, hasLength(1));
       });
 
-      test('Antigravity sessions are never pinned', () async {
+      test('Antigravity sessions can be pinned and unpinned', () async {
         const session = RecentSession(
           sessionId: 'conv-1',
           provider: 'antigravity',
@@ -664,7 +664,11 @@ void main() {
         );
 
         await cubit.toggleRecentSessionPinned(session);
+        expect(cubit.state.pinnedSessionKeys, {
+          'antigravity\n/a/proj1\nconv-1',
+        });
 
+        await cubit.toggleRecentSessionPinned(session);
         expect(cubit.state.pinnedSessionKeys, isEmpty);
       });
     });

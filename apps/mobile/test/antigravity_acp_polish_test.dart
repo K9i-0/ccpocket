@@ -476,6 +476,7 @@ void main() {
           const StatusMessage(status: ProcessStatus.running),
           sessionId: 'live-1',
         );
+        await tester.pump(Duration.zero);
         await tester.pump();
         expect(
           find.byKey(const ValueKey('agent_activity_bar')),
@@ -488,6 +489,7 @@ void main() {
           const ThinkingDeltaMessage(text: 'Step 1\nStep 2\nStep 3'),
           sessionId: 'live-1',
         );
+        await tester.pump(Duration.zero);
         await tester.pump();
         expect(find.byType(ThinkingBubble), findsOneWidget);
         expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
@@ -497,6 +499,7 @@ void main() {
           const StreamDeltaMessage(text: 'Hello!'),
           sessionId: 'live-1',
         );
+        await tester.pump(Duration.zero);
         await tester.pump(const Duration(milliseconds: 50));
         expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
 
@@ -518,6 +521,7 @@ void main() {
           ),
           sessionId: 'live-1',
         );
+        await tester.pump(Duration.zero);
         await tester.pump();
         expect(
           find.byKey(const ValueKey('agent_activity_bar')),
@@ -534,6 +538,7 @@ void main() {
           ),
           sessionId: 'live-1',
         );
+        await tester.pump(Duration.zero);
         await tester.pump();
         expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
       },

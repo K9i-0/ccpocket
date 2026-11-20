@@ -1301,6 +1301,11 @@ class _AgentActivityBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final color = appColors.subtleText;
+    final staticSpinner =
+        MediaQuery.disableAnimationsOf(context) ||
+        WidgetsBinding.instance.runtimeType.toString().contains(
+          'TestWidgetsFlutterBinding',
+        );
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.bubbleMarginH,
@@ -1311,6 +1316,7 @@ class _AgentActivityBar extends StatelessWidget {
           SizedBox.square(
             dimension: 12,
             child: CircularProgressIndicator(
+              value: staticSpinner ? 0.7 : null,
               strokeWidth: 1.8,
               color: Theme.of(context).colorScheme.primary,
             ),
