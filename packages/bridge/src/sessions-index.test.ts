@@ -4546,3 +4546,88 @@ describe("claudeAbandonedBranchUuids", () => {
     expect(claudeAbandonedBranchUuids(lines)).toBeNull();
   });
 });
+
+describe("Claude session away_summary recap extraction", () => {
+  const oldHome = process.env.HOME;
+  const oldUserProfile = process.env.USERPROFILE;
+  let tempHome: string;
+  const projectPath = "/tmp/claude-recap-proj";
+
+  beforeEach(() => {
+    tempHome = mkdtempSync(join(tmpdir(), "ccpocket-recap-home-"));
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    process.env.USERPROFILE = oldUserProfile;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  it("includes only the trailing away_summary as a recap entry and omits superseded ones", async () => {
+    const dir = join(tempHome, ".claude", "projects", pathToSlug(projectPath));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "recap-sess.jsonl"),
+      [
+        {
+          type: "user",
+          uuid: "u1",
+          message: { role: "user", content: [{ type: "text", text: "Fix bug" }] },
+        },
+        {
+          type: "assistant",
+          uuid: "a1",
+          message: { role: "assistant", content: [{ type: "text", text: "Fixed part 1" }] },
+        },
+        {
+          type: "system",
+          subtype: "away_summary",
+          uuid: "aw-old",
+          content: "Old superseded away summary",
+        },
+        {
+          type: "user",
+          uuid: "u2",
+          message: { role: "user", content: [{ type: "text", text: "Continue" }] },
+        },
+        {
+          type: "assistant",
+          uuid: "a2",
+          message: { role: "assistant", content: [{ type: "text", text: "All done" }] },
+        },
+        {
+          type: "system",
+          subtype: "away_summary",
+          uuid: "aw-mid",
+          content: "Earlier trailing summary",
+        },
+        {
+          type: "system",
+          subtype: "away_summary",
+          uuid: "aw-latest",
+          timestamp: "2026-11-20T03:00:00.000Z",
+          content: "Finished fixing the bug and verified all tests pass.",
+        },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n"),
+    );
+
+    const history = await getSessionHistory("recap-sess", projectPath);
+    const recaps = history.filter((m) => m.role === "recap");
+    expect(recaps).toEqual([
+      {
+        role: "recap",
+        uuid: "aw-latest",
+        timestamp: "2026-11-20T03:00:00.000Z",
+        recap: {
+          content: "Finished fixing the bug and verified all tests pass.",
+          source: "away_summary",
+        },
+        content: [],
+      },
+    ]);
+  });
+});

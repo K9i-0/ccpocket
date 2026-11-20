@@ -2760,13 +2760,20 @@ export type SessionHistoryContentItem = {
   input?: Record<string, unknown>;
 };
 
+export interface SessionHistoryRecap {
+  content: string;
+  source?: "away_summary" | "recap_command";
+}
+
 export interface SessionHistoryMessage {
   /**
-   * `compaction` marks a context compaction boundary. Consumers that count or
-   * index user turns must keep checking `role` explicitly.
+   * `compaction` marks a context compaction boundary and `recap` marks a
+   * session recap (`away_summary`). Consumers that count or index user turns
+   * must keep checking `role` explicitly.
    */
-  role: "user" | "assistant" | "tool_result" | "compaction";
+  role: "user" | "assistant" | "tool_result" | "compaction" | "recap";
   compaction?: SessionHistoryCompaction;
+  recap?: SessionHistoryRecap;
   uuid?: string;
   /** Raw provider item id, when it differs from the display-safe UUID. */
   rawItemId?: string;
@@ -3752,6 +3759,11 @@ export async function getSessionHistory(
   const messages: SessionHistoryMessage[] = [];
   const lines = raw.split("\n");
   const abandonedBranch = claudeAbandonedBranchUuids(lines);
+  let trailingAwaySummary: {
+    content: string;
+    uuid?: string;
+    timestamp?: string;
+  } | null = null;
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -3767,6 +3779,25 @@ export async function getSessionHistory(
     if (type === "system" && entry.subtype === "compact_boundary") {
       if (entry.isSidechain === true) continue;
       messages.push(claudeCompactionHistoryMessage(entry));
+      continue;
+    }
+    if (type === "system" && entry.subtype === "away_summary") {
+      if (entry.isSidechain === true) continue;
+      const recapText =
+        typeof entry.content === "string"
+          ? entry.content.trim()
+          : typeof entry.summary === "string"
+            ? entry.summary.trim()
+            : "";
+      if (recapText) {
+        trailingAwaySummary = {
+          content: recapText,
+          ...(typeof entry.uuid === "string" ? { uuid: entry.uuid } : {}),
+          ...(typeof entry.timestamp === "string"
+            ? { timestamp: entry.timestamp }
+            : {}),
+        };
+      }
       continue;
     }
     if (type !== "user" && type !== "assistant") continue;
@@ -3801,6 +3832,7 @@ export async function getSessionHistory(
       if (message.content) {
         const uuid = entry.uuid as string | undefined;
         const ts = entry.timestamp as string | undefined;
+        if (!isMeta) trailingAwaySummary = null;
         messages.push({
           role,
           content: [{ type: "text" as const, text: message.content }],
@@ -3854,6 +3886,7 @@ export async function getSessionHistory(
           text: `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`,
         });
       }
+      if (!isMeta) trailingAwaySummary = null;
       messages.push({
         role,
         content,
@@ -3863,6 +3896,21 @@ export async function getSessionHistory(
         ...(imageCount > 0 ? { imageCount } : {}),
       });
     }
+  }
+
+  if (trailingAwaySummary) {
+    messages.push({
+      role: "recap",
+      recap: {
+        content: trailingAwaySummary.content,
+        source: "away_summary",
+      },
+      ...(trailingAwaySummary.uuid ? { uuid: trailingAwaySummary.uuid } : {}),
+      ...(trailingAwaySummary.timestamp
+        ? { timestamp: trailingAwaySummary.timestamp }
+        : {}),
+      content: [],
+    });
   }
 
   return messages;

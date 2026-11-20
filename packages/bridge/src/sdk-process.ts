@@ -23,7 +23,9 @@ import {
 } from "./context-compaction.js";
 import {
   normalizeToolResultContent,
+  type AgentActivityState,
   type ContextCompactionMessage,
+  type SessionRecapMessage,
   type ServerMessage,
   type ProcessStatus,
   type PermissionMode,
@@ -86,14 +88,15 @@ export function extractTokenUsage(
 
 export function buildThinkingOptions(
   model: string | undefined,
-): { thinking?: { type: "adaptive" } } {
+): { thinking?: { type: "adaptive"; display: "summarized" } } {
   if (
     typeof model === "string"
-    && /^claude-opus-4-7(?:\[1m\])?$/.test(model.trim())
+    && /^claude-opus-(?:4-[7-9]|[5-9])(?:\[1m\])?$/.test(model.trim())
   ) {
-    // Opus 4.7 rejects the legacy "thinking.type.enabled" behavior that older
-    // Claude Agent SDK releases can fall back to. Force adaptive thinking.
-    return { thinking: { type: "adaptive" } };
+    // Opus 4.7+ rejects the legacy "thinking.type.enabled" behavior and defaults
+    // adaptive thinking display to "omitted" (silent redacted blocks). Request
+    // "summarized" so live thinking_delta progress continues streaming.
+    return { thinking: { type: "adaptive", display: "summarized" } };
   }
   return {};
 }
@@ -608,7 +611,7 @@ export function sdkParentToolUseId(msg: SDKMessage): string | null {
  * app folds into tool_use_summary. Subagent prompts, narration, thinking,
  * interrupt markers and streaming deltas are not main-thread conversation.
  */
-function subagentMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+function subagentMessageToServerMessages(msg: SDKMessage): ServerMessage[] {
   if (msg.type === "user") {
     const content = (msg as { message?: { content?: unknown } }).message?.content;
     const hasToolResult =
@@ -619,25 +622,98 @@ function subagentMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
           typeof block === "object" &&
           (block as Record<string, unknown>).type === "tool_result",
       );
-    return hasToolResult ? convertSdkMessage(msg) : null;
+    return hasToolResult ? convertSdkMessages(msg) : [];
   }
   if (msg.type === "assistant") {
     const ast = msg as unknown as { message: Record<string, unknown> };
     const content = ast.message?.content;
-    if (!Array.isArray(content)) return null;
+    if (!Array.isArray(content)) return [];
     const toolUses = content.filter(
       (block) =>
         !!block &&
         typeof block === "object" &&
         (block as Record<string, unknown>).type === "tool_use",
     );
-    if (toolUses.length === 0) return null;
-    return convertSdkMessage({
+    if (toolUses.length === 0) return [];
+    return convertSdkMessages({
       ...msg,
       message: { ...ast.message, content: toolUses },
     } as SDKMessage);
   }
-  return null;
+  return [];
+}
+
+function stripRecapPrefix(raw: string): string {
+  return raw
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .trim()
+    .replace(/^(?:session\s+)?recap:\s*/i, "")
+    .trim();
+}
+
+function extractLocalCommandParts(msg: SDKMessage): {
+  isRecapCommand: boolean;
+  stdout?: string;
+} {
+  if (msg.type !== "user") return { isRecapCommand: false };
+  const content = (msg as { message?: { content?: unknown } }).message?.content;
+  const texts: string[] = [];
+  if (typeof content === "string") {
+    texts.push(content);
+  } else if (Array.isArray(content)) {
+    for (const block of content) {
+      if (
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text" &&
+        typeof (block as Record<string, unknown>).text === "string"
+      ) {
+        texts.push((block as Record<string, unknown>).text as string);
+      }
+    }
+  }
+  if (texts.length === 0) return { isRecapCommand: false };
+  const combined = texts.join("\n");
+  const isRecapCommand = /<command-name>\s*\/?recap\s*<\/command-name>/i.test(
+    combined,
+  );
+  const stdoutMatch = combined.match(
+    /<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/i,
+  );
+  return {
+    isRecapCommand,
+    ...(stdoutMatch ? { stdout: stdoutMatch[1] } : {}),
+  };
+}
+
+export function extractStreamingToolHint(
+  partialJson: string,
+): string | undefined {
+  if (!partialJson) return undefined;
+  const unescape = (val: string): string =>
+    val.replace(/\\"/g, '"').replace(/\\\\/g, "\\").replace(/\\n/g, " ").trim();
+
+  const pathMatch = partialJson.match(
+    /"(?:file_path|notebook_path|path)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/,
+  );
+  if (pathMatch?.[1]) {
+    const rawPath = unescape(pathMatch[1])
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "");
+    const base = rawPath.slice(rawPath.lastIndexOf("/") + 1);
+    if (base) return base;
+  }
+
+  for (const key of ["description", "query", "pattern", "command", "url"]) {
+    const match = partialJson.match(
+      new RegExp(`"${key}"\\s*:\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"`),
+    );
+    if (match?.[1]) {
+      const text = unescape(match[1]);
+      if (text) return text.length > 60 ? `${text.slice(0, 57)}...` : text;
+    }
+  }
+  return undefined;
 }
 
 export function claudeCompactSummaryFromSdkMessage(
@@ -653,54 +729,79 @@ export function claudeCompactSummaryFromSdkMessage(
 }
 
 /**
+ * Convert an SDK message into zero or more WebSocket ServerMessages.
+ * A single Claude `user` message after parallel tool calls can contain multiple
+ * `tool_result` blocks; all of them must be emitted so client tool state stays accurate.
+ */
+export function sdkMessageToServerMessages(msg: SDKMessage): ServerMessage[] {
+  if (sdkParentToolUseId(msg) !== null) {
+    return subagentMessageToServerMessages(msg);
+  }
+  return convertSdkMessages(msg);
+}
+
+/**
  * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
  * Exported for testing.
  */
 export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
-  if (sdkParentToolUseId(msg) !== null) {
-    return subagentMessageToServerMessage(msg);
-  }
-  return convertSdkMessage(msg);
+  return sdkMessageToServerMessages(msg)[0] ?? null;
 }
 
-function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
+function convertSdkMessages(msg: SDKMessage): ServerMessage[] {
   switch (msg.type) {
     case "system": {
       const sys = msg as Record<string, unknown>;
       if (sys.subtype === "init") {
-        return {
+        return [{
           type: "system",
           subtype: "init",
           sessionId: msg.session_id,
           model: sys.model as string,
           ...(sys.slash_commands ? { slashCommands: sys.slash_commands as string[] } : {}),
           ...(sys.skills ? { skills: sys.skills as string[] } : {}),
-        };
+        }];
       }
       if (sys.subtype === "compact_boundary") {
         // Arrives after compaction finished (`status: null`); the compacting
         // state itself comes from `status: "compacting"` frames.
         const compaction = normalizeClaudeCompactMetadata(sys.compact_metadata);
-        return {
+        return [{
           type: "context_compaction",
           provider: "claude",
           ...(typeof sys.uuid === "string" ? { id: sys.uuid } : {}),
           ...compaction,
           timestamp: new Date().toISOString(),
-        };
+        }];
+      }
+      if (sys.subtype === "away_summary") {
+        const raw =
+          typeof sys.content === "string"
+            ? sys.content
+            : typeof sys.summary === "string"
+              ? sys.summary
+              : "";
+        const cleaned = stripRecapPrefix(raw);
+        if (!cleaned) return [];
+        return [{
+          type: "session_recap",
+          content: cleaned,
+          source: "away_summary",
+          timestamp: new Date().toISOString(),
+        }];
       }
       if (sys.subtype === "status" && sys.compact_result === "failed") {
         const compactError =
           typeof sys.compact_error === "string" ? sys.compact_error.trim() : "";
-        return {
+        return [{
           type: "error",
           message: compactError
             ? `Claude context compaction failed: ${compactError}`
             : "Claude context compaction failed.",
           errorCode: "claude_compaction_failed",
-        };
+        }];
       }
-      return null;
+      return [];
     }
 
     case "assistant": {
@@ -729,15 +830,15 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
             );
           })
         : rawContent;
-      if (Array.isArray(content) && content.length === 0) return null;
-      return {
+      if (Array.isArray(content) && content.length === 0) return [];
+      return [{
         type: "assistant",
         message: {
           ...ast.message,
           content,
         } as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
         ...(ast.uuid ? { messageUuid: ast.uuid } : {}),
-      } as ServerMessage;
+      } as ServerMessage];
     }
 
     case "user": {
@@ -745,25 +846,27 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
 
       // Filter out meta messages early (e.g., skill loading prompts).
       // Following Happy Coder's approach: isMeta messages are not user-facing.
-      if (usr.isMeta) return null;
+      if (usr.isMeta) return [];
 
       const content = usr.message?.content;
-      if (!Array.isArray(content)) return null;
+      if (!Array.isArray(content)) return [];
 
       const results = content.filter(
         (c: unknown) => (c as Record<string, unknown>).type === "tool_result"
       );
 
       if (results.length > 0) {
-        const first = results[0] as Record<string, unknown>;
-        const rawContent = first.content as string | unknown[];
-        return {
-          type: "tool_result",
-          toolUseId: first.tool_use_id as string,
-          content: normalizeToolResultContent(rawContent),
-          ...(Array.isArray(rawContent) ? { rawContentBlocks: rawContent } : {}),
-          ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
-        };
+        return results.map((entry) => {
+          const item = entry as Record<string, unknown>;
+          const rawContent = item.content as string | unknown[];
+          return {
+            type: "tool_result" as const,
+            toolUseId: item.tool_use_id as string,
+            content: normalizeToolResultContent(rawContent),
+            ...(Array.isArray(rawContent) ? { rawContentBlocks: rawContent } : {}),
+            ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
+          };
+        });
       }
 
       // User text input (first prompt of each turn)
@@ -774,23 +877,23 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
         const isSynthetic =
           usr.isSynthetic === true ||
           texts.every(isClaudeSystemInjectedUserText);
-        return {
+        return [{
           type: "user_input",
           text: texts.join("\n"),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
           ...(isSynthetic ? { isSynthetic: true } : {}),
           ...(usr.isMeta ? { isMeta: true } : {}),
-        } as ServerMessage;
+        } as ServerMessage];
       }
 
-      return null;
+      return [];
     }
 
     case "result": {
       const res = msg as Record<string, unknown>;
       const tokenUsage = extractTokenUsage(res.usage);
       if (res.subtype === "success") {
-        return {
+        return [{
           type: "result",
           subtype: "success",
           result: res.result as string,
@@ -799,7 +902,7 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
           sessionId: msg.session_id,
           stopReason: res.stop_reason as string | undefined,
           ...tokenUsage,
-        };
+        }];
       }
       // Claude Code can misclassify a routine interrupt as
       // error_during_execution and prepend an internal-only EDE diagnostic.
@@ -814,19 +917,19 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
         (error) => !isInternalClaudeResultError(error),
       );
       if (rawErrors.length > 0 && visibleErrors.length === 0) {
-        return null;
+        return [];
       }
       // All other result subtypes are errors
       const errorText =
         visibleErrors.length > 0 ? visibleErrors.join("\n") : "Unknown error";
-      return {
+      return [{
         type: "result",
         subtype: "error",
         error: errorText,
         sessionId: msg.session_id,
         stopReason: res.stop_reason as string | undefined,
         ...tokenUsage,
-      };
+      }];
     }
 
     case "stream_event": {
@@ -835,13 +938,13 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
       if (event.type === "content_block_delta") {
         const delta = event.delta as Record<string, unknown>;
         if (delta.type === "text_delta" && delta.text) {
-          return { type: "stream_delta", text: delta.text as string };
+          return [{ type: "stream_delta", text: delta.text as string }];
         }
         if (delta.type === "thinking_delta" && delta.thinking) {
-          return { type: "thinking_delta", text: delta.thinking as string };
+          return [{ type: "thinking_delta", text: delta.thinking as string }];
         }
       }
-      return null;
+      return [];
     }
 
     case "tool_use_summary": {
@@ -849,15 +952,15 @@ function convertSdkMessage(msg: SDKMessage): ServerMessage | null {
         summary: string;
         preceding_tool_use_ids: string[];
       };
-      return {
+      return [{
         type: "tool_use_summary",
         summary: summary.summary,
         precedingToolUseIds: summary.preceding_tool_use_ids,
-      };
+      }];
     }
 
     default:
-      return null;
+      return [];
   }
 }
 
@@ -964,6 +1067,31 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   get backgroundTasks(): BackgroundTaskInfo[] {
     return this._backgroundTasks;
   }
+  private taskProgressById = new Map<
+    string,
+    { summary?: string; lastToolName?: string }
+  >();
+  private taskSummaryDetail: string | null = null;
+  private streamingToolBlock: {
+    id: string;
+    name: string;
+    inputJsonBuffer: string;
+  } | null = null;
+  private activeToolProgress: {
+    toolUseId: string;
+    toolName: string;
+    elapsedSeconds: number;
+  } | null = null;
+  private foregroundTaskSummary: {
+    toolUseId?: string;
+    summary?: string;
+    description?: string;
+    lastToolName?: string;
+  } | null = null;
+  private thinkingTokensEstimate: number | null = null;
+  private isRequestingModel = false;
+  private pendingRecapCommand = false;
+  private lastEmittedActivityJson = "null";
   private launchStartedAt = 0;
 
   private usageLimitResetAt?: number;
@@ -1079,6 +1207,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.fileEditsSinceLastResult = 0;
     this.pendingAssistantError = null;
     this.completedToolUseIds.clear();
+    this.taskProgressById.clear();
+    this.resetLiveActivity(false);
+    this.pendingRecapCommand = false;
     this.setBackgroundTasks([]);
     this.lastCumulativeCostUsd = null;
     this.launchStartedAt = Date.now();
@@ -1130,6 +1261,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.initTimeoutId = null;
     }, 3000);
 
+    const thinkingOptions = buildThinkingOptions(options?.model);
     this.queryInstance = query({
       prompt: this.createUserMessageStream(),
       options: {
@@ -1144,7 +1276,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         continue: options?.continueMode,
         permissionMode: this._permissionMode ?? "default",
         ...(options?.model ? { model: options.model } : {}),
-        ...buildThinkingOptions(options?.model),
+        ...thinkingOptions,
+        ...(thinkingOptions.thinking?.display
+          ? {}
+          : { extraArgs: { "thinking-display": "summarized" } }),
         ...(options?.effort ? { effort: options.effort } : {}),
         ...(options?.maxTurns != null ? { maxTurns: options.maxTurns } : {}),
         ...(options?.maxBudgetUsd != null ? { maxBudgetUsd: options.maxBudgetUsd } : {}),
@@ -1160,6 +1295,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           }],
         },
         includePartialMessages: true,
+        agentProgressSummaries: true,
         canUseTool: this.handleCanUseTool.bind(this),
         settingSources: ["user", "project", "local"],
         enableFileCheckpointing: true,
@@ -1258,6 +1394,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.emitSessionEnd();
 
     // The CLI's background tasks end with its process.
+    this.taskProgressById.clear();
+    this.resetLiveActivity(true);
     this.setBackgroundTasks([]);
     this.setStatus("idle");
   }
@@ -1800,12 +1938,15 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       }
 
       this.recordCompletedToolUses(message);
+      this.updateLiveActivityFromSdkMessage(message);
       if (
         message.type === "system" &&
         (message as Record<string, unknown>).subtype === "background_tasks_changed"
       ) {
         this.setBackgroundTasks(
-          backgroundTasksFromSdk((message as Record<string, unknown>).tasks),
+          this.mergeTaskProgressIntoBackgroundTasks(
+            backgroundTasksFromSdk((message as Record<string, unknown>).tasks),
+          ),
         );
         continue;
       }
@@ -1816,13 +1957,39 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         // as main activity marks an idle session as running, so new input is
         // queued behind an interrupt that has no turn to end.
         if (this.isForegroundSubagent(parentToolUseId)) {
-          const subagentMsg = sdkMessageToServerMessage(message);
-          if (subagentMsg) this.emitMessage(subagentMsg);
+          for (const subagentMsg of sdkMessageToServerMessages(message)) {
+            this.emitMessage(subagentMsg);
+          }
         }
         continue;
       }
 
       this.flushPendingCompaction(message);
+
+      if (message.type === "user") {
+        const localCmd = extractLocalCommandParts(message);
+        if (localCmd.isRecapCommand) {
+          this.pendingRecapCommand = true;
+        }
+        if (localCmd.stdout !== undefined) {
+          const rawStdout = localCmd.stdout;
+          const looksLikeRecap = /^(?:\x1b\[[0-9;]*m)*\s*(?:session\s+)?recap:/i.test(
+            rawStdout,
+          );
+          if (this.pendingRecapCommand || looksLikeRecap) {
+            this.pendingRecapCommand = false;
+            const cleaned = stripRecapPrefix(rawStdout);
+            if (cleaned) {
+              this.emitMessage({
+                type: "session_recap",
+                content: cleaned,
+                source: "recap_command",
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
 
       if (message.type === "rate_limit_event" && message.rate_limit_info.status === "rejected") {
         const info = message.rate_limit_info;
@@ -1840,68 +2007,74 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
       }
 
-      // Convert SDK message to ServerMessage
-      let serverMsg = sdkMessageToServerMessage(message);
-      if (serverMsg?.type === "context_compaction") {
-        // Held until the following summary frame so it is emitted once.
-        this.pendingCompaction = serverMsg;
-        serverMsg = null;
-      }
+      // Convert SDK message to ServerMessages
+      const convertedMsgs = sdkMessageToServerMessages(message);
       if (message.type === "assistant" && this.pendingAssistantError === null) {
         this.pendingAssistantError = claudeAssistantErrorMessage(
           (message as Record<string, unknown>).error,
         );
       }
-      if (serverMsg?.type === "result") {
-        if (this.authClassification !== "subscription") {
-          await authResolution;
+      for (const rawServerMsg of convertedMsgs) {
+        let serverMsg: ServerMessage | null = rawServerMsg;
+        if (serverMsg.type === "context_compaction") {
+          // Held until the following summary frame so it is emitted once.
+          this.pendingCompaction = serverMsg;
+          continue;
         }
-        if (this.stopped || authGeneration !== this.authGeneration) return;
-        serverMsg = this.withPerTurnCost(serverMsg);
-        if (
-          this.authClassification !== "api_key" ||
-          this.authResolutionPending
-        ) {
-          const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
-          serverMsg = withoutCost as ServerMessage;
-        }
-        if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
-          serverMsg = {
-            ...serverMsg,
-            ...(this.toolCallsSinceLastResult > 0
-              ? { toolCalls: this.toolCallsSinceLastResult }
-              : {}),
-            ...(this.fileEditsSinceLastResult > 0
-              ? { fileEdits: this.fileEditsSinceLastResult }
-              : {}),
-          };
-        }
-        this.toolCallsSinceLastResult = 0;
-        this.fileEditsSinceLastResult = 0;
-      }
-
-      if (message.type === "result" && this.pendingAssistantError) {
-        const result = message as Record<string, unknown>;
-        const hasRealResultError =
-          serverMsg?.type === "result" &&
-          serverMsg.subtype === "error" &&
-          Array.isArray(result.errors) &&
-          result.errors.some(
-            (error) =>
-              typeof error === "string" &&
-              !isInternalClaudeResultError(error),
-          );
-        if (!hasRealResultError) {
-          this.flushPendingAssistantError();
-          if (serverMsg?.type === "result" && serverMsg.subtype === "error") {
-            serverMsg = null;
+        if (serverMsg.type === "result") {
+          if (this.authClassification !== "subscription") {
+            await authResolution;
           }
-        } else {
-          this.pendingAssistantError = null;
+          if (this.stopped || authGeneration !== this.authGeneration) return;
+          serverMsg = this.withPerTurnCost(serverMsg);
+          if (
+            this.authClassification !== "api_key" ||
+            this.authResolutionPending
+          ) {
+            const { cost: _estimatedApiCost, ...withoutCost } = serverMsg;
+            serverMsg = withoutCost as ServerMessage;
+          }
+          if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
+            serverMsg = {
+              ...serverMsg,
+              ...(this.toolCallsSinceLastResult > 0
+                ? { toolCalls: this.toolCallsSinceLastResult }
+                : {}),
+              ...(this.fileEditsSinceLastResult > 0
+                ? { fileEdits: this.fileEditsSinceLastResult }
+                : {}),
+            };
+          }
+          this.toolCallsSinceLastResult = 0;
+          this.fileEditsSinceLastResult = 0;
+        }
+
+        if (message.type === "result" && this.pendingAssistantError) {
+          const result = message as Record<string, unknown>;
+          const hasRealResultError =
+            serverMsg.type === "result" &&
+            serverMsg.subtype === "error" &&
+            Array.isArray(result.errors) &&
+            result.errors.some(
+              (error) =>
+                typeof error === "string" &&
+                !isInternalClaudeResultError(error),
+            );
+          if (!hasRealResultError) {
+            this.flushPendingAssistantError();
+            if (serverMsg.type === "result" && serverMsg.subtype === "error") {
+              serverMsg = null;
+            }
+          } else {
+            this.pendingAssistantError = null;
+          }
+        }
+        if (serverMsg) {
+          this.emitMessage(serverMsg);
         }
       }
-      if (serverMsg) {
-        this.emitMessage(serverMsg);
+      if (message.type === "result" && convertedMsgs.length === 0 && this.pendingAssistantError) {
+        this.flushPendingAssistantError();
       }
       // Extract session ID and model from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
@@ -1965,6 +2138,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.emitSessionEnd();
 
     // The CLI's background tasks end with its process.
+    this.taskProgressById.clear();
+    this.resetLiveActivity(true);
     this.setBackgroundTasks([]);
     this.setStatus("idle");
     this.emit("exit", 0);
@@ -2112,6 +2287,346 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return { ...msg, cost: Math.round(perTurn * 1e6) / 1e6 };
   }
 
+  private mergeTaskProgressIntoBackgroundTasks(
+    tasks: BackgroundTaskInfo[],
+  ): BackgroundTaskInfo[] {
+    if (tasks.length === 0) return tasks;
+    const activeIds = new Set(tasks.map((t) => t.taskId));
+    for (const key of this.taskProgressById.keys()) {
+      if (!activeIds.has(key)) this.taskProgressById.delete(key);
+    }
+    return tasks.map((task) => {
+      const progress = this.taskProgressById.get(task.taskId);
+      if (!progress) return task;
+      return {
+        ...task,
+        ...(progress.summary ? { summary: progress.summary } : {}),
+        ...(progress.lastToolName ? { lastToolName: progress.lastToolName } : {}),
+      };
+    });
+  }
+
+  private resetLiveActivity(emitClear: boolean): void {
+    this.taskSummaryDetail = null;
+    this.streamingToolBlock = null;
+    this.activeToolProgress = null;
+    this.foregroundTaskSummary = null;
+    this.thinkingTokensEstimate = null;
+    this.isRequestingModel = false;
+    if (emitClear) {
+      this.publishLiveActivity();
+    } else {
+      this.lastEmittedActivityJson = "null";
+    }
+  }
+
+  private buildLiveActivityState(): AgentActivityState | null {
+    if (this.streamingToolBlock) {
+      const hint = extractStreamingToolHint(
+        this.streamingToolBlock.inputJsonBuffer,
+      );
+      return {
+        toolName: this.streamingToolBlock.name,
+        toolUseId: this.streamingToolBlock.id,
+        preparingTool: true,
+        ...(hint ? { toolHint: hint } : {}),
+        ...(this.taskSummaryDetail ? { summary: this.taskSummaryDetail } : {}),
+      };
+    }
+    if (this.foregroundTaskSummary) {
+      const text =
+        this.foregroundTaskSummary.summary ??
+        this.foregroundTaskSummary.description;
+      if (text || this.foregroundTaskSummary.lastToolName) {
+        return {
+          ...(text ? { summary: text } : {}),
+          ...(this.foregroundTaskSummary.lastToolName
+            ? { toolName: this.foregroundTaskSummary.lastToolName }
+            : {}),
+          ...(this.activeToolProgress?.elapsedSeconds
+            ? { elapsedSeconds: this.activeToolProgress.elapsedSeconds }
+            : {}),
+        };
+      }
+    }
+    if (this.activeToolProgress) {
+      return {
+        toolName: this.activeToolProgress.toolName,
+        toolUseId: this.activeToolProgress.toolUseId,
+        ...(this.activeToolProgress.elapsedSeconds >= 1
+          ? { elapsedSeconds: this.activeToolProgress.elapsedSeconds }
+          : {}),
+        ...(this.taskSummaryDetail ? { summary: this.taskSummaryDetail } : {}),
+      };
+    }
+    if (
+      this.thinkingTokensEstimate !== null &&
+      this.thinkingTokensEstimate > 0
+    ) {
+      return {
+        thinkingTokens: this.thinkingTokensEstimate,
+        ...(this.taskSummaryDetail ? { summary: this.taskSummaryDetail } : {}),
+      };
+    }
+    if (this.taskSummaryDetail) {
+      return { summary: this.taskSummaryDetail };
+    }
+    if (this.isRequestingModel) {
+      return { phase: "requesting" };
+    }
+    return null;
+  }
+
+  private publishLiveActivity(): void {
+    const activity = this.buildLiveActivityState();
+    const serialized = JSON.stringify(activity);
+    if (serialized === this.lastEmittedActivityJson) return;
+    this.lastEmittedActivityJson = serialized;
+    this.emitMessage({ type: "agent_activity", activity });
+  }
+
+  private updateLiveActivityFromSdkMessage(msg: SDKMessage): void {
+    const parentId = sdkParentToolUseId(msg);
+    if (parentId !== null && !this.isForegroundSubagent(parentId)) {
+      return;
+    }
+
+    switch (msg.type) {
+      case "system": {
+        const sys = msg as Record<string, unknown>;
+        if (sys.subtype === "task_summary") {
+          const detail =
+            typeof sys.detail === "string" && sys.detail.trim()
+              ? sys.detail.trim()
+              : null;
+          this.taskSummaryDetail = detail;
+          this.publishLiveActivity();
+          return;
+        }
+        if (sys.subtype === "thinking_tokens") {
+          const estimated = toFiniteNumber(sys.estimated_tokens);
+          if (estimated !== undefined && estimated > 0) {
+            this.isRequestingModel = false;
+            // Quantize to 50-token steps to keep live frames compact.
+            this.thinkingTokensEstimate = Math.max(
+              50,
+              Math.round(estimated / 50) * 50,
+            );
+            this.publishLiveActivity();
+          }
+          return;
+        }
+        if (sys.subtype === "status") {
+          if (sys.status === "requesting") {
+            this.isRequestingModel = true;
+            this.publishLiveActivity();
+          } else if (sys.status === "compacting" || sys.status === null) {
+            this.isRequestingModel = false;
+            this.publishLiveActivity();
+          }
+          return;
+        }
+        if (sys.subtype === "task_progress") {
+          const taskId =
+            typeof sys.task_id === "string" ? sys.task_id : undefined;
+          const toolUseId =
+            typeof sys.tool_use_id === "string" ? sys.tool_use_id : undefined;
+          const summary =
+            typeof sys.summary === "string" && sys.summary.trim()
+              ? sys.summary.trim()
+              : undefined;
+          const description =
+            typeof sys.description === "string" && sys.description.trim()
+              ? sys.description.trim()
+              : undefined;
+          const lastToolName =
+            typeof sys.last_tool_name === "string" && sys.last_tool_name.trim()
+              ? sys.last_tool_name.trim()
+              : undefined;
+          if (taskId) {
+            this.taskProgressById.set(taskId, { summary, lastToolName });
+            if (this._backgroundTasks.some((t) => t.taskId === taskId)) {
+              this.setBackgroundTasks(
+                this.mergeTaskProgressIntoBackgroundTasks(
+                  this._backgroundTasks,
+                ),
+              );
+            }
+          }
+          const isBackgroundTask =
+            taskId !== undefined &&
+            this._backgroundTasks.some((t) => t.taskId === taskId);
+          if (
+            !isBackgroundTask &&
+            (!toolUseId || !this.completedToolUseIds.has(toolUseId))
+          ) {
+            this.foregroundTaskSummary = {
+              toolUseId,
+              summary,
+              description,
+              lastToolName,
+            };
+            this.publishLiveActivity();
+          }
+          return;
+        }
+        if (sys.subtype === "task_notification") {
+          const taskId =
+            typeof sys.task_id === "string" ? sys.task_id : undefined;
+          const toolUseId =
+            typeof sys.tool_use_id === "string" ? sys.tool_use_id : undefined;
+          if (taskId) this.taskProgressById.delete(taskId);
+          if (
+            this.foregroundTaskSummary &&
+            toolUseId &&
+            this.foregroundTaskSummary.toolUseId === toolUseId
+          ) {
+            this.foregroundTaskSummary = null;
+            this.publishLiveActivity();
+          }
+          return;
+        }
+        return;
+      }
+
+      case "tool_progress": {
+        const tp = msg as Record<string, unknown>;
+        const toolUseId =
+          typeof tp.tool_use_id === "string" ? tp.tool_use_id : "";
+        const toolName =
+          typeof tp.tool_name === "string" ? tp.tool_name : "";
+        const elapsed = toFiniteNumber(tp.elapsed_time_seconds) ?? 0;
+        if (toolUseId && toolName && !this.completedToolUseIds.has(toolUseId)) {
+          const parentTool =
+            typeof tp.parent_tool_use_id === "string" && tp.parent_tool_use_id
+              ? tp.parent_tool_use_id
+              : null;
+          if (parentTool && !this.isForegroundSubagent(parentTool)) {
+            return;
+          }
+          this.isRequestingModel = false;
+          this.streamingToolBlock = null;
+          this.thinkingTokensEstimate = null;
+          this.activeToolProgress = {
+            toolUseId,
+            toolName,
+            elapsedSeconds: Math.max(0, Math.floor(elapsed)),
+          };
+          this.publishLiveActivity();
+        }
+        return;
+      }
+
+      case "stream_event": {
+        // Subagent stream events should not overwrite main-thread streaming tool state
+        // unless no foreground task summary is active.
+        if (parentId !== null) return;
+        const stream = msg as unknown as { event?: Record<string, unknown> };
+        const event = stream.event;
+        if (!event || typeof event !== "object") return;
+        this.isRequestingModel = false;
+        if (event.type === "content_block_start") {
+          const block = event.content_block as
+            | Record<string, unknown>
+            | undefined;
+          const blockType = typeof block?.type === "string" ? block.type : "";
+          if (blockType === "tool_use" || blockType === "server_tool_use") {
+            const id = typeof block?.id === "string" ? block.id : "";
+            const rawName = typeof block?.name === "string" ? block.name : "";
+            const name =
+              blockType === "server_tool_use" && rawName === "web_search"
+                ? "WebSearch"
+                : rawName;
+            if (name) {
+              this.thinkingTokensEstimate = null;
+              this.streamingToolBlock = { id, name, inputJsonBuffer: "" };
+              this.publishLiveActivity();
+            }
+          } else if (blockType === "text" || blockType === "thinking") {
+            if (blockType === "text") {
+              this.thinkingTokensEstimate = null;
+              this.publishLiveActivity();
+            }
+          }
+          return;
+        }
+        if (event.type === "content_block_delta") {
+          const delta = event.delta as Record<string, unknown> | undefined;
+          if (!delta) return;
+          if (delta.type === "thinking_delta" && delta.thinking) {
+            if (this.thinkingTokensEstimate !== null) {
+              this.thinkingTokensEstimate = null;
+              this.publishLiveActivity();
+            }
+            return;
+          }
+          if (delta.type === "text_delta" && delta.text) {
+            if (this.thinkingTokensEstimate !== null) {
+              this.thinkingTokensEstimate = null;
+              this.publishLiveActivity();
+            }
+            return;
+          }
+          if (
+            delta.type === "input_json_delta" &&
+            typeof delta.partial_json === "string" &&
+            this.streamingToolBlock &&
+            this.streamingToolBlock.inputJsonBuffer.length < 1024
+          ) {
+            this.streamingToolBlock.inputJsonBuffer += delta.partial_json.slice(
+              0,
+              1024 - this.streamingToolBlock.inputJsonBuffer.length,
+            );
+            this.publishLiveActivity();
+          }
+          return;
+        }
+        if (event.type === "content_block_stop") {
+          if (this.streamingToolBlock) {
+            this.streamingToolBlock = null;
+            this.publishLiveActivity();
+          }
+        }
+        return;
+      }
+
+      case "assistant": {
+        this.isRequestingModel = false;
+        this.thinkingTokensEstimate = null;
+        if (parentId === null && this.streamingToolBlock) {
+          this.streamingToolBlock = null;
+        }
+        this.publishLiveActivity();
+        return;
+      }
+
+      case "user": {
+        if (
+          this.activeToolProgress &&
+          this.completedToolUseIds.has(this.activeToolProgress.toolUseId)
+        ) {
+          this.activeToolProgress = null;
+        }
+        if (
+          this.foregroundTaskSummary?.toolUseId &&
+          this.completedToolUseIds.has(this.foregroundTaskSummary.toolUseId)
+        ) {
+          this.foregroundTaskSummary = null;
+        }
+        this.publishLiveActivity();
+        return;
+      }
+
+      case "result": {
+        this.resetLiveActivity(true);
+        return;
+      }
+
+      default:
+        return;
+    }
+  }
+
   private setBackgroundTasks(tasks: BackgroundTaskInfo[]): void {
     if (JSON.stringify(tasks) === JSON.stringify(this._backgroundTasks)) return;
     this._backgroundTasks = tasks;
@@ -2226,6 +2741,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     text: string,
     images?: Array<{ base64: string; mimeType: string }>,
   ): void {
+    if (/^\/recap(?:\s|$)/i.test(text.trim())) {
+      this.pendingRecapCommand = true;
+    }
     this.setStatus("running");
     resolve(this.buildUserMessage(text, images));
   }

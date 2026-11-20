@@ -428,6 +428,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private readonly confirmedAgentTextByItemId = new Map<string, string>();
   /** Suppresses late item/completed events after synthetic fallbacks. */
   private readonly syntheticAgentTextByItemId = new Map<string, string>();
+  /** Item IDs whose `assistant(tool_use)` was already emitted on `item/started`. */
+  private readonly emittedToolUseItemIds = new Set<string>();
+  /** Reasoning text already streamed via delta events, keyed by item ID. */
+  private readonly streamedReasoningByItemId = new Map<string, string>();
+  private activeMcpProgressItemId: string | null = null;
   private pendingPlanCompletion: {
     toolUseId: string;
     planText: string;
@@ -1243,6 +1248,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._agentRole = null;
     this.pendingTurnId = null;
     this.interruptWhenTurnStarts = false;
+    this.emittedToolUseItemIds.clear();
+    this.streamedReasoningByItemId.clear();
+    if (this.activeMcpProgressItemId !== null) {
+      this.activeMcpProgressItemId = null;
+      this.emitMessage({ type: "agent_activity", activity: null });
+    }
     this.pendingTurnCompletion = null;
     this.pendingApprovals.clear();
     this.pendingUserInputs.clear();
@@ -1279,6 +1290,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingAgentTextByItemId.clear();
     this.confirmedAgentTextByItemId.clear();
     this.syntheticAgentTextByItemId.clear();
+    this.emittedToolUseItemIds.clear();
+    this.streamedReasoningByItemId.clear();
+    this.activeMcpProgressItemId = null;
     this.pendingPlanCompletion = null;
     this._pendingPlanInput = null;
     this._projectPath = projectPath;
@@ -3181,6 +3195,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         this.pendingAgentTextByItemId.clear();
         this.confirmedAgentTextByItemId.clear();
         this.syntheticAgentTextByItemId.clear();
+        this.emittedToolUseItemIds.clear();
+        this.streamedReasoningByItemId.clear();
+        this.activeMcpProgressItemId = null;
         this.setStatus("running");
         break;
       }
@@ -3268,6 +3285,18 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "item/reasoning/summaryPartAdded": {
+        const itemId = stringOrNull(params.itemId);
+        if (itemId) {
+          const prev = this.streamedReasoningByItemId.get(itemId);
+          if (prev && !prev.endsWith("\n")) {
+            this.streamedReasoningByItemId.set(itemId, `${prev}\n\n`);
+            this.emitMessage({ type: "thinking_delta", text: "\n\n" });
+          }
+        }
+        break;
+      }
+
       case "item/reasoning/summaryTextDelta":
       case "item/reasoning/textDelta": {
         const delta =
@@ -3277,7 +3306,31 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
               ? params.textDelta
               : "";
         if (delta) {
+          const itemId = stringOrNull(params.itemId);
+          if (itemId) {
+            this.streamedReasoningByItemId.set(
+              itemId,
+              (this.streamedReasoningByItemId.get(itemId) ?? "") + delta,
+            );
+          }
           this.emitMessage({ type: "thinking_delta", text: delta });
+        }
+        break;
+      }
+
+      case "item/mcpToolCall/progress": {
+        const message =
+          typeof params.message === "string" ? params.message.trim() : "";
+        const itemId = stringOrNull(params.itemId);
+        if (message) {
+          this.activeMcpProgressItemId = itemId;
+          this.emitMessage({
+            type: "agent_activity",
+            activity: {
+              summary: message,
+              ...(itemId ? { toolUseId: itemId } : {}),
+            },
+          });
         }
         break;
       }
@@ -3481,6 +3534,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     this.pendingTurnId = null;
     this.interruptWhenTurnStarts = false;
+    this.emittedToolUseItemIds.clear();
+    this.streamedReasoningByItemId.clear();
+    if (this.activeMcpProgressItemId !== null) {
+      this.activeMcpProgressItemId = null;
+      this.emitMessage({ type: "agent_activity", activity: null });
+    }
     if (typeof turn?.id === "string") this.lastCompletedTurnId = turn.id;
 
     // Plan mode: emit synthetic plan approval and wait for user decision
@@ -3689,6 +3748,52 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "mcptoolcall": {
+        const server = typeof item.server === "string" ? item.server : "mcp";
+        const tool = typeof item.tool === "string" ? item.tool : "unknown";
+        const toolName = `mcp:${server}/${tool}`;
+        this.emittedToolUseItemIds.add(itemId);
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: itemId,
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: itemId,
+                name: toolName,
+                input: toToolUseInput(item.arguments),
+              },
+            ],
+            model: this.getMessageModel(),
+          },
+        });
+        break;
+      }
+
+      case "websearch": {
+        const query = typeof item.query === "string" ? item.query : "";
+        this.emittedToolUseItemIds.add(itemId);
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: itemId,
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: itemId,
+                name: "WebSearch",
+                input: { query },
+              },
+            ],
+            model: this.getMessageModel(),
+          },
+        });
+        break;
+      }
+
       case "collabagenttoolcall": {
         const tool = typeof item.tool === "string" ? item.tool : "subagent";
         const toolName = "SubAgent";
@@ -3824,9 +3929,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       case "reasoning": {
-        const text = extractReasoningText(item);
-        if (text) {
-          this.emitMessage({ type: "thinking_delta", text });
+        if (!this.streamedReasoningByItemId.delete(itemId)) {
+          const text = extractReasoningText(item);
+          if (text) {
+            this.emitMessage({ type: "thinking_delta", text });
+          }
         }
         break;
       }
@@ -3865,22 +3972,28 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         const toolName = `mcp:${server}/${tool}`;
         const result = item.result ?? item.error ?? "MCP call completed";
         const normalized = normalizeMcpToolResult(result);
-        this.emitMessage({
-          type: "assistant",
-          message: {
-            id: itemId,
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                id: itemId,
-                name: toolName,
-                input: (item.arguments as Record<string, unknown>) ?? {},
-              },
-            ],
-            model: this.getMessageModel(),
-          },
-        });
+        if (this.activeMcpProgressItemId === itemId) {
+          this.activeMcpProgressItemId = null;
+          this.emitMessage({ type: "agent_activity", activity: null });
+        }
+        if (!this.emittedToolUseItemIds.delete(itemId)) {
+          this.emitMessage({
+            type: "assistant",
+            message: {
+              id: itemId,
+              role: "assistant",
+              content: [
+                {
+                  type: "tool_use",
+                  id: itemId,
+                  name: toolName,
+                  input: toToolUseInput(item.arguments),
+                },
+              ],
+              model: this.getMessageModel(),
+            },
+          });
+        }
         this.emitMessage({
           type: "tool_result",
           toolUseId: itemId,
@@ -3921,22 +4034,24 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "websearch": {
         const query = typeof item.query === "string" ? item.query : "";
-        this.emitMessage({
-          type: "assistant",
-          message: {
-            id: itemId,
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                id: itemId,
-                name: "WebSearch",
-                input: { query },
-              },
-            ],
-            model: this.getMessageModel(),
-          },
-        });
+        if (!this.emittedToolUseItemIds.delete(itemId)) {
+          this.emitMessage({
+            type: "assistant",
+            message: {
+              id: itemId,
+              role: "assistant",
+              content: [
+                {
+                  type: "tool_use",
+                  id: itemId,
+                  name: "WebSearch",
+                  input: { query },
+                },
+              ],
+              model: this.getMessageModel(),
+            },
+          });
+        }
         this.emitMessage({
           type: "tool_result",
           toolUseId: itemId,
@@ -5130,6 +5245,7 @@ function extractReasoningText(item: Record<string, unknown>): string {
   if (Array.isArray(summary)) {
     const text = summary
       .map((entry) => {
+        if (typeof entry === "string") return entry;
         if (!entry || typeof entry !== "object") return "";
         const record = entry as Record<string, unknown>;
         return typeof record.text === "string" ? record.text : "";

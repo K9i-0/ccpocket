@@ -363,6 +363,7 @@ const TRANSCRIPT_PAGE_DEFAULT = 200;
 const TRANSCRIPT_PAGE_MAX = 1000;
 
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
+  "agent_activity",
   "background_tasks",
   "context_compaction",
   "conversation_queue",
@@ -372,6 +373,7 @@ const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "prompt_history_status",
   "projects",
   "push_registration_result",
+  "session_recap",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -11835,14 +11837,20 @@ export class BridgeWebSocketServer {
     const messages = msg.messages as unknown[];
 
     if (msg.type === "past_history") {
-      if (this.clientSupportedServerMessages.get(ws)?.has("context_compaction")) {
+      const supported = this.clientSupportedServerMessages.get(ws);
+      const supportsCompaction = supported?.has("context_compaction") ?? false;
+      const supportsRecap = supported?.has("session_recap") ?? false;
+      if (supportsCompaction && supportsRecap) {
         return msg;
       }
       return {
         ...(msg as unknown as Record<string, unknown>),
-        messages: messages.filter(
-          (message) => !isRecord(message) || message.role !== "compaction",
-        ),
+        messages: messages.filter((message) => {
+          if (!isRecord(message)) return true;
+          if (!supportsCompaction && message.role === "compaction") return false;
+          if (!supportsRecap && message.role === "recap") return false;
+          return true;
+        }),
       };
     }
 
@@ -11948,6 +11956,13 @@ export class BridgeWebSocketServer {
       sessionId,
       tasks: session.backgroundTasks ?? [],
     });
+    if (session.agentActivity) {
+      this.send(ws, {
+        type: "agent_activity",
+        sessionId,
+        activity: session.agentActivity,
+      });
+    }
   }
 
   private sendCodexGoalState(
