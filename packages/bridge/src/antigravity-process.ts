@@ -20,7 +20,10 @@ import type {
   ProcessStatus,
   ServerMessage,
 } from "./parser.js";
-import type { AntigravityCompactionRecord } from "./antigravity-store.js";
+import type {
+  AntigravityCompactionRecord,
+  AntigravityPermissionGrants,
+} from "./antigravity-store.js";
 
 /**
  * Antigravity (`agy acp`) provider process.
@@ -132,6 +135,8 @@ export interface AntigravityStartOptions {
   modeBeforePlan?: PermissionMode;
   /** Recorded context compaction boundaries to re-emit during `session/load` replay. */
   compactions?: AntigravityCompactionRecord[];
+  /** Previously approved session-scoped grants to restore on resume. */
+  permissionGrants?: AntigravityPermissionGrants;
   /** Extra workspace roots (absolute paths). */
   additionalDirectories?: string[];
 }
@@ -206,6 +211,8 @@ export interface AntigravityProcessEvents {
   title: [string];
   /** Context compaction boundary recorded for persistence. */
   compaction: [AntigravityCompactionRecord];
+  /** Session-scoped "always allow" grants updated for persistence across resumes. */
+  permission_grants: [AntigravityPermissionGrants];
 }
 
 export interface AcpTransportEvents {
@@ -301,11 +308,173 @@ interface PendingPermission {
   toolName: string;
   input: Record<string, unknown>;
   options: Array<{ optionId: string; kind: string }>;
-  /** What "always allow" would cover: every edit, this exact command, or this MCP tool. */
+  /** What "always allow" would cover: every edit, this command key, or this MCP tool. */
   sessionGrant?:
     | { kind: "edit" }
-    | { kind: "execute"; command: string }
+    | { kind: "execute"; commandKey: string }
     | { kind: "mcp"; tool: string };
+}
+
+/**
+ * Shell metacharacters/expansions that disable prefix generalization so an
+ * approval cannot silently cover chained, piped, or substituted commands.
+ */
+const UNSAFE_PREFIX_SHELL_SYNTAX =
+  /&&|\|\||[;|&<>`\n\r]|\$\(|\$[A-Za-z_{?*@#!-]|\{[^{}]*,[^{}]*\}/;
+
+/** Wrapper or interpreter binaries that execute arbitrary payloads. */
+const WRAPPER_BINARIES = new Set([
+  "env",
+  "sudo",
+  "doas",
+  "su",
+  "timeout",
+  "xargs",
+  "eval",
+  "exec",
+  "nohup",
+  "nice",
+  "fish",
+  "dash",
+  "pwsh",
+  "cmd",
+  "python",
+  "python3",
+  "ruby",
+  "perl",
+  "php",
+  "osascript",
+]);
+
+/** Shell/runtime binaries that may only generalize when given an explicit script path. */
+const SCRIPT_RUNNERS = new Set(["bash", "sh", "zsh", "node"]);
+
+/** Destructive or arbitrary I/O commands kept at exact-match granularity. */
+const EXACT_ONLY_BINARIES = new Set([
+  "rm",
+  "rmdir",
+  "mv",
+  "cp",
+  "chmod",
+  "chown",
+  "chgrp",
+  "dd",
+  "mkfs",
+  "kill",
+  "pkill",
+  "killall",
+  "curl",
+  "wget",
+  "ssh",
+  "scp",
+  "rsync",
+  "open",
+  "launchctl",
+  "systemctl",
+]);
+
+/** Binaries whose subcommands have a nested action word (e.g. `gh run view`). */
+const THREE_TOKEN_SUBCOMMAND_GROUPS: Record<string, Set<string>> = {
+  gh: new Set([
+    "run",
+    "pr",
+    "issue",
+    "release",
+    "workflow",
+    "repo",
+    "cache",
+    "secret",
+    "variable",
+  ]),
+  npm: new Set(["run", "run-script"]),
+  pnpm: new Set(["run"]),
+  yarn: new Set(["run"]),
+  mise: new Set(["exec", "run"]),
+};
+
+function tokenizeSimpleCommand(command: string): string[] | null {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+        current += command[++i];
+      } else if (ch === quote) {
+        quote = null;
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += ch;
+  }
+  if (quote !== null) return null;
+  if (current.length > 0) tokens.push(current);
+  return tokens;
+}
+
+/**
+ * Derives the session grant key for a shell command, matching `agy` CLI's
+ * prefix generalization for safe single commands (e.g. `git push`, `dart format`,
+ * `gh run view`, `node scripts/release/monitor.mjs`) and falling back to an
+ * exact match whenever shell composition, wrappers, or destructive commands are
+ * present.
+ */
+export function extractAntigravityCommandGrantKey(rawCommand: string): string {
+  const trimmed = rawCommand.trim();
+  if (!trimmed) return "";
+  const exact = `exact:${trimmed}`;
+  if (UNSAFE_PREFIX_SHELL_SYNTAX.test(trimmed)) return exact;
+
+  const tokens = tokenizeSimpleCommand(trimmed);
+  if (!tokens || tokens.length < 2) return exact;
+
+  const first = tokens[0];
+  // Inline env assignments (`FOO=bar cmd`) stay exact-match.
+  if (first.includes("=")) return exact;
+  const bin = basename(first);
+  if (WRAPPER_BINARIES.has(bin) || EXACT_ONLY_BINARIES.has(bin)) return exact;
+
+  if (SCRIPT_RUNNERS.has(bin)) {
+    const script = tokens[1];
+    // Inline `-c` / `-e` flags stay exact-match; explicit script paths generalize.
+    if (!script || script.startsWith("-")) return exact;
+    return `prefix:${first} ${script}`;
+  }
+
+  // `git -C <dir> <subcmd> ...` keeps the target directory in the prefix.
+  if (bin === "git" && tokens[1] === "-C") {
+    const dir = tokens[2];
+    const subcmd = tokens[3];
+    if (!dir || !subcmd || subcmd.startsWith("-")) return exact;
+    return `prefix:${first} -C ${dir} ${subcmd}`;
+  }
+
+  const second = tokens[1];
+  if (!second || second.startsWith("-")) return exact;
+
+  const nested = THREE_TOKEN_SUBCOMMAND_GROUPS[bin];
+  if (nested?.has(second)) {
+    const third = tokens[2];
+    if (third && !third.startsWith("-")) {
+      return `prefix:${first} ${second} ${third}`;
+    }
+  }
+
+  return `prefix:${first} ${second}`;
 }
 
 interface ToolCallState {
@@ -1198,9 +1367,23 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     return this.transport !== null && !this.stopped;
   }
 
+  /** True once startup (`initialize` + `session/new` or `session/load`) has completed. */
+  get isReady(): boolean {
+    return this.ready;
+  }
+
   /** True while `session/load` is replaying stored messages into history. */
   get isReplaying(): boolean {
     return this.replaying;
+  }
+
+  /**
+   * Flushes any buffered assistant thinking/text before a new user turn is
+   * recorded so prior output never appears below the newly sent message.
+   */
+  flushPendingOutput(): void {
+    if (this.replaying || this.stopped) return;
+    this.flushAssistant();
   }
 
   get isWaitingForInput(): boolean {
@@ -1277,6 +1460,15 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (this.transport) return;
     this.cwd = projectPath;
     this.additionalDirs = [...(options?.additionalDirectories ?? [])];
+    this.allowEditsForSession = options?.permissionGrants?.allowEdits === true;
+    this.allowedCommands.clear();
+    for (const key of options?.permissionGrants?.commands ?? []) {
+      if (key) this.allowedCommands.add(key);
+    }
+    this.allowedMcpTools.clear();
+    for (const tool of options?.permissionGrants?.mcpTools ?? []) {
+      if (tool) this.allowedMcpTools.add(tool);
+    }
     this.stopped = false;
     this.exited = false;
     if (this.config.requireApiKey && !this.config.apiKey) {
@@ -1495,6 +1687,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       return;
     }
     if (!this._sessionId || !this.isTurnActive) return;
+    this.flushAssistant();
     const selfTurn = this.outstandingPrompts === 0;
     if (!selfTurn) this.cancelRequested = true;
     // ACP requires pending permission requests to be answered as cancelled.
@@ -1543,6 +1736,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     images?: Array<{ base64: string; mimeType: string }>,
   ): void {
     if (!this._sessionId) return;
+    // Flush any uncommitted output from a prior turn so it stays above the new prompt.
+    this.flushAssistant();
     // A prompt sent into a turn the agent started steers it and owns its end.
     const steersSelfTurn = this.selfTurn;
     this.clearSelfTurn();
@@ -1797,7 +1992,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (resolved && grant) {
       if (grant.kind === "edit") this.allowEditsForSession = true;
       else if (grant.kind === "mcp") this.allowedMcpTools.add(grant.tool);
-      else this.allowedCommands.add(grant.command);
+      else this.allowedCommands.add(grant.commandKey);
+      this.emitPermissionGrants();
       // Requests of the same kind that are already waiting are covered too.
       for (const other of [...this.pendingPermissions.values()]) {
         if (this.isGrantedForSession(other.sessionGrant)) {
@@ -1808,11 +2004,24 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     return resolved;
   }
 
+  private emitPermissionGrants(): void {
+    const grants: AntigravityPermissionGrants = {
+      ...(this.allowEditsForSession ? { allowEdits: true } : {}),
+      ...(this.allowedCommands.size > 0
+        ? { commands: [...this.allowedCommands] }
+        : {}),
+      ...(this.allowedMcpTools.size > 0
+        ? { mcpTools: [...this.allowedMcpTools] }
+        : {}),
+    };
+    this.emit("permission_grants", grants);
+  }
+
   private isGrantedForSession(grant: PendingPermission["sessionGrant"]): boolean {
     if (!grant) return false;
     if (grant.kind === "edit") return this.allowEditsForSession;
     if (grant.kind === "mcp") return this.allowedMcpTools.has(grant.tool);
-    return this.allowedCommands.has(grant.command);
+    return this.allowedCommands.has(grant.commandKey);
   }
 
   reject(toolUseId?: string, message?: string): boolean {
@@ -2643,16 +2852,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const rawInput = isRecord(toolCall.rawInput) ? toolCall.rawInput : {};
     const allowOnce = options.find((o) => o.kind === "allow_once");
     const command = stringOr(rawInput.CommandLine, stringOr(toolCall.title));
+    const commandKey = command ? extractAntigravityCommandGrantKey(command) : "";
     const mcp = mcpToolFromAcp(toolCall);
-    // Edits, commands and MCP tools can be allowed for the session by the Bridge.
+    // Edits, commands (prefix-generalized for safe single commands) and MCP tools
+    // can be allowed for the session by the Bridge.
     const sessionGrant: PendingPermission["sessionGrant"] = !allowOnce
       ? undefined
       : mcp
         ? { kind: "mcp", tool: mcp.key }
         : kind === "edit"
           ? { kind: "edit" }
-          : kind === "execute" && command
-            ? { kind: "execute", command }
+          : kind === "execute" && commandKey
+            ? { kind: "execute", commandKey }
             : undefined;
     if (allowOnce && this.isGrantedForSession(sessionGrant)) {
       this.respond(requestId, {

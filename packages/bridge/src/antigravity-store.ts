@@ -16,6 +16,13 @@ export interface AntigravityCompactionRecord {
   summary?: string;
 }
 
+/** Session-scoped "always allow" grants remembered by the Bridge. */
+export interface AntigravityPermissionGrants {
+  allowEdits?: boolean;
+  commands?: string[];
+  mcpTools?: string[];
+}
+
 /** What the Bridge remembers about an Antigravity conversation. */
 export interface AntigravitySessionRecord {
   /** Name given in ccpocket. `agy` has no way to rename a conversation. */
@@ -28,6 +35,8 @@ export interface AntigravitySessionRecord {
   modeBeforePlan?: PermissionMode;
   /** Recorded compaction boundaries for replay across restarts/resumes. */
   compactions?: AntigravityCompactionRecord[];
+  /** Session-scoped "always allow" grants to restore when resuming this conversation. */
+  permissionGrants?: AntigravityPermissionGrants;
 }
 
 /** The catalog as last read, per sign-in method. */
@@ -136,6 +145,31 @@ export class AntigravityStore {
     const next = [...existing, record];
     const capped = next.length > 500 ? next.slice(next.length - 500) : next;
     return this.update(sessionId, { compactions: capped });
+  }
+
+  setPermissionGrants(
+    sessionId: string,
+    grants: AntigravityPermissionGrants,
+  ): Promise<void> {
+    const commands = grants.commands?.length
+      ? Array.from(new Set(grants.commands)).slice(-200)
+      : undefined;
+    const mcpTools = grants.mcpTools?.length
+      ? Array.from(new Set(grants.mcpTools)).slice(-200)
+      : undefined;
+    const normalized: AntigravityPermissionGrants | undefined =
+      grants.allowEdits || commands || mcpTools
+        ? {
+            ...(grants.allowEdits ? { allowEdits: true } : {}),
+            ...(commands ? { commands } : {}),
+            ...(mcpTools ? { mcpTools } : {}),
+          }
+        : undefined;
+    const existing = this.sessions.get(sessionId)?.permissionGrants;
+    if (JSON.stringify(existing) === JSON.stringify(normalized)) {
+      return Promise.resolve();
+    }
+    return this.update(sessionId, { permissionGrants: normalized });
   }
 
   /**

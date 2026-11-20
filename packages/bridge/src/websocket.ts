@@ -1466,6 +1466,11 @@ export class BridgeWebSocketServer {
         void this.antigravityStore.addCompaction(claudeSessionId, record);
       },
     );
+    this.sessionManager.setAntigravityPermissionGrantsHandler(
+      (claudeSessionId, grants) => {
+        void this.antigravityStore.setPermissionGrants(claudeSessionId, grants);
+      },
+    );
 
     this.wss.on("connection", (ws, req) => {
       // API key authentication
@@ -4368,17 +4373,33 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        if (
-          session.process instanceof AntigravityProcess &&
-          !session.process.isRunning
-        ) {
-          // Rejected before it reaches history, so no ghost turn is left.
-          this.send(ws, {
-            type: "error",
-            sessionId: session.id,
-            message: "Antigravity session is not running. Start it again.",
-          });
-          break;
+        if (session.process instanceof AntigravityProcess) {
+          if (!session.process.isRunning) {
+            // Rejected before it reaches history, so no ghost turn is left.
+            this.send(ws, {
+              type: "error",
+              sessionId: session.id,
+              message: "Antigravity session is not running. Start it again.",
+            });
+            break;
+          }
+          if (session.process.isReplaying) {
+            await session.process.waitUntilReady().catch(() => {});
+            if (!session.process.isRunning) {
+              this.send(ws, {
+                type: "error",
+                sessionId: session.id,
+                message: "Antigravity session is not running. Start it again.",
+              });
+              break;
+            }
+          }
+          // Commit any buffered assistant text/thinking before recording the new
+          // user message so prior agent output never lands below it.
+          session.process.flushPendingOutput();
+        }
+        if (this.sessionManager.hasPendingMessages(session.id)) {
+          await this.sessionManager.waitForPendingMessages(session.id);
         }
 
         const userEntry = this.sessionManager.appendHistory(session.id, {
@@ -6905,6 +6926,7 @@ export class BridgeWebSocketServer {
                 permissionMode: msg.permissionMode ?? remembered?.permissionMode,
                 modeBeforePlan: remembered?.modeBeforePlan,
                 compactions: remembered?.compactions,
+                permissionGrants: remembered?.permissionGrants,
                 // Roots outside the allowed folders are left out.
                 additionalDirectories: this.normalizeAdditionalWritableRoots(
                   resumeAdditionalRoots,

@@ -31,7 +31,10 @@ import {
   type AntigravitySettings,
   type AntigravityStartOptions,
 } from "./antigravity-process.js";
-import type { AntigravityCompactionRecord } from "./antigravity-store.js";
+import type {
+  AntigravityCompactionRecord,
+  AntigravityPermissionGrants,
+} from "./antigravity-store.js";
 import type {
   ServerMessage,
   ProcessStatus,
@@ -414,6 +417,9 @@ export class SessionManager {
   private onAntigravityCompaction:
     | ((claudeSessionId: string, record: AntigravityCompactionRecord) => void)
     | null = null;
+  private onAntigravityPermissionGrants:
+    | ((claudeSessionId: string, grants: AntigravityPermissionGrants) => void)
+    | null = null;
   private readonly idleSessionTtlMs: number;
   private idleEvictionTimer: ReturnType<typeof setInterval>;
 
@@ -431,6 +437,11 @@ export class SessionManager {
       pluginMetadata?: Array<Record<string, unknown>>;
     }
   >();
+
+  /** Returns true when async process message processing is currently queued or running. */
+  hasPendingMessages(sessionId: string): boolean {
+    return this.pendingMessageDrains.has(sessionId);
+  }
 
   /** Waits for any in-flight async process message processing (e.g. image registration) on a session. */
   async waitForPendingMessages(sessionId: string): Promise<void> {
@@ -450,6 +461,15 @@ export class SessionManager {
       | null,
   ): void {
     this.onAntigravityCompaction = handler;
+  }
+
+  /** Receives Antigravity session-scoped permission grants for persistence across resumes. */
+  setAntigravityPermissionGrantsHandler(
+    handler:
+      | ((claudeSessionId: string, grants: AntigravityPermissionGrants) => void)
+      | null,
+  ): void {
+    this.onAntigravityPermissionGrants = handler;
   }
 
   constructor(
@@ -1017,6 +1037,13 @@ export class SessionManager {
         const providerSessionId = session.claudeSessionId ?? proc.sessionId;
         if (providerSessionId) {
           this.onAntigravityCompaction?.(providerSessionId, record);
+        }
+      });
+      proc.on("permission_grants", (grants) => {
+        if (this.sessions.get(id) !== session) return;
+        const providerSessionId = session.claudeSessionId ?? proc.sessionId;
+        if (providerSessionId) {
+          this.onAntigravityPermissionGrants?.(providerSessionId, grants);
         }
       });
     }

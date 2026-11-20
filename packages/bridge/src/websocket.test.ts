@@ -153,6 +153,10 @@ vi.mock("./session.js", () => ({
 
     setAssistantImageResolver(): void {}
     setAntigravityCompactionHandler(): void {}
+    setAntigravityPermissionGrantsHandler(): void {}
+    hasPendingMessages(): boolean {
+      return false;
+    }
 
     create(
       projectPath: string,

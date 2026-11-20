@@ -10,6 +10,7 @@ import {
   describeAcpTool,
   elicitationContentFromAnswer,
   elicitationFieldsFromSchema,
+  extractAntigravityCommandGrantKey,
   extractGeneratedImagePaths,
   resolveAntigravityConfig,
   type AntigravityConfig,
@@ -1099,6 +1100,106 @@ describe("AntigravityProcess always allow", () => {
     expect(ofType(messages, "permission_request")).toHaveLength(2);
   });
 
+  it("generalizes safe single commands by prefix like agy CLI and keeps unsafe forms exact", async () => {
+    expect(extractAntigravityCommandGrantKey("git push origin ios/v1.0.0")).toBe(
+      "prefix:git push",
+    );
+    expect(
+      extractAntigravityCommandGrantKey("git push origin android/v1.0.0"),
+    ).toBe("prefix:git push");
+    expect(
+      extractAntigravityCommandGrantKey("git -C /repo/wt add file.ts"),
+    ).toBe("prefix:git -C /repo/wt add");
+    expect(
+      extractAntigravityCommandGrantKey("git -C /repo/other add file.ts"),
+    ).toBe("prefix:git -C /repo/other add");
+    expect(extractAntigravityCommandGrantKey("dart format lib/a.dart")).toBe(
+      "prefix:dart format",
+    );
+    expect(
+      extractAntigravityCommandGrantKey("gh run view 12345 --json jobs"),
+    ).toBe("prefix:gh run view");
+    expect(
+      extractAntigravityCommandGrantKey("gh run rerun 12345 --failed"),
+    ).toBe("prefix:gh run rerun");
+    expect(
+      extractAntigravityCommandGrantKey(
+        "node scripts/release/monitor.mjs preflight --sha abc",
+      ),
+    ).toBe("prefix:node scripts/release/monitor.mjs");
+    expect(
+      extractAntigravityCommandGrantKey("bash scripts/release/run-checks.sh"),
+    ).toBe("prefix:bash scripts/release/run-checks.sh");
+    expect(
+      extractAntigravityCommandGrantKey("bash -c 'echo hi'"),
+    ).toBe("exact:bash -c 'echo hi'");
+    expect(
+      extractAntigravityCommandGrantKey("git push origin main && rm -rf /"),
+    ).toBe("exact:git push origin main && rm -rf /");
+    expect(
+      extractAntigravityCommandGrantKey("git push $(evil)"),
+    ).toBe("exact:git push $(evil)");
+    expect(extractAntigravityCommandGrantKey("rm -rf build")).toBe(
+      "exact:rm -rf build",
+    );
+    expect(extractAntigravityCommandGrantKey("sudo git push origin main")).toBe(
+      "exact:sudo git push origin main",
+    );
+
+    const { proc, transport, messages } = await startSession();
+    const emittedGrants: Array<Record<string, unknown>> = [];
+    proc.on("permission_grants", (grants) => emittedGrants.push(grants as Record<string, unknown>));
+
+    proc.sendInput("push tags");
+    ask(transport, "1", run("t1", "git push origin ios/v1.171.0+321"));
+    expect(proc.approveAlways("t1")).toBe(true);
+    expect(emittedGrants.at(-1)).toEqual({
+      commands: ["prefix:git push"],
+    });
+
+    // Another tag push with the same safe prefix is auto-approved.
+    ask(transport, "2", run("t2", "git push origin android/v1.171.0+321"));
+    expect(transport.written.at(-1)).toMatchObject({
+      id: "2",
+      result: { outcome: { optionId: "allow" } },
+    });
+    expect(ofType(messages, "permission_request")).toHaveLength(1);
+
+    // Chained or different subcommands still prompt.
+    ask(transport, "3", run("t3", "git push origin main && rm -rf build"));
+    ask(transport, "4", run("t4", "git reset --hard HEAD"));
+    expect(ofType(messages, "permission_request")).toHaveLength(3);
+  });
+
+  it("restores previously granted commands, edits, and MCP tools on resume", async () => {
+    const { proc, transport, messages } = await startSession(
+      { "session/load": SESSION },
+      {
+        sessionId: "conv-grants",
+        permissionGrants: {
+          allowEdits: true,
+          commands: ["prefix:dart format"],
+          mcpTools: ["marionette/tap"],
+        },
+      },
+    );
+    proc.sendInput("continue");
+    ask(transport, "1", run("c1", "dart format apps/mobile/lib/main.dart"));
+    ask(transport, "2", { toolCallId: "e1", kind: "edit" });
+    ask(transport, "3", {
+      toolCallId: "m1",
+      name: "call_mcp_tool",
+      kind: "execute",
+      rawInput: { ServerName: "marionette", ToolName: "tap", Arguments: {} },
+    });
+    expect(ofType(messages, "permission_request")).toHaveLength(0);
+    expect(transport.written.slice(-3)).toMatchObject([
+      { id: "1", result: { outcome: { optionId: "allow" } } },
+      { id: "2", result: { outcome: { optionId: "allow" } } },
+      { id: "3", result: { outcome: { optionId: "allow" } } },
+    ]);
+  });
+
   it("allows every later file edit once edits were allowed for the session", async () => {
     const { proc, transport, messages } = await startSession();
     proc.sendInput("go");
@@ -2143,5 +2244,31 @@ describe("AntigravityProcess image-generator subagent", () => {
     });
     expect(proc.status).toBe("idle");
     expect(proc.isTurnActive).toBe(false);
+  });
+
+  it("flushes buffered assistant output before a newly sent prompt", async () => {
+    const { proc, messages, update } = await startSession();
+    proc.sendInput("first");
+    update({
+      sessionUpdate: "agent_thought_chunk",
+      content: { text: "prior thinking" },
+    });
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { text: "prior partial reply" },
+    });
+
+    // Flushing before recording the next user turn keeps prior output ahead of it.
+    proc.flushPendingOutput();
+    const assistantsAfterFlush = ofType(messages, "assistant");
+    expect(assistantsAfterFlush).toHaveLength(1);
+    expect(assistantsAfterFlush[0].message.content).toEqual([
+      { type: "thinking", thinking: "prior thinking" },
+      { type: "text", text: "prior partial reply" },
+    ]);
+
+    // A second flush / next prompt does not re-emit the already flushed content.
+    proc.sendInput("second");
+    expect(ofType(messages, "assistant")).toHaveLength(1);
   });
 });
