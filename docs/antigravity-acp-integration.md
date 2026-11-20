@@ -189,7 +189,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **「まだ続きがあるか」の見分け方**（完了通知をまとめるための調査。実装は「Bridge」の節）: ターンの終わりに (1) 閉じていないツール呼び出しがある、または (2) バックグラウンドの呼び出しが直前に閉じた、のどちらかなら続きがある。本番の 1 セッション（ターンの終わり 10 回）では、9 回の途中の区切りと最後の 1 回をすべて言い当てた（監視ログからの集計で、呼び出しの対応はツール名で近似）。ただし途中 9 回のうち 5 回は、開いていたのが起動したままの検証アプリ（`flutter run`）と思われ、実際に続きを知らせていたのは直前に切れたタイマーだった。終わらないコマンドを残したまま作業を終えると (1) は「続きがある」と誤る。
 - **MCP ツール**は `name: "call_mcp_tool"`、`kind: "execute"`、`title: "MCP Tool <ツール名>"`、`rawInput: {ServerName, ToolName, Arguments}` で届く（`Arguments` はオブジェクト。`agy` の記録では JSON 文字列のこともある）。
 - **MCP ツールは `auto` でも承認を求める。** `auto` が自動で通すのはワークスペース内の編集とサンドボックス内のコマンドで、許可ルールのない MCP ツールは Ask になる（公式ドキュメントの記述。本番では 4 回とも別のツールで、同じツールの 2 回目は観測していない）。ACP の選択肢は `allow_once` / `reject_once` だけなので、承認しても `agy` 側には残らない。
-- **許可ルールの保存先**は `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow`（Antigravity アプリと共有。`--app-data-dir` のプロファイルを問わず効く）。`mcp(<サーバー>/<ツール>)` と `mcp(<サーバー>/*)` が書ける。`mcp(dart-mcp/*)` を足すと承認リクエストなしで実行された（APIキーのプロファイルで 1 回。Google ログインのプロファイルと、起動済みのセッションへの反映は未確認）。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
+- **許可ルールの保存先**はグローバル設定 `~/.gemini/config/config.json`（`userSettings.globalPermissionGrants.allow`）またはプロジェクト単位の `~/.gemini/config/projects/<UUID>.json`（`v2Migrated: true` と `permissionGrants.allow`）。Antigravity アプリと共有され、`--app-data-dir` のプロファイルを問わず効く。`mcp(<サーバー>/<ツール>)`、`mcp(<サーバー>/*)`、`command(<プレフィックス>)`、`unsandboxed(<プレフィックス>)`、`read_file(<ディレクトリ>)`、`read_url(<URL>)`、`search_web` が書ける。注意として、`command(...)` / `unsandboxed(...)` のプレフィックス一致は単一コマンドでのみ効き、`;`・`&&`・`||`・`$(...)`・変数展開などの複合シェル構文を含むコマンドは文字列全体の完全一致にフォールバックして Ask になる。プロファイルの `settings.json` に `permissions.allow` を書いても効かなかった。
 - **ワークスペース外の読み取り**（`read_file`）も `auto` で承認を求める。`read_file(<ディレクトリの絶対パス>)` で、その配下の読み取りが承認なしになる。効くのはディレクトリの完全指定だけで、名前の前方一致（`.../work.madogiwa.madogiwaFrontier` で `...madogiwaFrontier.verify.credits` を許可する）、`*`、`regex:` は効かなかった（APIキーのプロファイルで各 1 回）。
 - セッション開始直後は MCP サーバーの起動が間に合わず、モデルに `call_mcp_tool` が見えないことがある。
 
@@ -214,7 +214,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 ### Bridge
 
 - [antigravity-process.ts](../packages/bridge/src/antigravity-process.ts): `agy acp` の起動、ACP の往復、Bridge メッセージへの変換。`CodexProcess` / `SdkProcess` と同じイベント（`message` / `status` / `exit` / `input_ready`）を出す。
-  - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から unified diff を作る）。
+  - ツール呼び出しは既存の表示に合わせる。コマンド実行は `Bash`、ファイル編集は `FileChange`（`oldText` / `newText` から共通 prefix/suffix を O(N) で分離した上で unified diff を作る）。ツール完了時の `content` に画像ブロック（スクリーンショット等）が含まれる場合は `rawContentBlocks` として渡し、画像表示とギャラリー登録につなげる。
   - 承認リクエストは、コマンド・ファイル編集・MCP ツールに `availableDecisions: ["accept", "acceptForSession", "decline"]` を付ける（それ以外のツールは `accept` / `decline`）。
   - 拒否・キャンセル時は `tool_result`（`permissionOutcome: "rejected"`）を出す。`agy` は拒否後に何も言わずターンを終えるため。
   - モードは Claude と同じ `PermissionMode`（`default` / `acceptEdits` / `auto` / `plan`）に対応づける。
@@ -228,13 +228,15 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - バックグラウンドの呼び出しが閉じたら、`agy` の出力を待たずに `running` にする（出力が届くまで 2〜8 秒あるため）。30 秒何も届かなければ、`result` を出さずに `idle` へ戻す。
   - 完了の push 通知は、`agy` が自分で続きを始める見込みがある間は保留する（`AntigravityProcess.expectsFollowUp`。保留と解放は Claude と同じ `BackgroundCompletionGate`）。見込みがあるのは、タイマーが残っている間と、バックグラウンドのコマンドが残っていてターンの終わりから 5 分以内の間。5 分を過ぎたコマンドは終わらないもの（開発サーバーなど）とみなし、保留していた最後の完了を通知する。Claude はシェルでは保留しないが、`agy` はコマンドが終わると必ずモデルを起こすので扱いを変えている。画面の完了表示と状態はこれまでどおり出る。
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
-  - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
-  - 読み取り・検索・取得のツールは `Read` / `Grep` / `WebSearch` / `WebFetch` として出す。`brain/` 配下の文書はファイル名だけで表示する。
+  - plan モードのターンが計画の文書を書いて終わったら、本文用の `ExitPlanMode`（`assistant` の `tool_use`）と `ExitPlanMode` の承認リクエストを出して `PlanCard` を表示する。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
+  - 読み取り・検索・取得のツールは `Read`（`StartLine`/`EndLine` を `offset`/`limit` に変換） / `Grep` / `WebSearch` / `WebFetch` として出す。ワークスペース配下は相対パス、`brain/` 配下の文書はファイル名だけで表示する。
   - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。
-  - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れ、ターンの終わりに1回だけ送る（モデル呼び出しのたびに届くため）。
+  - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れる。実行中はターンの終わりにまとめて送り、アイドル中（`session/load` 完了直後など）は即時に送る。
+  - コンテキスト圧縮は、`/compact` 送信時に `status: "compacting"` を出してターン完了時に `context_compaction`（`trigger: "manual"`）を生成するほか、通常ターン中の `usage_update` の大幅減少から自動圧縮（`trigger: "auto"`）も検知する。記録した圧縮境界は `session/load` 再生時にも同じターン位置で再送する。
+  - 過去履歴閲覧（`get_session_transcript` / 「以前のやり取りを見る」）は、稼働中・再開済みセッションでは未トリムの `SessionInfo.antigravityTranscript` から返し、未ロードの過去セッションでは `~/.gemini/<プロファイル>/brain/<セッションID>/.system_generated/logs/transcript_full.jsonl`（なければ `transcript.jsonl`）から読み取る。
   - `result` に `thoughtTokens`、`duration`、`toolCalls`、`fileEdits` を付ける。
-- [antigravity-store.ts](../packages/bridge/src/antigravity-store.ts): `agy` が持たない情報（ccpocket で付けた名前、最後に使ったモデル）を `~/.ccpocket/antigravity-sessions.json` に保存する。再開時にモデルを戻し、最近のセッション一覧に名前を反映する。
-- [antigravity-sessions.ts](../packages/bridge/src/antigravity-sessions.ts): 短命の `agy acp` で `session/list` を呼び、最近のセッション一覧に載せる（15 秒キャッシュ）。
+- [antigravity-store.ts](../packages/bridge/src/antigravity-store.ts): `agy` が `session/load` で戻さない情報（ccpocket で付けた名前、最後に使ったモデル、`permissionMode`、`modeBeforePlan`、コンテキスト圧縮境界 `compactions`）を `~/.ccpocket/antigravity-sessions.json` に保存し、再開時や最近のセッション一覧に反映する。
+- [antigravity-sessions.ts](../packages/bridge/src/antigravity-sessions.ts): 短命の `agy acp` で `session/list` を呼び、最近のセッション一覧に載せる（15 秒キャッシュ）。Worktree 配下のセッションはメインリポジトリの `projectPath` に正規化し（`WorktreeStore` またはパス規約）、Worktree が削除済みでも `resume_session` 時にメインリポジトリのパスへ自動フォールバックして再開できるようにする。`resolve_session_link` にも対応する。
 - 環境変数:
 
 | 変数 | 意味 |
@@ -267,9 +269,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 ### 制約
 
-- 再開（`session/load`）するとモデルが `agy` の既定に戻るため、Bridge が保存しておいたモデルを設定し直す。Bridge を通さずに使った会話は既定のモデルで再開する。
-- 最近のセッション一覧で Antigravity の行が混ざるのは先頭ページだけ。タイトル検索とプロジェクトパスの絞り込みには対応する。プロジェクト ID、ピン留めのみ、名前付きのみ、日付の絞り込みには出ない。プロバイダーを Antigravity に絞った一覧はページ送りできる。
-- Antigravity の会話にはピン留めがない。
+- 再開（`session/load`）するとモデルと承認モードが `agy` の既定に戻るため、Bridge が保存しておいたモデル・承認モード（`bypassPermissions` や plan 前のモードを含む）を設定し直す。Bridge を通さずに使った会話は既定のモデル・モードで再開する。
+- 最近のセッション一覧で Antigravity の行が混ざるのは（プロバイダー未指定時は）先頭ページだけ。タイトル検索・プロジェクトパス・マルチフォルダプロジェクト（`projectId`）・ピン留めのみ・名前付きのみ・期間の絞り込み、および会話ごとのピン留めに対応する。プロバイダーを Antigravity に絞った一覧はページ送りできる。
 - 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）、巻き戻し、フォーク、メッセージ編集はできない（ACP に手段がない）。
 - プランの利用枠（5 時間 / 週）は Google ログインのときだけ表示する（下記「利用量」）。APIキーではプランの枠がないので、認証方式・`agy` のバージョン・セッションごとのコンテキスト使用量だけを出す。
 - 費用（USD）は出ない。`agy` が金額を返さない。
@@ -281,8 +282,10 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - 3 つ目のチャット画面は作らず、Claude 用の画面を使う（モードが Claude の権限モードにそのまま対応するため）。
 - 新規セッションの Antigravity タブ、プロバイダーフィルター、モデル切替は、Bridge が `antigravity_v1` を宣言しているときだけ出す。
 - `antigravity_v2` の Bridge では、新規セッション画面でモデルの系統・思考レベル・承認モード（アカウントで使えるもの）を選べる。一覧は画面を開くたびに `get_antigravity_catalog` で取る。古い Bridge では承認モード 3 種だけを出し、モデルは開始後に切り替える。
-- チャット画面のモデルのチップは「系統 · 思考レベル」を表示し、シートで両方を切り替える。
-- 上部の使用量バーにトークン、所要時間、コンテキスト使用率を出す。セッション一覧のカードにもコンテキスト使用率を出す。
+- チャット画面のモデルのチップは「系統 · 思考レベル」を表示し、シートで両方を切り替える（思考レベルを持たないモデルへ切り替えたときは `thoughtLevel` をクリアする）。
+- チャット画面の実行中は、思考ストリーミング中に `ThinkingBubble` をライブ表示し、最下部に現在実行中のツールまたは思考状態のアクティビティバー（`Thinking...` / `Running: ...` / `Editing ...` 等）を出す。結果が `Done` のみの冗長な `Read` 結果行は非表示にする。
+- 上部の使用量バーにトークン（`thought` トークンを含む）、所要時間、コンテキスト使用率を横スクロール可能な形で出す。セッション一覧のカードにもコンテキスト使用率を出す。
+- 承認バーの「常に許可」ボタンは、Antigravity ではセッション内のみ有効であることを示すため「セッション中許可」（`approveSessionMain`）のラベルを使う。
 - 設定の利用量の欄に、プラン名・認証方式・`agy` のバージョンを出す。
 - 設定の「エージェント」に、新規セッション画面へ Antigravity のタブを出すかどうかの切替がある（既定はオン）。既存の会話の一覧表示には影響しない。タブの順序の設定で Antigravity の位置も並べ替えられる（保存済みのタブ一覧に `antigravity` が位置として入る。Codex / Claude と違い、有効・無効はこの一覧では決まらない）。
 
