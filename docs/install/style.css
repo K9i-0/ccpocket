@@ -274,6 +274,10 @@ h1 {
   color: var(--accent);
   font-size: 28px;
 }
+.antigravity-mark {
+  color: #8ab4f8;
+  font-size: 22px;
+}
 .agent-divider {
   height: 18px;
   width: 1px;

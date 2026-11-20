@@ -15,7 +15,7 @@ CC Pocket app
   <-> JSON WebSocket protocol
 Bridge Server on the user's machine
   <-> local agent tools, shell, git repository, filesystem
-Codex / Claude
+Codex / Claude / Antigravity
 ```
 
 The Bridge Server runs on the machine that has access to the project. The app is
@@ -130,7 +130,7 @@ The app and Bridge communicate over a JSON WebSocket protocol.
 
 Common client-to-server messages:
 
-- `start`: start a new Codex or Claude session
+- `start`: start a new Codex, Claude, or Antigravity session
 - `input`: send user text or attachments
 - `approve` / `reject`: answer permission requests
 - `answer`: answer agent questions
