@@ -22,6 +22,7 @@ import '../../../services/bridge_service.dart';
 import '../../../services/performance_probe_extension.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_theme.dart';
+import '../../../utils/codex_plan_update.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
@@ -189,6 +190,7 @@ Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
 
 @visibleForTesting
 ToolUseContent? findLatestIncompleteToolUse(List<ChatEntry> entries) {
+  const terminalStatuses = {'completed', 'failed', 'declined', 'cancelled'};
   final completedToolIds = <String>{};
   for (var i = entries.length - 1; i >= 0; i--) {
     final entry = entries[i];
@@ -202,16 +204,49 @@ ToolUseContent? findLatestIncompleteToolUse(List<ChatEntry> entries) {
     }
     if (message is AssistantServerMessage) {
       final contents = message.message.content;
+      var hasVisibleText = false;
       for (var j = contents.length - 1; j >= 0; j--) {
         final content = contents[j];
-        if (content is ToolUseContent &&
-            !completedToolIds.contains(content.id)) {
-          return content;
+        if (content is TextContent && content.text.trim().isNotEmpty) {
+          hasVisibleText = true;
+          continue;
+        }
+        if (content is ToolUseContent) {
+          if (isCodexUpdatePlanTool(content.name)) continue;
+          final rawStatus = content.input['status'];
+          if (rawStatus is String &&
+              terminalStatuses.contains(rawStatus.toLowerCase())) {
+            continue;
+          }
+          if (!completedToolIds.contains(content.id)) {
+            return content;
+          }
         }
       }
+      // Once a newer assistant response has emitted text, any earlier
+      // unclosed tool_use from a previous round is no longer active.
+      if (hasVisibleText) break;
     }
   }
   return null;
+}
+
+String _truncateActivityHint(String text, {int maxChars = 48}) {
+  return text.length > maxChars
+      ? '${text.substring(0, maxChars - 3)}...'
+      : text;
+}
+
+String _withTrailingEllipsis(String text) {
+  final trimmed = text.trim();
+  if (trimmed.endsWith('...') || trimmed.endsWith('…')) return trimmed;
+  if (trimmed.endsWith('.')) return '$trimmed..';
+  return '$trimmed...';
+}
+
+String _appendElapsedSuffix(String label, int? elapsedSeconds) {
+  if (elapsedSeconds == null || elapsedSeconds < 2) return label;
+  return '$label · ${elapsedSeconds}s';
 }
 
 @visibleForTesting
@@ -247,7 +282,12 @@ String formatAgentActivityLabel(ToolUseContent tool) {
   final name = tool.name;
   if (name == 'Bash') {
     final desc = nonEmptyString(tool.input['description']);
-    return desc != null ? 'Running: $desc...' : 'Running command...';
+    if (desc != null) return 'Running: ${_truncateActivityHint(desc)}...';
+    final cmd = nonEmptyString(tool.input['command'] ?? tool.input['cmd']);
+    if (cmd != null) {
+      return 'Running: ${_truncateActivityHint(cmd, maxChars: 36)}...';
+    }
+    return 'Running command...';
   }
   if (name == 'Read') {
     final base = extractBasename(tool.input);
@@ -258,20 +298,61 @@ String formatAgentActivityLabel(ToolUseContent tool) {
       name == 'Edit' ||
       name == 'MultiEdit' ||
       name == 'FileEdit' ||
-      name == 'NotebookEdit') {
+      name == 'NotebookEdit' ||
+      name == 'apply_patch') {
     final base = extractBasename(tool.input);
     return base != null ? 'Editing $base...' : 'Editing files...';
   }
-  if (name == 'Grep' || name == 'Glob') {
-    return 'Searching files...';
+  if (name == 'Grep') {
+    final pattern = nonEmptyString(tool.input['pattern']);
+    return pattern != null
+        ? 'Searching "${_truncateActivityHint(pattern, maxChars: 30)}"...'
+        : 'Searching files...';
+  }
+  if (name == 'Glob') {
+    final pattern = nonEmptyString(tool.input['pattern']);
+    return pattern != null
+        ? 'Finding ${_truncateActivityHint(pattern, maxChars: 30)}...'
+        : 'Searching files...';
   }
   if (name == 'WebSearch') {
-    return 'Searching web...';
+    final query = nonEmptyString(tool.input['query']);
+    return query != null
+        ? 'Searching web: ${_truncateActivityHint(query, maxChars: 36)}...'
+        : 'Searching web...';
   }
   if (name == 'WebFetch') {
     return 'Fetching URL...';
   }
-  if (name == 'Task' || name == 'invoke_subagent' || name == 'Agent') {
+  if (name == 'ImageGeneration') {
+    return 'Generating image...';
+  }
+  if (name == 'TodoWrite') {
+    final todos = tool.input['todos'];
+    if (todos is List) {
+      for (final item in todos) {
+        if (item is Map && item['status'] == 'in_progress') {
+          final active = nonEmptyString(item['activeForm'] ?? item['content']);
+          if (active != null) {
+            return _withTrailingEllipsis(_truncateActivityHint(active));
+          }
+        }
+      }
+    }
+    return 'Updating tasks...';
+  }
+  if (name == 'Task' ||
+      name == 'invoke_subagent' ||
+      name == 'Agent' ||
+      name == 'SubAgent') {
+    final desc = nonEmptyString(
+      tool.input['description'] ?? tool.input['role'],
+    );
+    if (desc != null) {
+      return 'Subagent: ${_truncateActivityHint(desc, maxChars: 40)}...';
+    }
+    final subTool = nonEmptyString(tool.input['tool']);
+    if (subTool == 'wait') return 'Waiting for subagents...';
     return 'Running subagent...';
   }
   if (name.startsWith('mcp__')) {
@@ -283,13 +364,132 @@ String formatAgentActivityLabel(ToolUseContent tool) {
   }
   if (name.startsWith('mcp:')) {
     final toolPart = name
-        .split(':')
+        .substring(4)
+        .split(RegExp(r'[:/]'))
         .where((segment) => segment.isNotEmpty)
         .lastOrNull;
     return 'Running ${toolPart ?? name}...';
   }
   final trimmed = name.trim();
   return trimmed.isNotEmpty ? 'Running $trimmed...' : 'Working...';
+}
+
+@visibleForTesting
+String? resolveLiveAgentActivityLabel({
+  required ProcessStatus status,
+  required bool hasApproval,
+  required ToolUseContent? incompleteTool,
+  required AgentActivityInfo? activity,
+  required bool hasStreamingText,
+  required bool hasThinkingText,
+}) {
+  if (status != ProcessStatus.running || hasApproval) return null;
+
+  // 1. Model is actively streaming tool JSON arguments before assistant block commits.
+  if (activity != null && activity.preparingTool && activity.toolName != null) {
+    final syntheticInput = <String, dynamic>{
+      if (activity.toolHint != null) ...{
+        'file_path': activity.toolHint,
+        'description': activity.toolHint,
+        'query': activity.toolHint,
+        'pattern': activity.toolHint,
+      },
+    };
+    if (activity.toolHint != null) {
+      return formatAgentActivityLabel(
+        ToolUseContent(
+          id: activity.toolUseId ?? '',
+          name: activity.toolName!,
+          input: syntheticInput,
+        ),
+      );
+    }
+    final baseLabel = formatAgentActivityLabel(
+      ToolUseContent(
+        id: activity.toolUseId ?? '',
+        name: activity.toolName!,
+        input: const {},
+      ),
+    );
+    return baseLabel.startsWith('Running ')
+        ? 'Preparing ${baseLabel.substring(8)}'
+        : baseLabel;
+  }
+
+  // When text or thinking is visibly streaming in the bubble above, hide the bar.
+  if (hasStreamingText || hasThinkingText) return null;
+
+  // 2. Active incomplete tool call in transcript.
+  if (incompleteTool != null) {
+    final isSubagent =
+        incompleteTool.name == 'Task' ||
+        incompleteTool.name == 'Agent' ||
+        incompleteTool.name == 'SubAgent' ||
+        incompleteTool.name == 'invoke_subagent';
+    String label;
+    if (isSubagent && activity?.summary != null) {
+      label = _withTrailingEllipsis(
+        'Subagent: ${_truncateActivityHint(activity!.summary!)}',
+      );
+    } else if (incompleteTool.name.startsWith('mcp:') &&
+        activity?.summary != null &&
+        (activity!.toolUseId == null ||
+            activity.toolUseId == incompleteTool.id)) {
+      label = _withTrailingEllipsis(_truncateActivityHint(activity.summary!));
+    } else {
+      label = formatAgentActivityLabel(incompleteTool);
+    }
+    final matchingElapsed =
+        activity != null &&
+            (activity.toolUseId == null ||
+                activity.toolUseId == incompleteTool.id)
+        ? activity.elapsedSeconds
+        : null;
+    return _appendElapsedSuffix(label, matchingElapsed);
+  }
+
+  // 3. Ephemeral server-side activity (e.g. Lite/Performance mode, server WebSearch,
+  //    classifier task_summary, subagent summary, or redacted thinking token count).
+  if (activity != null) {
+    if (activity.summary != null && activity.toolName != null) {
+      final label = _withTrailingEllipsis(
+        '${_truncateActivityHint(activity.summary!, maxChars: 42)} (${activity.toolName})',
+      );
+      return _appendElapsedSuffix(label, activity.elapsedSeconds);
+    }
+    if (activity.toolName != null) {
+      final label = formatAgentActivityLabel(
+        ToolUseContent(
+          id: activity.toolUseId ?? '',
+          name: activity.toolName!,
+          input: activity.toolHint != null
+              ? {
+                  'file_path': activity.toolHint,
+                  'description': activity.toolHint,
+                  'query': activity.toolHint,
+                  'pattern': activity.toolHint,
+                }
+              : const {},
+        ),
+      );
+      return _appendElapsedSuffix(label, activity.elapsedSeconds);
+    }
+    if (activity.summary != null) {
+      return _appendElapsedSuffix(
+        _withTrailingEllipsis(_truncateActivityHint(activity.summary!)),
+        activity.elapsedSeconds,
+      );
+    }
+    final tokens = activity.thinkingTokens;
+    if (tokens != null && tokens > 0) {
+      final formatted = tokens >= 1000
+          ? '${(tokens / 1000).toStringAsFixed(1)}k'
+          : '$tokens';
+      return 'Thinking ($formatted tokens)...';
+    }
+  }
+
+  return 'Thinking...';
 }
 
 /// Tool-use IDs of `FileChange` results that duplicate an inline diff already
@@ -779,12 +979,18 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final streamingFlags = context
         .select<
           StreamingStateCubit,
-          ({bool isStreaming, bool hasText, bool hasThinking})
+          ({
+            bool isStreaming,
+            bool hasText,
+            bool hasThinking,
+            AgentActivityInfo? activity,
+          })
         >(
           (cubit) => (
             isStreaming: cubit.state.isStreaming,
             hasText: cubit.state.text.isNotEmpty,
             hasThinking: cubit.state.thinking.trim().isNotEmpty,
+            activity: cubit.state.activity,
           ),
         );
     final hasStreaming = streamingFlags.isStreaming;
@@ -796,6 +1002,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final activityLabel = _resolveActivityLabel(
       chatState: chatState,
       incompleteTool: derivedData.latestIncompleteToolUse,
+      activity: streamingFlags.activity,
       hasStreamingText: streamingFlags.hasText,
       hasThinkingText: streamingFlags.hasThinking,
     );
@@ -1175,6 +1382,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
         StatusMessage(:final status) => 'status:$status',
         SystemMessage(:final subtype, :final tipCode) =>
           'system:$subtype:$tipCode',
+        SessionRecapMessage(:final content) => 'recap:$content',
         _ => '${message.runtimeType}',
       },
       QuestionAnswerChatEntry(:final toolUseId) => 'question_answer:$toolUseId',
@@ -1197,16 +1405,18 @@ class _ChatMessageListState extends State<ChatMessageList> {
   String? _resolveActivityLabel({
     required ChatSessionState chatState,
     required ToolUseContent? incompleteTool,
+    required AgentActivityInfo? activity,
     required bool hasStreamingText,
     required bool hasThinkingText,
   }) {
-    if (chatState.status != ProcessStatus.running) return null;
-    if (chatState.approval is! ApprovalNone) return null;
-    if (incompleteTool != null) {
-      return formatAgentActivityLabel(incompleteTool);
-    }
-    if (!hasStreamingText && !hasThinkingText) return 'Thinking...';
-    return null;
+    return resolveLiveAgentActivityLabel(
+      status: chatState.status,
+      hasApproval: chatState.approval is! ApprovalNone,
+      incompleteTool: incompleteTool,
+      activity: activity,
+      hasStreamingText: hasStreamingText,
+      hasThinkingText: hasThinkingText,
+    );
   }
 
   int _assistantContentKey(List<AssistantContent> contents) {

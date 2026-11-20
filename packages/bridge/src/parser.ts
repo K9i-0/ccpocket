@@ -111,7 +111,51 @@ export interface BackgroundTaskInfo {
   taskType: string;
   description?: string;
   subagentType?: string;
+  /** Live model/MCP progress summary for this task (`system/task_progress`). */
+  summary?: string;
+  /** Most recent tool invoked inside this task (`system/task_progress`). */
+  lastToolName?: string;
 }
+
+/**
+ * Ephemeral mid-turn live agent activity state. Opt-in via `agent_activity` in
+ * `supportedServerMessages`; `activity: null` clears any previously published
+ * mid-turn state.
+ */
+export interface AgentActivityState {
+  /** Human-readable live phrase (e.g. Claude `task_summary` / `task_progress` summary, Codex MCP progress). */
+  summary?: string;
+  /** Tool currently streaming its input JSON (`content_block_start`) or running (`tool_progress`). */
+  toolName?: string;
+  toolUseId?: string;
+  /** Short hint extracted while streaming tool JSON (`file_path`, `description`, `command`, `query`, `pattern`). */
+  toolHint?: string;
+  /** True while the model is still streaming tool JSON arguments (`content_block_start`). */
+  preparingTool?: boolean;
+  /** Elapsed tool execution seconds (`tool_progress`). */
+  elapsedSeconds?: number;
+  /** Estimated thinking tokens during redacted thinking (`system/thinking_tokens`). */
+  thinkingTokens?: number;
+  /** Low-level phase when no tool/summary is active (`requesting` = waiting for model response). */
+  phase?: "requesting";
+}
+
+export type AgentActivityMessage = {
+  type: "agent_activity";
+  sessionId?: string;
+  activity: AgentActivityState | null;
+};
+
+/**
+ * Claude session recap (`away_summary` or `/recap` command output). Opt-in via
+ * `session_recap` in `supportedServerMessages`.
+ */
+export type SessionRecapMessage = {
+  type: "session_recap";
+  content: string;
+  source?: "away_summary" | "recap_command";
+  timestamp?: string;
+};
 
 /** Task types that are agents rather than shells or monitors. */
 const AGENT_BACKGROUND_TASK_TYPES = new Set([
@@ -932,6 +976,8 @@ export type ServerMessage =
       olderHistoryAvailable?: boolean;
     }
   | ContextCompactionMessage
+  | AgentActivityMessage
+  | SessionRecapMessage
   | {
       type: "session_transcript";
       sessionId: string;

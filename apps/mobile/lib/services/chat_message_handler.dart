@@ -247,6 +247,12 @@ class ChatMessageHandler {
         );
       case ContextCompactionMessage():
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
+      case SessionRecapMessage(:final content):
+        if (content.trim().isEmpty) return const ChatStateUpdate();
+        return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
+      case AgentActivityMessage():
+        // Handled directly by StreamingStateCubit to avoid full state rebuilds.
+        return const ChatStateUpdate();
       case SessionTranscriptMessage():
         // Consumed by the transcript screen; not part of the chat.
         return const ChatStateUpdate();
@@ -460,12 +466,16 @@ class ChatMessageHandler {
       // PermissionRequestMessage arrives before StatusMessage(waitingApproval)
       // and an intervening StatusMessage(running) would clear the pending state.
       resetPending = true;
+      currentStreaming = null;
+      currentThinkingText = '';
     } else {
       resetPending = false;
     }
     return ChatStateUpdate(
       status: status,
       resetPending: resetPending,
+      resetStreaming:
+          status == ProcessStatus.idle || status == ProcessStatus.starting,
       sideEffects: effects,
     );
   }
@@ -577,7 +587,8 @@ class ChatMessageHandler {
 
     return ChatStateUpdate(
       entriesToAdd: [entry],
-      resetStreaming: replaceStreaming != null,
+      resetStreaming:
+          replaceStreaming != null || accumulatedThinking.isNotEmpty,
       markUserMessagesSent: true,
       askToolUseId: askToolUseId,
       askInput: askInput,
@@ -599,6 +610,8 @@ class ChatMessageHandler {
           : null;
       if (m.compaction case final compaction?) {
         entries.add(ServerChatEntry(compaction, timestamp: ts));
+      } else if (m.recap case final recap? when recap.content.isNotEmpty) {
+        entries.add(ServerChatEntry(recap, timestamp: ts));
       } else if (m.role == 'tool_result') {
         entries.add(
           ServerChatEntry(
@@ -699,7 +712,9 @@ class ChatMessageHandler {
       } else if (m is ConversationQueueMessage) {
         queuedInput = m.items.isNotEmpty ? m.items.first : null;
         clearQueuedInput = m.items.isEmpty;
-      } else if (m is InputAckMessage || m is InputRejectedMessage) {
+      } else if (m is InputAckMessage ||
+          m is InputRejectedMessage ||
+          m is AgentActivityMessage) {
         // Runtime cache may contain transient acknowledgements. They should
         // not become visible history entries during cache restoration.
         continue;
@@ -1033,8 +1048,9 @@ class ChatMessageHandler {
         if (effect != null) effects.add(effect);
       }
     }
+    currentStreaming = null;
+    currentThinkingText = '';
     if (isStopped) {
-      currentStreaming = null;
       effects.add(ChatSideEffect.clearPlanFeedback);
     }
     return ChatStateUpdate(
@@ -1043,7 +1059,7 @@ class ChatMessageHandler {
       costDelta: cost,
       resetPending: isStopped,
       resetAsk: isStopped,
-      resetStreaming: isStopped,
+      resetStreaming: true,
       inPlanMode: isStopped
           ? false
           : (isCodex && subtype == 'success')

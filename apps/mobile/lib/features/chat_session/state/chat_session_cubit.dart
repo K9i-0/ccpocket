@@ -790,7 +790,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     // --- Streaming state (separate cubit) ---
-    if (update.resetStreaming) {
+    if (originalMsg is AgentActivityMessage) {
+      _streamingCubit.setActivity(originalMsg.activity);
+      return;
+    }
+
+    if (originalMsg is AssistantServerMessage) {
+      _handler.currentStreaming = null;
+      _streamingCubit.clearStream();
+    } else if (update.resetStreaming) {
       _handler.currentStreaming = null;
       _streamingCubit.reset();
     }
@@ -808,12 +816,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // --- Build new entries list ---
     var entries = current.entries;
     var didModifyEntries = false;
-
-    // When assistant message arrives and streaming was active, reset streaming
-    if (originalMsg is AssistantServerMessage &&
-        _handler.currentStreaming == null) {
-      _streamingCubit.reset();
-    }
 
     // Past history is a snapshot. Replace the previous past slice so a refresh
     // cannot transiently duplicate every old message in the viewport.
@@ -1791,7 +1793,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           entry.message is! InputAckMessage &&
           entry.message is! InputRejectedMessage &&
           entry.message is! ConversationQueueMessage &&
-          entry.message is! BackgroundTasksMessage;
+          entry.message is! BackgroundTasksMessage &&
+          entry.message is! AgentActivityMessage;
     }
     return false;
   }

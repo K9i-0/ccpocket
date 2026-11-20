@@ -40,6 +40,7 @@ import type {
   QueuedInputItem,
   CodexGoal,
   BackgroundTaskInfo,
+  AgentActivityState,
 } from "./parser.js";
 import { isAgentBackgroundTask } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
@@ -137,6 +138,8 @@ export interface SessionInfo {
   codexGoal?: CodexGoal | null;
   /** Live Claude background tasks. Kept out of chat history. */
   backgroundTasks?: BackgroundTaskInfo[];
+  /** Ephemeral mid-turn live agent activity state. Kept out of chat history. */
+  agentActivity?: AgentActivityState | null;
   /** Synthetic Codex user UUIDs waiting for their app-server echo. */
   pendingCodexUserEchoUuids?: Set<string>;
   /** Raw Codex app-server user item ids mapped to valid ccpocket turn UUIDs. */
@@ -599,6 +602,21 @@ export class SessionManager {
           session.backgroundTasks = msg.tasks;
           deliverProcessMessage({ ...msg, sessionId: session.id });
           return;
+        }
+
+        if (msg.type === "agent_activity") {
+          session.agentActivity = msg.activity;
+          if (!(proc instanceof AntigravityProcess && proc.isReplaying)) {
+            deliverProcessMessage({ ...msg, sessionId: session.id });
+          }
+          return;
+        }
+
+        if (
+          (msg.type === "status" && msg.status === "idle") ||
+          msg.type === "result"
+        ) {
+          session.agentActivity = null;
         }
 
         if (msg.type === "goal_state") {

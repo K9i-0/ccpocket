@@ -11,8 +11,10 @@ import {
   ACCEPT_EDITS_AUTO_APPROVE,
   extractTokenUsage,
   buildThinkingOptions,
+  extractStreamingToolHint,
   isFileEditToolName,
   sdkMessageToServerMessage,
+  sdkMessageToServerMessages,
   hasExplicitClaudeCredential,
   isClaudeOAuthOptInEnabled,
   canStartClaudeSdk,
@@ -237,15 +239,18 @@ describe("extractTokenUsage", () => {
 });
 
 describe("buildThinkingOptions", () => {
-  it("forces adaptive thinking for claude-opus-4-7", () => {
+  it("forces adaptive summarized thinking for claude-opus-4-7+", () => {
     expect(buildThinkingOptions("claude-opus-4-7")).toEqual({
-      thinking: { type: "adaptive" },
+      thinking: { type: "adaptive", display: "summarized" },
+    });
+    expect(buildThinkingOptions("claude-opus-4-8")).toEqual({
+      thinking: { type: "adaptive", display: "summarized" },
     });
   });
 
-  it("forces adaptive thinking for claude-opus-4-7[1m]", () => {
+  it("forces adaptive summarized thinking for claude-opus-4-7[1m]", () => {
     expect(buildThinkingOptions("claude-opus-4-7[1m]")).toEqual({
-      thinking: { type: "adaptive" },
+      thinking: { type: "adaptive", display: "summarized" },
     });
   });
 
@@ -3424,5 +3429,233 @@ describe("SdkProcess usage-limit notifications", () => {
     };
     await internal.processMessages(internal.authGeneration, Promise.resolve());
     expect(resets).toEqual([undefined, Date.parse(reset)]);
+  });
+});
+
+describe("Claude live activity, parallel tool results, and session recap", () => {
+  it("emits all parallel tool_result blocks from a single user message", () => {
+    const msgs = sdkMessageToServerMessages({
+      type: "user",
+      uuid: "u-parallel",
+      message: {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "t1", content: "first" },
+          { type: "tool_result", tool_use_id: "t2", content: "second" },
+          { type: "tool_result", tool_use_id: "t3", content: "third" },
+        ],
+      },
+    } as any);
+    expect(msgs).toEqual([
+      {
+        type: "tool_result",
+        toolUseId: "t1",
+        content: "first",
+        userMessageUuid: "u-parallel",
+      },
+      {
+        type: "tool_result",
+        toolUseId: "t2",
+        content: "second",
+        userMessageUuid: "u-parallel",
+      },
+      {
+        type: "tool_result",
+        toolUseId: "t3",
+        content: "third",
+        userMessageUuid: "u-parallel",
+      },
+    ]);
+  });
+
+  it("extracts partial JSON hints while tool inputs stream", () => {
+    expect(
+      extractStreamingToolHint('{"file_path":"/repo/apps/mobile/lib/main.dart","old'),
+    ).toBe("main.dart");
+    expect(
+      extractStreamingToolHint('{"description":"Run unit tests","command":"npm test"'),
+    ).toBe("Run unit tests");
+    expect(extractStreamingToolHint('{"partial":true')).toBeUndefined();
+  });
+
+  it("publishes live agent_activity across thinking_tokens, streaming tool JSON, tool_progress, task_progress, and clears on result", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "api_key";
+    internal._status = "running";
+    const messages: ServerMessage[] = [];
+    proc.on("message", (m) => messages.push(m));
+
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield { type: "system", subtype: "status", status: "requesting", session_id: "s1" };
+        yield {
+          type: "system",
+          subtype: "thinking_tokens",
+          estimated_tokens: 420,
+          estimated_tokens_delta: 420,
+          session_id: "s1",
+        };
+        yield {
+          type: "system",
+          subtype: "task_summary",
+          detail: "Inspecting bridge handlers",
+          session_id: "s1",
+        };
+        yield {
+          type: "stream_event",
+          parent_tool_use_id: null,
+          event: {
+            type: "content_block_start",
+            content_block: { type: "tool_use", id: "tu-edit", name: "Edit" },
+          },
+        };
+        yield {
+          type: "stream_event",
+          parent_tool_use_id: null,
+          event: {
+            type: "content_block_delta",
+            delta: {
+              type: "input_json_delta",
+              partial_json: '{"file_path":"/repo/src/sdk-process.ts"',
+            },
+          },
+        };
+        yield {
+          type: "assistant",
+          parent_tool_use_id: null,
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: "tu-edit",
+                name: "Edit",
+                input: { file_path: "/repo/src/sdk-process.ts" },
+              },
+            ],
+          },
+        };
+        yield {
+          type: "tool_progress",
+          tool_use_id: "tu-edit",
+          tool_name: "Edit",
+          parent_tool_use_id: null,
+          elapsed_time_seconds: 4.8,
+          session_id: "s1",
+        };
+        yield {
+          type: "system",
+          subtype: "task_progress",
+          task_id: "task-fg",
+          tool_use_id: "tu-agent",
+          description: "Explore codebase",
+          summary: "Scanning session handlers",
+          last_tool_name: "Grep",
+          usage: { total_tokens: 100, tool_uses: 2, duration_ms: 3000 },
+          session_id: "s1",
+        };
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          total_cost_usd: 0.01,
+          duration_ms: 5000,
+          session_id: "s1",
+        };
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    const activities = messages
+      .filter((m): m is Extract<ServerMessage, { type: "agent_activity" }> => m.type === "agent_activity")
+      .map((m) => m.activity);
+
+    expect(activities[0]).toEqual({ phase: "requesting" });
+    expect(activities).toContainEqual({ thinkingTokens: 400 });
+    expect(activities).toContainEqual({
+      thinkingTokens: 400,
+      summary: "Inspecting bridge handlers",
+    });
+    expect(activities).toContainEqual({
+      toolName: "Edit",
+      toolUseId: "tu-edit",
+      preparingTool: true,
+      toolHint: "sdk-process.ts",
+      summary: "Inspecting bridge handlers",
+    });
+    expect(activities).toContainEqual({
+      toolName: "Edit",
+      toolUseId: "tu-edit",
+      elapsedSeconds: 4,
+      summary: "Inspecting bridge handlers",
+    });
+    expect(activities).toContainEqual({
+      summary: "Scanning session handlers",
+      toolName: "Grep",
+      elapsedSeconds: 4,
+    });
+    expect(activities[activities.length - 1]).toBeNull();
+  });
+
+  it("converts away_summary and /recap stdout into session_recap messages", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal.authClassification = "api_key";
+    internal._status = "running";
+    const messages: ServerMessage[] = [];
+    proc.on("message", (m) => messages.push(m));
+
+    internal.queryInstance = {
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "system",
+          subtype: "away_summary",
+          content: "recap: Implemented live activity bar and verified unit tests.",
+          session_id: "s1",
+        };
+        yield {
+          type: "user",
+          parent_tool_use_id: null,
+          message: {
+            role: "user",
+            content: "<command-name>/recap</command-name>",
+          },
+        };
+        yield {
+          type: "user",
+          parent_tool_use_id: null,
+          message: {
+            role: "user",
+            content:
+              "<local-command-stdout>Session recap: Ready to push changes to main.</local-command-stdout>",
+          },
+        };
+        yield {
+          type: "result",
+          subtype: "success",
+          result: "",
+          duration_ms: 10,
+          session_id: "s1",
+        };
+      },
+    };
+
+    await internal.processMessages(internal.authGeneration, Promise.resolve());
+
+    const recaps = messages.filter((m) => m.type === "session_recap");
+    expect(recaps).toEqual([
+      expect.objectContaining({
+        type: "session_recap",
+        source: "away_summary",
+        content: "Implemented live activity bar and verified unit tests.",
+      }),
+      expect.objectContaining({
+        type: "session_recap",
+        source: "recap_command",
+        content: "Ready to push changes to main.",
+      }),
+    ]);
   });
 });

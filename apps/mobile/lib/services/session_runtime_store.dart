@@ -257,6 +257,7 @@ class SessionRuntimeStore {
 
   bool _shouldIgnore(ServerMessage message) {
     return message is SessionActivityMessage ||
+        message is AgentActivityMessage ||
         message is PastHistoryMessage ||
         message is SessionContextMessage ||
         message is StreamDeltaMessage ||

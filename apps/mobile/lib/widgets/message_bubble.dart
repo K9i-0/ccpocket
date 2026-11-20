@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../features/chat_session/widgets/context_compaction_card.dart';
+import '../features/chat_session/widgets/session_recap_card.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../features/chat_session/permission_transcript.dart';
@@ -239,6 +240,7 @@ class ServerMessageWidget extends StatelessWidget {
       GuardianApprovalMessage() ||
       ErrorMessage() ||
       ContextCompactionMessage() ||
+      SessionRecapMessage() ||
       OlderHistoryMarkerMessage() ||
       ContextCompactingMessage() ||
       ToolUseSummaryMessage() => true,
@@ -304,6 +306,8 @@ class ServerMessageWidget extends StatelessWidget {
         message: msg,
         onOpenTranscript: onOpenTranscript,
       ),
+      final SessionRecapMessage msg => SessionRecapCard(message: msg),
+      AgentActivityMessage() => const SizedBox.shrink(),
       OlderHistoryMarkerMessage() => OlderHistoryCard(
         onOpenTranscript: onOpenTranscript,
       ),

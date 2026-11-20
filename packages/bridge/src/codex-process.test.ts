@@ -5371,6 +5371,121 @@ describe("CodexProcess (app-server)", () => {
 
     proc.stop();
   });
+
+  it("emits mcptoolcall and websearch on item/started without duplicating assistant on item/completed, and forwards mcp progress", () => {
+    const proc = new CodexProcess();
+    const internal = proc as any;
+    const messages: Record<string, unknown>[] = [];
+    proc.on("message", (m) => messages.push(m as unknown as Record<string, unknown>));
+
+    internal.handleNotification("item/started", {
+      item: {
+        id: "ws-1",
+        type: "webSearch",
+        query: "claude code recap",
+      },
+    });
+    internal.handleNotification("item/completed", {
+      item: {
+        id: "ws-1",
+        type: "webSearch",
+        query: "claude code recap",
+      },
+    });
+
+    internal.handleNotification("item/started", {
+      item: {
+        id: "mcp-1",
+        type: "mcpToolCall",
+        server: "github",
+        tool: "search_issues",
+        arguments: { q: "live activity" },
+      },
+    });
+    internal.handleNotification("item/mcpToolCall/progress", {
+      itemId: "mcp-1",
+      message: "Fetching page 2 of issues",
+    });
+    internal.handleNotification("item/completed", {
+      item: {
+        id: "mcp-1",
+        type: "mcpToolCall",
+        server: "github",
+        tool: "search_issues",
+        arguments: { q: "live activity" },
+        result: { content: [{ type: "text", text: "found 3" }] },
+      },
+    });
+
+    const assistants = messages.filter((m) => m.type === "assistant");
+    expect(assistants).toHaveLength(2);
+    expect((assistants[0].message as any).content[0]).toMatchObject({
+      type: "tool_use",
+      id: "ws-1",
+      name: "WebSearch",
+      input: { query: "claude code recap" },
+    });
+    expect((assistants[1].message as any).content[0]).toMatchObject({
+      type: "tool_use",
+      id: "mcp-1",
+      name: "mcp:github/search_issues",
+      input: { q: "live activity" },
+    });
+
+    const activities = messages.filter((m) => m.type === "agent_activity");
+    expect(activities).toEqual([
+      {
+        type: "agent_activity",
+        activity: { summary: "Fetching page 2 of issues", toolUseId: "mcp-1" },
+      },
+      { type: "agent_activity", activity: null },
+    ]);
+  });
+
+  it("deduplicates streamed reasoning on item/completed and supports summaryPartAdded and string summaries", () => {
+    const proc = new CodexProcess();
+    const internal = proc as any;
+    const thinking: string[] = [];
+    proc.on("message", (m) => {
+      if (m.type === "thinking_delta") thinking.push(m.text);
+    });
+
+    internal.handleNotification("item/reasoning/summaryTextDelta", {
+      itemId: "r-1",
+      delta: "First thought",
+    });
+    internal.handleNotification("item/reasoning/summaryPartAdded", {
+      itemId: "r-1",
+      summaryIndex: 1,
+    });
+    internal.handleNotification("item/reasoning/summaryTextDelta", {
+      itemId: "r-1",
+      delta: "Second thought",
+    });
+    internal.handleNotification("item/completed", {
+      item: {
+        id: "r-1",
+        type: "reasoning",
+        summary: ["First thought", "Second thought"],
+      },
+    });
+
+    // Unstreamed reasoning item falls back to item/completed summary array.
+    internal.handleNotification("item/completed", {
+      item: {
+        id: "r-2",
+        type: "reasoning",
+        summary: ["Fallback part A", "Fallback part B"],
+      },
+    });
+
+    expect(thinking).toEqual([
+      "First thought",
+      "\n\n",
+      "Second thought",
+      "Fallback part A\nFallback part B",
+    ]);
+  });
 });
 
 function outgoingRequests(child: FakeChildProcess): Record<string, unknown>[] {
