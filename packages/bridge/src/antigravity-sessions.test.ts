@@ -7,6 +7,7 @@ import {
   antigravityRecentSessions,
   fetchAntigravityCatalog,
   listAntigravitySessions,
+  normalizeAntigravityCwd,
   readAntigravityTranscriptFile,
 } from "./antigravity-sessions.js";
 import { AntigravityStore } from "./antigravity-store.js";
@@ -74,6 +75,79 @@ describe("listAntigravitySessions", () => {
       "initialize",
       "session/list",
     ]);
+  });
+
+  it("normalizes Windows file-URI pathname cwds returned by agy acp", async () => {
+    const transport = new ListingTransport([
+      {
+        sessions: [
+          {
+            sessionId: "win-utf8",
+            cwd: "/D:/%E9%A1%B9%E7%9B%AE/%E8%BF%9C%E7%A8%8B%E6%8E%A7%E5%88%B6",
+            title: "UTF-8 Windows cwd",
+          },
+          {
+            sessionId: "win-ascii",
+            cwd: "/C:/Projects/my%20app/",
+          },
+          {
+            sessionId: "win-file-uri",
+            cwd: "file:///D:/%E9%A1%B9%E7%9B%AE/demo/",
+          },
+        ],
+      },
+    ]);
+    const entries = await listAntigravitySessions({
+      config: { bin: "agy", requireApiKey: false },
+      createTransport: () => transport,
+      platform: "win32",
+    });
+
+    expect(entries).toEqual([
+      {
+        sessionId: "win-utf8",
+        projectPath: "D:\\项目\\远程控制",
+        title: "UTF-8 Windows cwd",
+      },
+      {
+        sessionId: "win-ascii",
+        projectPath: "C:\\Projects\\my app",
+      },
+      {
+        sessionId: "win-file-uri",
+        projectPath: "D:\\项目\\demo",
+      },
+    ]);
+  });
+});
+
+describe("normalizeAntigravityCwd", () => {
+  it("decodes Windows file-URI pathnames and preserves literal percent signs in native paths", () => {
+    expect(
+      normalizeAntigravityCwd("/D:/%E9%A1%B9%E7%9B%AE/demo", "win32"),
+    ).toBe("D:\\项目\\demo");
+    expect(normalizeAntigravityCwd("/D:/", "win32")).toBe("D:\\");
+    expect(
+      normalizeAntigravityCwd("/D:/foo#1/bar%20baz", "win32"),
+    ).toBe("D:\\foo#1\\bar baz");
+    expect(
+      normalizeAntigravityCwd("/D:/foo/100%_done", "win32"),
+    ).toBe("D:\\foo\\100%_done");
+    expect(
+      normalizeAntigravityCwd("D:\\Projects\\100%20_literal", "win32"),
+    ).toBe("D:\\Projects\\100%20_literal");
+  });
+
+  it("leaves POSIX paths unchanged on macOS and Linux", () => {
+    expect(normalizeAntigravityCwd("/Users/alice/project", "darwin")).toBe(
+      "/Users/alice/project",
+    );
+    expect(
+      normalizeAntigravityCwd("/Users/alice/100%20done", "linux"),
+    ).toBe("/Users/alice/100%20done");
+    expect(
+      normalizeAntigravityCwd("file:///Users/alice/my%20app", "darwin"),
+    ).toBe("/Users/alice/my app");
   });
 });
 
