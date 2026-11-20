@@ -2,6 +2,24 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.112.0] - 2026-11-20
+
+### Added
+
+- Antigravity (preview): image generation through the `image-generator` subagent (Nano Banana) is surfaced as an `ImageGeneration` tool call, tracked as a background agent while running, and linked to the generated image card and gallery once the file is written.
+- Antigravity (preview): context compaction (`/compact` and automatic compaction detected from context usage drops) emits `context_compaction` boundaries and replays them when a conversation is resumed.
+- Antigravity (preview): full conversation transcripts (`get_session_transcript` / "View earlier messages") from the untrimmed session transcript or the stored Antigravity brain log on disk.
+- Antigravity (preview): recent session pinning, session link resolution (`resolve_session_link`), project/filter matching, and base64 image blocks in tool results.
+
+### Changed
+
+- Antigravity (preview): conversations remember their approval mode (including Bypass and the mode before Plan) across restarts, report context usage as soon as an idle session loads, and group worktree conversations under their main repository (falling back to the main repository path if the worktree was deleted).
+
+### Fixed
+
+- Antigravity (preview): large file edits compute minimal unified diffs in linear time instead of replacing the whole file past 2,000 lines, and plan reviews include the `ExitPlanMode` tool block so the plan card renders even without assistant prose.
+- Antigravity (preview): `session/load` populates history quietly before `session_created` instead of broadcasting every replayed message live, and trailing notifications before the first prompt no longer put a resumed session into a stuck running state.
+
 ## [1.111.0] - 2026-11-20
 
 ### Added
