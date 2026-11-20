@@ -126,6 +126,7 @@ class UsageSummaryBar extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('usage_summary_bar'),
       height: 22,
+      width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),

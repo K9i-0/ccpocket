@@ -755,7 +755,8 @@ export class SessionManager {
 
         if (
           session.claudeSessionId &&
-          session.claudeSessionId !== previousProviderSessionId
+          session.claudeSessionId !== previousProviderSessionId &&
+          !(proc instanceof AntigravityProcess && proc.isReplaying)
         ) {
           this.onSessionUpdated?.(session.id);
         }
@@ -896,9 +897,11 @@ export class SessionManager {
           }
         }
 
-        deliverProcessMessage(
-          this.buildLiveProcessMessage(session, historyMsg, mergedUserInput),
-        );
+        if (!(proc instanceof AntigravityProcess && proc.isReplaying)) {
+          deliverProcessMessage(
+            this.buildLiveProcessMessage(session, historyMsg, mergedUserInput),
+          );
+        }
 
         if (
           historyMsg.type === "permission_request" ||

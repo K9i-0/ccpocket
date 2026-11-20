@@ -242,9 +242,18 @@ class ServerMessageWidget extends StatelessWidget {
       OlderHistoryMarkerMessage() ||
       ContextCompactingMessage() ||
       ToolUseSummaryMessage() => true,
-      ToolResultMessage(:final toolUseId) => !hiddenToolUseIds.contains(
-        toolUseId,
-      ),
+      ToolResultMessage(
+        :final toolUseId,
+        :final toolName,
+        :final content,
+        :final images,
+        :final permissionOutcome,
+      ) =>
+        !hiddenToolUseIds.contains(toolUseId) &&
+            !(toolName == 'Read' &&
+                content.trim() == 'Done' &&
+                images.isEmpty &&
+                permissionOutcome == null),
       PermissionRequestMessage(:final toolName) =>
         toolName != 'ExitPlanMode' &&
             toolName != 'AskUserQuestion' &&
@@ -267,9 +276,9 @@ class ServerMessageWidget extends StatelessWidget {
         httpBaseUrl: httpBaseUrl,
         onFork: onForkMessage != null ? () => onForkMessage!(msg) : null,
       ),
-      // Hide tool results that are summarized by a tool_use_summary
+      // Hide tool results that are summarized by a tool_use_summary or are redundant
       final ToolResultMessage msg =>
-        hiddenToolUseIds.contains(msg.toolUseId)
+        !ServerMessageWidget.isVisible(msg, hiddenToolUseIds: hiddenToolUseIds)
             ? const SizedBox.shrink()
             : ToolResultBubble(
                 message: msg,

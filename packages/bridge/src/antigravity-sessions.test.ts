@@ -350,3 +350,27 @@ describe("readAntigravityTranscriptFile", () => {
     }
   });
 });
+
+describe("antigravityRecentSessions worktree normalization", () => {
+  it("normalizes worktree path and populates gitBranch", () => {
+    const entries = [
+      {
+        sessionId: "s1",
+        projectPath: "/project/.claude/worktrees/feat1",
+        updatedAt: "2026-11-20T00:00:00Z",
+      },
+    ];
+    // In unit test, normalizeWorktreePath will just strip `.claude/worktrees/feat1` 
+    // to `/project`. Since `/project/.claude/worktrees/feat1` doesn't exist on disk, 
+    // resumeCwd might be omitted unless mocked, but projectPath should be normalized.
+    
+    const worktrees = new Map([
+      ["s1", { projectPath: "/project", worktreePath: "/project/.claude/worktrees/feat1", worktreeBranch: "feat-branch" }]
+    ]);
+
+    const result = antigravityRecentSessions(entries, { worktrees });
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe("/project");
+    expect(result[0].gitBranch).toBe("feat-branch");
+  });
+});

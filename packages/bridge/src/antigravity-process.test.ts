@@ -2126,4 +2126,22 @@ describe("AntigravityProcess image-generator subagent", () => {
     expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
     expect(proc.expectsFollowUp).toBe(false);
   });
+
+  it("does not enter a phantom self-turn on trailing updates before any prompt is sent", async () => {
+    const { proc, update } = await startSession({ sessionId: "conv-resumed" });
+    expect(proc.status).toBe("idle");
+    update({
+      sessionUpdate: "tool_call_update",
+      status: "in_progress",
+      toolCallId: "stale-call",
+      kind: "execute",
+      title: "stale",
+    });
+    update({
+      sessionUpdate: "agent_thought_chunk",
+      content: { text: "trailing replay thought" },
+    });
+    expect(proc.status).toBe("idle");
+    expect(proc.isTurnActive).toBe(false);
+  });
 });

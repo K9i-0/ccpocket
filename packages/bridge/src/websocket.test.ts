@@ -66,6 +66,10 @@ vi.mock("./finder-reveal.js", () => ({
 }));
 
 vi.mock("./sessions-index.js", () => ({
+  normalizeWorktreePath: (p: string) =>
+    p.match(/^(.+)-worktrees[\\/][^\\/]+$/)?.[1] ??
+    p.match(/^(.+)[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$/)?.[1] ??
+    p,
   getSessionHistory: getSessionHistoryMock,
   getCodexSessionHistory: getCodexSessionHistoryMock,
   codexThreadToSessionHistory: codexThreadToSessionHistoryMock,
@@ -1721,6 +1725,21 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           existingWorktreePath: worktreeDir,
           worktreeBranch: "feat/agy",
         });
+
+        // 6. resume_session falls back to main repo path when worktree directory was deleted
+        vi.spyOn(internal.worktreeStore, "get").mockReturnValue(undefined);
+        createSpy.mockClear();
+        await internal.handleClientMessage(
+          {
+            type: "resume_session",
+            sessionId: "conv-deleted-wt",
+            projectPath: join(dir, ".claude", "worktrees", "deleted-wt"),
+            provider: "antigravity",
+          },
+          ws,
+        );
+        expect(createSpy).toHaveBeenCalledTimes(1);
+        expect(createSpy.mock.calls[0][0]).toBe(dir);
 
         bridge.close();
         rmSync(dir, { recursive: true, force: true });

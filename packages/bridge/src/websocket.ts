@@ -105,6 +105,7 @@ import {
   renameClaudeSession,
   renameCodexSession,
   saveCodexSessionProfile,
+  normalizeWorktreePath,
 } from "./sessions-index.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import {
@@ -6875,6 +6876,15 @@ export class BridgeWebSocketServer {
               worktreeBranch: wtMapping.worktreeBranch,
             };
           }
+          if (!existsSync(effectiveResumeProjectPath)) {
+            const fallbackPath = resolvePlatformPath(
+              wtMapping?.projectPath ?? normalizeWorktreePath(effectiveResumeProjectPath),
+              this.platform,
+            );
+            if (this.isPathAllowed(fallbackPath)) {
+              effectiveResumeProjectPath = fallbackPath;
+            }
+          }
           const sessionId =
             (reusable ? liveSession?.id : undefined) ??
             this.sessionManager.create(
@@ -10794,6 +10804,7 @@ export class BridgeWebSocketServer {
         namedOnly: msg.namedOnly,
         archivedSessionIds: this.archiveStore.archivedIds(),
         records: this.antigravityStore.records(),
+        worktrees: this.worktreeStore.getAll(),
       },
     );
   }

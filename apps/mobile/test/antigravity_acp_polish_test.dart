@@ -11,6 +11,7 @@ import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/widgets/message_bubble.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/result_chip.dart';
 import 'package:ccpocket/widgets/bubbles/thinking_bubble.dart';
@@ -482,13 +483,14 @@ void main() {
         );
         expect(find.text('Thinking...'), findsOneWidget);
 
-        // Thinking delta -> renders ThinkingBubble in streaming row
+        // Thinking delta -> renders ThinkingBubble in streaming row and hides activity bar
         bridge.emit(
           const ThinkingDeltaMessage(text: 'Step 1\nStep 2\nStep 3'),
           sessionId: 'live-1',
         );
         await tester.pump();
         expect(find.byType(ThinkingBubble), findsOneWidget);
+        expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
 
         // Text delta -> hides Thinking... activity bar to avoid duplicate indicator
         bridge.emit(
@@ -536,5 +538,117 @@ void main() {
         expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
       },
     );
+  });
+  group('ToolResultMessage rendering', () {
+    testWidgets('hides redundant Read Done result bubble', (tester) async {
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't1',
+            toolName: 'Read',
+            content: 'Done',
+          ),
+        ),
+        isFalse,
+      );
+
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't1',
+            toolName: 'Read',
+            content: ' Done \n',
+          ),
+        ),
+        isFalse,
+      );
+
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't2',
+            toolName: 'Read',
+            content: 'Something else',
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't3',
+            toolName: 'Bash',
+            content: 'Done',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('redundantFileChangeToolUseIds hides duplicate FileChange result only when tool_use already has diff', () {
+      final entries = <ChatEntry>[
+        ServerChatEntry(
+          const AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'fc-replayed',
+              role: 'assistant',
+              content: [
+                ToolUseContent(
+                  id: 'fc-replayed',
+                  name: 'FileChange',
+                  input: {
+                    'changes': [
+                      {
+                        'path': 'lib/main.dart',
+                        'diff': '--- a/lib/main.dart\n+++ b/lib/main.dart\n@@ -1 +1 @@\n-old\n+new',
+                      },
+                    ],
+                  },
+                ),
+              ],
+              model: 'gemini-3.1-pro',
+            ),
+          ),
+        ),
+        ServerChatEntry(
+          const ToolResultMessage(
+            toolUseId: 'fc-replayed',
+            toolName: 'FileChange',
+            content: '--- a/lib/main.dart\n+++ b/lib/main.dart\n@@ -1 +1 @@\n-old\n+new',
+          ),
+        ),
+        ServerChatEntry(
+          const AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'fc-live',
+              role: 'assistant',
+              content: [
+                ToolUseContent(
+                  id: 'fc-live',
+                  name: 'FileChange',
+                  input: {
+                    'changes': [
+                      {'path': 'lib/live.dart'},
+                    ],
+                  },
+                ),
+              ],
+              model: 'gemini-3.1-pro',
+            ),
+          ),
+        ),
+        ServerChatEntry(
+          const ToolResultMessage(
+            toolUseId: 'fc-live',
+            toolName: 'FileChange',
+            content:
+                '--- a/lib/live.dart\n+++ b/lib/live.dart\n@@ -1 +1 @@\n-a\n+b',
+          ),
+        ),
+      ];
+
+      expect(redundantFileChangeToolUseIds(entries), equals({'fc-replayed'}));
+    });
   });
 }

@@ -2,10 +2,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../chat_session/lite_mode_projection.dart';
+import '../chat_session/widgets/chat_message_list.dart'
+    show redundantFileChangeToolUseIds;
 import 'state/session_transcript_cubit.dart';
 import 'state/session_transcript_state.dart';
 
@@ -96,7 +99,21 @@ class _TranscriptList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = liteMode ? liteModeEntries(state.entries) : state.entries;
+    final rawEntries = liteMode
+        ? liteModeEntries(state.entries)
+        : state.entries;
+    final hiddenToolUseIds = redundantFileChangeToolUseIds(rawEntries);
+    final entries = rawEntries
+        .where(
+          (entry) => switch (entry) {
+            ServerChatEntry(:final message) => ServerMessageWidget.isVisible(
+              message,
+              hiddenToolUseIds: hiddenToolUseIds,
+            ),
+            _ => true,
+          },
+        )
+        .toList();
     if (entries.isEmpty && !state.hasOlder) {
       return _TranscriptMessage(
         text: AppLocalizations.of(context).transcriptEmpty,
@@ -118,6 +135,7 @@ class _TranscriptList extends StatelessWidget {
           entry: entries[entryIndex],
           previous: entryIndex > 0 ? entries[entryIndex - 1] : null,
           httpBaseUrl: httpBaseUrl,
+          hiddenToolUseIds: hiddenToolUseIds,
           isCodex: isCodex,
         );
       },

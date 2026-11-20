@@ -16,9 +16,10 @@ import {
 import type { AntigravitySessionRecord } from "./antigravity-store.js";
 import type { PermissionMode } from "./parser.js";
 import type { RecentSessionSearchMatch } from "./recent-session-search.js";
-import type {
-  SessionHistoryContentItem,
-  SessionHistoryMessage,
+import {
+  normalizeWorktreePath,
+  type SessionHistoryContentItem,
+  type SessionHistoryMessage,
 } from "./sessions-index.js";
 
 /** A conversation Antigravity keeps on this machine. */
@@ -227,6 +228,7 @@ export interface AntigravityRecentSession {
   modified: string;
   gitBranch: string;
   projectPath: string;
+  resumeCwd?: string;
   model?: string;
   permissionMode?: PermissionMode;
   isSidechain: false;
@@ -244,13 +246,20 @@ export function antigravityRecentSessions(
     names?: ReadonlyMap<string, string>;
     /** Remembered metadata from AntigravityStore (name, model, permissionMode). */
     records?: ReadonlyMap<string, AntigravitySessionRecord>;
+    /** Known active worktrees from WorktreeStore. */
+    worktrees?: ReadonlyMap<string, { projectPath: string; worktreePath: string; worktreeBranch: string }>;
   } = {},
 ): AntigravityRecentSession[] {
   const query = filter.searchQuery?.trim().toLowerCase();
   const rows: AntigravityRecentSession[] = [];
   for (const entry of entries) {
     if (filter.archivedSessionIds?.has(entry.sessionId)) continue;
-    if (filter.projectPath && entry.projectPath !== filter.projectPath) continue;
+
+    const wt = filter.worktrees?.get(entry.sessionId);
+    const mainProjectPath = wt?.projectPath ?? normalizeWorktreePath(entry.projectPath);
+    const resolvedProjectPath = mainProjectPath !== entry.projectPath ? mainProjectPath : entry.projectPath;
+
+    if (filter.projectPath && resolvedProjectPath !== filter.projectPath) continue;
 
     const record = filter.records?.get(entry.sessionId);
     const storedName = record?.name?.trim() || filter.names?.get(entry.sessionId)?.trim() || undefined;
@@ -263,10 +272,21 @@ export function antigravityRecentSessions(
         searchMatch = { field: "name" };
       } else if (agyTitle && agyTitle.toLowerCase().includes(query)) {
         searchMatch = { field: "summary" };
-      } else if (entry.projectPath.toLowerCase().includes(query)) {
+      } else if (resolvedProjectPath.toLowerCase().includes(query)) {
         searchMatch = { field: "project" };
       } else {
         continue;
+      }
+    }
+
+    let resumeCwd: string | undefined;
+    let gitBranch = "";
+    if (mainProjectPath !== entry.projectPath) {
+      if (existsSync(entry.projectPath)) {
+        resumeCwd = entry.projectPath;
+      }
+      if (wt?.worktreeBranch) {
+        gitBranch = wt.worktreeBranch;
       }
     }
 
@@ -282,8 +302,9 @@ export function antigravityRecentSessions(
       firstPrompt: displayName ?? "",
       created: modified,
       modified,
-      gitBranch: "",
-      projectPath: entry.projectPath,
+      gitBranch,
+      projectPath: resolvedProjectPath,
+      ...(resumeCwd ? { resumeCwd } : {}),
       ...(record?.model ? { model: record.model } : {}),
       ...(record?.permissionMode ? { permissionMode: record.permissionMode } : {}),
       isSidechain: false as const,

@@ -1091,6 +1091,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private ready = false;
   /** History replay from `session/load` must not look like a live turn. */
   private replaying = false;
+  /** True once at least one prompt has been sent to this OS process. */
+  private hasDispatchedPrompt = false;
   private replayedUserTurns = 0;
   /** Cumulative count of user turns (replayed + live), used to anchor compaction boundaries. */
   private userTurnCount = 0;
@@ -1194,6 +1196,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   get isRunning(): boolean {
     return this.transport !== null && !this.stopped;
+  }
+
+  /** True while `session/load` is replaying stored messages into history. */
+  get isReplaying(): boolean {
+    return this.replaying;
   }
 
   get isWaitingForInput(): boolean {
@@ -1558,6 +1565,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     // A prompt sent after a cancel starts over; the cancelled request still
     // answers, but it no longer decides how the turn ends.
     this.cancelRequested = false;
+    this.hasDispatchedPrompt = true;
     this.outstandingPrompts++;
     this.setStatus(this.manualCompacting ? "compacting" : "running");
     const prompt: Array<Record<string, unknown>> = [];
@@ -1960,6 +1968,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (
       this.selfTurn ||
       this.replaying ||
+      !this.hasDispatchedPrompt ||
       this.stopped ||
       !this.ready ||
       this.outstandingPrompts > 0

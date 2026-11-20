@@ -60,6 +60,11 @@ export class WorktreeStore {
     return undefined;
   }
 
+  /** Get all worktree mappings. */
+  getAll(): ReadonlyMap<string, WorktreeMapping> {
+    return new Map(Object.entries(this.data));
+  }
+
   private load(): StorageData {
     if (!existsSync(this.storeFile)) return {};
     try {

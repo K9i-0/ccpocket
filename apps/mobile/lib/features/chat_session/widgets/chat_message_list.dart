@@ -22,6 +22,7 @@ import '../../../services/bridge_service.dart';
 import '../../../services/performance_probe_extension.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_theme.dart';
+import '../../../utils/diff_parser.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
 import '../../generated_image_preview/generated_image_preview_item.dart';
@@ -289,6 +290,39 @@ String formatAgentActivityLabel(ToolUseContent tool) {
   }
   final trimmed = name.trim();
   return trimmed.isNotEmpty ? 'Running $trimmed...' : 'Working...';
+}
+
+/// Tool-use IDs of `FileChange` results that duplicate an inline diff already
+/// rendered by the preceding `FileChange` tool_use card (e.g. replayed history
+/// or transcripts), excluding results with images or permission outcomes.
+Set<String> redundantFileChangeToolUseIds(List<ChatEntry> entries) {
+  final toolUseIdsWithInlineDiff = <String>{};
+  for (final entry in entries) {
+    if (entry case ServerChatEntry(
+      message: AssistantServerMessage(:final message),
+    )) {
+      for (final content in message.content) {
+        if (content is ToolUseContent &&
+            content.name == 'FileChange' &&
+            content.id.isNotEmpty &&
+            synthesizeEditToolDiff('FileChange', content.input) != null) {
+          toolUseIdsWithInlineDiff.add(content.id);
+        }
+      }
+    }
+  }
+  if (toolUseIdsWithInlineDiff.isEmpty) return const <String>{};
+  final hidden = <String>{};
+  for (final entry in entries) {
+    if (entry case ServerChatEntry(message: final ToolResultMessage result)) {
+      if (toolUseIdsWithInlineDiff.contains(result.toolUseId) &&
+          result.permissionOutcome == null &&
+          result.images.isEmpty) {
+        hidden.add(result.toolUseId);
+      }
+    }
+  }
+  return hidden;
 }
 
 /// Displays the chat message list with [ListView.builder] (reverse: true).
@@ -743,10 +777,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
     // itemCount) but NOT on every delta. The actual streaming content is
     // rendered inside a scoped BlocBuilder on the streaming item only.
     final streamingFlags = context
-        .select<StreamingStateCubit, ({bool isStreaming, bool hasText})>(
+        .select<
+          StreamingStateCubit,
+          ({bool isStreaming, bool hasText, bool hasThinking})
+        >(
           (cubit) => (
             isStreaming: cubit.state.isStreaming,
             hasText: cubit.state.text.isNotEmpty,
+            hasThinking: cubit.state.thinking.trim().isNotEmpty,
           ),
         );
     final hasStreaming = streamingFlags.isStreaming;
@@ -759,6 +797,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       chatState: chatState,
       incompleteTool: derivedData.latestIncompleteToolUse,
       hasStreamingText: streamingFlags.hasText,
+      hasThinkingText: streamingFlags.hasThinking,
     );
     final hasActivityBar = activityLabel != null;
     final totalCount =
@@ -773,6 +812,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final effectiveHiddenToolUseIds = {
       ...hiddenToolUseIds,
       ...derivedData.completedGeneratedImageToolUseIds,
+      ...derivedData.redundantFileChangeToolUseIds,
     };
 
     return MultiBlocListener(
@@ -1035,6 +1075,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       completedGeneratedImageToolUseIds: completedGeneratedImageToolUseIds(
         entries,
       ),
+      redundantFileChangeToolUseIds: redundantFileChangeToolUseIds(entries),
       forkableAssistantEntryIndices: forkableAssistantEntryIndices(entries),
       successResultFallbackEntryIndices: successResultFallbackEntryIndices(
         entries,
@@ -1157,13 +1198,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
     required ChatSessionState chatState,
     required ToolUseContent? incompleteTool,
     required bool hasStreamingText,
+    required bool hasThinkingText,
   }) {
     if (chatState.status != ProcessStatus.running) return null;
     if (chatState.approval is! ApprovalNone) return null;
     if (incompleteTool != null) {
       return formatAgentActivityLabel(incompleteTool);
     }
-    if (!hasStreamingText) return 'Thinking...';
+    if (!hasStreamingText && !hasThinkingText) return 'Thinking...';
     return null;
   }
 
@@ -1228,6 +1270,7 @@ class _ChatListDerivedData {
   final Set<int> imageGroupMemberIndices;
   final Map<int, List<GeneratedImagePreviewItem>> imageItemsByAnchor;
   final Set<String> completedGeneratedImageToolUseIds;
+  final Set<String> redundantFileChangeToolUseIds;
   final Set<int> forkableAssistantEntryIndices;
   final Set<int> successResultFallbackEntryIndices;
   final Set<int> intermediateResultEntryIndices;
@@ -1239,6 +1282,7 @@ class _ChatListDerivedData {
     required this.imageGroupMemberIndices,
     required this.imageItemsByAnchor,
     required this.completedGeneratedImageToolUseIds,
+    required this.redundantFileChangeToolUseIds,
     required this.forkableAssistantEntryIndices,
     required this.successResultFallbackEntryIndices,
     required this.intermediateResultEntryIndices,
