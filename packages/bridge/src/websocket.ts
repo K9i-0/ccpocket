@@ -44,12 +44,14 @@ import {
   AntigravityStartError,
   getAntigravityConfig,
   type AntigravityCatalog,
+  type AntigravityConfig,
 } from "./antigravity-process.js";
 import { AntigravityStore } from "./antigravity-store.js";
 import {
   antigravityRecentSessions,
   fetchAntigravityCatalog,
   listAntigravitySessions,
+  readAntigravityTranscriptFile,
   type AntigravityRecentSession,
   type AntigravitySessionEntry,
 } from "./antigravity-sessions.js";
@@ -1110,6 +1112,8 @@ export interface BridgeServerOptions {
   fetchAntigravityCatalog?: () => Promise<AntigravityCatalog>;
   /** Reads Antigravity's plan quota from the CLI. Tests replace it. */
   fetchAntigravityUsage?: (bin: string) => Promise<UsageInfo[]>;
+  /** Antigravity config override for tests. */
+  antigravityConfig?: AntigravityConfig;
   /** Where names and models of Antigravity conversations are kept. */
   antigravityStore?: AntigravityStore;
   server: HttpServer;
@@ -1219,6 +1223,7 @@ export class BridgeWebSocketServer {
   /** `agy acp` is installed; gates the `antigravity_v1` capability. */
   private antigravityAvailable = false;
   private readonly detectAntigravity: (() => Promise<boolean>) | undefined;
+  private readonly antigravityConfigOverride: AntigravityConfig | undefined;
   private antigravitySessionsCache:
     | { at: number; entries: Promise<AntigravitySessionEntry[]> }
     | undefined;
@@ -1292,6 +1297,7 @@ export class BridgeWebSocketServer {
 
   constructor(options: BridgeServerOptions) {
     this.detectAntigravity = options.detectAntigravity;
+    this.antigravityConfigOverride = options.antigravityConfig;
     this.loadAntigravityUsage =
       options.fetchAntigravityUsage ?? fetchAntigravityUsage;
     this.loadAntigravityCatalog =
@@ -1452,6 +1458,11 @@ export class BridgeWebSocketServer {
       },
     );
     this.sessionManager.setAssistantImageResolver(this.assistantImageResolver);
+    this.sessionManager.setAntigravityCompactionHandler(
+      (claudeSessionId, record) => {
+        void this.antigravityStore.addCompaction(claudeSessionId, record);
+      },
+    );
 
     this.wss.on("connection", (ws, req) => {
       // API key authentication
@@ -1870,6 +1881,7 @@ export class BridgeWebSocketServer {
     codexPermissionsMode?: string;
     sandboxMode?: string;
     slashCommands?: string[];
+    slashCommandDescriptions?: Record<string, string>;
     skills?: string[];
     skillMetadata?: Array<Record<string, unknown>>;
     apps?: string[];
@@ -1894,6 +1906,7 @@ export class BridgeWebSocketServer {
       codexPermissionsMode,
       sandboxMode,
       slashCommands,
+      slashCommandDescriptions,
       skills,
       skillMetadata,
       apps,
@@ -1955,7 +1968,13 @@ export class BridgeWebSocketServer {
           ? session.process.approvalPolicy === "never"
             ? "fullAccess"
             : "default"
-          : undefined))
+          : session?.process instanceof AntigravityProcess
+            ? session.process.permissionMode === "bypassPermissions"
+              ? "fullAccess"
+              : session.process.permissionMode === "acceptEdits"
+                ? "acceptEdits"
+                : "default"
+            : undefined))
         ? {
             executionMode: (executionMode ??
               (session?.process instanceof SdkProcess
@@ -1968,7 +1987,13 @@ export class BridgeWebSocketServer {
                   ? session.process.approvalPolicy === "never"
                     ? "fullAccess"
                     : "default"
-                  : undefined)) as "default" | "acceptEdits" | "fullAccess",
+                  : session?.process instanceof AntigravityProcess
+                    ? session.process.permissionMode === "bypassPermissions"
+                      ? "fullAccess"
+                      : session.process.permissionMode === "acceptEdits"
+                        ? "acceptEdits"
+                        : "default"
+                    : undefined)) as "default" | "acceptEdits" | "fullAccess",
           }
         : {}),
       ...((planMode ??
@@ -1976,7 +2001,9 @@ export class BridgeWebSocketServer {
           ? session.process.permissionMode === "plan"
           : session?.process instanceof CodexProcess
             ? session.process.collaborationMode === "plan"
-            : undefined)) != null
+            : session?.process instanceof AntigravityProcess
+              ? session.process.permissionMode === "plan"
+              : undefined)) != null
         ? {
             planMode:
               planMode ??
@@ -1984,11 +2011,14 @@ export class BridgeWebSocketServer {
                 ? session.process.permissionMode === "plan"
                 : session?.process instanceof CodexProcess
                   ? session.process.collaborationMode === "plan"
-                  : false),
+                  : session?.process instanceof AntigravityProcess
+                    ? session.process.permissionMode === "plan"
+                    : false),
           }
         : {}),
       ...(sandboxMode ? { sandboxMode } : {}),
       ...(slashCommands ? { slashCommands } : {}),
+      ...(slashCommandDescriptions ? { slashCommandDescriptions } : {}),
       ...(skills ? { skills } : {}),
       ...(skillMetadata
         ? {
@@ -2703,9 +2733,13 @@ export class BridgeWebSocketServer {
         session.process instanceof CodexProcess ? session.process : undefined,
       );
     }
-    // Antigravity keeps no transcript file the Bridge can read; the replayed
-    // conversation lives in session history instead.
-    if (session.provider === "antigravity") return [];
+    if (session.provider === "antigravity") {
+      if (session.antigravityTranscript && session.antigravityTranscript.length > 0) {
+        return session.antigravityTranscript;
+      }
+      if (!session.claudeSessionId) return [];
+      return readAntigravityTranscriptFile(session.claudeSessionId);
+    }
     if (!session.claudeSessionId) return [];
     return getSessionHistory(session.claudeSessionId);
   }
@@ -3861,7 +3895,13 @@ export class BridgeWebSocketServer {
                   | "plan"
                   | undefined) ?? legacyPermissionMode)
               : legacyPermissionMode;
-          const antigravityPermissionMode = claudePermissionMode;
+          const antigravityPermissionMode =
+            provider === "antigravity" &&
+            msg.permissionMode === undefined &&
+            msg.executionMode === undefined &&
+            msg.planMode === undefined
+              ? undefined
+              : claudePermissionMode;
           if (provider === "codex") {
             console.log(
               `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
@@ -3958,7 +3998,11 @@ export class BridgeWebSocketServer {
                     ),
                     permissionMode: antigravityPermissionMode,
                     executionMode:
-                      executionMode === "fullAccess" ? "default" : executionMode,
+                      antigravityPermissionMode === "bypassPermissions"
+                        ? "fullAccess"
+                        : executionMode === "fullAccess"
+                          ? "default"
+                          : executionMode,
                     planMode,
                     usedFallback: false,
                   }
@@ -4056,6 +4100,12 @@ export class BridgeWebSocketServer {
                 ...(cached
                   ? {
                       slashCommands: cached.slashCommands,
+                      ...(cached.slashCommandDescriptions
+                        ? {
+                            slashCommandDescriptions:
+                              cached.slashCommandDescriptions,
+                          }
+                        : {}),
                       skills: cached.skills,
                       ...(cached.skillMetadata
                         ? { skillMetadata: cached.skillMetadata }
@@ -6243,7 +6293,7 @@ export class BridgeWebSocketServer {
             type: "session_transcript",
             sessionId: msg.sessionId,
             requestId: msg.requestId,
-            provider: session.provider === "codex" ? "codex" : "claude",
+            provider: session.provider,
             startIndex: start,
             endIndex: end,
             total: transcript.length,
@@ -6305,17 +6355,32 @@ export class BridgeWebSocketServer {
         }
 
         try {
-          // Antigravity keeps no index the Bridge can search by id.
-          const { sessions } =
-            provider === "antigravity"
-              ? { sessions: [] }
-              : await getAllRecentSessions({
-                  limit: 1,
-                  provider,
-                  sessionId: msg.sessionId,
-                  archivedSessionIds: this.archiveStore.archivedIds(),
-                });
-          const recentSession = sessions[0];
+          let recentSession: Record<string, unknown> | undefined;
+          if (provider === "antigravity") {
+            const antigravitySessions =
+              await this.listRecentAntigravitySessions({
+                type: "list_recent_sessions",
+              });
+            const found = antigravitySessions.find(
+              (session) => session.sessionId === msg.sessionId,
+            );
+            recentSession = found
+              ? (this.enrichRecentSessionWorkspace(found) as Record<
+                  string,
+                  unknown
+                >)
+              : undefined;
+          } else {
+            const { sessions } = await getAllRecentSessions({
+              limit: 1,
+              provider,
+              sessionId: msg.sessionId,
+              archivedSessionIds: this.archiveStore.archivedIds(),
+            });
+            recentSession = sessions[0] as unknown as
+              | Record<string, unknown>
+              | undefined;
+          }
           this.send(ws, {
             type: "session_link_resolution",
             requestId: msg.requestId,
@@ -6794,26 +6859,44 @@ export class BridgeWebSocketServer {
           // An exited process stays listed until eviction; replace it.
           if (liveSession && !reusable) this.sessionManager.destroy(liveSession.id);
           const remembered = this.antigravityStore.get(msg.sessionId);
+          const wtMapping = this.worktreeStore.get(msg.sessionId);
+          let effectiveResumeProjectPath = resumeProjectPath;
+          let worktreeOpts: WorktreeOptions | undefined;
+          if (wtMapping && worktreeExists(wtMapping.worktreePath)) {
+            const mappedProject = resolvePlatformPath(
+              wtMapping.projectPath,
+              this.platform,
+            );
+            if (this.isPathAllowed(mappedProject)) {
+              effectiveResumeProjectPath = mappedProject;
+            }
+            worktreeOpts = {
+              existingWorktreePath: wtMapping.worktreePath,
+              worktreeBranch: wtMapping.worktreeBranch,
+            };
+          }
           const sessionId =
             (reusable ? liveSession?.id : undefined) ??
             this.sessionManager.create(
-              resumeProjectPath,
+              effectiveResumeProjectPath,
               {},
               undefined,
-              undefined,
+              worktreeOpts,
               "antigravity",
               undefined,
               undefined,
               {
                 sessionId: msg.sessionId,
                 // `session/load` starts on the agent default, so put back the
-                // model the conversation last ran on.
+                // model and mode the conversation last ran on.
                 model: msg.model ?? remembered?.model,
-                permissionMode: msg.permissionMode,
+                permissionMode: msg.permissionMode ?? remembered?.permissionMode,
+                modeBeforePlan: remembered?.modeBeforePlan,
+                compactions: remembered?.compactions,
                 // Roots outside the allowed folders are left out.
                 additionalDirectories: this.normalizeAdditionalWritableRoots(
                   resumeAdditionalRoots,
-                  resumeProjectPath,
+                  effectiveResumeProjectPath,
                 ).roots,
               },
             );
@@ -10025,17 +10108,40 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
     exclude?: WebSocket,
   ): void {
-    if (msg.type === "system" && msg.antigravity?.model) {
+    if (
+      msg.type === "system" &&
+      (msg.provider === "antigravity" || msg.antigravity !== undefined)
+    ) {
       const session = this.sessionManager.get(sessionId);
+      const agyProcess =
+        session?.process instanceof AntigravityProcess
+          ? session.process
+          : undefined;
       if (session?.claudeSessionId) {
-        void this.antigravityStore.setModel(
-          session.claudeSessionId,
-          msg.antigravity.model,
-        );
+        const model = msg.antigravity?.model ?? msg.model;
+        if (model) {
+          void this.antigravityStore.setModel(
+            session.claudeSessionId,
+            model,
+          );
+        }
+        const permissionMode = msg.antigravity?.permissionMode ?? msg.permissionMode;
+        if (
+          permissionMode &&
+          (msg.subtype === "init" ||
+            msg.subtype === "antigravity_settings" ||
+            msg.subtype === "set_permission_mode")
+        ) {
+          void this.antigravityStore.setPermissionMode(
+            session.claudeSessionId,
+            permissionMode,
+            agyProcess?.currentModeBeforePlan,
+          );
+        }
       }
       // Each session start is a free, fresh reading of the catalog.
-      if (msg.subtype === "init" && session?.process instanceof AntigravityProcess) {
-        void this.antigravityStore.setCatalog(session.process.catalog);
+      if (msg.subtype === "init" && agyProcess) {
+        void this.antigravityStore.setCatalog(agyProcess.catalog);
       }
     }
     if (this.shouldBatchDelta(msg, exclude)) {
@@ -10234,49 +10340,101 @@ export class BridgeWebSocketServer {
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<RecentSessionsListing> {
     if (msg.provider === "antigravity") {
-      // Antigravity conversations have no project assignment or pins.
-      if (
-        msg.projectId !== undefined ||
-        msg.workspaceKind !== undefined ||
-        msg.pinnedOnly === true
-      ) {
-        return { sessions: [], hasMore: false };
-      }
+      const pinnedOnlyExtras =
+        msg.pinnedOnly === true &&
+        msg.requestScope !== "project" &&
+        (msg.offset ?? 0) === 0 &&
+        (msg.pinnedSessions?.length ?? 0) > 0
+          ? { pinnedSessions: [] as unknown[] }
+          : {};
       const limit = msg.limit ?? 20;
       const offset = msg.offset ?? 0;
-      const sessions = await this.listRecentAntigravitySessions(msg);
+      const filtered = await this.listFilteredAntigravitySessions(msg);
       return {
-        sessions: sessions
-          .slice(offset, offset + limit)
-          .map((session) => this.enrichRecentSessionWorkspace(session)),
-        hasMore: sessions.length > offset + limit,
+        sessions: filtered.sessions.slice(offset, offset + limit),
+        hasMore: filtered.sessions.length > offset + limit,
+        ...(filtered.pinnedSessions
+          ? { pinnedSessions: filtered.pinnedSessions }
+          : pinnedOnlyExtras),
       };
     }
     const listing = await this.listRecentClaudeAndCodexSessions(msg);
-    // Antigravity rows only join the first page: its list is small and the
-    // other providers page on their own offsets. It can be narrowed by
-    // project path and by a search on titles, but knows no other filter.
+    // Antigravity rows join the first page: its list is small and the
+    // other providers page on their own offsets.
     if (
       msg.provider !== undefined ||
       !msg.includeAntigravity ||
       !this.antigravityAvailable ||
-      (msg.offset ?? 0) > 0 ||
-      msg.projectId !== undefined ||
-      msg.workspaceKind !== undefined ||
-      msg.pinnedOnly === true ||
-      msg.namedOnly === true ||
-      msg.modifiedAfter !== undefined ||
-      msg.modifiedBefore !== undefined ||
-      effectiveRecentProjectFilters(msg) !== undefined
+      (msg.offset ?? 0) > 0
     ) {
       return listing;
     }
-    const antigravity = (await this.listRecentAntigravitySessions(msg))
-      .slice(0, msg.limit ?? 20)
-      .map((session) => this.enrichRecentSessionWorkspace(session));
+    const antigravity = await this.listFilteredAntigravitySessions(msg);
+    const mergedPinned =
+      listing.pinnedSessions || antigravity.pinnedSessions
+        ? mergeRecentSessionPages([
+            ...(listing.pinnedSessions ?? []),
+            ...(antigravity.pinnedSessions ?? []),
+          ])
+        : undefined;
     return {
       ...listing,
-      sessions: mergeRecentSessionPages([...listing.sessions, ...antigravity]),
+      sessions: mergeRecentSessionPages([
+        ...listing.sessions,
+        ...antigravity.sessions.slice(0, msg.limit ?? 20),
+      ]),
+      ...(mergedPinned ? { pinnedSessions: mergedPinned } : {}),
+    };
+  }
+
+  private async listFilteredAntigravitySessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<{ sessions: unknown[]; pinnedSessions?: unknown[] }> {
+    const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
+    const pinnedOnlyKeys = pinnedOnlySessionKeys(msg);
+    if (
+      pinnedOnlyKeys &&
+      pinnedOnlyKeys.size === 0 &&
+      (msg.pinnedProjects?.length ?? 0) === 0
+    ) {
+      return { sessions: [] };
+    }
+    const normalizedMsg = msg.projectPath
+      ? {
+          ...msg,
+          projectPath: resolvePlatformPath(msg.projectPath, this.platform),
+        }
+      : msg;
+    const raw = await this.listRecentAntigravitySessions(normalizedMsg);
+    const enriched = raw.map((session) =>
+      this.enrichRecentSessionWorkspace(session),
+    );
+    const matches = buildRecentSessionPredicate(
+      normalizedMsg,
+      () => this.workspaceStore?.listProjects() ?? [],
+      pinnedOnlyKeys,
+    );
+    const filtered = enriched.filter((session) => {
+      if (!matches(session)) return false;
+      if (normalizedMsg.namedOnly) {
+        const id = (session as AntigravityRecentSession).sessionId;
+        if (!this.antigravityStore.get(id)?.name?.trim()) return false;
+      }
+      return true;
+    });
+    const pinnedSessions = pinnedKeys
+      ? filtered.filter((session) =>
+          pinnedKeys.has(
+            recentSessionIdentityKey(
+              "antigravity",
+              (session as AntigravityRecentSession).sessionId,
+            ),
+          ),
+        )
+      : undefined;
+    return {
+      sessions: filtered,
+      ...(pinnedSessions ? { pinnedSessions } : {}),
     };
   }
 
@@ -10632,12 +10790,10 @@ export class BridgeWebSocketServer {
     return antigravityRecentSessions(
       await this.antigravitySessionsCache.entries,
       {
-        projectPath: msg.projectPath
-          ? resolvePlatformPath(msg.projectPath, this.platform)
-          : undefined,
         searchQuery: msg.searchQuery,
+        namedOnly: msg.namedOnly,
         archivedSessionIds: this.archiveStore.archivedIds(),
-        names: this.antigravityStore.names(),
+        records: this.antigravityStore.records(),
       },
     );
   }
@@ -10650,7 +10806,7 @@ export class BridgeWebSocketServer {
    * or on a Bridge that must not touch the Google login.
    */
   private async antigravityUsage(refresh: boolean): Promise<UsageInfo[]> {
-    const config = getAntigravityConfig();
+    const config = this.antigravityConfigOverride ?? getAntigravityConfig();
     if (!this.antigravityAvailable || config.apiKey || config.requireApiKey) {
       return [];
     }
@@ -11823,7 +11979,11 @@ export class BridgeWebSocketServer {
       type: "system",
       subtype: "supported_commands",
       sessionId,
+      provider: session.provider,
       slashCommands: cached.slashCommands,
+      ...(cached.slashCommandDescriptions
+        ? { slashCommandDescriptions: cached.slashCommandDescriptions }
+        : {}),
       skills: cached.skills,
       ...(cached.skillMetadata ? { skillMetadata: cached.skillMetadata } : {}),
       apps: cached.apps,

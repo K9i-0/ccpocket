@@ -148,6 +148,7 @@ vi.mock("./session.js", () => ({
     }
 
     setAssistantImageResolver(): void {}
+    setAntigravityCompactionHandler(): void {}
 
     create(
       projectPath: string,
@@ -1408,6 +1409,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           server: httpServer,
           detectAntigravity: async () => true,
           fetchAntigravityUsage,
+          antigravityConfig: { bin: "agy", requireApiKey: false },
         });
         const internal = bridge as any;
         await internal.refreshAntigravityAvailability();
@@ -1483,6 +1485,246 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           }),
         ).toEqual([]);
         bridge.close();
+      });
+
+      it("supports namedOnly, date filters, pinning, and resolve_session_link for Antigravity", async () => {
+        const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-filter-"));
+        const store = new AntigravityStore(dir);
+        await store.setName("a2", "Pinned Named");
+        await store.setPermissionMode("a2", "plan", "auto");
+        const bridge = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+          antigravityStore: store,
+        });
+        const internal = bridge as any;
+        await internal.refreshAntigravityAvailability();
+        internal.antigravitySessionsCache = {
+          at: Date.now(),
+          entries: Promise.resolve([
+            { sessionId: "a2", projectPath: "/p", title: "Title 2", updatedAt: "2026-11-10T00:00:00Z" },
+            { sessionId: "a1", projectPath: "/p", title: "Title 1", updatedAt: "2026-11-01T00:00:00Z" },
+          ]),
+        };
+
+        // namedOnly includes named Antigravity session
+        const namedOnly = await internal.listRecentSessions({
+          type: "list_recent_sessions",
+          provider: "antigravity",
+          namedOnly: true,
+        });
+        expect(ids(namedOnly)).toEqual(["a2"]);
+        expect(namedOnly.sessions[0]).toMatchObject({
+          sessionId: "a2",
+          name: "Pinned Named",
+          permissionMode: "plan",
+        });
+
+        // Date filter
+        const dated = await internal.listRecentSessions({
+          type: "list_recent_sessions",
+          provider: "antigravity",
+          modifiedAfter: "2026-11-05T00:00:00Z",
+        });
+        expect(ids(dated)).toEqual(["a2"]);
+
+        // Pinned sessions & pinnedOnly
+        const withPinned = await internal.listRecentSessions({
+          type: "list_recent_sessions",
+          provider: "antigravity",
+          pinnedSessions: [{ provider: "antigravity", sessionId: "a1" }],
+        });
+        expect(withPinned.pinnedSessions?.map((s: any) => s.sessionId)).toEqual(["a1"]);
+
+        const pinnedOnly = await internal.listRecentSessions({
+          type: "list_recent_sessions",
+          provider: "antigravity",
+          pinnedSessions: [{ provider: "antigravity", sessionId: "a1" }],
+          pinnedOnly: true,
+        });
+        expect(ids(pinnedOnly)).toEqual(["a1"]);
+
+        // resolve_session_link for Antigravity
+        const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+        await internal.handleClientMessage(
+          {
+            type: "resolve_session_link",
+            requestId: "req-agy-link",
+            sessionId: "a2",
+            provider: "antigravity",
+          },
+          ws,
+        );
+        const linkMsg = ws.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .find((m: any) => m.type === "session_link_resolution");
+        expect(linkMsg).toMatchObject({
+          requestId: "req-agy-link",
+          sourceSessionId: "a2",
+          status: "recent",
+          provider: "antigravity",
+          recentSession: { sessionId: "a2", name: "Pinned Named" },
+        });
+
+        bridge.close();
+        rmSync(dir, { recursive: true, force: true });
+      });
+
+      it("preserves default auto on start, persists/restores mode & worktree on resume, and serves Antigravity transcripts & cached commands", async () => {
+        const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-flow-"));
+        const worktreeDir = mkdtempSync(join(tmpdir(), "ccpocket-agy-wt-"));
+        const store = new AntigravityStore(dir);
+        await store.setModel("conv-r1", "gemini-3.8-flash-high");
+        await store.setPermissionMode("conv-r1", "plan", "acceptEdits");
+        await store.addCompaction("conv-r1", {
+          afterUserTurns: 1,
+          id: "cmp-r1",
+          timestamp: "2026-11-20T00:00:00Z",
+          trigger: "manual",
+        });
+
+        const bridge = new BridgeWebSocketServer({
+          server: httpServer,
+          detectAntigravity: async () => true,
+          antigravityStore: store,
+        });
+        const internal = bridge as any;
+        await internal.refreshAntigravityAvailability();
+        vi.spyOn(internal.sessionManager, "getCachedCommands").mockReturnValue({
+          slashCommands: ["compact", "plan"],
+          slashCommandDescriptions: { compact: "Compact conversation" },
+          skills: [],
+          apps: [],
+          plugins: [],
+        });
+        const createSpy = vi.spyOn(internal.sessionManager, "create");
+
+        // 1. Start without mode fields -> passes permissionMode: undefined (allows default auto)
+        const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+        await internal.handleClientMessage(
+          { type: "start", projectPath: dir, provider: "antigravity" },
+          ws,
+        );
+        expect(createSpy).toHaveBeenCalled();
+        const startCall = createSpy.mock.calls[0] as unknown[];
+        expect((startCall[7] as any).permissionMode).toBeUndefined();
+        let createdMsg: any;
+        await vi.waitFor(() => {
+          createdMsg = ws.send.mock.calls
+            .map((call: unknown[]) => JSON.parse(call[0] as string))
+            .find((m: any) => m.type === "system" && m.subtype === "session_created");
+          expect(createdMsg).toBeDefined();
+        });
+        expect(createdMsg).toMatchObject({
+          provider: "antigravity",
+          slashCommands: ["compact", "plan"],
+          slashCommandDescriptions: { compact: "Compact conversation" },
+        });
+
+        // 2. broadcastSessionMessage persists permissionMode & modeBeforePlan
+        const createdSession = internal.sessionManager.get(createdMsg.sessionId);
+        createdSession.claudeSessionId = "conv-live";
+        createdSession.provider = "antigravity";
+        internal.broadcastSessionMessage(createdMsg.sessionId, {
+          type: "system",
+          subtype: "init",
+          provider: "antigravity",
+          sessionId: "conv-live",
+          permissionMode: "auto",
+          model: "gemini-3.8-flash-high",
+        });
+        internal.broadcastSessionMessage(createdMsg.sessionId, {
+          type: "system",
+          subtype: "antigravity_settings",
+          provider: "antigravity",
+          sessionId: "conv-live",
+          permissionMode: "plan",
+          model: "gemini-3.8-flash-high",
+        });
+        await vi.waitFor(() =>
+          expect(store.get("conv-live")).toMatchObject({
+            permissionMode: "plan",
+            modeBeforePlan: "auto",
+            model: "gemini-3.8-flash-high",
+          }),
+        );
+
+        // 3. sendCachedCommands includes provider and slashCommandDescriptions
+        ws.send.mockClear();
+        internal.sendCachedCommands(ws, createdMsg.sessionId, createdSession);
+        const cachedMsg = JSON.parse(ws.send.mock.calls[0][0]);
+        expect(cachedMsg).toMatchObject({
+          type: "system",
+          subtype: "supported_commands",
+          provider: "antigravity",
+          slashCommands: ["compact", "plan"],
+          slashCommandDescriptions: { compact: "Compact conversation" },
+        });
+
+        // 4. get_session_transcript returns provider: "antigravity" with untrimmed transcript
+        createdSession.antigravityTranscript = Array.from({ length: 120 }, (_, i) => ({
+          role: "user",
+          content: [{ type: "text", text: `turn ${i}` }],
+        }));
+        ws.send.mockClear();
+        await internal.handleClientMessage(
+          {
+            type: "get_session_transcript",
+            requestId: "tr-agy",
+            sessionId: createdMsg.sessionId,
+            limit: 50,
+          },
+          ws,
+        );
+        const transcriptMsg = ws.send.mock.calls
+          .map((call: unknown[]) => JSON.parse(call[0] as string))
+          .find((m: any) => m.type === "session_transcript");
+        expect(transcriptMsg).toMatchObject({
+          requestId: "tr-agy",
+          provider: "antigravity",
+          total: 120,
+          startIndex: 70,
+          endIndex: 120,
+        });
+        expect(transcriptMsg.messages).toHaveLength(50);
+
+        // 5. resume_session restores remembered permissionMode, modeBeforePlan, compactions, and worktree
+        vi.spyOn(internal.worktreeStore, "get").mockReturnValue({
+          sessionId: "conv-r1",
+          worktreePath: worktreeDir,
+          worktreeBranch: "feat/agy",
+          projectPath: dir,
+          createdAt: "2026-11-20T00:00:00Z",
+        });
+        createSpy.mockClear();
+        await internal.handleClientMessage(
+          {
+            type: "resume_session",
+            sessionId: "conv-r1",
+            projectPath: dir,
+            provider: "antigravity",
+          },
+          ws,
+        );
+        expect(createSpy).toHaveBeenCalledTimes(1);
+        const resumeCall = createSpy.mock.calls[0] as unknown[];
+        const resumeWtOpts = resumeCall[3];
+        const resumeAgyOpts = resumeCall[7];
+        expect(resumeAgyOpts).toMatchObject({
+          sessionId: "conv-r1",
+          model: "gemini-3.8-flash-high",
+          permissionMode: "plan",
+          modeBeforePlan: "acceptEdits",
+          compactions: [{ afterUserTurns: 1, id: "cmp-r1", trigger: "manual" }],
+        });
+        expect(resumeWtOpts).toEqual({
+          existingWorktreePath: worktreeDir,
+          worktreeBranch: "feat/agy",
+        });
+
+        bridge.close();
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(worktreeDir, { recursive: true, force: true });
       });
     });
 

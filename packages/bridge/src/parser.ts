@@ -355,7 +355,10 @@ export type ClientMessage =
        * independent of pagination (first list page only). Additive: older
        * Bridges ignore it.
        */
-      pinnedSessions?: Array<{ provider: "claude" | "codex"; sessionId: string }>;
+      pinnedSessions?: Array<{
+        provider: "claude" | "codex" | "antigravity";
+        sessionId: string;
+      }>;
       /**
        * Recent-session filters (capability `recent_sessions_filters_v1`).
        * See docs/recent-sessions-filters.md.
@@ -738,11 +741,11 @@ export type ContextCompactionMessage = {
   type: "context_compaction";
   /** Provider boundary id (Claude boundary uuid / Codex item id). */
   id?: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   trigger?: "manual" | "auto";
   preTokens?: number;
   postTokens?: number;
-  /** Claude only. Codex summaries are not readable. */
+  /** Claude / Antigravity compaction summary. Codex summaries are not readable. */
   summary?: string;
   timestamp?: string;
 };
@@ -933,7 +936,7 @@ export type ServerMessage =
       type: "session_transcript";
       sessionId: string;
       requestId: string;
-      provider: "claude" | "codex";
+      provider: "claude" | "codex" | "antigravity";
       /** Index of messages[0] within the full transcript. */
       startIndex: number;
       /** Exclusive end index of this page. */
@@ -1603,7 +1606,9 @@ function isValidRecentPinnedSessions(value: unknown): boolean {
     if (!pin || typeof pin !== "object") return false;
     const { provider, sessionId } = pin as Record<string, unknown>;
     return (
-      (provider === "claude" || provider === "codex") &&
+      (provider === "claude" ||
+        provider === "codex" ||
+        provider === "antigravity") &&
       isNonEmptyString(sessionId)
     );
   });

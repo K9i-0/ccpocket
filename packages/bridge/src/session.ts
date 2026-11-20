@@ -13,6 +13,8 @@ import {
   renameCodexSession,
   saveCodexSessionAdditionalWritableRoots,
   saveCodexSessionProfile,
+  type SessionHistoryContentItem,
+  type SessionHistoryMessage,
 } from "./sessions-index.js";
 import {
   SdkProcess,
@@ -29,6 +31,7 @@ import {
   type AntigravitySettings,
   type AntigravityStartOptions,
 } from "./antigravity-process.js";
+import type { AntigravityCompactionRecord } from "./antigravity-store.js";
 import type {
   ServerMessage,
   ProcessStatus,
@@ -72,6 +75,11 @@ export interface SessionInfo {
   historyLowWatermark: number;
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
   pastMessages?: unknown[];
+  /**
+   * Untrimmed Antigravity transcript (replayed + live, capped at 5,000 entries)
+   * served by `get_session_transcript` even after live history is trimmed.
+   */
+  antigravityTranscript?: SessionHistoryMessage[];
   /**
    * True until the first Codex history response consumes the history already
    * loaded during resume. This also distinguishes a loaded empty history from
@@ -400,6 +408,9 @@ export class SessionManager {
   private worktreeStore: WorktreeStore | null;
   private onSessionUpdated: SessionUpdatedCallback | null;
   private assistantImageResolver: AssistantImageResolver | null = null;
+  private onAntigravityCompaction:
+    | ((claudeSessionId: string, record: AntigravityCompactionRecord) => void)
+    | null = null;
   private readonly idleSessionTtlMs: number;
   private idleEvictionTimer: ReturnType<typeof setInterval>;
 
@@ -408,6 +419,7 @@ export class SessionManager {
     string,
     {
       slashCommands: string[];
+      slashCommandDescriptions?: Record<string, string>;
       skills: string[];
       skillMetadata?: Array<Record<string, unknown>>;
       apps: string[];
@@ -426,6 +438,15 @@ export class SessionManager {
   /** Enables attaching markdown-embedded images to assistant messages. */
   setAssistantImageResolver(resolver: AssistantImageResolver | null): void {
     this.assistantImageResolver = resolver;
+  }
+
+  /** Receives Antigravity compaction records for persistence. */
+  setAntigravityCompactionHandler(
+    handler:
+      | ((claudeSessionId: string, record: AntigravityCompactionRecord) => void)
+      | null,
+  ): void {
+    this.onAntigravityCompaction = handler;
   }
 
   constructor(
@@ -624,6 +645,7 @@ export class SessionManager {
           msg.type === "system" &&
           (msg.subtype === "init" || msg.subtype === "supported_commands") &&
           (msg.slashCommands ||
+            msg.slashCommandDescriptions ||
             msg.skills ||
             msg.skillMetadata ||
             msg.apps ||
@@ -639,6 +661,9 @@ export class SessionManager {
           this.commandCache.set(commandCacheKey, {
             slashCommands:
               msg.slashCommands ?? previousCommands?.slashCommands ?? [],
+            slashCommandDescriptions:
+              msg.slashCommandDescriptions ??
+              previousCommands?.slashCommandDescriptions,
             skills: msg.skills ?? previousCommands?.skills ?? [],
             skillMetadata:
               (msg.skillMetadata as
@@ -966,6 +991,13 @@ export class SessionManager {
         session.name = title;
         this.onSessionUpdated?.(session.id);
       });
+      proc.on("compaction", (record) => {
+        if (this.sessions.get(id) !== session) return;
+        const providerSessionId = session.claudeSessionId ?? proc.sessionId;
+        if (providerSessionId) {
+          this.onAntigravityCompaction?.(providerSessionId, record);
+        }
+      });
     }
 
     proc.on("usage_limit", (retryAt?: number) => {
@@ -1231,9 +1263,11 @@ export class SessionManager {
               session.process.approvalPolicy) === "never"
             ? "fullAccess"
             : "default"
-          : session.process.permissionMode === "acceptEdits"
-            ? "acceptEdits"
-            : "default";
+          : session.process.permissionMode === "bypassPermissions"
+            ? "fullAccess"
+            : session.process.permissionMode === "acceptEdits"
+              ? "acceptEdits"
+              : "default";
     const planMode =
       session.process instanceof SdkProcess
         ? session.process.permissionMode === "plan"
@@ -1310,8 +1344,82 @@ export class SessionManager {
     if (session.provider === "codex" && msg.type === "user_input") {
       session.codexLatestUserInput = msg;
     }
+    if (session.provider === "antigravity") {
+      this.appendAntigravityTranscript(session, msg);
+    }
     this.trimHistory(session);
     return entry;
+  }
+
+  private static readonly MAX_ANTIGRAVITY_TRANSCRIPT = 5000;
+
+  private appendAntigravityTranscript(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): void {
+    let item: SessionHistoryMessage | null = null;
+    if (msg.type === "user_input") {
+      item = {
+        role: "user",
+        ...(msg.userMessageUuid ? { uuid: msg.userMessageUuid } : {}),
+        ...(msg.timestamp ? { timestamp: msg.timestamp } : {}),
+        ...(msg.isMeta ? { isMeta: true } : {}),
+        ...(msg.imageCount ? { imageCount: msg.imageCount } : {}),
+        content: msg.text,
+      };
+    } else if (msg.type === "assistant") {
+      const blocks: SessionHistoryContentItem[] = msg.message.content.map(
+        (block) =>
+          block.type === "text"
+            ? { type: "text", text: block.text }
+            : block.type === "thinking"
+              ? { type: "thinking", thinking: block.thinking }
+              : {
+                  type: "tool_use",
+                  id: block.id,
+                  name: block.name,
+                  input: block.input,
+                },
+      );
+      item = {
+        role: "assistant",
+        ...(msg.messageUuid ? { uuid: msg.messageUuid } : {}),
+        content: blocks,
+      };
+    } else if (msg.type === "tool_result") {
+      item = {
+        role: "tool_result",
+        toolUseId: msg.toolUseId,
+        ...(msg.toolName ? { toolName: msg.toolName } : {}),
+        content: msg.content,
+      };
+    } else if (msg.type === "context_compaction") {
+      item = {
+        role: "compaction",
+        ...(msg.id ? { uuid: msg.id } : {}),
+        ...(msg.timestamp ? { timestamp: msg.timestamp } : {}),
+        compaction: {
+          ...(msg.trigger ? { trigger: msg.trigger } : {}),
+          ...(msg.preTokens !== undefined ? { preTokens: msg.preTokens } : {}),
+          ...(msg.postTokens !== undefined ? { postTokens: msg.postTokens } : {}),
+          ...(msg.summary ? { summary: msg.summary } : {}),
+        },
+        content: "",
+      };
+    }
+    if (!item) return;
+    session.antigravityTranscript ??= [];
+    session.antigravityTranscript.push(item);
+    if (
+      session.antigravityTranscript.length >
+      SessionManager.MAX_ANTIGRAVITY_TRANSCRIPT
+    ) {
+      session.antigravityTranscript.splice(
+        0,
+        session.antigravityTranscript.length -
+          SessionManager.MAX_ANTIGRAVITY_TRANSCRIPT,
+      );
+    }
   }
 
   private mergeUserInputIntoHistory(
@@ -2016,6 +2124,7 @@ export class SessionManager {
   ):
     | {
         slashCommands: string[];
+        slashCommandDescriptions?: Record<string, string>;
         skills: string[];
         skillMetadata?: Array<Record<string, unknown>>;
         apps: string[];

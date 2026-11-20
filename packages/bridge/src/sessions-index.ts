@@ -2751,7 +2751,7 @@ export async function getCodexSessionIndexMetadata(
 
 // ---- Session history from JSONL files ----
 
-type SessionHistoryContentItem = {
+export type SessionHistoryContentItem = {
   type: string;
   text?: string;
   thinking?: string;

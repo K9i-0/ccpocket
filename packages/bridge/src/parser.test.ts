@@ -844,6 +844,7 @@ describe("parseClientMessage", () => {
         pinnedSessions: [
           { provider: "claude", sessionId: "c1" },
           { provider: "codex", sessionId: "x1" },
+          { provider: "antigravity", sessionId: "a1" },
         ],
       }),
     );
@@ -854,6 +855,7 @@ describe("parseClientMessage", () => {
       pinnedSessions: [
         { provider: "claude", sessionId: "c1" },
         { provider: "codex", sessionId: "x1" },
+        { provider: "antigravity", sessionId: "a1" },
       ],
     });
   });

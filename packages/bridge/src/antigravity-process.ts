@@ -20,6 +20,7 @@ import type {
   ProcessStatus,
   ServerMessage,
 } from "./parser.js";
+import type { AntigravityCompactionRecord } from "./antigravity-store.js";
 
 /**
  * Antigravity (`agy acp`) provider process.
@@ -127,6 +128,10 @@ export interface AntigravityStartOptions {
   /** Value for the `thought_level` config option (`low`, `high`, ...). */
   thoughtLevel?: string;
   permissionMode?: PermissionMode;
+  /** Mode to return to once a plan is approved (restored on resume). */
+  modeBeforePlan?: PermissionMode;
+  /** Recorded context compaction boundaries to re-emit during `session/load` replay. */
+  compactions?: AntigravityCompactionRecord[];
   /** Extra workspace roots (absolute paths). */
   additionalDirectories?: string[];
 }
@@ -199,6 +204,8 @@ export interface AntigravityProcessEvents {
   usage_limit: [retryAt?: number];
   /** Title assigned by Antigravity itself (`session_info_update`). */
   title: [string];
+  /** Context compaction boundary recorded for persistence. */
+  compaction: [AntigravityCompactionRecord];
 }
 
 export interface AcpTransportEvents {
@@ -422,36 +429,63 @@ export function buildUnifiedDiff(
   type Op = { tag: " " | "-" | "+"; line: string };
   const ops: Op[] = [];
 
-  if (before.length * after.length > DIFF_MAX_CELLS) {
-    for (const line of before) ops.push({ tag: "-", line });
-    for (const line of after) ops.push({ tag: "+", line });
-  } else {
-    const rows = before.length + 1;
-    const cols = after.length + 1;
+  // Strip common prefix and suffix in O(N) so large files with localized edits
+  // only run LCS (and DIFF_MAX_CELLS) on the changed middle slice.
+  let prefixLen = 0;
+  const minLen = Math.min(before.length, after.length);
+  while (prefixLen < minLen && before[prefixLen] === after[prefixLen]) {
+    prefixLen++;
+  }
+  let suffixLen = 0;
+  const maxSuffix = minLen - prefixLen;
+  while (
+    suffixLen < maxSuffix &&
+    before[before.length - 1 - suffixLen] === after[after.length - 1 - suffixLen]
+  ) {
+    suffixLen++;
+  }
+
+  for (let p = 0; p < prefixLen; p++) {
+    ops.push({ tag: " ", line: before[p] });
+  }
+
+  const midBefore = before.slice(prefixLen, before.length - suffixLen);
+  const midAfter = after.slice(prefixLen, after.length - suffixLen);
+
+  if (midBefore.length * midAfter.length > DIFF_MAX_CELLS) {
+    for (const line of midBefore) ops.push({ tag: "-", line });
+    for (const line of midAfter) ops.push({ tag: "+", line });
+  } else if (midBefore.length > 0 || midAfter.length > 0) {
+    const rows = midBefore.length + 1;
+    const cols = midAfter.length + 1;
     const lcs = new Uint32Array(rows * cols);
-    for (let i = before.length - 1; i >= 0; i--) {
-      for (let j = after.length - 1; j >= 0; j--) {
+    for (let i = midBefore.length - 1; i >= 0; i--) {
+      for (let j = midAfter.length - 1; j >= 0; j--) {
         lcs[i * cols + j] =
-          before[i] === after[j]
+          midBefore[i] === midAfter[j]
             ? lcs[(i + 1) * cols + j + 1] + 1
             : Math.max(lcs[(i + 1) * cols + j], lcs[i * cols + j + 1]);
       }
     }
     let i = 0;
     let j = 0;
-    while (i < before.length && j < after.length) {
-      if (before[i] === after[j]) {
-        ops.push({ tag: " ", line: before[i] });
+    while (i < midBefore.length && j < midAfter.length) {
+      if (midBefore[i] === midAfter[j]) {
+        ops.push({ tag: " ", line: midBefore[i] });
         i++;
         j++;
       } else if (lcs[(i + 1) * cols + j] >= lcs[i * cols + j + 1]) {
-        ops.push({ tag: "-", line: before[i++] });
+        ops.push({ tag: "-", line: midBefore[i++] });
       } else {
-        ops.push({ tag: "+", line: after[j++] });
+        ops.push({ tag: "+", line: midAfter[j++] });
       }
     }
-    while (i < before.length) ops.push({ tag: "-", line: before[i++] });
-    while (j < after.length) ops.push({ tag: "+", line: after[j++] });
+    while (i < midBefore.length) ops.push({ tag: "-", line: midBefore[i++] });
+    while (j < midAfter.length) ops.push({ tag: "+", line: midAfter[j++] });
+  }
+
+  for (let s = before.length - suffixLen; s < before.length; s++) {
+    ops.push({ tag: " ", line: before[s] });
   }
 
   const keep = new Array<boolean>(ops.length).fill(false);
@@ -550,6 +584,41 @@ function textFromToolContent(content: unknown): string {
     }
   }
   return parts.join("\n");
+}
+
+function imageBlocksFromToolContent(
+  content: unknown,
+): Array<{
+  type: "image";
+  source: { type: "base64"; media_type: string; data: string };
+}> {
+  if (!Array.isArray(content)) return [];
+  const blocks: Array<{
+    type: "image";
+    source: { type: "base64"; media_type: string; data: string };
+  }> = [];
+  for (const block of content) {
+    if (!isRecord(block)) continue;
+    const candidate =
+      block.type === "content" && isRecord(block.content) ? block.content : block;
+    if (
+      candidate.type === "image" &&
+      typeof candidate.data === "string" &&
+      candidate.data.length > 0 &&
+      typeof candidate.mimeType === "string" &&
+      candidate.mimeType.length > 0
+    ) {
+      blocks.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: candidate.mimeType,
+          data: candidate.data,
+        },
+      });
+    }
+  }
+  return blocks;
 }
 
 function numberOr(value: unknown): number | undefined {
@@ -798,6 +867,7 @@ export function extractGeneratedImagePaths(
 
 export function describeAcpTool(
   update: Record<string, unknown>,
+  cwd = "",
 ): { toolName: string; input: Record<string, unknown> } | undefined {
   const kind = stringOr(update.kind, "other");
   const name = stringOr(update.name);
@@ -821,10 +891,33 @@ export function describeAcpTool(
     };
   }
   if (kind === "read") {
-    const path =
+    const rawPath =
       firstString(rawInput, ["Path", "AbsolutePath", "path", "file_path"]) ||
       firstLocation(update);
-    if (path) return { toolName: "Read", input: { file_path: path } };
+    if (rawPath) {
+      const file_path = displayPath(rawPath, cwd);
+      const startLine = numberOr(
+        rawInput.StartLine ?? rawInput.startLine ?? rawInput.offset,
+      );
+      const endLine = numberOr(rawInput.EndLine ?? rawInput.endLine);
+      const explicitLimit = numberOr(rawInput.limit);
+      const offset =
+        startLine !== undefined && startLine > 0 ? startLine : undefined;
+      const limit =
+        explicitLimit !== undefined && explicitLimit > 0
+          ? explicitLimit
+          : endLine !== undefined && endLine > 0
+            ? Math.max(1, endLine - (offset ?? 1) + 1)
+            : undefined;
+      return {
+        toolName: "Read",
+        input: {
+          file_path,
+          ...(offset !== undefined ? { offset } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+        },
+      };
+    }
   }
   if (kind === "search") {
     const query = firstString(rawInput, ["query", "Query", "Pattern", "pattern"]);
@@ -999,6 +1092,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   /** History replay from `session/load` must not look like a live turn. */
   private replaying = false;
   private replayedUserTurns = 0;
+  /** Cumulative count of user turns (replayed + live), used to anchor compaction boundaries. */
+  private userTurnCount = 0;
+  private storedCompactions: AntigravityCompactionRecord[] = [];
+  private nextCompactionIndex = 0;
+  private manualCompacting = false;
+  private compactionPreTokens: number | undefined;
+  private compactionEmittedInTurn = false;
 
   private resolveReady: (() => void) | null = null;
   private rejectReady: ((err: Error) => void) | null = null;
@@ -1133,6 +1233,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     return this._permissionMode;
   }
 
+  get currentModeBeforePlan(): PermissionMode {
+    return this.modeBeforePlan;
+  }
+
   get authMode(): AntigravityAuthMode {
     return this.config.apiKey ? "api_key" : "login";
   }
@@ -1250,6 +1354,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       });
     }
 
+    this.replayedUserTurns = 0;
+    this.userTurnCount = 0;
+    this.storedCompactions = [...(options?.compactions ?? [])].sort(
+      (a, b) => a.afterUserTurns - b.afterUserTurns,
+    );
+    this.nextCompactionIndex = 0;
+
     let session: Record<string, unknown>;
     if (options?.sessionId) {
       this._sessionId = options.sessionId;
@@ -1268,6 +1379,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       } finally {
         this.flushAssistant();
         this.closePendingImageGenerations("completed");
+        this.emitReplayedCompactionsUpTo(this.replayedUserTurns);
         this.replaying = false;
         // Replayed questions and plans were settled in an earlier run.
         this.planArtifact = null;
@@ -1284,6 +1396,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (!this._sessionId) throw new Error("Antigravity did not return a session id");
 
     this.applySessionState(session);
+    if (options?.modeBeforePlan && options.modeBeforePlan !== "plan") {
+      this.modeBeforePlan = options.modeBeforePlan;
+    }
     if (this.config.requireApiKey) {
       const foreign = this._models.filter((m) => !m.id.startsWith("gemini-"));
       if (this._models.length === 0 || foreign.length > 0) {
@@ -1425,6 +1540,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const steersSelfTurn = this.selfTurn;
     this.clearSelfTurn();
     if (this.outstandingPrompts === 0 && !steersSelfTurn) {
+      this.userTurnCount++;
       this.turnUsage = {};
       this.turnStartedAt = Date.now();
       this.turnToolCalls = 0;
@@ -1434,12 +1550,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.lastStopReason = undefined;
       this.cancelRequested = false;
       this.turnSettledImages = false;
+      this.compactionEmittedInTurn = false;
+      const isCompact = /^\/compact(?:\s|$)/i.test(text.trim());
+      this.manualCompacting = isCompact;
+      this.compactionPreTokens = isCompact ? this._contextUsage?.used : undefined;
     }
     // A prompt sent after a cancel starts over; the cancelled request still
     // answers, but it no longer decides how the turn ends.
     this.cancelRequested = false;
     this.outstandingPrompts++;
-    this.setStatus("running");
+    this.setStatus(this.manualCompacting ? "compacting" : "running");
     const prompt: Array<Record<string, unknown>> = [];
     for (const image of images ?? []) {
       prompt.push({ type: "image", data: image.base64, mimeType: image.mimeType });
@@ -1483,6 +1603,19 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (this.contextUsageDirty) this.emitSettings();
     const succeeded =
       !err && this.lastStopReason !== "cancelled" && !this.cancelRequested;
+    const wasManualCompacting = this.manualCompacting;
+    const preTokens = this.compactionPreTokens;
+    this.manualCompacting = false;
+    this.compactionPreTokens = undefined;
+    if (wasManualCompacting && succeeded && !this.compactionEmittedInTurn) {
+      this.compactionEmittedInTurn = true;
+      this.emitContextCompaction({
+        trigger: "manual",
+        preTokens,
+        postTokens: this._contextUsage?.used,
+        summary: this.lastResultText.trim() || undefined,
+      });
+    }
     this.dropSettledToolCalls(
       succeeded,
       this.lastStopReason === "cancelled" || this.cancelRequested
@@ -1554,6 +1687,22 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     const toolUseId = `plan_${randomUUID()}`;
     this.pendingPlan = { toolUseId, plan };
+    this.emitMessage({
+      type: "assistant",
+      message: {
+        id: toolUseId,
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: toolUseId,
+            name: "ExitPlanMode",
+            input: { plan },
+          },
+        ],
+        model: this._model ?? "antigravity",
+      },
+    });
     this.setStatus("waiting_approval");
     this.emitMessage({
       type: "permission_request",
@@ -1716,7 +1865,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.pendingElicitations.size === 0 &&
       this.isTurnActive
     ) {
-      this.setStatus("running");
+      this.setStatus(this.manualCompacting ? "compacting" : "running");
     }
   }
 
@@ -2143,13 +2292,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         // Only `session/load` replays user turns.
         this.flushAssistant();
         this.closePendingImageGenerations("completed");
+        if (this.replaying && this.replayedUserTurns > 0) {
+          this.emitReplayedCompactionsUpTo(this.replayedUserTurns);
+        }
         const text = isRecord(update.content) ? stringOr(update.content.text) : "";
         if (text) {
+          this.replayedUserTurns++;
+          this.userTurnCount = this.replayedUserTurns;
           // Without an id, two identical prompts would be merged into one.
           this.emitMessage({
             type: "user_input",
             text,
-            userMessageUuid: `antigravity:replay:${++this.replayedUserTurns}`,
+            userMessageUuid: `antigravity:replay:${this.replayedUserTurns}`,
           });
         }
         return;
@@ -2185,13 +2339,34 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         const used = numberOr(update.used);
         const size = numberOr(update.size);
         if (used === undefined || size === undefined || size <= 0) return;
-        if (this._contextUsage?.used === used && this._contextUsage.size === size) {
-          return;
-        }
+        const previousUsed = this._contextUsage?.used;
+        const changed =
+          this._contextUsage?.used !== used || this._contextUsage.size !== size;
         this._contextUsage = { used, size };
-        // Reported once per turn, with its result: this arrives after every
-        // model call and each report lands in the session history.
-        this.contextUsageDirty = true;
+        if (
+          !this.replaying &&
+          this.isTurnActive &&
+          !this.manualCompacting &&
+          !this.compactionEmittedInTurn &&
+          previousUsed !== undefined &&
+          previousUsed - used >= 10_000 &&
+          used <= previousUsed * 0.7
+        ) {
+          this.compactionEmittedInTurn = true;
+          this.emitContextCompaction({
+            trigger: "auto",
+            preTokens: previousUsed,
+            postTokens: used,
+          });
+        }
+        if (!changed) return;
+        if (this.ready && !this.isTurnActive) {
+          this.emitSettings();
+        } else {
+          // Reported once per turn, with its result: this arrives after every
+          // model call and each report lands in the session history.
+          this.contextUsageDirty = true;
+        }
         return;
       }
       case "available_commands_update": {
@@ -2245,7 +2420,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       const kind = stringOr(update.kind, "other");
       const title = stringOr(update.title);
       const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
-      const known = describeAcpTool(update);
+      const known = describeAcpTool(update, this.cwd);
       const mcp = mcpToolFromAcp(update);
       let toolName: string;
       let input: Record<string, unknown>;
@@ -2356,12 +2531,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
             ? "Failed"
             : "Done");
     }
+    const rawContentBlocks = imageBlocksFromToolContent(update.content);
     this.emitMessage({
       type: "tool_result",
       toolUseId,
       content,
       toolName: call.toolName,
       ...(this.replaying ? { skipGallery: true } : {}),
+      ...(rawContentBlocks.length > 0 ? { rawContentBlocks } : {}),
     });
   }
 
@@ -2421,7 +2598,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       .map((location) => (isRecord(location) ? stringOr(location.path) : ""))
       .filter((path) => path.length > 0)
       .map((path) => ({
-        path: isArtifactPath(path, this.cwd) ? basename(path) : path,
+        path: displayPath(path, this.cwd),
         kind: "update" as const,
         diff: "",
       }));
@@ -2497,7 +2674,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         availableDecisions,
       };
     } else {
-      const known = describeAcpTool(toolCall);
+      const known = describeAcpTool(toolCall, this.cwd);
       toolName =
         known?.toolName ||
         this.toolCalls.get(toolUseId)?.toolName ||
@@ -2823,6 +3000,55 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       sessionId: this._sessionId ?? undefined,
     });
     this.emitSettings();
+  }
+
+  private emitReplayedCompactionsUpTo(turn: number): void {
+    while (
+      this.nextCompactionIndex < this.storedCompactions.length &&
+      this.storedCompactions[this.nextCompactionIndex].afterUserTurns <= turn
+    ) {
+      const record = this.storedCompactions[this.nextCompactionIndex++];
+      this.emitMessage({
+        type: "context_compaction",
+        id: record.id,
+        provider: "antigravity",
+        ...(record.trigger ? { trigger: record.trigger } : {}),
+        ...(record.preTokens !== undefined ? { preTokens: record.preTokens } : {}),
+        ...(record.postTokens !== undefined ? { postTokens: record.postTokens } : {}),
+        ...(record.summary ? { summary: record.summary } : {}),
+        timestamp: record.timestamp,
+      });
+    }
+  }
+
+  private emitContextCompaction(params: {
+    trigger: "manual" | "auto";
+    preTokens?: number;
+    postTokens?: number;
+    summary?: string;
+  }): void {
+    const id = `agy-compact-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    const record: AntigravityCompactionRecord = {
+      afterUserTurns: this.userTurnCount,
+      id,
+      timestamp,
+      trigger: params.trigger,
+      ...(params.preTokens !== undefined ? { preTokens: params.preTokens } : {}),
+      ...(params.postTokens !== undefined ? { postTokens: params.postTokens } : {}),
+      ...(params.summary ? { summary: params.summary } : {}),
+    };
+    this.emitMessage({
+      type: "context_compaction",
+      id: record.id,
+      provider: "antigravity",
+      trigger: record.trigger,
+      ...(record.preTokens !== undefined ? { preTokens: record.preTokens } : {}),
+      ...(record.postTokens !== undefined ? { postTokens: record.postTokens } : {}),
+      ...(record.summary ? { summary: record.summary } : {}),
+      timestamp: record.timestamp,
+    });
+    this.emit("compaction", record);
   }
 
   private emitToolResult(

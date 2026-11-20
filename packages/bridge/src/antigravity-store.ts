@@ -3,6 +3,18 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AntigravityCatalog } from "./antigravity-process.js";
+import type { PermissionMode } from "./parser.js";
+
+/** Recorded context compaction boundary within an Antigravity conversation. */
+export interface AntigravityCompactionRecord {
+  afterUserTurns: number;
+  id: string;
+  timestamp: string;
+  trigger?: "manual" | "auto";
+  preTokens?: number;
+  postTokens?: number;
+  summary?: string;
+}
 
 /** What the Bridge remembers about an Antigravity conversation. */
 export interface AntigravitySessionRecord {
@@ -10,6 +22,12 @@ export interface AntigravitySessionRecord {
   name?: string;
   /** ACP model id last used; `session/load` resets it to the agent default. */
   model?: string;
+  /** Permission mode last active in this conversation. */
+  permissionMode?: PermissionMode;
+  /** Mode to restore when exiting plan mode. */
+  modeBeforePlan?: PermissionMode;
+  /** Recorded compaction boundaries for replay across restarts/resumes. */
+  compactions?: AntigravityCompactionRecord[];
 }
 
 /** The catalog as last read, per sign-in method. */
@@ -44,8 +62,12 @@ export class AntigravityStore {
     try {
       const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as StoreData;
       if (parsed.version === 1 && parsed.sessions && typeof parsed.sessions === "object") {
-        this.sessions = new Map(Object.entries(parsed.sessions));
-        this.catalogs = parsed.catalogs ?? {};
+        const loaded = new Map(Object.entries(parsed.sessions));
+        for (const [id, record] of this.sessions) {
+          loaded.set(id, { ...loaded.get(id), ...record });
+        }
+        this.sessions = loaded;
+        this.catalogs = { ...(parsed.catalogs ?? {}), ...this.catalogs };
       }
     } catch {
       // Missing or unreadable: start empty.
@@ -54,6 +76,11 @@ export class AntigravityStore {
 
   get(sessionId: string): AntigravitySessionRecord | undefined {
     return this.sessions.get(sessionId);
+  }
+
+  /** All remembered records by conversation id. */
+  records(): ReadonlyMap<string, AntigravitySessionRecord> {
+    return this.sessions;
   }
 
   /** Names by conversation id, for the recent-session list. */
@@ -72,6 +99,43 @@ export class AntigravityStore {
   setModel(sessionId: string, model: string): Promise<void> {
     if (this.sessions.get(sessionId)?.model === model) return Promise.resolve();
     return this.update(sessionId, { model });
+  }
+
+  setPermissionMode(
+    sessionId: string,
+    permissionMode: PermissionMode,
+    modeBeforePlan?: PermissionMode,
+  ): Promise<void> {
+    const existing = this.sessions.get(sessionId);
+    const nextBeforePlan =
+      modeBeforePlan && modeBeforePlan !== "plan"
+        ? modeBeforePlan
+        : permissionMode !== "plan"
+          ? permissionMode
+          : existing?.modeBeforePlan;
+    if (
+      existing?.permissionMode === permissionMode &&
+      existing?.modeBeforePlan === nextBeforePlan
+    ) {
+      return Promise.resolve();
+    }
+    return this.update(sessionId, {
+      permissionMode,
+      ...(nextBeforePlan ? { modeBeforePlan: nextBeforePlan } : {}),
+    });
+  }
+
+  addCompaction(
+    sessionId: string,
+    record: AntigravityCompactionRecord,
+  ): Promise<void> {
+    const existing = this.sessions.get(sessionId)?.compactions ?? [];
+    if (existing.some((item) => item.id === record.id)) {
+      return Promise.resolve();
+    }
+    const next = [...existing, record];
+    const capped = next.length > 500 ? next.slice(next.length - 500) : next;
+    return this.update(sessionId, { compactions: capped });
   }
 
   /**

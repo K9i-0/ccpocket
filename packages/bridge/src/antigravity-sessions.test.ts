@@ -1,10 +1,15 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AcpTransport } from "./antigravity-process.js";
 import {
   antigravityRecentSessions,
   fetchAntigravityCatalog,
   listAntigravitySessions,
+  readAntigravityTranscriptFile,
 } from "./antigravity-sessions.js";
+import { AntigravityStore } from "./antigravity-store.js";
 
 type Json = Record<string, unknown>;
 
@@ -190,6 +195,158 @@ describe("antigravityRecentSessions names", () => {
       [{ sessionId: "a", projectPath: "/p", title: "agy title" }],
       { names: new Map([["a", "Mine"]]), searchQuery: "mine" },
     );
-    expect(rows).toMatchObject([{ sessionId: "a", name: "Mine" }]);
+    expect(rows).toMatchObject([
+      {
+        sessionId: "a",
+        name: "Mine",
+        summary: "agy title",
+        searchMatch: { field: "name" },
+      },
+    ]);
+  });
+
+  it("populates model/permissionMode from records, enforces namedOnly, and sets searchMatch fields", () => {
+    const entries = [
+      { sessionId: "a", projectPath: "/work/alpha", title: "Alpha summary", updatedAt: "2026-11-02T00:00:00Z" },
+      { sessionId: "b", projectPath: "/work/beta", title: "Beta summary", updatedAt: "2026-11-01T00:00:00Z" },
+    ];
+    const records = new Map([
+      ["a", { name: "Custom A", model: "gemini-3.8-flash-high", permissionMode: "plan" as const }],
+      ["b", { model: "gemini-3.1-pro-low", permissionMode: "auto" as const }],
+    ]);
+
+    const named = antigravityRecentSessions(entries, { records, namedOnly: true });
+    expect(named).toHaveLength(1);
+    expect(named[0]).toMatchObject({
+      sessionId: "a",
+      name: "Custom A",
+      model: "gemini-3.8-flash-high",
+      permissionMode: "plan",
+    });
+
+    const summaryMatch = antigravityRecentSessions(entries, {
+      records,
+      searchQuery: "beta summary",
+    });
+    expect(summaryMatch).toMatchObject([
+      { sessionId: "b", model: "gemini-3.1-pro-low", permissionMode: "auto", searchMatch: { field: "summary" } },
+    ]);
+
+    const projectMatch = antigravityRecentSessions(entries, {
+      records,
+      searchQuery: "/work/alpha",
+    });
+    expect(projectMatch).toMatchObject([
+      { sessionId: "a", searchMatch: { field: "project" } },
+    ]);
+  });
+});
+
+describe("AntigravityStore", () => {
+  it("persists permissionMode, modeBeforePlan, and compactions across reloads", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-store-"));
+    try {
+      const store = new AntigravityStore(dir);
+      await store.setPermissionMode("s1", "acceptEdits");
+      await store.setPermissionMode("s1", "plan");
+      await store.addCompaction("s1", {
+        afterUserTurns: 3,
+        id: "cmp-1",
+        timestamp: "2026-11-20T00:00:00Z",
+        trigger: "manual",
+        preTokens: 40_000,
+        postTokens: 12_000,
+        summary: "Compact summary",
+      });
+      // Duplicate id is ignored
+      await store.addCompaction("s1", {
+        afterUserTurns: 3,
+        id: "cmp-1",
+        timestamp: "2026-11-20T00:00:00Z",
+      });
+
+      const reloaded = new AntigravityStore(dir);
+      await reloaded.init();
+      expect(reloaded.get("s1")).toMatchObject({
+        permissionMode: "plan",
+        modeBeforePlan: "acceptEdits",
+        compactions: [
+          {
+            afterUserTurns: 3,
+            id: "cmp-1",
+            trigger: "manual",
+            preTokens: 40_000,
+            postTokens: 12_000,
+            summary: "Compact summary",
+          },
+        ],
+      });
+      expect(reloaded.records().get("s1")?.permissionMode).toBe("plan");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("readAntigravityTranscriptFile", () => {
+  it("parses transcript_full.jsonl and falls back to transcript.jsonl", async () => {
+    const profileDir = mkdtempSync(join(tmpdir(), "ccpocket-agy-transcript-"));
+    try {
+      const logsDir = join(profileDir, "brain", "conv-1", ".system_generated", "logs");
+      mkdirSync(logsDir, { recursive: true });
+      const lines = [
+        JSON.stringify({
+          step_index: 1,
+          type: "USER_INPUT",
+          content: "Hello agent",
+          created_at: "2026-11-20T01:00:00Z",
+        }),
+        JSON.stringify({
+          step_index: 2,
+          type: "PLANNER_RESPONSE",
+          thinking: "Let me check",
+          content: "Done!",
+          tool_calls: [{ id: "tc1", name: "read_file", arguments: { Path: "a.ts" } }],
+          created_at: "2026-11-20T01:00:05Z",
+        }),
+        JSON.stringify({
+          step_index: 3,
+          type: "CHECKPOINT",
+          content: "Compacted history",
+          created_at: "2026-11-20T01:01:00Z",
+        }),
+      ];
+      writeFileSync(join(logsDir, "transcript_full.jsonl"), lines.join("\n") + "\n");
+
+      const full = await readAntigravityTranscriptFile("conv-1", { profileDir });
+      expect(full).toHaveLength(3);
+      expect(full[0]).toMatchObject({ role: "user", content: "Hello agent" });
+      expect(full[1]).toMatchObject({
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "Let me check" },
+          { type: "text", text: "Done!" },
+          { type: "tool_use", id: "tc1", name: "read_file", input: { Path: "a.ts" } },
+        ],
+      });
+      expect(full[2]).toMatchObject({
+        role: "compaction",
+        uuid: "antigravity:log:3",
+        compaction: { trigger: "auto", summary: "Compacted history" },
+      });
+
+      // Fallback to transcript.jsonl when transcript_full.jsonl is absent
+      const logsDir2 = join(profileDir, "brain", "conv-2", ".system_generated", "logs");
+      mkdirSync(logsDir2, { recursive: true });
+      writeFileSync(
+        join(logsDir2, "transcript.jsonl"),
+        JSON.stringify({ step_index: 1, type: "USER_INPUT", content: "Compact log" }) + "\n",
+      );
+      const compact = await readAntigravityTranscriptFile("conv-2", { profileDir });
+      expect(compact).toHaveLength(1);
+      expect(compact[0]).toMatchObject({ role: "user", content: "Compact log" });
+    } finally {
+      rmSync(profileDir, { recursive: true, force: true });
+    }
   });
 });

@@ -1,6 +1,10 @@
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ACP_CLIENT_INFO,
+  ANTIGRAVITY_API_KEY_PROFILE,
   AcpTransport,
   StdioAcpTransport,
   buildModelOptions,
@@ -9,6 +13,13 @@ import {
   type AntigravityCatalog,
   type AntigravityConfig,
 } from "./antigravity-process.js";
+import type { AntigravitySessionRecord } from "./antigravity-store.js";
+import type { PermissionMode } from "./parser.js";
+import type { RecentSessionSearchMatch } from "./recent-session-search.js";
+import type {
+  SessionHistoryContentItem,
+  SessionHistoryMessage,
+} from "./sessions-index.js";
 
 /** A conversation Antigravity keeps on this machine. */
 export interface AntigravitySessionEntry {
@@ -210,12 +221,16 @@ export interface AntigravityRecentSession {
   sessionId: string;
   provider: "antigravity";
   name?: string;
+  summary?: string;
   firstPrompt: string;
   created: string;
   modified: string;
   gitBranch: string;
   projectPath: string;
+  model?: string;
+  permissionMode?: PermissionMode;
   isSidechain: false;
+  searchMatch?: RecentSessionSearchMatch;
 }
 
 export function antigravityRecentSessions(
@@ -223,38 +238,186 @@ export function antigravityRecentSessions(
   filter: {
     projectPath?: string;
     searchQuery?: string;
+    namedOnly?: boolean;
     archivedSessionIds?: ReadonlySet<string>;
     /** Names given in ccpocket; they win over Antigravity's own titles. */
     names?: ReadonlyMap<string, string>;
+    /** Remembered metadata from AntigravityStore (name, model, permissionMode). */
+    records?: ReadonlyMap<string, AntigravitySessionRecord>;
   } = {},
 ): AntigravityRecentSession[] {
   const query = filter.searchQuery?.trim().toLowerCase();
-  return entries
-    .map((entry) => {
-      const name = filter.names?.get(entry.sessionId);
-      return name ? { ...entry, title: name } : entry;
-    })
-    .filter((entry) => !filter.archivedSessionIds?.has(entry.sessionId))
-    .filter((entry) => !filter.projectPath || entry.projectPath === filter.projectPath)
-    .filter(
-      (entry) =>
-        !query ||
-        (entry.title ?? "").toLowerCase().includes(query) ||
-        entry.projectPath.toLowerCase().includes(query),
-    )
-    .map((entry) => {
-      const modified = entry.updatedAt ?? new Date(0).toISOString();
-      return {
-        sessionId: entry.sessionId,
-        provider: "antigravity" as const,
-        ...(entry.title ? { name: entry.title } : {}),
-        firstPrompt: entry.title ?? "",
-        created: modified,
-        modified,
-        gitBranch: "",
-        projectPath: entry.projectPath,
-        isSidechain: false as const,
-      };
-    })
-    .sort((a, b) => b.modified.localeCompare(a.modified));
+  const rows: AntigravityRecentSession[] = [];
+  for (const entry of entries) {
+    if (filter.archivedSessionIds?.has(entry.sessionId)) continue;
+    if (filter.projectPath && entry.projectPath !== filter.projectPath) continue;
+
+    const record = filter.records?.get(entry.sessionId);
+    const storedName = record?.name?.trim() || filter.names?.get(entry.sessionId)?.trim() || undefined;
+    if (filter.namedOnly && !storedName) continue;
+
+    const agyTitle = entry.title?.trim() || undefined;
+    let searchMatch: RecentSessionSearchMatch | undefined;
+    if (query) {
+      if (storedName && storedName.toLowerCase().includes(query)) {
+        searchMatch = { field: "name" };
+      } else if (agyTitle && agyTitle.toLowerCase().includes(query)) {
+        searchMatch = { field: "summary" };
+      } else if (entry.projectPath.toLowerCase().includes(query)) {
+        searchMatch = { field: "project" };
+      } else {
+        continue;
+      }
+    }
+
+    const displayName = storedName ?? agyTitle;
+    const modified = entry.updatedAt ?? new Date(0).toISOString();
+    rows.push({
+      sessionId: entry.sessionId,
+      provider: "antigravity" as const,
+      ...(displayName ? { name: displayName } : {}),
+      ...(storedName && agyTitle && agyTitle !== storedName
+        ? { summary: agyTitle }
+        : {}),
+      firstPrompt: displayName ?? "",
+      created: modified,
+      modified,
+      gitBranch: "",
+      projectPath: entry.projectPath,
+      ...(record?.model ? { model: record.model } : {}),
+      ...(record?.permissionMode ? { permissionMode: record.permissionMode } : {}),
+      isSidechain: false as const,
+      ...(searchMatch ? { searchMatch } : {}),
+    });
+  }
+  return rows.sort((a, b) => b.modified.localeCompare(a.modified));
+}
+
+/**
+ * Resolves the Antigravity profile directory (`~/.gemini/<profile>`).
+ */
+export function resolveAntigravityProfileDir(
+  config: AntigravityConfig = getAntigravityConfig(),
+): string {
+  return join(
+    homedir(),
+    ".gemini",
+    config.apiKey ? ANTIGRAVITY_API_KEY_PROFILE : "antigravity-cli",
+  );
+}
+
+/**
+ * Fallback reader for Antigravity conversation transcripts on disk:
+ * `<profileDir>/brain/<sessionId>/.system_generated/logs/transcript_full.jsonl`
+ * (or `transcript.jsonl`). Maps `USER_INPUT`, `PLANNER_RESPONSE`, and
+ * `CHECKPOINT` entries to `SessionHistoryMessage[]`.
+ */
+export async function readAntigravityTranscriptFile(
+  sessionId: string,
+  options?: { profileDir?: string; config?: AntigravityConfig },
+): Promise<SessionHistoryMessage[]> {
+  if (!sessionId || /[\\/]/.test(sessionId)) return [];
+  const profileDir =
+    options?.profileDir ?? resolveAntigravityProfileDir(options?.config);
+  const logsDir = join(profileDir, "brain", sessionId, ".system_generated", "logs");
+  const fullPath = join(logsDir, "transcript_full.jsonl");
+  const compactPath = join(logsDir, "transcript.jsonl");
+  const filePath = existsSync(fullPath)
+    ? fullPath
+    : existsSync(compactPath)
+      ? compactPath
+      : null;
+  if (!filePath) return [];
+
+  let raw: string;
+  try {
+    raw = await readFile(filePath, "utf8");
+  } catch {
+    return [];
+  }
+
+  const messages: SessionHistoryMessage[] = [];
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!isRecord(parsed)) continue;
+    const type = typeof parsed.type === "string" ? parsed.type : "";
+    const timestamp =
+      typeof parsed.created_at === "string" ? parsed.created_at : undefined;
+    const stepIndex =
+      typeof parsed.step_index === "number" ? parsed.step_index : undefined;
+    const uuid =
+      stepIndex !== undefined ? `antigravity:log:${stepIndex}` : undefined;
+
+    if (type === "USER_INPUT") {
+      const content = typeof parsed.content === "string" ? parsed.content : "";
+      if (!content.trim()) continue;
+      messages.push({
+        role: "user",
+        ...(uuid ? { uuid } : {}),
+        ...(timestamp ? { timestamp } : {}),
+        content,
+      });
+      continue;
+    }
+
+    if (type === "PLANNER_RESPONSE") {
+      const blocks: SessionHistoryContentItem[] = [];
+      if (typeof parsed.thinking === "string" && parsed.thinking.trim()) {
+        blocks.push({ type: "thinking", thinking: parsed.thinking });
+      }
+      if (typeof parsed.content === "string" && parsed.content.trim()) {
+        blocks.push({ type: "text", text: parsed.content });
+      }
+      if (Array.isArray(parsed.tool_calls)) {
+        for (const call of parsed.tool_calls) {
+          if (!isRecord(call)) continue;
+          const name = typeof call.name === "string" ? call.name : "";
+          if (!name) continue;
+          const id =
+            typeof call.id === "string" && call.id
+              ? call.id
+              : `agy-call-${messages.length}-${blocks.length}`;
+          const input = isRecord(call.arguments)
+            ? call.arguments
+            : isRecord(call.input)
+              ? call.input
+              : {};
+          blocks.push({ type: "tool_use", id, name, input });
+        }
+      }
+      if (blocks.length === 0) continue;
+      messages.push({
+        role: "assistant",
+        ...(uuid ? { uuid } : {}),
+        ...(timestamp ? { timestamp } : {}),
+        content: blocks,
+      });
+      continue;
+    }
+
+    if (type === "CHECKPOINT") {
+      const summary =
+        typeof parsed.content === "string" && parsed.content.trim()
+          ? parsed.content.trim()
+          : undefined;
+      messages.push({
+        role: "compaction",
+        ...(uuid ? { uuid } : {}),
+        ...(timestamp ? { timestamp } : {}),
+        compaction: {
+          trigger: "auto",
+          ...(summary ? { summary } : {}),
+        },
+        content: "",
+      });
+    }
+  }
+  return messages;
 }

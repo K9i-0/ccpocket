@@ -628,6 +628,35 @@ describe("Antigravity helpers", () => {
       "--- /dev/null\n+++ b/n.txt\n@@ -0,0 +1,2 @@\n+x\n+y",
     );
   });
+
+  it("produces compact hunks for localized edits in large files (>2,000 lines)", () => {
+    const lines = Array.from({ length: 3000 }, (_, i) => `line ${i + 1}`);
+    const before = lines.join("\n") + "\n";
+
+    // Edit near middle
+    const midLines = [...lines];
+    midLines[1500] = "line 1501 MODIFIED";
+    const midDiff = buildUnifiedDiff("big.ts", before, midLines.join("\n") + "\n");
+    expect(midDiff).toContain("-line 1501");
+    expect(midDiff).toContain("+line 1501 MODIFIED");
+    expect(midDiff.split("\n").length).toBeLessThan(20);
+
+    // Edit near start
+    const startLines = [...lines];
+    startLines[0] = "line 1 CHANGED";
+    const startDiff = buildUnifiedDiff("big.ts", before, startLines.join("\n") + "\n");
+    expect(startDiff).toContain("-line 1");
+    expect(startDiff).toContain("+line 1 CHANGED");
+    expect(startDiff.split("\n").length).toBeLessThan(20);
+
+    // Edit near end
+    const endLines = [...lines];
+    endLines[2999] = "line 3000 CHANGED";
+    const endDiff = buildUnifiedDiff("big.ts", before, endLines.join("\n") + "\n");
+    expect(endDiff).toContain("-line 3000");
+    expect(endDiff).toContain("+line 3000 CHANGED");
+    expect(endDiff.split("\n").length).toBeLessThan(20);
+  });
 });
 
 /** A session as `agy` 1.5.12 reports it with an API key. */
@@ -818,6 +847,119 @@ describe("AntigravityProcess settings", () => {
     expect(
       ofType(messages, "system").filter((m) => m.subtype === "antigravity_settings"),
     ).toHaveLength(1);
+  });
+
+  it("emits antigravity_settings immediately on idle usage_update (e.g. post-load)", async () => {
+    const { update, messages } = await startSession();
+    const beforeCount = ofType(messages, "system").filter(
+      (m) => m.subtype === "antigravity_settings",
+    ).length;
+    update({ sessionUpdate: "usage_update", used: 4200, size: 1000000 });
+    const afterSettings = ofType(messages, "system").filter(
+      (m) => m.subtype === "antigravity_settings",
+    );
+    expect(afterSettings.length).toBe(beforeCount + 1);
+    expect(afterSettings.at(-1)?.antigravity?.contextUsage).toEqual({
+      used: 4200,
+      size: 1000000,
+    });
+  });
+
+  it("emits context_compaction for manual /compact and auto-compaction drops, and replays stored compactions on load", async () => {
+    const { proc, update, endTurn, messages } = await startSession();
+    const recorded: Array<{ afterUserTurns: number; trigger?: string; preTokens?: number; postTokens?: number; summary?: string }> = [];
+    proc.on("compaction", (record) => recorded.push(record));
+
+    // Seed initial context usage while idle.
+    update({ sessionUpdate: "usage_update", used: 60_000, size: 1_000_000 });
+
+    // Manual /compact
+    proc.sendInput("/compact focus on tests");
+    expect(proc.status).toBe("compacting");
+    update({ sessionUpdate: "usage_update", used: 18_000, size: 1_000_000 });
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "Compacted summary" } });
+    endTurn();
+    await until(() => results(messages).length === 1, "manual compact result");
+
+    const manualCard = ofType(messages, "context_compaction")[0];
+    expect(manualCard).toMatchObject({
+      type: "context_compaction",
+      provider: "antigravity",
+      trigger: "manual",
+      preTokens: 60_000,
+      postTokens: 18_000,
+      summary: "Compacted summary",
+    });
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toMatchObject({
+      afterUserTurns: 1,
+      trigger: "manual",
+      preTokens: 60_000,
+      postTokens: 18_000,
+      summary: "Compacted summary",
+    });
+
+    // Normal turn with small drop (<10,000) does NOT trigger auto-compaction
+    proc.sendInput("small turn");
+    update({ sessionUpdate: "usage_update", used: 12_000, size: 1_000_000 });
+    endTurn();
+    await until(() => results(messages).length === 2, "turn 2");
+    expect(ofType(messages, "context_compaction")).toHaveLength(1);
+
+    // Normal turn with >=30% and >=10,000 drop triggers auto-compaction
+    update({ sessionUpdate: "usage_update", used: 80_000, size: 1_000_000 });
+    proc.sendInput("big turn");
+    update({ sessionUpdate: "usage_update", used: 25_000, size: 1_000_000 });
+    endTurn();
+    await until(() => results(messages).length === 3, "turn 3");
+    const autoCard = ofType(messages, "context_compaction")[1];
+    expect(autoCard).toMatchObject({
+      type: "context_compaction",
+      provider: "antigravity",
+      trigger: "auto",
+      preTokens: 80_000,
+      postTokens: 25_000,
+    });
+    expect(recorded).toHaveLength(2);
+    expect(recorded[1]).toMatchObject({ afterUserTurns: 3, trigger: "auto" });
+
+    // Replay stored compactions on session/load
+    const loadTransport = new ReplayTransport(loadTrace("trace-load"));
+    const loaded = createProcess(loadTransport);
+    loaded.proc.start("/workspace", {
+      sessionId: "00000000-0000-4000-8000-000000000001",
+      compactions: [
+        {
+          afterUserTurns: 2,
+          id: "cmp-replayed",
+          timestamp: "2026-11-20T00:00:00Z",
+          trigger: "manual",
+          preTokens: 50_000,
+          postTokens: 15_000,
+          summary: "Earlier summary",
+        },
+      ],
+    });
+    await until(() => loaded.proc.status === "idle", "loaded with compaction");
+    const replayedCards = ofType(loaded.messages, "context_compaction");
+    expect(replayedCards).toHaveLength(1);
+    expect(replayedCards[0]).toMatchObject({
+      provider: "antigravity",
+      id: "cmp-replayed",
+      trigger: "manual",
+      preTokens: 50_000,
+      postTokens: 15_000,
+      summary: "Earlier summary",
+    });
+    // Ensure it appeared after the 2nd user_input and before the 3rd user_input.
+    const userIndices = loaded.messages
+      .map((m, idx) => (m.type === "user_input" ? idx : -1))
+      .filter((idx) => idx >= 0);
+    const compactionIndex = loaded.messages.findIndex(
+      (m) => m.type === "context_compaction",
+    );
+    expect(compactionIndex).toBeGreaterThan(userIndices[1]);
+    expect(compactionIndex).toBeLessThan(userIndices[2]);
   });
 });
 
@@ -1405,10 +1547,31 @@ describe("AntigravityProcess plan review", () => {
 
   it("offers the plan for approval, then returns to the earlier mode and proceeds", async () => {
     const { proc, transport, messages } = await planTurn();
-    expect(ofType(messages, "permission_request")[0]).toMatchObject({
+    const planReq = ofType(messages, "permission_request")[0];
+    expect(planReq).toMatchObject({
       toolName: "ExitPlanMode",
       input: { plan: "# Plan\n1. do it" },
     });
+    // Emits an assistant ExitPlanMode tool_use right before permission_request so PlanCard renders.
+    const exitPlanAssistant = ofType(messages, "assistant").find((m) =>
+      m.message.content.some(
+        (c) =>
+          c.type === "tool_use" &&
+          c.name === "ExitPlanMode" &&
+          c.id === planReq.toolUseId,
+      ),
+    );
+    expect(exitPlanAssistant?.message.content).toEqual([
+      {
+        type: "tool_use",
+        id: planReq.toolUseId,
+        name: "ExitPlanMode",
+        input: { plan: "# Plan\n1. do it" },
+      },
+    ]);
+    expect(messages.indexOf(exitPlanAssistant!)).toBeLessThan(
+      messages.indexOf(planReq),
+    );
     expect(proc.status).toBe("waiting_approval");
     expect(proc.isWaitingForInput).toBe(false);
     // The document shows under its name, not its path in the agy profile.
@@ -1461,6 +1624,27 @@ describe("AntigravityProcess plan review", () => {
     await until(() => proc.status === "idle", "idle");
     expect(ofType(messages, "permission_request")).toHaveLength(0);
   });
+
+  it("restores modeBeforePlan passed in start options on plan approval", async () => {
+    const { proc, transport, update, endTurn, messages } = await startSession(
+      {},
+      { permissionMode: "plan", modeBeforePlan: "acceptEdits" },
+    );
+    expect(proc.permissionMode).toBe("plan");
+    expect(proc.currentModeBeforePlan).toBe("acceptEdits");
+    proc.sendInput("plan it");
+    writePlan(update);
+    endTurn();
+    await vi.waitFor(() =>
+      expect(ofType(messages, "permission_request")).toHaveLength(1),
+    );
+    expect(proc.approve()).toBe(true);
+    await until(
+      () => transport.written.filter((m) => m.method === "session/prompt").length === 2,
+      "approval prompt",
+    );
+    expect(proc.permissionMode).toBe("acceptEdits");
+  });
 });
 
 describe("describeAcpTool", () => {
@@ -1468,6 +1652,35 @@ describe("describeAcpTool", () => {
     expect(
       describeAcpTool({ kind: "read", name: "read_file", rawInput: { Path: "/a/b.txt" } }),
     ).toEqual({ toolName: "Read", input: { file_path: "/a/b.txt" } });
+    // Project-relative path, brain/ basename, and StartLine/EndLine -> offset/limit
+    expect(
+      describeAcpTool(
+        {
+          kind: "read",
+          name: "read_file",
+          rawInput: { Path: "/workspace/src/app.ts", StartLine: 10, EndLine: 25 },
+        },
+        "/workspace",
+      ),
+    ).toEqual({
+      toolName: "Read",
+      input: { file_path: "src/app.ts", offset: 10, limit: 16 },
+    });
+    expect(
+      describeAcpTool(
+        {
+          kind: "read",
+          name: "read_file",
+          rawInput: {
+            Path: "/Users/me/.gemini/antigravity-cli/brain/s1/implementation_plan.md",
+          },
+        },
+        "/workspace",
+      ),
+    ).toEqual({
+      toolName: "Read",
+      input: { file_path: "implementation_plan.md" },
+    });
     expect(
       describeAcpTool({ kind: "search", name: "search_web", rawInput: { query: "acp" } }),
     ).toEqual({ toolName: "WebSearch", input: { query: "acp" } });
@@ -1507,6 +1720,52 @@ describe("describeAcpTool", () => {
       }),
     ).toBeUndefined();
     expect(describeAcpTool({ kind: "other", name: "browser" })).toBeUndefined();
+  });
+
+  it("extracts base64 image blocks into tool_result rawContentBlocks and formats locations with displayPath", async () => {
+    const { proc, update, messages } = await startSession();
+    proc.sendInput("take screenshot");
+    update({
+      sessionUpdate: "tool_call",
+      toolCallId: "img1",
+      kind: "edit",
+      name: "edit_file",
+      status: "in_progress",
+      locations: [{ path: "/workspace/src/ui.dart" }],
+    });
+    const fileTool = ofType(messages, "assistant")
+      .flatMap((m) => m.message.content)
+      .find((c) => c.type === "tool_use" && c.id === "img1");
+    expect(fileTool).toMatchObject({
+      name: "FileChange",
+      input: { changes: [{ path: "src/ui.dart" }] },
+    });
+    update({
+      sessionUpdate: "tool_call_update",
+      toolCallId: "img1",
+      status: "completed",
+      content: [
+        { type: "content", content: { type: "text", text: "ok" } },
+        {
+          type: "content",
+          content: { type: "image", mimeType: "image/png", data: "AAAA" },
+        },
+        { type: "image", mimeType: "image/jpeg", data: "BBBB" },
+      ],
+    });
+    const result = ofType(messages, "tool_result").find(
+      (m) => m.toolUseId === "img1",
+    );
+    expect(result?.rawContentBlocks).toEqual([
+      {
+        type: "image",
+        source: { type: "base64", media_type: "image/png", data: "AAAA" },
+      },
+      {
+        type: "image",
+        source: { type: "base64", media_type: "image/jpeg", data: "BBBB" },
+      },
+    ]);
   });
 });
 
