@@ -1,1 +1,1 @@
-Codex, Claude, and Antigravity, wherever you go. Continue on your phone or Mac, review changes, generate images with Codex Imagegen, and play video or audio in the app.
+Codex, Claude, and Antigravity in one chat UI. Track live activity, approve actions in a tap, review diffs, start from GitHub Issues/PRs, and preview media.

@@ -1,1 +1,1 @@
-Codex、Claude、Antigravityを、スマホでもMacでも同じ作業の続きから。チャット感覚の承認・レビューに、Codex Imagegenでの画像生成、動画・音声の再生まで。
+Codex・Claude・AntigravityをひとつのチャットUIで。ライブ進捗や思考プレビュー、ワンタップ承認、GitHub Issue/PR連携、差分レビュー、画像・動画・音声プレビューまで。

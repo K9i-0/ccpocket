@@ -1,6 +1,6 @@
 #!/bin/bash
-# Compose store screenshots: dark background + keyword/title text + screenshot
-# Output: 1320x2868 (App Store 6.9" requirement)
+# Compose store screenshots: dual-glow carbon canvas + pill kicker + two-tone headline + titanium-bezel device
+# Output: 1320x2868 (App Store 6.9" & Google Play), 1398x2034 (iPhone Duo), 2752x2064 (iPad landscape)
 set -euo pipefail
 if [ -n "${PPO_OUTPUT_DIR:-}" ]; then
   echo "PPO_OUTPUT_DIR belongs to the retired illustration experiment. Use a separately designed treatment for a new experiment." >&2
@@ -10,13 +10,14 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CANVAS_W=1320
 CANVAS_H=2868
-BG_COLOR="#101212"
+BG_COLOR="#0B0D0E"
+WHITE="#F4F6F5"
 MINT="#9BDDC5"
+SUBTITLE_COLOR="#A8B3AF"
 # Strip timestamps from PNG to avoid spurious git diffs
 PNG_STRIP="-define png:exclude-chunks=date,time"
 
 # Font settings
-# Try font name first (works with system ImageMagick), fall back to file path (Homebrew)
 resolve_font() {
   local name="$1" path="$2"
   if magick -list font 2>/dev/null | grep "Font: ${name}$" >/dev/null 2>&1; then
@@ -43,6 +44,7 @@ resolve_font_candidates() {
   done
   echo "$fallback"
 }
+
 FONT_EN_BOLD="$(resolve_font Helvetica-Bold /System/Library/Fonts/Helvetica.ttc)"
 FONT_EN_REG="$(resolve_font Helvetica /System/Library/Fonts/Helvetica.ttc)"
 FONT_JA_BOLD="$(resolve_font Hiragino-Sans-W7 '/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc')"
@@ -57,24 +59,28 @@ FONT_KO_REG="$(resolve_font_candidates \
   Noto-Sans-CJK-KR-Regular /Library/Fonts/NotoSansCJKkr-Regular.otf \
   Pretendard-Regular /Library/Fonts/Pretendard-Regular.otf \
   Apple-SD-Gothic-Neo-Regular /System/Library/Fonts/AppleSDGothicNeo.ttc)"
-# Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja, keyword_zh, title_zh, keyword_ko, title_ko
+
+# Screenshot definitions:
+# key | kicker | glow1 | glow2 | accent | kw1_en | kw2_en | tt_en | kw1_ja | kw2_ja | tt_ja | kw1_zh | kw2_zh | tt_zh | kw1_ko | kw2_ko | tt_ko
 SCREENSHOTS=(
-  "01_conversation|Your agents.\nIn your pocket.|Codex, Claude, and Antigravity on your phone.|エージェントを、\nポケットに。|Codex、Claude、Antigravityをチャット感覚で。|把编程代理，\n装进口袋。|像聊天一样使用 Codex、Claude 和 Antigravity。|에이전트를\n주머니에.|Codex, Claude, Antigravity를 채팅처럼."
-  "02_recent_sessions|Pick up\nwhere you left off.|Open the same work on your phone or Mac.|どこでも、\n続きから。|スマホでもMacでも、同じ作業を。|换个设备，\n继续工作。|手机或 Mac，都能打开同一项工作。|어디서든\n이어서.|휴대폰이나 Mac에서 같은 작업을."
-  "03_approval_list|Your next move.\nOne tap away.|Review waiting approvals in one place.|次の判断を、\nワンタップで。|複数セッションの承認を、ひとつの一覧で。|下一步，\n轻点就好。|在一个列表中查看待审批操作。|다음 결정도\n한 번의 탭으로.|여러 세션의 승인 대기를 한곳에서."
-  "04_git_review|Review it.\nShip it.|Comment on diffs. Stage, commit, and push.|差分を見て、\nそのまま反映。|差分にコメント。コミット、pushまで。|查看差异，\n提交变更。|评论差异、暂存、提交和推送。|검토하고,\n반영하세요.|diff 댓글부터 커밋과 push까지."
-  "05_network_resilience|Bad signal.\nKeep your place.|Queued messages send after reconnecting.|電波が途切れても、\nその先へ。|入力を保持。再接続後に自動送信。|断网也不丢\n输入。|消息暂存，重连后自动发送。|연결이 끊겨도\n입력은 그대로.|메시지를 보관하고 재연결 후 전송."
-  "06_imagegen|An idea.\nAn image.|Generate with Codex Imagegen. View in chat.|アイデアを、\n画像に。|Codex Imagegenで生成。チャットで確認。|把想法，\n变成图片。|用 Codex Imagegen 生成，在聊天中查看。|아이디어를\n이미지로.|Codex Imagegen으로 만들고 채팅에서 확인."
-  "07_video|Press play.\nStay in the app.|Preview video, seek, or go full screen.|つくった動画を、\nその場で再生。|シークも、全画面表示も。|视频预览，\n就在这里。|拖动进度，切换全屏。|만든 영상을\n바로 재생.|탐색부터 전체 화면까지."
-  "08_audio|Listen.\nKeep creating.|Play audio files without switching apps.|音も、そのまま。\nアプリの中で。|アプリを切り替えずに試聴。|听一听，\n继续创作。|无需切换应用即可播放音频。|소리도\n앱 안에서.|앱을 바꾸지 않고 오디오 재생."
+  "01_conversation|CODEX · CLAUDE · ANTIGRAVITY|#2BB38A|#D96B2B|#9BDDC5|Your agents.|In your pocket.|Codex, Claude, and Antigravity in one chat UI.|エージェントを、|ポケットに。|Codex・Claude・AntigravityをひとつのチャットUIで。|把编程代理，|装进口袋。|在一个聊天界面操控 Codex、Claude 和 Antigravity。|에이전트를|주머니에.|Codex, Claude, Antigravity를 하나의 채팅 UI로."
+  "02_recent_sessions|THREE AGENTS · ONE LIST|#2BB38A|#4C8BF5|#9BDDC5|Three agents.|One timeline.|Pick up any session across phone, iPad, and Mac.|3つのエージェントを、|ひとつの一覧に。|スマホ・iPad・Macで、同じ作業の続きから。|三大代理，|同一列表。|在手机、iPad 和 Mac 上无缝继续任意会话。|세 에이전트를|한 목록에서.|휴대폰, iPad, Mac 어디서든 같은 작업 이어가기."
+  "03_approval_list|ONE-TAP APPROVALS|#E07838|#2BB38A|#F5B380|Your next move.|One tap away.|Approve commands, edits, and plans from one list.|次の判断を、|ワンタップで。|コマンド実行もプラン承認も、ひとつの一覧から。|下一步操作，|轻点即批。|在一个列表中审批命令、文件编辑与实施计划。|다음 결정도|한 번의 탭으로.|명령 실행, 편집, 플랜 승인을 한 목록에서."
+  "04_git_review|DIFF REVIEW & GIT|#32B27C|#D96B2B|#9BDDC5|Review diffs.|Ship changes.|Comment on code, stage, commit, and push.|差分を見て、|そのまま反映。|行コメントからstage、commit、pushまで。|审查差异，|直接提交。|评论代码差异，完成暂存、提交与推送。|diff 검토부터|바로 반영까지.|코드 댓글, stage, commit, push를 한 번에."
+  "05_network_resilience|OFFLINE-FIRST QUEUE|#2FA89B|#D4883A|#9BDDC5|Weak signal.|Zero lost work.|Queued prompts send automatically on reconnect.|電波が途切れても、|止まらない。|送信待ちを保持し、再接続後に自動で送信。|弱网断连，|输入不丢。|消息自动排队，恢复连接后即刻发送。|신호가 끊겨도|작업은 그대로.|메시지를 보관하고 재연결되면 자동 전송."
+  "06_imagegen|IMAGE GENERATION|#E07838|#2BB38A|#F5B380|An idea.|An image.|Generate with Codex or Antigravity. View in chat.|アイデアを、|そのまま画像に。|Codex・Antigravityで生成し、チャットで確認。|灵光一现，|即刻成图。|用 Codex 或 Antigravity 生成，在聊天中查看。|아이디어를|바로 이미지로.|Codex·Antigravity로 생성하고 채팅에서 확인."
+  "07_video|IN-APP VIDEO|#4C8BF5|#2BB38A|#9EC5FB|Press play.|Stay in flow.|Preview video, scrub frames, or go full screen.|つくった動画を、|その場で再生。|シーク、再生速度の調整、全画面表示まで。|即点即播，|留在应用内。|预览视频、拖动进度、倍速与全屏播放。|만든 영상을|바로 재생.|탐색, 배속 조절, 전체 화면까지 앱 안에서."
+  "08_audio|IN-APP AUDIO|#E07838|#2FA89B|#F5B380|Listen right|inside the app.|Play generated audio without switching tools.|音も、そのまま。|アプリの中で。|アプリを切り替えずに、音声ファイルを試聴。|听一听，|继续创作。|无需切换应用，直接试听音频文件。|소리도 바로|앱 안에서.|앱을 바꾸지 않고 오디오 파일을 재생."
 )
 
+# iPad definitions:
+# key | kicker | glow1 | glow2 | accent | kw_en | tt_en | kw_ja | tt_ja | kw_zh | tt_zh | kw_ko | tt_ko
 IPAD_SCREENSHOTS=(
-  "01_workspace_overview|Workspace on iPad|Chat, sessions, and Git side by side|iPadワークスペース|会話、セッション、Gitを並べて確認|iPad 工作区|聊天、会话和 Git 并排显示|iPad 워크스페이스|채팅, 세션, Git을 나란히"
-  "02_workspace_explorer|Explorer beside chat|Keep project files next to the conversation|チャット横にExplorer|会話しながらファイル確認|聊天旁的 Explorer|对话旁边查看项目文件|채팅 옆 Explorer|대화 옆에서 파일 확인"
-  "03_approval_context|Approve in context|Answer without leaving the workspace|文脈のまま承認|ワークスペースを離れず判断|在上下文中审批|不离开工作区即可回答|맥락 안에서 승인|워크스페이스를 떠나지 않고 답변"
-  "04_approval_queue|Approval queue|Review waiting sessions together|承認キュー|複数セッションの待ちをまとめて処理|审批队列|集中处理等待中的会话|승인 대기열|기다리는 세션을 한곳에서 처리"
-  "05_dark_workspace|Focused dark workspace|A desktop-like layout on iPad and foldables|集中できるダーク画面|iPadやフォルダブルでデスクトップのように|专注深色工作区|在 iPad 和折叠屏上获得桌面式布局|집중을 위한 다크 화면|iPad와 폴더블에서 데스크톱 같은 레이아웃"
+  "01_workspace_overview|IPAD WORKSPACE|#2BB38A|#D96B2B|#9BDDC5|Workspace on iPad|Chat, sessions, and Git side by side|iPadワークスペース|会話、セッション、Gitを並べて確認|iPad 工作区|聊天、会话和 Git 并排显示|iPad 워크스페이스|채팅, 세션, Git을 나란히"
+  "02_workspace_explorer|EXPLORER BESIDE CHAT|#2BB38A|#4C8BF5|#9BDDC5|Explorer beside chat|Keep project files next to the conversation|チャット横にExplorer|会話しながらファイル確認|聊天旁的 Explorer|对话旁边查看项目文件|채팅 옆 Explorer|대화 옆에서 파일 확인"
+  "03_approval_context|APPROVE IN CONTEXT|#E07838|#2BB38A|#F5B380|Approve in context|Answer without leaving the workspace|文脈のまま承認|ワークスペースを離れず判断|在上下文中审批|不离开工作区即可回答|맥락 안에서 승인|워크스페이스를 떠나지 않고 답변"
+  "04_approval_queue|APPROVAL QUEUE|#E07838|#4C8BF5|#F5B380|Approval queue|Review waiting sessions together|承認キュー|複数セッションの待ちをまとめて処理|审批队列|集中处理等待中的会话|승인 대기열|기다리는 세션을 한곳에서 처리"
+  "05_dark_workspace|FOCUSED DARK MODE|#2BB38A|#D96B2B|#9BDDC5|Focused dark workspace|A desktop-like layout on iPad and foldables|集中できるダーク画面|iPadやフォルダブルでデスクトップのように|专注深色工作区|在 iPad 和折叠屏上获得桌面式布局|집중을 위한 다크 화면|iPad와 폴더블에서 데스크톱 같은 레이아웃"
 )
 
 phone_key_is_current() {
@@ -115,8 +121,6 @@ for entry in "${IPAD_SCREENSHOTS[@]}"; do
   IFS='|' read -r key _ <<< "$entry"
   test -f "${SCRIPT_DIR}/en-US/ipad_${key}.png" || { echo "Missing iPad capture: $key" >&2; exit 1; }
 done
-# iPhone Duo reuses the phone sequence and headlines, captured on the cover
-# display (portrait, 1398x2034) as en-US/duo_<key>.png.
 for entry in "${SCREENSHOTS[@]}"; do
   IFS='|' read -r key _ <<< "$entry"
   test -f "${SCRIPT_DIR}/en-US/duo_${key}.png" || { echo "Missing iPhone Duo capture: $key" >&2; exit 1; }
@@ -129,8 +133,52 @@ for lang_dir in en-US ja zh-CN ko; do
   cleanup_obsolete_phone_outputs "$lang_dir"
 done
 
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+# Build a subtle dual-glow carbon canvas
+make_canvas() {
+  local w="$1" h="$2" glow1="$3" glow2="$4" out="$5"
+  local g1_size=$((w * 115 / 100))
+  local g2_size=$((w * 110 / 100))
+  local g1_x=$((w * 35 / 100))
+  local g1_y=$((-h * 14 / 100))
+  local g2_x=$((-w * 30 / 100))
+  local g2_y=$((h * 52 / 100))
+
+  magick -size "${g1_size}x${g1_size}" "radial-gradient:${glow1}-none" \
+    -channel A -evaluate multiply 0.20 +channel "$WORK_DIR/g1.png"
+  magick -size "${g2_size}x${g2_size}" "radial-gradient:${glow2}-none" \
+    -channel A -evaluate multiply 0.14 +channel "$WORK_DIR/g2.png"
+
+  magick -size "${w}x${h}" "xc:${BG_COLOR}" -colorspace sRGB \
+    "$WORK_DIR/g1.png" -geometry "+${g1_x}+${g1_y}" -compose screen -composite \
+    "$WORK_DIR/g2.png" -geometry "+${g2_x}+${g2_y}" -compose screen -composite \
+    -fill none -stroke "rgba(255,255,255,0.035)" -strokewidth 2 \
+    -draw "ellipse $((w/2)),$((h*58/100)) $((w*62/100)),$((h*36/100)) 0,360" \
+    "$out"
+}
+
+# Render a crisp pill badge with auto-fitted width
+make_pill() {
+  local label="$1" accent="$2" pointsize="$3" pad_x="$4" pad_y="$5" out="$6"
+  magick -background none -font "$FONT_EN_BOLD" -pointsize "$pointsize" \
+    -kerning 2.2 -fill "$accent" "label:${label}" -trim +repage "$WORK_DIR/pill_txt.png"
+  local tw th pw ph r
+  read -r tw th <<< "$(magick identify -format '%w %h' "$WORK_DIR/pill_txt.png")"
+  pw=$((tw + pad_x * 2))
+  ph=$((th + pad_y * 2))
+  r=$((ph / 2))
+  magick -size "${pw}x${ph}" xc:none -colorspace sRGB \
+    -fill "rgba(255,255,255,0.05)" -stroke "rgba(255,255,255,0.16)" -strokewidth 2 \
+    -draw "roundrectangle 1,1 $((pw-2)),$((ph-2)) ${r},${r}" \
+    "$WORK_DIR/pill_txt.png" -gravity center -composite \
+    "$out"
+}
+
 compose_screenshot() {
-  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
+  local key="$1" kicker="$2" glow1="$3" glow2="$4" accent="$5"
+  local kw1="$6" kw2="$7" title="$8" lang_dir="$9" font_bold="${10}" font_reg="${11}"
   local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/${key}_framed.png"
 
@@ -139,17 +187,15 @@ compose_screenshot() {
     return
   fi
 
-  # Get input dimensions
   local src_w src_h
   read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
 
-  # Fit the complete screen inside a separate hardware bezel. Never draw the
-  # frame on top of screenshot pixels, and derive concentric corner radii.
-  local bezel=16
-  local pad=110
-  local ss_y=520
+  # Fit the complete screen inside a separate titanium hardware bezel.
+  local bezel=18
+  local pad=114
+  local ss_y=590
   local max_w=$((CANVAS_W - pad * 2 - bezel * 2))
-  local max_h=$((CANVAS_H - ss_y - 90 - bezel * 2))
+  local max_h=$((CANVAS_H - ss_y - 76 - bezel * 2))
   local scale_ratio
   scale_ratio=$(echo "scale=8; $max_w / $src_w" | bc)
   local screen_w=$max_w
@@ -168,88 +214,87 @@ compose_screenshot() {
 
   echo "Composing: $key ($lang_dir)"
 
-  # The mask uses luminance; the source image keeps its own native UI colors.
+  # 1. Dual-glow canvas
+  make_canvas "$CANVAS_W" "$CANVAS_H" "$glow1" "$glow2" "$WORK_DIR/canvas.png"
+
+  # 2. Screen masked cleanly (preserves native UI colors)
   magick -size "${screen_w}x${screen_h}" xc:black \
     -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
-    /tmp/mask_$$.png
+    "$WORK_DIR/mask.png"
   magick "$input" -resize "${screen_w}x${screen_h}!" \
-    \( /tmp/mask_$$.png -alpha off \) -compose CopyOpacity -composite \
-    /tmp/ss_$$.png
+    \( "$WORK_DIR/mask.png" -alpha off \) -compose CopyOpacity -composite \
+    "$WORK_DIR/ss.png"
 
-  # Keep the outer edge, bezel, and screen separate and concentric.
-  magick -size "${device_w}x${device_h}" xc:none \
-    -fill '#252828' -stroke '#525957' -strokewidth 3 \
+  # 3. Titanium bezel with subtle metallic sheen & outer stroke + soft shadow
+  magick -size "${device_w}x${device_h}" "gradient:#3B4140-#181B1B" -colorspace sRGB \
+    \( -size "${device_w}x${device_h}" xc:black -fill white \
+       -draw "roundrectangle 0,0 $((device_w-1)),$((device_h-1)) ${outer_radius},${outer_radius}" \) \
+    -alpha off -compose CopyOpacity -composite \
+    -fill none -stroke "rgba(255,255,255,0.22)" -strokewidth 3 \
     -draw "roundrectangle 2,2 $((device_w-3)),$((device_h-3)) ${outer_radius},${outer_radius}" \
-    /tmp/ss_$$.png -geometry "+${bezel}+${bezel}" -composite \
-    /tmp/framed_ss_$$.png
+    -fill "#0D0F0F" -stroke none \
+    -draw "roundrectangle 7,7 $((device_w-8)),$((device_h-8)) $((outer_radius-5)),$((outer_radius-5))" \
+    "$WORK_DIR/ss.png" -geometry "+${bezel}+${bezel}" -compose over -composite \
+    "$WORK_DIR/framed_ss.png"
 
-  local bg_gradient="xc:$BG_COLOR"
-  local text_fill="$MINT"
-  local subtitle_fill="#A6B0AD"
+  # Soft ambient drop shadow behind device
+  magick "$WORK_DIR/framed_ss.png" \
+    \( +clone -background black -shadow 68x36+0+28 \) +swap \
+    -background none -layers merge +repage \
+    "$WORK_DIR/framed_shadow.png"
+  local sh_w sh_h
+  read -r sh_w sh_h <<< "$(magick identify -format '%w %h' "$WORK_DIR/framed_shadow.png")"
+  local sh_x=$(( (CANVAS_W - sh_w) / 2 ))
+  local sh_y=$((ss_y - (sh_h - device_h) / 2 + 12))
 
-  magick -background none -size "1120x255" -gravity west \
-    -font "$font_bold" -pointsize 98 -fill "$text_fill" \
-    caption:"$(printf '%b' "$keyword")" /tmp/keyword_$$.png
+  # 4. Kicker pill + two-tone headline + subtitle
+  make_pill "$kicker" "$accent" 24 24 14 "$WORK_DIR/pill.png"
 
-  magick -background none -size "1120x150" -gravity west \
-    -font "$font_reg" -pointsize 44 -fill "$subtitle_fill" \
-    caption:"$title" /tmp/title_$$.png
+  local kw_pt=96
+  if [ "$lang_dir" = "ja" ] || [ "$lang_dir" = "zh-CN" ] || [ "$lang_dir" = "ko" ]; then
+    kw_pt=88
+  fi
+  magick -background none -size "1120x120" -gravity west \
+    -font "$font_bold" -pointsize "$kw_pt" -fill "$WHITE" \
+    caption:"$kw1" "$WORK_DIR/kw1.png"
+  magick -background none -size "1120x120" -gravity west \
+    -font "$font_bold" -pointsize "$kw_pt" -fill "$accent" \
+    caption:"$kw2" "$WORK_DIR/kw2.png"
+  magick -background none -size "1120x125" -gravity west \
+    -font "$font_reg" -pointsize 41 -fill "$SUBTITLE_COLOR" \
+    caption:"$title" "$WORK_DIR/title.png"
 
-  magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
-    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
-    /tmp/keyword_$$.png -geometry "+100+60" -composite \
-    /tmp/title_$$.png -geometry "+100+310" -composite \
+  magick "$WORK_DIR/canvas.png" \
+    "$WORK_DIR/framed_shadow.png" -geometry "+${sh_x}+${sh_y}" -compose over -composite \
+    "$WORK_DIR/pill.png" -geometry "+100+72" -compose over -composite \
+    "$WORK_DIR/kw1.png" -geometry "+100+160" -compose over -composite \
+    "$WORK_DIR/kw2.png" -geometry "+100+274" -compose over -composite \
+    "$WORK_DIR/title.png" -geometry "+100+412" -compose over -composite \
     -alpha off -depth 8 $PNG_STRIP "$output"
 
-  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png \
-    /tmp/keyword_$$.png /tmp/title_$$.png
   echo "  -> $output"
 }
 
-# Process English
-echo "=== English ==="
-for entry in "${SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  compose_screenshot "$key" "$kw_en" "$tt_en" "en-US" "$FONT_EN_BOLD" "$FONT_EN_REG"
-done
-
-# Process Japanese
-echo ""
-echo "=== Japanese ==="
-mkdir -p "${SCRIPT_DIR}/ja"
-for entry in "${SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Localized capture runs keep their own raw images.
-  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
-    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ja/${key}.png"
-  fi
-  compose_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG"
-done
-
-# Process Chinese (Simplified)
-echo ""
-echo "=== Chinese (Simplified) ==="
-mkdir -p "${SCRIPT_DIR}/zh-CN"
-for entry in "${SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Localized capture runs keep their own raw images.
-  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
-    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/zh-CN/${key}.png"
-  fi
-  compose_screenshot "$key" "$kw_zh" "$tt_zh" "zh-CN" "$FONT_ZH_BOLD" "$FONT_ZH_REG"
-done
-
-# Process Korean
-echo ""
-echo "=== Korean ==="
-mkdir -p "${SCRIPT_DIR}/ko"
-for entry in "${SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  # Localized capture runs keep their own raw images.
-  if [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
-    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ko/${key}.png"
-  fi
-  compose_screenshot "$key" "$kw_ko" "$tt_ko" "ko" "$FONT_KO_BOLD" "$FONT_KO_REG"
+for phone_locale in "en-US|EN" "ja|JA" "zh-CN|ZH" "ko|KO"; do
+  IFS='|' read -r lang_dir font_key <<< "$phone_locale"
+  echo ""
+  echo "=== Phone ${lang_dir} ==="
+  mkdir -p "${SCRIPT_DIR}/${lang_dir}"
+  bold_var="FONT_${font_key}_BOLD"
+  reg_var="FONT_${font_key}_REG"
+  for entry in "${SCREENSHOTS[@]}"; do
+    IFS='|' read -r key kicker g1 g2 accent kw1_en kw2_en tt_en kw1_ja kw2_ja tt_ja kw1_zh kw2_zh tt_zh kw1_ko kw2_ko tt_ko <<< "$entry"
+    if [ "$lang_dir" != "en-US" ] && [ "${LOCALIZED_PHONE_CAPTURES:-false}" != "true" ]; then
+      cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/${lang_dir}/${key}.png"
+    fi
+    case "$lang_dir" in
+      en-US) kw1="$kw1_en"; kw2="$kw2_en"; tt="$tt_en" ;;
+      ja) kw1="$kw1_ja"; kw2="$kw2_ja"; tt="$tt_ja" ;;
+      zh-CN) kw1="$kw1_zh"; kw2="$kw2_zh"; tt="$tt_zh" ;;
+      ko) kw1="$kw1_ko"; kw2="$kw2_ko"; tt="$tt_ko" ;;
+    esac
+    compose_screenshot "$key" "$kicker" "$g1" "$g2" "$accent" "$kw1" "$kw2" "$tt" "$lang_dir" "${!bold_var}" "${!reg_var}"
+  done
 done
 
 # === iPad Landscape (2752x2064) ===
@@ -257,7 +302,8 @@ IPAD_CANVAS_W=2752
 IPAD_CANVAS_H=2064
 
 compose_ipad_screenshot() {
-  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6" src_dir="$7"
+  local key="$1" kicker="$2" glow1="$3" glow2="$4" accent="$5"
+  local keyword="$6" title="$7" lang_dir="$8" font_bold="$9" font_reg="${10}" src_dir="${11}"
   local input="${SCRIPT_DIR}/${src_dir}/ipad_${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/ipad_${key}_framed.png"
 
@@ -277,9 +323,8 @@ compose_ipad_screenshot() {
   local scaled_h
   scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
 
-  local text_area_h=360
-
-  local avail_h=$((IPAD_CANVAS_H - text_area_h - 100))
+  local text_area_h=430
+  local avail_h=$((IPAD_CANVAS_H - text_area_h - 86))
   if [ "$scaled_h" -gt "$avail_h" ]; then
     scale_ratio=$(echo "scale=6; $avail_h / $src_h" | bc)
     scaled_h=$avail_h
@@ -291,138 +336,135 @@ compose_ipad_screenshot() {
 
   echo "Composing iPad: ipad_$key ($lang_dir)"
 
-  # iPad hardware bezel sizes
+  make_canvas "$IPAD_CANVAS_W" "$IPAD_CANVAS_H" "$glow1" "$glow2" "$WORK_DIR/ipad_canvas.png"
+
   local bezel_thickness=36
   local screen_w=$((scaled_w - bezel_thickness * 2))
   local screen_h=$((scaled_h - bezel_thickness * 2))
-  local inner_radius=40
-  local outer_radius=76
+  local inner_radius=38
+  local outer_radius=74
 
-  # 1. Resize input to screen size
-  local tmp_screen=/tmp/screen_$$.png
-  magick "$input" -resize "${screen_w}x${screen_h}!" "$tmp_screen"
-
-  # 2. Mask the screen for inner curves
+  magick "$input" -resize "${screen_w}x${screen_h}!" "$WORK_DIR/ipad_screen.png"
   magick -size "${screen_w}x${screen_h}" xc:black \
     -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
-    /tmp/inner_mask_$$.png
-  magick "$tmp_screen" \( /tmp/inner_mask_$$.png -alpha off \) -compose CopyOpacity -composite /tmp/screen_masked_$$.png
+    "$WORK_DIR/ipad_inner_mask.png"
+  magick "$WORK_DIR/ipad_screen.png" \( "$WORK_DIR/ipad_inner_mask.png" -alpha off \) \
+    -compose CopyOpacity -composite "$WORK_DIR/ipad_screen_masked.png"
 
-  # 3. Create the outer iPad hardware bezel shape (ensure sRGB colorspace)
-  local tmp_bezel=/tmp/bezel_$$.png
-  magick -size "${scaled_w}x${scaled_h}" xc:none -colorspace sRGB \
-    -fill "#111111" -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${outer_radius},${outer_radius}" \
-    "$tmp_bezel"
-
-  # 4. Composite the screen onto the bezel (preserve color)
-  local tmp_device=/tmp/device_$$.png
-  magick "$tmp_bezel" -colorspace sRGB /tmp/screen_masked_$$.png -geometry "+${bezel_thickness}+${bezel_thickness}" -composite "$tmp_device"
-
-  # 5. Thin outline frame for realism
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill none -stroke "#333333" -strokewidth 4 \
+  magick -size "${scaled_w}x${scaled_h}" "gradient:#343938-#141616" -colorspace sRGB \
+    \( -size "${scaled_w}x${scaled_h}" xc:black -fill white \
+       -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${outer_radius},${outer_radius}" \) \
+    -alpha off -compose CopyOpacity -composite \
+    -fill none -stroke "rgba(255,255,255,0.20)" -strokewidth 4 \
     -draw "roundrectangle 2,2 $((scaled_w-3)),$((scaled_h-3)) ${outer_radius},${outer_radius}" \
-    /tmp/outline_$$.png
-  magick "$tmp_device" /tmp/outline_$$.png -composite "$tmp_device"
+    -fill "#0D0F0F" -stroke none \
+    -draw "roundrectangle 8,8 $((scaled_w-9)),$((scaled_h-9)) $((outer_radius-6)),$((outer_radius-6))" \
+    "$WORK_DIR/ipad_screen_masked.png" -geometry "+${bezel_thickness}+${bezel_thickness}" -compose over -composite \
+    "$WORK_DIR/ipad_device.png"
 
-  local bg_gradient="xc:$BG_COLOR"
-  local text_fill="$MINT"
-  local subtitle_fill="#A6B0AD"
+  magick "$WORK_DIR/ipad_device.png" \
+    \( +clone -background black -shadow 70x44+0+32 \) +swap \
+    -background none -layers merge +repage \
+    "$WORK_DIR/ipad_shadow.png"
+  local sh_w sh_h
+  read -r sh_w sh_h <<< "$(magick identify -format '%w %h' "$WORK_DIR/ipad_shadow.png")"
+  local sh_x=$(( (IPAD_CANVAS_W - sh_w) / 2 ))
+  local sh_y=$((ss_y - (sh_h - scaled_h) / 2 + 12))
 
-  magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" "$bg_gradient" \
-    "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
+  make_pill "$kicker" "$accent" 30 30 16 "$WORK_DIR/ipad_pill.png"
+
+  magick "$WORK_DIR/ipad_canvas.png" \
+    "$WORK_DIR/ipad_shadow.png" -geometry "+${sh_x}+${sh_y}" -compose over -composite \
+    "$WORK_DIR/ipad_pill.png" -gravity North -geometry "+0+68" -compose over -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 106 -fill "$text_fill" \
-    -annotate +0+96 "$keyword" \
-    -font "$font_reg" -pointsize 62 -fill "$subtitle_fill" \
-    -annotate +0+260 "$title" \
+    -font "$font_bold" -pointsize 102 -fill "$WHITE" \
+    -annotate +0+164 "$keyword" \
+    -font "$font_reg" -pointsize 56 -fill "$SUBTITLE_COLOR" \
+    -annotate +0+314 "$title" \
     -alpha off -depth 8 $PNG_STRIP "$output"
 
-  rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
   echo "  -> $output"
 }
 
-echo ""
-echo "=== iPad English ==="
-for entry in "${IPAD_SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  compose_ipad_screenshot "$key" "$kw_en" "$tt_en" "en-US" "$FONT_EN_BOLD" "$FONT_EN_REG" "en-US"
-done
-
-echo ""
-echo "=== iPad Japanese ==="
-for entry in "${IPAD_SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  compose_ipad_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG" "en-US"
-done
-
-echo ""
-echo "=== iPad Chinese (Simplified) ==="
-for entry in "${IPAD_SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  compose_ipad_screenshot "$key" "$kw_zh" "$tt_zh" "zh-CN" "$FONT_ZH_BOLD" "$FONT_ZH_REG" "en-US"
-done
-
-echo ""
-echo "=== iPad Korean ==="
-for entry in "${IPAD_SCREENSHOTS[@]}"; do
-  IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
-  compose_ipad_screenshot "$key" "$kw_ko" "$tt_ko" "ko" "$FONT_KO_BOLD" "$FONT_KO_REG" "en-US"
+for ipad_locale in "en-US|EN" "ja|JA" "zh-CN|ZH" "ko|KO"; do
+  IFS='|' read -r lang_dir font_key <<< "$ipad_locale"
+  echo ""
+  echo "=== iPad ${lang_dir} ==="
+  bold_var="FONT_${font_key}_BOLD"
+  reg_var="FONT_${font_key}_REG"
+  for entry in "${IPAD_SCREENSHOTS[@]}"; do
+    IFS='|' read -r key kicker g1 g2 accent kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
+    case "$lang_dir" in
+      en-US) kw="$kw_en"; tt="$tt_en" ;;
+      ja) kw="$kw_ja"; tt="$tt_ja" ;;
+      zh-CN) kw="$kw_zh"; tt="$tt_zh" ;;
+      ko) kw="$kw_ko"; tt="$tt_ko" ;;
+    esac
+    compose_ipad_screenshot "$key" "$kicker" "$g1" "$g2" "$accent" "$kw" "$tt" "$lang_dir" "${!bold_var}" "${!reg_var}" "en-US"
+  done
 done
 
 # === iPhone Duo cover display, portrait (1398x2034) ===
-# Same sequence, Mint style and headlines as the phone cards, on the canvas
-# App Store Connect requires for APP_IPHONE_DUO (the cover display size).
 DUO_CANVAS_W=1398
 DUO_CANVAS_H=2034
 
 compose_duo_screenshot() {
-  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
+  local key="$1" kicker="$2" glow1="$3" glow2="$4" accent="$5"
+  local kw1="$6" kw2="$7" title="$8" lang_dir="$9" font_bold="${10}" font_reg="${11}"
   local input="${SCRIPT_DIR}/en-US/duo_${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/duo_${key}_framed.png"
 
-  # The frame is the closed iPhone Duo preset of multi_device_preview
-  # (MultiDevicePresets.iPhoneDuo): a 500x712 pt body with the 466x678 pt
-  # outer display at +17+17. The hinge side (left) is almost square, the free
-  # side (right) is rounded. The camera hole follows the iOS 27.2 simulator
-  # mask (`simctl io --display=1 --mask=black`): a 37 pt circle at the top of
-  # the right control strip, not the top-center pill of the package preset.
-  # Both SVGs are rendered at 3x, so the 1398x2034 capture maps 1:1.
   local frame_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-frame.svg"
   local screen_svg="${SCRIPT_DIR}/assets/iphone-duo-closed-screen.svg"
   local screen_offset=51
-  local ss_y=440
-  local device_h=$((DUO_CANVAS_H - ss_y - 64))
+  local ss_y=490
+  local device_h=$((DUO_CANVAS_H - ss_y - 54))
 
   echo "Composing iPhone Duo: duo_$key ($lang_dir)"
 
-  # msvg: forces ImageMagick's own renderer instead of an external delegate.
-  magick -background black "msvg:${screen_svg}" -alpha off /tmp/duo_mask_$$.png
-  magick "$input" \( /tmp/duo_mask_$$.png -alpha off \) -compose CopyOpacity -composite \
-    /tmp/duo_ss_$$.png
-  magick -background none "msvg:${frame_svg}" PNG32:/tmp/duo_body_$$.png
-  magick /tmp/duo_body_$$.png /tmp/duo_ss_$$.png \
+  make_canvas "$DUO_CANVAS_W" "$DUO_CANVAS_H" "$glow1" "$glow2" "$WORK_DIR/duo_canvas.png"
+
+  magick -background black "msvg:${screen_svg}" -alpha off "$WORK_DIR/duo_mask.png"
+  magick "$input" \( "$WORK_DIR/duo_mask.png" -alpha off \) -compose CopyOpacity -composite \
+    "$WORK_DIR/duo_ss.png"
+  magick -background none "msvg:${frame_svg}" PNG32:"$WORK_DIR/duo_body.png"
+  magick "$WORK_DIR/duo_body.png" "$WORK_DIR/duo_ss.png" \
     -geometry "+${screen_offset}+${screen_offset}" -compose over -composite \
-    -resize "x${device_h}" /tmp/duo_framed_$$.png
-  local device_w
-  device_w=$(magick identify -format '%w' /tmp/duo_framed_$$.png)
-  local ss_x=$(( (DUO_CANVAS_W - device_w) / 2 ))
+    -resize "x${device_h}" "$WORK_DIR/duo_framed.png"
 
-  magick -background none -size "1200x240" -gravity west \
-    -font "$font_bold" -pointsize 92 -fill "$MINT" \
-    caption:"$(printf '%b' "$keyword")" /tmp/duo_keyword_$$.png
-  magick -background none -size "1200x120" -gravity west \
-    -font "$font_reg" -pointsize 42 -fill "#A6B0AD" \
-    caption:"$title" /tmp/duo_title_$$.png
+  magick "$WORK_DIR/duo_framed.png" \
+    \( +clone -background black -shadow 68x30+0+22 \) +swap \
+    -background none -layers merge +repage \
+    "$WORK_DIR/duo_shadow.png"
+  local sh_w sh_h
+  read -r sh_w sh_h <<< "$(magick identify -format '%w %h' "$WORK_DIR/duo_shadow.png")"
+  local sh_x=$(( (DUO_CANVAS_W - sh_w) / 2 ))
+  local sh_y=$((ss_y - (sh_h - device_h) / 2 + 8))
 
-  magick -size "${DUO_CANVAS_W}x${DUO_CANVAS_H}" "xc:$BG_COLOR" \
-    /tmp/duo_framed_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
-    /tmp/duo_keyword_$$.png -geometry "+100+44" -composite \
-    /tmp/duo_title_$$.png -geometry "+100+290" -composite \
+  make_pill "$kicker" "$accent" 22 22 12 "$WORK_DIR/duo_pill.png"
+
+  local kw_pt=84
+  if [ "$lang_dir" = "ja" ] || [ "$lang_dir" = "zh-CN" ] || [ "$lang_dir" = "ko" ]; then
+    kw_pt=78
+  fi
+  magick -background none -size "1200x105" -gravity west \
+    -font "$font_bold" -pointsize "$kw_pt" -fill "$WHITE" \
+    caption:"$kw1" "$WORK_DIR/duo_kw1.png"
+  magick -background none -size "1200x105" -gravity west \
+    -font "$font_bold" -pointsize "$kw_pt" -fill "$accent" \
+    caption:"$kw2" "$WORK_DIR/duo_kw2.png"
+  magick -background none -size "1200x100" -gravity west \
+    -font "$font_reg" -pointsize 38 -fill "$SUBTITLE_COLOR" \
+    caption:"$title" "$WORK_DIR/duo_title.png"
+
+  magick "$WORK_DIR/duo_canvas.png" \
+    "$WORK_DIR/duo_shadow.png" -geometry "+${sh_x}+${sh_y}" -compose over -composite \
+    "$WORK_DIR/duo_pill.png" -geometry "+100+48" -compose over -composite \
+    "$WORK_DIR/duo_kw1.png" -geometry "+100+124" -compose over -composite \
+    "$WORK_DIR/duo_kw2.png" -geometry "+100+224" -compose over -composite \
+    "$WORK_DIR/duo_title.png" -geometry "+100+342" -compose over -composite \
     -alpha off -depth 8 $PNG_STRIP "$output"
 
-  rm -f /tmp/duo_mask_$$.png /tmp/duo_ss_$$.png /tmp/duo_body_$$.png /tmp/duo_framed_$$.png \
-    /tmp/duo_keyword_$$.png /tmp/duo_title_$$.png
   echo "  -> $output"
 }
 
@@ -433,25 +475,25 @@ for duo_locale in "en-US|EN" "ja|JA" "zh-CN|ZH" "ko|KO"; do
   bold_var="FONT_${font_key}_BOLD"
   reg_var="FONT_${font_key}_REG"
   for entry in "${SCREENSHOTS[@]}"; do
-    IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh kw_ko tt_ko <<< "$entry"
+    IFS='|' read -r key kicker g1 g2 accent kw1_en kw2_en tt_en kw1_ja kw2_ja tt_ja kw1_zh kw2_zh tt_zh kw1_ko kw2_ko tt_ko <<< "$entry"
     case "$lang_dir" in
-      en-US) kw="$kw_en"; tt="$tt_en" ;;
-      ja) kw="$kw_ja"; tt="$tt_ja" ;;
-      zh-CN) kw="$kw_zh"; tt="$tt_zh" ;;
-      ko) kw="$kw_ko"; tt="$tt_ko" ;;
+      en-US) kw1="$kw1_en"; kw2="$kw2_en"; tt="$tt_en" ;;
+      ja) kw1="$kw1_ja"; kw2="$kw2_ja"; tt="$tt_ja" ;;
+      zh-CN) kw1="$kw1_zh"; kw2="$kw2_zh"; tt="$tt_zh" ;;
+      ko) kw1="$kw1_ko"; kw2="$kw2_ko"; tt="$tt_ko" ;;
     esac
-    compose_duo_screenshot "$key" "$kw" "$tt" "$lang_dir" "${!bold_var}" "${!reg_var}"
+    compose_duo_screenshot "$key" "$kicker" "$g1" "$g2" "$accent" "$kw1" "$kw2" "$tt" "$lang_dir" "${!bold_var}" "${!reg_var}"
   done
 done
 
-# === README banner (4 screenshots side by side, resized to 1200px width) ===
+# === README banner (4 flagship workflow screenshots side by side, 1800px width) ===
 echo ""
 echo "=== README banner ==="
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 README_IMG_DIR="${REPO_ROOT}/docs/images"
 mkdir -p "$README_IMG_DIR"
 
-README_KEYS=("01_conversation" "03_approval_list" "06_imagegen" "07_video")
+README_KEYS=("01_conversation" "02_recent_sessions" "03_approval_list" "04_git_review")
 
 for lang_dir in en-US ja zh-CN ko; do
   README_INPUTS=()
@@ -470,17 +512,12 @@ for lang_dir in en-US ja zh-CN ko; do
 done
 
 # === Copy framed screenshots to store upload directories ===
-# iOS: screenshots/store/{en-US,ja,zh-Hans,ko}/ (used by fastlane deliver)
-# iPhone Duo: screenshots/store_duo/{en-US,ja,zh-Hans,ko}/ (uploaded with asc as
-#   APP_IPHONE_DUO; kept out of store/ because deliver does not know the size)
-# Android: metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/
 echo ""
 echo "=== Store upload directories ==="
 STORE_DIR="${SCRIPT_DIR}/store"
 ANDROID_META="${SCRIPT_DIR}/../../fastlane/metadata/android"
 
 for lang_dir in en-US ja zh-CN ko; do
-  # iOS uses zh-Hans for Simplified Chinese, while Android keeps zh-CN.
   if [ "$lang_dir" = "zh-CN" ]; then
     ios_lang="zh-Hans"
   else
@@ -512,7 +549,6 @@ for lang_dir in en-US ja zh-CN ko; do
   done
   echo "  Duo  -> $duo_lang_dir/ ($(ls "$duo_lang_dir" | wc -l | tr -d ' ') files)"
 
-  # Android metadata directory (phone screenshots only)
   if [ "$lang_dir" = "en-US" ]; then
     android_lang="en-US"
   elif [ "$lang_dir" = "ja" ]; then

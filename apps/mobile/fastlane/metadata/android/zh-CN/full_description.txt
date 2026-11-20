@@ -1,31 +1,37 @@
 把编程代理，装进口袋。
 
-用手机聊天的方式操作Codex、Claude和Antigravity：发出指令、批准下一步、查看结果。代理在你自己的电脑上运行，换个设备也能继续同一项工作。
+CC Pocket 将 Codex、Claude 和 Antigravity 汇聚到一个为移动设备打造的聊天式工作空间中。代理通过自托管 Bridge Server 运行在你自己的电脑上，你可以在手机、平板或 Mac 上随时发起任务、审批操作、审查代码差异并提交变更。
 
-像聊天一样操作
-每个会话就是一个房间，集中显示指令、回复、审批和问题。支持图片附件、语音输入和Markdown。多个会话的待审批操作也能在列表中查看。
+三大代理，合而为一
+在同一界面中并排启动和恢复 Codex、Claude 和 Antigravity 会话。自由切换模型、思考级别和审批模式，一目了然地查看 5 小时/每周套餐用量与上下文占用，并可在设置中按需开启或关闭每个代理。
 
-换个设备，继续工作
-在手机、平板和Mac之间恢复CLI或应用中的会话。大屏幕可并排显示聊天、项目文件和Git差异。提供原生macOS版，以及实验性的Linux和Windows桌面版。
+聊天式交互与实时动态
+每个会话都是专属房间，集中处理提示词、回复、结构化提问和方案审阅。底部的实时活动栏会同步显示思考预览、命令执行、文件编辑及后台任务进度。支持图片与手绘草图附件、语音输入和 Markdown 自动补全。
 
-断网也不丢输入
-离线消息会暂存，重连后自动发送，并恢复遗漏的回复。执行新请求或审批仍需要连接Bridge Server。
+一键审批
+在一个列表中集中处理多个运行中会话的待审批请求，无需回到电脑前即可批准命令、文件编辑、MCP 请求与实施计划。
 
-生成、查看、播放
-用Codex Imagegen生成图片，在聊天中查看结果。视频和音频文件也能直接在应用内播放。
+代码审查、Git 操作与 GitHub Issue/PR
+浏览项目文件，查看语法高亮的代码差异和图片差异。可在多处差异行添加评论并一次性发送给 AI 审查，接着直接 stage、commit、push 或 revert，还能用 git worktree 隔离并行任务。支持在应用内浏览 GitHub Issues 和 PR（含 CI 状态与 Draft 标识），选中即可直接发起会话。
 
-从审查到提交
-浏览项目文件，查看代码和图片差异，在差异的多处添加评论并一起发送给AI审查，执行stage、commit、push或revert。通过git worktree分离并行任务。
+弱网环境下依然从容
+通勤断网或触及额度上限时，待发消息会自动进入队列，待重连或额度重置后自动发送，并补齐遗漏的流式更新。
 
-使用自己的主机
-在Mac、Linux或Windows上运行Bridge Server。用二维码或已保存主机连接，通过Tailscale从外部网络访问，也可通过SSH管理Bridge。
+跨设备无缝衔接
+在 iPhone、iPhone Duo、Android、iPad 和 macOS（以及实验性 Linux / Windows 版）之间自由切换，随时续接 CLI 或桌面应用中的会话。在大屏设备上可并排展示会话列表、聊天、文件浏览器与 Git 差异。
+
+生成与预览媒体
+使用 Codex Imagegen 或 Antigravity 生成图片，直接在聊天和图库中查看。无需切换应用即可播放视频（MP4/MOV）和音频（WAV/MP3）。
+
+运行在你自己的主机上
+在 Mac、Linux 或 Windows 上运行 Bridge Server。通过二维码或已保存主机快速连接，外出时使用 Tailscale 安全访问，也可通过 SSH 远程管理 Bridge。
 
 开始使用
-1. 在电脑上安装Node.js 22.19.0或更高版本，以及Codex、Claude或Antigravity
+1. 在电脑上安装 Node.js 22.19.0+ 以及 Codex、Claude 或 Antigravity
 2. 运行：npx @ccpocket/bridge@latest
-3. 在CC Pocket中扫描二维码并选择项目
+3. 在 CC Pocket 中扫描二维码并选择项目
 
-需要可连接的Bridge Server和已配置的代理账号。CC Pocket可免费使用，也可通过自愿购买Supporter支持开发。代理服务费用另计。
+需要可连接的 Bridge Server 和已配置的代理账号。CC Pocket 免费使用，提供可选的 Supporter 内购以支持开发。代理服务费用另计。
 
-CC Pocket是开源软件，并非Anthropic、OpenAI或Google的官方应用。
+CC Pocket 是开源软件，与 OpenAI、Anthropic 或 Google 无关。
 https://github.com/K9i-0/ccpocket

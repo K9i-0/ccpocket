@@ -1,8 +1,10 @@
 # Store screenshots
 
-The store set follows the Mint palette of `docs/install/`: `#101212` background,
-`#9BDDC5` headlines, and large screenshots of the real app UI. The app itself
-keeps its shipping colors. No app controls are drawn in the marketing artwork.
+The store set pairs CC Pocket's carbon base (`#0B0D0E`) with its signature
+Mint (`#9BDDC5`), warm Orange (`#F5B380`), and Antigravity Blue (`#8AB4F8`)
+accents: dual ambient glows, pill kickers, two-tone headlines, and large
+titanium-framed captures of the real app UI. The app itself keeps its shipping
+colors, and no fake app controls are drawn in the marketing artwork.
 
 ## Generate
 
@@ -23,8 +25,9 @@ Serve it with `python3 -m http.server 8900 --bind 127.0.0.1 --directory /private
 All raw phone captures live in `en-US/`, at 1206×2622, using the English dark
 UI on iPhone 17 Pro. They are captured, with the Duo and iPad sets, from
 [`apps/mobile_preview`](../../../mobile_preview/README.md) by
-`scripts/store-preview/capture.mjs` (multi_device_preview on macOS). The frame and headline are localized into English,
-Japanese, Simplified Chinese, and Korean. Final phone cards are 1320×2868.
+`scripts/store-preview/capture.mjs` (multi_device_preview on macOS). The frame
+and headline are localized into English, Japanese, Simplified Chinese, and
+Korean. Final phone cards are 1320×2868.
 
 | File | Actual preview scenario | Source |
 | --- | --- | --- |
@@ -39,8 +42,8 @@ Japanese, Simplified Chinese, and Korean. Final phone cards are 1320×2868.
 
 The same eight scenarios are also captured on the iPhone Duo cover display as
 `en-US/duo_<key>.png` (1398×2034, portrait, dark, English). They show the Duo
-control strip and are composed with the same Mint headlines at the
-`APP_IPHONE_DUO` cover size.
+control strip and are composed with the same pill kickers and two-tone
+headlines at the `APP_IPHONE_DUO` cover size.
 Their frame is the closed iPhone Duo preset of multi_device_preview
 (`MultiDevicePresets.iPhoneDuo`), kept as `assets/iphone-duo-closed-frame.svg`
 and `assets/iphone-duo-closed-screen.svg` (screen outline): square on the
@@ -51,8 +54,9 @@ match the simulator.
 
 LP capture instructions and media fixture limitations are in
 [`scripts/landing-preview/README.md`](../../../../scripts/landing-preview/README.md).
-The five iPad workspace captures (iPad Pro 13" M5 in landscape, light theme)
-are composed with Mint headlines; their final size is 2752×2064. They represent iPad, not macOS.
+The five iPad workspace captures (iPad Pro 13" M5 in landscape, light theme
+except `05_dark_workspace`) are composed with matching dual glows and pill
+kickers; their final size is 2752×2064. They represent iPad, not macOS.
 
 ## Outputs
 
@@ -65,13 +69,12 @@ are composed with Mint headlines; their final size is 2752×2064. They represent
   skips an identical remote set and replaces anything else).
 - `../metadata/android/{en-US,ja-JP,zh-CN,ko-KR}/images/phoneScreenshots/`:
   the same 8 phone cards, shared with iOS by the maintainer's explicit choice.
-- `docs/images/screenshots*.png`: four-card README banners.
-- Android `featureGraphic.png`: 1024×500 Mint graphics in all four locales.
+- `docs/images/screenshots*.png`: four-card flagship README banners
+  (`01_conversation`, `02_recent_sessions`, `03_approval_list`, `04_git_review`).
+- Android `featureGraphic.png`: 1024×500 dual-glow graphics with tilted framed
+  devices and three-agent pills in all four locales.
 
 Phone bezels sit outside the screenshot with matched corner radii, preserving
-the full UI. Store outputs have no alpha channel. The composer checks for required raw
-captures before replacing generated files and removes obsolete phone cards.
-The old `PPO_OUTPUT_DIR` illustration experiment is retired; the script rejects
-that option so it cannot silently upload duplicate treatments.
-`Framefile.json`, legacy `*.strings`, and `metadata/*/screenshots/` are not used
-by this pipeline.
+the full UI. Store outputs have no alpha channel. The composer checks for
+required raw captures before replacing generated files and removes obsolete
+phone cards.

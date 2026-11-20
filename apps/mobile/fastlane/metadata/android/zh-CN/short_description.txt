@@ -1,1 +1,1 @@
-像聊天一样使用Codex、Claude和Antigravity。审批、审查变更，换个设备继续工作。
+在手机上使用 Codex、Claude 和 Antigravity。聊天操控、一键审批、审查 Git 差异。

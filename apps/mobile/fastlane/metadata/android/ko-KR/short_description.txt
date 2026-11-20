@@ -1,1 +1,1 @@
-Codex, Claude, Antigravity를 채팅처럼. 승인하고 변경 내용을 검토하고 다른 기기에서 이어가세요.
+Codex, Claude, Antigravity를 주머니에. 채팅 제어, 원탭 승인, Git diff 검토까지.

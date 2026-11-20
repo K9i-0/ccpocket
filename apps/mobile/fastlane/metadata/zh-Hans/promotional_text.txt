@@ -1,1 +1,1 @@
-Codex、Claude和Antigravity，手机或Mac都能继续同一项工作。通过聊天界面审批和审查变更，用Codex Imagegen生成图片，在应用内播放视频和音频。
+用一个聊天界面操控 Codex、Claude 和 Antigravity。实时查看代理动态与思考预览、一键审批、关联 GitHub Issue/PR、审查代码差异，并直接预览图片、视频和音频。

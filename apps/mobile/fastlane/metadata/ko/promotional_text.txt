@@ -1,1 +1,1 @@
-Codex, Claude, Antigravity를 휴대폰이나 Mac에서 이어가세요. 채팅으로 승인하고 변경 내용을 검토하며, Codex Imagegen으로 이미지를 만들고 영상과 오디오도 재생하세요.
+Codex, Claude, Antigravity를 하나의 채팅 UI로. 실시간 활동·사고 미리보기, 원탭 승인, GitHub Issue/PR 연동, diff 검토, 미디어 재생까지.

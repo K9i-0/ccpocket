@@ -1,31 +1,37 @@
 Your agents. In your pocket.
 
-CC Pocket brings Codex, Claude, and Antigravity to a chat UI made for your phone. Start a task, approve the next step, and review the result. Your agents run on your own computer; you can pick up the same work on another device.
+CC Pocket brings Codex, Claude, and Antigravity into one chat-first workspace built for your phone, tablet, and Mac. Your agents run on your own machine through a self-hosted Bridge Server—while you steer tasks, approve actions, review diffs, and ship changes from anywhere.
 
-CHAT FIRST
-Each session is a room for prompts, replies, approvals, and questions. Send images, use voice input, or write with Markdown. Handle waiting approvals from the session list.
+THREE AGENTS, ONE POCKET
+Start and resume Codex, Claude, and Antigravity sessions side by side. Switch models, thinking levels, and approval modes per session, check 5-hour/weekly plan usage and context usage at a glance, and enable only the agents you use.
 
-CONTINUE ACROSS DEVICES
-Move between your phone, tablet, and Mac. Resume sessions from the CLI or app. On larger screens, keep chat, project files, and Git changes side by side. Native macOS is available; Linux and Windows desktop builds are experimental.
+CHAT-FIRST WITH LIVE ACTIVITY
+Every session is a dedicated room for prompts, replies, structured questions, and plan reviews. Follow what your agent is doing in real time—thinking previews, running commands, editing files, and background task progress. Attach images or sketches, dictate with voice input, and write with Markdown completions.
 
-KEEP YOUR PLACE ON WEAK NETWORKS
-Outgoing messages wait while you are offline and resend after reconnecting. Missed streaming updates are recovered. New requests and approvals need a connection to the Bridge Server.
+ONE-TAP APPROVALS
+Handle waiting approvals across multiple running sessions from a single list. Approve commands, file edits, MCP requests, and implementation plans without switching back to your desk.
 
-CREATE AND PREVIEW
-Generate images with Codex Imagegen and open the results in chat. Play video and audio files without leaving the app.
+REVIEW DIFFS, GIT & GITHUB ISSUES/PRS
+Explore project files and inspect syntax-highlighted code and image diffs. Comment on multiple diff lines to send focused feedback to your agent, then stage, commit, push, or revert—or isolate parallel work with git worktrees. Browse open GitHub Issues and PRs (with CI status and draft badges) and start a session straight from them.
 
-REVIEW AND SHIP
-Browse project files, inspect code and image diffs, add comments to multiple diff lines for AI review, stage changes, commit, push, or revert. Keep parallel tasks separate with git worktrees.
+BUILT FOR MOBILE NETWORKS
+Bad signal on the train or reached a usage limit? Outgoing messages wait in a queue and send automatically once you reconnect or limits reset, while missed streaming updates catch up seamlessly.
 
-YOUR OWN MACHINES
-Run the Bridge Server on your Mac, Linux, or Windows computer. Connect by QR code or saved host. Tailscale supports access away from your local network, and SSH lets you manage the Bridge remotely.
+SAME WORK ON EVERY SCREEN
+Move fluidly between iPhone, iPhone Duo, Android, iPad, and macOS (with experimental Linux and Windows builds). Resume sessions created in the CLI or desktop apps, and open chat, sessions, Explorer, and Git changes side by side on large screens.
+
+GENERATE & PREVIEW MEDIA
+Generate images with Codex Imagegen or Antigravity and inspect them right in chat and your gallery. Preview video (MP4/MOV) and audio (WAV/MP3) files without leaving the app.
+
+SELF-HOSTED ON YOUR MACHINES
+Run the Bridge Server on Mac, Linux, or Windows. Connect by QR code or saved host, access securely away from home over Tailscale, and manage your Bridge remotely via SSH.
 
 GET STARTED
-1. Install Node.js 22.19.0 or later and Codex, Claude, or Antigravity on your computer.
+1. Install Node.js 22.19.0+ and Codex, Claude, or Antigravity on your computer.
 2. Run: npx @ccpocket/bridge@latest
-3. Scan the QR code in CC Pocket and choose a project.
+3. Scan the QR code in CC Pocket and pick a project.
 
 A reachable Bridge Server and a configured agent account are required. CC Pocket is free to use, with optional Supporter purchases. Agent service fees are separate.
 
-CC Pocket is open source and is not affiliated with Anthropic, OpenAI, or Google.
+CC Pocket is open source and is not affiliated with OpenAI, Anthropic, or Google.
 https://github.com/K9i-0/ccpocket
