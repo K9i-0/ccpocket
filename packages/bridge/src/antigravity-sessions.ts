@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ACP_CLIENT_INFO,
   ANTIGRAVITY_API_KEY_PROFILE,
@@ -37,12 +38,46 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Normalizes a `cwd` returned by `agy acp` `session/list`.
+ * On Windows, `agy` reports workspace paths as file-URI pathnames
+ * (e.g. `/D:/%E9%A1%B9%E7%9B%AE/demo`), which `path.win32.resolve` would
+ * otherwise turn into `D:\D:\%E9%A1%B9%E7%9B%AE\demo`.
+ */
+export function normalizeAntigravityCwd(
+  raw: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (!raw) return "";
+  if (raw.startsWith("file://")) {
+    try {
+      const converted = fileURLToPath(raw, { windows: platform === "win32" });
+      return platform === "win32" ? win32.resolve(converted) : converted;
+    } catch {
+      // Fall through to best-effort handling below.
+    }
+  }
+  if (platform === "win32" && /^\/[A-Za-z]:[\\/]/.test(raw)) {
+    const withoutLeadingSlash = raw.slice(1);
+    let decoded = withoutLeadingSlash;
+    try {
+      decoded = decodeURIComponent(withoutLeadingSlash);
+    } catch {
+      // Keep the undecoded path if it contains a literal `%` sequence.
+    }
+    return win32.resolve(decoded);
+  }
+  return raw;
+}
+
 interface ShortLivedOptions {
   config?: AntigravityConfig;
   createTransport?: (config: AntigravityConfig) => AcpTransport;
   timeoutMs?: number;
   /** Working directory for the process (and for `session/new`). */
   cwd?: string;
+  /** Platform override for path normalization (defaults to `process.platform`). */
+  platform?: NodeJS.Platform;
 }
 
 type AcpRequest = (
@@ -156,7 +191,8 @@ export function listAntigravitySessions(
       for (const item of Array.isArray(result.sessions) ? result.sessions : []) {
         if (!isRecord(item)) continue;
         const sessionId = typeof item.sessionId === "string" ? item.sessionId : "";
-        const projectPath = typeof item.cwd === "string" ? item.cwd : "";
+        const rawCwd = typeof item.cwd === "string" ? item.cwd : "";
+        const projectPath = normalizeAntigravityCwd(rawCwd, options?.platform);
         if (!sessionId || !projectPath) continue;
         entries.push({
           sessionId,
