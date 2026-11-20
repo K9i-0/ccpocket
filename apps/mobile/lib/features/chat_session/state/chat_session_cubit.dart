@@ -1986,6 +1986,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         !usesQueue ||
         (!shouldUseOfflineQueuePanel && state.status == ProcessStatus.idle);
     if (shouldAddLocalEntry) {
+      // Clear any lingering stream buffer from an interrupted/stopped turn so
+      // the live StreamingBubble never renders beneath the newly sent prompt.
+      _handler.currentStreaming = null;
+      _handler.currentThinkingText = '';
+      _streamingCubit.reset();
       final entry = UserChatEntry(
         text,
         sessionId: sessionId,

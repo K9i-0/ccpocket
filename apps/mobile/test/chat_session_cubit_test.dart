@@ -4760,6 +4760,87 @@ void main() {
         expect(cubit.state.permissionMode, PermissionMode.bypassPermissions);
       },
     );
+
+    test('sending a message from idle clears lingering streaming state so prior output never appears below the new prompt', () async {
+      final cubit = ChatSessionCubit(
+        sessionId: 'agy-stream-order',
+        provider: Provider.antigravity,
+        bridge: mockBridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.idle),
+        sessionId: 'agy-stream-order',
+      );
+      await Future.microtask(() {});
+
+      // Simulate stale streaming text/thinking left in the cubit while idle.
+      streamingCubit.appendThinking('stale thinking');
+      streamingCubit.appendText('stale reply');
+      expect(streamingCubit.state.isStreaming, isTrue);
+
+      final accepted = await cubit.sendMessage('再開');
+      expect(accepted, isTrue);
+      expect(streamingCubit.state.isStreaming, isFalse);
+      expect(streamingCubit.state.text, isEmpty);
+      expect(streamingCubit.state.thinking, isEmpty);
+      expect(
+        cubit.state.entries.last,
+        isA<UserChatEntry>().having((e) => e.text, 'text', '再開'),
+      );
+    });
+
+    test('idle history snapshot clears active streaming buffer from a previous turn', () async {
+      final cubit = ChatSessionCubit(
+        sessionId: 'agy-history-stream',
+        provider: Provider.antigravity,
+        bridge: mockBridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.running),
+        sessionId: 'agy-history-stream',
+      );
+      mockBridge.emitMessage(
+        const ThinkingDeltaMessage(text: 'in-flight thinking'),
+        sessionId: 'agy-history-stream',
+      );
+      mockBridge.emitMessage(
+        const StreamDeltaMessage(text: 'in-flight text'),
+        sessionId: 'agy-history-stream',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(streamingCubit.state.isStreaming, isTrue);
+
+      mockBridge.emitMessage(
+        HistoryMessage(
+          messages: [
+            const UserInputMessage(text: 'first'),
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'a1',
+                role: 'assistant',
+                content: const [TextContent(text: 'done')],
+                model: 'antigravity',
+              ),
+            ),
+            const StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        sessionId: 'agy-history-stream',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(streamingCubit.state.isStreaming, isFalse);
+      expect(streamingCubit.state.text, isEmpty);
+      expect(streamingCubit.state.thinking, isEmpty);
+    });
   });
 
   group('updateRecentPeekedFiles', () {

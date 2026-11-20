@@ -448,5 +448,61 @@ void main() {
       expect(messages.first.status, ProcessStatus.running);
       expect(messages.last.status, ProcessStatus.idle);
     });
+
+    test('keeps unsequenced initial history ahead of later sequenced user inputs on delta merge', () {
+      final store = SessionRuntimeStore();
+      final initialUser = const UserInputMessage(
+        text: 'first prompt',
+        userMessageUuid: 'antigravity:replay:1',
+      );
+      final initialAssistant = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'a1',
+          role: 'assistant',
+          content: const [TextContent(text: 'first reply')],
+          model: 'antigravity',
+        ),
+      );
+      store.applyServerMessage(
+        's1',
+        HistoryMessage(messages: [initialUser, initialAssistant]),
+      );
+
+      // User sends a new message from idle; ack caches it with historySeq.
+      final secondUser = const UserInputMessage(
+        text: 'resume',
+        clientMessageId: 'c2',
+      );
+      store.applyServerMessage('s1', secondUser, historySeq: 50);
+
+      // A subsequent delta arrives starting past seq 1; sorting sequenced
+      // entries must not move the new user message ahead of prior history.
+      final secondAssistant = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'a2',
+          role: 'assistant',
+          content: const [TextContent(text: 'second reply')],
+          model: 'antigravity',
+        ),
+      );
+      store.applyServerMessage(
+        's1',
+        HistoryDeltaMessage(
+          fromSeq: 50,
+          toSeq: 51,
+          entries: [
+            HistoryEntry(seq: 50, message: secondUser),
+            HistoryEntry(seq: 51, message: secondAssistant),
+          ],
+        ),
+      );
+
+      final timeline = store.messages('s1');
+      expect(timeline, hasLength(4));
+      expect((timeline[0] as UserInputMessage).text, 'first prompt');
+      expect((timeline[1] as AssistantServerMessage).message.id, 'a1');
+      expect((timeline[2] as UserInputMessage).text, 'resume');
+      expect((timeline[3] as AssistantServerMessage).message.id, 'a2');
+    });
   });
 }

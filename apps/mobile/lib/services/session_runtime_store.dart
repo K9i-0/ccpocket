@@ -342,24 +342,22 @@ class SessionRuntimeStore {
   }
 
   void _sortSequencedMessages(SessionRuntimeState state) {
-    final pairs = <({ServerMessage message, int? seq})>[];
+    final sequencedIndices = <int>[];
+    final sequencedPairs = <({ServerMessage message, int seq})>[];
     for (var i = 0; i < state._messages.length; i++) {
-      pairs.add((message: state._messages[i], seq: state._messageSeqs[i]));
+      final seq = state._messageSeqs[i];
+      if (seq != null) {
+        sequencedIndices.add(i);
+        sequencedPairs.add((message: state._messages[i], seq: seq));
+      }
     }
-    pairs.sort((a, b) {
-      final aSeq = a.seq;
-      final bSeq = b.seq;
-      if (aSeq == null && bSeq == null) return 0;
-      if (aSeq == null) return 1;
-      if (bSeq == null) return -1;
-      return aSeq.compareTo(bSeq);
-    });
-    state._messages
-      ..clear()
-      ..addAll(pairs.map((pair) => pair.message));
-    state._messageSeqs
-      ..clear()
-      ..addAll(pairs.map((pair) => pair.seq));
+    if (sequencedPairs.length <= 1) return;
+    sequencedPairs.sort((a, b) => a.seq.compareTo(b.seq));
+    for (var i = 0; i < sequencedIndices.length; i++) {
+      final slot = sequencedIndices[i];
+      state._messages[slot] = sequencedPairs[i].message;
+      state._messageSeqs[slot] = sequencedPairs[i].seq;
+    }
   }
 
   void _advanceCachedHistorySeq(SessionRuntimeState state) {

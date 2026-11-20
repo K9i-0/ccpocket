@@ -834,12 +834,32 @@ class ChatMessageHandler {
 
     final firstAction = pendingInputs.first;
 
+    final previousStatus = _lastStatus;
+    if (lastStatus != null) {
+      _lastStatus = lastStatus;
+    }
+    final wasActiveTurn =
+        previousStatus == ProcessStatus.running ||
+        previousStatus == ProcessStatus.compacting ||
+        previousStatus == ProcessStatus.waitingApproval;
+    final hasBufferedStream =
+        currentStreaming != null || currentThinkingText.isNotEmpty;
+    final resetStreaming =
+        (lastStatus == ProcessStatus.idle ||
+            lastStatus == ProcessStatus.starting) &&
+        (wasActiveTurn || hasBufferedStream);
+    if (resetStreaming) {
+      currentStreaming = null;
+      currentThinkingText = '';
+    }
+
     final restoreQuestion = firstAction != null && firstAction.usesAskUserUi;
     final restorePermission = firstAction != null && !firstAction.usesAskUserUi;
     return ChatStateUpdate(
       status: lastStatus,
       entriesToAdd: entries,
       replaceEntries: true,
+      resetStreaming: resetStreaming,
       slashCommands: commands,
       pendingToolUseId: restorePermission ? firstAction.toolUseId : null,
       pendingPermission: restorePermission ? firstAction : null,
