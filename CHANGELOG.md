@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.172.0] - 2026-11-20
+
+### Changed
+
+- Antigravity is no longer a preview. The preview badge and note are gone from the new session sheet, and the "Enabled agents" setting no longer calls it a preview. It still needs the Antigravity CLI (`agy`) on the Bridge machine and Bridge 1.113.1 or newer.
+- Store listing, screenshots, README and the install page now present Antigravity next to Codex and Claude.
+
 ## [1.171.1] - 2026-11-20
 
 ### Changed
