@@ -6,9 +6,9 @@
     <title>CC Pocket — Your agents. In your pocket.</title>
     <meta
       name="description"
-      content="Codex, Claude, and Antigravity, built for your phone. Chat, approve, review, and pick up the same work on your Mac. Free and open source."
+      content="Control Codex, Claude, and Antigravity from one chat-first app. Track live activity, approve in a tap, review diffs, and pick up the same work on iPad and Mac. Free and open source."
     />
-    <meta name="theme-color" content="#101011" />
+    <meta name="theme-color" content="#0b0d0e" />
     <meta name="apple-itunes-app" content="app-id=6759188790" />
     <link rel="icon" type="image/png" href="../images/favicon-32x32.png" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png" />
@@ -24,7 +24,7 @@
     />
     <meta
       property="og:description"
-      content="Codex, Claude, and Antigravity, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
+      content="Codex, Claude, and Antigravity in one chat-first workspace built for your phone, iPad, and Mac."
     />
     <meta
       property="og:image"
@@ -37,7 +37,7 @@
     />
     <meta
       name="twitter:description"
-      content="Codex, Claude, and Antigravity, built for your phone. Chat, approve, review, and pick up the same work on your Mac."
+      content="Codex, Claude, and Antigravity in one chat-first workspace built for your phone, iPad, and Mac."
     />
     <meta
       name="twitter:image"
@@ -61,88 +61,103 @@
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
-    <header class="header wrap">
-      <a class="brand" href="#" aria-label="CC Pocket home"
-        ><img
-          src="../images/cc-pocket-icon.png"
-          width="34"
-          height="34"
-          alt=""
-        /><span>CC Pocket<span class="brand-period">.</span></span></a
-      >
-      <nav aria-label="Main navigation">
-        <a class="nav-detail" href="#experience" data-i18n="navExperience"
-          >Experience</a
-        >
-        <a class="nav-detail" href="#setup" data-i18n="navSetup">Setup</a>
-        <a href="https://github.com/K9i-0/ccpocket" class="github-link"
-          >GitHub <span aria-hidden="true">↗</span></a
-        >
-        <select id="lang-selector" aria-label="Language">
-          <option value="en">EN</option>
-          <option value="ja">日本語</option>
-          <option value="zh">简体中文</option>
-          <option value="ko">한국어</option>
-        </select>
-      </nav>
-    </header>
+
+    <div class="header-shell">
+      <header class="header wrap">
+        <a class="brand" href="#" aria-label="CC Pocket home">
+          <img
+            src="../images/cc-pocket-icon.png"
+            width="36"
+            height="36"
+            alt=""
+          />
+          <span>CC Pocket<span class="brand-period">.</span></span>
+        </a>
+        <nav aria-label="Main navigation">
+          <a class="nav-detail" href="#agents" data-i18n="navAgents">Agents</a>
+          <a class="nav-detail" href="#workflow" data-i18n="navWorkflow"
+            >Workflow</a
+          >
+          <a class="nav-detail" href="#desktop" data-i18n="navWorkspace"
+            >Workspace</a
+          >
+          <a class="nav-detail" href="#setup" data-i18n="navSetup">Setup</a>
+          <a href="https://github.com/K9i-0/ccpocket" class="github-link"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+          <select id="lang-selector" aria-label="Language">
+            <option value="en">EN</option>
+            <option value="ja">日本語</option>
+            <option value="zh">简体中文</option>
+            <option value="ko">한국어</option>
+          </select>
+        </nav>
+      </header>
+    </div>
 
     <main id="main">
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
           <p class="eyebrow">
-            <span class="status-dot"></span
-            ><span data-i18n="eyebrow">A little freedom from your desk</span>
+            <span class="status-dot" aria-hidden="true"></span>
+            <span data-i18n="eyebrow"
+              >Self-hosted mobile companion for coding agents</span
+            >
           </p>
           <h1 id="hero-title">
-            <span data-i18n="hero1">Your agents.</span><br /><span
-              class="accent"
-              data-i18n="hero2"
-              >In your pocket.</span
-            >
+            <span data-i18n="hero1">Your agents.</span><br />
+            <span class="accent" data-i18n="hero2">In your pocket.</span>
           </h1>
           <p class="hero-description" data-i18n="heroDesc">
-            Codex, Claude, and Antigravity, with a UI made for your phone. Keep building,
-            wherever the day takes you.
+            Codex, Claude, and Antigravity in one chat-first workspace built for
+            your phone. Steer tasks, approve actions, review diffs, and pick up
+            the same session on iPad or Mac.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#download"
-              ><span data-i18n="getApp">Get CC Pocket</span
-              ><span aria-hidden="true">↗</span></a
-            ><a class="text-link" href="#setup"
-              ><span data-i18n="quickStart">Quick start</span
-              ><span aria-hidden="true">↓</span></a
-            >
+            <a class="button primary" href="#download">
+              <span data-i18n="getApp">Get CC Pocket</span>
+              <span class="arrow" aria-hidden="true">↗</span>
+            </a>
+            <a class="button ghost" href="#setup">
+              <span data-i18n="quickStart">Quick start</span>
+              <span class="arrow" aria-hidden="true">↓</span>
+            </a>
           </div>
           <p class="hero-note" data-i18n="freeNote">
-            Free to use. Open source. Your own machine.
+            Free & open source (MIT). Runs on your own machine via Bridge
+            Server.
           </p>
-          <div class="agent-line">
-            <span class="agent-mark" aria-hidden="true">⌘</span> Codex
-            <span class="agent-divider"></span
-            ><span class="claude-mark" aria-hidden="true">✳</span> Claude
-            <span class="agent-divider"></span
-            ><span class="antigravity-mark" aria-hidden="true">◈</span> Antigravity
+          <div class="agent-pills" aria-label="Supported agents">
+            <span class="agent-pill codex">
+              <span class="pill-dot" aria-hidden="true"></span>Codex
+            </span>
+            <span class="agent-pill claude">
+              <span class="pill-dot" aria-hidden="true"></span>Claude
+            </span>
+            <span class="agent-pill antigravity">
+              <span class="pill-dot" aria-hidden="true"></span>Antigravity
+            </span>
           </div>
         </div>
+
         <div class="hero-art">
           <div class="orbit orbit-one" aria-hidden="true"></div>
           <div class="orbit orbit-two" aria-hidden="true"></div>
           <span class="art-caption mono" aria-hidden="true"
-            >LESS TERMINAL. MORE POSSIBILITY.</span
+            >LESS TERMINAL · MORE FLOW</span
           >
           <button
             class="phone phone-back screenshot-button"
             data-zoom
-            data-i18n-label="zoomSessions"
-            aria-label="Enlarge session list screenshot"
+            data-i18n-label="zoomApprovals"
+            aria-label="Enlarge approval list screenshot"
           >
             <img
-              data-shot="sessions"
-              src="./assets/sessions.webp"
-              width="600"
-              height="1304"
-              alt="CC Pocket session list with inline approvals"
+              data-shot="approvals"
+              src="./assets/approvals.webp"
+              width="804"
+              height="1748"
+              alt="CC Pocket running sessions with inline command and plan approvals"
             />
           </button>
           <button
@@ -154,16 +169,16 @@
             <img
               data-shot="chat"
               src="./assets/conversation.webp"
-              width="660"
-              height="1434"
-              alt="CC Pocket conversation with test results"
+              width="804"
+              height="1748"
+              alt="CC Pocket conversation with test results and live tool output"
               fetchpriority="high"
             />
           </button>
           <div class="floating-note">
-            <span class="status-dot"></span
-            ><span data-i18n="artNote">Your next move. One tap away.</span
-            ><span aria-hidden="true">↗</span>
+            <span class="status-dot pulse" aria-hidden="true"></span>
+            <span data-i18n="artNote">Your next move. One tap away.</span>
+            <span class="floating-arrow" aria-hidden="true">↗</span>
           </div>
           <span class="art-index mono" aria-hidden="true"
             >01 / ALWAYS WITH YOU</span
@@ -175,40 +190,122 @@
         <span data-i18n="platformLead"
           >Phone first. At home on every screen.</span
         >
-        <div>
-          <span>iOS</span><span>Android</span><span>iPadOS</span
-          ><span>macOS</span
-          ><a href="#desktop"
+        <div class="platform-tags">
+          <span>iOS</span>
+          <span>iPhone Duo</span>
+          <span>Android</span>
+          <span>iPadOS</span>
+          <span>macOS</span>
+          <a href="#desktop"
             >Linux / Windows <sup data-i18n="experimental">experimental</sup></a
           >
         </div>
       </div>
 
       <section
+        class="agents-section wrap section-space"
+        id="agents"
+        aria-labelledby="agents-title"
+      >
+        <div class="agents-layout">
+          <div class="agents-copy">
+            <p class="eyebrow mono" data-i18n="agentsKicker">
+              01 — THREE AGENTS. ONE POCKET.
+            </p>
+            <h2 id="agents-title">
+              <span data-i18n="agents1">Codex, Claude, Antigravity.</span><br />
+              <span class="muted" data-i18n="agents2">One unified UI.</span>
+            </h2>
+            <p class="section-lead" data-i18n="agentsDesc">
+              Start and resume sessions across all three agents in a single
+              timeline. Pick models, thinking levels, and approval modes per
+              session, monitor 5-hour and weekly plan usage, and enable only the
+              agents you use.
+            </p>
+
+            <div class="agent-cards">
+              <div class="agent-card codex">
+                <div class="agent-card-head">
+                  <span class="pill-dot" aria-hidden="true"></span>
+                  <strong>Codex</strong>
+                </div>
+                <p data-i18n="agentCodexDesc">
+                  Resume Codex CLI & App sessions, toggle Plan mode, and run
+                  Codex Imagegen.
+                </p>
+              </div>
+              <div class="agent-card claude">
+                <div class="agent-card-head">
+                  <span class="pill-dot" aria-hidden="true"></span>
+                  <strong>Claude</strong>
+                </div>
+                <p data-i18n="agentClaudeDesc">
+                  Live activity & thinking previews, Session Recap cards, and
+                  interactive questions.
+                </p>
+              </div>
+              <div class="agent-card antigravity">
+                <div class="agent-card-head">
+                  <span class="pill-dot" aria-hidden="true"></span>
+                  <strong>Antigravity</strong>
+                </div>
+                <p data-i18n="agentAgyDesc">
+                  Powered by the agy CLI with model & thinking picker, plan
+                  reviews, usage tracking, and image generation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="agents-visual">
+            <div class="visual-stage">
+              <button
+                class="phone stage-phone screenshot-button"
+                data-zoom
+                data-i18n-label="zoomRecent"
+                aria-label="Enlarge recent sessions screenshot"
+              >
+                <img
+                  src="./assets/recent-sessions.webp"
+                  width="804"
+                  height="1748"
+                  loading="lazy"
+                  alt="CC Pocket recent sessions showing Codex, Antigravity, and Claude sessions grouped by repository"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
         class="experience wrap section-space"
-        id="experience"
+        id="workflow"
         aria-labelledby="experience-title"
       >
         <div class="section-heading">
           <p class="eyebrow mono" data-i18n="experienceKicker">
-            01 — MADE FOR THE WAY YOU MOVE
+            02 — MADE FOR THE WAY YOU MOVE
           </p>
           <h2 id="experience-title">
-            <span data-i18n="experience1">Serious tools.</span><br /><span
-              class="muted"
-              data-i18n="experience2"
+            <span data-i18n="experience1">Serious tools.</span><br />
+            <span class="muted" data-i18n="experience2"
               >A lighter way to use them.</span
             >
           </h2>
         </div>
+
         <div class="feature-grid">
           <article class="feature chat-feature">
             <div class="feature-copy">
-              <span class="feature-tag mono">CHAT-FIRST</span>
+              <span class="feature-tag mono mint"
+                >CHAT-FIRST & LIVE ACTIVITY</span
+              >
               <h3 data-i18n="chatTitle">Feels like a conversation.</h3>
               <p data-i18n="chatDesc">
-                A room for every task. Send a message, answer a question,
-                approve a change. Everything in its place.
+                A dedicated room for every task. Watch live thinking previews,
+                running commands, and background progress—with voice input,
+                sketches, and Markdown completions built in.
               </p>
             </div>
             <button
@@ -222,17 +319,74 @@
                 width="804"
                 height="1748"
                 loading="lazy"
-                alt="Actual CC Pocket chat screen with a user request, agent response, and test results"
+                alt="CC Pocket chat screen with a user request, agent response, and test results"
               />
             </button>
           </article>
+
+          <article class="feature approval-feature">
+            <div class="feature-copy">
+              <span class="feature-tag mono orange">ONE-TAP APPROVALS</span>
+              <h3 data-i18n="approvalTitle">Decide in a single tap.</h3>
+              <p data-i18n="approvalDesc">
+                See every session waiting on you in one place. Approve commands,
+                file edits, MCP requests, or implementation plans without
+                returning to your desk.
+              </p>
+            </div>
+            <button
+              class="screenshot-button feature-screenshot approval-shot"
+              data-zoom
+              data-i18n-label="zoomApprovals"
+              aria-label="Enlarge approval list screenshot"
+            >
+              <img
+                src="./assets/approvals.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="CC Pocket session list showing inline command approval and plan review cards"
+              />
+            </button>
+          </article>
+
+          <article class="feature git-feature">
+            <div class="feature-copy">
+              <span class="feature-tag mono mint"
+                >GIT DIFFS & GITHUB ISSUES</span
+              >
+              <h3 data-i18n="gitTitle">Review diffs. Ship from your phone.</h3>
+              <p data-i18n="gitDesc">
+                Inspect syntax-highlighted code and image diffs, comment on
+                lines for AI review, and stage, commit, push, or isolate work
+                with git worktrees. Start directly from open GitHub Issues &
+                PRs.
+              </p>
+            </div>
+            <button
+              class="screenshot-button feature-screenshot git-shot"
+              data-zoom
+              data-i18n-label="zoomGit"
+              aria-label="Enlarge Git review screenshot"
+            >
+              <img
+                src="./assets/git-review.webp"
+                width="804"
+                height="1748"
+                loading="lazy"
+                alt="CC Pocket Git changes screen with syntax-highlighted diff and Stage All action"
+              />
+            </button>
+          </article>
+
           <article class="feature network-feature">
             <div class="feature-copy">
-              <span class="feature-tag mono">CONNECTION-RESILIENT</span>
-              <h3 data-i18n="networkTitle">Bad signal. Good progress.</h3>
+              <span class="feature-tag mono blue">CONNECTION-RESILIENT</span>
+              <h3 data-i18n="networkTitle">Bad signal. Zero lost work.</h3>
               <p data-i18n="networkDesc">
-                Messages queue while you’re offline and send when you reconnect.
-                Missed updates catch up, too.
+                Prompts queue automatically while you’re offline—or when a
+                usage limit hits—and send as soon as you reconnect or limits
+                reset. Missed streaming updates catch up seamlessly.
               </p>
             </div>
             <button
@@ -246,7 +400,7 @@
                 width="804"
                 height="1748"
                 loading="lazy"
-                alt="Actual CC Pocket chat screen showing a message waiting for delivery"
+                alt="CC Pocket chat screen showing a queued prompt waiting for delivery"
               />
             </button>
           </article>
@@ -261,27 +415,28 @@
         <div class="desktop-heading">
           <div>
             <p class="eyebrow mono" data-i18n="desktopKicker">
-              02 — SAME WORK. ANY SCREEN.
+              03 — SAME WORK. ANY SCREEN.
             </p>
             <h2 id="desktop-title">
-              <span data-i18n="desktop1">Head out.</span><br /><span
-                class="muted"
-                data-i18n="desktop2"
+              <span data-i18n="desktop1">Head out.</span><br />
+              <span class="muted" data-i18n="desktop2"
                 >Pick up where you left off.</span
               >
             </h2>
           </div>
           <div class="desktop-description">
             <p data-i18n="desktopDesc">
-              Start on your Mac. Check in from your phone. The same sessions,
-              with your conversation and changes right there.
+              Start on your Mac or CLI. Check in from iPhone, iPhone Duo, or
+              Android. On iPad and desktop, keep sessions, chat, Explorer, and
+              Git diffs open side by side.
             </p>
             <a
               class="text-link"
               href="https://github.com/K9i-0/ccpocket/releases?q=macos"
-              ><span data-i18n="macDownload">Download for macOS</span>
-              <span aria-hidden="true">↗</span></a
             >
+              <span data-i18n="macDownload">Download for macOS</span>
+              <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </div>
         <figure class="workspace-figure">
@@ -297,19 +452,20 @@
                 width="1600"
                 height="1200"
                 loading="lazy"
-                alt="CC Pocket on iPad in dark mode, with sessions, chat, and Git changes side by side"
+                alt="CC Pocket on iPad in dark mode with sessions, chat, and Git changes side by side"
               />
             </button>
           </div>
           <figcaption>
             <span data-i18n="workspaceCaption"
-              >The large-screen workspace, shown on iPad.</span
-            ><span
-              >iPadOS · macOS ·
+              >Three-pane workspace in dark mode, shown on iPad.</span
+            >
+            <span>
+              iPadOS · macOS ·
               <span data-i18n="desktopExperimental"
                 >Linux & Windows (experimental)</span
-              ></span
-            >
+              >
+            </span>
           </figcaption>
         </figure>
       </section>
@@ -320,28 +476,31 @@
       >
         <div class="media-copy">
           <p class="eyebrow mono" data-i18n="mediaKicker">
-            03 — BEYOND THE CODE
+            04 — BEYOND THE CODE
           </p>
           <h2 id="media-title">
-            <span data-i18n="media1">Make it.</span><br /><span
-              class="muted"
-              data-i18n="media2"
-              >See it. Play it.</span
-            >
+            <span data-i18n="media1">Make it.</span><br />
+            <span class="muted" data-i18n="media2">See it. Play it.</span>
           </h2>
           <p data-i18n="mediaDesc">
-            Generate images with Codex Imagegen. Open the result in chat. Play
-            video and audio files without leaving the app.
+            Generate images with Codex Imagegen or Antigravity and inspect them
+            right in chat and your gallery. Preview video and audio outputs
+            without ever leaving the app.
           </p>
           <div class="media-formats mono">
-            <span>IMAGEGEN</span><span>MP4 / MOV</span><span>WAV / MP3</span>
+            <span>IMAGEGEN</span>
+            <span>NANO BANANA</span>
+            <span>MP4 / MOV</span>
+            <span>WAV / MP3</span>
           </div>
         </div>
         <div class="media-screens">
           <figure class="media-screen">
             <figcaption>
-              <span class="mono">01 / IMAGEGEN</span
-              ><span data-i18n="imageCaption">Generated images, in chat.</span>
+              <span class="mono">01 / IMAGEGEN</span>
+              <span data-i18n="imageCaption"
+                >Generated images, right in chat.</span
+              >
             </figcaption>
             <button
               class="screenshot-button media-capture imagegen-shot"
@@ -354,15 +513,15 @@
                 width="804"
                 height="1748"
                 loading="lazy"
-                alt="CC Pocket showing an image generation result in the real chat UI"
+                alt="CC Pocket showing an image generation result in chat"
               />
             </button>
           </figure>
           <figure class="media-screen">
             <figcaption>
-              <span class="mono">02 / VIDEO</span
-              ><span data-i18n="videoCaption"
-                >Preview. Scrub. Go full screen.</span
+              <span class="mono">02 / VIDEO</span>
+              <span data-i18n="videoCaption"
+                >Preview, scrub, and go full screen.</span
               >
             </figcaption>
             <button
@@ -382,9 +541,9 @@
           </figure>
           <figure class="media-screen">
             <figcaption>
-              <span class="mono">03 / AUDIO</span
-              ><span data-i18n="audioCaption"
-                >Listen without leaving the app.</span
+              <span class="mono">03 / AUDIO</span>
+              <span data-i18n="audioCaption"
+                >Listen without switching apps.</span
               >
             </figcaption>
             <button
@@ -398,7 +557,7 @@
                 width="804"
                 height="1748"
                 loading="lazy"
-                alt="CC Pocket WAV preview with real audio playback controls"
+                alt="CC Pocket WAV preview with audio playback controls"
               />
             </button>
           </figure>
@@ -412,13 +571,14 @@
       >
         <div class="setup-heading">
           <p class="eyebrow mono" data-i18n="setupKicker">
-            04 — UP AND RUNNING
+            05 — UP AND RUNNING
           </p>
           <h2 id="setup-title" data-i18n="setupTitle">
             One command. Then you’re mobile.
           </h2>
           <p data-i18n="setupDesc">
-            You’ll need Node.js 22.19.0+ and Codex, Claude, or Antigravity on your computer.
+            You’ll need Node.js 22.19.0+ and Codex, Claude, or Antigravity
+            (agy) on your computer.
           </p>
         </div>
         <div class="setup-grid">
@@ -426,13 +586,17 @@
             <span class="step-number mono">01</span>
             <h3 data-i18n="step1">Start the Bridge.</h3>
             <p data-i18n="step1Desc">
-              Run this on the computer where your agents live.
+              Run this on the Mac, Linux, or Windows machine where your agents
+              live.
             </p>
             <div class="command">
-              <span aria-hidden="true">$</span
-              ><code id="bridge-command">npx @ccpocket/bridge@latest</code
-              ><button
+              <span class="prompt" aria-hidden="true">$</span>
+              <code id="bridge-command" class="mono"
+                >npx @ccpocket/bridge@latest</code
+              >
+              <button
                 id="copy-command"
+                type="button"
                 data-i18n-label="copy"
                 aria-label="Copy command"
               >
@@ -442,7 +606,7 @@
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="1.5"
+                  stroke-width="1.6"
                   aria-hidden="true"
                 >
                   <rect x="8" y="8" width="12" height="12" rx="2" />
@@ -456,29 +620,31 @@
             <span class="step-number mono">02</span>
             <h3 data-i18n="step2">Scan. Connect.</h3>
             <p data-i18n="step2Desc">
-              Install CC Pocket and scan the QR code in your terminal.
+              Install CC Pocket and scan the QR code shown in your terminal.
             </p>
-            <a class="text-link" href="#download"
-              ><span data-i18n="getApp">Get CC Pocket</span
-              ><span aria-hidden="true">↓</span></a
-            >
+            <a class="text-link" href="#download">
+              <span data-i18n="getApp">Get CC Pocket</span>
+              <span aria-hidden="true">↓</span>
+            </a>
           </div>
           <div class="setup-step">
             <span class="step-number mono">03</span>
             <h3 data-i18n="step3">Take it from here.</h3>
             <p data-i18n="step3Desc">
-              Pick a project and an agent. Start a conversation.
+              Pick a project and an agent—or open a GitHub Issue or PR—and start
+              building.
             </p>
-            <a class="text-link" href="../how-to-run-codex-from-iphone-android/"
-              ><span data-i18n="setupGuide">Read the setup guide</span
-              ><span aria-hidden="true">↗</span></a
-            >
+            <a class="text-link" href="../how-to-run-codex-from-iphone-android/">
+              <span data-i18n="setupGuide">Read the setup guide</span>
+              <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </div>
         <p class="remote-note">
-          <span aria-hidden="true">↳</span
-          ><span data-i18n="remoteNote"
-            >Away from home? Connect to your computer over Tailscale.</span
+          <span aria-hidden="true">↳</span>
+          <span data-i18n="remoteNote"
+            >Away from home? Connect over Tailscale and manage your Bridge
+            remotely via SSH.</span
           >
         </p>
       </section>
@@ -491,18 +657,15 @@
         <div class="download-heading">
           <img
             src="../images/cc-pocket-icon.png"
-            width="64"
-            height="64"
+            width="68"
+            height="68"
             alt=""
             loading="lazy"
           />
           <p class="eyebrow mono">CC POCKET</p>
           <h2 id="download-title">
-            <span data-i18n="download1">Go live your life.</span><br /><span
-              class="accent"
-              data-i18n="download2"
-              >Bring your agents.</span
-            >
+            <span data-i18n="download1">Go live your life.</span><br />
+            <span class="accent" data-i18n="download2">Bring your agents.</span>
           </h2>
           <p data-i18n="downloadDesc">Free to use. Built in the open.</p>
         </div>
@@ -510,7 +673,8 @@
           <a
             class="store-card"
             href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"
-            ><img
+          >
+            <img
               class="qr"
               src="../images/install-qr-app-store.png"
               width="88"
@@ -519,8 +683,8 @@
               loading="lazy"
             />
             <div>
-              <span class="store-platform">iPhone & iPad</span
-              ><img
+              <span class="store-platform">iPhone, iPhone Duo & iPad</span>
+              <img
                 class="store-badge"
                 src="../images/app-store-badge.svg"
                 width="135"
@@ -528,11 +692,13 @@
                 alt="Download on the App Store"
               />
             </div>
-            <span class="store-arrow" aria-hidden="true">↗</span></a
-          ><a
+            <span class="store-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a
             class="store-card"
             href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"
-            ><img
+          >
+            <img
               class="qr"
               src="../images/install-qr-google-play.png"
               width="88"
@@ -541,8 +707,8 @@
               loading="lazy"
             />
             <div>
-              <span class="store-platform">Android</span
-              ><img
+              <span class="store-platform">Android</span>
+              <img
                 class="store-badge"
                 src="../images/google-play-badge-en.svg"
                 width="150"
@@ -550,19 +716,22 @@
                 alt="Get it on Google Play"
               />
             </div>
-            <span class="store-arrow" aria-hidden="true">↗</span></a
-          >
+            <span class="store-arrow" aria-hidden="true">↗</span>
+          </a>
         </div>
         <div class="desktop-downloads">
           <a href="https://github.com/K9i-0/ccpocket/releases?q=macos"
             >macOS ↗</a
-          ><span class="desktop-other"
-            ><a href="https://github.com/K9i-0/ccpocket/releases?q=linux"
-              >Linux ↗</a
-            ><a href="https://github.com/K9i-0/ccpocket/releases?q=windows"
-              >Windows ↗</a
-            ><span data-i18n="experimental">experimental</span></span
           >
+          <span class="desktop-other">
+            <a href="https://github.com/K9i-0/ccpocket/releases?q=linux"
+              >Linux ↗</a
+            >
+            <a href="https://github.com/K9i-0/ccpocket/releases?q=windows"
+              >Windows ↗</a
+            >
+            <span data-i18n="experimental">experimental</span>
+          </span>
         </div>
       </section>
 
@@ -572,48 +741,73 @@
           <details>
             <summary data-i18n="faq1Q">Where do my agents run?</summary>
             <p data-i18n="faq1A">
-              On your computer, through the self-hosted Bridge Server. CC Pocket
-              connects to it. Your Codex, Claude, or Antigravity provider still processes
-              requests under your existing setup.
+              On your own computer through the self-hosted Bridge Server. CC
+              Pocket connects directly to it. Your Codex, Claude, or
+              Antigravity provider still processes requests under your existing
+              setup.
+            </p>
+          </details>
+          <details>
+            <summary data-i18n="faq4Q">
+              Do I need all three agents installed?
+            </summary>
+            <p data-i18n="faq4A">
+              No. Use whichever agents you have—Codex, Claude, Antigravity
+              (agy), or any combination. You can toggle each agent on or off in
+              Settings at any time.
             </p>
           </details>
           <details>
             <summary data-i18n="faq2Q">What works when I’m offline?</summary>
             <p data-i18n="faq2A">
-              Outgoing messages wait in a queue. When the connection returns,
-              they send automatically and missed updates are restored. Your
-              computer must stay online for agents to keep working.
+              Outgoing messages wait in a queue and send automatically when your
+              connection returns (or when a usage limit resets), and missed
+              updates catch up. Your computer must stay online for agents to
+              keep working.
             </p>
           </details>
           <details>
             <summary data-i18n="faq3Q">Is it free?</summary>
             <p data-i18n="faq3A">
-              Yes. CC Pocket is free, with optional in-app Supporter purchases.
-              You’ll need your own Codex, Claude, or Antigravity access.
+              Yes. CC Pocket is free and MIT-licensed, with optional in-app
+              Supporter purchases. You’ll need your own Codex, Claude, or
+              Antigravity access.
             </p>
           </details>
         </div>
       </section>
     </main>
+
     <footer class="footer wrap">
       <div>
         <a class="brand" href="#"
           >CC Pocket<span class="brand-period">.</span></a
         >
         <p data-i18n="footerNote">
-          An independent tool. Not affiliated with OpenAI, Anthropic, or Google.
+          An independent open-source tool. Not affiliated with OpenAI,
+          Anthropic, or Google.
         </p>
       </div>
-      <a href="https://github.com/K9i-0/ccpocket">Open source on GitHub ↗</a>
+      <div class="footer-links">
+        <a href="https://github.com/K9i-0/ccpocket">GitHub ↗</a>
+        <a
+          href="https://github.com/K9i-0/ccpocket/blob/main/PRIVACY_POLICY.md"
+          data-i18n="privacyLink"
+          >Privacy Policy ↗</a
+        >
+      </div>
     </footer>
+
     <dialog id="screenshot-dialog" aria-label="Screenshot preview">
       <button
         id="close-dialog"
+        type="button"
         data-i18n-label="close"
         aria-label="Close screenshot"
       >
-        ×</button
-      ><img id="zoomed-screenshot" alt="" />
+        ×
+      </button>
+      <img id="zoomed-screenshot" alt="" />
     </dialog>
   </body>
 </html>
