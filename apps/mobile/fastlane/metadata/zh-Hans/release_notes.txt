@@ -1,5 +1,5 @@
 • 支持 Google Antigravity。Bridge 机器上装有 Antigravity CLI（agy）时，可以像 Codex 和 Claude 一样开始和恢复 Antigravity 会话。支持选择模型、思考级别和审批模式，回答代理的提问，审阅计划，生成图片，查看用量和上下文。需要 Bridge 1.113.1 或更高版本。
-• 启用的代理：在设置中分别开启或关闭 Codex、Claude 和 Antigravity。
+• 启用的智能体：在设置中分别开启或关闭 Codex、Claude 和 Antigravity。
 • 实时活动栏：聊天底部显示代理当前的动作（思考中、执行命令、编辑或读取文件），并实时预览思考内容。
 • 为 Claude 会话新增会话回顾卡片。
 • 后台任务显示实时进度。
