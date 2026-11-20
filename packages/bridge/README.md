@@ -1,8 +1,8 @@
 # @ccpocket/bridge
 
-Bridge server that connects Claude sessions powered by the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) and [Codex CLI](https://github.com/openai/codex) to mobile devices via WebSocket.
+Bridge server that connects Claude sessions powered by the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), [Codex CLI](https://github.com/openai/codex) and [Antigravity CLI](https://antigravity.google/product/antigravity-cli) to mobile devices via WebSocket.
 
-This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude and Codex.
+This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude, Codex and Antigravity.
 
 ## Quick Start
 
@@ -51,7 +51,7 @@ ccpocket-bridge --version
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
 | `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
-| `CCPOCKET_ANTIGRAVITY_API_KEY` | (none) | Preview. Gemini API key for Antigravity sessions. Without it they use the Google login from `agy`. See [Preview: Antigravity](#preview-antigravity) |
+| `CCPOCKET_ANTIGRAVITY_API_KEY` | (none) | Gemini API key for Antigravity sessions. Without it they use the Google login from `agy`. See [Antigravity](#antigravity) |
 | `BRIDGE_CODEX_ASSIST_MODEL` | `gpt-5.6-luna` | Codex model used for auto-rename and commit-message assist calls |
 | `BRIDGE_CODEX_ASSIST_REASONING_EFFORT` | `none` | Reasoning effort used for Codex assist calls |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
@@ -355,11 +355,10 @@ This is experimental and currently targets Codex CLI co-presence only. Codex App
 compatibility is not guaranteed and may use a different integration model in the
 future.
 
-## Preview: Antigravity
+## Antigravity
 
 The Bridge can run [Google Antigravity](https://antigravity.google/) sessions through
-the Antigravity CLI's Agent Client Protocol server (`agy acp`). This is a preview and
-may change.
+the Antigravity CLI's Agent Client Protocol server (`agy acp`).
 
 **Setup**
 
@@ -419,8 +418,7 @@ may change.
 ## Requirements
 
 - Node.js v22.19.0+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
-- Optional (preview): [Antigravity CLI](https://antigravity.google/product/antigravity-cli)
+- At least one of [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex) and [Antigravity CLI](https://antigravity.google/product/antigravity-cli)
 
 Current Codex CLI docs recommend the standalone installer for macOS/Linux:
 

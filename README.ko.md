@@ -2,7 +2,7 @@
 
 **에이전트를 주머니에.**
 
-휴대폰 채팅처럼 Codex와 Claude를 사용하세요. 작업을 요청하고, 다음 단계를 승인하고,
+휴대폰 채팅처럼 Codex, Claude, Antigravity를 사용하세요. 작업을 요청하고, 다음 단계를 승인하고,
 결과를 확인하세요. 태블릿이나 Mac에서도 같은 작업을 이어갈 수 있습니다.
 
 [CC Pocket 둘러보기](https://k9i-0.github.io/ccpocket/install/?lang=ko) · 무료 사용 · 오픈 소스
@@ -16,7 +16,8 @@
 ## 설치
 
 1. 세션을 실행할 머신에 에이전트 CLI를 하나 이상 설치합니다:
-   [Codex](https://github.com/openai/codex) 또는 [Claude](https://docs.anthropic.com/en/docs/claude-code).
+   [Codex](https://github.com/openai/codex), [Claude](https://docs.anthropic.com/en/docs/claude-code) 또는
+   [Antigravity](https://antigravity.google/product/antigravity-cli).
 2. 같은 머신에 [Node.js](https://nodejs.org/) 22.19.0 이상을 설치합니다.
 3. CC Pocket Bridge Server를 시작합니다.
 
@@ -25,7 +26,7 @@ npx @ccpocket/bridge@latest
 ```
 
 4. CC Pocket을 설치하고 Bridge Server가 출력한 QR 코드를 스캔합니다.
-5. 프로젝트를 선택하고 Codex 또는 Claude를 고른 뒤 앱에서 세션을 시작합니다.
+5. 프로젝트를 선택하고 Codex, Claude 또는 Antigravity를 고른 뒤 앱에서 세션을 시작합니다.
 
 | 플랫폼 | 설치 |
 |--------|------|
@@ -35,10 +36,9 @@ npx @ccpocket/bridge@latest
 | **Linux(실험적)** | 최신 `.tar.gz`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux)에서 다운로드할 수 있습니다. `linux/v*` 태그가 붙은 릴리스를 찾으세요. 커뮤니티에서 관리하는 [AUR 패키지](https://aur.archlinux.org/packages/cc-pocket-bin)를 `yay -S cc-pocket-bin`으로 설치할 수도 있습니다. |
 | **Windows(실험적)** | 최신 `.zip`은 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows)에서 다운로드할 수 있습니다. `windows/v*` 태그가 붙은 릴리스를 찾으세요. |
 
-## 프리뷰: Antigravity
+## Antigravity
 
-CC Pocket은 [Google Antigravity](https://antigravity.google/)도 CLI(`agy`)를 통해 사용할 수 있습니다.
-프리뷰 기능이므로 동작이 바뀔 수 있고, Codex / Claude에서 되는 일부 기능은 아직 지원하지 않습니다.
+CC Pocket은 Codex / Claude와 마찬가지로 [Google Antigravity](https://antigravity.google/)를 CLI(`agy`)를 통해 사용할 수 있습니다.
 
 - Bridge를 실행하는 기기에 Antigravity CLI를 설치하고 `agy`를 한 번 실행해 로그인합니다.
   새 세션 화면에 **Antigravity** 탭이 나타납니다.
@@ -46,7 +46,7 @@ CC Pocket은 [Google Antigravity](https://antigravity.google/)도 CLI(`agy`)를 
   실행하고, 모든 프롬프트는 사용자가 직접 작성합니다. 이는 Google의 Antigravity 팀이
   이 로그인으로 사용해도 된다고 설명한 방식입니다. 프롬프트를 자동으로 보내거나 `agy` 밖에서
   로그인을 재사용하지 않습니다. 자세한 내용은
-  [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)를 참고하세요.
+  [Bridge 안내](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)를 참고하세요.
 - 미지원(`agy`에 방법이 없음): 되감기, 포크, 메시지 편집, 비용 표시.
 
 ## 무료로 사용할 수 있습니다
@@ -67,7 +67,7 @@ CC Pocket은 무료로 사용할 수 있습니다. 개발 워크플로에 도움
 CC Pocket은 두 부분으로 구성됩니다.
 
 ```text
-CC Pocket app  <->  사용자의 머신에서 실행되는 Bridge Server  <->  Codex / Claude
+CC Pocket app  <->  사용자의 머신에서 실행되는 Bridge Server  <->  Codex / Claude / Antigravity
 ```
 
 앱은 조작 화면입니다. Bridge Server는 프로젝트, shell, git 저장소, 에이전트 CLI에 접근할 수 있는

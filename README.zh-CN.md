@@ -2,7 +2,7 @@
 
 **把编程代理，装进口袋。**
 
-用手机聊天的方式操作 Codex 和 Claude：发出指令、批准下一步、查看结果。
+用手机聊天的方式操作 Codex、Claude 和 Antigravity：发出指令、批准下一步、查看结果。
 换到平板或 Mac，也能继续同一项工作。
 
 [了解 CC Pocket](https://k9i-0.github.io/ccpocket/install/?lang=zh) · 免费使用 · 开源
@@ -16,7 +16,8 @@
 ## 安装
 
 1. 在运行会话的主机上安装至少一个代理 CLI：
-   [Codex](https://github.com/openai/codex) 或 [Claude](https://docs.anthropic.com/en/docs/claude-code)。
+   [Codex](https://github.com/openai/codex)、[Claude](https://docs.anthropic.com/en/docs/claude-code) 或
+   [Antigravity](https://antigravity.google/product/antigravity-cli)。
 2. 在同一台主机上安装 [Node.js](https://nodejs.org/) 22.19.0 或更高版本。
 3. 启动 CC Pocket Bridge Server：
 
@@ -25,7 +26,7 @@ npx @ccpocket/bridge@latest
 ```
 
 4. 安装 CC Pocket，并扫描 Bridge Server 打印出的二维码。
-5. 选择项目，再选择 Codex 或 Claude，然后从 App 启动会话。
+5. 选择项目，再选择 Codex、Claude 或 Antigravity，然后从 App 启动会话。
 
 | 平台 | 安装 |
 |------|------|
@@ -35,17 +36,16 @@ npx @ccpocket/bridge@latest
 | **Linux（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux) 下载最新 `.tar.gz`。请查找带有 `linux/v*` 标签的发行版。也可以使用 `yay -S cc-pocket-bin` 安装由社区维护的 [AUR 软件包](https://aur.archlinux.org/packages/cc-pocket-bin)。 |
 | **Windows（实验性）** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows) 下载最新 `.zip`。请查找带有 `windows/v*` 标签的发行版。 |
 
-## 预览：Antigravity
+## Antigravity
 
-CC Pocket 也可以通过 CLI（`agy`）使用 [Google Antigravity](https://antigravity.google/)。
-这是预览功能：行为可能变化，部分 Codex / Claude 支持的功能暂不可用。
+与 Codex / Claude 一样，CC Pocket 可以通过 CLI（`agy`）使用 [Google Antigravity](https://antigravity.google/)。
 
 - 在运行 Bridge 的机器上安装 Antigravity CLI，并运行一次 `agy` 完成登录。
   新建会话界面会出现 **Antigravity** 标签。
 - 默认使用 `agy` 的 Google 登录。CC Pocket 运行的是未经修改的 `agy` CLI，
   每条提示都由你本人输入。这正是 Google 的 Antigravity 团队说明可以使用该登录的方式。
   它不会自动发送提示，也不会在 `agy` 之外复用你的登录。详情见
-  [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity)。
+  [Bridge 说明](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity)。
 - 暂不支持（`agy` 没有提供相应能力）：回退、分叉、编辑消息、费用显示。
 
 ## 免费使用
@@ -66,7 +66,7 @@ CC Pocket 可以免费使用。如果它对你的开发流程有帮助，欢迎�
 CC Pocket 由两部分组成：
 
 ```text
-CC Pocket app  <->  你自己机器上的 Bridge Server  <->  Codex / Claude
+CC Pocket app  <->  你自己机器上的 Bridge Server  <->  Codex / Claude / Antigravity
 ```
 
 App 是操作界面。Bridge Server 在能够访问你的项目、shell、git 仓库和代理 CLI

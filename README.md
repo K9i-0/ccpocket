@@ -2,7 +2,7 @@
 
 **Your agents. In your pocket.**
 
-Codex and Claude, with a chat UI made for your phone. Start a task, approve the next
+Codex, Claude and Antigravity, with a chat UI made for your phone. Start a task, approve the next
 step, and review the result. Pick up the same work on your tablet or Mac.
 
 [Explore CC Pocket](https://k9i-0.github.io/ccpocket/install/) · Free to use · Open source
@@ -16,7 +16,8 @@ step, and review the result. Pick up the same work on your tablet or Mac.
 ## Install
 
 1. Install at least one agent CLI on the machine that will run your sessions:
-   [Codex](https://github.com/openai/codex) or [Claude](https://docs.anthropic.com/en/docs/claude-code).
+   [Codex](https://github.com/openai/codex), [Claude](https://docs.anthropic.com/en/docs/claude-code) or
+   [Antigravity](https://antigravity.google/product/antigravity-cli).
 2. Install [Node.js](https://nodejs.org/) 22.19.0 or newer on that same machine.
 3. Start the CC Pocket Bridge Server:
 
@@ -25,7 +26,7 @@ npx @ccpocket/bridge@latest
 ```
 
 4. Install CC Pocket and scan the QR code printed by the Bridge Server.
-5. Pick a project, choose Codex or Claude, and start coding from the app.
+5. Pick a project, choose Codex, Claude or Antigravity, and start coding from the app.
 
 | Platform | Install |
 |----------|---------|
@@ -35,11 +36,10 @@ npx @ccpocket/bridge@latest
 | **Linux (experimental)** | Download the latest `.tar.gz` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux). Look for releases tagged `linux/v*`. Alternatively, install the community-maintained [AUR package](https://aur.archlinux.org/packages/cc-pocket-bin) with `yay -S cc-pocket-bin`. |
 | **Windows (experimental)** | Download the latest `.zip` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows). Look for releases tagged `windows/v*`. |
 
-## Preview: Antigravity
+## Antigravity
 
-CC Pocket can also drive [Google Antigravity](https://antigravity.google/) through its
-CLI (`agy`). This is a preview: it may change, and some features that work with Codex
-and Claude are not available yet.
+CC Pocket drives [Google Antigravity](https://antigravity.google/) through its CLI
+(`agy`), next to Codex and Claude.
 
 - Install the Antigravity CLI on the Bridge machine and sign in once by running `agy`.
   An **Antigravity** tab then appears in the new session sheet.
@@ -47,7 +47,7 @@ and Claude are not available yet.
   CLI and you write every prompt yourself, which is the kind of client Google's
   Antigravity team has said may use that login. It does not automate prompts or reuse
   your login outside `agy`. Details are in
-  [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#preview-antigravity).
+  [the Bridge notes](https://github.com/K9i-0/ccpocket/blob/main/packages/bridge/README.md#antigravity).
 - Not available yet, because `agy` has no way to do them: rewind, fork, message
   editing and cost display.
 
@@ -71,7 +71,7 @@ New to mobile coding agents? See [How to run Codex from iPhone or Android](https
 CC Pocket is MIT licensed so you can treat it as a starting point for your own
 agent workflow, not only as a finished app.
 
-- Build an internal client that combines Codex or Claude with your team's Jira,
+- Build an internal client that combines Codex, Claude or Antigravity with your team's Jira,
   Linear, GitHub, or private REST APIs.
 - Remove surfaces you do not need and keep a focused app for your daily workflow.
 - Reuse the Bridge sync layer, approval flow, prompt history, git operations,
@@ -91,7 +91,7 @@ For a deeper implementation overview, see the
 CC Pocket has two parts:
 
 ```text
-CC Pocket app  <->  Bridge Server on your machine  <->  Codex / Claude
+CC Pocket app  <->  Bridge Server on your machine  <->  Codex / Claude / Antigravity
 ```
 
 The app is the interface you use. The Bridge Server runs locally on the machine that
