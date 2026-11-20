@@ -27,10 +27,8 @@ String recentSessionPinKey(RecentSession session) => sessionPinKey(
   sessionId: session.sessionId,
 );
 
-/// Whether sessions of [provider] can be pinned. The Bridge cannot return
-/// pinned Antigravity conversations, so they offer no pin action.
-bool isPinnableProvider(String? provider) =>
-    provider != Provider.antigravity.value;
+/// Whether sessions of [provider] can be pinned.
+bool isPinnableProvider(String? provider) => true;
 
 String? runningSessionPinKey(SessionInfo session) {
   final providerSessionId = session.claudeSessionId;
@@ -50,9 +48,9 @@ RecentSessionRef? recentSessionRefFromPinKey(String key) {
   final provider = parts.first;
   final sessionId = parts.last;
   if (sessionId.isEmpty ||
-      // Antigravity conversations cannot be pinned: the Bridge has no pin
-      // lookup for them.
-      (provider != Provider.claude.value && provider != Provider.codex.value)) {
+      (provider != Provider.claude.value &&
+          provider != Provider.codex.value &&
+          provider != Provider.antigravity.value)) {
     return null;
   }
   return (provider: provider, sessionId: sessionId);

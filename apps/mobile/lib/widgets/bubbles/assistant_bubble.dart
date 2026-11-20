@@ -180,6 +180,17 @@ class _PlanLayout extends StatelessWidget {
     if (originalPlanText.split('\n').length < 10 && resolvedPlanText != null) {
       originalPlanText = resolvedPlanText!;
     }
+    if (originalPlanText.trim().isEmpty) {
+      for (final content in contents) {
+        if (content is ToolUseContent && content.name == 'ExitPlanMode') {
+          final plan = content.input['plan']?.toString();
+          if (plan != null && plan.isNotEmpty) {
+            originalPlanText = plan;
+            break;
+          }
+        }
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -469,7 +480,9 @@ class _ToolUseTileState extends State<ToolUseTile> {
   void _openGitScreen() {
     final diff = _editDiff;
     if (diff == null) return;
-    final diffText = reconstructUnifiedDiff(diff);
+    final diffText = widget.name == 'FileChange'
+        ? (combineFileChangeDiffs(widget.input) ?? reconstructUnifiedDiff(diff))
+        : reconstructUnifiedDiff(diff);
     final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
     context.router.push(GitRoute(initialDiff: diffText, title: filePath));
   }

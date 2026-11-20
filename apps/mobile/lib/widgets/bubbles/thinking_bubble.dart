@@ -2,6 +2,25 @@ import 'package:material_ui/material_ui.dart';
 
 import '../google_search_text_selection.dart';
 
+/// Builds the collapsed preview text for [ThinkingBubble].
+///
+/// While streaming, shows the latest 2 non-empty lines so the user can follow
+/// progress; once complete, shows up to the first 80 characters.
+@visibleForTesting
+String buildThinkingPreview(String thinking, {required bool isStreaming}) {
+  if (isStreaming) {
+    final nonEmptyLines = thinking
+        .split('\n')
+        .map((line) => line.trimRight())
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+    if (nonEmptyLines.isEmpty) return thinking.trim();
+    final start = nonEmptyLines.length > 2 ? nonEmptyLines.length - 2 : 0;
+    return nonEmptyLines.sublist(start).join('\n');
+  }
+  return thinking.length > 80 ? '${thinking.substring(0, 80)}...' : thinking;
+}
+
 /// Displays Claude's thinking content with a collapsible UI.
 ///
 /// When [isStreaming] is true, shows an animated indicator.
@@ -66,9 +85,10 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final thinkingColor = cs.tertiary;
-    final preview = widget.thinking.length > 80
-        ? '${widget.thinking.substring(0, 80)}...'
-        : widget.thinking;
+    final preview = buildThinkingPreview(
+      widget.thinking,
+      isStreaming: widget.isStreaming,
+    );
     final lineCount = '\n'.allMatches(widget.thinking).length + 1;
 
     return Padding(

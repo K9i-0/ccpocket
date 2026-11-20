@@ -11,9 +11,11 @@ import 'package:auto_route/auto_route.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/diff_parser.dart';
 import '../../utils/tool_categories.dart';
 import '../google_search_text_selection.dart';
 import 'image_preview.dart';
+import 'inline_edit_diff.dart';
 
 /// Three-level expansion state for tool result content.
 enum ToolResultExpansion { collapsed, preview, expanded }
@@ -193,6 +195,8 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   }
 
   String? _extractFilePath() {
+    final parsedPath = _presentationFor(widget.message).diffFile?.filePath;
+    if (parsedPath != null && parsedPath.isNotEmpty) return parsedPath;
     final content = widget.message.content;
     final match = RegExp(r'\+\+\+ b/(.+)').firstMatch(content);
     return match?.group(1);
@@ -448,7 +452,10 @@ class _ExpandedToolResult extends StatelessWidget {
                 ],
               ),
               // Content
-              if (expansion == ToolResultExpansion.preview) ...[
+              if (presentation.diffFile case final diffFile?) ...[
+                const SizedBox(height: 6),
+                InlineEditDiff(diffFile: diffFile, onTapFullDiff: onTap),
+              ] else if (expansion == ToolResultExpansion.preview) ...[
                 const SizedBox(height: 6),
                 Text(
                   presentation.previewText,
@@ -500,12 +507,14 @@ class _ToolResultPresentation {
   final int addedLines;
   final int removedLines;
   final String previewText;
+  final DiffFile? diffFile;
 
   const _ToolResultPresentation({
     required this.lineCount,
     required this.addedLines,
     required this.removedLines,
     required this.previewText,
+    this.diffFile,
   });
 
   bool get hasDiffLines => addedLines > 0 || removedLines > 0;
@@ -542,6 +551,27 @@ class _ToolResultPresentation {
       if (type == 0x2d) removedLines++;
     }
 
+    DiffFile? diffFile;
+    if (countDiffLines &&
+        ((content.contains('---') && content.contains('+++')) ||
+            addedLines > 0 ||
+            removedLines > 0)) {
+      final parsed = parseDiff(content);
+      final hunks = <DiffHunk>[
+        for (final file in parsed)
+          for (final hunk in file.hunks)
+            if (hunk.lines.isNotEmpty) hunk,
+      ];
+      if (hunks.isNotEmpty) {
+        final firstPath = parsed
+            .map((f) => f.filePath)
+            .firstWhere((p) => p.isNotEmpty, orElse: () => '');
+        diffFile = parsed.length == 1
+            ? parsed.first
+            : DiffFile(filePath: firstPath, hunks: hunks);
+      }
+    }
+
     return _ToolResultPresentation(
       lineCount: lineCount,
       addedLines: addedLines,
@@ -549,6 +579,7 @@ class _ToolResultPresentation {
       previewText: previewEnd == null
           ? content
           : content.substring(0, previewEnd),
+      diffFile: diffFile,
     );
   }
 

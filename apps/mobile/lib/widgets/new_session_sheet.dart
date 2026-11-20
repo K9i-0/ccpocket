@@ -725,7 +725,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     } else if (!modes.contains(_antigravityPermissionMode)) {
       _antigravityPermissionMode = PermissionMode.defaultMode;
     }
-    if (_antigravityModel != null &&
+    if (catalog.modelOptions.isNotEmpty &&
+        _antigravityModel != null &&
         !catalog.modelOptions.any((o) => o.id == _antigravityModel)) {
       _antigravityModel = null;
     }
@@ -1784,9 +1785,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       antigravityPermissionMode: isAntigravity
           ? _antigravityPermissionMode
           : null,
-      antigravityModel: isAntigravity ? _antigravityModelOption?.id : null,
+      antigravityModel: isAntigravity
+          ? (_antigravityCatalog != null &&
+                    _antigravityCatalog!.modelOptions.isNotEmpty
+                ? _antigravityModelOption?.id
+                : _antigravityModel)
+          : null,
       antigravityThoughtLevel: isAntigravity
-          ? _antigravityEffectiveThoughtLevel
+          ? (_antigravityCatalog != null &&
+                    _antigravityCatalog!.modelOptions.isNotEmpty
+                ? _antigravityEffectiveThoughtLevel
+                : _antigravityThoughtLevel)
           : null,
       claudeModel: isClaude ? _selectedClaudeModel : null,
       claudeEffort: isClaude ? _claudeEffort : null,
@@ -2988,7 +2997,7 @@ class _OptionsSection extends StatelessWidget {
   final String? antigravityThoughtLevel;
   final String? antigravityTierName;
   final ValueChanged<String> onAntigravityModelChanged;
-  final ValueChanged<String> onAntigravityThoughtLevelChanged;
+  final ValueChanged<String?> onAntigravityThoughtLevelChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexPermissionsMode codexPermissionsMode;
@@ -3294,8 +3303,7 @@ class _OptionsSection extends StatelessWidget {
                     // Keep the level when the new family has it too.
                     if (!option.thoughtLevels.contains(level)) {
                       level = option.thoughtLevels.firstOrNull;
-                      if (level != null)
-                        onAntigravityThoughtLevelChanged(level!);
+                      onAntigravityThoughtLevelChanged(level);
                     }
                   });
                 },

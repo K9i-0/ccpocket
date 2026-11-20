@@ -4862,11 +4862,17 @@ class BridgeService implements BridgeServiceBase {
     if (idx < 0) return;
     final current = _sessions[idx];
     final codexModel = sanitizeCodexModelName(message.model);
+    final antigravityMode = message.antigravity?.permissionMode;
     _sessions = List.of(_sessions)
       ..[idx] = current.copyWith(
-        permissionMode: message.permissionMode ?? current.permissionMode,
+        permissionMode:
+            antigravityMode?.value ??
+            message.permissionMode ??
+            current.permissionMode,
         executionMode: message.executionMode ?? current.executionMode,
-        planMode: message.planMode ?? current.planMode,
+        planMode: antigravityMode != null
+            ? antigravityMode == PermissionMode.plan
+            : (message.planMode ?? current.planMode),
         model: message.provider == Provider.claude.value ? message.model : null,
         codexApprovalPolicy: resolveCodexApprovalPolicy(
           approvalPolicy: message.approvalPolicy ?? current.codexApprovalPolicy,

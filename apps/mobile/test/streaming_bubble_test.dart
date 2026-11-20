@@ -4,6 +4,7 @@ import 'package:ccpocket/theme/app_spacing.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/bubbles/streaming_bubble.dart';
+import 'package:ccpocket/widgets/bubbles/thinking_bubble.dart';
 import 'package:ccpocket/widgets/link_hover_underline.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -259,5 +260,70 @@ void main() {
       await tester.pump();
       expect(tester.getSize(find.byType(LinkHoverUnderline)), split);
     });
+  });
+
+  group('streaming thinking display', () {
+    testWidgets('renders ThinkingBubble with isStreaming while text is empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const Scaffold(
+            body: StreamingBubble(
+              text: '',
+              thinking: 'Line 1\n\nLine 2\nLine 3\n\n',
+            ),
+          ),
+        ),
+      );
+
+      final thinkingBubble = tester.widget<ThinkingBubble>(
+        find.byType(ThinkingBubble),
+      );
+      expect(thinkingBubble.isStreaming, isTrue);
+      expect(find.text('Thinking...'), findsOneWidget);
+      expect(find.text('Line 2\nLine 3'), findsOneWidget);
+      expect(find.byType(MarkdownBody), findsNothing);
+    });
+
+    testWidgets(
+      'stops ThinkingBubble streaming indicator once text starts arriving',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const Scaffold(
+              body: StreamingBubble(
+                text: 'Answer starts here',
+                thinking: 'Step 1\nStep 2\nStep 3',
+              ),
+            ),
+          ),
+        );
+
+        final thinkingBubble = tester.widget<ThinkingBubble>(
+          find.byType(ThinkingBubble),
+        );
+        expect(thinkingBubble.isStreaming, isFalse);
+        expect(find.text('Thinking'), findsOneWidget);
+        expect(find.byType(MarkdownBody), findsOneWidget);
+      },
+    );
+
+    test(
+      'buildThinkingPreview shows tail 2 non-empty lines while streaming',
+      () {
+        const thinking = 'first line\n\nsecond line\n   \nthird line\n\n';
+        expect(
+          buildThinkingPreview(thinking, isStreaming: true),
+          'second line\nthird line',
+        );
+        expect(
+          buildThinkingPreview('a' * 100, isStreaming: false),
+          '${'a' * 80}...',
+        );
+      },
+    );
   });
 }

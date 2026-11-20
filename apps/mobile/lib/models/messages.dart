@@ -516,10 +516,12 @@ class AntigravitySettings {
         : '$family · ${antigravityThoughtLevelLabel(level)}';
   }
 
+  static const _unset = Object();
+
   AntigravitySettings copyWith({
     String? model,
     String? baseModel,
-    String? thoughtLevel,
+    Object? thoughtLevel = _unset,
     List<String>? thoughtLevels,
     PermissionMode? permissionMode,
   }) => AntigravitySettings(
@@ -527,7 +529,9 @@ class AntigravitySettings {
     models: models,
     baseModel: baseModel ?? this.baseModel,
     modelOptions: modelOptions,
-    thoughtLevel: thoughtLevel ?? this.thoughtLevel,
+    thoughtLevel: identical(thoughtLevel, _unset)
+        ? this.thoughtLevel
+        : thoughtLevel as String?,
     thoughtLevels: thoughtLevels ?? this.thoughtLevels,
     permissionMode: permissionMode ?? this.permissionMode,
     permissionModes: permissionModes,
@@ -1366,6 +1370,7 @@ sealed class ServerMessage {
         inputTokens: json['inputTokens'] as int?,
         cachedInputTokens: json['cachedInputTokens'] as int?,
         outputTokens: json['outputTokens'] as int?,
+        thoughtTokens: (json['thoughtTokens'] as num?)?.toInt(),
         toolCalls: json['toolCalls'] as int?,
         fileEdits: json['fileEdits'] as int?,
       ),
@@ -2357,6 +2362,7 @@ class ResultMessage implements ServerMessage {
   final int? inputTokens;
   final int? cachedInputTokens;
   final int? outputTokens;
+  final int? thoughtTokens;
   final int? toolCalls;
   final int? fileEdits;
   const ResultMessage({
@@ -2371,6 +2377,7 @@ class ResultMessage implements ServerMessage {
     this.inputTokens,
     this.cachedInputTokens,
     this.outputTokens,
+    this.thoughtTokens,
     this.toolCalls,
     this.fileEdits,
   });
@@ -6938,8 +6945,9 @@ class QuestionAnswerChatEntry implements ChatEntry {
 
 class StreamingChatEntry implements ChatEntry {
   String text;
+  String thinking;
   @override
   final DateTime timestamp;
-  StreamingChatEntry({this.text = '', DateTime? timestamp})
+  StreamingChatEntry({this.text = '', this.thinking = '', DateTime? timestamp})
     : timestamp = timestamp ?? DateTime.now();
 }

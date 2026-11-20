@@ -693,8 +693,8 @@ void main() {
       expect(matches('claude'), isFalse);
     });
 
-    test('Antigravity sessions are not pinnable', () {
-      expect(isPinnableProvider('antigravity'), isFalse);
+    test('Antigravity sessions are pinnable', () {
+      expect(isPinnableProvider('antigravity'), isTrue);
       expect(isPinnableProvider('claude'), isTrue);
       expect(isPinnableProvider(null), isTrue);
       expect(
@@ -709,8 +709,12 @@ void main() {
             lastActivityAt: '',
           ),
         ),
-        isNull,
+        'antigravity\n/tmp/project\nconv-1',
       );
+      expect(recentSessionRefFromPinKey('antigravity\n/tmp/project\nconv-1'), (
+        provider: 'antigravity',
+        sessionId: 'conv-1',
+      ));
     });
   });
 }

@@ -9,6 +9,7 @@ class UsageSummaryBar extends StatelessWidget {
   final int inputTokens;
   final int cachedInputTokens;
   final int outputTokens;
+  final int thoughtTokens;
   final int toolCalls;
   final int fileEdits;
 
@@ -24,6 +25,7 @@ class UsageSummaryBar extends StatelessWidget {
     required this.inputTokens,
     required this.cachedInputTokens,
     required this.outputTokens,
+    this.thoughtTokens = 0,
     required this.toolCalls,
     required this.fileEdits,
     this.contextUsed,
@@ -38,7 +40,10 @@ class UsageSummaryBar extends StatelessWidget {
   bool get _hasDuration =>
       totalDuration != null && totalDuration! > Duration.zero;
   bool get _hasTokenUsage =>
-      inputTokens > 0 || cachedInputTokens > 0 || outputTokens > 0;
+      inputTokens > 0 ||
+      cachedInputTokens > 0 ||
+      outputTokens > 0 ||
+      thoughtTokens > 0;
   bool get _hasToolUsage => toolCalls > 0 || fileEdits > 0;
 
   @override
@@ -75,6 +80,7 @@ class UsageSummaryBar extends StatelessWidget {
             inputTokens: inputTokens,
             cachedInputTokens: cachedInputTokens,
             outputTokens: outputTokens,
+            thoughtTokens: thoughtTokens,
           ),
         ),
       );
@@ -148,15 +154,18 @@ class UsageSummaryBar extends StatelessWidget {
     required int inputTokens,
     required int cachedInputTokens,
     required int outputTokens,
+    int thoughtTokens = 0,
   }) {
     final effectiveInput = inputTokens + cachedInputTokens;
     final inText = _formatCompactNumber(effectiveInput);
     final outText = _formatCompactNumber(outputTokens);
-    if (cachedInputTokens > 0) {
-      final cacheText = _formatCompactNumber(cachedInputTokens);
-      return 'in $inText($cacheText) / out $outText';
-    }
-    return 'in $inText / out $outText';
+    final inPart = cachedInputTokens > 0
+        ? 'in $inText(${_formatCompactNumber(cachedInputTokens)})'
+        : 'in $inText';
+    final thoughtPart = thoughtTokens > 0
+        ? ' / thought ${_formatCompactNumber(thoughtTokens)}'
+        : '';
+    return '$inPart / out $outText$thoughtPart';
   }
 
   static String _formatToolSummary({

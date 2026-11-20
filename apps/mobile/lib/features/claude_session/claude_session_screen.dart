@@ -71,6 +71,7 @@ import 'widgets/usage_summary_bar.dart';
 const _fileListRefreshToolNames = {
   'Edit',
   'FileEdit',
+  'FileChange',
   'MultiEdit',
   'Write',
   'NotebookEdit',
@@ -1324,6 +1325,7 @@ class _ChatScreenBody extends HookWidget {
                     inputTokens: tokenUsage.inputTokens,
                     cachedInputTokens: tokenUsage.cachedInputTokens,
                     outputTokens: tokenUsage.outputTokens,
+                    thoughtTokens: tokenUsage.thoughtTokens,
                     toolCalls: toolUsage.toolCalls,
                     fileEdits: toolUsage.fileEdits,
                     contextUsed:
@@ -1373,6 +1375,9 @@ class _ChatScreenBody extends HookWidget {
                                         appColors: appColors,
                                         pendingPermission: pendingPermission,
                                         isPlanApproval: isPlanApproval,
+                                        useSessionApprovalLabel: context
+                                            .read<ChatSessionCubit>()
+                                            .isAntigravity,
                                         planFeedbackController:
                                             planFeedbackController,
                                         onApprove: approveToolUse,
@@ -1392,6 +1397,8 @@ class _ChatScreenBody extends HookWidget {
                                                 final originalText =
                                                     _extractPlanText(
                                                       sessionState.entries,
+                                                      pendingPermission:
+                                                          pendingPermission,
                                                     );
                                                 if (originalText == null)
                                                   return;
@@ -1800,7 +1807,18 @@ PermissionRequestMessage? _notificationPermissionFor(ApprovalState approval) {
 /// Tries TextContent first; if it's too short (real SDK writes the plan to a
 /// file via Write tool), searches ALL entries for a Write tool targeting
 /// `.claude/plans/`.
-String? _extractPlanText(List<ChatEntry> entries) {
+String? _extractPlanText(
+  List<ChatEntry> entries, {
+  PermissionRequestMessage? pendingPermission,
+}) {
+  return extractPlanText(entries, pendingPermission: pendingPermission);
+}
+
+@visibleForTesting
+String? extractPlanText(
+  List<ChatEntry> entries, {
+  PermissionRequestMessage? pendingPermission,
+}) {
   for (var i = entries.length - 1; i >= 0; i--) {
     final entry = entries[i];
     if (entry is ServerChatEntry && entry.message is AssistantServerMessage) {
@@ -1817,7 +1835,29 @@ String? _extractPlanText(List<ChatEntry> entries) {
         if (textPlan.split('\n').length >= 10) return textPlan;
         // Fall back: search ALL entries for a Write tool targeting .claude/plans/
         final writtenPlan = findPlanFromWriteTool(entries);
-        return writtenPlan ?? textPlan;
+        if (writtenPlan != null) return writtenPlan;
+        if (textPlan.trim().isNotEmpty) return textPlan;
+        for (final c in contents) {
+          if (c is ToolUseContent && c.name == 'ExitPlanMode') {
+            final plan = c.input['plan']?.toString();
+            if (plan != null && plan.isNotEmpty) return plan;
+          }
+        }
+      }
+    }
+  }
+  if (pendingPermission != null &&
+      pendingPermission.toolName == 'ExitPlanMode') {
+    final plan = pendingPermission.input['plan']?.toString();
+    if (plan != null && plan.isNotEmpty) return plan;
+  }
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is ServerChatEntry && entry.message is PermissionRequestMessage) {
+      final perm = entry.message as PermissionRequestMessage;
+      if (perm.toolName == 'ExitPlanMode') {
+        final plan = perm.input['plan']?.toString();
+        if (plan != null && plan.isNotEmpty) return plan;
       }
     }
   }
@@ -2012,12 +2052,12 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
   }
 }
 
-({int inputTokens, int cachedInputTokens, int outputTokens}) _collectTokenUsage(
-  List<ChatEntry> entries,
-) {
+({int inputTokens, int cachedInputTokens, int outputTokens, int thoughtTokens})
+_collectTokenUsage(List<ChatEntry> entries) {
   var inputTokens = 0;
   var cachedInputTokens = 0;
   var outputTokens = 0;
+  var thoughtTokens = 0;
 
   for (final entry in entries) {
     if (entry is! ServerChatEntry) continue;
@@ -2026,12 +2066,14 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
     inputTokens += msg.inputTokens ?? 0;
     cachedInputTokens += msg.cachedInputTokens ?? 0;
     outputTokens += msg.outputTokens ?? 0;
+    thoughtTokens += msg.thoughtTokens ?? 0;
   }
 
   return (
     inputTokens: inputTokens,
     cachedInputTokens: cachedInputTokens,
     outputTokens: outputTokens,
+    thoughtTokens: thoughtTokens,
   );
 }
 

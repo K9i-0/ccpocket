@@ -512,5 +512,63 @@ Binary files a/image.png and b/image.png differ
       expect(reparsed[0].stats.added, 1);
       expect(reparsed[0].stats.removed, 1);
     });
+
+    test('FileChange synthesizes colored diff from changes array', () {
+      final file = synthesizeEditToolDiff('FileChange', {
+        'changes': [
+          {
+            'path': 'lib/a.dart',
+            'kind': 'update',
+            'diff': '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1,2 +1,2 @@\n-oldA\n+newA\n same',
+          },
+          {'path': 'lib/empty.dart', 'kind': 'update', 'diff': '   '},
+          {
+            'path': 'lib/b.dart',
+            'kind': 'add',
+            'diff':
+                '--- /dev/null\n+++ b/lib/b.dart\n@@ -0,0 +1,2 @@\n+one\n+two',
+          },
+        ],
+      })!;
+
+      expect(file.filePath, 'lib/a.dart');
+      expect(file.hunks, hasLength(2));
+      expect(file.stats.added, 3);
+      expect(file.stats.removed, 1);
+    });
+
+    test('FileChange returns null when changes have no non-empty diffs', () {
+      expect(
+        synthesizeEditToolDiff('FileChange', {
+          'changes': [
+            {'path': 'lib/a.dart', 'kind': 'update', 'diff': ''},
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('parseDiff splits concatenated headerless unified diffs', () {
+      const multi = '''
+--- a/lib/a.dart
++++ b/lib/a.dart
+@@ -1,1 +1,1 @@
+-oldA
++newA
+
+--- /dev/null
++++ b/lib/b.dart
+@@ -0,0 +1,2 @@
++line1
++line2
+''';
+      final files = parseDiff(multi);
+      expect(files, hasLength(2));
+      expect(files[0].filePath, 'lib/a.dart');
+      expect(files[0].stats, (added: 1, removed: 1));
+      expect(files[1].filePath, 'lib/b.dart');
+      expect(files[1].isNewFile, isTrue);
+      expect(files[1].stats, (added: 2, removed: 0));
+    });
   });
 }

@@ -176,10 +176,12 @@ List<DiffFile> parseDiff(String diffText) {
 
   final lines = diffText.split('\n');
 
-  // If the content has no `diff --git` header, treat it as a single-file diff
-  // (common for tool_result content from Edit/FileEdit tools).
+  // If the content has no `diff --git` header, split on `--- ` / `+++ ` file
+  // boundaries when multiple unified diffs were concatenated (e.g. FileChange
+  // tool results), otherwise treat it as a single-file diff.
   if (!lines.any((line) => line.startsWith('diff --git '))) {
-    return [_parseSingleFileDiff(lines)];
+    final sections = _splitHeaderlessDiffSections(lines);
+    return [for (final section in sections) _parseSingleFileDiff(section)];
   }
 
   final files = <DiffFile>[];
@@ -257,23 +259,58 @@ List<DiffFile> parseDiff(String diffText) {
   return files;
 }
 
+/// Split concatenated headerless unified diffs (`--- ...` followed by `+++ ...`)
+/// into per-file line slices.
+List<List<String>> _splitHeaderlessDiffSections(List<String> lines) {
+  final starts = <int>[];
+  for (var i = 0; i + 1 < lines.length; i++) {
+    if (lines[i].startsWith('--- ') && lines[i + 1].startsWith('+++ ')) {
+      starts.add(i);
+    }
+  }
+  if (starts.length <= 1) return [lines];
+
+  final sections = <List<String>>[];
+  for (var idx = 0; idx < starts.length; idx++) {
+    final start = starts[idx];
+    final end = idx + 1 < starts.length ? starts[idx + 1] : lines.length;
+    sections.add(lines.sublist(start, end));
+  }
+  return sections;
+}
+
 /// Parse a diff that lacks `diff --git` header (single-file tool result).
 DiffFile _parseSingleFileDiff(List<String> lines) {
   var filePath = '';
+  var isNewFile = false;
+  var isDeleted = false;
 
   // Try to extract path from --- / +++ lines
   for (final line in lines) {
-    if (line.startsWith('+++ b/')) {
+    if (line.startsWith('--- /dev/null')) {
+      isNewFile = true;
+    } else if (line.startsWith('+++ /dev/null')) {
+      isDeleted = true;
+    } else if (filePath.isEmpty && line.startsWith('+++ b/')) {
       filePath = line.substring(6);
-      break;
-    }
-    if (line.startsWith('+++ "b/')) {
+    } else if (filePath.isEmpty && line.startsWith('+++ "b/')) {
       filePath = _decodeGitPathToken(line.substring(4));
-      break;
-    }
-    if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) {
+    } else if (filePath.isEmpty &&
+        line.startsWith('+++ ') &&
+        !line.startsWith('+++ /dev/null')) {
       filePath = _decodeGitPathToken(line.substring(4));
-      break;
+    }
+  }
+  if (filePath.isEmpty) {
+    for (final line in lines) {
+      if (line.startsWith('--- a/')) {
+        filePath = line.substring(6);
+        break;
+      }
+      if (line.startsWith('--- ') && !line.startsWith('--- /dev/null')) {
+        filePath = _decodeGitPathToken(line.substring(4));
+        break;
+      }
     }
   }
 
@@ -300,7 +337,13 @@ DiffFile _parseSingleFileDiff(List<String> lines) {
     hunks.add(_parseRawDiffLines(lines));
   }
 
-  return DiffFile(filePath: filePath, hunks: hunks);
+  return DiffFile(
+    filePath: filePath,
+    hunks: hunks,
+    isNewFile: isNewFile,
+    isDeleted: isDeleted,
+    isImage: isImageFile(filePath),
+  );
 }
 
 /// Parse a single hunk starting at [startIndex].
@@ -561,8 +604,77 @@ DiffFile? synthesizeEditToolDiff(String toolName, Map<String, dynamic> input) {
     'Edit' => _synthesizeSingleEdit(filePath, input),
     'MultiEdit' => _synthesizeMultiEdit(filePath, input),
     'Write' => _synthesizeWrite(filePath, input),
+    'FileChange' => _synthesizeFileChange(input),
     _ => null,
   };
+}
+
+/// Join non-empty unified `diff` strings from a `FileChange` tool's `changes`
+/// array into a single unified diff document, or `null` when none exist.
+String? combineFileChangeDiffs(Map<String, dynamic> input) {
+  final changes = input['changes'];
+  if (changes is! List || changes.isEmpty) return null;
+  final sections = <String>[];
+  for (final change in changes) {
+    if (change is! Map) continue;
+    final rawDiff = change['diff']?.toString() ?? '';
+    if (rawDiff.trim().isEmpty) continue;
+    final path = change['path']?.toString() ?? '';
+    final trimmedStart = rawDiff.trimLeft();
+    if (trimmedStart.startsWith('diff --git ') ||
+        trimmedStart.startsWith('--- ')) {
+      sections.add(rawDiff.trimRight());
+    } else if (path.isNotEmpty) {
+      final kind = change['kind']?.toString();
+      final oldHeader = kind == 'add' ? '--- /dev/null' : '--- a/$path';
+      final newHeader = kind == 'delete' || kind == 'deleted'
+          ? '+++ /dev/null'
+          : '+++ b/$path';
+      sections.add('$oldHeader\n$newHeader\n${rawDiff.trimRight()}');
+    } else {
+      sections.add(rawDiff.trimRight());
+    }
+  }
+  if (sections.isEmpty) return null;
+  return sections.join('\n\n');
+}
+
+DiffFile? _synthesizeFileChange(Map<String, dynamic> input) {
+  final combined = combineFileChangeDiffs(input);
+  if (combined == null) return null;
+
+  final parsedFiles = parseDiff(combined);
+  final allHunks = <DiffHunk>[
+    for (final file in parsedFiles)
+      for (final hunk in file.hunks)
+        if (hunk.lines.isNotEmpty) hunk,
+  ];
+  if (allHunks.isEmpty) return null;
+
+  var fallbackPath = '';
+  final changes = input['changes'];
+  if (changes is List) {
+    for (final change in changes) {
+      if (change is Map) {
+        final path = change['path']?.toString() ?? '';
+        if (path.isNotEmpty) {
+          fallbackPath = path;
+          break;
+        }
+      }
+    }
+  }
+  final filePath = parsedFiles
+      .map((f) => f.filePath)
+      .firstWhere((p) => p.isNotEmpty, orElse: () => fallbackPath);
+
+  return DiffFile(
+    filePath: filePath,
+    hunks: allHunks,
+    isNewFile: parsedFiles.length == 1 && parsedFiles.first.isNewFile,
+    isDeleted: parsedFiles.length == 1 && parsedFiles.first.isDeleted,
+    isImage: isImageFile(filePath),
+  );
 }
 
 DiffFile _synthesizeSingleEdit(String filePath, Map<String, dynamic> input) {

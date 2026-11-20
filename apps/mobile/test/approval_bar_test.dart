@@ -22,6 +22,8 @@ void main() {
     PermissionRequestMessage? pendingPermission,
     bool isPlanApproval = false,
     PlanApprovalUiMode planApprovalUiMode = PlanApprovalUiMode.claude,
+    bool useSessionApprovalLabel = false,
+    Locale locale = const Locale('en'),
     VoidCallback? onApprove,
     VoidCallback? onReject,
     VoidCallback? onApproveAlways,
@@ -31,7 +33,7 @@ void main() {
     return MaterialApp(
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('en'),
+      locale: locale,
       theme: AppTheme.darkTheme,
       home: Scaffold(
         body: ApprovalBar(
@@ -39,6 +41,7 @@ void main() {
           pendingPermission: pendingPermission,
           isPlanApproval: isPlanApproval,
           planApprovalUiMode: planApprovalUiMode,
+          useSessionApprovalLabel: useSessionApprovalLabel,
           planFeedbackController: feedbackController,
           onApprove: onApprove ?? () {},
           onReject: onReject ?? () {},
@@ -614,6 +617,29 @@ void main() {
           find.byKey(const ValueKey('approve_clear_context_button')),
           findsNothing,
         );
+      },
+    );
+
+    testWidgets(
+      'uses session approval label for Antigravity acceptForSession',
+      (tester) async {
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-agy',
+              toolName: 'Bash',
+              input: {
+                'command': 'ls',
+                'availableDecisions': ['accept', 'acceptForSession', 'decline'],
+              },
+            ),
+            useSessionApprovalLabel: true,
+            locale: const Locale('ja'),
+          ),
+        );
+
+        expect(find.text('セッション中許可'), findsOneWidget);
+        expect(find.text('常に許可'), findsNothing);
       },
     );
   });

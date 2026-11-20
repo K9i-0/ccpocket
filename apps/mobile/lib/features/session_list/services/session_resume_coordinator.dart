@@ -176,6 +176,12 @@ class SessionResumeCoordinator {
         session.sessionId,
         projectPath,
         provider: provider,
+        additionalWritableRoots: session.workspaceRootPaths.skip(1).toList(),
+        projectId: session.workspace?.projectId,
+        projectName: session.workspace?.projectName,
+        workspaceKind: session.workspaceKind == 'unassigned'
+            ? null
+            : session.workspaceKind,
         resumeRequestId: resumeRequestId,
       );
       return SessionResumeDispatch(

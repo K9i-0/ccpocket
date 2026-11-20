@@ -124,8 +124,9 @@ class ChatEntryWidget extends StatelessWidget {
             imageBytesList: user.imageBytesList,
             imageCount: user.imageCount,
           ),
-          StreamingChatEntry(:final text) => StreamingBubble(
+          StreamingChatEntry(:final text, :final thinking) => StreamingBubble(
             text: text,
+            thinking: thinking,
             onFileTap: onFileTap,
             onBeforeTextUpdate: onBeforeStreamingTextUpdate,
           ),

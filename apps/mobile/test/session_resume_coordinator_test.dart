@@ -97,6 +97,45 @@ void main() {
     expect(prefs.getString('claude_session_settings_conv-1'), isNull);
   });
 
+  test(
+    'resumes an Antigravity multi-root project with workspace metadata',
+    () async {
+      const session = RecentSession(
+        sessionId: 'conv-multi',
+        provider: 'antigravity',
+        name: 'Multi root',
+        firstPrompt: '',
+        created: '2026-11-19T00:00:00Z',
+        modified: '2026-11-19T01:00:00Z',
+        gitBranch: 'main',
+        projectPath: '/workspace/app',
+        isSidechain: false,
+        workspace: SessionWorkspaceInfo(
+          kind: 'project',
+          projectId: 'proj-agy',
+          projectName: 'App and API',
+          rootPaths: ['/workspace/app', '/workspace/api'],
+        ),
+      );
+
+      final result = await SessionResumeCoordinator(bridge: bridge)
+          .resume(session, resumeRequestId: 'resume-agy-2');
+
+      expect(result.disposition, SessionResumeDisposition.dispatched);
+      expect(jsonDecode(bridge.sentMessages.single.toJson()), {
+        'type': 'resume_session',
+        'sessionId': 'conv-multi',
+        'projectPath': '/workspace/app',
+        'provider': 'antigravity',
+        'resumeRequestId': 'resume-agy-2',
+        'additionalWritableRoots': ['/workspace/api'],
+        'projectId': 'proj-agy',
+        'projectName': 'App and API',
+        'workspaceKind': 'project',
+      });
+    },
+  );
+
   test('resumes a deep link with the same persisted Claude settings', () async {
     final result = await SessionResumeCoordinator(bridge: bridge)
         .resume(_session, resumeRequestId: 'link-request-1');

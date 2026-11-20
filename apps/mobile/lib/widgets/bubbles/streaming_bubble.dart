@@ -12,15 +12,18 @@ import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
 import '../../utils/markdown_block_splitter.dart';
 import '../link_hover_underline.dart';
+import 'thinking_bubble.dart';
 
 class StreamingBubble extends StatefulWidget {
   final String text;
+  final String thinking;
   final FilePathTapCallback? onFileTap;
   final VoidCallback? onBeforeTextUpdate;
 
   const StreamingBubble({
     super.key,
     required this.text,
+    this.thinking = '',
     this.onFileTap,
     this.onBeforeTextUpdate,
   });
@@ -179,37 +182,55 @@ class _StreamingBubbleState extends State<StreamingBubble>
 
   @override
   Widget build(BuildContext context) {
-    if (_renderedText.isEmpty) return const SizedBox.shrink();
-    final fileSuffixes = widget.onFileTap != null
+    final hasThinking = widget.thinking.trim().isNotEmpty;
+    final hasText = _renderedText.isNotEmpty;
+    if (!hasThinking && !hasText) return const SizedBox.shrink();
+    final fileSuffixes = hasText && widget.onFileTap != null
         ? FilePathSyntax.cachedSuffixSet(context.watch<FileListCubit>().state)
         : const <String>{};
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.bubbleMarginV,
-        horizontal: AppSpacing.bubbleMarginH,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          LinkHoverUnderline(
-            child: _buildMarkdownBlocks(context, fileSuffixes),
-          ),
-          AnimatedBuilder(
-            animation: _cursorController,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _cursorController.value,
-                child: const Text(
-                  '\u258D',
-                  style: TextStyle(fontSize: 16, height: 1),
+    final textSection = hasText
+        ? Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.bubbleMarginV,
+              horizontal: AppSpacing.bubbleMarginH,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinkHoverUnderline(
+                  child: _buildMarkdownBlocks(context, fileSuffixes),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
+                AnimatedBuilder(
+                  animation: _cursorController,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _cursorController.value,
+                      child: const Text(
+                        '\u258D',
+                        style: TextStyle(fontSize: 16, height: 1),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          )
+        : null;
+
+    if (!hasThinking) return textSection!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ThinkingBubble(
+          thinking: widget.thinking,
+          isStreaming: widget.text.isEmpty,
+        ),
+        ?textSection,
+      ],
     );
   }
 }

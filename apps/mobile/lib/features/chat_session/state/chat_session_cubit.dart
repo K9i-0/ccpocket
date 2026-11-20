@@ -1254,7 +1254,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         claudeUltracode: update.replaceClaudeSettings
             ? (update.claudeUltracode ?? false)
             : (update.claudeUltracode ?? current.claudeUltracode),
-        planMode: update.planMode ?? current.planMode,
+        planMode:
+            update.planMode ??
+            (antigravityMode == null
+                ? current.planMode
+                : antigravityMode == PermissionMode.plan),
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
         backgroundTasks: update.backgroundTasks ?? current.backgroundTasks,
@@ -2291,11 +2295,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   void _emitNextPendingInputOrNone(
     String resolvedToolUseId, {
     bool exitPlanModeResolved = false,
+    bool keepPlanMode = false,
   }) {
     _handler.pendingInputs.resolve(resolvedToolUseId);
     final next = _handler.pendingInputs.first;
 
-    final resolvedPermissionMode = exitPlanModeResolved
+    final resolvedPermissionMode = keepPlanMode
+        ? PermissionMode.plan
+        : exitPlanModeResolved
         ? legacyPermissionModeFromModes(
             provider ?? Provider.claude,
             executionMode: state.executionMode,
@@ -2308,10 +2315,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         state.copyWith(
           approval: _approvalStateForPermission(next),
           permissionMode: resolvedPermissionMode,
-          planMode: next.toolName == 'ExitPlanMode'
+          planMode: next.toolName == 'ExitPlanMode' || keepPlanMode
               ? true
               : (exitPlanModeResolved ? false : state.planMode),
-          inPlanMode: next.toolName == 'ExitPlanMode'
+          inPlanMode: next.toolName == 'ExitPlanMode' || keepPlanMode
               ? true
               : (exitPlanModeResolved ? false : state.inPlanMode),
         ),
@@ -2321,8 +2328,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         state.copyWith(
           approval: const ApprovalState.none(),
           permissionMode: resolvedPermissionMode,
-          planMode: exitPlanModeResolved ? false : state.planMode,
-          inPlanMode: exitPlanModeResolved ? false : state.inPlanMode,
+          planMode: keepPlanMode
+              ? true
+              : (exitPlanModeResolved ? false : state.planMode),
+          inPlanMode: keepPlanMode
+              ? true
+              : (exitPlanModeResolved ? false : state.inPlanMode),
         ),
       );
     }
@@ -2352,13 +2363,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] reject toolUseId=$toolUseId'
       '${message != null ? ' msg=$message' : ''}',
     );
+    final isExitPlanApproval = _isExitPlanApproval(toolUseId);
     _markToolUseResponded(toolUseId);
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
     );
     _emitNextPendingInputOrNone(
       toolUseId,
-      exitPlanModeResolved: _isExitPlanApproval(toolUseId),
+      exitPlanModeResolved: !isAntigravity && isExitPlanApproval,
+      keepPlanMode: isAntigravity && isExitPlanApproval,
     );
   }
 

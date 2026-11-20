@@ -36,10 +36,16 @@ class ResultChip extends StatelessWidget {
     if (message.duration != null) {
       parts.add('${(message.duration! / 1000).toStringAsFixed(1)}s');
     }
-    if (message.inputTokens != null || message.outputTokens != null) {
+    if (message.inputTokens != null ||
+        message.outputTokens != null ||
+        (message.thoughtTokens != null && message.thoughtTokens! > 0)) {
       final inTok = message.inputTokens ?? 0;
       final outTok = message.outputTokens ?? 0;
-      parts.add('${inTok}in/${outTok}out tok');
+      final thoughtPart =
+          message.thoughtTokens != null && message.thoughtTokens! > 0
+          ? '/${message.thoughtTokens}thought'
+          : '';
+      parts.add('${inTok}in/${outTok}out$thoughtPart tok');
     }
     if (message.cachedInputTokens != null && message.cachedInputTokens! > 0) {
       parts.add('${message.cachedInputTokens} cached');

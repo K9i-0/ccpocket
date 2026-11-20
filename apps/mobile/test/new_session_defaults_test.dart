@@ -563,4 +563,107 @@ void main() {
       expect(decision.corrected?.permissionMode, PermissionMode.defaultMode);
     });
   });
+
+  group('Antigravity new-session model/level handling', () {
+    final withAntigravity = visibleNewSessionTabs(
+      defaultNewSessionTabs,
+      supportsAntigravity: true,
+    );
+
+    testWidgets(
+      'preserves saved model and thought level when started before catalog arrives',
+      (tester) async {
+        final bridge = _AntigravityCatalogBridge();
+        addTearDown(bridge.dispose);
+        NewSessionParams? result;
+        await _pumpSheet(
+          tester,
+          bridge: bridge,
+          visibleTabs: withAntigravity,
+          initialParams: NewSessionParams(
+            projectPath: '/workspace/app',
+            provider: Provider.antigravity,
+            antigravityPermissionMode: PermissionMode.acceptEdits,
+            antigravityModel: 'gemini-3.8-flash',
+            antigravityThoughtLevel: 'medium',
+          ),
+          onResult: (value) => result = value,
+        );
+
+        await _start(tester);
+
+        expect(result?.antigravityModel, 'gemini-3.8-flash');
+        expect(result?.antigravityThoughtLevel, 'medium');
+      },
+    );
+
+    testWidgets(
+      'clears thought level to null when switching to a model without thought levels',
+      (tester) async {
+        final bridge = _AntigravityCatalogBridge();
+        addTearDown(bridge.dispose);
+        bridge.catalog = AntigravitySettings.fromJsonOrNull({
+          'model': 'gemini-3.8-flash-high',
+          'models': [
+            {'id': 'gemini-3.8-flash-high', 'name': 'Gemini 3.8 Flash (High)'},
+            {'id': 'gpt-oss-120b', 'name': 'GPT-OSS 120B'},
+          ],
+          'baseModel': 'gemini-3.8-flash',
+          'modelOptions': [
+            {
+              'id': 'gemini-3.8-flash',
+              'name': 'Gemini 3.8 Flash',
+              'thoughtLevels': ['high', 'low'],
+            },
+            {
+              'id': 'gpt-oss-120b',
+              'name': 'GPT-OSS 120B',
+              'thoughtLevels': <String>[],
+            },
+          ],
+          'thoughtLevel': 'high',
+          'thoughtLevels': ['high', 'low'],
+          'permissionModes': ['default', 'acceptEdits', 'plan'],
+          'authMode': 'login',
+        });
+
+        NewSessionParams? result;
+        await _pumpSheet(
+          tester,
+          bridge: bridge,
+          visibleTabs: withAntigravity,
+          initialParams: NewSessionParams(
+            projectPath: '/workspace/app',
+            provider: Provider.antigravity,
+            antigravityPermissionMode: PermissionMode.defaultMode,
+            antigravityModel: 'gemini-3.8-flash',
+            antigravityThoughtLevel: 'high',
+          ),
+          onResult: (value) => result = value,
+        );
+
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('dialog_antigravity_model')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('dialog_antigravity_model')),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('antigravity_model_option_gpt-oss-120b')),
+        );
+        await tester.pumpAndSettle();
+
+        // Dismiss the model sheet
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
+        await _start(tester);
+
+        expect(result?.antigravityModel, 'gpt-oss-120b');
+        expect(result?.antigravityThoughtLevel, isNull);
+      },
+    );
+  });
 }

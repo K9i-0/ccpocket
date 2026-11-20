@@ -20,6 +20,8 @@ import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/performance_probe_extension.dart';
+import '../../../theme/app_spacing.dart';
+import '../../../theme/app_theme.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
 import '../../generated_image_preview/generated_image_preview_item.dart';
@@ -182,6 +184,111 @@ Set<int> successResultFallbackEntryIndices(List<ChatEntry> entries) {
   }
   finishTurn();
   return fallbackIndices;
+}
+
+@visibleForTesting
+ToolUseContent? findLatestIncompleteToolUse(List<ChatEntry> entries) {
+  final completedToolIds = <String>{};
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is UserChatEntry) break;
+    if (entry is! ServerChatEntry) continue;
+    final message = entry.message;
+    if (message is ResultMessage) break;
+    if (message is ToolResultMessage) {
+      completedToolIds.add(message.toolUseId);
+      continue;
+    }
+    if (message is AssistantServerMessage) {
+      final contents = message.message.content;
+      for (var j = contents.length - 1; j >= 0; j--) {
+        final content = contents[j];
+        if (content is ToolUseContent &&
+            !completedToolIds.contains(content.id)) {
+          return content;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+@visibleForTesting
+String formatAgentActivityLabel(ToolUseContent tool) {
+  String? nonEmptyString(Object? value) {
+    if (value is! String) return null;
+    final collapsed = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return collapsed.isEmpty ? null : collapsed;
+  }
+
+  String? extractBasename(Map<String, dynamic> input) {
+    var raw = nonEmptyString(
+      input['file_path'] ?? input['path'] ?? input['notebook_path'],
+    );
+    if (raw == null) {
+      final changes = input['changes'];
+      if (changes is List && changes.isNotEmpty) {
+        final first = changes.first;
+        if (first is Map) {
+          raw = nonEmptyString(first['path']);
+        }
+      }
+    }
+    if (raw == null) return null;
+    final normalized = raw
+        .replaceAll('\\', '/')
+        .replaceFirst(RegExp(r'/+$'), '');
+    final idx = normalized.lastIndexOf('/');
+    final base = idx >= 0 ? normalized.substring(idx + 1) : normalized;
+    return base.isEmpty ? null : base;
+  }
+
+  final name = tool.name;
+  if (name == 'Bash') {
+    final desc = nonEmptyString(tool.input['description']);
+    return desc != null ? 'Running: $desc...' : 'Running command...';
+  }
+  if (name == 'Read') {
+    final base = extractBasename(tool.input);
+    return base != null ? 'Reading $base...' : 'Reading file...';
+  }
+  if (name == 'FileChange' ||
+      name == 'Write' ||
+      name == 'Edit' ||
+      name == 'MultiEdit' ||
+      name == 'FileEdit' ||
+      name == 'NotebookEdit') {
+    final base = extractBasename(tool.input);
+    return base != null ? 'Editing $base...' : 'Editing files...';
+  }
+  if (name == 'Grep' || name == 'Glob') {
+    return 'Searching files...';
+  }
+  if (name == 'WebSearch') {
+    return 'Searching web...';
+  }
+  if (name == 'WebFetch') {
+    return 'Fetching URL...';
+  }
+  if (name == 'Task' || name == 'invoke_subagent' || name == 'Agent') {
+    return 'Running subagent...';
+  }
+  if (name.startsWith('mcp__')) {
+    final toolPart = name
+        .split('__')
+        .where((segment) => segment.isNotEmpty)
+        .lastOrNull;
+    return 'Running ${toolPart ?? name}...';
+  }
+  if (name.startsWith('mcp:')) {
+    final toolPart = name
+        .split(':')
+        .where((segment) => segment.isNotEmpty)
+        .lastOrNull;
+    return 'Running ${toolPart ?? name}...';
+  }
+  final trimmed = name.trim();
+  return trimmed.isNotEmpty ? 'Running $trimmed...' : 'Working...';
 }
 
 /// Displays the chat message list with [ListView.builder] (reverse: true).
@@ -631,25 +738,38 @@ class _ChatMessageListState extends State<ChatMessageList> {
       _ => null,
     };
 
-    // Watch only the isStreaming flag (not the full streaming text) so the
-    // list rebuilds when streaming starts/stops (to adjust itemCount) but NOT
-    // on every text delta. The actual streaming text is rendered inside a
-    // scoped BlocBuilder on the streaming item only.
-    final hasStreaming = context.select<StreamingStateCubit, bool>(
-      (cubit) => cubit.state.isStreaming,
-    );
-    final totalCount = allEntries.length + (hasStreaming ? 1 : 0);
-    final entryKeys = _entryKeys(allEntries);
-    final childIndexByEntryKey = <String, int>{
-      for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
-        entryKeys[entryIndex]: totalCount - 1 - entryIndex,
-      if (hasStreaming) 'streaming': 0,
-    };
+    // Watch only coarse streaming flags (not the full streaming text) so the
+    // list rebuilds when streaming/text presence transitions (to adjust
+    // itemCount) but NOT on every delta. The actual streaming content is
+    // rendered inside a scoped BlocBuilder on the streaming item only.
+    final streamingFlags = context
+        .select<StreamingStateCubit, ({bool isStreaming, bool hasText})>(
+          (cubit) => (
+            isStreaming: cubit.state.isStreaming,
+            hasText: cubit.state.text.isNotEmpty,
+          ),
+        );
+    final hasStreaming = streamingFlags.isStreaming;
     final derivedData = _deriveData(
       chatState,
       allEntries,
       activePermissionId: activePermissionId,
     );
+    final activityLabel = _resolveActivityLabel(
+      chatState: chatState,
+      incompleteTool: derivedData.latestIncompleteToolUse,
+      hasStreamingText: streamingFlags.hasText,
+    );
+    final hasActivityBar = activityLabel != null;
+    final totalCount =
+        allEntries.length + (hasStreaming ? 1 : 0) + (hasActivityBar ? 1 : 0);
+    final entryKeys = _entryKeys(allEntries);
+    final childIndexByEntryKey = <String, int>{
+      for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
+        entryKeys[entryIndex]: totalCount - 1 - entryIndex,
+      if (hasStreaming) 'streaming': totalCount - 1 - allEntries.length,
+      if (hasActivityBar) 'agent_activity_bar': 0,
+    };
     final effectiveHiddenToolUseIds = {
       ...hiddenToolUseIds,
       ...derivedData.completedGeneratedImageToolUseIds,
@@ -714,7 +834,15 @@ class _ChatMessageListState extends State<ChatMessageList> {
                   // Map to actual entry index:
                   final entryIndex = totalCount - 1 - index;
 
-                  // Streaming entry is at totalCount - 1 (index 0 in reverse)
+                  // Live activity row sits at the very bottom (index 0 in reverse)
+                  if (hasActivityBar && entryIndex == totalCount - 1) {
+                    return _AgentActivityBar(
+                      key: const ValueKey<String>('agent_activity_bar'),
+                      label: activityLabel,
+                    );
+                  }
+
+                  // Streaming entry sits just above the activity bar (or at index 0)
                   if (hasStreaming && entryIndex == allEntries.length) {
                     // Scoped BlocBuilder: only this widget rebuilds on streaming deltas
                     return AutoScrollTag(
@@ -731,6 +859,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                             return ChatEntryWidget(
                               entry: StreamingChatEntry(
                                 text: streamingState.text,
+                                thinking: streamingState.thinking,
                               ),
                               previous: null,
                               httpBaseUrl: widget.httpBaseUrl,
@@ -922,6 +1051,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
         activeToolUseId: activePermissionId,
       ),
       latestPlanText: _findPlanFromWriteTool(chatState.entries),
+      latestIncompleteToolUse: findLatestIncompleteToolUse(chatState.entries),
     );
     _derivedForState = chatState;
     _derivedEntries = entries;
@@ -1023,6 +1153,20 @@ class _ChatMessageListState extends State<ChatMessageList> {
     };
   }
 
+  String? _resolveActivityLabel({
+    required ChatSessionState chatState,
+    required ToolUseContent? incompleteTool,
+    required bool hasStreamingText,
+  }) {
+    if (chatState.status != ProcessStatus.running) return null;
+    if (chatState.approval is! ApprovalNone) return null;
+    if (incompleteTool != null) {
+      return formatAgentActivityLabel(incompleteTool);
+    }
+    if (!hasStreamingText) return 'Thinking...';
+    return null;
+  }
+
   int _assistantContentKey(List<AssistantContent> contents) {
     final signature = contents
         .map((content) {
@@ -1089,6 +1233,7 @@ class _ChatListDerivedData {
   final Set<int> intermediateResultEntryIndices;
   final Map<String, PermissionTranscriptStatus> permissionTranscriptStatuses;
   final String? latestPlanText;
+  final ToolUseContent? latestIncompleteToolUse;
 
   const _ChatListDerivedData({
     required this.imageGroupMemberIndices,
@@ -1099,7 +1244,46 @@ class _ChatListDerivedData {
     required this.intermediateResultEntryIndices,
     required this.permissionTranscriptStatuses,
     required this.latestPlanText,
+    required this.latestIncompleteToolUse,
   });
+}
+
+class _AgentActivityBar extends StatelessWidget {
+  final String label;
+
+  const _AgentActivityBar({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final color = appColors.subtleText;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.bubbleMarginH,
+        vertical: 6,
+      ),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.8,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Captures the old, measured message before a resize changes line wrapping.

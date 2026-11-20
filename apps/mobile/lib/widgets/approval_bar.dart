@@ -24,6 +24,10 @@ class ApprovalBar extends StatelessWidget {
   final VoidCallback? onApproveClearContext;
   final PlanApprovalUiMode planApprovalUiMode;
 
+  /// When true, labels `acceptForSession` as session-scoped ("This Session" /
+  /// "セッション中許可") instead of permanent ("Permanently allow").
+  final bool useSessionApprovalLabel;
+
   const ApprovalBar({
     super.key,
     required this.appColors,
@@ -36,6 +40,7 @@ class ApprovalBar extends StatelessWidget {
     this.onViewPlan,
     this.onApproveClearContext,
     this.planApprovalUiMode = PlanApprovalUiMode.claude,
+    this.useSessionApprovalLabel = false,
   });
 
   @override
@@ -98,6 +103,7 @@ class ApprovalBar extends StatelessWidget {
               pendingPermission: pendingPermission,
               isPlanApproval: isPlanApproval,
               planApprovalUiMode: planApprovalUiMode,
+              useSessionApprovalLabel: useSessionApprovalLabel,
               onApprove: onApprove,
               onReject: onReject,
               onApproveAlways: onApproveAlways,
@@ -335,6 +341,7 @@ class _ApprovalButtons extends StatelessWidget {
   final PermissionRequestMessage? pendingPermission;
   final bool isPlanApproval;
   final PlanApprovalUiMode planApprovalUiMode;
+  final bool useSessionApprovalLabel;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onApproveAlways;
@@ -344,6 +351,7 @@ class _ApprovalButtons extends StatelessWidget {
     this.pendingPermission,
     required this.isPlanApproval,
     required this.planApprovalUiMode,
+    required this.useSessionApprovalLabel,
     required this.onApprove,
     required this.onReject,
     required this.onApproveAlways,
@@ -419,14 +427,17 @@ class _ApprovalButtons extends StatelessWidget {
 
     final cs = Theme.of(context).colorScheme;
     final isCodex = planApprovalUiMode == PlanApprovalUiMode.codex;
+    final useSessionLabel = isCodex || useSessionApprovalLabel;
     final canReject = pendingPermission?.canDecline ?? true;
     final canApproveAlways = pendingPermission?.canApproveForSession ?? true;
     final canApprove = pendingPermission?.canApprove ?? true;
     final rejectLabel = pendingPermission?.showsCancelAction ?? false
         ? l.cancel
         : l.reject;
-    final alwaysMain = isCodex ? l.approveSessionMain : l.approveAlways;
-    final alwaysSub = isCodex ? l.approveSessionSub : l.approveAlwaysSub;
+    final alwaysMain = useSessionLabel ? l.approveSessionMain : l.approveAlways;
+    final alwaysSub = useSessionLabel
+        ? l.approveSessionSub
+        : l.approveAlwaysSub;
     final buttons = <Widget>[
       if (canReject)
         Expanded(
@@ -451,7 +462,7 @@ class _ApprovalButtons extends StatelessWidget {
               side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
             ),
             child: Text(
-              isCodex || alwaysSub.isEmpty
+              useSessionLabel || alwaysSub.isEmpty
                   ? alwaysMain
                   : '$alwaysMain $alwaysSub',
               style: const TextStyle(fontSize: 13),

@@ -61,29 +61,33 @@ void main() {
 
     group('appendThinking', () {
       blocTest<StreamingStateCubit, StreamingState>(
-        'emits accumulated thinking text',
+        'emits accumulated thinking text with isStreaming true',
         build: () => StreamingStateCubit(),
         act: (cubit) {
           cubit.appendThinking('Thinking...');
           cubit.appendThinking(' more');
         },
         expect: () => [
-          const StreamingState(thinking: 'Thinking...'),
-          const StreamingState(thinking: 'Thinking... more'),
+          const StreamingState(thinking: 'Thinking...', isStreaming: true),
+          const StreamingState(thinking: 'Thinking... more', isStreaming: true),
         ],
       );
 
-      test('does not set isStreaming', () {
+      test('sets isStreaming true and reset clears it', () {
         cubit.appendThinking('thought');
 
         expect(cubit.state.thinking, 'thought');
-        expect(cubit.state.isStreaming, false);
+        expect(cubit.state.isStreaming, true);
+
+        cubit.reset();
+        expect(cubit.state, const StreamingState());
       });
 
       test('appends empty string without error', () {
         cubit.appendThinking('');
 
         expect(cubit.state.thinking, isEmpty);
+        expect(cubit.state.isStreaming, true);
       });
     });
 

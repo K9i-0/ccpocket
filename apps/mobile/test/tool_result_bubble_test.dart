@@ -8,6 +8,7 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/bubbles/inline_edit_diff.dart';
 import 'package:ccpocket/widgets/bubbles/tool_result_bubble.dart';
 
 Widget _wrap(Widget child) {
@@ -366,6 +367,26 @@ void main() {
       );
 
       expect(find.text('OK'), findsOneWidget);
+    });
+
+    testWidgets('FileChange unified diff renders InlineEditDiff', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          ToolResultBubble(
+            message: _msg(
+              toolName: 'FileChange',
+              content: '--- a/lib/main.dart\n+++ b/lib/main.dart\n@@ -1,2 +1,2 @@\n-oldLine\n+newLine\n same',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('+1/-1 lines'), findsOneWidget);
+      expect(find.byType(InlineEditDiff), findsOneWidget);
+      expect(find.text('- oldLine'), findsOneWidget);
+      expect(find.text('+ newLine'), findsOneWidget);
     });
   });
 }
