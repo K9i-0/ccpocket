@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.113.1] - 2026-11-20
+
+### Fixed
+
+- Antigravity (preview): "Allow for session" now generalizes safe single shell commands by binary and subcommand prefix (matching `agy` CLI behavior while keeping compound shell syntax, wrappers, and destructive commands exact-match) and persists session grants across `session/load` resumes.
+- Antigravity (preview): flush buffered assistant thinking/text and wait for replay/async message drains before recording a new `user_input`, preventing prior agent output from appearing below newly sent messages.
+
 ## [1.113.0] - 2026-11-20
 
 ### Added
