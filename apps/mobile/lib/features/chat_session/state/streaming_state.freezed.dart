@@ -12,13 +12,18 @@ part of 'streaming_state.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
+final _privateConstructorUsedError = UnsupportedError(
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
+
 /// @nodoc
 mixin _$StreamingState {
 
 /// Accumulated assistant text from stream_delta messages.
  String get text;/// Accumulated thinking text from thinking_delta messages.
  String get thinking;/// Whether we are actively receiving deltas.
- bool get isStreaming;
+ bool get isStreaming;/// Ephemeral mid-turn live agent activity (`agent_activity`).
+ AgentActivityInfo? get activity;
 /// Create a copy of StreamingState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +35,20 @@ $StreamingStateCopyWith<StreamingState> get copyWith => _$StreamingStateCopyWith
 @override
 bool operator ==(Object other) {
   final _this = this as StreamingState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StreamingState&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.thinking, _this.thinking) || other.thinking == _this.thinking)&&(identical(other.isStreaming, _this.isStreaming) || other.isStreaming == _this.isStreaming));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StreamingState&&(identical(other.text, _this.text) || other.text == _this.text)&&(identical(other.thinking, _this.thinking) || other.thinking == _this.thinking)&&(identical(other.isStreaming, _this.isStreaming) || other.isStreaming == _this.isStreaming)&&(identical(other.activity, _this.activity) || other.activity == _this.activity));
 }
 
 
 @override
 int get hashCode {
   final _this = this as StreamingState;
-  return Object.hash(runtimeType,_this.text,_this.thinking,_this.isStreaming);
+  return Object.hash(runtimeType,_this.text,_this.thinking,_this.isStreaming,_this.activity);
 }
 
 @override
 String toString() {
   final _this = this as StreamingState;
-  return 'StreamingState(text: ${_this.text}, thinking: ${_this.thinking}, isStreaming: ${_this.isStreaming})';
+  return 'StreamingState(text: ${_this.text}, thinking: ${_this.thinking}, isStreaming: ${_this.isStreaming}, activity: ${_this.activity})';
 }
 
 
@@ -54,7 +59,7 @@ abstract mixin class $StreamingStateCopyWith<$Res>  {
   factory $StreamingStateCopyWith(StreamingState value, $Res Function(StreamingState) _then) = _$StreamingStateCopyWithImpl;
 @useResult
 $Res call({
- String text, String thinking, bool isStreaming
+ String text, String thinking, bool isStreaming, AgentActivityInfo? activity
 });
 
 
@@ -71,12 +76,13 @@ class _$StreamingStateCopyWithImpl<$Res>
 
 /// Create a copy of StreamingState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? text = null,Object? thinking = null,Object? isStreaming = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? text = null,Object? thinking = null,Object? isStreaming = null,Object? activity = freezed,}) {
   return _then(StreamingState(
 text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,thinking: null == thinking ? _self.thinking : thinking // ignore: cast_nullable_to_non_nullable
 as String,isStreaming: null == isStreaming ? _self.isStreaming : isStreaming // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,activity: freezed == activity ? _self.activity : activity // ignore: cast_nullable_to_non_nullable
+as AgentActivityInfo?,
   ));
 }
 
@@ -85,18 +91,6 @@ as bool,
 
 /// Adds pattern-matching-related methods to [StreamingState].
 extension StreamingStatePatterns on StreamingState {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
 @optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _StreamingState value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
@@ -106,18 +100,6 @@ return $default(_that);case _:
 
 }
 }
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
 
 @optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _StreamingState value)  $default,){
 final _that = this;
@@ -128,17 +110,6 @@ return $default(_that);case _:
 
 }
 }
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
 
 @optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _StreamingState value)?  $default,){
 final _that = this;
@@ -149,63 +120,29 @@ return $default(_that);case _:
 
 }
 }
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String text,  String thinking,  bool isStreaming)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String text,  String thinking,  bool isStreaming,  AgentActivityInfo? activity)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _StreamingState() when $default != null:
-return $default(_that.text,_that.thinking,_that.isStreaming);case _:
+return $default(_that.text,_that.thinking,_that.isStreaming,_that.activity);case _:
   return orElse();
 
 }
 }
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String text,  String thinking,  bool isStreaming)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String text,  String thinking,  bool isStreaming,  AgentActivityInfo? activity)  $default,) {final _that = this;
 switch (_that) {
 case _StreamingState():
-return $default(_that.text,_that.thinking,_that.isStreaming);case _:
+return $default(_that.text,_that.thinking,_that.isStreaming,_that.activity);case _:
   throw StateError('Unexpected subclass');
 
 }
 }
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String text,  String thinking,  bool isStreaming)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String text,  String thinking,  bool isStreaming,  AgentActivityInfo? activity)?  $default,) {final _that = this;
 switch (_that) {
 case _StreamingState() when $default != null:
-return $default(_that.text,_that.thinking,_that.isStreaming);case _:
+return $default(_that.text,_that.thinking,_that.isStreaming,_that.activity);case _:
   return null;
 
 }
@@ -217,7 +154,7 @@ return $default(_that.text,_that.thinking,_that.isStreaming);case _:
 
 
 class _StreamingState implements StreamingState {
-  const _StreamingState({this.text = '', this.thinking = '', this.isStreaming = false});
+  const _StreamingState({this.text = '', this.thinking = '', this.isStreaming = false, this.activity});
   
 
 /// Accumulated assistant text from stream_delta messages.
@@ -226,6 +163,8 @@ class _StreamingState implements StreamingState {
 @override@JsonKey() final  String thinking;
 /// Whether we are actively receiving deltas.
 @override@JsonKey() final  bool isStreaming;
+/// Ephemeral mid-turn live agent activity (`agent_activity`).
+@override final  AgentActivityInfo? activity;
 
 /// Create a copy of StreamingState
 /// with the given fields replaced by the non-null parameter values.
@@ -237,18 +176,18 @@ _$StreamingStateCopyWith<_StreamingState> get copyWith => __$StreamingStateCopyW
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StreamingState&&(identical(other.text, text) || other.text == text)&&(identical(other.thinking, thinking) || other.thinking == thinking)&&(identical(other.isStreaming, isStreaming) || other.isStreaming == isStreaming));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StreamingState&&(identical(other.text, text) || other.text == text)&&(identical(other.thinking, thinking) || other.thinking == thinking)&&(identical(other.isStreaming, isStreaming) || other.isStreaming == isStreaming)&&(identical(other.activity, activity) || other.activity == activity));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,text,thinking,isStreaming);
+    return Object.hash(runtimeType,text,thinking,isStreaming,activity);
 }
 
 @override
 String toString() {
-    return 'StreamingState(text: $text, thinking: $thinking, isStreaming: $isStreaming)';
+    return 'StreamingState(text: $text, thinking: $thinking, isStreaming: $isStreaming, activity: $activity)';
 }
 
 
@@ -259,7 +198,7 @@ abstract mixin class _$StreamingStateCopyWith<$Res> implements $StreamingStateCo
   factory _$StreamingStateCopyWith(_StreamingState value, $Res Function(_StreamingState) _then) = __$StreamingStateCopyWithImpl;
 @override @useResult
 $Res call({
- String text, String thinking, bool isStreaming
+ String text, String thinking, bool isStreaming, AgentActivityInfo? activity
 });
 
 
@@ -276,12 +215,13 @@ class __$StreamingStateCopyWithImpl<$Res>
 
 /// Create a copy of StreamingState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? text = null,Object? thinking = null,Object? isStreaming = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? text = null,Object? thinking = null,Object? isStreaming = null,Object? activity = freezed,}) {
   return _then(_StreamingState(
 text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,thinking: null == thinking ? _self.thinking : thinking // ignore: cast_nullable_to_non_nullable
 as String,isStreaming: null == isStreaming ? _self.isStreaming : isStreaming // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,activity: freezed == activity ? _self.activity : activity // ignore: cast_nullable_to_non_nullable
+as AgentActivityInfo?,
   ));
 }
 

@@ -70,8 +70,14 @@ class BackgroundTasksBar extends StatelessWidget {
 
   static String taskLabel(BackgroundTaskInfo task) {
     final description = task.description?.trim();
-    if (description != null && description.isNotEmpty) return description;
-    return taskKindLabel(task);
+    final base = (description != null && description.isNotEmpty)
+        ? description
+        : taskKindLabel(task);
+    final summary = task.summary?.trim();
+    if (summary != null && summary.isNotEmpty && summary != base) {
+      return '$base — $summary';
+    }
+    return base;
   }
 
   /// Short name of what kind of task this is.
@@ -213,8 +219,18 @@ class BackgroundTasksSheet extends StatelessWidget {
   }
 
   Widget _buildTile(BackgroundTaskInfo task, ColorScheme cs) {
-    final label = BackgroundTasksBar.taskLabel(task);
+    final description = task.description?.trim();
     final kind = BackgroundTasksBar.taskKindLabel(task);
+    final title = (description != null && description.isNotEmpty)
+        ? description
+        : kind;
+    final summary = task.summary?.trim();
+    final tool = task.lastToolName?.trim();
+    final subtitleParts = <String>[
+      if (kind != title) kind,
+      if (summary != null && summary.isNotEmpty && summary != title) summary,
+      if (tool != null && tool.isNotEmpty) tool,
+    ];
     return ListTile(
       key: ValueKey('background_task_${task.taskId}'),
       dense: true,
@@ -223,8 +239,8 @@ class BackgroundTasksSheet extends StatelessWidget {
         size: 20,
         color: cs.onSurfaceVariant,
       ),
-      title: Text(label),
-      subtitle: kind == label ? null : Text(kind),
+      title: Text(title),
+      subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' · ')),
     );
   }
 }

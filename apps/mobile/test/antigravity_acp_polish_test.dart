@@ -309,6 +309,12 @@ void main() {
         formatAgentActivityLabel(
           const ToolUseContent(id: '2', name: 'Bash', input: {'command': 'ls'}),
         ),
+        'Running: ls...',
+      );
+      expect(
+        formatAgentActivityLabel(
+          const ToolUseContent(id: '2b', name: 'Bash', input: {}),
+        ),
         'Running command...',
       );
       expect(

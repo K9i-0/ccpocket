@@ -1431,6 +1431,8 @@ sealed class ServerMessage {
         olderHistoryAvailable: json['olderHistoryAvailable'] == true,
       ),
       'context_compaction' => ContextCompactionMessage.fromJson(json),
+      'agent_activity' => AgentActivityMessage.fromJson(json),
+      'session_recap' => SessionRecapMessage.fromJson(json),
       'session_transcript' => SessionTranscriptMessage.fromJson(json),
       'history_delta' => HistoryDeltaMessage(
         filtered: json['filtered'] == true,
@@ -2547,6 +2549,107 @@ class ContextCompactionMessage implements ServerMessage {
 
   bool get isManual => trigger == 'manual';
   bool get isAuto => trigger == 'auto';
+}
+
+/// Ephemeral mid-turn live agent activity state (`agent_activity`).
+class AgentActivityInfo {
+  final String? summary;
+  final String? toolName;
+  final String? toolUseId;
+  final String? toolHint;
+  final bool preparingTool;
+  final int? elapsedSeconds;
+  final int? thinkingTokens;
+  final String? phase;
+
+  const AgentActivityInfo({
+    this.summary,
+    this.toolName,
+    this.toolUseId,
+    this.toolHint,
+    this.preparingTool = false,
+    this.elapsedSeconds,
+    this.thinkingTokens,
+    this.phase,
+  });
+
+  factory AgentActivityInfo.fromJson(Map<String, dynamic> json) {
+    String? nonEmpty(Object? v) =>
+        v is String && v.trim().isNotEmpty ? v.trim() : null;
+    return AgentActivityInfo(
+      summary: nonEmpty(json['summary']),
+      toolName: nonEmpty(json['toolName']),
+      toolUseId: nonEmpty(json['toolUseId']),
+      toolHint: nonEmpty(json['toolHint']),
+      preparingTool: json['preparingTool'] == true,
+      elapsedSeconds: (json['elapsedSeconds'] as num?)?.toInt(),
+      thinkingTokens: (json['thinkingTokens'] as num?)?.toInt(),
+      phase: nonEmpty(json['phase']),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AgentActivityInfo &&
+          summary == other.summary &&
+          toolName == other.toolName &&
+          toolUseId == other.toolUseId &&
+          toolHint == other.toolHint &&
+          preparingTool == other.preparingTool &&
+          elapsedSeconds == other.elapsedSeconds &&
+          thinkingTokens == other.thinkingTokens &&
+          phase == other.phase;
+
+  @override
+  int get hashCode => Object.hash(
+    summary,
+    toolName,
+    toolUseId,
+    toolHint,
+    preparingTool,
+    elapsedSeconds,
+    thinkingTokens,
+    phase,
+  );
+}
+
+class AgentActivityMessage implements ServerMessage {
+  final String? sessionId;
+  final AgentActivityInfo? activity;
+
+  const AgentActivityMessage({this.sessionId, this.activity});
+
+  factory AgentActivityMessage.fromJson(Map<String, dynamic> json) {
+    final raw = json['activity'];
+    return AgentActivityMessage(
+      sessionId: json['sessionId'] as String?,
+      activity: raw is Map
+          ? AgentActivityInfo.fromJson(Map<String, dynamic>.from(raw))
+          : null,
+    );
+  }
+}
+
+/// Claude session recap (`away_summary` or `/recap` command output).
+class SessionRecapMessage implements ServerMessage {
+  final String content;
+  final String? source;
+  final String? timestamp;
+
+  const SessionRecapMessage({
+    required this.content,
+    this.source,
+    this.timestamp,
+  });
+
+  factory SessionRecapMessage.fromJson(Map<String, dynamic> json) {
+    return SessionRecapMessage(
+      content: (json['content'] as String? ?? '').trim(),
+      source: json['source'] as String?,
+      timestamp: json['timestamp'] as String?,
+    );
+  }
 }
 
 /// Local marker for messages dropped from the live history window; never
@@ -4233,12 +4336,16 @@ class BackgroundTaskInfo {
   final String taskType;
   final String? description;
   final String? subagentType;
+  final String? summary;
+  final String? lastToolName;
 
   const BackgroundTaskInfo({
     required this.taskId,
     required this.taskType,
     this.description,
     this.subagentType,
+    this.summary,
+    this.lastToolName,
   });
 
   static const _agentTaskTypes = {
@@ -4260,6 +4367,8 @@ class BackgroundTaskInfo {
       taskType: json['taskType'] as String? ?? 'unknown',
       description: json['description'] as String?,
       subagentType: json['subagentType'] as String?,
+      summary: json['summary'] as String?,
+      lastToolName: json['lastToolName'] as String?,
     );
   }
 }
@@ -4963,6 +5072,9 @@ class PastMessage {
 
   /// Set when [role] is `compaction`.
   final ContextCompactionMessage? compaction;
+
+  /// Set when [role] is `recap`.
+  final SessionRecapMessage? recap;
   const PastMessage({
     required this.role,
     this.uuid,
@@ -4975,6 +5087,7 @@ class PastMessage {
     this.toolResultContent,
     required this.content,
     this.compaction,
+    this.recap,
   });
 
   factory PastMessage.fromJson(Map<String, dynamic> json) {
@@ -5011,6 +5124,12 @@ class PastMessage {
               'id': json['uuid'],
               'timestamp': json['timestamp'],
             }, fallbackProvider: json['provider'] as String?)
+          : null,
+      recap: json['role'] == 'recap'
+          ? SessionRecapMessage.fromJson({
+              ...?(json['recap'] as Map<String, dynamic>?),
+              'timestamp': json['timestamp'],
+            })
           : null,
     );
   }
@@ -5655,6 +5774,7 @@ class ClientMessage {
     int protocolVersion = appProtocolMaxVersion,
     int minimumProtocolVersion = appProtocolMinVersion,
     List<String> supportedServerMessages = const [
+      'agent_activity',
       'background_tasks',
       'context_compaction',
       'conversation_queue',
@@ -5669,6 +5789,7 @@ class ClientMessage {
       'push_registration_result',
       'session_context',
       'session_activity',
+      'session_recap',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{

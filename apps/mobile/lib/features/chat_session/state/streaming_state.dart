@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../models/messages.dart';
+
 part 'streaming_state.freezed.dart';
 
 /// High-frequency streaming state, kept in a separate provider to avoid
@@ -15,5 +17,8 @@ abstract class StreamingState with _$StreamingState {
 
     /// Whether we are actively receiving deltas.
     @Default(false) bool isStreaming,
+
+    /// Ephemeral mid-turn live agent activity (`agent_activity`).
+    AgentActivityInfo? activity,
   }) = _StreamingState;
 }
