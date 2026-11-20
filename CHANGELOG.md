@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.171.1] - 2026-11-20
+
+### Changed
+
+- The app now expects Bridge 1.113.1 (which adds prefix-based session command grants and resume grant persistence for Antigravity, plus pre-input output flushing).
+
+### Fixed
+
+- Cleared lingering streaming state when sending a new message from idle or receiving an idle/starting history snapshot so prior agent output never appears below newly sent prompts.
+- Preserved unsequenced initial history entries ahead of newly sequenced user inputs when merging history deltas in `SessionRuntimeStore`.
+
 ## [1.171.0] - 2026-11-20
 
 ### Added
