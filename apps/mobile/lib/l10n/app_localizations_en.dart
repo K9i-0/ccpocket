@@ -1196,10 +1196,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'You can switch the model after the session starts.';
 
   @override
-  String get antigravityPreviewNote =>
-      'Antigravity support is a preview. Behavior may change and some features are not available yet.';
-
-  @override
   String get antigravityAuthLogin => 'Google sign-in';
 
   @override
@@ -1215,7 +1211,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get showAntigravityTabSubtitle =>
-      'Shown only when the Bridge machine has the Antigravity CLI (agy). Preview.';
+      'Shown only when the Bridge machine has the Antigravity CLI (agy).';
 
   @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';

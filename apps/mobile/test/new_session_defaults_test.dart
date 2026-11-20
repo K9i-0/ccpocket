@@ -10,6 +10,7 @@ import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
+import 'package:ccpocket/widgets/preview_badge.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -222,11 +223,8 @@ void main() {
         find.byKey(const ValueKey('dialog_antigravity_model_note')),
         findsOne,
       );
-      // Antigravity ships as a preview and says so before a session starts.
-      expect(
-        find.byKey(const ValueKey('dialog_antigravity_preview_badge')),
-        findsOne,
-      );
+      // Antigravity is a regular agent: no preview badge.
+      expect(find.byType(PreviewBadge), findsNothing);
       expect(
         find.byKey(const ValueKey('dialog_advanced_antigravity')),
         findsNothing,

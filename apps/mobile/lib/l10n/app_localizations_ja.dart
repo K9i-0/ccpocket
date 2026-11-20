@@ -1165,10 +1165,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get antigravityModelAfterStartNote => 'モデルはセッション開始後に切り替えられます。';
 
   @override
-  String get antigravityPreviewNote =>
-      'Antigravity 対応はプレビュー版です。動作が変わったり、一部の機能が使えなかったりすることがあります。';
-
-  @override
   String get antigravityAuthLogin => 'Google ログイン';
 
   @override
@@ -1183,7 +1179,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get showAntigravityTabSubtitle =>
-      'Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます（プレビュー）';
+      'Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます';
 
   @override
   String get permissionAcceptEditsDescription => 'ファイル編集を自動で承認します';

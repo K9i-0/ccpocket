@@ -1162,10 +1162,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get antigravityModelAfterStartNote => '모델은 세션 시작 후에 전환할 수 있습니다.';
 
   @override
-  String get antigravityPreviewNote =>
-      'Antigravity 지원은 프리뷰 버전입니다. 동작이 바뀌거나 일부 기능을 사용할 수 없을 수 있습니다.';
-
-  @override
   String get antigravityAuthLogin => 'Google 로그인';
 
   @override
@@ -1180,7 +1176,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get showAntigravityTabSubtitle =>
-      'Bridge 머신에 Antigravity CLI(agy)가 있을 때만 표시됩니다(프리뷰)';
+      'Bridge 머신에 Antigravity CLI(agy)가 있을 때만 표시됩니다';
 
   @override
   String get permissionAcceptEditsDescription => '파일 편집 자동 승인';

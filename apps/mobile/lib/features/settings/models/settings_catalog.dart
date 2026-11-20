@@ -296,8 +296,7 @@ final List<SettingsEntry> settingsEntries = [
     id: SettingsEntryIds.enabledAgents,
     category: SettingsCategory.agents,
     title: (l) => l.settingsEnabledAgents,
-    keywords:
-        'claude codex antigravity agy gemini google preview agent エージェント プレビュー',
+    keywords: 'claude codex antigravity agy gemini google agent エージェント',
   ),
   SettingsEntry(
     id: SettingsEntryIds.newSessionTabs,
