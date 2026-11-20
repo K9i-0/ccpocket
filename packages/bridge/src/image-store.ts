@@ -63,6 +63,17 @@ function searchableText(value: unknown): string {
   return "";
 }
 
+/** Extract local image file paths from text (ignores URLs). */
+export function extractImagePathsFromText(text: unknown): string[] {
+  const localPaths: string[] = [];
+  for (const [path] of searchableText(text).matchAll(IMAGE_PATH_RE)) {
+    // Filter out URLs (paths starting with //)
+    if (path.startsWith("//")) continue;
+    localPaths.push(path);
+  }
+  return [...new Set(localPaths)];
+}
+
 export class ImageStore {
   private store = new Map<string, StoredImage>();
   /**
@@ -170,13 +181,7 @@ export class ImageStore {
 
   /** Extract local image file paths from text (ignores URLs). */
   extractImagePaths(text: unknown): string[] {
-    const localPaths: string[] = [];
-    for (const [path] of searchableText(text).matchAll(IMAGE_PATH_RE)) {
-      // Filter out URLs (paths starting with //)
-      if (path.startsWith("//")) continue;
-      localPaths.push(path);
-    }
-    return [...new Set(localPaths)];
+    return extractImagePathsFromText(text);
   }
 
   /** Register an image from raw base64 data. Returns an ImageRef with a URL for HTTP access. */

@@ -10,6 +10,7 @@ import {
   describeAcpTool,
   elicitationContentFromAnswer,
   elicitationFieldsFromSchema,
+  extractGeneratedImagePaths,
   resolveAntigravityConfig,
   type AntigravityConfig,
 } from "./antigravity-process.js";
@@ -114,11 +115,16 @@ const API_KEY: AntigravityConfig = {
   requireApiKey: true,
 };
 
-function createProcess(transport: AcpTransport, config = LOGIN) {
+function createProcess(
+  transport: AcpTransport,
+  config = LOGIN,
+  isImageFile?: (path: string) => boolean,
+) {
   const messages: ServerMessage[] = [];
   const proc = new AntigravityProcess({
     config,
     createTransport: () => transport,
+    ...(isImageFile ? { isImageFile } : {}),
   });
   proc.on("message", (message) => messages.push(message));
   return { proc, messages };
@@ -674,7 +680,11 @@ const configOptions = (model: string, level: string, levels: string[]): Json[] =
   },
 ];
 
-async function startSession(extra: Record<string, Json> = {}, options = {}) {
+async function startSession(
+  extra: Record<string, Json> = {},
+  options = {},
+  isImageFile?: (path: string) => boolean,
+) {
   const transport = new ScriptedTransport({
     initialize: {
       result: {
@@ -686,7 +696,7 @@ async function startSession(extra: Record<string, Json> = {}, options = {}) {
     "session/set_mode": { result: {} },
     ...extra,
   });
-  const created = createProcess(transport);
+  const created = createProcess(transport, LOGIN, isImageFile);
   created.proc.start("/workspace", options);
   await until(() => created.proc.status === "idle", "session ready");
   const update = (body: Json) =>
@@ -1472,6 +1482,389 @@ describe("describeAcpTool", () => {
     expect(
       describeAcpTool({ kind: "search", name: "find_by_name", rawInput: { Pattern: "*.ts" } }),
     ).toEqual({ toolName: "Grep", input: { pattern: "*.ts" } });
+    expect(
+      describeAcpTool({
+        kind: "other",
+        name: "invoke_subagent",
+        rawInput: {
+          TypeName: "image-generator",
+          Role: "Image Generator",
+          Prompt: "Red apple icon\nMinimal flat style",
+        },
+      }),
+    ).toEqual({
+      toolName: "ImageGeneration",
+      input: {
+        status: "generating",
+        revisedPrompt: "Red apple icon Minimal flat style",
+      },
+    });
+    expect(
+      describeAcpTool({
+        kind: "other",
+        name: "invoke_subagent",
+        rawInput: { TypeName: "research", Prompt: "look it up" },
+      }),
+    ).toBeUndefined();
     expect(describeAcpTool({ kind: "other", name: "browser" })).toBeUndefined();
+  });
+});
+
+describe("extractGeneratedImagePaths", () => {
+  it("extracts existing local image paths from markdown, file links, and bare paths once", () => {
+    const existing = new Set([
+      "/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg",
+      "/workspace/assets/star.png",
+    ]);
+    const text = [
+      "- File: [apple.jpg](file:///home/u/.gemini/antigravity-cli/brain/s1/apple.jpg)",
+      "![Red apple](/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg)",
+      "![Star](assets/star.png)",
+      "Missing: /tmp/does-not-exist.png",
+    ].join("\n");
+    expect(
+      extractGeneratedImagePaths(text, "/workspace", (p) => existing.has(p)),
+    ).toEqual([
+      "/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg",
+      "/workspace/assets/star.png",
+    ]);
+  });
+});
+
+describe("AntigravityProcess image-generator subagent", () => {
+  const imageGenCall = (toolCallId: string, Prompt: string): Json => ({
+    toolCallId,
+    name: "invoke_subagent",
+    kind: "other",
+    title: "Run invoke_subagent",
+    rawInput: { TypeName: "image-generator", Role: "Image Generator", Prompt },
+  });
+
+  it("maps image-generator to ImageGeneration and resolves when the follow-up turn reports the file", async () => {
+    const generated = "/home/u/.gemini/antigravity-cli/brain/s1/red_apple.jpg";
+    const { proc, messages, update, endTurn } = await startSession(
+      {},
+      {},
+      (p) => p === generated,
+    );
+
+    proc.sendInput("赤いリンゴのアイコンを作って");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Simple red apple icon") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Simple red apple icon") });
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "生成をリクエストしました。お待ちください。" },
+    });
+    endTurn();
+    await until(() => proc.status === "idle", "first turn done");
+
+    vi.useFakeTimers();
+    try {
+      // Tool use uses the ImageGeneration card name and stays pending while the subagent runs.
+      const toolUse = ofType(messages, "assistant")
+        .flatMap((m) => m.message.content)
+        .find((c) => c.type === "tool_use" && c.id === "img1");
+      expect(toolUse).toEqual({
+        type: "tool_use",
+        id: "img1",
+        name: "ImageGeneration",
+        input: { status: "generating", revisedPrompt: "Simple red apple icon" },
+      });
+      expect(ofType(messages, "tool_result")).toHaveLength(0);
+      expect(proc.expectsFollowUp).toBe(true);
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+        {
+          taskId: "img1",
+          taskType: "antigravity_agent",
+          subagentType: "image-generator",
+          description: "Simple red apple icon",
+        },
+      ]);
+
+      // Follow-up self-started turn delivers the generated image path and markdown preview.
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: {
+          type: "text",
+          text: `生成しました。\n\n- [red_apple.jpg](file://${generated})\n\n![赤いリンゴ](${generated})`,
+        },
+      });
+      update({ sessionUpdate: "usage_update", used: 12000, size: 1048576 });
+      vi.advanceTimersByTime(5000);
+
+      const finalAssistant = ofType(messages, "assistant").at(-1);
+      expect(finalAssistant?.omitAssistantImagePaths).toEqual([generated]);
+
+      const imageResult = ofType(messages, "tool_result").find(
+        (m) => m.toolUseId === "img1",
+      );
+      expect(imageResult).toEqual({
+        type: "tool_result",
+        toolUseId: "img1",
+        toolName: "ImageGeneration",
+        content: `status: completed\nrevisedPrompt: Simple red apple icon\nsavedPath: ${generated}`,
+      });
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+      expect(proc.expectsFollowUp).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tracks parallel image-generator calls across separate follow-up turns", async () => {
+    const imgA = "/home/u/.gemini/antigravity-cli/brain/s1/a.png";
+    const imgB = "/home/u/.gemini/antigravity-cli/brain/s1/b.png";
+    const existing = new Set([imgA, imgB]);
+    const { proc, messages, update, endTurn } = await startSession(
+      {},
+      {},
+      (p) => existing.has(p),
+    );
+
+    proc.sendInput("2枚作って");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Prompt A") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Prompt A") });
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img2", "Prompt B") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img2", "Prompt B") });
+    endTurn();
+    await until(() => proc.status === "idle", "first turn done");
+
+    vi.useFakeTimers();
+    try {
+      // First image arrives; second stays pending.
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: `1枚目: ${imgA}` } });
+      update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+      vi.advanceTimersByTime(5000);
+
+      expect(ofType(messages, "tool_result")).toHaveLength(1);
+      expect(ofType(messages, "tool_result")[0]).toMatchObject({
+        toolUseId: "img1",
+        toolName: "ImageGeneration",
+        content: expect.stringContaining(`savedPath: ${imgA}`),
+      });
+      expect(proc.expectsFollowUp).toBe(true);
+      expect(ofType(messages, "background_tasks").at(-1)?.tasks).toHaveLength(1);
+
+      // Second image arrives.
+      update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: `2枚目: ${imgB}` } });
+      update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+      vi.advanceTimersByTime(5000);
+
+      expect(ofType(messages, "tool_result")).toHaveLength(2);
+      expect(ofType(messages, "tool_result")[1]).toMatchObject({
+        toolUseId: "img2",
+        toolName: "ImageGeneration",
+        content: expect.stringContaining(`savedPath: ${imgB}`),
+      });
+      expect(proc.expectsFollowUp).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closes a pending image generation as failed when a follow-up reports no image", async () => {
+    const { proc, messages, update, endTurn } = await startSession({}, {}, () => false);
+    proc.sendInput("作って");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Prompt A") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Prompt A") });
+    endTurn();
+    await until(() => proc.status === "idle", "first turn done");
+
+    vi.useFakeTimers();
+    try {
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: "申し訳ありません、画像を生成できませんでした。" },
+      });
+      update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+      vi.advanceTimersByTime(5000);
+
+      expect(ofType(messages, "tool_result")).toEqual([
+        {
+          type: "tool_result",
+          toolUseId: "img1",
+          toolName: "ImageGeneration",
+          content: "status: failed\nrevisedPrompt: Prompt A",
+        },
+      ]);
+      expect(proc.expectsFollowUp).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("replays image-generator calls and resolves their images on session/load", async () => {
+    const generated = "/home/u/.gemini/antigravity-cli/brain/s1/replayed.jpg";
+    const transport = new ScriptedTransport({
+      initialize: {
+        result: {
+          agentInfo: { version: "1.5.12" },
+          agentCapabilities: { sessionCapabilities: {} },
+        },
+      },
+      "session/set_mode": { result: {} },
+    });
+    const origWrite = transport.write.bind(transport);
+    transport.write = (message: Json) => {
+      origWrite(message);
+      if (message.method === "session/load") {
+        setImmediate(() => {
+          const emitUpdate = (update: Json) =>
+            transport.emit("message", {
+              jsonrpc: "2.0",
+              method: "session/update",
+              params: { sessionId: "s1", update },
+            });
+          emitUpdate({ sessionUpdate: "user_message_chunk", content: { type: "text", text: "リンゴを作って" } });
+          emitUpdate({ sessionUpdate: "tool_call", status: "completed", ...imageGenCall("img1", "Red apple") });
+          emitUpdate({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "生成中です。" } });
+          emitUpdate({
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: `\n\n![リンゴ](${generated})` },
+          });
+          transport.emit("message", { jsonrpc: "2.0", id: message.id, ...SESSION });
+        });
+      }
+    };
+
+    const { proc, messages } = createProcess(transport, LOGIN, (p) => p === generated);
+    proc.start("/workspace", { sessionId: "s1" });
+    await until(() => proc.status === "idle", "loaded");
+
+    expect(ofType(messages, "assistant").at(-1)?.omitAssistantImagePaths).toEqual([generated]);
+    expect(ofType(messages, "tool_result")).toEqual([
+      {
+        type: "tool_result",
+        toolUseId: "img1",
+        toolName: "ImageGeneration",
+        content: `status: completed\nrevisedPrompt: Red apple\nsavedPath: ${generated}`,
+        skipGallery: true,
+      },
+    ]);
+  });
+
+  it("ignores reference images mentioned in the launch turn, paths outside session roots, and timer wakeups", async () => {
+    const refInWorkspace = "/workspace/ref_icon.png";
+    const outsidePath = "/etc/outside.png";
+    const otherSessionBrain = "/home/u/.gemini/antigravity-cli/brain/other/x.png";
+    const realGenerated = "/home/u/.gemini/antigravity-cli/brain/s1/final.png";
+    const existing = new Set([
+      refInWorkspace,
+      outsidePath,
+      otherSessionBrain,
+      realGenerated,
+    ]);
+    const { proc, messages, update, endTurn } = await startSession(
+      {},
+      {},
+      (p) => existing.has(p),
+    );
+
+    // Launch turn mentions an existing reference image AND sets a timer.
+    proc.sendInput("ref_icon.png を参考に作って");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "From ref") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "From ref") });
+    update({
+      sessionUpdate: "tool_call",
+      status: "in_progress",
+      toolCallId: "sched1",
+      name: "schedule",
+      kind: "other",
+      rawInput: { Prompt: "ping" },
+    });
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: `[ref_icon.png](file://${refInWorkspace}) を参考に生成中です。` },
+    });
+    endTurn();
+    await until(() => proc.status === "idle", "launch turn done");
+
+    // Reference image in launch turn must NOT resolve img1.
+    expect(ofType(messages, "tool_result")).toHaveLength(0);
+
+    vi.useFakeTimers();
+    try {
+      // Timer fires before image-generator finishes: must NOT mark img1 failed,
+      // and paths outside cwd / session brain must be ignored.
+      update({ sessionUpdate: "tool_call_update", status: "completed", toolCallId: "sched1" });
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: `タイマー確認中 (${outsidePath}, ${otherSessionBrain})` },
+      });
+      update({ sessionUpdate: "usage_update", used: 50, size: 1000 });
+      vi.advanceTimersByTime(5000);
+
+      expect(
+        ofType(messages, "tool_result").some((m) => m.toolUseId === "img1"),
+      ).toBe(false);
+      expect(proc.expectsFollowUp).toBe(true);
+
+      // Now the real generated image arrives.
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: `完成: ${realGenerated}` },
+      });
+      update({ sessionUpdate: "usage_update", used: 80, size: 1000 });
+      vi.advanceTimersByTime(5000);
+
+      expect(
+        ofType(messages, "tool_result").find((m) => m.toolUseId === "img1"),
+      ).toEqual({
+        type: "tool_result",
+        toolUseId: "img1",
+        toolName: "ImageGeneration",
+        content: `status: completed\nrevisedPrompt: From ref\nsavedPath: ${realGenerated}`,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears pending image generation on permission denial and unexpected process exit", async () => {
+    const { proc, transport, messages, update, endTurn } = await startSession();
+    proc.sendInput("作って");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img_denied", "Denied prompt") });
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: "perm1",
+      method: "session/request_permission",
+      params: {
+        toolCall: imageGenCall("img_denied", "Denied prompt"),
+        options: [
+          { optionId: "allow", kind: "allow_once" },
+          { optionId: "deny", kind: "reject_once" },
+        ],
+      },
+    });
+    expect(proc.reject("img_denied")).toBe(true);
+    expect(ofType(messages, "tool_result").at(-1)).toEqual({
+      type: "tool_result",
+      toolUseId: "img_denied",
+      content: "Rejected",
+      permissionOutcome: "rejected",
+      toolName: "ImageGeneration",
+    });
+    endTurn();
+    await until(() => proc.status === "idle", "turn 1 done");
+
+    // Launch another image generation, go idle, then crash the process.
+    proc.sendInput("もう一度");
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img_crash", "Crash prompt") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img_crash", "Crash prompt") });
+    endTurn();
+    await until(() => proc.status === "idle", "turn 2 done");
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toHaveLength(1);
+
+    transport.emit("exit", 1);
+    expect(
+      ofType(messages, "tool_result").find((m) => m.toolUseId === "img_crash"),
+    ).toEqual({
+      type: "tool_result",
+      toolUseId: "img_crash",
+      toolName: "ImageGeneration",
+      content: "status: failed\nrevisedPrompt: Crash prompt",
+    });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+    expect(proc.expectsFollowUp).toBe(false);
   });
 });

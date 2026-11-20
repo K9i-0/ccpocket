@@ -136,6 +136,20 @@ void main() {
       isTrue,
     );
     expect(
+      const BackgroundTaskInfo(
+        taskId: 'ag',
+        taskType: 'antigravity_agent',
+        subagentType: 'image-generator',
+      ).isAgent,
+      isTrue,
+    );
+    expect(
+      BackgroundTasksBar.taskKindLabel(
+        const BackgroundTaskInfo(taskId: 'ag2', taskType: 'antigravity_agent'),
+      ),
+      'Agent',
+    );
+    expect(
       const BackgroundTaskInfo(taskId: 'm', taskType: 'monitor').isAgent,
       isFalse,
     );

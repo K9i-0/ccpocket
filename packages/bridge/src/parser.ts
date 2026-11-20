@@ -119,6 +119,7 @@ const AGENT_BACKGROUND_TASK_TYPES = new Set([
   "remote_agent",
   "local_workflow",
   "codex_agent",
+  "antigravity_agent",
 ]);
 
 export function isAgentBackgroundTask(task: BackgroundTaskInfo): boolean {
@@ -831,6 +832,12 @@ export type ServerMessage =
       messageUuid?: string;
       /** Local images embedded with markdown image syntax in the text. */
       images?: AssistantImageRef[];
+      /**
+       * Transient: local image paths already surfaced as ImageGeneration
+       * tool_result cards, so markdown image attachment skips duplicates.
+       * Stripped by SessionManager before sending to clients.
+       */
+      omitAssistantImagePaths?: string[];
     }
   | {
       type: "tool_result";
@@ -845,6 +852,12 @@ export type ServerMessage =
       images?: ImageRef[];
       userMessageUuid?: string;
       rawContentBlocks?: unknown[];
+      /**
+       * Transient: set on replayed tool_result messages (e.g. Antigravity
+       * `session/load`) so ImageStore re-registers images without duplicating
+       * GalleryStore entries. Stripped before sending to clients.
+       */
+      skipGallery?: boolean;
     }
   | {
       type: "result";

@@ -2496,4 +2496,98 @@ describe("SessionManager claude UUID backfill", () => {
         : undefined,
     ).toBe("user-uuid-fallback");
   });
+
+  it("omits markdown images already surfaced by ImageGeneration and strips the transient field", async () => {
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_, msg) => forwarded.push(msg));
+    manager.setAssistantImageResolver(async () => [
+      {
+        id: "img-gen",
+        url: "/images/img-gen",
+        mimeType: "image/jpeg",
+        path: "/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg",
+        alt: "Apple",
+      },
+      {
+        id: "img-extra",
+        url: "/images/img-extra",
+        mimeType: "image/png",
+        path: "/workspace/other.png",
+        alt: "Other",
+      },
+    ]);
+
+    const sessionId = manager.create("/workspace");
+    sdkInstances[0].emit("message", {
+      type: "assistant",
+      message: {
+        id: "a1",
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: "![Apple](/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg)\n![Other](/workspace/other.png)",
+          },
+        ],
+        model: "gemini-3.8-flash-high",
+      },
+      omitAssistantImagePaths: [
+        "/home/u/.gemini/antigravity-cli/brain/s1/apple.jpg",
+      ],
+    } satisfies ServerMessage);
+
+    await vi.waitFor(() =>
+      expect(forwarded.some((m) => m.type === "assistant")).toBe(true),
+    );
+    const assistant = forwarded.find((m) => m.type === "assistant");
+    expect(assistant).toBeDefined();
+    if (!assistant || assistant.type !== "assistant") return;
+    expect(assistant.images).toEqual([
+      expect.objectContaining({ id: "img-extra", path: "/workspace/other.png" }),
+    ]);
+    expect("omitAssistantImagePaths" in assistant).toBe(false);
+
+    const historyAssistant = manager
+      .get(sessionId)
+      ?.history.find((m) => m.type === "assistant");
+    expect(historyAssistant && "omitAssistantImagePaths" in historyAssistant).toBe(
+      false,
+    );
+  });
+
+  it("skips GalleryStore registration for replayed tool_result messages and awaits pending drains", async () => {
+    const registerImages = vi.fn(async () => [
+      { id: "replayed-1", url: "/images/replayed-1", mimeType: "image/png" },
+    ]);
+    const addImage = vi.fn(async () => null);
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager(
+      (_, msg) => forwarded.push(msg),
+      {
+        extractImagePaths: () => ["/workspace/gen.png"],
+        registerImages,
+        registerFromBase64: vi.fn(),
+      } as unknown as import("./image-store.js").ImageStore,
+      { addImage, addImageFromBase64: vi.fn() } as unknown as import("./gallery-store.js").GalleryStore,
+    );
+
+    const sessionId = manager.create("/workspace");
+    sdkInstances[0].emit("message", {
+      type: "tool_result",
+      toolUseId: "img1",
+      toolName: "ImageGeneration",
+      content: "status: completed\nsavedPath: /workspace/gen.png",
+      skipGallery: true,
+    } satisfies ServerMessage);
+
+    await manager.waitForPendingMessages(sessionId);
+
+    expect(registerImages).toHaveBeenCalledTimes(1);
+    expect(addImage).not.toHaveBeenCalled();
+    const result = forwarded.find((m) => m.type === "tool_result");
+    expect(result).toBeDefined();
+    if (!result || result.type !== "tool_result") return;
+    expect(result.images).toHaveLength(1);
+    expect("skipGallery" in result).toBe(false);
+  });
 });

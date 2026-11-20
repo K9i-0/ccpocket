@@ -4239,6 +4239,7 @@ class BackgroundTaskInfo {
     'remote_agent',
     'local_workflow',
     'codex_agent',
+    'antigravity_agent',
   };
 
   /// Agents, as opposed to shells, monitors and terminals.

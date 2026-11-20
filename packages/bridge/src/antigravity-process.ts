@@ -5,10 +5,14 @@ import {
 } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, extname, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
+import { extractImagePathsFromText } from "./image-store.js";
+import { extractMarkdownImages } from "./markdown-images.js";
+import { isPathWithinAllowedDirectory } from "./path-utils.js";
 import type {
   AssistantContent,
   BackgroundTaskInfo,
@@ -310,6 +314,8 @@ interface ToolCallState {
   timer: boolean;
   /** Still open when its turn ended. */
   background: boolean;
+  /** Built-in `image-generator` subagent call; resolves once the image path arrives. */
+  imageGeneration?: { prompt: string };
 }
 
 interface ElicitationField {
@@ -716,6 +722,80 @@ function mcpToolFromAcp(
   };
 }
 
+const IMAGE_FILE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+const FILE_URL_RE = /file:\/\/\/[^\s<>)"'`]+/gi;
+
+function defaultIsImageFile(filePath: string): boolean {
+  try {
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+export function isImageGeneratorSubagent(update: Record<string, unknown>): boolean {
+  if (stringOr(update.name) !== "invoke_subagent") return false;
+  const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
+  return stringOr(rawInput.TypeName).trim().toLowerCase() === "image-generator";
+}
+
+function summarizeImagePrompt(raw: string): string {
+  // Mobile's ImageGeneration preview parses `revisedPrompt:` from a single line.
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+export function formatAntigravityImageGenerationResult(
+  status: string,
+  prompt: string,
+  savedPaths: readonly string[],
+): string {
+  const lines = [`status: ${status}`];
+  if (prompt) lines.push(`revisedPrompt: ${prompt}`);
+  for (const savedPath of savedPaths) {
+    lines.push(`savedPath: ${savedPath}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Extracts existing local image paths from an assistant reply that reports
+ * `image-generator` output (markdown images, `file://` links, or bare paths).
+ */
+export function extractGeneratedImagePaths(
+  text: string,
+  cwd: string,
+  isFile: (path: string) => boolean = defaultIsImageFile,
+): string[] {
+  const candidates: string[] = [];
+  for (const image of extractMarkdownImages(text)) {
+    if (!isAbsolute(image.path) && !cwd) continue;
+    candidates.push(isAbsolute(image.path) ? resolve(image.path) : resolve(cwd, image.path));
+  }
+  for (const [rawUrl] of text.matchAll(FILE_URL_RE)) {
+    const cleaned = rawUrl.replace(/[.,;:!?]+$/, "");
+    try {
+      const localPath = fileURLToPath(cleaned);
+      if (IMAGE_FILE_EXTENSIONS.has(extname(localPath).toLowerCase())) {
+        candidates.push(resolve(localPath));
+      }
+    } catch {
+      // Ignore malformed file URLs.
+    }
+  }
+  for (const rawPath of extractImagePathsFromText(text)) {
+    candidates.push(resolve(rawPath));
+  }
+
+  const seen = new Set<string>();
+  const existing: string[] = [];
+  for (const candidate of candidates) {
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    if (isFile(candidate)) existing.push(candidate);
+  }
+  return existing;
+}
+
 export function describeAcpTool(
   update: Record<string, unknown>,
 ): { toolName: string; input: Record<string, unknown> } | undefined {
@@ -724,6 +804,16 @@ export function describeAcpTool(
   const rawInput = isRecord(update.rawInput) ? update.rawInput : {};
   const mcp = mcpToolFromAcp(update);
   if (mcp) return { toolName: mcp.toolName, input: mcp.input };
+  if (isImageGeneratorSubagent(update)) {
+    const prompt = summarizeImagePrompt(stringOr(rawInput.Prompt));
+    return {
+      toolName: "ImageGeneration",
+      input: {
+        status: "generating",
+        ...(prompt ? { revisedPrompt: prompt } : {}),
+      },
+    };
+  }
   if (name === "ask_question") {
     return {
       toolName: "AskUserQuestion",
@@ -883,8 +973,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private transport: AcpTransport | null = null;
   private readonly config: AntigravityConfig;
   private readonly createTransport: (config: AntigravityConfig) => AcpTransport;
+  private readonly isImageFile: (path: string) => boolean;
 
   private cwd = "";
+  private additionalDirs: string[] = [];
   private _status: ProcessStatus = "starting";
   private _sessionId: string | null = null;
   private _model: string | undefined;
@@ -933,6 +1025,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private selfTurnTimer: ReturnType<typeof setTimeout> | null = null;
   /** The self-started turn has shown nothing yet (see `expectWake`). */
   private selfTurnSilent = false;
+  /** True when the current self-started turn was triggered by a timer or background command finishing. */
+  private wokeFromBackgroundCall = false;
+  /** True once at least one image generation resolved during the current turn. */
+  private turnSettledImages = false;
   /** Until when open background commands promise a follow-up turn. */
   private followUpDeadline = 0;
   private followUpTimer: ReturnType<typeof setTimeout> | null = null;
@@ -968,11 +1064,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   constructor(options?: {
     config?: AntigravityConfig;
     createTransport?: (config: AntigravityConfig) => AcpTransport;
+    isImageFile?: (path: string) => boolean;
   }) {
     super();
     this.config = options?.config ?? getAntigravityConfig();
     this.createTransport =
       options?.createTransport ?? ((config) => new StdioAcpTransport(config));
+    this.isImageFile = options?.isImageFile ?? defaultIsImageFile;
     this.readyPromise = new Promise<void>((resolve, reject) => {
       this.resolveReady = resolve;
       this.rejectReady = reject;
@@ -1067,6 +1165,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   start(projectPath: string, options?: AntigravityStartOptions): void {
     if (this.transport) return;
     this.cwd = projectPath;
+    this.additionalDirs = [...(options?.additionalDirectories ?? [])];
     this.stopped = false;
     this.exited = false;
     if (this.config.requireApiKey && !this.config.apiKey) {
@@ -1153,6 +1252,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
     let session: Record<string, unknown>;
     if (options?.sessionId) {
+      this._sessionId = options.sessionId;
       this.replaying = true;
       try {
         session = await this.request(
@@ -1167,12 +1267,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         );
       } finally {
         this.flushAssistant();
+        this.closePendingImageGenerations("completed");
         this.replaying = false;
         // Replayed questions and plans were settled in an earlier run.
         this.planArtifact = null;
         this.toolCalls.clear();
       }
-      this._sessionId = options.sessionId;
     } else {
       session = await this.request("session/new", {
         cwd: projectPath,
@@ -1251,9 +1351,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.queuedInputs = [];
     this.outstandingPrompts = 0;
     this.clearSelfTurn();
+    this.clearFollowUpTimer();
     const transport = this.transport;
     this.transport = null;
     transport?.stop();
+  }
+
+  private clearFollowUpTimer(): void {
+    if (this.followUpTimer) {
+      clearTimeout(this.followUpTimer);
+      this.followUpTimer = null;
+    }
+    this.followUpDeadline = 0;
   }
 
   interrupt(): void {
@@ -1269,9 +1378,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     // ACP requires pending permission requests to be answered as cancelled.
     for (const pending of this.pendingPermissions.values()) {
       this.respond(pending.requestId, { outcome: { outcome: "cancelled" } });
-      this.emitToolResult(pending.toolUseId, "Cancelled", "rejected");
       const call = this.toolCalls.get(pending.toolUseId);
       if (call) call.rejected = true;
+      this.emitToolResult(
+        pending.toolUseId,
+        "Cancelled",
+        "rejected",
+        call?.imageGeneration ? "ImageGeneration" : undefined,
+      );
     }
     this.pendingPermissions.clear();
     for (const pending of this.pendingElicitations.values()) {
@@ -1319,6 +1433,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.lastResultText = "";
       this.lastStopReason = undefined;
       this.cancelRequested = false;
+      this.turnSettledImages = false;
     }
     // A prompt sent after a cancel starts over; the cancelled request still
     // answers, but it no longer decides how the turn ends.
@@ -1368,7 +1483,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (this.contextUsageDirty) this.emitSettings();
     const succeeded =
       !err && this.lastStopReason !== "cancelled" && !this.cancelRequested;
-    this.dropSettledToolCalls(succeeded);
+    this.dropSettledToolCalls(
+      succeeded,
+      this.lastStopReason === "cancelled" || this.cancelRequested
+        ? "cancelled"
+        : "failed",
+    );
     if (err) {
       this.emitMessage({
         type: "result",
@@ -1606,8 +1726,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    * ended normally run in the background (a timer, a long command) and
    * report their result later.
    */
-  private dropSettledToolCalls(keepOpen: boolean): void {
+  private dropSettledToolCalls(
+    keepOpen: boolean,
+    closeImageStatus: "cancelled" | "failed" = "failed",
+  ): void {
     if (!keepOpen) {
+      this.closePendingImageGenerations(closeImageStatus);
       this.toolCalls.clear();
     } else {
       for (const [id, call] of this.toolCalls) {
@@ -1623,7 +1747,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       // Lets whoever holds the completion back look again.
       this.followUpTimer = setTimeout(() => {
         this.followUpTimer = null;
-        if (!this.stopped) this.emitBackgroundTasks(true);
+        if (!this.stopped) {
+          this.closePendingImageGenerations("failed");
+          this.emitBackgroundTasks(true);
+        }
       }, FOLLOW_UP_WAIT_MS);
       this.followUpTimer.unref?.();
     }
@@ -1637,7 +1764,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       if (!call.background) continue;
       tasks.push({
         taskId,
-        taskType: call.timer ? "antigravity_timer" : "antigravity_terminal",
+        taskType: call.timer
+          ? "antigravity_timer"
+          : call.imageGeneration
+            ? "antigravity_agent"
+            : "antigravity_terminal",
+        ...(call.imageGeneration ? { subagentType: "image-generator" } : {}),
         ...(call.description ? { description: call.description } : {}),
       });
     }
@@ -1655,6 +1787,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private expectWake(): void {
     if (this.replaying || this.stopped || !this.ready || this.isTurnActive) return;
     this.noteAgentActivity();
+    this.wokeFromBackgroundCall = true;
     this.selfTurnSilent = true;
     this.selfTurnTimer = setTimeout(() => {
       this.selfTurnTimer = null;
@@ -1685,6 +1818,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       return;
     }
     this.selfTurn = true;
+    this.wokeFromBackgroundCall = false;
+    this.turnSettledImages = false;
     this.turnUsage = {};
     this.turnStartedAt = Date.now();
     this.turnToolCalls = 0;
@@ -1720,6 +1855,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private clearSelfTurn(): void {
     this.selfTurn = false;
     this.selfTurnSilent = false;
+    this.wokeFromBackgroundCall = false;
     if (this.selfTurnTimer) {
       clearTimeout(this.selfTurnTimer);
       this.selfTurnTimer = null;
@@ -1728,11 +1864,29 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private endSelfTurn(subtype: "success" | "interrupted" | "silent"): void {
     if (!this.selfTurn || this.stopped) return;
+    const wokeFromBg = this.wokeFromBackgroundCall;
     this.clearSelfTurn();
-    this.flushAssistant();
+    const settledImages = this.flushAssistant();
+    if (
+      subtype === "success" &&
+      this.lastResultText &&
+      !settledImages &&
+      !this.turnSettledImages &&
+      !wokeFromBg
+    ) {
+      const hasOtherBackground = [...this.toolCalls.values()].some(
+        (call) => !call.finished && !call.rejected && !call.imageGeneration,
+      );
+      if (!hasOtherBackground) {
+        this.closeOldestPendingImageGeneration("failed");
+      }
+    }
     this.pendingPermissions.clear();
     this.pendingElicitations.clear();
-    this.dropSettledToolCalls(subtype !== "interrupted");
+    this.dropSettledToolCalls(
+      subtype !== "interrupted",
+      subtype === "interrupted" ? "cancelled" : "failed",
+    );
     const sessionId = this._sessionId ?? undefined;
     if (this.contextUsageDirty) this.emitSettings();
     if (subtype === "silent") {
@@ -1988,6 +2142,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       case "user_message_chunk": {
         // Only `session/load` replays user turns.
         this.flushAssistant();
+        this.closePendingImageGenerations("completed");
         const text = isRecord(update.content) ? stringOr(update.content.text) : "";
         if (text) {
           // Without an id, two identical prompts would be merged into one.
@@ -2118,6 +2273,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       }
       if (!this.replaying) this.turnToolCalls++;
       const timer = stringOr(update.name) === "schedule";
+      const imageGen = isImageGeneratorSubagent(update);
+      const imagePrompt = imageGen
+        ? summarizeImagePrompt(stringOr(rawInput.Prompt))
+        : "";
       call = {
         toolName,
         kind,
@@ -2126,9 +2285,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         finished: false,
         description: timer
           ? `Timer: ${stringOr(rawInput.Prompt, title)}`
-          : stringOr(rawInput.CommandLine, title),
+          : imageGen
+            ? imagePrompt || stringOr(rawInput.Role) || "Generating image"
+            : stringOr(rawInput.CommandLine, title),
         timer,
         background: false,
+        ...(imageGen ? { imageGeneration: { prompt: imagePrompt } } : {}),
       };
       this.toolCalls.set(toolUseId, call);
       this.emitMessage({
@@ -2146,6 +2308,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
     const status = stringOr(update.status);
     if ((status !== "completed" && status !== "failed") || call.finished) return;
+    // `invoke_subagent` for `image-generator` completes as soon as the subagent
+    // launches; wait for the image path in a later assistant message before
+    // emitting the `ImageGeneration` tool_result.
+    if (call.imageGeneration && status === "completed") return;
     call.finished = true;
     if (endsBackground) {
       call.background = false;
@@ -2158,7 +2324,19 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (call.rejected) return;
 
     let content: string;
-    if (call.kind === "edit") {
+    if (call.imageGeneration) {
+      const rawOutput = isRecord(update.rawOutput) ? update.rawOutput : {};
+      const detail =
+        typeof rawOutput.output === "string"
+          ? cleanCommandOutput(rawOutput.output)
+          : cleanCommandOutput(textFromToolContent(update.content));
+      const base = formatAntigravityImageGenerationResult(
+        "failed",
+        call.imageGeneration.prompt,
+        [],
+      );
+      content = detail ? `${base}\n${detail}` : base;
+    } else if (call.kind === "edit") {
       const changes = fileChangesFromContent(update.content, this.cwd);
       content =
         changes.map((change) => change.diff).join("\n\n") ||
@@ -2183,6 +2361,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       toolUseId,
       content,
       toolName: call.toolName,
+      ...(this.replaying ? { skipGallery: true } : {}),
     });
   }
 
@@ -2374,7 +2553,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       // only trace of it the client gets.
       const call = this.toolCalls.get(pending.toolUseId);
       if (call) call.rejected = true;
-      this.emitToolResult(pending.toolUseId, "Rejected", "rejected");
+      this.emitToolResult(
+        pending.toolUseId,
+        "Rejected",
+        "rejected",
+        call?.imageGeneration ? "ImageGeneration" : undefined,
+      );
     } else {
       this.emitToolResult(pending.toolUseId, "Approved", outcome);
     }
@@ -2432,18 +2616,173 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   // ---- emit helpers -------------------------------------------------------
 
-  private flushAssistant(): void {
+  private allPendingImageGenerationCalls(): Array<[string, ToolCallState]> {
+    const pending: Array<[string, ToolCallState]> = [];
+    for (const [id, call] of this.toolCalls) {
+      if (call.imageGeneration && !call.finished && !call.rejected) {
+        pending.push([id, call]);
+      }
+    }
+    return pending;
+  }
+
+  /**
+   * Image-generator calls eligible to resolve from assistant text. During live
+   * execution, the turn that launched `invoke_subagent` has not yet yielded
+   * any generated file (it may still mention input reference images), so only
+   * calls that outlived their launch turn (`call.background`) can match.
+   */
+  private resolvableImageGenerationCalls(): Array<[string, ToolCallState]> {
+    const all = this.allPendingImageGenerationCalls();
+    return this.replaying ? all : all.filter(([, call]) => call.background);
+  }
+
+  /**
+   * Restricts synthesized `ImageGeneration` paths to this session's own
+   * Antigravity `brain/<sessionId>/` folder or configured workspace roots,
+   * checking symlink targets as well when the file exists on disk.
+   */
+  private isAllowedGeneratedImagePath(filePath: string): boolean {
+    const roots = [this.cwd, ...this.additionalDirs].filter(
+      (dir) => dir.length > 0,
+    );
+    const matchesAllowedLocation = (candidate: string, allowedRoots: string[]): boolean => {
+      for (const root of allowedRoots) {
+        if (isPathWithinAllowedDirectory(candidate, root)) return true;
+      }
+      if (this._sessionId) {
+        const normalized = candidate.replace(/\\/g, "/");
+        const escapedId = this._sessionId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const brainPattern = new RegExp(
+          `/\\.gemini/[^/]+/brain/${escapedId}/[^/]+$`,
+        );
+        if (brainPattern.test(normalized)) return true;
+      }
+      return false;
+    };
+
+    if (!matchesAllowedLocation(filePath, roots)) return false;
+
+    try {
+      const canonicalFile = realpathSync(filePath);
+      const canonicalRoots = roots.map((root) => {
+        try {
+          return realpathSync(root);
+        } catch {
+          return root;
+        }
+      });
+      return matchesAllowedLocation(canonicalFile, canonicalRoots);
+    } catch {
+      // Virtual paths in unit tests do not exist on disk; lexical check passed.
+      return true;
+    }
+  }
+
+  private settlePendingImageGenerations(imagePaths: readonly string[]): boolean {
+    const pending = this.resolvableImageGenerationCalls();
+    if (pending.length === 0 || imagePaths.length === 0) return false;
+
+    const settledCount = Math.min(pending.length, imagePaths.length);
+    let backgroundChanged = false;
+    for (let i = 0; i < settledCount; i++) {
+      const [toolUseId, call] = pending[i];
+      const assigned =
+        i === settledCount - 1 && imagePaths.length > settledCount
+          ? imagePaths.slice(i)
+          : [imagePaths[i]];
+      call.finished = true;
+      if (call.background) {
+        call.background = false;
+        backgroundChanged = true;
+      }
+      this.emitMessage({
+        type: "tool_result",
+        toolUseId,
+        toolName: "ImageGeneration",
+        content: formatAntigravityImageGenerationResult(
+          "completed",
+          call.imageGeneration?.prompt ?? "",
+          assigned,
+        ),
+        ...(this.replaying ? { skipGallery: true } : {}),
+      });
+    }
+    if (backgroundChanged) this.emitBackgroundTasks();
+    this.turnSettledImages = true;
+    return true;
+  }
+
+  private closePendingImageGenerations(
+    status: "completed" | "cancelled" | "failed",
+  ): void {
+    const pending = this.allPendingImageGenerationCalls();
+    if (pending.length === 0) return;
+    let backgroundChanged = false;
+    for (const [toolUseId, call] of pending) {
+      call.finished = true;
+      if (call.background) {
+        call.background = false;
+        backgroundChanged = true;
+      }
+      this.emitMessage({
+        type: "tool_result",
+        toolUseId,
+        toolName: "ImageGeneration",
+        content: formatAntigravityImageGenerationResult(
+          status,
+          call.imageGeneration?.prompt ?? "",
+          [],
+        ),
+        ...(this.replaying ? { skipGallery: true } : {}),
+      });
+    }
+    if (backgroundChanged) this.emitBackgroundTasks();
+  }
+
+  private closeOldestPendingImageGeneration(status: "failed"): void {
+    const first = this.resolvableImageGenerationCalls()[0];
+    if (!first) return;
+    const [toolUseId, call] = first;
+    call.finished = true;
+    const wasBackground = call.background;
+    call.background = false;
+    this.emitMessage({
+      type: "tool_result",
+      toolUseId,
+      toolName: "ImageGeneration",
+      content: formatAntigravityImageGenerationResult(
+        status,
+        call.imageGeneration?.prompt ?? "",
+        [],
+      ),
+      ...(this.replaying ? { skipGallery: true } : {}),
+    });
+    if (wasBackground) this.emitBackgroundTasks();
+  }
+
+  private flushAssistant(): boolean {
     const thinking = this.thinkingBuffer.trim();
     const text = this.textBuffer.trim();
     this.thinkingBuffer = "";
     this.textBuffer = "";
-    if (!thinking && !text) return;
+    if (!thinking && !text) return false;
     const content: AssistantContent[] = [];
     if (thinking) content.push({ type: "thinking", thinking });
     if (text) {
       content.push({ type: "text", text });
       this.lastResultText = text;
     }
+    const pendingImages =
+      text && this.resolvableImageGenerationCalls().length > 0
+        ? extractGeneratedImagePaths(
+            text,
+            this.cwd,
+            (candidate) =>
+              this.isAllowedGeneratedImagePath(candidate) &&
+              this.isImageFile(candidate),
+          )
+        : [];
     this.emitMessage({
       type: "assistant",
       message: {
@@ -2452,7 +2791,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         content,
         model: this._model ?? "antigravity",
       },
+      ...(pendingImages.length > 0
+        ? { omitAssistantImagePaths: pendingImages }
+        : {}),
     });
+    return pendingImages.length > 0
+      ? this.settlePendingImageGenerations(pendingImages)
+      : false;
   }
 
   private emitSettings(): void {
@@ -2484,12 +2829,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     toolUseId: string,
     content: string,
     permissionOutcome: "approved" | "approved_for_session" | "rejected" | "answered",
+    toolName?: string,
   ): void {
     this.emitMessage({
       type: "tool_result",
       toolUseId,
       content,
       permissionOutcome,
+      ...(toolName ? { toolName } : {}),
     });
   }
 
@@ -2538,14 +2885,22 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.ready = false;
     const turnWasActive = this.isTurnActive;
     this.clearSelfTurn();
-    if (!wasStopped && turnWasActive) {
-      this.flushAssistant();
-      this.emitMessage({
-        type: "result",
-        subtype: "error",
-        error: "Antigravity exited unexpectedly",
-        sessionId: this._sessionId ?? undefined,
-      });
+    this.clearFollowUpTimer();
+    if (!wasStopped) {
+      if (turnWasActive) {
+        this.flushAssistant();
+      }
+      this.closePendingImageGenerations("failed");
+      this.toolCalls.clear();
+      this.emitBackgroundTasks();
+      if (turnWasActive) {
+        this.emitMessage({
+          type: "result",
+          subtype: "error",
+          error: "Antigravity exited unexpectedly",
+          sessionId: this._sessionId ?? undefined,
+        });
+      }
     }
     this.outstandingPrompts = 0;
     this.setStatus("idle");

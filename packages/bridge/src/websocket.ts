@@ -1340,11 +1340,7 @@ export class BridgeWebSocketServer {
         return (
           !!session &&
           session.status === "idle" &&
-          !session.backgroundTasks?.some(isAgentBackgroundTask) &&
-          !(
-            session.process instanceof AntigravityProcess &&
-            session.process.expectsFollowUp
-          )
+          !this.keepsWorkingInBackground(sessionId)
         );
       },
       release: (sessionId, completion) =>
@@ -6830,6 +6826,7 @@ export class BridgeWebSocketServer {
             // the client asks for it.
             if (resumed?.process instanceof AntigravityProcess) {
               await resumed.process.waitUntilReady();
+              await this.sessionManager.waitForPendingMessages(sessionId);
             }
           } catch (err) {
             this.sessionManager.destroy(sessionId);

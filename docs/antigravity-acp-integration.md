@@ -172,6 +172,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
 - **利用枠の残量は ACP では取れない**（`_antigravity/quota` などは `-32601`）。代わりに CLI の `agy -p /usage --output-format json` を使う（下記「利用量」）。ログや内部 API、Google の OAuth エンドポイントは読まない。
 - **ツール種別**: `read_file`（`kind: read`、`rawInput.Path`）、`search_web`（`kind: search`、`rawInput.query`）、`run_command`（`execute`）、`write_file`（`edit`）。`session/set_title` と `session/delete` はない。
+- **画像生成（Nano Banana / `image-generator`）**: 直接の画像生成ツールはなく、通常のプロンプトでもビルトインの `invoke_subagent`（`rawInput.TypeName: "image-generator"`、`Prompt`）が呼ばれる。`invoke_subagent` 自体はサブエージェント起動直後に `completed`（出力なし）で閉じ、生成完了後に自発ターンで `~/.gemini/<プロファイル>/brain/<セッションID>/` 配下の画像ファイルパス（Markdown 画像や `file://` リンク）が返る。APIキー認証でも動作を確認した。
 - **複数選択の質問**: `is_multi_select: true` は `{type: "array", items: {anyOf: [{const, title}]}}` と `<id>_other` で届く（APIキーで確認）。
 - **フォーク・巻き戻し**: `session/fork`、`session/rewind`、`session/truncate`、`session/delete` はどれも `-32601`。
 - **スラッシュコマンド**: `available_commands_update` に説明文が付く。スキルも同じ一覧に入る。
@@ -229,6 +230,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、`ExitPlanMode` の承認リクエストを出す。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
   - 読み取り・検索・取得のツールは `Read` / `Grep` / `WebSearch` / `WebFetch` として出す。`brain/` 配下の文書はファイル名だけで表示する。
+  - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。
   - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れ、ターンの終わりに1回だけ送る（モデル呼び出しのたびに届くため）。
   - `result` に `thoughtTokens`、`duration`、`toolCalls`、`fileEdits` を付ける。
 - [antigravity-store.ts](../packages/bridge/src/antigravity-store.ts): `agy` が持たない情報（ccpocket で付けた名前、最後に使ったモデル）を `~/.ccpocket/antigravity-sessions.json` に保存する。再開時にモデルを戻し、最近のセッション一覧に名前を反映する。

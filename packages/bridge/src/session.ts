@@ -1,9 +1,9 @@
 import { currentGitBranch } from "./git-project-state.js";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   pathToSlug,
   claudeAbandonedBranchUuids,
@@ -362,12 +362,37 @@ function publicQueuedInput(item?: QueuedSessionInput): QueuedInputItem | undefin
   };
 }
 
+function buildComparablePathSet(paths: readonly string[]): Set<string> {
+  const set = new Set<string>();
+  for (const raw of paths) {
+    const abs = resolve(raw);
+    set.add(abs);
+    try {
+      set.add(realpathSync(abs));
+    } catch {
+      // File may not exist or be unreadable in tests; lexical path still matches.
+    }
+  }
+  return set;
+}
+
+function matchesComparablePathSet(path: string, set: ReadonlySet<string>): boolean {
+  const abs = resolve(path);
+  if (set.has(abs)) return true;
+  try {
+    return set.has(realpathSync(abs));
+  } catch {
+    return false;
+  }
+}
+
 export class SessionManager {
   private sessions = new Map<string, SessionInfo>();
   private processMessageDelivery = new Map<
     string,
     ProcessMessageDeliveryState
   >();
+  private pendingMessageDrains = new Map<string, Promise<void>>();
   private onMessage: (sessionId: string, msg: ServerMessage) => void;
   private imageStore: ImageStore | null;
   private galleryStore: GalleryStore | null;
@@ -391,6 +416,12 @@ export class SessionManager {
       pluginMetadata?: Array<Record<string, unknown>>;
     }
   >();
+
+  /** Waits for any in-flight async process message processing (e.g. image registration) on a session. */
+  async waitForPendingMessages(sessionId: string): Promise<void> {
+    const pending = this.pendingMessageDrains.get(sessionId);
+    if (pending) await pending;
+  }
 
   /** Enables attaching markdown-embedded images to assistant messages. */
   setAssistantImageResolver(resolver: AssistantImageResolver | null): void {
@@ -705,98 +736,118 @@ export class SessionManager {
         }
 
         // Attach images the assistant embedded with ![label](path).
-        if (msg.type === "assistant" && this.assistantImageResolver) {
-          const texts = assistantTextBlocks(msg.message.content);
-          if (hasMarkdownImages(texts)) {
-            const images = await this.assistantImageResolver(
-              texts,
-              session.projectPath,
-            );
-            if (images.length > 0) {
-              msg = { ...msg, images };
+        if (msg.type === "assistant") {
+          const omitted = msg.omitAssistantImagePaths;
+          if (this.assistantImageResolver) {
+            const texts = assistantTextBlocks(msg.message.content);
+            if (hasMarkdownImages(texts)) {
+              const resolvedImages = await this.assistantImageResolver(
+                texts,
+                session.projectPath,
+              );
+              const omittedSet = omitted?.length
+                ? buildComparablePathSet(omitted)
+                : null;
+              const images = omittedSet
+                ? resolvedImages.filter(
+                    (img) => !matchesComparablePathSet(img.path, omittedSet),
+                  )
+                : resolvedImages;
+              if (images.length > 0) {
+                msg = { ...msg, images };
+              }
             }
+          }
+          if (omitted !== undefined) {
+            const { omitAssistantImagePaths: _, ...cleanMsg } = msg;
+            msg = cleanMsg as typeof msg;
           }
         }
 
         // Extract images from tool_result content for both Claude and Codex.
-        if (msg.type === "tool_result" && this.imageStore) {
-          const paths = this.imageStore.extractImagePaths(msg.content);
-          if (paths.length > 0) {
-            const images = await this.imageStore.registerImages(
-              paths,
-              session.projectPath,
-            );
-            if (images.length > 0) {
-              msg = { ...msg, images };
+        if (msg.type === "tool_result") {
+          const skipGallery = msg.skipGallery === true;
+          if (this.imageStore) {
+            const paths = this.imageStore.extractImagePaths(msg.content);
+            if (paths.length > 0) {
+              const images = await this.imageStore.registerImages(
+                paths,
+                session.projectPath,
+              );
+              if (images.length > 0) {
+                msg = { ...msg, images };
+              }
+
+              // Also register in GalleryStore (disk-persistent), except during history replay
+              if (this.galleryStore && !skipGallery) {
+                for (const p of paths) {
+                  const meta = await this.galleryStore.addImage(
+                    p,
+                    session.projectPath,
+                    session.id,
+                  );
+                  if (meta && this.onGalleryImage) {
+                    this.onGalleryImage(meta);
+                  }
+                }
+              }
             }
 
-            // Also register in GalleryStore (disk-persistent)
-            if (this.galleryStore) {
-              for (const p of paths) {
-                const meta = await this.galleryStore.addImage(
-                  p,
-                  session.projectPath,
-                  session.id,
-                );
-                if (meta && this.onGalleryImage) {
-                  this.onGalleryImage(meta);
+            // Extract base64 images from content blocks (e.g., MCP screenshots)
+            if (msg.rawContentBlocks) {
+              const imageBlocks = (
+                msg.rawContentBlocks as Array<Record<string, unknown>>
+              ).filter(
+                (c) =>
+                  c.type === "image" &&
+                  (c.source as Record<string, unknown>)?.type === "base64",
+              );
+
+              if (imageBlocks.length > 0) {
+                const existingImages = msg.images ?? [];
+                const newImages: ImageRef[] = [];
+
+                for (const block of imageBlocks) {
+                  const source = block.source as Record<string, unknown>;
+                  if (
+                    typeof source?.data !== "string" ||
+                    typeof source?.media_type !== "string"
+                  )
+                    continue;
+                  const b64Data = source.data as string;
+                  const mimeType = source.media_type as string;
+                  const ref = this.imageStore.registerFromBase64(
+                    b64Data,
+                    mimeType,
+                  );
+                  if (ref) {
+                    newImages.push(ref);
+
+                    // Also persist to GalleryStore
+                    if (this.galleryStore && !skipGallery) {
+                      const meta = await this.galleryStore.addImageFromBase64(
+                        b64Data,
+                        mimeType,
+                        session.projectPath,
+                        session.id,
+                      );
+                      if (meta && this.onGalleryImage) {
+                        this.onGalleryImage(meta);
+                      }
+                    }
+                  }
+                }
+
+                if (newImages.length > 0) {
+                  msg = { ...msg, images: [...existingImages, ...newImages] };
                 }
               }
             }
           }
 
-          // Extract base64 images from content blocks (e.g., MCP screenshots)
-          if (msg.rawContentBlocks) {
-            const imageBlocks = (
-              msg.rawContentBlocks as Array<Record<string, unknown>>
-            ).filter(
-              (c) =>
-                c.type === "image" &&
-                (c.source as Record<string, unknown>)?.type === "base64",
-            );
-
-            if (imageBlocks.length > 0) {
-              const existingImages = msg.images ?? [];
-              const newImages: ImageRef[] = [];
-
-              for (const block of imageBlocks) {
-                const source = block.source as Record<string, unknown>;
-                if (
-                  typeof source?.data !== "string" ||
-                  typeof source?.media_type !== "string"
-                )
-                  continue;
-                const b64Data = source.data as string;
-                const mimeType = source.media_type as string;
-                const ref = this.imageStore.registerFromBase64(
-                  b64Data,
-                  mimeType,
-                );
-                if (ref) {
-                  newImages.push(ref);
-
-                  // Also persist to GalleryStore
-                  if (this.galleryStore) {
-                    const meta = await this.galleryStore.addImageFromBase64(
-                      b64Data,
-                      mimeType,
-                      session.projectPath,
-                      session.id,
-                    );
-                    if (meta && this.onGalleryImage) {
-                      this.onGalleryImage(meta);
-                    }
-                  }
-                }
-              }
-
-              if (newImages.length > 0) {
-                msg = { ...msg, images: [...existingImages, ...newImages] };
-              }
-            }
-
-            // Strip transient rawContentBlocks before sending to client
-            const { rawContentBlocks: _, ...cleanMsg } = msg;
+          if (msg.rawContentBlocks !== undefined || msg.skipGallery !== undefined) {
+            // Strip transient fields before sending to client or storing in history
+            const { rawContentBlocks: _raw, skipGallery: _skip, ...cleanMsg } = msg;
             msg = cleanMsg as typeof msg;
           }
         }
@@ -853,12 +904,22 @@ export class SessionManager {
       firstMessage: ServerMessage,
     ): Promise<void> => {
       processingAsyncProcessMessage = true;
-      let nextMessage: ServerMessage | undefined = firstMessage;
-      while (nextMessage) {
-        await processMessage(nextMessage);
-        nextMessage = pendingProcessMessages.shift();
+      const run = (async () => {
+        let nextMessage: ServerMessage | undefined = firstMessage;
+        while (nextMessage) {
+          await processMessage(nextMessage);
+          nextMessage = pendingProcessMessages.shift();
+        }
+      })();
+      this.pendingMessageDrains.set(id, run);
+      try {
+        await run;
+      } finally {
+        if (this.pendingMessageDrains.get(id) === run) {
+          this.pendingMessageDrains.delete(id);
+        }
+        processingAsyncProcessMessage = false;
       }
-      processingAsyncProcessMessage = false;
     };
 
     const processMessageMayAwait = (msg: ServerMessage): boolean => {

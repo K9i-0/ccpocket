@@ -83,7 +83,10 @@ class BackgroundTasksBar extends StatelessWidget {
         'antigravity_timer' => 'Timer',
         'monitor' => 'Monitor',
         'local_workflow' => 'Workflow',
-        'local_agent' || 'remote_agent' || 'codex_agent' => 'Agent',
+        'local_agent' ||
+        'remote_agent' ||
+        'codex_agent' ||
+        'antigravity_agent' => 'Agent',
         final other => other,
       };
 
