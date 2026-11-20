@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.171.0] - 2026-11-20
+
+### Added
+
+- Claude and Codex live activity bar parity (with Bridge 1.113.0 or newer): surfaces tool JSON preparation hints before tool calls commit, elapsed seconds during long tool runs, classifier `task_summary` phrases, foreground/background subagent progress summaries, redacted thinking token progress, and Codex MCP tool progress.
+- Claude Session Recap card (`recap:`) displaying `away_summary` recaps from session history and live `/recap` command output.
+- Richer activity bar labels for Codex commands, MCP tools (`mcp:server/tool`), `Grep`, `Glob`, `WebSearch`, `TodoWrite`, `ImageGeneration`, and subagents.
+
+### Changed
+
+- The app now expects Bridge 1.113.0 and offers the update when connected to an older Bridge.
+- Background task bars and sheets display live progress summaries and active tool names when reported by Bridge.
+
+### Fixed
+
+- Cleared streaming thinking buffers when an assistant tool-use turn commits without text deltas, as well as on turn results and idle transitions, preventing duplicate `ThinkingBubble` widgets and suppressed activity bars.
+- Ignored notification-only `UpdatePlan` entries, terminal-status history tool entries, and superseded turns when determining the active tool for the activity bar.
+
 ## [1.170.0] - 2026-11-20
 
 ### Added

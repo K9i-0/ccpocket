@@ -681,6 +681,7 @@ void main() {
       expect(json['protocolVersion'], 1);
       expect(json['minimumProtocolVersion'], 1);
       expect(json['supportedServerMessages'], [
+        'agent_activity',
         'background_tasks',
         'context_compaction',
         'conversation_queue',
@@ -695,6 +696,7 @@ void main() {
         'push_registration_result',
         'session_context',
         'session_activity',
+        'session_recap',
       ]);
     });
 

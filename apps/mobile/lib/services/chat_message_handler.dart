@@ -219,6 +219,10 @@ class ChatMessageHandler {
   /// Used to suppress duplicate git errors in the chat stream.
   bool _gitTipShown = false;
 
+  /// Last observed process status, used to reset streaming buffers only when
+  /// leaving an active turn rather than during initial `starting -> idle` load.
+  ProcessStatus? _lastStatus;
+
   ChatStateUpdate handle(
     ServerMessage msg, {
     required bool isBackground,
@@ -453,12 +457,22 @@ class ChatMessageHandler {
     ProcessStatus status, {
     required bool isBackground,
   }) {
+    final previousStatus = _lastStatus;
+    _lastStatus = status;
+    final wasActiveTurn =
+        previousStatus == ProcessStatus.running ||
+        previousStatus == ProcessStatus.compacting ||
+        previousStatus == ProcessStatus.waitingApproval;
+    final hasBufferedStream =
+        currentStreaming != null || currentThinkingText.isNotEmpty;
     final effects = <ChatSideEffect>{};
     final bool resetPending;
+    final bool resetStreaming;
     if (status == ProcessStatus.waitingApproval) {
       effects.add(ChatSideEffect.heavyHaptic);
       if (isBackground) effects.add(ChatSideEffect.notifyApprovalRequired);
       resetPending = false;
+      resetStreaming = false;
     } else if (status == ProcessStatus.idle ||
         status == ProcessStatus.starting) {
       // Only reset pending on terminal states, not on transient 'running'
@@ -466,16 +480,19 @@ class ChatMessageHandler {
       // PermissionRequestMessage arrives before StatusMessage(waitingApproval)
       // and an intervening StatusMessage(running) would clear the pending state.
       resetPending = true;
-      currentStreaming = null;
-      currentThinkingText = '';
+      resetStreaming = wasActiveTurn || hasBufferedStream;
+      if (resetStreaming) {
+        currentStreaming = null;
+        currentThinkingText = '';
+      }
     } else {
       resetPending = false;
+      resetStreaming = false;
     }
     return ChatStateUpdate(
       status: status,
       resetPending: resetPending,
-      resetStreaming:
-          status == ProcessStatus.idle || status == ProcessStatus.starting,
+      resetStreaming: resetStreaming,
       sideEffects: effects,
     );
   }
