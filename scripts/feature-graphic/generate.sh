@@ -24,7 +24,7 @@ generate() {
     "$work_dir/icon.png" -geometry +52+54 -composite \
     -font Helvetica-Bold -pointsize 24 -fill '#F4F5F4' -annotate +106+83 'CC Pocket' \
     "$work_dir/title.png" -geometry +52+150 -composite \
-    -font Helvetica -pointsize 20 -fill '#A6B0AD' -annotate +54+387 'Codex / Claude' \
+    -font Helvetica -pointsize 20 -fill '#A6B0AD' -annotate +54+387 'Codex / Claude / Antigravity' \
     "$work_dir/chat.png" -geometry +614+56 -composite \
     "$work_dir/imagegen.png" -geometry +836+130 -composite \
     -alpha off -depth 8 -define png:exclude-chunks=date,time "$output"

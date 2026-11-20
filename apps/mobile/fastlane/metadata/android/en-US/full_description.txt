@@ -1,6 +1,6 @@
 Your agents. In your pocket.
 
-CC Pocket brings Codex and Claude to a chat UI made for your phone. Start a task, approve the next step, and review the result. Your agents run on your own computer; you can pick up the same work on another device.
+CC Pocket brings Codex, Claude, and Antigravity to a chat UI made for your phone. Start a task, approve the next step, and review the result. Your agents run on your own computer; you can pick up the same work on another device.
 
 CHAT FIRST
 Each session is a room for prompts, replies, approvals, and questions. Send images, use voice input, or write with Markdown. Handle waiting approvals from the session list.
@@ -21,11 +21,11 @@ YOUR OWN MACHINES
 Run the Bridge Server on your Mac, Linux, or Windows computer. Connect by QR code or saved host. Tailscale supports access away from your local network, and SSH lets you manage the Bridge remotely.
 
 GET STARTED
-1. Install Node.js 22.19.0 or later and Codex or Claude on your computer.
+1. Install Node.js 22.19.0 or later and Codex, Claude, or Antigravity on your computer.
 2. Run: npx @ccpocket/bridge@latest
 3. Scan the QR code in CC Pocket and choose a project.
 
 A reachable Bridge Server and a configured agent account are required. CC Pocket is free to use, with optional Supporter purchases. Agent service fees are separate.
 
-CC Pocket is open source and is not affiliated with Anthropic or OpenAI.
+CC Pocket is open source and is not affiliated with Anthropic, OpenAI, or Google.
 https://github.com/K9i-0/ccpocket

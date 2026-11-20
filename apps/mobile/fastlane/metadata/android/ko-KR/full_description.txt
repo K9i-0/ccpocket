@@ -1,6 +1,6 @@
 에이전트를 주머니에.
 
-휴대폰 채팅처럼 Codex와 Claude를 사용하세요. 작업을 요청하고, 다음 단계를 승인하고, 결과를 확인하세요. 에이전트는 내 컴퓨터에서 실행되고, 다른 기기에서도 같은 작업을 이어갈 수 있습니다.
+휴대폰 채팅처럼 Codex, Claude, Antigravity를 사용하세요. 작업을 요청하고, 다음 단계를 승인하고, 결과를 확인하세요. 에이전트는 내 컴퓨터에서 실행되고, 다른 기기에서도 같은 작업을 이어갈 수 있습니다.
 
 채팅처럼 조작
 세션마다 요청, 응답, 승인, 질문이 하나의 대화방에 모입니다. 이미지 첨부, 음성 입력, Markdown을 지원합니다. 여러 세션의 승인 대기도 목록에서 확인하세요.
@@ -21,11 +21,11 @@ Codex Imagegen으로 이미지를 만들고 채팅에서 확인하세요. 동영
 Mac, Linux, Windows에서 Bridge Server를 실행하세요. QR 코드나 저장된 호스트로 연결하고, 외부에서는 Tailscale을 사용할 수 있습니다. SSH로 Bridge를 관리할 수도 있습니다.
 
 시작하기
-1. 컴퓨터에 Node.js 22.19.0 이상과 Codex 또는 Claude 설치
+1. 컴퓨터에 Node.js 22.19.0 이상과 Codex, Claude 또는 Antigravity 설치
 2. npx @ccpocket/bridge@latest 실행
 3. CC Pocket에서 QR 코드를 스캔하고 프로젝트 선택
 
 연결 가능한 Bridge Server와 설정된 에이전트 계정이 필요합니다. CC Pocket은 무료로 사용할 수 있으며 선택적인 Supporter 구매로 개발을 지원할 수 있습니다. 에이전트 서비스 이용료는 별도입니다.
 
-CC Pocket은 오픈 소스이며 Anthropic 또는 OpenAI의 공식 앱이 아닙니다.
+CC Pocket은 오픈 소스이며 Anthropic, OpenAI 또는 Google의 공식 앱이 아닙니다.
 https://github.com/K9i-0/ccpocket

@@ -317,9 +317,9 @@ List<RecentSession> storeRecentSessions() => [
   ),
   RecentSession(
     sessionId: 'store-recent-2',
-    provider: 'codex',
+    provider: 'antigravity',
     name: 'WebSocket Bug Fix',
-    summary: 'Codex fixed WebSocket reconnection on network change',
+    summary: 'Antigravity fixed WebSocket reconnection on network change',
     firstPrompt: 'Fix the WebSocket drop when switching from WiFi to cellular',
     created: DateTime.now()
         .subtract(const Duration(hours: 3))
@@ -333,9 +333,9 @@ List<RecentSession> storeRecentSessions() => [
   ),
   RecentSession(
     sessionId: 'store-recent-3',
-    provider: 'codex',
+    provider: 'claude',
     name: 'API Rate Limits',
-    summary: 'Codex added rate-limit tests for the API routes',
+    summary: 'Claude added rate-limit tests for the API routes',
     firstPrompt: 'Add rate-limit handling and tests for the API routes',
     created: DateTime.now()
         .subtract(const Duration(hours: 5))

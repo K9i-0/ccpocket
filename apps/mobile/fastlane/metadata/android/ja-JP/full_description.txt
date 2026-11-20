@@ -1,6 +1,6 @@
 エージェントを、ポケットに。
 
-CodexとClaudeを、スマホのチャット感覚で。指示を出し、次の操作を承認し、結果を確認。エージェントは自分のPCで動き、別の端末でも同じ作業の続きを開けます。
+Codex、Claude、Antigravityを、スマホのチャット感覚で。指示を出し、次の操作を承認し、結果を確認。エージェントは自分のPCで動き、別の端末でも同じ作業の続きを開けます。
 
 チャット感覚で操作
 指示、返答、承認、質問が、セッションごとの部屋にまとまります。画像添付、音声入力、Markdownに対応。複数セッションの承認待ちも一覧から確認できます。
@@ -21,11 +21,11 @@ CodexのImagegenで画像を生成し、チャットで確認。動画や音声�
 Mac・Linux・Windows上でBridge Serverを実行。QRコードや保存済みホストで接続し、外出先からはTailscaleを利用できます。SSHからBridgeを管理することもできます。
 
 はじめかた
-1. PCにNode.js 22.19.0以上と、CodexまたはClaudeを用意
+1. PCにNode.js 22.19.0以上と、Codex、Claude、Antigravityのいずれかを用意
 2. npx @ccpocket/bridge@latest を実行
 3. CC PocketでQRコードを読み取り、プロジェクトを選択
 
 接続可能なBridge Serverと、設定済みのエージェントアカウントが必要です。CC Pocketは無料で利用でき、任意のSupporter購入で開発を支援できます。エージェントの利用料金は別途必要です。
 
-CC Pocketはオープンソースです。Anthropic・OpenAIの公式アプリではありません。
+CC Pocketはオープンソースです。Anthropic・OpenAI・Googleの公式アプリではありません。
 https://github.com/K9i-0/ccpocket

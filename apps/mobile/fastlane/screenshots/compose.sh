@@ -59,7 +59,7 @@ FONT_KO_REG="$(resolve_font_candidates \
   Apple-SD-Gothic-Neo-Regular /System/Library/Fonts/AppleSDGothicNeo.ttc)"
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja, keyword_zh, title_zh, keyword_ko, title_ko
 SCREENSHOTS=(
-  "01_conversation|Your agents.\nIn your pocket.|Codex and Claude, made for your phone.|エージェントを、\nポケットに。|CodexとClaudeを、チャット感覚で。|把编程代理，\n装进口袋。|像聊天一样使用 Codex 和 Claude。|에이전트를\n주머니에.|Codex와 Claude를 채팅처럼."
+  "01_conversation|Your agents.\nIn your pocket.|Codex, Claude, and Antigravity on your phone.|エージェントを、\nポケットに。|Codex、Claude、Antigravityをチャット感覚で。|把编程代理，\n装进口袋。|像聊天一样使用 Codex、Claude 和 Antigravity。|에이전트를\n주머니에.|Codex, Claude, Antigravity를 채팅처럼."
   "02_recent_sessions|Pick up\nwhere you left off.|Open the same work on your phone or Mac.|どこでも、\n続きから。|スマホでもMacでも、同じ作業を。|换个设备，\n继续工作。|手机或 Mac，都能打开同一项工作。|어디서든\n이어서.|휴대폰이나 Mac에서 같은 작업을."
   "03_approval_list|Your next move.\nOne tap away.|Review waiting approvals in one place.|次の判断を、\nワンタップで。|複数セッションの承認を、ひとつの一覧で。|下一步，\n轻点就好。|在一个列表中查看待审批操作。|다음 결정도\n한 번의 탭으로.|여러 세션의 승인 대기를 한곳에서."
   "04_git_review|Review it.\nShip it.|Comment on diffs. Stage, commit, and push.|差分を見て、\nそのまま反映。|差分にコメント。コミット、pushまで。|查看差异，\n提交变更。|评论差异、暂存、提交和推送。|검토하고,\n반영하세요.|diff 댓글부터 커밋과 push까지."

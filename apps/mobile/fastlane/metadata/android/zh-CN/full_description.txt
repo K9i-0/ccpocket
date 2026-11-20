@@ -1,6 +1,6 @@
 把编程代理，装进口袋。
 
-用手机聊天的方式操作Codex和Claude：发出指令、批准下一步、查看结果。代理在你自己的电脑上运行，换个设备也能继续同一项工作。
+用手机聊天的方式操作Codex、Claude和Antigravity：发出指令、批准下一步、查看结果。代理在你自己的电脑上运行，换个设备也能继续同一项工作。
 
 像聊天一样操作
 每个会话就是一个房间，集中显示指令、回复、审批和问题。支持图片附件、语音输入和Markdown。多个会话的待审批操作也能在列表中查看。
@@ -21,11 +21,11 @@
 在Mac、Linux或Windows上运行Bridge Server。用二维码或已保存主机连接，通过Tailscale从外部网络访问，也可通过SSH管理Bridge。
 
 开始使用
-1. 在电脑上安装Node.js 22.19.0或更高版本，以及Codex或Claude
+1. 在电脑上安装Node.js 22.19.0或更高版本，以及Codex、Claude或Antigravity
 2. 运行：npx @ccpocket/bridge@latest
 3. 在CC Pocket中扫描二维码并选择项目
 
 需要可连接的Bridge Server和已配置的代理账号。CC Pocket可免费使用，也可通过自愿购买Supporter支持开发。代理服务费用另计。
 
-CC Pocket是开源软件，并非Anthropic或OpenAI的官方应用。
+CC Pocket是开源软件，并非Anthropic、OpenAI或Google的官方应用。
 https://github.com/K9i-0/ccpocket
