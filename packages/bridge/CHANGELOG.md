@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.113.2] - 2026-11-21
+
+### Fixed
+
+- Antigravity: normalize Windows file-URI pathname `cwd` values (e.g. `/D:/%E9%A1%B9%E7%9B%AE/demo` and `file://` URIs) returned by `agy acp` `session/list` into native Windows paths so Recent Sessions display, project-scoped filtering, and `resume_session` work properly on Windows (#358).
+
 ## [1.113.1] - 2026-11-20
 
 ### Fixed
