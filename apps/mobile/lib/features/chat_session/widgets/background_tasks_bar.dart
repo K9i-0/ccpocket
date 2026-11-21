@@ -6,9 +6,16 @@ import '../../../models/messages.dart';
 import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 
+bool _isSwarmTask(BackgroundTaskInfo task) => task.subagentType == 'swarm';
+
+String _stripSwarmPrefix(String text) {
+  const prefix = 'Swarm: ';
+  return text.startsWith(prefix) ? text.substring(prefix.length) : text;
+}
+
 /// Shows live background tasks of the current session: Claude shells,
-/// monitors and subagents, or Codex terminals and child agents. A turn can
-/// finish while these keep running.
+/// monitors and subagents, Codex terminals and child agents, or Antigravity
+/// swarm workers. A turn can finish while these keep running.
 class SessionBackgroundTasksBar extends StatelessWidget {
   const SessionBackgroundTasksBar({super.key});
 
@@ -68,8 +75,11 @@ class BackgroundTasksBar extends StatelessWidget {
   /// Opens the task list. Defaults to a sheet with the current [tasks].
   final VoidCallback? onTap;
 
-  static String taskLabel(BackgroundTaskInfo task) {
-    final description = task.description?.trim();
+  static String taskLabel(BackgroundTaskInfo task, {bool stripSwarm = false}) {
+    final rawDescription = task.description?.trim();
+    final description = stripSwarm && rawDescription != null
+        ? _stripSwarmPrefix(rawDescription)
+        : rawDescription;
     final base = (description != null && description.isNotEmpty)
         ? description
         : taskKindLabel(task);
@@ -101,10 +111,14 @@ class BackgroundTasksBar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context);
-    final first = taskLabel(tasks.first);
+    final isSwarmOnly = tasks.isNotEmpty && tasks.every(_isSwarmTask);
+    final first = taskLabel(tasks.first, stripSwarm: isSwarmOnly);
     final more = tasks.length > 1
         ? ' · ${l.backgroundTasksMore(tasks.length - 1)}'
         : '';
+    final leadingLabel = isSwarmOnly
+        ? 'Swarm (${tasks.length})'
+        : l.backgroundTasksRunning;
 
     return Material(
       key: const ValueKey('background_tasks_bar'),
@@ -133,10 +147,14 @@ class BackgroundTasksBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
+                if (isSwarmOnly) ...[
+                  Icon(Icons.hub_outlined, size: 14, color: cs.primary),
+                  const SizedBox(width: 4),
+                ],
                 Text(
-                  l.backgroundTasksRunning,
+                  leadingLabel,
                   style: textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
+                    color: isSwarmOnly ? cs.primary : cs.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -164,6 +182,12 @@ class BackgroundTasksBar extends StatelessWidget {
                       minHeight: 32,
                     ),
                     padding: EdgeInsets.zero,
+                  )
+                else
+                  Icon(
+                    Icons.keyboard_arrow_up,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
                   ),
               ],
             ),
@@ -182,8 +206,12 @@ class BackgroundTasksSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final isSwarmOnly = tasks.isNotEmpty && tasks.every(_isSwarmTask);
+    final headerTitle = isSwarmOnly
+        ? 'Swarm (${tasks.length})'
+        : '${l.backgroundTasksRunning} (${tasks.length})';
+
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -197,19 +225,33 @@ class BackgroundTasksSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  '${l.backgroundTasksRunning} (${tasks.length})',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Row(
+                  children: [
+                    if (isSwarmOnly) ...[
+                      Icon(
+                        Icons.hub_outlined,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      headerTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
-                children: [for (final task in tasks) _buildTile(task, cs)],
+                children: [
+                  for (final task in tasks) _BackgroundTaskTile(task: task),
+                ],
               ),
             ),
           ],
@@ -217,17 +259,30 @@ class BackgroundTasksSheet extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildTile(BackgroundTaskInfo task, ColorScheme cs) {
-    final description = task.description?.trim();
+class _BackgroundTaskTile extends StatelessWidget {
+  final BackgroundTaskInfo task;
+
+  const _BackgroundTaskTile({required this.task});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isSwarm = _isSwarmTask(task);
+    final rawDescription = task.description?.trim();
+    final description = isSwarm && rawDescription != null
+        ? _stripSwarmPrefix(rawDescription)
+        : rawDescription;
     final kind = BackgroundTasksBar.taskKindLabel(task);
     final title = (description != null && description.isNotEmpty)
         ? description
         : kind;
     final summary = task.summary?.trim();
     final tool = task.lastToolName?.trim();
+    final isWaiting = isSwarm && summary == 'Waiting';
     final subtitleParts = <String>[
-      if (kind != title) kind,
+      if (!isSwarm && kind != title) kind,
       if (summary != null && summary.isNotEmpty && summary != title) summary,
       if (tool != null && tool.isNotEmpty) tool,
     ];
@@ -237,9 +292,17 @@ class BackgroundTasksSheet extends StatelessWidget {
       leading: Icon(
         task.isAgent ? Icons.smart_toy_outlined : Icons.terminal,
         size: 20,
-        color: cs.onSurfaceVariant,
+        color: isSwarm && !isWaiting ? cs.tertiary : cs.onSurfaceVariant,
       ),
-      title: Text(title),
+      title: Text(
+        title,
+        style: isSwarm
+            ? TextStyle(
+                fontWeight: isWaiting ? FontWeight.w500 : FontWeight.w600,
+                color: isWaiting ? cs.onSurfaceVariant : cs.onSurface,
+              )
+            : null,
+      ),
       subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' · ')),
     );
   }

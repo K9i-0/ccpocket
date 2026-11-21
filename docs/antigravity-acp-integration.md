@@ -244,14 +244,15 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 - **「常に許可」**は coordinator のセッションの許可として保存され、coordinator と全 worker に効く。
 - **表示の順序**: coordinator が返答を書いている最中に届いた worker の承認とボード投稿は、その返答が終わるまで（最長 5 秒）出すのを待つ。すぐ出すと返答が途中で切れて複数の吹き出しになる。
 - **worker からの質問**（`elicitation/create`）は `decline` を返す。ユーザーに聞くのは coordinator の役目。
-- **稼働状況**: 名簿の `wake_mode` が `working` で、直近 5 分以内に動きのあった worker を `background_tasks` に `taskType: "antigravity_agent"`、`subagentType: "swarm"`、`description: "Swarm: <名前>"`（`summary` に実行中のツール）で出す。その間 `expectsFollowUp` が真になり、完了通知を保留する。再開直後の名簿は前回の `working` が残っていることがあるので、接続後に動きが届くまでは数えない。
+- **稼働状況**: 名簿の `wake_mode` が `working` で直近 5 分以内に動きのあった worker、およびライブ更新（思考・本文・ツール呼び出し・承認要求）が届いた worker を稼働中として扱う。稼働中の worker がいる間は `expectsFollowUp` が真になり、完了通知を保留する。coordinator のターン中または稼働中 worker がいる間は、同じ swarm の待機中 worker（`!killed` かつ直近 5 分以内に動きあり）も含めて `background_tasks` に `taskType: "antigravity_agent"`、`subagentType: "swarm"`、`description: "Swarm: <名前>"`（稼働中は実行中のツール、待機中は `Waiting`）で出し、セッションカードのサブエージェント数バッジとチャット下部の Swarm バーへ反映する。coordinator・全 worker がアイドルになったら `[]` に戻す。再開直後の名簿は前回の `working` が残っていることがあるので、接続後に動きが届くまでは数えない。
 - **ボード**（ボードから1件でも読めたあと）: 新しい投稿を `tool_use`（`name: "SwarmPost"`、`input: {seq, agent, text, time}`）と、本文を入れた `tool_result` の組で出す。`kind: "brief"`（`swarm add` の brief の写し）は `swarm add` のカードと重なるので出さない。coordinator 自身の `post_message` は、ボードを見ている間はカードを出さず、ボードの投稿として1回だけ出す。再開時は過去の投稿を出し直さない。
 - **CLI 用の案内文**は確定した返答から取り除く（ストリーミング中の一時表示には残る）。
 
 ### アプリ
 
-- `SwarmPost` はツールカードではなく、投稿者名と本文のカード（[swarm_post_card.dart](../apps/mobile/lib/widgets/bubbles/swarm_post_card.dart)）で出す。対になる結果は表示しない。Lite モードでも残す。
+- `SwarmPost` はツールカードではなく、投稿者名・宛先メンション・`#seq`・時刻・2行プレビューをまとめたコンパクトカード（[swarm_post_card.dart](../apps/mobile/lib/widgets/bubbles/swarm_post_card.dart)）で出す。タップでインライン展開／折りたたみでき、展開ヘッダーから全文ボトムシート（テキスト選択・コピー・ファイルリンク対応）も開ける。対になる結果は表示しない。Lite モードでも残す。
 - 承認バーとセッションカードの承認欄に `Swarm worker: <名前>` を出す。ツール行の要約は `[<名前>] …` で始める。
+- セッションカードのステータスバーに既存のサブエージェントと同様に `backgroundAgentCount`（`hub_outlined` + 人数）を表示し、チャット下部のバックグラウンドバーでは Swarm のみ稼働中は `Swarm (N)` としてワーカー名と処理内容をコンパクトに表示する（タップで全ワーカー一覧シート）。
 - `swarm` ツールの行は `add <名前>` / `status` のように要約する。
 
 ### 互換性

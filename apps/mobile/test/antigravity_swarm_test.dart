@@ -1,4 +1,5 @@
 import 'package:ccpocket/features/chat_session/lite_mode_projection.dart';
+import 'package:ccpocket/features/chat_session/widgets/background_tasks_bar.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -15,7 +16,7 @@ import 'package:material_ui/material_ui.dart';
 const _post = {
   'seq': 2,
   'agent': 'writer_a',
-  'text': '@coordinator [done] wrote `a.txt`',
+  'text': '@coordinator [done] wrote `a.txt`\n\n## Details\n- Line 1\n- Line 2',
   'time': '2026-11-21 20:51:41',
 };
 
@@ -42,25 +43,112 @@ void main() {
     ),
   );
 
-  testWidgets('a board post shows who posted and what, not a tool card', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      const ToolUseTile(
-        toolUseId: 'swarm-post:s:2',
-        name: 'SwarmPost',
-        input: _post,
-      ),
-    );
+  testWidgets(
+    'a board post starts compact, expands inline on tap, and opens detail sheet',
+    (tester) async {
+      await pump(
+        tester,
+        const ToolUseTile(
+          toolUseId: 'swarm-post:s:2',
+          name: 'SwarmPost',
+          input: _post,
+        ),
+      );
 
-    expect(find.byType(SwarmPostCard), findsOneWidget);
-    expect(find.text('writer_a'), findsOneWidget);
-    expect(find.text('#2'), findsOneWidget);
-    expect(find.textContaining('[done] wrote', findRichText: true), findsOne);
-    // Not the generic tool row, which would show the tool's name.
-    expect(find.text('SwarmPost'), findsNothing);
-  });
+      expect(find.byType(SwarmPostCard), findsOneWidget);
+      expect(find.text('writer_a'), findsOneWidget);
+      expect(find.text('→ @coordinator'), findsOneWidget);
+      expect(find.text('#2'), findsOneWidget);
+      expect(find.text('20:51'), findsOneWidget);
+      expect(find.textContaining('[done] wrote a.txt'), findsOneWidget);
+      // Full body details are hidden while collapsed.
+      expect(find.textContaining('Line 2'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('swarm_post_sheet_button_2')),
+        findsNothing,
+      );
+      // Not the generic tool row, which would show the tool's name.
+      expect(find.text('SwarmPost'), findsNothing);
+
+      // Tap to expand inline.
+      await tester.tap(find.byKey(const ValueKey('swarm_post_toggle_2')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Line 2', findRichText: true), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('swarm_post_sheet_button_2')),
+        findsOneWidget,
+      );
+
+      // Open the full-screen detail sheet.
+      await tester.tap(find.byKey(const ValueKey('swarm_post_sheet_button_2')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('swarm_post_detail_sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('swarm_post_detail_sheet')),
+          matching: find.textContaining('Line 2', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+
+      // Close sheet and collapse back to compact.
+      Navigator.of(
+        tester.element(find.byKey(const ValueKey('swarm_post_detail_sheet'))),
+      ).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('swarm_post_toggle_2')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Line 2'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'background tasks bar renders a compact Swarm summary and sheet',
+    (tester) async {
+      await pump(
+        tester,
+        const BackgroundTasksBar(
+          tasks: [
+            BackgroundTaskInfo(
+              taskId: 'swarm:waterfall-pond',
+              taskType: 'antigravity_agent',
+              subagentType: 'swarm',
+              description: 'Swarm: waterfall-pond',
+              summary: 'File pond.dart',
+            ),
+            BackgroundTaskInfo(
+              taskId: 'swarm:ocean-river',
+              taskType: 'antigravity_agent',
+              subagentType: 'swarm',
+              description: 'Swarm: ocean-river',
+              summary: 'Waiting',
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Swarm (2)'), findsOneWidget);
+      expect(
+        find.textContaining('waterfall-pond — File pond.dart'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('background_tasks_bar')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(
+        find.byKey(const ValueKey('background_tasks_sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('waterfall-pond'), findsOneWidget);
+      expect(find.text('ocean-river'), findsOneWidget);
+      expect(find.text('Waiting'), findsOneWidget);
+    },
+  );
 
   test('the result of a board post is not shown a second time', () {
     expect(

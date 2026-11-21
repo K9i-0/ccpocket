@@ -207,7 +207,12 @@ class _PlanLayout extends StatelessWidget {
                       name == _imageGenerationToolName &&
                           hiddenToolUseIds.contains(id)
                   ? const SizedBox.shrink()
-                  : ToolUseTile(toolUseId: id, name: name, input: input),
+                  : ToolUseTile(
+                      toolUseId: id,
+                      name: name,
+                      input: input,
+                      onFileTap: onFileTap,
+                    ),
             TextContent() => const SizedBox.shrink(),
           },
         PlanCard(
@@ -274,7 +279,12 @@ class _DefaultLayout extends StatelessWidget {
                   ? const SizedBox.shrink()
                   : name == 'TodoWrite' || isCodexUpdatePlanTool(name)
                   ? TodoWriteWidget(input: input)
-                  : ToolUseTile(toolUseId: id, name: name, input: input),
+                  : ToolUseTile(
+                      toolUseId: id,
+                      name: name,
+                      input: input,
+                      onFileTap: onFileTap,
+                    ),
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
             ),
@@ -352,11 +362,13 @@ class ToolUseTile extends StatefulWidget {
   final String toolUseId;
   final String name;
   final Map<String, dynamic> input;
+  final FilePathTapCallback? onFileTap;
   const ToolUseTile({
     super.key,
     this.toolUseId = '',
     required this.name,
     required this.input,
+    this.onFileTap,
   });
 
   @override
@@ -456,7 +468,7 @@ class _ToolUseTileState extends State<ToolUseTile> {
       );
     }
     if (widget.name == swarmPostToolName) {
-      return SwarmPostCard(input: widget.input);
+      return SwarmPostCard(input: widget.input, onFileTap: widget.onFileTap);
     }
 
     if (_expansion == ToolUseExpansion.collapsed) {

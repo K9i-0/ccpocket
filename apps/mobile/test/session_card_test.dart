@@ -543,6 +543,47 @@ void main() {
       );
     });
 
+    testWidgets(
+      'shows Antigravity swarm agent count badge like Claude subagents',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            RunningSessionCard(
+              session: backgroundSession(
+                provider: 'antigravity',
+                status: 'running',
+                tasks: 3,
+                agents: 3,
+              ),
+              onTap: () {},
+            ),
+          ),
+        );
+
+        expect(find.text('Working'), findsOneWidget);
+        final agents = find.byKey(
+          const ValueKey('session_card_subagent_badge'),
+        );
+        expect(agents, findsOneWidget);
+        expect(
+          find.descendant(of: agents, matching: find.text('3')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: agents,
+            matching: find.byIcon(Icons.hub_outlined),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('3 agents'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('session_card_background_badge')),
+          findsNothing,
+        );
+      },
+    );
+
     testWidgets('shows counts for background shells and monitors', (
       tester,
     ) async {
