@@ -1,7 +1,7 @@
-• Google Antigravity support. With the Antigravity CLI (agy) on your Bridge machine, start and resume Antigravity sessions next to Codex and Claude. Pick the model, thinking level, and approval mode, answer the agent's questions, review plans, generate images, and check usage and context. Requires Bridge 1.113.1 or later.
-• Enabled agents: switch Codex, Claude, and Antigravity on or off in Settings.
-• Live activity bar: the bottom of the chat shows what the agent is doing (thinking, running a command, editing or reading a file), with a live preview of its thinking.
-• Session Recap card for Claude sessions.
-• Background tasks show their live progress.
-• Fixed recent sessions showing as empty right after connecting, a pending approval disappearing from the chat, and earlier agent output appearing below a newly sent message.
-• Removed mDNS auto-discovery, which never listed servers. Connect by QR code, saved machine, manual URL, or Tailscale.
+• Visible models: choose in Settings which models appear in the model pickers for each agent.
+• Model picker style: open the model list as a Sheet, or as a Menu that opens in place without another bottom sheet.
+• The Antigravity thinking level is now a slider, in the same layout as the Claude and Codex settings.
+• Performance mode now keeps thinking blocks and assistant images (generated images and images in assistant messages) while still hiding other tool details. Requires Bridge 1.114.0 or later.
+• Bridge connections through the built-in SSH tunnel now recover by themselves after a network change (Wi-Fi to cellular, sleep).
+• Fixed Notifications and the other per-machine settings not appearing when connected through the SSH tunnel.
+• Fixed a connection through the SSH tunnel failing with "Password required" instead of asking for the SSH password.

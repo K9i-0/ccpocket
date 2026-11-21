@@ -1,0 +1,6 @@
+• Visible models: choose which models appear in the model pickers.
+• Model picker style: open the model list as a Sheet or as a Menu that opens in place.
+• The Antigravity thinking level is now a slider.
+• Performance mode keeps thinking blocks and assistant images. Requires Bridge 1.114.0 or later.
+• SSH tunnel connections now recover by themselves after a network change.
+• Fixed Notifications and other per-machine settings not appearing over the SSH tunnel.
