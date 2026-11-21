@@ -1,5 +1,3 @@
-
-
 import '../../../models/messages.dart';
 import '../permission_transcript.dart';
 import 'chat_session_state.dart';

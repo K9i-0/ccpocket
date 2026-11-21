@@ -17,11 +17,8 @@ import '../../hooks/use_scroll_tracking.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
-import '../../providers/machine_manager_cubit.dart';
 import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
-import '../../widgets/rename_session_dialog.dart';
-import '../../services/chat_message_handler.dart';
 import '../../services/draft_service.dart';
 import '../../utils/composer_tokens.dart';
 import '../../utils/codex_plan_update.dart';
@@ -29,8 +26,6 @@ import '../../services/notification_service.dart';
 import '../../widgets/session_name_title.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../utils/diff_parser.dart';
-import '../../utils/network_endpoint.dart';
-import '../../utils/terminal_launcher.dart';
 import '../settings/state/settings_cubit.dart';
 import '../../widgets/new_session_sheet.dart'
     show permissionModeFromRaw, sandboxModeFromRaw;
@@ -72,6 +67,7 @@ import 'widgets/codex_goal_card.dart';
 import 'widgets/codex_recovery_panel.dart';
 import 'widgets/codex_rewind_dialog.dart';
 import 'widgets/tool_suggestion_card.dart';
+import '../chat_session/session_screen_shared.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -81,16 +77,6 @@ const _fileListRefreshToolNames = {
   'NotebookEdit',
   'Bash',
 };
-
-class _NoopListenable implements Listenable {
-  const _NoopListenable();
-
-  @override
-  void addListener(VoidCallback listener) {}
-
-  @override
-  void removeListener(VoidCallback listener) {}
-}
 
 /// Codex-specific chat screen.
 ///
@@ -508,8 +494,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   Widget build(BuildContext context) {
     if (_isPending) {
       final shell = WorkspaceShellScreen.maybeOf(context);
-      final chrome = _resolveSessionPaneChrome(context, shell);
-      final leading = _sessionAppBarLeading(
+      final chrome = resolveSessionPaneChrome(context, shell);
+      final leading = sessionAppBarLeading(
         context,
         onBackToSessions: widget.onBackToSessions,
         hideSessionBackButton: widget.hideSessionBackButton,
@@ -738,16 +724,16 @@ class _CodexChatBody extends HookWidget {
     final chatSessionCubit = context.read<ChatSessionCubit>();
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
-    final effectiveProjectPath = _firstNonEmptyProjectPath(
+    final effectiveProjectPath = firstNonEmptyProjectPath(
       sessionState.projectPath,
       projectPath,
     );
-    final effectiveWorktreePath = _firstNonEmptyProjectPath(
+    final effectiveWorktreePath = firstNonEmptyProjectPath(
       sessionState.worktreePath,
       worktreePath,
     );
     final gitProjectPath = effectiveWorktreePath ?? effectiveProjectPath;
-    final gitBadgeTone = _gitBadgeToneOf(
+    final gitBadgeTone = sessionGitBadgeToneOf(
       context,
       sessionId,
       gitProjectPath,
@@ -825,7 +811,8 @@ class _CodexChatBody extends HookWidget {
     // --- Side effects subscription ---
     useEffect(() {
       final sub = chatSessionCubit.sideEffects.listen(
-        (effects) => _executeSideEffects(
+        (effects) => executeSessionSideEffects(
+          completionNotificationBody: 'Codex session done',
           effects,
           sessionId: sessionId,
           isBackground: isBackgroundRef.value,
@@ -1074,12 +1061,12 @@ class _CodexChatBody extends HookWidget {
         child: Focus(
           autofocus: true,
           child: ListenableBuilder(
-            listenable: presentationListenable ?? const _NoopListenable(),
+            listenable: presentationListenable ?? const SessionNoopListenable(),
             builder: (context, child) {
               final currentShell = WorkspaceShellScreen.maybeOf(context);
               final isSinglePane = currentShell?.isSinglePane ?? true;
-              final chrome = _resolveSessionPaneChrome(context, currentShell);
-              final leading = _sessionAppBarLeading(
+              final chrome = resolveSessionPaneChrome(context, currentShell);
+              final leading = sessionAppBarLeading(
                 context,
                 onBackToSessions: onBackToSessions,
                 hideSessionBackButton: hideSessionBackButton,
@@ -1185,7 +1172,7 @@ class _CodexChatBody extends HookWidget {
                         key: const ValueKey('appbar_view_changes'),
                         icon: Badge(
                           isLabelVisible: gitBadgeTone != null,
-                          backgroundColor: _gitBadgeColor(
+                          backgroundColor: sessionGitBadgeColor(
                             context,
                             gitBadgeTone,
                           ),
@@ -1204,7 +1191,7 @@ class _CodexChatBody extends HookWidget {
                           minHeight: 32,
                         ),
                         onPressed: () {
-                          _openGitScreen(
+                          openSessionGitScreen(
                             context,
                             effectiveWorktreePath ?? effectiveProjectPath,
                             diffSelectionFromNav,
@@ -1301,11 +1288,17 @@ class _CodexChatBody extends HookWidget {
                               ),
                             );
                           case 'gallery':
-                            _openGalleryScreen(context, sessionId: sessionId);
+                            openSessionGalleryScreen(
+                              context,
+                              sessionId: sessionId,
+                            );
                           case 'rename':
-                            _renameSession(context, sessionId);
+                            renameSessionFromScreen(context, sessionId);
                           case 'terminal':
-                            _openInTerminal(context, effectiveProjectPath);
+                            openSessionInTerminal(
+                              context,
+                              effectiveProjectPath,
+                            );
                         }
                       },
                       itemBuilder: (context) {
@@ -1659,7 +1652,7 @@ class _CodexChatBody extends HookWidget {
                                 onDiffSelectionCleared: () =>
                                     diffSelectionFromNav.value = null,
                                 onOpenGitScreen: effectiveProjectPath != null
-                                    ? (_) => _openGitScreen(
+                                    ? (_) => openSessionGitScreen(
                                         context,
                                         effectiveWorktreePath ??
                                             effectiveProjectPath,
@@ -1684,283 +1677,9 @@ class _CodexChatBody extends HookWidget {
   }
 }
 
-Widget? _sessionAppBarLeading(
-  BuildContext context, {
-  VoidCallback? onBackToSessions,
-  bool hideSessionBackButton = false,
-}) {
-  if (!hideSessionBackButton && onBackToSessions != null) {
-    return BackButton(
-      key: const ValueKey('session_back_button'),
-      onPressed: onBackToSessions,
-    );
-  }
-  if (hideSessionBackButton) {
-    return null;
-  }
-  return BackButton(
-    key: const ValueKey('session_back_button'),
-    onPressed: () => Navigator.of(context).maybePop(),
-  );
-}
-
-WorkspacePaneChrome _resolveSessionPaneChrome(
-  BuildContext context,
-  WorkspaceShellScreenState? shell,
-) {
-  return resolveWorkspacePaneChrome(
-    platform: Theme.of(context).platform,
-    isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
-    isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
-    slot: WorkspacePaneSlot.center,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-enum _GitBadgeTone { dirty, remote }
-
-String? _firstNonEmptyProjectPath(String? primary, String? fallback) {
-  if (primary?.trim().isNotEmpty == true) return primary;
-  if (fallback?.trim().isNotEmpty == true) return fallback;
-  return null;
-}
-
-_GitBadgeTone? _gitBadgeToneOf(
-  BuildContext context,
-  String sessionId,
-  String? projectPath, {
-  required bool showRemoteGitStatusBadge,
-}) {
-  if (projectPath == null || projectPath.isEmpty) return null;
-  try {
-    return context.select((GitStatusCubit cubit) {
-      final entry = cubit.state.entryFor(sessionId);
-      if (entry?.projectPath != projectPath) return null;
-      if (entry?.showDirtyBadge == true) return _GitBadgeTone.dirty;
-      if (entry?.showRemoteBadge(enabled: showRemoteGitStatusBadge) == true) {
-        return _GitBadgeTone.remote;
-      }
-      return null;
-    });
-  } catch (_) {
-    return null;
-  }
-}
-
-Color? _gitBadgeColor(BuildContext context, _GitBadgeTone? tone) {
-  final error = Theme.of(context).colorScheme.error;
-  return switch (tone) {
-    _GitBadgeTone.dirty => error,
-    _GitBadgeTone.remote => error.withValues(alpha: 0.45),
-    null => null,
-  };
-}
-
-Future<void> _openGitScreen(
-  BuildContext context,
-  String projectPath,
-  ValueNotifier<DiffSelection?> diffSelectionNotifier, {
-  String? sessionId,
-  String? worktreePath,
-  ValueChanged<String>? onFilePeekOpened,
-}) async {
-  final shell = WorkspaceShellScreen.maybeOf(context);
-  if (shell?.canOpenToolPane ?? false) {
-    shell!.openGitPane(
-      projectPath: projectPath,
-      sessionId: sessionId,
-      worktreePath: worktreePath,
-      diffSelectionNotifier: diffSelectionNotifier,
-      onFilePeekOpened: onFilePeekOpened,
-    );
-    return;
-  }
-  final selection = await context.router.push<DiffSelection>(
-    GitRoute(
-      projectPath: projectPath,
-      sessionId: sessionId,
-      worktreePath: worktreePath,
-      onFilePeekOpened: onFilePeekOpened,
-    ),
-  );
-  if (selection != null) {
-    diffSelectionNotifier.value = selection.isEmpty ? null : selection;
-  }
-}
-
-void _openGalleryScreen(BuildContext context, {required String sessionId}) {
-  final shell = WorkspaceShellScreen.maybeOf(context);
-  if (shell?.canOpenToolPane ?? false) {
-    shell!.openSessionGalleryPane(sessionId: sessionId);
-    return;
-  }
-  context.router.push(GalleryRoute(sessionId: sessionId));
-}
-
-void _executeSideEffects(
-  Set<ChatSideEffect> effects, {
-  required String sessionId,
-  required bool isBackground,
-  required bool remoteNotificationsReady,
-  required ApprovalState approval,
-  required AppLocalizations l,
-  required TextEditingController planFeedbackController,
-  required ValueNotifier<int> collapseToolResults,
-  required bool Function() isReadingHistory,
-}) {
-  final useLocalNotification = shouldUseLocalNotificationFallback(
-    isBackground: isBackground,
-    remoteNotificationsReady: remoteNotificationsReady,
-  );
-  for (final effect in effects) {
-    switch (effect) {
-      case ChatSideEffect.heavyHaptic:
-        HapticFeedback.heavyImpact();
-      case ChatSideEffect.mediumHaptic:
-        HapticFeedback.mediumImpact();
-      case ChatSideEffect.lightHaptic:
-        HapticFeedback.lightImpact();
-      case ChatSideEffect.collapseToolResults:
-        if (shouldAutoCollapseToolResults(isReadingHistory())) {
-          collapseToolResults.value++;
-        }
-      case ChatSideEffect.clearPlanFeedback:
-        planFeedbackController.clear();
-      case ChatSideEffect.notifyApprovalRequired:
-        if (useLocalNotification) {
-          final permission = _notificationPermissionFor(approval);
-          if (permission != null) {
-            NotificationService.instance.showApprovalNotification(
-              permission,
-              l: l,
-              id: 1,
-              payload: sessionId,
-            );
-          }
-        }
-      case ChatSideEffect.notifyAskQuestion:
-        if (useLocalNotification) {
-          final permission = _notificationPermissionFor(approval);
-          if (permission != null) {
-            NotificationService.instance.showApprovalNotification(
-              permission,
-              l: l,
-              id: 2,
-              payload: sessionId,
-            );
-          }
-        }
-      case ChatSideEffect.notifyGoalProgress:
-      case ChatSideEffect.notifyGoalComplete:
-      case ChatSideEffect.notifyGoalBlocked:
-      case ChatSideEffect.notifyGoalBudgetLimited:
-      case ChatSideEffect.notifyGoalUsageLimited:
-        if (useLocalNotification) {
-          final title = switch (effect) {
-            ChatSideEffect.notifyGoalProgress => l.notifyGoalProgress,
-            ChatSideEffect.notifyGoalComplete => l.notifyGoalComplete,
-            ChatSideEffect.notifyGoalBlocked => l.notifyGoalBlocked,
-            ChatSideEffect.notifyGoalBudgetLimited => l.notifyGoalBudgetLimited,
-            ChatSideEffect.notifyGoalUsageLimited => l.notifyGoalUsageLimited,
-            _ => '',
-          };
-          NotificationService.instance.show(
-            title: title,
-            body: title,
-            id: 3,
-            payload: sessionId,
-          );
-        }
-      case ChatSideEffect.notifySessionComplete:
-        if (useLocalNotification) {
-          NotificationService.instance.showSessionCompleteNotification(
-            body: 'Codex session done',
-            id: 3,
-            payload: sessionId,
-          );
-        }
-    }
-  }
-}
-
-PermissionRequestMessage? _notificationPermissionFor(ApprovalState approval) {
-  return switch (approval) {
-    ApprovalPermission(:final request) => request,
-    ApprovalAskUser(:final toolUseId, :final input) => PermissionRequestMessage(
-      toolUseId: toolUseId,
-      toolName: 'AskUserQuestion',
-      input: input,
-    ),
-    ApprovalNone() => null,
-    _ => null,
-  };
-}
-
-Future<void> _openInTerminal(BuildContext context, String? projectPath) async {
-  if (!FeatureFlags.current.isEnabled(AppFeature.terminalAppIntegration)) {
-    return;
-  }
-  if (projectPath == null) return;
-  final config = context.read<SettingsCubit>().state.terminalApp;
-  if (!config.isConfigured) return;
-
-  final bridge = context.read<BridgeService>();
-  final url = bridge.lastUrl;
-  final uri = url != null
-      ? Uri.tryParse(
-          url
-              .replaceFirst('ws://', 'http://')
-              .replaceFirst('wss://', 'https://'),
-        )
-      : null;
-  final host = normalizeHostInput(uri?.host ?? '');
-
-  // Resolve SSH user from machine config
-  String? sshUser;
-  try {
-    final machines = context.read<MachineManagerCubit>().state.machines;
-    for (final item in machines) {
-      if (canonicalHostIdentity(item.machine.host) ==
-          canonicalHostIdentity(host)) {
-        sshUser = item.machine.sshUsername;
-        break;
-      }
-    }
-  } catch (_) {
-    // MachineManagerCubit may not be available
-  }
-
-  final launched = await launchTerminalApp(
-    config: config,
-    host: host,
-    sshUser: sshUser,
-    projectPath: projectPath,
-  );
-
-  if (!launched && context.mounted) {
-    final l = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l.terminalAppNotInstalled)));
-  }
-}
-
-Future<void> _renameSession(BuildContext context, String sessionId) async {
-  final bridge = context.read<BridgeService>();
-  final sessions = bridge.sessions;
-  final session = sessions.where((s) => s.id == sessionId).firstOrNull;
-  final newName = await showRenameSessionDialog(
-    context,
-    currentName: session?.name,
-  );
-  if (newName == null || !context.mounted) return;
-  bridge.renameSession(
-    sessionId: sessionId,
-    name: newName.isEmpty ? null : newName,
-  );
-}
 
 void _showUserMessageHistory(
   BuildContext context,
@@ -2013,7 +1732,7 @@ void _showCodexRewindDialog(
         messageText: message.text,
         onConfirm: () {
           Navigator.of(dialogContext).pop();
-          _restoreRewindMessageToComposer(
+          restoreRewindMessageToComposer(
             inputController: inputController,
             draftService: draftService,
             sessionId: sessionId,
@@ -2066,19 +1785,6 @@ String? _previousUserUuidForAssistant(
     }
   }
   return null;
-}
-
-void _restoreRewindMessageToComposer({
-  required TextEditingController inputController,
-  required DraftService draftService,
-  required String sessionId,
-  required String text,
-}) {
-  inputController.value = TextEditingValue(
-    text: text,
-    selection: TextSelection.collapsed(offset: text.length),
-  );
-  draftService.saveDraft(sessionId, text);
 }
 
 CodexGoalCardData? _goalCardData(CodexGoal? goal) {
