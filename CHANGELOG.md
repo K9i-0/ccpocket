@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.174.1] - 2026-11-22
+
+### Fixed
+
+- Codex session menu: Rename, Screenshot and Gallery are now shown in the app's language instead of always in English.
+
+### Changed
+
+- Internal restructuring with no intended change in behaviour: the session card, the new session sheet and the code shared by the Claude and Codex session screens are split into smaller files.
+
 ## [1.174.0] - 2026-11-21
 
 ### Added
