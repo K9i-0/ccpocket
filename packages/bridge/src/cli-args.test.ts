@@ -130,6 +130,9 @@ describe("parseCliArgs", () => {
     expect(parseCliArgs(["--unknown"]).command).toBe("--unknown");
     expect(parseCliArgs(["--unknown"]).flags.size).toBe(0);
     expect(parseCliArgs(["-x", "setup"]).command).toBe("-x");
+    // A word that merely ends in a flag name is not that flag.
+    expect(parseCliArgs(["xxhelp"]).helpRequested).toBe(false);
+    expect(parseCliArgs(["xxport", "9000"]).command).toBe("xxport");
   });
 
   it.each([
