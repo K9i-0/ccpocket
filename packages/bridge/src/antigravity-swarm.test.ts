@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AcpTransport,
   AntigravityProcess,
@@ -377,6 +377,68 @@ describe("AntigravityProcess with a swarm", () => {
       summary: "File a.txt",
     });
     proc.stop();
+  });
+
+  it("does not cut the coordinator's reply in pieces when a worker acts meanwhile", async () => {
+    const appData = appDataDir();
+    const { proc, transport, messages, update, endTurn, sync } = await startSwarm(appData);
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "Started writer_a " } });
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: 81,
+      method: "session/request_permission",
+      params: {
+        sessionId: WRITER_A,
+        toolCall: { toolCallId: "worker_call_6", kind: "edit", title: "File a.txt" },
+        options: [{ optionId: "allow", kind: "allow_once" }],
+      },
+    });
+    writeSwarm(
+      appData,
+      { writer_a: worker(WRITER_A, "working"), writer_b: worker(WRITER_B, "working") },
+      [{ seq: 1, agent: "writer_b", text: "@coordinator [done]" }],
+    );
+    sync();
+    // Held back while the sentence is still being written.
+    expect(ofType(messages, "permission_request")).toEqual([]);
+    expect(toolUses(messages).map((c) => c.name)).toEqual(["swarm"]);
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "and writer_b." } });
+    endTurn();
+    await until(() => !proc.isTurnActive, "coordinator turn done");
+    const shown = ofType(messages, "assistant").flatMap((m) =>
+      m.message.content.map((c) =>
+        c.type === "text" ? c.text : c.type === "tool_use" ? c.name : c.type,
+      ),
+    );
+    expect(shown).toEqual(["swarm", "Started writer_a and writer_b.", "FileChange", "SwarmPost"]);
+    expect(ofType(messages, "permission_request")).toHaveLength(1);
+    expect(proc.status).toBe("waiting_approval");
+    proc.stop();
+  });
+
+  it("shows a worker's request after a few seconds even if the reply has not ended", async () => {
+    const { proc, transport, messages, update } = await startSwarm(appDataDir());
+    vi.useFakeTimers();
+    try {
+      update({ sessionUpdate: "agent_thought_chunk", content: { text: "thinking for long" } });
+      transport.emit("message", {
+        jsonrpc: "2.0",
+        id: 82,
+        method: "session/request_permission",
+        params: {
+          sessionId: WRITER_A,
+          toolCall: { toolCallId: "worker_call_7", kind: "edit", title: "File a.txt" },
+          options: [{ optionId: "allow", kind: "allow_once" }],
+        },
+      });
+      expect(ofType(messages, "permission_request")).toEqual([]);
+      vi.advanceTimersByTime(5_000);
+      expect(ofType(messages, "permission_request")).toHaveLength(1);
+      expect(proc.status).toBe("waiting_approval");
+    } finally {
+      vi.useRealTimers();
+      proc.stop();
+    }
   });
 
   it("declines a question from a worker instead of leaving it waiting", async () => {

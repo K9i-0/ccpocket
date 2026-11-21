@@ -70,6 +70,8 @@ const WAKE_WAIT_MS = 30_000;
 const SWARM_POLL_MS = 2_000;
 /** Attempts to open a swarm worker's conversation before giving up on it. */
 const SWARM_ATTACH_ATTEMPTS = 3;
+/** How long a swarm member's post or request waits for the coordinator's reply to end. */
+const SWARM_BESIDE_REPLY_WAIT_MS = 5_000;
 /** The hint `agy` appends for its terminal UI; there is no such shortcut here. */
 const SWARM_BOARD_HINT_RE =
   /\n*^[ \t]*Run \/swarm board \(default shortcut [^)\n]*\) to open the live board\.[ \t]*$/gm;
@@ -1372,6 +1374,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private swarmTimer: ReturnType<typeof setInterval> | null = null;
   private swarmSignature = "";
   private swarmLastSeq = 0;
+  /** What swarm members did while the coordinator was mid-sentence. */
+  private readonly besideReply: Array<() => void> = [];
+  private besideReplyTimer: ReturnType<typeof setTimeout> | null = null;
   /** Swarm workers by conversation id. */
   private readonly swarmWorkers = new Map<string, SwarmWorker>();
 
@@ -2554,6 +2559,27 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private stopSwarmWatch(): void {
     if (this.swarmTimer) clearInterval(this.swarmTimer);
     this.swarmTimer = null;
+    if (this.besideReplyTimer) clearTimeout(this.besideReplyTimer);
+    this.besideReplyTimer = null;
+    this.besideReply.length = 0;
+  }
+
+  /**
+   * Shows something a swarm member did. Workers act while the coordinator is
+   * still writing; showing it at once would cut that reply in pieces, so it
+   * waits for the reply to end, but not long: a worker's request times out.
+   */
+  private showBesideReply(show: () => void): void {
+    if (!this.textBuffer && !this.thinkingBuffer) {
+      show();
+      return;
+    }
+    this.besideReply.push(show);
+    this.besideReplyTimer ??= setTimeout(
+      () => this.flushAssistant(),
+      SWARM_BESIDE_REPLY_WAIT_MS,
+    );
+    this.besideReplyTimer.unref?.();
   }
 
   /** Workers in a turn right now, as far as can be told. */
@@ -2690,7 +2716,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   /** A board post, as a tool card every client can already show. */
   private emitSwarmPost(post: { seq: number; agent: string; text: string; time?: string }): void {
-    this.flushAssistant();
+    this.showBesideReply(() => this.emitSwarmPostNow(post));
+  }
+
+  private emitSwarmPostNow(post: { seq: number; agent: string; text: string; time?: string }): void {
     const toolUseId = `swarm-post:${this._sessionId}:${post.seq}`;
     this.emitMessage({
       type: "assistant",
@@ -3224,18 +3253,37 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (worker) {
       // The worker's own tool calls are not shown, so nothing has introduced
       // this one yet.
-      input = { ...input, swarmWorker: worker };
-      const { availableDecisions: _decisions, ...shown } = input;
-      this.flushAssistant();
-      this.emitMessage({
-        type: "assistant",
-        message: {
-          id: toolUseId,
-          role: "assistant",
-          content: [{ type: "tool_use", id: toolUseId, name: toolName, input: shown }],
-          model: this._model ?? "antigravity",
-        },
+      const workerInput: Record<string, unknown> = { ...input, swarmWorker: worker };
+      const { availableDecisions: _decisions, ...shown } = workerInput;
+      this.showBesideReply(() => {
+        if (this.stopped) return;
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: toolUseId,
+            role: "assistant",
+            content: [{ type: "tool_use", id: toolUseId, name: toolName, input: shown }],
+            model: this._model ?? "antigravity",
+          },
+        });
+        this.pendingPermissions.set(toolUseId, {
+          requestId,
+          toolUseId,
+          toolName,
+          input: workerInput,
+          options,
+          ...(sessionGrant ? { sessionGrant } : {}),
+          worker,
+        });
+        this.setStatus("waiting_approval");
+        this.emitMessage({
+          type: "permission_request",
+          toolUseId,
+          toolName,
+          input: workerInput,
+        });
       });
+      return;
     }
     this.pendingPermissions.set(toolUseId, {
       requestId,
@@ -3244,7 +3292,6 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       input,
       options,
       ...(sessionGrant ? { sessionGrant } : {}),
-      ...(worker ? { worker } : {}),
     });
     // Status first: the session summary broadcast with the request must
     // already say "waiting_approval", or clients drop the approval again.
@@ -3493,6 +3540,17 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   }
 
   private flushAssistant(): boolean {
+    const beside = this.besideReply.splice(0);
+    if (this.besideReplyTimer) clearTimeout(this.besideReplyTimer);
+    this.besideReplyTimer = null;
+    try {
+      return this.flushReply();
+    } finally {
+      for (const show of beside) show();
+    }
+  }
+
+  private flushReply(): boolean {
     const thinking = this.thinkingBuffer.trim();
     const text = this.textBuffer.replace(SWARM_BOARD_HINT_RE, "").trim();
     this.thinkingBuffer = "";
