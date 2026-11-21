@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.173.1] - 2026-11-21
+
+### Fixed
+
+- Settings now recognizes the connected machine when the Bridge is reached through the built-in SSH tunnel, so Notifications (push notifications) and the other per-machine entries appear again. (#359, thanks @hustneverland)
+- Bridge connections through the SSH tunnel now recover by themselves after a network change (Wi-Fi to cellular, sleep): the tunnel reconnects the jump host and keeps its local port, so the automatic reconnect succeeds without a manual disconnect. (#361, thanks @hustneverland)
+- A connect that overlapped a health check on an SSH-tunnelled machine without a stored SSH password now still asks for the password instead of failing with "Password required".
+
 ## [1.173.0] - 2026-11-21
 
 ### Added
