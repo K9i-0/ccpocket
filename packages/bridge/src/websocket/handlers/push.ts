@@ -2,6 +2,11 @@ import { WebSocket } from "ws";
 import type { ClientMessage } from "../../parser.js";
 import { normalizePushLocale } from "../../push-i18n.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  beginPushTokenOperation,
+  enqueuePushTokenOperation,
+  isCurrentPushTokenOperation,
+} from "../push-notifications.js";
 
 export async function handlePushRegister(
   server: BridgeWebSocketServer,
@@ -17,7 +22,7 @@ export async function handlePushRegister(
   console.log(
     `[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${server.pushRelay.isConfigured})`,
   );
-  const generation = server.beginPushTokenOperation(msg.token);
+  const generation = beginPushTokenOperation(server, msg.token);
   if (!server.pushRelay.isConfigured) {
     const error = "Push relay is not configured on bridge";
     server.send(
@@ -34,12 +39,12 @@ export async function handlePushRegister(
     );
     return;
   }
-  const operation = server.enqueuePushTokenOperation(msg.token, () =>
+  const operation = enqueuePushTokenOperation(server, msg.token, () =>
     server.pushRelay.registerToken(msg.token, msg.platform, locale),
   );
   operation
     .then(() => {
-      if (!server.isCurrentPushTokenOperation(msg.token, generation)) return;
+      if (!isCurrentPushTokenOperation(server, msg.token, generation)) return;
       console.log("[ws] push_register: token registered successfully");
       if (supportsRegistrationResult) {
         server.send(ws, {
@@ -55,7 +60,7 @@ export async function handlePushRegister(
       server.tokenPrivacyMode.set(msg.token, privacyMode);
     })
     .catch((err) => {
-      if (!server.isCurrentPushTokenOperation(msg.token, generation)) return;
+      if (!isCurrentPushTokenOperation(server, msg.token, generation)) return;
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`[ws] push_register failed: ${detail}`);
       const error = `Failed to register push token: ${detail}`;
@@ -80,7 +85,7 @@ export async function handlePushUnregister(
   ws: WebSocket,
 ): Promise<void> {
   console.log("[ws] push_unregister received");
-  const generation = server.beginPushTokenOperation(msg.token);
+  const generation = beginPushTokenOperation(server, msg.token);
   if (!server.pushRelay.isConfigured) {
     server.send(ws, {
       type: "error",
@@ -88,17 +93,17 @@ export async function handlePushUnregister(
     });
     return;
   }
-  server.enqueuePushTokenOperation(msg.token, () =>
+  enqueuePushTokenOperation(server, msg.token, () =>
     server.pushRelay.unregisterToken(msg.token),
   )
     .then(() => {
-      if (!server.isCurrentPushTokenOperation(msg.token, generation)) return;
+      if (!isCurrentPushTokenOperation(server, msg.token, generation)) return;
       console.log(
         "[ws] push_unregister: token unregistered successfully",
       );
     })
     .catch((err) => {
-      if (!server.isCurrentPushTokenOperation(msg.token, generation)) return;
+      if (!isCurrentPushTokenOperation(server, msg.token, generation)) return;
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`[ws] push_unregister failed: ${detail}`);
       server.send(ws, {

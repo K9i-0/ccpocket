@@ -1,7 +1,7 @@
 import { hasGitHead } from "./git-project-state.js";
 import { performanceMessage } from "./performance-mode.js";
 import type { Server as HttpServer } from "node:http";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -42,7 +42,6 @@ import {
 } from "./codex-service-tier.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
 import {
-  isAgentBackgroundTask,
   parseClientMessage,
   type ClientMessage,
   type DebugTraceEvent,
@@ -90,7 +89,7 @@ import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
-import { type PushLocale, t } from "./push-i18n.js";
+import { type PushLocale } from "./push-i18n.js";
 import {
   fetchAntigravityUsage,
   type UsageInfo,
@@ -330,6 +329,11 @@ import {
   readCodexAutoReviewDisabled,
   applyFallbackCodexModels,
 } from "./websocket/models.js";
+import {
+  maybeSendPushNotification,
+  keepsWorkingInBackground,
+  sendCompletionPush,
+} from "./websocket/push-notifications.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -417,7 +421,7 @@ export class BridgeWebSocketServer {
   recordingStore: RecordingStore | null;
   worktreeStore: WorktreeStore;
   pushRelay: PushRelayClient;
-  private completionGate: BackgroundCompletionGate<ResultServerMessage>;
+  completionGate: BackgroundCompletionGate<ResultServerMessage>;
   promptHistoryBackup: PromptHistoryBackupStore | null;
   promptHistoryStore: PromptHistoryStore | null;
 
@@ -487,9 +491,9 @@ export class BridgeWebSocketServer {
   /** FCM token → push notification locale */
   tokenLocales = new Map<string, PushLocale>();
   tokenPrivacyMode = new Map<string, boolean>();
-  private pushTokenGeneration = new Map<string, number>();
-  private pushTokenOperations = new Map<string, Promise<void>>();
-  private nextPushTokenGeneration = 0;
+  pushTokenGeneration = new Map<string, number>();
+  pushTokenOperations = new Map<string, Promise<void>>();
+  nextPushTokenGeneration = 0;
   failSetPermissionMode = envFlagEnabled(
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
@@ -576,11 +580,11 @@ export class BridgeWebSocketServer {
         return (
           !!session &&
           session.status === "idle" &&
-          !this.keepsWorkingInBackground(sessionId)
+          !keepsWorkingInBackground(this, sessionId)
         );
       },
       release: (sessionId, completion) =>
-        this.sendCompletionPush(sessionId, completion),
+        sendCompletionPush(this, sessionId, completion),
     });
     this.promptHistoryBackup = promptHistoryBackup ?? null;
     this.promptHistoryStore = promptHistoryStore ?? null;
@@ -2324,7 +2328,7 @@ export class BridgeWebSocketServer {
   }
 
   private trackSessionMessage(sessionId: string, msg: ServerMessage): void {
-    this.maybeSendPushNotification(sessionId, msg);
+    maybeSendPushNotification(this, sessionId, msg);
     recordDebugEvent(this, sessionId, {
       direction: "outgoing",
       channel: "session",
@@ -2986,311 +2990,6 @@ export class BridgeWebSocketServer {
     } catch (err) {
       proc.stop();
       throw err;
-    }
-  }
-
-  /** Resolve a user-facing Project label, falling back to the cwd basename. */
-  private projectLabel(sessionId: string): string {
-    const session = this.sessionManager.get(sessionId);
-    if (!session?.projectPath) return "";
-    const workspace = workspaceForRuntimeSession(this, session);
-    if (workspace?.projectName) return workspace.projectName;
-    const parts = session.projectPath.replace(/\/+$/, "").split("/");
-    return parts[parts.length - 1] || "";
-  }
-
-  beginPushTokenOperation(token: string): number {
-    const generation = ++this.nextPushTokenGeneration;
-    this.pushTokenGeneration.set(token, generation);
-    // Local delivery is disabled synchronously while the relay operation is
-    // pending. The app stays on local fallback until a successful ACK.
-    this.tokenLocales.delete(token);
-    this.tokenPrivacyMode.delete(token);
-    return generation;
-  }
-
-  enqueuePushTokenOperation(
-    token: string,
-    operation: () => Promise<void>,
-  ): Promise<void> {
-    const previous = this.pushTokenOperations.get(token);
-    const pending = (previous?.catch(() => {}) ?? Promise.resolve()).then(
-      operation,
-    );
-    this.pushTokenOperations.set(token, pending);
-    const cleanup = () => {
-      if (this.pushTokenOperations.get(token) === pending) {
-        this.pushTokenOperations.delete(token);
-      }
-    };
-    void pending.then(cleanup, cleanup);
-    return pending;
-  }
-
-  isCurrentPushTokenOperation(
-    token: string,
-    generation: number,
-  ): boolean {
-    return this.pushTokenGeneration.get(token) === generation;
-  }
-
-  /** Get unique locales from tokens acknowledged by the push relay. */
-  private getRegisteredLocales(): PushLocale[] {
-    const locales = new Set(this.tokenLocales.values());
-    return [...locales];
-  }
-
-  /** Hashes of relay tokens that are currently safe for remote delivery. */
-  private getActivePushTokenHashes(locale: PushLocale): string[] {
-    return [...this.tokenLocales]
-      .filter(([, tokenLocale]) => tokenLocale === locale)
-      .map(([token]) => createHash("sha256").update(token).digest("hex"));
-  }
-
-  /** Whether any registered token has privacy mode enabled (conservative: privacy wins). */
-  private isPrivacyMode(): boolean {
-    for (const privacy of this.tokenPrivacyMode.values()) {
-      if (privacy) return true;
-    }
-    return false;
-  }
-
-  /** Get a display label for push notification title: "name (project)" or just project. */
-  private sessionLabel(sessionId: string): string {
-    const session = this.sessionManager.get(sessionId);
-    const project = this.projectLabel(sessionId);
-    if (session?.name) {
-      return project ? `${session.name} (${project})` : session.name;
-    }
-    return project;
-  }
-
-  private maybeSendPushNotification(
-    sessionId: string,
-    msg: ServerMessage,
-  ): void {
-    if (!this.pushRelay.isConfigured) return;
-    if (this.tokenLocales.size === 0) return;
-
-    const privacy = this.isPrivacyMode();
-    const label = privacy ? "" : this.sessionLabel(sessionId);
-
-    if (msg.type === "permission_request") {
-      const seen =
-        this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
-      if (seen.has(msg.toolUseId)) return;
-      seen.add(msg.toolUseId);
-      this.notifiedPermissionToolUses.set(sessionId, seen);
-
-      const isAskUserQuestion = msg.toolName === "AskUserQuestion";
-      const isExitPlanMode = msg.toolName === "ExitPlanMode";
-      const eventType = isAskUserQuestion
-        ? "ask_user_question"
-        : "approval_required";
-
-      // Extract question text for AskUserQuestion (standard mode only)
-      let questionText: string | undefined;
-      if (!privacy && isAskUserQuestion) {
-        const questions = msg.input?.questions;
-        const firstQuestion =
-          Array.isArray(questions) && questions.length > 0
-            ? (questions[0] as Record<string, unknown>)?.question
-            : undefined;
-        if (typeof firstQuestion === "string" && firstQuestion.length > 0) {
-          questionText = firstQuestion.slice(0, 120);
-        }
-      }
-
-      const data: Record<string, string> = {
-        sessionId,
-        provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
-        toolUseId: msg.toolUseId,
-        toolName: msg.toolName,
-      };
-
-      for (const locale of this.getRegisteredLocales()) {
-        let title: string;
-        let body: string;
-
-        if (isExitPlanMode) {
-          const titleKey = "plan_ready_title";
-          title = label
-            ? `${t(locale, titleKey)} - ${label}`
-            : t(locale, titleKey);
-          body = t(locale, "plan_ready_body");
-        } else if (isAskUserQuestion) {
-          const titleKey = "ask_title";
-          title = label
-            ? `${t(locale, titleKey)} - ${label}`
-            : t(locale, titleKey);
-          body = privacy
-            ? t(locale, "ask_body_private")
-            : (questionText ?? t(locale, "ask_default_body"));
-        } else {
-          const titleKey = "approval_title";
-          title = label
-            ? `${t(locale, titleKey)} - ${label}`
-            : t(locale, titleKey);
-          body = privacy
-            ? t(locale, "approval_body_private")
-            : t(locale, "approval_body", { toolName: msg.toolName });
-        }
-
-        void this.pushRelay
-          .notify({
-            eventType,
-            title,
-            body,
-            locale,
-            tokenHashes: this.getActivePushTokenHashes(locale),
-            data,
-          })
-          .catch((err) => {
-            const detail = err instanceof Error ? err.message : String(err);
-            console.warn(
-              `[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`,
-            );
-          });
-      }
-      return;
-    }
-
-    if ((msg.type === "result" || msg.type === "goal_state") && msg.notification) {
-      if (msg.notification === "none") return;
-      const kind = msg.notification;
-      const icon = kind === "goal_complete" ? "✅"
-        : kind === "goal_progress" ? "💬"
-        : kind === "goal_blocked" ? "⚠️" : "⏸";
-      for (const locale of this.getRegisteredLocales()) {
-        const copy = t(locale, kind);
-        void this.pushRelay.notify({
-          eventType: kind,
-          title: `${icon} ${copy}${label ? ` - ${label}` : ""}`,
-          body: copy,
-          locale,
-          tokenHashes: this.getActivePushTokenHashes(locale),
-          data: { sessionId, provider: "codex" },
-        }).catch((err) => {
-          console.warn(`[ws] Failed to send ${kind}: ${String(err)}`);
-        });
-      }
-      return;
-    }
-
-    if (msg.type === "status" || msg.type === "background_tasks") {
-      this.completionGate.update(sessionId);
-      return;
-    }
-
-    if (msg.type !== "result") return;
-    if (msg.subtype === "stopped") {
-      this.completionGate.discard(sessionId);
-      return;
-    }
-    if (msg.subtype !== "success" && msg.subtype !== "error") return;
-    if (msg.subtype === "error") {
-      this.completionGate.discard(sessionId);
-    } else if (
-      this.completionGate.hold(
-        sessionId,
-        msg,
-        this.keepsWorkingInBackground(sessionId),
-      )
-    ) {
-      return;
-    }
-    this.sendCompletionPush(sessionId, msg);
-  }
-
-  /**
-   * Claude keeps working after a result while background agents are live: it
-   * starts a follow-up turn when they report back. Shells and monitors may
-   * run indefinitely (dev servers), so they do not delay completion. Codex
-   * never starts a follow-up turn, so its background work is ignored too.
-   * Antigravity carries on by itself when a timer fires or a background
-   * command ends; the process says for how long that is still expected.
-   */
-  private keepsWorkingInBackground(sessionId: string): boolean {
-    const session = this.sessionManager.get(sessionId);
-    if (session?.process instanceof AntigravityProcess) {
-      return session.process.expectsFollowUp;
-    }
-    return (
-      session?.provider === "claude" &&
-      !!session.backgroundTasks?.some(isAgentBackgroundTask)
-    );
-  }
-
-  private sendCompletionPush(sessionId: string, msg: ResultServerMessage): void {
-    if (!this.pushRelay.isConfigured) return;
-    if (this.tokenLocales.size === 0) return;
-    const privacy = this.isPrivacyMode();
-    const label = privacy ? "" : this.sessionLabel(sessionId);
-    const isSuccess = msg.subtype === "success";
-    const eventType = isSuccess ? "session_completed" : "session_failed";
-
-    const pieces: string[] = [];
-    if (isSuccess) {
-      if (msg.duration != null) pieces.push(`${msg.duration.toFixed(1)}s`);
-      if (msg.cost != null) pieces.push(`$${msg.cost.toFixed(4)}`);
-    }
-    const stats = pieces.length > 0 ? ` (${pieces.join(", ")})` : "";
-
-    const data: Record<string, string> = {
-      sessionId,
-      provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
-      subtype: msg.subtype,
-    };
-    if (msg.stopReason) data.stopReason = msg.stopReason;
-    if (msg.sessionId) data.providerSessionId = msg.sessionId;
-
-    for (const locale of this.getRegisteredLocales()) {
-      let title: string;
-      if (privacy) {
-        title = isSuccess
-          ? t(locale, "task_completed")
-          : t(locale, "error_occurred");
-      } else {
-        title = label
-          ? isSuccess
-            ? `✅ ${label}`
-            : `❌ ${label}`
-          : isSuccess
-            ? t(locale, "task_completed")
-            : t(locale, "error_occurred");
-      }
-
-      let body: string;
-      if (privacy) {
-        const privateBody = isSuccess
-          ? t(locale, "result_success_body_private")
-          : t(locale, "result_error_body_private");
-        body = isSuccess ? `${privateBody}${stats}` : privateBody;
-      } else if (isSuccess) {
-        body = msg.result
-          ? `${msg.result.slice(0, 120)}${stats}`
-          : `${t(locale, "session_completed")}${stats}`;
-      } else {
-        body = msg.error
-          ? msg.error.slice(0, 120)
-          : t(locale, "session_failed");
-      }
-
-      void this.pushRelay
-        .notify({
-          eventType,
-          title,
-          body,
-          locale,
-          tokenHashes: this.getActivePushTokenHashes(locale),
-          data,
-        })
-        .catch((err) => {
-          const detail = err instanceof Error ? err.message : String(err);
-          console.warn(
-            `[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`,
-          );
-        });
     }
   }
 
