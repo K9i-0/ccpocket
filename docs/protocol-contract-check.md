@@ -84,6 +84,7 @@ Build client messages with a `ClientMessage` factory. A map passed to
   on the wire changed.
 - `bootstrap_project`, `trust_project` and `initialize_git` were sent as raw
   maps with the `requestId` added later. They are `ClientMessage` factories
-  now, with the same keys.
+  now, with the same keys, except that `initialize_git` no longer carries a
+  `sessionId`: no Bridge has ever declared or read it for that message.
 - Two legacy keys the app still reads as fallbacks (`file_list.ignoredFiles`,
   `gallery_list.project`), recorded in `LegacyKeysReadByApp`.
