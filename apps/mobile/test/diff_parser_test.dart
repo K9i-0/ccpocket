@@ -573,6 +573,16 @@ Binary files a/image.png and b/image.png differ
   });
 
   group('parseDiff headerless file path extraction', () {
+    test('drops the tab git appends after a path containing spaces', () {
+      const modified =
+          '--- a/docs/my notes.md\t\n+++ b/docs/my notes.md\t\n@@ -1 +1 @@\n-old\n+new\n';
+      const deleted =
+          '--- a/docs/my notes.md\t\n+++ /dev/null\n@@ -1 +0,0 @@\n-old\n';
+
+      expect(parseDiff(modified).single.filePath, 'docs/my notes.md');
+      expect(parseDiff(deleted).single.filePath, 'docs/my notes.md');
+    });
+
     test('prefers the new path when old and new paths differ', () {
       const diff = '''
 --- a/lib/old_name.dart

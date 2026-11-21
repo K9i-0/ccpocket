@@ -279,6 +279,11 @@ List<List<String>> _splitHeaderlessDiffSections(List<String> lines) {
   return sections;
 }
 
+/// Git ends the path on a `---` / `+++` line with a tab when the path contains
+/// a space, so that the path can be told apart from what follows it.
+String _withoutPathTerminator(String path) =>
+    path.endsWith('\t') ? path.substring(0, path.length - 1) : path;
+
 /// Parse a diff that lacks `diff --git` header (single-file tool result).
 DiffFile _parseSingleFileDiff(List<String> lines) {
   var filePath = '';
@@ -292,7 +297,7 @@ DiffFile _parseSingleFileDiff(List<String> lines) {
     } else if (line.startsWith('+++ /dev/null')) {
       isDeleted = true;
     } else if (filePath.isEmpty && line.startsWith('+++ b/')) {
-      filePath = line.substring(6);
+      filePath = _withoutPathTerminator(line.substring(6));
     } else if (filePath.isEmpty && line.startsWith('+++ "b/')) {
       filePath = _decodeGitPathToken(line.substring(4));
     } else if (filePath.isEmpty &&
@@ -304,7 +309,7 @@ DiffFile _parseSingleFileDiff(List<String> lines) {
   if (filePath.isEmpty) {
     for (final line in lines) {
       if (line.startsWith('--- a/')) {
-        filePath = line.substring(6);
+        filePath = _withoutPathTerminator(line.substring(6));
         break;
       }
       if (line.startsWith('--- ') && !line.startsWith('--- /dev/null')) {
