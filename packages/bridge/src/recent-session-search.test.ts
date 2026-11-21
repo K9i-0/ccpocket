@@ -72,6 +72,18 @@ describe("recentSessionMetadataSearchField", () => {
     expect(withRecentSessionMetadataSearchMatch(session, "nope")).toBe(session);
     expect(withRecentSessionMetadataSearchMatch(session, undefined)).toBe(session);
   });
+
+  it("matches nothing for an empty query", () => {
+    expect(recentSessionMetadataSearchField(session, "")).toBeUndefined();
+    expect(withRecentSessionMetadataSearchMatch(session, "")).toBe(session);
+  });
+
+  it("returns an empty folder name for a path without segments", () => {
+    expect(projectFolderName("")).toBe("");
+    expect(projectFolderName("/")).toBe("");
+    expect(projectFolderName("repo")).toBe("repo");
+    expect(projectFolderName("C:\\src\\\\repo\\")).toBe("repo");
+  });
 });
 
 describe("transcriptLineMessageTexts", () => {
@@ -148,6 +160,232 @@ describe("transcriptLineMessageTexts", () => {
       }),
     ).toEqual([]);
   });
+
+  it.each([null, undefined, "text", 42, true])(
+    "returns nothing for a non-object line: %j",
+    (line) => {
+      expect(transcriptLineMessageTexts("claude", line)).toEqual([]);
+      expect(transcriptLineMessageTexts("codex", line)).toEqual([]);
+    },
+  );
+
+  describe("Claude", () => {
+    it.each([
+      ["no message", { type: "user" }],
+      ["a null message", { type: "user", message: null }],
+      ["a string message", { type: "user", message: "needle" }],
+      ["no content", { type: "assistant", message: {} }],
+      ["non-text content", { type: "assistant", message: { content: 42 } }],
+      ["a compact summary", { type: "user", isCompactSummary: true, message: { content: "x" } }],
+      ["a system entry", { type: "system", message: { content: "x" } }],
+      ["a summary entry", { type: "summary", message: { content: "x" } }],
+      ["an entry without type", { message: { content: "x" } }],
+    ])("returns nothing for %s", (_label, line) => {
+      expect(transcriptLineMessageTexts("claude", line)).toEqual([]);
+    });
+
+    it("keeps entries whose meta flags are false", () => {
+      expect(
+        transcriptLineMessageTexts("claude", {
+          type: "user",
+          isMeta: false,
+          isCompactSummary: false,
+          message: { content: "kept" },
+        }),
+      ).toEqual(["kept"]);
+    });
+
+    it("skips malformed content blocks", () => {
+      expect(
+        transcriptLineMessageTexts("claude", {
+          type: "assistant",
+          message: {
+            content: [
+              null,
+              "bare string",
+              ["text"],
+              { text: "no type" },
+              { type: 5, text: "numeric type" },
+              { type: "text", text: 5 },
+              { type: "text" },
+              { type: "text", text: "ok" },
+            ],
+          },
+        }),
+      ).toEqual(["ok"]);
+    });
+
+    it.each([
+      "<local-command-caveat>Caveat</local-command-caveat>",
+      "<local-command-stdout>out</local-command-stdout>",
+      "<local-command-stderr>err</local-command-stderr>",
+      "<task-notification>done</task-notification>",
+      "<teammate-message>hi</teammate-message>",
+      "<bash-input>ls</bash-input>",
+      "<bash-stdout>file</bash-stdout>",
+      "<command-name>/clear</command-name>",
+      "<command-message>clear</command-message>",
+      "<command-args>x</command-args>",
+      "\n  <command-name>/clear</command-name>",
+    ])("drops system-injected user text %j", (text) => {
+      expect(
+        transcriptLineMessageTexts("claude", { type: "user", message: { content: text } }),
+      ).toEqual([]);
+    });
+
+    it("keeps user text that only mentions an injected tag", () => {
+      expect(
+        transcriptLineMessageTexts("claude", {
+          type: "user",
+          message: {
+            content: [
+              { type: "text", text: "<bash-input>ls</bash-input>" },
+              { type: "text", text: "what does <command-name> mean?" },
+              { type: "text", text: "<unknown-tag>typed" },
+            ],
+          },
+        }),
+      ).toEqual(["what does <command-name> mean?", "<unknown-tag>typed"]);
+    });
+
+    it("does not filter assistant text that starts with an injected tag", () => {
+      expect(
+        transcriptLineMessageTexts("claude", {
+          type: "assistant",
+          message: { content: [{ type: "text", text: "<task-notification> is a tag" }] },
+        }),
+      ).toEqual(["<task-notification> is a tag"]);
+    });
+  });
+
+  describe("Codex", () => {
+    const injected = [
+      "# AGENTS.md instructions for /repo",
+      "<environment_context>",
+      "<user_instructions>",
+      "<permissions instructions>",
+      "<collaboration_mode>",
+      "<personality_spec>",
+      "<skills_instructions>",
+      "<plugins_instructions>",
+      "<skill>",
+    ];
+
+    it.each(injected)("drops injected user context starting with %j", (prefix) => {
+      const text = `\n  ${prefix}\nbody text`;
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "event_msg",
+          payload: { type: "user_message", message: text },
+        }),
+      ).toEqual([]);
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [
+              { type: "input_text", text },
+              { type: "input_text", text: "typed" },
+            ],
+          },
+        }),
+      ).toEqual(["typed"]);
+    });
+
+    it("keeps user text that only mentions injected context", () => {
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "event_msg",
+          payload: { type: "user_message", message: "explain the <skill> tag" },
+        }),
+      ).toEqual(["explain the <skill> tag"]);
+    });
+
+    it("does not filter agent messages", () => {
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "event_msg",
+          payload: { type: "agent_message", message: "<environment_context> is injected" },
+        }),
+      ).toEqual(["<environment_context> is injected"]);
+    });
+
+    it.each([
+      ["an event without payload", { type: "event_msg" }],
+      ["a response item without payload", { type: "response_item", payload: null }],
+      [
+        "another event type",
+        { type: "event_msg", payload: { type: "token_count", message: "x" } },
+      ],
+      [
+        "a non-string event message",
+        { type: "event_msg", payload: { type: "user_message", message: 5 } },
+      ],
+      [
+        "an event shaped like a response message",
+        { type: "event_msg", payload: { type: "message", role: "assistant", content: "x" } },
+      ],
+      [
+        "another entry type with a message payload",
+        { type: "turn_context", payload: { type: "message", role: "assistant", content: "x" } },
+      ],
+      ["another top-level type", { type: "reasoning", role: "assistant", content: "x" }],
+      [
+        "a non-message response item",
+        { type: "response_item", payload: { type: "reasoning", role: "assistant", content: "x" } },
+      ],
+      [
+        "a developer message",
+        { type: "response_item", payload: { type: "message", role: "developer", content: "x" } },
+      ],
+      [
+        "a message without role",
+        { type: "response_item", payload: { type: "message", content: "x" } },
+      ],
+    ])("returns nothing for %s", (_label, line) => {
+      expect(transcriptLineMessageTexts("codex", line)).toEqual([]);
+    });
+
+    it("reads only the text blocks that belong to the role", () => {
+      const content = [
+        { type: "input_text", text: "in" },
+        { type: "output_text", text: "out" },
+        { type: "text", text: "plain" },
+        { type: "input_image", image_url: "data:..." },
+      ];
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "response_item",
+          payload: { type: "message", role: "user", content },
+        }),
+      ).toEqual(["in", "plain"]);
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "response_item",
+          payload: { type: "message", role: "assistant", content },
+        }),
+      ).toEqual(["out", "plain"]);
+    });
+
+    it("supports the legacy top-level message shape", () => {
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "legacy reply" }],
+        }),
+      ).toEqual(["legacy reply"]);
+      expect(
+        transcriptLineMessageTexts("codex", {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "legacy prompt" }],
+        }),
+      ).toEqual(["legacy prompt"]);
+    });
+  });
 });
 
 describe("buildContentSnippet", () => {
@@ -168,6 +406,37 @@ describe("buildContentSnippet", () => {
     const snippet = buildContentSnippet(`needle ${"z".repeat(300)}`, "needle");
     expect(snippet.startsWith("needle")).toBe(true);
     expect(snippet.endsWith("…")).toBe(true);
+  });
+
+  it("trims short text", () => {
+    expect(buildContentSnippet("  hi there \n", "hi")).toBe("hi there");
+  });
+
+  it("centers the window on the hit", () => {
+    const text = `${"a".repeat(10)} needle ${"b".repeat(10)}`;
+    expect(buildContentSnippet(text, "needle", 10)).toBe("…a needle b…");
+  });
+
+  it("ends at the end of the text when the hit is near the end", () => {
+    const text = `${"a".repeat(20)} needle`;
+    expect(buildContentSnippet(text, "needle", 10)).toBe("…aaa needle");
+  });
+
+  it("starts at the beginning when the query is not in the text", () => {
+    expect(buildContentSnippet("abcdefghijklmnopqrstuvwxyz", "0000", 10)).toBe(
+      "abcdefghij…",
+    );
+  });
+
+  it("normalizes whitespace in the query like in the text", () => {
+    // Runs of whitespace match a single collapsed space.
+    expect(
+      buildContentSnippet(`${"a".repeat(10)} \n  needle ${"b".repeat(10)}`, "a \n needle", 10),
+    ).toBe("…aa needle…");
+    // Leading / trailing whitespace of the query is ignored.
+    expect(buildContentSnippet(`${"a".repeat(20)} needle`, " needle  ", 10)).toBe(
+      "…aaa needle",
+    );
   });
 });
 
@@ -262,6 +531,88 @@ describe("transcript content search", () => {
     ).resolves.toEqual({ status: "no_match" });
   });
 
+  it("matches nothing for an empty query", async () => {
+    const path = writeJsonl("e.jsonl", [claudeUser("anything")]);
+    await expect(searchTranscriptFile("claude", path, "")).resolves.toEqual({
+      status: "no_match",
+    });
+  });
+
+  it("returns the first matching message", async () => {
+    const path = writeJsonl("first.jsonl", [
+      claudeUser("unrelated"),
+      claudeAssistant("first needle"),
+      claudeUser("second needle"),
+    ]);
+    await expect(searchTranscriptFile("claude", path, "needle")).resolves.toEqual({
+      status: "match",
+      snippet: "first needle",
+    });
+  });
+
+  it("keeps scanning after a tool line that contains the query", async () => {
+    const path = writeJsonl("tool-then-text.jsonl", [
+      claudeToolResult("needle in tool output"),
+      claudeUser("typed needle"),
+    ]);
+    await expect(searchTranscriptFile("claude", path, "needle")).resolves.toEqual({
+      status: "match",
+      snippet: "typed needle",
+    });
+  });
+
+  it("keeps scanning after a corrupt line that contains the query", async () => {
+    const path = join(dir, "corrupt.jsonl");
+    writeFileSync(
+      path,
+      `{"type":"user","message":{"content":"needle\n${JSON.stringify(claudeUser("valid needle"))}\n`,
+    );
+    await expect(searchTranscriptFile("claude", path, "needle")).resolves.toEqual({
+      status: "match",
+      snippet: "valid needle",
+    });
+  });
+
+  it("keeps scanning a Codex rollout after a non-message line with the query", async () => {
+    const path = writeJsonl("codex-tool.jsonl", [
+      { type: "response_item", payload: { type: "function_call_output", output: "needle" } },
+      { type: "event_msg", payload: { type: "agent_message", message: "reply needle" } },
+    ]);
+    await expect(searchTranscriptFile("codex", path, "needle")).resolves.toEqual({
+      status: "match",
+      snippet: "reply needle",
+    });
+  });
+
+  it("matches Codex lines serialized with whitespace after colons", async () => {
+    const path = join(dir, "spaced.jsonl");
+    writeFileSync(
+      path,
+      '{"type": "event_msg", "payload": {"type": "user_message", "message": "spaced needle"}}\n',
+    );
+    await expect(searchTranscriptFile("codex", path, "needle")).resolves.toEqual({
+      status: "match",
+      snippet: "spaced needle",
+    });
+  });
+
+  it("matches non-ASCII letters case-insensitively in both directions", async () => {
+    const upper = writeJsonl("upper.jsonl", [claudeUser("Meet at the CAFÉ")]);
+    const lower = writeJsonl("lower.jsonl", [claudeUser("meet at the café")]);
+    expect((await searchTranscriptFile("claude", upper, "café")).status).toBe("match");
+    expect((await searchTranscriptFile("claude", lower, "CAFÉ")).status).toBe("match");
+  });
+
+  it("times out once the deadline is reached", async () => {
+    const path = writeJsonl("deadline.jsonl", [claudeUser("needle")]);
+    await expect(
+      searchTranscriptFile("claude", path, "needle", { deadline: 100, now: () => 100 }),
+    ).resolves.toEqual({ status: "timeout" });
+    await expect(
+      searchTranscriptFile("claude", path, "needle", { deadline: 100, now: () => 99 }),
+    ).resolves.toMatchObject({ status: "match" });
+  });
+
   it("walks newest first and keeps order with metadata and content matches", async () => {
     const sessions = Array.from({ length: 6 }, (_, i) => ({
       provider: "claude" as const,
@@ -346,6 +697,114 @@ describe("transcript content search", () => {
     });
     expect(result.matches.map((m) => m.session.sessionId)).toEqual(["s0"]);
     expect(result.incomplete).toBe(true);
+  });
+
+  it("reads nothing when the budget is already spent", async () => {
+    const result = await searchRecentSessionContent(
+      [
+        { provider: "claude" as const, firstPrompt: "needle in metadata", path: "" },
+        {
+          provider: "claude" as const,
+          firstPrompt: "",
+          path: writeJsonl("z.jsonl", [claudeUser("needle")]),
+        },
+      ],
+      {
+        query: "needle",
+        needed: 2,
+        transcriptPaths: (session) => [session.path],
+        budgetMs: 0,
+        now: () => 0,
+      },
+    );
+    expect(result).toEqual({ matches: [], incomplete: true, filesRead: 0 });
+  });
+
+  it("reports incomplete when the last transcript read times out", async () => {
+    // The clock passes the deadline only once the transcript is being read.
+    let calls = 0;
+    const result = await searchRecentSessionContent(
+      [
+        {
+          provider: "claude" as const,
+          firstPrompt: "",
+          path: writeJsonl("slow.jsonl", [claudeUser("needle")]),
+        },
+      ],
+      {
+        query: "needle",
+        needed: 1,
+        transcriptPaths: (session) => [session.path],
+        budgetMs: 10,
+        now: () => (calls++ < 2 ? 0 : 100),
+      },
+    );
+    expect(result).toEqual({ matches: [], incomplete: true, filesRead: 1 });
+  });
+
+  it("returns only the needed matches from a parallel batch", async () => {
+    const sessions = Array.from({ length: 3 }, (_, i) => ({
+      provider: "claude" as const,
+      sessionId: `s${i}`,
+      firstPrompt: "",
+      path: writeJsonl(`p${i}.jsonl`, [claudeUser("needle")]),
+    }));
+    const result = await searchRecentSessionContent(sessions, {
+      query: "needle",
+      needed: 1,
+      transcriptPaths: (session) => [session.path],
+      concurrency: 3,
+    });
+    expect(result.matches.map((m) => m.session.sessionId)).toEqual(["s0"]);
+    expect(result.filesRead).toBe(3);
+    expect(result.incomplete).toBe(false);
+  });
+
+  it("is complete when the needed matches are found right at the file bound", async () => {
+    const sessions = Array.from({ length: 3 }, (_, i) => ({
+      provider: "claude" as const,
+      sessionId: `s${i}`,
+      firstPrompt: "",
+      path: writeJsonl(`f${i}.jsonl`, [claudeUser("needle")]),
+    }));
+    const result = await searchRecentSessionContent(sessions, {
+      query: "needle",
+      needed: 2,
+      transcriptPaths: (session) => [session.path],
+      maxFiles: 2,
+    });
+    expect(result.matches.map((m) => m.session.sessionId)).toEqual(["s0", "s1"]);
+    expect(result).toMatchObject({ incomplete: false, filesRead: 2 });
+  });
+
+  it("searches every transcript of a session and skips sessions without one", async () => {
+    const sessions = [
+      { provider: "claude" as const, sessionId: "none", firstPrompt: "", paths: [] },
+      {
+        provider: "claude" as const,
+        sessionId: "two",
+        firstPrompt: "",
+        paths: [
+          writeJsonl("m0.jsonl", [claudeUser("miss")]),
+          writeJsonl("m1.jsonl", [claudeUser("second file needle")]),
+        ],
+      },
+    ];
+    const result = await searchRecentSessionContent(sessions, {
+      query: "needle",
+      needed: 5,
+      transcriptPaths: (session) => session.paths,
+    });
+    expect(result).toEqual({
+      matches: [
+        {
+          session: sessions[1],
+          searchMatch: { field: "content", snippet: "second file needle" },
+        },
+      ],
+      incomplete: false,
+      filesRead: 2,
+    });
   });
 
   it("is complete when every session was checked", async () => {
