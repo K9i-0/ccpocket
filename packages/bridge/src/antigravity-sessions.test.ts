@@ -1070,7 +1070,7 @@ describe("antigravityRecentSessions worktrees on disk", () => {
     expect(row).not.toHaveProperty("resumeCwd");
   });
 
-  it("does not add worktree details to a session in the main checkout", () => {
+  it("reports the mapped worktree branch even when the session was recorded in the main checkout", () => {
     const root = mkdtempSync(join(tmpdir(), "ccpocket-agy-main-"));
     try {
       const [row] = antigravityRecentSessions(
@@ -1082,7 +1082,7 @@ describe("antigravityRecentSessions worktrees on disk", () => {
         },
       );
       expect(row.projectPath).toBe(root);
-      expect(row.gitBranch).toBe("");
+      expect(row.gitBranch).toBe("feat");
       expect(row).not.toHaveProperty("resumeCwd");
     } finally {
       rmSync(root, { recursive: true, force: true });

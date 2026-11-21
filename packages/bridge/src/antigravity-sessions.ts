@@ -293,7 +293,7 @@ export function antigravityRecentSessions(
 
     const wt = filter.worktrees?.get(entry.sessionId);
     const mainProjectPath = wt?.projectPath ?? normalizeWorktreePath(entry.projectPath);
-    const resolvedProjectPath = mainProjectPath !== entry.projectPath ? mainProjectPath : entry.projectPath;
+    const resolvedProjectPath = mainProjectPath;
 
     if (filter.projectPath && resolvedProjectPath !== filter.projectPath) continue;
 
@@ -316,14 +316,11 @@ export function antigravityRecentSessions(
     }
 
     let resumeCwd: string | undefined;
-    let gitBranch = "";
-    if (mainProjectPath !== entry.projectPath) {
-      if (existsSync(entry.projectPath)) {
-        resumeCwd = entry.projectPath;
-      }
-      if (wt?.worktreeBranch) {
-        gitBranch = wt.worktreeBranch;
-      }
+    // The branch comes from the worktree mapping alone: Antigravity may record
+    // the main checkout as the session's directory even for a worktree session.
+    const gitBranch = wt?.worktreeBranch ?? "";
+    if (mainProjectPath !== entry.projectPath && existsSync(entry.projectPath)) {
+      resumeCwd = entry.projectPath;
     }
 
     const displayName = storedName ?? agyTitle;
