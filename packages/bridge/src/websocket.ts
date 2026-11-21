@@ -1,17 +1,14 @@
 import { currentGitBranch, hasGitHead } from "./git-project-state.js";
-import { bootstrapProject } from "./project-bootstrap.js";
 import { performanceMessage } from "./performance-mode.js";
 import { transcriptPageRange } from "./context-compaction.js";
 import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { lstat, readFile, readlink, realpath, stat, unlink } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { resolve, extname, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
-import { textPreview } from "./text-preview.js";
-import { consumeFinderProof, verifyFinderSocketProof, revealInFinder } from "./finder-reveal.js";
 import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
@@ -90,7 +87,6 @@ import {
   getSessionHistory,
   codexThreadToSessionHistory,
   type SessionHistoryMessage,
-  findSessionsByClaudeIds,
   extractMessageImages,
   getClaudeSessionName,
   getCodexSessionIndexMetadata,
@@ -128,39 +124,14 @@ import {
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import {
-  listWorktrees,
-  removeWorktree,
   worktreeExists,
-  getMainBranch,
 } from "./worktree.js";
-import {
-  stageFiles,
-  stageHunks,
-  unstageFiles,
-  unstageHunks,
-  gitCommit,
-  gitPush,
-  listProjectFilesAndDirectoriesForClient,
-  listBranches,
-  createBranch,
-  checkoutBranch,
-  revertFiles,
-  revertHunks,
-  gitFetch,
-  gitPull,
-  gitRemoteStatus,
-  gitStatus,
-} from "./git-operations.js";
-import { generateCommitMessage } from "./git-assist.js";
-import { getGitHubItem, listGitHubItems, toGitHubError } from "./github-cli.js";
-import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
-import { type PushLocale, normalizePushLocale, t } from "./push-i18n.js";
+import { type PushLocale, t } from "./push-i18n.js";
 import {
-  fetchAllUsage,
   fetchAntigravityUsage,
   type UsageInfo,
 } from "./usage.js";
@@ -180,10 +151,6 @@ import {
   resolvePlatformPathFrom,
 } from "./path-utils.js";
 import {
-  DirectoryListingError,
-  listAllowedDirectories,
-} from "./directory-listing.js";
-import {
   deriveCodexPermissionsMode,
   normalizeCodexPermissionsMode,
   withDerivedCodexPermissionsMode,
@@ -196,7 +163,6 @@ import {
   INITIAL_PROMPT_SKILL_POLL_MS,
   type InputClientMessage,
   type ResumeClientMessage,
-  projectRequestMetadata,
   type ResumeOperation,
   RESUME_OPERATION_TIMEOUT_MS,
   RESUME_COMPLETED_TTL_MS,
@@ -240,7 +206,6 @@ import {
   nonNegativeEnvInt,
   normalizePositiveLimit,
   normalizeNonNegativeLimit,
-  FILE_PEEK_MEDIA_TYPES,
   downloadMimeType,
 } from "./websocket/shared.js";
 import {
@@ -267,11 +232,72 @@ import {
   DEFAULT_DELTA_BATCH_MS,
   DEFAULT_DELTA_BATCH_MAX_CHARS,
   IMAGE_EXTENSIONS,
-  FILE_PEEK_IMAGE_EXTENSIONS,
   AUTO_DISPLAY_THRESHOLD,
   MAX_IMAGE_SIZE,
   mimeTypeForExt,
 } from "./websocket/shared.js";
+import {
+  handleGetDiff,
+  handleGetDiffImage,
+  handleListWorktrees,
+  handleRemoveWorktree,
+  handleGitStage,
+  handleGitUnstage,
+  handleGitUnstageHunks,
+  handleGitCommit,
+  handleGitPush,
+  handleGitBranches,
+  handleGitCreateBranch,
+  handleGitCheckoutBranch,
+  handleGitRevertFile,
+  handleGitRevertHunks,
+  handleGitFetch,
+  handleGitPull,
+  handleGitStatus,
+  handleGitRemoteStatus,
+  handleGithubList,
+} from "./websocket/handlers/git.js";
+import {
+  handlePrepareFileDownload,
+  handlePrepareFileUpload,
+  handleFinalizeFileUpload,
+  handleCancelFileUpload,
+  handleRevealFileLocal,
+  handleReadFile,
+  handleListFiles,
+} from "./websocket/handlers/files.js";
+import {
+  handleListProjectHistory,
+  handleRemoveProjectHistory,
+  handleListProjects,
+  handleBootstrapProject,
+  handleTrustProject,
+  handleCreateProject,
+  handleUpdateProject,
+  handleRemoveProject,
+  handleListDirectory,
+} from "./websocket/handlers/projects.js";
+import {
+  handleBackupPromptHistory,
+  handleRestorePromptHistory,
+  handleGetPromptHistoryBackupInfo,
+  handleRecordPromptHistory,
+  handleSyncPromptHistory,
+  handleMutatePromptHistory,
+  handleImportPromptHistoryV1,
+} from "./websocket/handlers/prompt-history.js";
+import {
+  handlePushRegister,
+  handlePushUnregister,
+} from "./websocket/handlers/push.js";
+import {
+  handleGetDebugBundle,
+  handleGetUsage,
+  handleListRecordings,
+  handleGetRecording,
+  handleListWindows,
+  handleTakeScreenshot,
+} from "./websocket/handlers/diagnostics.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -342,26 +368,26 @@ interface DeltaTextChunk {
 export class BridgeWebSocketServer {
 
   private wss: WebSocketServer;
-  private sessionManager: SessionManager;
+  sessionManager: SessionManager;
   private apiKey: string | null;
-  private allowedDirs: string[];
+  allowedDirs: string[];
   private readOnlyDirs: string[];
   private assistantImageResolver: AssistantImageResolver | null = null;
   private fileDownloadAllowAllPaths: boolean;
   private imageStore: ImageStore | null;
-  private mediaStore: MediaStore | null;
-  private uploadStore: UploadStore | null;
-  private galleryStore: GalleryStore | null;
-  private projectHistory: ProjectHistory | null;
-  private workspaceStore: WorkspaceStore | null;
+  mediaStore: MediaStore | null;
+  uploadStore: UploadStore | null;
+  galleryStore: GalleryStore | null;
+  projectHistory: ProjectHistory | null;
+  workspaceStore: WorkspaceStore | null;
   private pendingSessionWorkspaces = new Map<string, ResolvedWorkspace>();
-  private debugTraceStore: DebugTraceStore;
-  private recordingStore: RecordingStore | null;
-  private worktreeStore: WorktreeStore;
-  private pushRelay: PushRelayClient;
+  debugTraceStore: DebugTraceStore;
+  recordingStore: RecordingStore | null;
+  worktreeStore: WorktreeStore;
+  pushRelay: PushRelayClient;
   private completionGate: BackgroundCompletionGate<ResultServerMessage>;
-  private promptHistoryBackup: PromptHistoryBackupStore | null;
-  private promptHistoryStore: PromptHistoryStore | null;
+  promptHistoryBackup: PromptHistoryBackupStore | null;
+  promptHistoryStore: PromptHistoryStore | null;
 
   private recentSessionsRequestIds = new WeakMap<WebSocket, number>();
   private recentSessionsInFlight = new Map<
@@ -383,7 +409,7 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
   private readonly antigravityStore: AntigravityStore;
-  private antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
+  antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
   private antigravityUsageRead: Promise<UsageInfo[]> | undefined;
   private readonly loadAntigravityUsage: (bin: string) => Promise<UsageInfo[]>;
   /** A catalog read in flight, shared by everyone who asks meanwhile. */
@@ -427,8 +453,8 @@ export class BridgeWebSocketServer {
     CodexServiceTierMetadata[]
   > = {};
   /** FCM token → push notification locale */
-  private tokenLocales = new Map<string, PushLocale>();
-  private tokenPrivacyMode = new Map<string, boolean>();
+  tokenLocales = new Map<string, PushLocale>();
+  tokenPrivacyMode = new Map<string, boolean>();
   private pushTokenGeneration = new Map<string, number>();
   private pushTokenOperations = new Map<string, Promise<void>>();
   private nextPushTokenGeneration = 0;
@@ -436,14 +462,14 @@ export class BridgeWebSocketServer {
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
-  private readonly fileListMaxEntries: number;
-  private readonly fileListMaxBytes: number;
+  readonly fileListMaxEntries: number;
+  readonly fileListMaxBytes: number;
   private readonly fileDownloadMaxBytes: number;
   private readonly fileUploadMaxBytes: number;
   private readonly deltaBatchMs: number;
   private readonly deltaBatchMaxChars: number;
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
-  private platform: NodeJS.Platform;
+  platform: NodeJS.Platform;
   private deliveryPreferences = new WeakMap<
     WebSocket,
     { enabled: boolean; sessions: Record<string, boolean> }
@@ -458,7 +484,7 @@ export class BridgeWebSocketServer {
       : prefs.enabled;
   }
 
-  private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
   private clientProtocolVersions = new WeakMap<WebSocket, number>();
   private rejectedProtocolClients = new WeakSet<WebSocket>();
   private pendingClaudeResumeInputs = new WeakMap<
@@ -668,14 +694,14 @@ export class BridgeWebSocketServer {
    * Validate that a project path is within the allowed directories.
    * Returns true if the path is allowed, false otherwise.
    */
-  private isPathAllowed(path: string): boolean {
+  isPathAllowed(path: string): boolean {
     if (this.allowedDirs.length === 0) return true;
     return this.allowedDirs.some(
       (dir) => isPathWithinAllowedDirectory(path, dir, this.platform),
     );
   }
 
-  private async isCanonicalPathAllowed(path: string): Promise<boolean> {
+  async isCanonicalPathAllowed(path: string): Promise<boolean> {
     if (this.allowedDirs.length === 0) return true;
     for (const dir of this.allowedDirs) {
       let canonicalDir = dir;
@@ -716,11 +742,11 @@ export class BridgeWebSocketServer {
    * Read access: allowed directories plus BRIDGE_READONLY_DIRS. Use only for
    * file preview, download, and reveal — never for projects or writes.
    */
-  private isPathReadable(path: string): boolean {
+  isPathReadable(path: string): boolean {
     return this.isPathAllowed(path) || this.isPathInReadOnlyDir(path);
   }
 
-  private async isCanonicalPathReadable(path: string): Promise<boolean> {
+  async isCanonicalPathReadable(path: string): Promise<boolean> {
     return (
       (await this.isCanonicalPathAllowed(path)) ||
       (await this.isCanonicalPathInReadOnlyDir(path))
@@ -748,7 +774,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private async prepareFileDownload(
+  async prepareFileDownload(
     ws: WebSocket,
     request: Extract<ClientMessage, { type: "prepare_file_download" }>,
   ): Promise<void> {
@@ -894,7 +920,7 @@ export class BridgeWebSocketServer {
     this.send(ws, { type: "error", errorCode, message, requestId, path });
   }
 
-  private async prepareFileUpload(
+  async prepareFileUpload(
     ws: WebSocket,
     request: Extract<ClientMessage, { type: "prepare_file_upload" }>,
   ): Promise<void> {
@@ -977,7 +1003,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async finalizeFileUpload(
+  async finalizeFileUpload(
     ws: WebSocket,
     request: Extract<ClientMessage, { type: "finalize_file_upload" }>,
   ): Promise<void> {
@@ -995,7 +1021,7 @@ export class BridgeWebSocketServer {
   }
 
   /** Build a user-friendly error for disallowed project paths. */
-  private buildPathNotAllowedError(
+  buildPathNotAllowedError(
     projectPath: string,
     requestId?: string,
   ): Extract<ServerMessage, { type: "error" }> {
@@ -3905,104 +3931,13 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "push_register": {
-        const locale = normalizePushLocale(msg.locale);
-        const privacyMode = msg.privacyMode === true;
-        const supportsRegistrationResult =
-          this.clientSupportedServerMessages
-            .get(ws)
-            ?.has("push_registration_result") ?? false;
-        console.log(
-          `[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${this.pushRelay.isConfigured})`,
-        );
-        const generation = this.beginPushTokenOperation(msg.token);
-        if (!this.pushRelay.isConfigured) {
-          const error = "Push relay is not configured on bridge";
-          this.send(
-            ws,
-            supportsRegistrationResult
-              ? {
-                  type: "push_registration_result",
-                  token: msg.token,
-                  requestId: msg.requestId ?? "",
-                  success: false,
-                  error,
-                }
-              : { type: "error", message: error },
-          );
-          return;
-        }
-        const operation = this.enqueuePushTokenOperation(msg.token, () =>
-          this.pushRelay.registerToken(msg.token, msg.platform, locale),
-        );
-        operation
-          .then(() => {
-            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
-            console.log("[ws] push_register: token registered successfully");
-            if (supportsRegistrationResult) {
-              this.send(ws, {
-                type: "push_registration_result",
-                token: msg.token,
-                requestId: msg.requestId ?? "",
-                success: true,
-              });
-            }
-            // Enable delivery only after the acknowledgement has been queued
-            // on the WebSocket, keeping the app on local fallback until then.
-            this.tokenLocales.set(msg.token, locale);
-            this.tokenPrivacyMode.set(msg.token, privacyMode);
-          })
-          .catch((err) => {
-            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
-            const detail = err instanceof Error ? err.message : String(err);
-            console.error(`[ws] push_register failed: ${detail}`);
-            const error = `Failed to register push token: ${detail}`;
-            this.send(
-              ws,
-              supportsRegistrationResult
-                ? {
-                    type: "push_registration_result",
-                    token: msg.token,
-                    requestId: msg.requestId ?? "",
-                    success: false,
-                    error,
-                  }
-                : { type: "error", message: error },
-            );
-          });
+      case "push_register":
+        await handlePushRegister(this, msg, ws);
         break;
-      }
 
-      case "push_unregister": {
-        console.log("[ws] push_unregister received");
-        const generation = this.beginPushTokenOperation(msg.token);
-        if (!this.pushRelay.isConfigured) {
-          this.send(ws, {
-            type: "error",
-            message: "Push relay is not configured on bridge",
-          });
-          return;
-        }
-        this.enqueuePushTokenOperation(msg.token, () =>
-          this.pushRelay.unregisterToken(msg.token),
-        )
-          .then(() => {
-            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
-            console.log(
-              "[ws] push_unregister: token unregistered successfully",
-            );
-          })
-          .catch((err) => {
-            if (!this.isCurrentPushTokenOperation(msg.token, generation)) return;
-            const detail = err instanceof Error ? err.message : String(err);
-            console.error(`[ws] push_unregister failed: ${detail}`);
-            this.send(ws, {
-              type: "error",
-              message: `Failed to unregister push token: ${detail}`,
-            });
-          });
+      case "push_unregister":
+        await handlePushUnregister(this, msg, ws);
         break;
-      }
 
       case "set_permission_mode": {
         if (this.failSetPermissionMode) {
@@ -5720,101 +5655,13 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "get_debug_bundle": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Session ${msg.sessionId} not found`,
-          });
-          return;
-        }
-
-        const emitBundle = (diff: string, diffError?: string): void => {
-          const traceLimit =
-            msg.traceLimit ?? MAX_DEBUG_EVENTS;
-          const trace = this.getDebugEvents(msg.sessionId, traceLimit);
-          const generatedAt = new Date().toISOString();
-          const includeDiff = msg.includeDiff !== false;
-          const bundlePayload: Record<string, unknown> = {
-            type: "debug_bundle",
-            sessionId: msg.sessionId,
-            generatedAt,
-            session: {
-              id: session.id,
-              provider: session.provider,
-              status: session.status,
-              projectPath: session.projectPath,
-              worktreePath: session.worktreePath,
-              worktreeBranch: session.worktreeBranch,
-              claudeSessionId: session.claudeSessionId,
-              createdAt: session.createdAt.toISOString(),
-              lastActivityAt: session.lastActivityAt.toISOString(),
-            },
-            pastMessageCount: session.pastMessages?.length ?? 0,
-            historySummary: this.buildHistorySummary(session.history),
-            debugTrace: trace,
-            traceFilePath: this.debugTraceStore.getTraceFilePath(msg.sessionId),
-            reproRecipe: this.buildReproRecipe(
-              session,
-              traceLimit,
-              includeDiff,
-            ),
-            agentPrompt: this.buildAgentPrompt(session),
-            diff,
-            diffError,
-          };
-          const savedBundlePath = this.debugTraceStore.getBundleFilePath(
-            msg.sessionId,
-            generatedAt,
-          );
-          bundlePayload.savedBundlePath = savedBundlePath;
-          this.debugTraceStore.saveBundleAtPath(savedBundlePath, bundlePayload);
-          this.send(ws, bundlePayload);
-        };
-
-        if (msg.includeDiff === false) {
-          emitBundle("");
-          break;
-        }
-
-        const cwd = session.worktreePath ?? session.projectPath;
-        this.collectGitDiff(cwd, ({ diff, error }) => {
-          emitBundle(diff, error);
-        });
+      case "get_debug_bundle":
+        await handleGetDebugBundle(this, msg, ws);
         break;
-      }
 
-      case "get_usage": {
-        // The Antigravity CLI takes seconds to answer, so the other agents
-        // go out first with its last reading, and a second result follows
-        // when the new one differs.
-        const lastAntigravity = this.antigravityUsageCache?.usage ?? [];
-        const antigravityRead = this.antigravityUsage(
-          msg.refreshAntigravity === true,
-        );
-        fetchAllUsage({ readClaudeLive: () => this.readClaudePlanUsage() })
-          .then(async (usage) => {
-            const sendUsage = (antigravity: UsageInfo[]) =>
-              this.send(ws, {
-                type: "usage_result",
-                providers: [...usage, ...antigravity],
-              } as Record<string, unknown>);
-            sendUsage(lastAntigravity);
-            const antigravity = await antigravityRead;
-            if (JSON.stringify(antigravity) !== JSON.stringify(lastAntigravity)) {
-              sendUsage(antigravity);
-            }
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "error",
-              message: `Failed to fetch usage: ${err}`,
-            });
-          });
+      case "get_usage":
+        await handleGetUsage(this, msg, ws);
         break;
-      }
 
       case "list_recent_sessions": {
         // Load the Codex thread snapshot ahead of the first search / filter.
@@ -6781,1404 +6628,158 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "list_project_history": {
-        const projects = this.legacyProjectHistoryProjects();
-        this.send(ws, { type: "project_history", projects });
+      case "list_project_history":
+        await handleListProjectHistory(this, msg, ws);
         break;
-      }
 
-      case "remove_project_history": {
-        this.projectHistory?.removeProject(msg.projectPath);
-        const projects = this.legacyProjectHistoryProjects();
-        this.send(ws, { type: "project_history", projects });
+      case "remove_project_history":
+        await handleRemoveProjectHistory(this, msg, ws);
         break;
-      }
 
-      case "list_projects": {
-        this.send(ws, this.projectsMessage(msg.requestId));
+      case "list_projects":
+        await handleListProjects(this, msg, ws);
         break;
-      }
 
-      case "bootstrap_project": {
-        try {
-          const result = await bootstrapProject({ ...msg,
-            isAllowed: (path) => this.isCanonicalPathAllowed(path),
-          });
-          this.projectHistory?.addProject(result.projectPath);
-          this.send(ws, { type: "project_setup_result", requestId: msg.requestId, ...result });
-        } catch (error) {
-          this.send(ws, { type: "project_setup_result", requestId: msg.requestId, error: (error as Error).message });
-        }
+      case "bootstrap_project":
+        await handleBootstrapProject(this, msg, ws);
         break;
-      }
       case "trust_project":
-      case "initialize_git": {
-        try {
-          const projectPath = await realpath(msg.projectPath);
-          if (!await this.isCanonicalPathAllowed(projectPath)) throw new Error("Project directory is not allowed");
-          if (msg.type === "trust_project") {
-            if (msg.sessionId) {
-              const session = this.sessionManager.get(msg.sessionId);
-              if (!session || session.provider !== "codex" || session.queuedInput ||
-                  await realpath(session.worktreePath ?? session.projectPath) !== projectPath) {
-                throw new Error("Session is unavailable or has queued input");
-              }
-              await (session.process as CodexProcess).trustProjectAndReload(projectPath);
-            } else {
-              const proc = new CodexProcess();
-              try {
-                await proc.initializeOnly(projectPath, 10_000);
-                await proc.trustProject(projectPath);
-              } finally { proc.stop(); }
-            }
-          } else {
-            // Do not silently turn a subdirectory of another repository into a nested repo.
-            let inside = false;
-            try { inside = execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: projectPath, encoding: "utf8", stdio: "pipe" }).trim() === "true"; } catch { /* not initialized */ }
-            if (!inside) execFileSync("git", ["init", "-b", "main"], { cwd: projectPath, timeout: 10_000, stdio: "pipe" });
-          }
-          this.send(ws, { type: "project_setup_result", requestId: msg.requestId, projectPath });
-        } catch (error) {
-          this.send(ws, { type: "project_setup_result", requestId: msg.requestId, error: (error as Error).message });
-        }
+      case "initialize_git":
+        await handleTrustProject(this, msg, ws);
         break;
-      }
-      case "create_project": {
-        if (!this.workspaceStore) {
-          this.send(ws, {
-            type: "error",
-            requestId: msg.requestId,
-            errorCode: "projects_unavailable",
-            message: "Project storage is unavailable",
-          });
-          break;
-        }
-        const normalized = this.normalizeWorkspaceRoots(msg.rootPaths);
-        if (normalized.deniedRoot || !normalized.roots) {
-          this.send(
-            ws,
-            this.buildPathNotAllowedError(
-              normalized.deniedRoot ?? msg.rootPaths[0],
-            ),
-          );
-          break;
-        }
-        try {
-          await this.workspaceStore.createProject(msg.name, normalized.roots);
-          this.broadcast(this.projectsMessage(msg.requestId));
-        } catch (error) {
-          this.sendWorkspaceMutationError(ws, msg.requestId, "create Project", error);
-        }
+      case "create_project":
+        await handleCreateProject(this, msg, ws);
         break;
-      }
 
-      case "update_project": {
-        if (!this.workspaceStore) {
-          this.send(ws, {
-            type: "error",
-            requestId: msg.requestId,
-            errorCode: "projects_unavailable",
-            message: "Project storage is unavailable",
-          });
-          break;
-        }
-        const normalized = this.normalizeWorkspaceRoots(msg.rootPaths);
-        if (normalized.deniedRoot || !normalized.roots) {
-          this.send(
-            ws,
-            this.buildPathNotAllowedError(
-              normalized.deniedRoot ?? msg.rootPaths[0],
-            ),
-          );
-          break;
-        }
-        let updated;
-        try {
-          updated = await this.workspaceStore.updateProject(
-            msg.projectId,
-            msg.name,
-            normalized.roots,
-          );
-        } catch (error) {
-          this.sendWorkspaceMutationError(ws, msg.requestId, "update Project", error);
-          break;
-        }
-        if (!updated) {
-          this.send(ws, {
-            type: "error",
-            requestId: msg.requestId,
-            errorCode: "project_not_found",
-            message: `Project not found: ${msg.projectId}`,
-          });
-          break;
-        }
-        this.broadcast(this.projectsMessage(msg.requestId));
+      case "update_project":
+        await handleUpdateProject(this, msg, ws);
         break;
-      }
 
-      case "remove_project": {
-        if (!this.workspaceStore) {
-          this.sendWorkspaceMutationError(
-            ws,
-            msg.requestId,
-            "remove Project",
-            new Error("Project storage is unavailable"),
-          );
-          break;
-        }
-        let removed;
-        try {
-          removed = await this.workspaceStore.removeProject(msg.projectId);
-        } catch (error) {
-          this.sendWorkspaceMutationError(ws, msg.requestId, "remove Project", error);
-          break;
-        }
-        if (!removed) {
-          this.send(ws, {
-            type: "error",
-            requestId: msg.requestId,
-            errorCode: "project_not_found",
-            message: `Project not found: ${msg.projectId}`,
-          });
-          break;
-        }
-        this.broadcast(this.projectsMessage(msg.requestId));
+      case "remove_project":
+        await handleRemoveProject(this, msg, ws);
         break;
-      }
 
-      case "list_directory": {
-        try {
-          const listing = await listAllowedDirectories(
-            msg.path,
-            this.allowedDirs,
-            this.platform,
-            msg.includeHidden ?? false,
-            msg.includeFiles ?? false,
-          );
-          this.send(ws, {
-            type: "directory_listing",
-            path: listing.path,
-            directories: listing.directories,
-            ...(listing.files ? { files: listing.files } : {}),
-            requestId: msg.requestId,
-          });
-        } catch (error) {
-          const listingError =
-            error instanceof DirectoryListingError
-              ? error
-              : new DirectoryListingError(
-                  "directory_read_failed",
-                  "Unable to read directory",
-                );
-          this.send(ws, {
-            type: "error",
-            errorCode: listingError.code,
-            message: listingError.message,
-            path: msg.path,
-            requestId: msg.requestId,
-          });
-        }
+      case "list_directory":
+        await handleListDirectory(this, msg, ws);
         break;
-      }
 
-      case "prepare_file_download": {
-        void this.prepareFileDownload(ws, msg);
+      case "prepare_file_download":
+        await handlePrepareFileDownload(this, msg, ws);
         break;
-      }
 
-      case "prepare_file_upload": {
-        void this.prepareFileUpload(ws, msg);
+      case "prepare_file_upload":
+        await handlePrepareFileUpload(this, msg, ws);
         break;
-      }
 
-      case "finalize_file_upload": {
-        void this.finalizeFileUpload(ws, msg);
+      case "finalize_file_upload":
+        await handleFinalizeFileUpload(this, msg, ws);
         break;
-      }
 
-      case "cancel_file_upload": {
-        if (this.uploadStore) void this.uploadStore.cancel(msg.uploadToken);
+      case "cancel_file_upload":
+        await handleCancelFileUpload(this, msg, ws);
         break;
-      }
 
       case "reveal_file_local":
-      case "reveal_file": {
-        void (async () => {
-          const reply = (
-            errorCode?: "not_local_mac" | "path_not_allowed" | "reveal_failed",
-          ) => this.send(ws, {
-            type: "reveal_file_result",
-            requestId: msg.requestId,
-            ...(errorCode ? { errorCode } : {}),
-          });
-          if (
-            this.platform !== "darwin" ||
-            !(await (msg.type === "reveal_file_local"
-              ? verifyFinderSocketProof(msg.proofPort, msg.proofToken)
-              : consumeFinderProof(msg.proofPath, msg.proofToken)))
-          ) {
-            reply("not_local_mac");
-            return;
-          }
-          try {
-            const path = resolve(msg.projectPath, msg.filePath);
-            if (!this.isPathReadable(path)) {
-              reply("path_not_allowed");
-              return;
-            }
-            const canonicalPath = await realpath(path);
-            if (!(await this.isCanonicalPathReadable(canonicalPath))) {
-              reply("path_not_allowed");
-              return;
-            }
-            await revealInFinder(canonicalPath);
-            reply();
-          } catch {
-            reply("reveal_failed");
-          }
-        })();
+      case "reveal_file":
+        await handleRevealFileLocal(this, msg, ws);
         break;
-      }
 
       case "read_file":
       case "read_media_file":
-      case "read_model_file": {
-        const responseMetadata = {
-          ...projectRequestMetadata(msg),
-          filePath: msg.filePath,
-        };
-        const absPath = resolve(msg.projectPath, msg.filePath);
-        if (!this.isPathReadable(absPath)) {
-          this.send(ws, {
-            type: "file_content",
-            ...responseMetadata,
-            content: "",
-            error: "Path not allowed",
-          });
-          break;
-        }
-        void (async () => {
-          try {
-            if (!existsSync(absPath)) {
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                content: "",
-                error: "File not found",
-              });
-              return;
-            }
-            const fileStat = await lstat(absPath);
-            if (fileStat.isSymbolicLink()) {
-              let targetPath = "";
-              try {
-                targetPath = await readlink(absPath);
-              } catch {
-                // Best effort only; the user-facing error still works without it.
-              }
-              let resolvedTargetStat;
-              try {
-                resolvedTargetStat = await stat(absPath);
-              } catch {
-                this.send(ws, {
-                  type: "file_content",
-                  ...responseMetadata,
-                  content: "",
-                  error:
-                    targetPath.length > 0
-                      ? `This symbolic link points to a missing target: ${targetPath}`
-                      : "This symbolic link points to a missing target.",
-                });
-                return;
-              }
-              if (resolvedTargetStat.isDirectory()) {
-                this.send(ws, {
-                  type: "file_content",
-                  ...responseMetadata,
-                  content: "",
-                  error:
-                    targetPath.length > 0
-                      ? `This symbolic link points to a directory (${targetPath}). Open the target directory instead.`
-                      : "This symbolic link points to a directory. Open the target directory instead.",
-                });
-                return;
-              }
-            } else if (fileStat.isDirectory()) {
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                content: "",
-                error: "This path is a directory. Open a file instead.",
-              });
-              return;
-            }
-            const resolvedFileStat = fileStat.isSymbolicLink()
-              ? await stat(absPath)
-              : fileStat;
-            const canonicalPath = await realpath(absPath);
-            if (!(await this.isCanonicalPathReadable(canonicalPath))) {
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                content: "",
-                error: "Path not allowed",
-              });
-              return;
-            }
-            const ext = extname(absPath).toLowerCase();
-            if (msg.type === "read_model_file") {
-              const error =
-                ext !== ".glb"
-                  ? "Unsupported 3D file type. Use a GLB file."
-                  : resolvedFileStat.size > 50 * 1024 * 1024
-                    ? "model_too_large"
-                    : !this.mediaStore
-                      ? "3D preview is unavailable on this Bridge."
-                      : undefined;
-              if (error) {
-                this.send(ws, {
-                  type: "file_content",
-                  ...responseMetadata,
-                  kind: "model",
-                  content: "",
-                  error,
-                });
-                return;
-              }
-              const ref = await this.mediaStore!.register(
-                canonicalPath,
-                "model/gltf-binary",
-                resolvedFileStat.size,
-              );
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                kind: "model",
-                content: "",
-                mimeType: ref.mimeType,
-                sizeBytes: ref.sizeBytes,
-                mediaUrl: ref.url,
-              });
-              return;
-            }
-            const mediaType =
-              ext === ".pdf"
-                ? { kind: "pdf" as const, mimeType: "application/pdf" }
-                : FILE_PEEK_MEDIA_TYPES[ext];
-            if (mediaType) {
-              if (!this.mediaStore) {
-                this.send(ws, {
-                  type: "file_content",
-                  ...responseMetadata,
-                  kind: mediaType.kind,
-                  content: "",
-                  mimeType: mediaType.mimeType,
-                  sizeBytes: resolvedFileStat.size,
-                  error: "Media preview is unavailable on this Bridge.",
-                });
-                return;
-              }
-              const ref = await this.mediaStore.register(
-                canonicalPath,
-                mediaType.mimeType,
-                resolvedFileStat.size,
-              );
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                kind: mediaType.kind,
-                content: "",
-                mimeType: ref.mimeType,
-                sizeBytes: ref.sizeBytes,
-                mediaUrl: ref.url,
-              });
-              return;
-            }
-            if (msg.type === "read_media_file") {
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                content: "",
-                error: "Unsupported media file type.",
-              });
-              return;
-            }
-            if (FILE_PEEK_IMAGE_EXTENSIONS.has(ext)) {
-              const mimeType = mimeTypeForExt(ext);
-              if (resolvedFileStat.size > MAX_IMAGE_SIZE) {
-                this.send(ws, {
-                  type: "file_content",
-                  ...responseMetadata,
-                  kind: "image",
-                  content: "",
-                  mimeType,
-                  sizeBytes: resolvedFileStat.size,
-                  error: "Image too large to preview. Maximum size is 5 MB.",
-                });
-                return;
-              }
-              const buf = await readFile(absPath);
-              this.send(ws, {
-                type: "file_content",
-                ...responseMetadata,
-                kind: "image",
-                content: "",
-                base64: buf.toString("base64"),
-                mimeType,
-                sizeBytes: buf.length,
-              });
-              return;
-            }
-            const maxLines =
-              typeof msg.maxLines === "number" && msg.maxLines > 0
-                ? msg.maxLines
-                : 5000;
-            const raw = await readFile(absPath, "utf-8");
-            const textExt = ext.replace(/^\./, "").toLowerCase();
-            const languageMap: Record<string, string> = {
-              ts: "typescript",
-              tsx: "typescript",
-              js: "javascript",
-              jsx: "javascript",
-              py: "python",
-              rb: "ruby",
-              rs: "rust",
-              go: "go",
-              java: "java",
-              kt: "kotlin",
-              swift: "swift",
-              dart: "dart",
-              c: "c",
-              cpp: "cpp",
-              h: "c",
-              hpp: "cpp",
-              cs: "csharp",
-              sh: "bash",
-              zsh: "bash",
-              yml: "yaml",
-              yaml: "yaml",
-              json: "json",
-              toml: "toml",
-              md: "markdown",
-              html: "html",
-              css: "css",
-              scss: "css",
-              sql: "sql",
-              xml: "xml",
-              dockerfile: "dockerfile",
-              makefile: "makefile",
-              gradle: "groovy",
-            };
-            const language = languageMap[textExt] ?? (textExt || undefined);
-            const preview = textPreview(raw, maxLines);
-            this.send(ws, {
-              type: "file_content",
-              ...responseMetadata,
-              kind: "text",
-              content: preview.content,
-              language,
-              totalLines: preview.totalLines,
-              truncated: preview.truncated,
-            });
-          } catch (err) {
-            this.send(ws, {
-              type: "file_content",
-              ...responseMetadata,
-              content: "",
-              error: `Failed to read file: ${err}`,
-            });
-          }
-        })();
+      case "read_model_file":
+        await handleReadFile(this, msg, ws);
         break;
-      }
 
-      case "list_files": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "file_list",
-            ...projectRequestMetadata(msg),
-            files: [],
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        void (async () => {
-          try {
-            const result = await listProjectFilesAndDirectoriesForClient(
-              msg.projectPath,
-              {
-                maxEntries: this.fileListMaxEntries,
-                maxBytes: this.fileListMaxBytes,
-              },
-            );
-            this.send(ws, {
-              type: "file_list",
-              ...projectRequestMetadata(msg),
-              files: result.files,
-              ignored: result.ignored,
-              modifiedAt: result.modifiedAt,
-              totalFiles: result.totalFiles,
-              truncated: result.truncated,
-            } as Record<string, unknown>);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.send(ws, {
-              type: "file_list",
-              ...projectRequestMetadata(msg),
-              files: [],
-              error: `Failed to list files: ${message}`,
-            });
-          }
-        })();
+      case "list_files":
+        await handleListFiles(this, msg, ws);
         break;
-      }
 
-      case "list_recordings": {
-        if (!this.recordingStore) {
-          this.send(ws, { type: "recording_list", recordings: [] } as Record<
-            string,
-            unknown
-          >);
-          break;
-        }
-        const store = this.recordingStore;
-        void store.listRecordings().then(async (recordings) => {
-          // First pass: extract info from JSONL for recordings missing firstPrompt
-          // This covers both meta-less legacy recordings and new ones where sessions-index hasn't indexed yet
-          await Promise.all(
-            recordings.map(async (rec) => {
-              const info = await store.extractInfoFromJsonl(rec.name);
-              if (info.firstPrompt && !rec.firstPrompt)
-                rec.firstPrompt = info.firstPrompt;
-              if (info.lastPrompt && !rec.lastPrompt)
-                rec.lastPrompt = info.lastPrompt;
-              // Backfill meta for legacy recordings
-              if (!rec.meta && (info.claudeSessionId || info.projectPath)) {
-                rec.meta = {
-                  bridgeSessionId: rec.name,
-                  claudeSessionId: info.claudeSessionId,
-                  projectPath: info.projectPath ?? "",
-                  createdAt: rec.modified,
-                };
-              }
-            }),
-          );
-
-          // Second pass: look up sessions-index for summaries (if claudeSessionIds available)
-          const claudeIds = new Set<string>();
-          const idToIdx = new Map<string, number[]>();
-          for (let i = 0; i < recordings.length; i++) {
-            const cid = recordings[i].meta?.claudeSessionId;
-            if (cid) {
-              claudeIds.add(cid);
-              const arr = idToIdx.get(cid) ?? [];
-              arr.push(i);
-              idToIdx.set(cid, arr);
-            }
-          }
-
-          if (claudeIds.size > 0) {
-            const sessionInfo = await findSessionsByClaudeIds(claudeIds);
-            for (const [cid, info] of sessionInfo) {
-              const indices = idToIdx.get(cid) ?? [];
-              for (const idx of indices) {
-                if (info.summary) recordings[idx].summary = info.summary;
-                if (info.firstPrompt)
-                  recordings[idx].firstPrompt = info.firstPrompt;
-                if (info.lastPrompt)
-                  recordings[idx].lastPrompt = info.lastPrompt;
-              }
-            }
-          }
-
-          // A recording keeps its name snapshot after Project deletion, but a
-          // live Project rename should be reflected when the list is read.
-          for (const recording of recordings) {
-            const projectId = recording.meta?.projectId;
-            if (!projectId) continue;
-            const project = this.workspaceStore?.getProject(projectId);
-            if (project && recording.meta) {
-              recording.meta = {
-                ...recording.meta,
-                projectName: project.name,
-              };
-            }
-          }
-
-          this.send(ws, { type: "recording_list", recordings } as Record<
-            string,
-            unknown
-          >);
-        });
+      case "list_recordings":
+        await handleListRecordings(this, msg, ws);
         break;
-      }
 
-      case "get_recording": {
-        if (!this.recordingStore) {
-          this.send(ws, {
-            type: "error",
-            message: "Recording is not enabled on this server",
-          });
-          break;
-        }
-        void this.recordingStore
-          .getRecordingContent(msg.sessionId)
-          .then((content) => {
-            if (content !== null) {
-              this.send(ws, {
-                type: "recording_content",
-                sessionId: msg.sessionId,
-                content,
-              } as Record<string, unknown>);
-            } else {
-              this.send(ws, {
-                type: "error",
-                message: `Recording ${msg.sessionId} not found`,
-              });
-            }
-          });
+      case "get_recording":
+        await handleGetRecording(this, msg, ws);
         break;
-      }
 
-      case "get_diff": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "diff_result",
-            ...projectRequestMetadata(msg),
-            staged: msg.staged === true,
-            diff: "",
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId)
-              .message,
-            errorCode: "path_not_allowed",
-          });
-          break;
-        }
-        this.collectGitDiff(
-          msg.projectPath,
-          ({ diff, error }) => {
-            if (error) {
-              if (/not a git repository/i.test(error)) {
-                this.send(ws, {
-                  type: "diff_result",
-                  ...projectRequestMetadata(msg),
-                  staged: msg.staged === true,
-                  diff: "",
-                  error: "This project is not a git repository",
-                  errorCode: "git_not_available",
-                });
-              } else {
-                this.send(ws, {
-                  type: "diff_result",
-                  ...projectRequestMetadata(msg),
-                  staged: msg.staged === true,
-                  diff: "",
-                  error: `Failed to get diff: ${error}`,
-                });
-              }
-              return;
-            }
-            void this.collectImageChanges(msg.projectPath, diff).then(
-              (imageChanges) => {
-                if (imageChanges.length > 0) {
-                  this.send(ws, {
-                    type: "diff_result",
-                    ...projectRequestMetadata(msg),
-                    staged: msg.staged === true,
-                    diff,
-                    hasCommits: hasGitHead(msg.projectPath),
-                    imageChanges,
-                  });
-                } else {
-                  this.send(ws, {
-                    type: "diff_result",
-                    ...projectRequestMetadata(msg),
-                    staged: msg.staged === true,
-                    diff,
-                    hasCommits: hasGitHead(msg.projectPath),
-                  });
-                }
-              },
-            );
-          },
-          msg.staged === true
-            ? { staged: true }
-            : msg.staged === false
-              ? { unstaged: true }
-              : undefined,
-        );
+      case "get_diff":
+        await handleGetDiff(this, msg, ws);
         break;
-      }
 
-      case "get_diff_image": {
-        if (
-          !this.isPathAllowed(msg.projectPath) ||
-          !this.isPathAllowed(resolve(msg.projectPath, msg.filePath))
-        ) {
-          this.send(ws, {
-            type: "diff_image_result",
-            ...projectRequestMetadata(msg),
-            filePath: msg.filePath,
-            version: msg.version,
-            error: "Path not allowed",
-          });
-          break;
-        }
-        if (msg.version === "both") {
-          void (async () => {
-            try {
-              const [oldResult, newResult] = await Promise.all([
-                this.loadDiffImageAsync(msg.projectPath, msg.filePath, "old"),
-                this.loadDiffImageAsync(msg.projectPath, msg.filePath, "new"),
-              ]);
-              const errors = [oldResult.error, newResult.error].filter(Boolean);
-              this.send(ws, {
-                type: "diff_image_result",
-                ...projectRequestMetadata(msg),
-                filePath: msg.filePath,
-                version: "both" as const,
-                oldBase64: oldResult.base64,
-                newBase64: newResult.base64,
-                mimeType: oldResult.mimeType ?? newResult.mimeType,
-                ...(errors.length > 0 ? { error: errors.join("; ") } : {}),
-              });
-            } catch {
-              // WebSocket may have closed; ignore send errors.
-            }
-          })();
-        } else {
-          const version = msg.version as "old" | "new";
-          void (async () => {
-            try {
-              const result = await this.loadDiffImageAsync(
-                msg.projectPath,
-                msg.filePath,
-                version,
-              );
-              this.send(ws, {
-                type: "diff_image_result",
-                ...projectRequestMetadata(msg),
-                filePath: msg.filePath,
-                version,
-                ...result,
-              });
-            } catch {
-              // WebSocket may have closed; ignore send errors.
-            }
-          })();
-        }
+      case "get_diff_image":
+        await handleGetDiffImage(this, msg, ws);
         break;
-      }
 
-      case "list_worktrees": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "worktree_list",
-            ...projectRequestMetadata(msg),
-            worktrees: [],
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          const worktrees = listWorktrees(msg.projectPath);
-          const mainBranch = getMainBranch(msg.projectPath);
-          this.send(ws, {
-            type: "worktree_list",
-            ...projectRequestMetadata(msg),
-            worktrees,
-            mainBranch,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "worktree_list",
-            ...projectRequestMetadata(msg),
-            worktrees: [],
-            error: `Failed to list worktrees: ${err}`,
-          });
-        }
+      case "list_worktrees":
+        await handleListWorktrees(this, msg, ws);
         break;
-      }
 
-      case "remove_worktree": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "worktree_removed",
-            ...projectRequestMetadata(msg),
-            worktreePath: msg.worktreePath,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          removeWorktree(msg.projectPath, msg.worktreePath);
-          this.worktreeStore.deleteByWorktreePath(msg.worktreePath);
-          this.send(ws, {
-            type: "worktree_removed",
-            ...projectRequestMetadata(msg),
-            worktreePath: msg.worktreePath,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "worktree_removed",
-            ...projectRequestMetadata(msg),
-            worktreePath: msg.worktreePath,
-            error: `Failed to remove worktree: ${err}`,
-          });
-        }
+      case "remove_worktree":
+        await handleRemoveWorktree(this, msg, ws);
         break;
-      }
 
       // ---- Git Operations (Phase 1-3) ----
 
-      case "git_stage": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_stage_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          if (msg.files?.length) stageFiles(msg.projectPath, msg.files);
-          if (msg.hunks?.length) stageHunks(msg.projectPath, msg.hunks);
-          this.send(ws, {
-            type: "git_stage_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_stage_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_stage":
+        await handleGitStage(this, msg, ws);
         break;
-      }
 
-      case "git_unstage": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_unstage_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          unstageFiles(msg.projectPath, msg.files ?? []);
-          this.send(ws, {
-            type: "git_unstage_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_unstage_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_unstage":
+        await handleGitUnstage(this, msg, ws);
         break;
-      }
 
-      case "git_unstage_hunks": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_unstage_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          unstageHunks(msg.projectPath, msg.hunks);
-          this.send(ws, {
-            type: "git_unstage_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_unstage_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_unstage_hunks":
+        await handleGitUnstageHunks(this, msg, ws);
         break;
-      }
 
-      case "git_commit": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_commit_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        const session = msg.sessionId
-          ? this.sessionManager.get(msg.sessionId)
-          : undefined;
-        try {
-          const message =
-            msg.autoGenerate === true
-              ? (() => {
-                  if (!msg.sessionId) {
-                    throw new Error(
-                      "git_commit with autoGenerate=true requires sessionId",
-                    );
-                  }
-                  if (!session) {
-                    throw new Error(`Session ${msg.sessionId} not found`);
-                  }
-                  const expectedPath = resolve(
-                    session.worktreePath ?? session.projectPath,
-                  );
-                  const requestedPath = resolve(msg.projectPath);
-                  if (requestedPath !== expectedPath) {
-                    throw new Error(
-                      "git_commit projectPath must match the active session cwd",
-                    );
-                  }
-                  return generateCommitMessage({
-                    provider: session.provider,
-                    projectPath: msg.projectPath,
-                    model:
-                      session.provider === "claude"
-                        ? session.process instanceof SdkProcess
-                          ? session.process.model
-                          : undefined
-                        : session.codexSettings?.model,
-                  });
-                })()
-              : msg.message ?? "";
-          const result = gitCommit(msg.projectPath, message);
-          this.send(ws, {
-            type: "git_commit_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-            commitHash: result.hash,
-            message: result.message,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_commit_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      case "git_commit":
+        await handleGitCommit(this, msg, ws);
         break;
-      }
 
-      case "git_push": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_push_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          gitPush(msg.projectPath);
-          this.send(ws, {
-            type: "git_push_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_push_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_push":
+        await handleGitPush(this, msg, ws);
         break;
-      }
 
-      case "git_branches": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_branches_result",
-            ...projectRequestMetadata(msg),
-            current: "",
-            branches: [],
-            checkedOutBranches: [],
-            remoteStatusByBranch: {},
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          const result = listBranches(msg.projectPath);
-          this.send(ws, {
-            type: "git_branches_result",
-            ...projectRequestMetadata(msg),
-            current: result.current,
-            branches: result.branches,
-            checkedOutBranches: result.checkedOutBranches,
-            remoteStatusByBranch: result.remoteStatusByBranch,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_branches_result",
-            ...projectRequestMetadata(msg),
-            current: "",
-            branches: [],
-            remoteStatusByBranch: {},
-            error: String(err),
-          });
-        }
+      case "git_branches":
+        await handleGitBranches(this, msg, ws);
         break;
-      }
 
-      case "git_create_branch": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_create_branch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          createBranch(msg.projectPath, msg.name, msg.checkout);
-          this.send(ws, {
-            type: "git_create_branch_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_create_branch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_create_branch":
+        await handleGitCreateBranch(this, msg, ws);
         break;
-      }
 
-      case "git_checkout_branch": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_checkout_branch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          checkoutBranch(msg.projectPath, msg.branch);
-          this.send(ws, {
-            type: "git_checkout_branch_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_checkout_branch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_checkout_branch":
+        await handleGitCheckoutBranch(this, msg, ws);
         break;
-      }
 
-      case "git_revert_file": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_revert_file_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          revertFiles(msg.projectPath, msg.files);
-          this.send(ws, {
-            type: "git_revert_file_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_revert_file_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_revert_file":
+        await handleGitRevertFile(this, msg, ws);
         break;
-      }
 
-      case "git_revert_hunks": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_revert_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          revertHunks(msg.projectPath, msg.hunks);
-          this.send(ws, {
-            type: "git_revert_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_revert_hunks_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_revert_hunks":
+        await handleGitRevertHunks(this, msg, ws);
         break;
-      }
 
-      case "git_fetch": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_fetch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          gitFetch(msg.projectPath);
-          this.send(ws, {
-            type: "git_fetch_result",
-            ...projectRequestMetadata(msg),
-            success: true,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_fetch_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_fetch":
+        await handleGitFetch(this, msg, ws);
         break;
-      }
 
-      case "git_pull": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_pull_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          const result = gitPull(msg.projectPath);
-          if (result.success) {
-            this.send(ws, {
-              type: "git_pull_result",
-              ...projectRequestMetadata(msg),
-              success: true,
-              message: result.message,
-            });
-          } else {
-            this.send(ws, {
-              type: "git_pull_result",
-              ...projectRequestMetadata(msg),
-              success: false,
-              error: result.message,
-            });
-          }
-        } catch (err) {
-          this.send(ws, {
-            type: "git_pull_result",
-            ...projectRequestMetadata(msg),
-            success: false,
-            error: String(err),
-          });
-        }
+      case "git_pull":
+        await handleGitPull(this, msg, ws);
         break;
-      }
 
-      case "git_status": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_status_result",
-            requestId: msg.requestId,
-            sessionId: msg.sessionId,
-            projectPath: msg.projectPath,
-            hasUncommittedChanges: false,
-            stagedCount: 0,
-            unstagedCount: 0,
-            untrackedCount: 0,
-            remoteStatusIncluded: false,
-            hasRemoteChanges: false,
-            commitsAhead: 0,
-            commitsBehind: 0,
-            hasUpstream: false,
-            error: `Path not allowed: ${msg.projectPath}`,
-          });
-          break;
-        }
-        try {
-          const result = gitStatus(msg.projectPath, {
-            includeRemote: msg.includeRemote,
-          });
-          this.send(ws, {
-            type: "git_status_result",
-            requestId: msg.requestId,
-            sessionId: msg.sessionId,
-            projectPath: msg.projectPath,
-            hasUncommittedChanges: result.hasUncommittedChanges,
-            stagedCount: result.stagedCount,
-            unstagedCount: result.unstagedCount,
-            untrackedCount: result.untrackedCount,
-            remoteStatusIncluded: result.remoteStatusIncluded,
-            hasRemoteChanges: result.hasRemoteChanges,
-            commitsAhead: result.commitsAhead,
-            commitsBehind: result.commitsBehind,
-            hasUpstream: result.hasUpstream,
-            branch: result.branch,
-            remoteError: result.remoteError,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_status_result",
-            requestId: msg.requestId,
-            sessionId: msg.sessionId,
-            projectPath: msg.projectPath,
-            hasUncommittedChanges: false,
-            stagedCount: 0,
-            unstagedCount: 0,
-            untrackedCount: 0,
-            remoteStatusIncluded: false,
-            hasRemoteChanges: false,
-            commitsAhead: 0,
-            commitsBehind: 0,
-            hasUpstream: false,
-            error: String(err),
-          });
-        }
+      case "git_status":
+        await handleGitStatus(this, msg, ws);
         break;
-      }
 
-      case "git_remote_status": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, {
-            type: "git_remote_status_result",
-            ...projectRequestMetadata(msg),
-            ahead: 0,
-            behind: 0,
-            branch: "",
-            hasUpstream: false,
-            error: this.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
-          });
-          break;
-        }
-        try {
-          const result = gitRemoteStatus(msg.projectPath);
-          this.send(ws, {
-            type: "git_remote_status_result",
-            ...projectRequestMetadata(msg),
-            ahead: result.ahead,
-            behind: result.behind,
-            branch: result.branch,
-            hasUpstream: result.hasUpstream,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "git_remote_status_result",
-            ...projectRequestMetadata(msg),
-            ahead: 0,
-            behind: 0,
-            branch: "",
-            hasUpstream: false,
-          });
-        }
+      case "git_remote_status":
+        await handleGitRemoteStatus(this, msg, ws);
         break;
-      }
 
       case "github_list":
-      case "github_item": {
-        // The gh CLI runs asynchronously; every outcome answers with the
-        // operation-specific result so the client's pending request clears.
-        const request = msg;
-        const correlation =
-          request.type === "github_list"
-            ? {
-                type: "github_list_result" as const,
-                requestId: request.requestId,
-                projectPath: request.projectPath,
-                kind: request.kind,
-              }
-            : {
-                type: "github_item_result" as const,
-                requestId: request.requestId,
-                projectPath: request.projectPath,
-                kind: request.kind,
-                number: request.number,
-              };
-        if (!this.isPathAllowed(request.projectPath)) {
-          this.send(ws, {
-            ...correlation,
-            error: {
-              code: "failed",
-              message: this.buildPathNotAllowedError(
-                request.projectPath,
-                request.requestId,
-              ).message,
-            },
-          });
-          break;
-        }
-        void (async () => {
-          try {
-            if (request.type === "github_list") {
-              const result = await listGitHubItems(
-                request.projectPath,
-                request.kind,
-              );
-              this.send(ws, {
-                ...correlation,
-                repository: result.repository,
-                items: result.items,
-              });
-            } else {
-              const result = await getGitHubItem(
-                request.projectPath,
-                request.kind,
-                request.number,
-              );
-              this.send(ws, { ...correlation, item: result.item });
-            }
-          } catch (err) {
-            this.send(ws, { ...correlation, error: toGitHubError(err) });
-          }
-        })();
+      case "github_item":
+        await handleGithubList(this, msg, ws);
         break;
-      }
 
       case "rewind_dry_run": {
         const session = this.sessionManager.get(msg.sessionId);
@@ -8395,335 +6996,41 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "list_windows": {
-        listWindows()
-          .then((windows) => {
-            this.send(ws, { type: "window_list", windows });
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "error",
-              message: `Failed to list windows: ${err instanceof Error ? err.message : String(err)}`,
-            });
-          });
+      case "list_windows":
+        await handleListWindows(this, msg, ws);
         break;
-      }
 
-      case "take_screenshot": {
-        // For window mode, verify the window ID is still valid.
-        // The user may have fetched the window list minutes ago and the
-        // window could have been closed since then.
-        const doCapture = async (): Promise<{
-          mode: "fullscreen" | "window";
-          windowId?: number;
-        }> => {
-          if (msg.mode !== "window" || msg.windowId == null) {
-            return { mode: msg.mode };
-          }
-          const current = await listWindows();
-          if (current.some((w) => w.windowId === msg.windowId)) {
-            return { mode: "window", windowId: msg.windowId };
-          }
-          // Window ID is stale — fall back to fullscreen and notify
-          console.warn(
-            `[screenshot] Window ID ${msg.windowId} no longer exists, falling back to fullscreen`,
-          );
-          return { mode: "fullscreen" };
-        };
-        doCapture()
-          .then((opts) => takeScreenshot(opts))
-          .then(async (result) => {
-            try {
-              if (this.galleryStore) {
-                const meta = await this.galleryStore.addImage(
-                  result.filePath,
-                  msg.projectPath,
-                  msg.sessionId,
-                );
-                if (meta) {
-                  const info = this.galleryStore.metaToInfo(meta);
-                  this.send(ws, {
-                    type: "screenshot_result",
-                    ...projectRequestMetadata(msg),
-                    sessionId: msg.sessionId,
-                    success: true,
-                    image: info,
-                  });
-                  this.broadcast({ type: "gallery_new_image", image: info });
-                  return;
-                }
-              }
-              this.send(ws, {
-                type: "screenshot_result",
-                ...projectRequestMetadata(msg),
-                sessionId: msg.sessionId,
-                success: false,
-                error: "Failed to save screenshot to gallery",
-              });
-            } finally {
-              // Always clean up temp file
-              unlink(result.filePath).catch(() => {});
-            }
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "screenshot_result",
-              ...projectRequestMetadata(msg),
-              sessionId: msg.sessionId,
-              success: false,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
+      case "take_screenshot":
+        await handleTakeScreenshot(this, msg, ws);
         break;
-      }
 
-      case "backup_prompt_history": {
-        if (!this.promptHistoryBackup) {
-          this.send(ws, {
-            type: "prompt_history_backup_result",
-            success: false,
-            error: "Backup store not available",
-          });
-          break;
-        }
-        const buf = Buffer.from(msg.data, "base64");
-        this.promptHistoryBackup
-          .save(buf, msg.appVersion, msg.dbVersion)
-          .then((meta) => {
-            this.send(ws, {
-              type: "prompt_history_backup_result",
-              success: true,
-              backedUpAt: meta.backedUpAt,
-            });
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "prompt_history_backup_result",
-              success: false,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
+      case "backup_prompt_history":
+        await handleBackupPromptHistory(this, msg, ws);
         break;
-      }
 
-      case "restore_prompt_history": {
-        if (!this.promptHistoryBackup) {
-          this.send(ws, {
-            type: "prompt_history_restore_result",
-            success: false,
-            error: "Backup store not available",
-          });
-          break;
-        }
-        this.promptHistoryBackup
-          .load()
-          .then((result) => {
-            if (result) {
-              this.send(ws, {
-                type: "prompt_history_restore_result",
-                success: true,
-                data: result.data.toString("base64"),
-                appVersion: result.meta.appVersion,
-                dbVersion: result.meta.dbVersion,
-                backedUpAt: result.meta.backedUpAt,
-              });
-            } else {
-              this.send(ws, {
-                type: "prompt_history_restore_result",
-                success: false,
-                error: "No backup found",
-              });
-            }
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "prompt_history_restore_result",
-              success: false,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
+      case "restore_prompt_history":
+        await handleRestorePromptHistory(this, msg, ws);
         break;
-      }
 
-      case "get_prompt_history_backup_info": {
-        if (!this.promptHistoryBackup) {
-          this.send(ws, { type: "prompt_history_backup_info", exists: false });
-          break;
-        }
-        this.promptHistoryBackup
-          .getMeta()
-          .then((meta) => {
-            if (meta) {
-              this.send(ws, {
-                type: "prompt_history_backup_info",
-                exists: true,
-                ...meta,
-              });
-            } else {
-              this.send(ws, {
-                type: "prompt_history_backup_info",
-                exists: false,
-              });
-            }
-          })
-          .catch(() => {
-            this.send(ws, {
-              type: "prompt_history_backup_info",
-              exists: false,
-            });
-          });
+      case "get_prompt_history_backup_info":
+        await handleGetPromptHistoryBackupInfo(this, msg, ws);
         break;
-      }
 
-      case "record_prompt_history": {
-        if (!this.promptHistoryStore) {
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: false,
-            error: "Prompt history store not available",
-          });
-          break;
-        }
-        try {
-          const runtimeSession = msg.sessionId
-            ? this.resolveSession(msg.sessionId)
-            : undefined;
-          const workspace = runtimeSession
-            ? this.workspaceForRuntimeSession(runtimeSession)
-            : undefined;
-          const entry = await this.promptHistoryStore.record({
-            text: msg.text,
-            projectPath: msg.projectPath,
-            projectId: workspace?.projectId ?? msg.projectId,
-            projectName: workspace?.projectName ?? msg.projectName,
-            clientId: msg.clientId,
-            clientName: msg.clientName,
-            sessionId: msg.sessionId,
-            usedAt: msg.usedAt,
-          });
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: true,
-            bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-            revision: this.promptHistoryStore.revision,
-            entry,
-          });
-          this.broadcastPromptHistoryStatus();
-        } catch (err) {
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      case "record_prompt_history":
+        await handleRecordPromptHistory(this, msg, ws);
         break;
-      }
 
-      case "sync_prompt_history": {
-        if (!this.promptHistoryStore) {
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: false,
-            error: "Prompt history store not available",
-          });
-          break;
-        }
-        try {
-          if (msg.entries?.length) {
-            await this.promptHistoryStore.mergeClientEntries(msg.entries);
-          }
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: true,
-            bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-            revision: this.promptHistoryStore.revision,
-            syncedAt: new Date().toISOString(),
-            fullSnapshot: true,
-            entries: this.promptHistoryStore.list(msg.includeDeleted ?? true),
-          });
-          this.broadcastPromptHistoryStatus();
-        } catch (err) {
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      case "sync_prompt_history":
+        await handleSyncPromptHistory(this, msg, ws);
         break;
-      }
 
-      case "mutate_prompt_history": {
-        if (!this.promptHistoryStore) {
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: false,
-            error: "Prompt history store not available",
-          });
-          break;
-        }
-        try {
-          const entry = await this.promptHistoryStore.mutate({
-            id: msg.id,
-            text: msg.text,
-            projectPath: msg.projectPath,
-            projectId: msg.projectId,
-            action: msg.action,
-            isFavorite: msg.isFavorite,
-            updatedAt: msg.updatedAt,
-          });
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: entry != null,
-            bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-            revision: this.promptHistoryStore.revision,
-            entry: entry ?? undefined,
-            error: entry == null ? "Prompt not found" : undefined,
-          });
-          if (entry) this.broadcastPromptHistoryStatus();
-        } catch (err) {
-          this.send(ws, {
-            type: "prompt_history_mutation_result",
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      case "mutate_prompt_history":
+        await handleMutatePromptHistory(this, msg, ws);
         break;
-      }
 
-      case "import_prompt_history_v1": {
-        if (!this.promptHistoryStore) {
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: false,
-            error: "Prompt history store not available",
-          });
-          break;
-        }
-        try {
-          const result = await this.promptHistoryStore.importEntries(
-            msg.entries,
-            msg.clientId,
-            msg.clientName,
-          );
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: true,
-            bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-            revision: this.promptHistoryStore.revision,
-            syncedAt: new Date().toISOString(),
-            fullSnapshot: true,
-            entries: result.entries,
-          });
-          this.broadcastPromptHistoryStatus();
-        } catch (err) {
-          this.send(ws, {
-            type: "prompt_history_sync_result",
-            success: false,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      case "import_prompt_history_v1":
+        await handleImportPromptHistoryV1(this, msg, ws);
         break;
-      }
 
       case "rename_session": {
         const name = (msg.name as string | null) || null;
@@ -9191,7 +7498,7 @@ export class BridgeWebSocketServer {
     this.send(ws, { type: "rename_result", sessionId, name, success: false });
   }
 
-  private resolveSession(
+  resolveSession(
     sessionId: string | undefined,
   ): SessionInfo | undefined {
     if (sessionId) return this.sessionManager.get(sessionId);
@@ -9290,7 +7597,7 @@ export class BridgeWebSocketServer {
     return workspace ? { ...summary, workspace } : summary;
   }
 
-  private broadcastPromptHistoryStatus(): void {
+  broadcastPromptHistoryStatus(): void {
     if (!this.promptHistoryStore) return;
     const entries = this.promptHistoryStore.list(true);
     const updatedAt = entries.reduce<string | undefined>(
@@ -10006,7 +8313,7 @@ export class BridgeWebSocketServer {
    * client asking means no read. Never read with an API key (it has no plan)
    * or on a Bridge that must not touch the Google login.
    */
-  private async antigravityUsage(refresh: boolean): Promise<UsageInfo[]> {
+  async antigravityUsage(refresh: boolean): Promise<UsageInfo[]> {
     const config = this.antigravityConfigOverride ?? getAntigravityConfig();
     if (!this.antigravityAvailable || config.apiKey || config.requireApiKey) {
       return [];
@@ -10107,7 +8414,7 @@ export class BridgeWebSocketServer {
     };
   }
 
-  private normalizeWorkspaceRoots(rootPaths: string[]): {
+  normalizeWorkspaceRoots(rootPaths: string[]): {
     roots?: string[];
     deniedRoot?: string;
   } {
@@ -10140,7 +8447,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private workspaceForRuntimeSession(
+  workspaceForRuntimeSession(
     session: SessionInfo,
   ): ResolvedWorkspace | undefined {
     const pending = this.pendingSessionWorkspaces.get(session.id);
@@ -10174,7 +8481,7 @@ export class BridgeWebSocketServer {
     void this.persistPendingSessionWorkspace(sessionId);
   }
 
-  private projectsMessage(requestId?: string): ServerMessage {
+  projectsMessage(requestId?: string): ServerMessage {
     return {
       type: "projects",
       projects: this.workspaceStore?.listProjects() ?? [],
@@ -10182,7 +8489,7 @@ export class BridgeWebSocketServer {
     };
   }
 
-  private sendWorkspaceMutationError(
+  sendWorkspaceMutationError(
     ws: WebSocket,
     requestId: string | undefined,
     action: string,
@@ -10196,7 +8503,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private legacyProjectHistoryProjects(): string[] {
+  legacyProjectHistoryProjects(): string[] {
     return this.projectHistory?.getProjects() ?? [];
   }
 
@@ -10691,7 +8998,7 @@ export class BridgeWebSocketServer {
     return parts[parts.length - 1] || "";
   }
 
-  private beginPushTokenOperation(token: string): number {
+  beginPushTokenOperation(token: string): number {
     const generation = ++this.nextPushTokenGeneration;
     this.pushTokenGeneration.set(token, generation);
     // Local delivery is disabled synchronously while the relay operation is
@@ -10701,7 +9008,7 @@ export class BridgeWebSocketServer {
     return generation;
   }
 
-  private enqueuePushTokenOperation(
+  enqueuePushTokenOperation(
     token: string,
     operation: () => Promise<void>,
   ): Promise<void> {
@@ -10719,7 +9026,7 @@ export class BridgeWebSocketServer {
     return pending;
   }
 
-  private isCurrentPushTokenOperation(
+  isCurrentPushTokenOperation(
     token: string,
     generation: number,
   ): boolean {
@@ -10986,7 +9293,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private broadcast(msg: Record<string, unknown>): void {
+  broadcast(msg: Record<string, unknown>): void {
     for (const client of this.wss.clients) {
       if (client.readyState === WebSocket.OPEN) {
         const compatibleMsg = this.prepareServerMessageForClient(client, msg);
@@ -11217,7 +9524,7 @@ export class BridgeWebSocketServer {
     this.send(ws, msg);
   }
 
-  private send(
+  send(
     ws: WebSocket,
     msg: ServerMessage | Record<string, unknown>,
   ): void {
@@ -11244,7 +9551,7 @@ export class BridgeWebSocketServer {
     this.broadcast({ type: "gallery_new_image", image });
   }
 
-  private collectGitDiff(
+  collectGitDiff(
     cwd: string,
     callback: (result: { diff: string; error?: string }) => void,
     options?: { staged?: boolean; unstaged?: boolean },
@@ -11410,7 +9717,7 @@ export class BridgeWebSocketServer {
    * - New version: read from working tree
    * - Apply size thresholds for auto-display / on-demand / text-only
    */
-  private async collectImageChanges(
+  async collectImageChanges(
     cwd: string,
     diffText: string,
   ): Promise<ImageChange[]> {
@@ -11531,7 +9838,7 @@ export class BridgeWebSocketServer {
   /**
    * Load a single diff image on demand (async I/O for better throughput).
    */
-  private async loadDiffImageAsync(
+  async loadDiffImageAsync(
     cwd: string,
     filePath: string,
     version: "old" | "new",
@@ -11615,7 +9922,7 @@ export class BridgeWebSocketServer {
     this.debugTraceStore.record(fullEvent);
   }
 
-  private getDebugEvents(sessionId: string, limit: number): DebugTraceEvent[] {
+  getDebugEvents(sessionId: string, limit: number): DebugTraceEvent[] {
     const events = this.debugEvents.get(sessionId) ?? [];
     const capped = Math.max(
       0,
@@ -11625,7 +9932,7 @@ export class BridgeWebSocketServer {
     return events.slice(-capped);
   }
 
-  private buildHistorySummary(history: ServerMessage[]): string[] {
+  buildHistorySummary(history: ServerMessage[]): string[] {
     const lines = history.map((msg, index) => {
       const num = String(index + 1).padStart(3, "0");
       return `${num}. ${this.summarizeServerMessage(msg)}`;
@@ -11730,7 +10037,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private buildReproRecipe(
+  buildReproRecipe(
     session: SessionInfo,
     traceLimit: number,
     includeDiff: boolean,
@@ -11811,7 +10118,7 @@ export class BridgeWebSocketServer {
     return msg;
   }
 
-  private buildAgentPrompt(session: SessionInfo): string {
+  buildAgentPrompt(session: SessionInfo): string {
     return [
       "Use this ccpocket debug bundle to investigate a chat-screen bug.",
       `Target provider: ${session.provider}`,
