@@ -96,17 +96,34 @@ class SshBridgeTunnelService {
     }
 
     final signature = _tunnelSignature(machine);
-    final existing = _tunnels[machine.id];
-    if (existing != null && existing.signature == signature) {
-      return existing;
+    final hasOwnCredentials = password != null || promptForPassword != null;
+    Future<_BridgeTunnel>? failedStart;
+    while (true) {
+      final existing = _tunnels[machine.id];
+      if (existing != null && existing.signature == signature) {
+        return existing;
+      }
+
+      // Concurrent callers (for example a connect and a health check) share
+      // one start, so a second tunnel never replaces the one a connection is
+      // using.
+      final starting = _startingTunnels[machine.id];
+      if (starting == null ||
+          starting.signature != signature ||
+          identical(starting.tunnel, failedStart)) {
+        break;
+      }
+      try {
+        return await starting.tunnel;
+      } on SSHAuthError {
+        // The shared start only had the credentials of the caller that began
+        // it (a health check has no password prompt). A caller that brought
+        // its own gets one attempt with them instead of inheriting the error.
+        if (!hasOwnCredentials) rethrow;
+        failedStart = starting.tunnel;
+      }
     }
 
-    // Concurrent callers (for example a connect and a health check) share one
-    // start, so a second tunnel never replaces the one a connection is using.
-    final starting = _startingTunnels[machine.id];
-    if (starting != null && starting.signature == signature) {
-      return starting.tunnel;
-    }
     final tunnel = _startTunnel(
       machine,
       signature: signature,
