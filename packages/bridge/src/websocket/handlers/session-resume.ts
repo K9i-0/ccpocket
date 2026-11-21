@@ -47,6 +47,11 @@ import {
   createClaudeSessionWithFallback,
   sendTip,
 } from "../session-state.js";
+import {
+  codexServiceTierError,
+  resolveCodexResumeProfile,
+  withCodexAutoReviewPolicy,
+} from "../models.js";
 
 export async function handleResumeSession(
   server: BridgeWebSocketServer,
@@ -56,7 +61,7 @@ export async function handleResumeSession(
   const resumeStartedAt = Date.now();
   const provider = msg.provider ?? "claude";
   const tierError = provider === "codex"
-    ? server.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
+    ? codexServiceTierError(server, msg.model, msg.serviceTier) : undefined;
   if (tierError) {
     server.sendResumeFailed(ws, { provider, sourceSessionId: msg.sessionId,
       projectPath: msg.projectPath, resumeRequestId: msg.resumeRequestId });
@@ -337,7 +342,8 @@ export async function handleResumeSession(
     let effectiveProfile: string | undefined;
     try {
       effectiveProfile = msg.profile
-        ? await server.resolveCodexResumeProfile(
+        ? await resolveCodexResumeProfile(
+            server,
             msg.profile,
             sessionRefId,
             effectiveProjectPath,
@@ -435,7 +441,7 @@ export async function handleResumeSession(
         pastMessages,
         worktreeOpts,
         "codex",
-        server.withCodexAutoReviewPolicy({
+        withCodexAutoReviewPolicy(server, {
           threadId: sessionRefId,
           profile: effectiveProfile,
           approvalPolicy: codexPermissionSettings

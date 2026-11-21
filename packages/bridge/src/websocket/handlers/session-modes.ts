@@ -28,6 +28,7 @@ import {
   workspaceForRuntimeSession,
   attachWorkspaceToRuntimeSession,
 } from "../workspaces.js";
+import { withCodexAutoReviewPolicy } from "../models.js";
 
 export async function handleSetPermissionMode(
   server: BridgeWebSocketServer,
@@ -233,7 +234,7 @@ export async function handleSetPermissionMode(
           ? { existingWorktreePath: worktreePath, worktreeBranch }
           : undefined,
         "codex",
-        server.withCodexAutoReviewPolicy({
+        withCodexAutoReviewPolicy(server, {
           approvalPolicy: newApproval,
           approvalsReviewer: newReviewer as
             | "user"
@@ -325,7 +326,7 @@ export async function handleSetPermissionMode(
           pastMessages,
           worktreeOpts,
           "codex",
-          server.withCodexAutoReviewPolicy({
+          withCodexAutoReviewPolicy(server, {
             threadId,
             approvalPolicy: newApproval,
             approvalsReviewer: newReviewer as
@@ -629,7 +630,7 @@ export async function handleSetSandboxMode(
         ? { existingWorktreePath: worktreePath, worktreeBranch }
         : undefined,
       "codex",
-      server.withCodexAutoReviewPolicy({
+      withCodexAutoReviewPolicy(server, {
         approvalPolicy: oldSettings.approvalPolicy as
           | "never"
           | "on-request"
@@ -719,7 +720,7 @@ export async function handleSetSandboxMode(
         pastMessages,
         worktreeOpts,
         "codex",
-        server.withCodexAutoReviewPolicy({
+        withCodexAutoReviewPolicy(server, {
           threadId,
           approvalPolicy: oldSettings.approvalPolicy as
             | "never"

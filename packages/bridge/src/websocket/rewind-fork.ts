@@ -23,6 +23,7 @@ import {
   workspaceForRuntimeSession,
   attachWorkspaceToRuntimeSession,
 } from "./workspaces.js";
+import { withCodexAutoReviewPolicy } from "./models.js";
 
 /**
  * Interrupt the running turn and, when the agent has shown no output for
@@ -327,7 +328,7 @@ export async function rewindCodexConversation(
     pastMessages,
     worktreeOpts,
     "codex",
-    server.withCodexAutoReviewPolicy({
+    withCodexAutoReviewPolicy(server, {
       ...(codexSettings ?? {}),
       threadId: forked?.threadId,
     } as CodexStartOptions),
@@ -552,7 +553,7 @@ export async function forkCodexSession(
     pastMessages,
     worktreeOpts,
     "codex",
-    server.withCodexAutoReviewPolicy({
+    withCodexAutoReviewPolicy(server, {
       ...(codexSettings ?? {}),
       threadId: forkedThreadId,
     } as CodexStartOptions),

@@ -15,14 +15,12 @@ import {
 } from "./session.js";
 import {
   SdkProcess,
-  listAvailableClaudeModels,
   type ClaudeEffortLevel,
   type ClaudeModelMetadata,
 } from "./sdk-process.js";
 import {
   CodexProcess,
   type CodexModelMetadata,
-  type CodexStartOptions,
   type CodexThreadSummary,
 } from "./codex-process.js";
 import {
@@ -40,8 +38,6 @@ import {
   type AntigravitySessionEntry,
 } from "./antigravity-sessions.js";
 import {
-  normalizeCodexServiceTierForClient,
-  isCodexServiceTierSupported,
   type CodexServiceTierMetadata,
 } from "./codex-service-tier.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
@@ -72,7 +68,6 @@ import {
   loadCodexSessionNames,
   renameClaudeSession,
   renameCodexSession,
-  saveCodexSessionProfile,
 } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import {
@@ -328,6 +323,13 @@ import {
   workspaceForRuntimeSession,
   legacyProjectHistoryProjects,
 } from "./websocket/workspaces.js";
+import {
+  loadClaudeModels,
+  applyFallbackClaudeModels,
+  readCodexModels,
+  readCodexAutoReviewDisabled,
+  applyFallbackCodexModels,
+} from "./websocket/models.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -445,8 +447,8 @@ export class BridgeWebSocketServer {
   /** A catalog read in flight, shared by everyone who asks meanwhile. */
   private antigravityCatalogRead: Promise<AntigravityCatalog> | undefined;
   private readonly loadAntigravityCatalog: () => Promise<AntigravityCatalog>;
-  private codexProfiles: string[] = [];
-  private defaultCodexProfile: string | undefined;
+  codexProfiles: string[] = [];
+  defaultCodexProfile: string | undefined;
   codexAutoReviewDisabled = false;
   /** `agy acp` is installed; gates the `antigravity_v1` capability. */
   private antigravityAvailable = false;
@@ -458,27 +460,27 @@ export class BridgeWebSocketServer {
   codexAutoReviewPolicyLoaded = false;
   private codexMetadataRequest: Promise<void> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
-  private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
-  private claudeModelOptions: ClaudeModelOption[] = FALLBACK_CLAUDE_MODEL_OPTIONS;
-  private claudeModelEfforts: Record<string, ClaudeEffortLevel[]> = {
+  claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
+  claudeModelOptions: ClaudeModelOption[] = FALLBACK_CLAUDE_MODEL_OPTIONS;
+  claudeModelEfforts: Record<string, ClaudeEffortLevel[]> = {
     ...FALLBACK_CLAUDE_MODEL_EFFORTS,
   };
   private claudeModelsRequest: Promise<void> | null = null;
-  private codexModels: string[] = FALLBACK_CODEX_MODELS;
-  private codexModelReasoningEfforts: Record<string, string[]> =
+  codexModels: string[] = FALLBACK_CODEX_MODELS;
+  codexModelReasoningEfforts: Record<string, string[]> =
     Object.fromEntries(
       FALLBACK_CODEX_MODELS.map((model) => [
         model,
         fallbackCodexReasoningEfforts(model),
       ]),
     );
-  private codexModelServiceTiers: Record<string, string[]> = Object.fromEntries(
+  codexModelServiceTiers: Record<string, string[]> = Object.fromEntries(
     FALLBACK_CODEX_MODELS.map((model) => [
       model,
       fallbackCodexServiceTiers(model),
     ]),
   );
-  private codexModelServiceTierMetadata: Record<
+  codexModelServiceTierMetadata: Record<
     string,
     CodexServiceTierMetadata[]
   > = {};
@@ -2756,7 +2758,7 @@ export class BridgeWebSocketServer {
         this.codexProfiles = [];
         this.defaultCodexProfile = undefined;
         this.codexAutoReviewPolicyLoaded = false;
-        this.applyFallbackCodexModels();
+        applyFallbackCodexModels(this);
         this.broadcastSessionList();
       })
       .finally(() => {
@@ -2775,8 +2777,8 @@ export class BridgeWebSocketServer {
       const [profileResult, modelResult, requirementsResult] =
         await Promise.allSettled([
           codexProcess.readProfileConfig(projectPath),
-          this.readCodexModels(codexProcess),
-          this.readCodexAutoReviewDisabled(codexProcess),
+          readCodexModels(codexProcess),
+          readCodexAutoReviewDisabled(codexProcess),
         ]);
 
       if (profileResult.status === "fulfilled") {
@@ -2796,7 +2798,7 @@ export class BridgeWebSocketServer {
         if (modelResult.status === "rejected") {
           console.warn(`[ws] Failed to load Codex models: ${modelResult.reason}`);
         }
-        this.applyFallbackCodexModels();
+        applyFallbackCodexModels(this);
       }
 
       if (requirementsResult.status === "fulfilled") {
@@ -2816,36 +2818,24 @@ export class BridgeWebSocketServer {
 
   async refreshClaudeModels(projectPath?: string): Promise<void> {
     if (this.claudeModelsRequest) return this.claudeModelsRequest;
-    this.claudeModelsRequest = this.loadClaudeModels(projectPath)
+    this.claudeModelsRequest = loadClaudeModels(this, projectPath)
       .then((models) => {
         if (models.length > 0) {
           this.applyClaudeModels(models);
         } else {
-          this.applyFallbackClaudeModels();
+          applyFallbackClaudeModels(this);
         }
         this.broadcastSessionList();
       })
       .catch((err) => {
         console.warn(`[ws] Failed to load Claude models: ${err}`);
-        this.applyFallbackClaudeModels();
+        applyFallbackClaudeModels(this);
         this.broadcastSessionList();
       })
       .finally(() => {
         this.claudeModelsRequest = null;
       });
     return this.claudeModelsRequest;
-  }
-
-  private async loadClaudeModels(
-    projectPath?: string,
-  ): Promise<ClaudeModelMetadata[]> {
-    const activeProcess = this.getActiveClaudeProcess();
-    if (activeProcess) {
-      const models = await activeProcess.listAvailableModels();
-      if (models.length > 0) return models;
-    }
-    if (process.env.NODE_ENV === "test") return [];
-    return listAvailableClaudeModels(projectPath);
   }
 
   private applyClaudeModels(models: ClaudeModelMetadata[]): void {
@@ -2859,47 +2849,6 @@ export class BridgeWebSocketServer {
     this.claudeModelEfforts = Object.fromEntries(
       models.map((model) => [model.model, model.effortLevels]),
     );
-  }
-
-  private applyFallbackClaudeModels(): void {
-    this.claudeModels = FALLBACK_CLAUDE_MODELS;
-    this.claudeModelOptions = FALLBACK_CLAUDE_MODEL_OPTIONS;
-    this.claudeModelEfforts = { ...FALLBACK_CLAUDE_MODEL_EFFORTS };
-  }
-
-  private async readCodexModels(
-    codexProcess: CodexProcess,
-  ): Promise<CodexModelMetadata[]> {
-    const modelSource = codexProcess as CodexProcess & {
-      listAvailableModelMetadata?: () => Promise<CodexModelMetadata[]>;
-      listAvailableModels?: () => Promise<string[]>;
-    };
-    if (typeof modelSource.listAvailableModelMetadata === "function") {
-      return modelSource.listAvailableModelMetadata();
-    }
-    const models = typeof modelSource.listAvailableModels === "function"
-      ? await modelSource.listAvailableModels()
-      : [];
-    return models.map((model) => ({
-      model,
-      supportedReasoningEfforts: fallbackCodexReasoningEfforts(model),
-      supportedServiceTiers: fallbackCodexServiceTiers(model),
-    }));
-  }
-
-  private async readCodexAutoReviewDisabled(
-    codexProcess: CodexProcess,
-  ): Promise<boolean> {
-    const requirementsSource = codexProcess as CodexProcess & {
-      readConfigRequirements?: () => Promise<{
-        autoReviewDisabled: boolean;
-      }>;
-    };
-    if (typeof requirementsSource.readConfigRequirements !== "function") {
-      return false;
-    }
-    return (await requirementsSource.readConfigRequirements())
-      .autoReviewDisabled;
   }
 
   private applyCodexModels(models: CodexModelMetadata[]): void {
@@ -2923,42 +2872,7 @@ export class BridgeWebSocketServer {
     );
   }
 
-  /** Validate candidates only. Codex still enforces account entitlement. */
-  codexServiceTierError(
-    model: string | undefined,
-    value: string | undefined,
-  ): string | undefined {
-    if (value === undefined) return undefined;
-    // A profile or a resumed thread may supply the model. CodexProcess validates
-    // its resolved model/tier before emitting init or accepting the first turn.
-    if (model === undefined) return undefined;
-    const tier = normalizeCodexServiceTierForClient(value);
-    // Standard/Fast are legacy settings; older clients normalize Fast after
-    // changing models. Strict catalog validation applies to extended tiers.
-    if (tier === "standard" || tier === "fast") return undefined;
-    const supported = this.codexModelServiceTiers[model ?? ""];
-    if (isCodexServiceTierSupported(tier, supported ?? [])) return undefined;
-    return `Codex speed "${value}" is not available for model "${model ?? "unknown"}". Choose a supported speed.`;
-  }
-
-  private applyFallbackCodexModels(): void {
-    this.codexModelServiceTierMetadata = {};
-    this.codexModels = FALLBACK_CODEX_MODELS;
-    this.codexModelReasoningEfforts = Object.fromEntries(
-      FALLBACK_CODEX_MODELS.map((model) => [
-        model,
-        fallbackCodexReasoningEfforts(model),
-      ]),
-    );
-    this.codexModelServiceTiers = Object.fromEntries(
-      FALLBACK_CODEX_MODELS.map((model) => [
-        model,
-        fallbackCodexServiceTiers(model),
-      ]),
-    );
-  }
-
-  private async loadCodexProfiles(
+  async loadCodexProfiles(
     projectPath?: string,
   ): Promise<{ profiles: string[]; defaultProfile?: string }> {
     const process =
@@ -2985,35 +2899,6 @@ export class BridgeWebSocketServer {
     return snapshot.profiles.includes(profile);
   }
 
-  async resolveCodexResumeProfile(
-    requestedProfile: string,
-    threadId: string,
-    projectPath?: string,
-  ): Promise<string | undefined> {
-    const snapshot = await this.loadCodexProfiles(projectPath);
-    this.codexProfiles = snapshot.profiles;
-    this.defaultCodexProfile = snapshot.defaultProfile;
-    if (snapshot.profiles.includes(requestedProfile)) {
-      return requestedProfile;
-    }
-
-    const fallbackProfile =
-      snapshot.defaultProfile &&
-      snapshot.profiles.includes(snapshot.defaultProfile)
-        ? snapshot.defaultProfile
-        : undefined;
-    console.warn(
-      `[ws] Codex profile not found on resume: ${requestedProfile}; ` +
-        (fallbackProfile
-          ? `falling back to default profile: ${fallbackProfile}`
-          : "falling back to Codex config default"),
-    );
-    saveCodexSessionProfile(threadId, fallbackProfile ?? null).catch((err) => {
-      console.warn(`[ws] Failed to update Codex session profile cache: ${err}`);
-    });
-    return fallbackProfile;
-  }
-
   getActiveCodexProcess(): CodexProcess | null {
     // SessionManager retains idle sessions after their process exits.
     // Skip those entries so auxiliary RPCs can use a healthy process or
@@ -3026,33 +2911,6 @@ export class BridgeWebSocketServer {
       if (process.isRunning) return process;
     }
     return null;
-  }
-
-  withCodexAutoReviewPolicy(
-    options: CodexStartOptions,
-  ): CodexStartOptions {
-    const disableAutoReview = this.codexAutoReviewDisabled;
-    return {
-      ...options,
-      ...(disableAutoReview ? { approvalsReviewer: "user" as const } : {}),
-      ...(disableAutoReview && options.codexPermissionsMode === "autoReview"
-        ? { codexPermissionsMode: "default" as const }
-        : {}),
-      autoReviewDisabledByPolicy: this.codexAutoReviewPolicyLoaded
-        ? disableAutoReview
-        : null,
-    };
-  }
-
-  private getActiveClaudeProcess(): SdkProcess | null {
-    const summary = this.sessionManager
-      .list()
-      .find((session) => session.provider === "claude");
-    if (!summary) return null;
-    const session = this.sessionManager.get(summary.id);
-    return session?.provider === "claude"
-      ? (session.process as SdkProcess)
-      : null;
   }
 
   private async listRecentCodexThreads(

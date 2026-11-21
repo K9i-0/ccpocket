@@ -18,6 +18,7 @@ import {
   sendClaudeCurrentSettings,
   claudeSettingsMessage,
 } from "../session-state.js";
+import { codexServiceTierError } from "../models.js";
 
 export async function handleSetAntigravityModel(
   server: BridgeWebSocketServer,
@@ -141,7 +142,7 @@ export async function handleSetCodexModel(
   // Keep that sequence compatible; extended tiers must never downgrade.
   const currentTier = normalizeCodexServiceTierForClient(session.codexSettings?.serviceTier);
   const tierError = currentTier !== "standard" && currentTier !== "fast"
-    ? server.codexServiceTierError(model, currentTier) : undefined;
+    ? codexServiceTierError(server, model, currentTier) : undefined;
   if (tierError) {
     server.send(ws, { type: "error", sessionId: msg.sessionId,
       errorCode: "set_codex_model_rejected", message: tierError });
@@ -208,7 +209,7 @@ export async function handleSetCodexSpeed(
 
   const process = session.process as CodexProcess;
   const model = session.codexSettings?.model ?? process.model;
-  const tierError = server.codexServiceTierError(model, msg.serviceTier);
+  const tierError = codexServiceTierError(server, model, msg.serviceTier);
   if (tierError) {
     server.send(ws, { type: "error", sessionId: msg.sessionId,
       errorCode: "set_codex_speed_rejected", message: tierError });

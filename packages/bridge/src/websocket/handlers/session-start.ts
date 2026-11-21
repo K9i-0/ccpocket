@@ -31,6 +31,7 @@ import {
   normalizeWorkspaceRoots,
   persistPendingSessionWorkspace,
 } from "../workspaces.js";
+import { codexServiceTierError, withCodexAutoReviewPolicy } from "../models.js";
 
 export async function handleStart(
   server: BridgeWebSocketServer,
@@ -80,7 +81,7 @@ export async function handleStart(
   try {
     const provider = msg.provider ?? "claude";
     const tierError = provider === "codex"
-      ? server.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
+      ? codexServiceTierError(server, msg.model, msg.serviceTier) : undefined;
     if (tierError) {
       server.send(ws, { type: "error", requestId: msg.requestId,
         errorCode: "codex_service_tier_unavailable", message: tierError });
@@ -259,7 +260,7 @@ export async function handleStart(
                 existingWorktreePath: msg.existingWorktreePath,
               },
               provider,
-              server.withCodexAutoReviewPolicy({
+              withCodexAutoReviewPolicy(server, {
                 profile: msg.profile,
                 approvalPolicy: codexPermissionSettings
                   ? codexPermissionSettings.approvalPolicy
