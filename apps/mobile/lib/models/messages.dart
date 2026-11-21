@@ -3224,6 +3224,11 @@ List<String> _buildCommonSecondaryDetails(
 }) {
   final lines = <String>[];
 
+  // An Antigravity swarm worker asks through its coordinator's session.
+  if (_nonEmptyString(input['swarmWorker']) case final worker?) {
+    lines.add('Swarm worker: $worker');
+  }
+
   if (includeReason) {
     final reason = _visibleReason(
       input['reason'],

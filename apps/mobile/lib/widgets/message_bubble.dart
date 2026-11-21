@@ -16,6 +16,7 @@ import 'bubbles/question_answer_transcript_bubble.dart';
 import 'bubbles/result_chip.dart';
 import 'bubbles/status_chip.dart';
 import 'bubbles/streaming_bubble.dart';
+import 'bubbles/swarm_post_card.dart';
 import 'bubbles/system_chip.dart';
 import 'bubbles/tip_chip.dart';
 import 'bubbles/tool_result_bubble.dart';
@@ -252,6 +253,8 @@ class ServerMessageWidget extends StatelessWidget {
         :final permissionOutcome,
       ) =>
         !hiddenToolUseIds.contains(toolUseId) &&
+            // The post is the card itself; its result only repeats the text.
+            toolName != swarmPostToolName &&
             !(toolName == 'Read' &&
                 content.trim() == 'Done' &&
                 images.isEmpty &&

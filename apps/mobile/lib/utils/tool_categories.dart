@@ -36,6 +36,13 @@ ToolCategory categorizeToolName(String name) {
 /// - search      → `"pattern"`, truncated to 50 chars
 /// - other       → description or first meaningful key, 50 chars
 String getToolSummary(ToolCategory category, Map<String, dynamic> input) {
+  final summary = _categorySummary(category, input);
+  // A tool an Antigravity swarm worker asked approval for.
+  final worker = input['swarmWorker'];
+  return worker is String && worker.isNotEmpty ? '[$worker] $summary' : summary;
+}
+
+String _categorySummary(ToolCategory category, Map<String, dynamic> input) {
   return switch (category) {
     ToolCategory.read || ToolCategory.write => _fileSummary(input),
     ToolCategory.bash => _bashSummary(input),
@@ -163,12 +170,24 @@ String _searchSummary(Map<String, dynamic> input) {
 
 String _otherSummary(Map<String, dynamic> input) {
   // Task agent: use description
-  final desc = input['description'] ?? input['prompt'] ?? input['skill'];
+  final desc =
+      input['description'] ??
+      input['prompt'] ??
+      input['skill'] ??
+      _swarmActionSummary(input);
   if (desc != null) {
     final s = desc.toString();
     return s.length > 50 ? '${s.substring(0, 47)}...' : s;
   }
   return _fallbackSummary(input);
+}
+
+/// Antigravity's `swarm` tool: `{action: "add", name: "parser", brief: ...}`.
+String? _swarmActionSummary(Map<String, dynamic> input) {
+  final action = input['action'];
+  if (action is! String || action.isEmpty) return null;
+  final subject = input['name'] ?? input['title'] ?? input['model'];
+  return subject == null ? action : '$action $subject';
 }
 
 String _fallbackSummary(Map<String, dynamic> input) {

@@ -29,6 +29,7 @@ import '../google_search_text_selection.dart';
 import 'inline_edit_diff.dart';
 import 'message_action_bar.dart';
 import 'plan_card.dart';
+import 'swarm_post_card.dart';
 import 'thinking_bubble.dart';
 import 'todo_write_widget.dart';
 import '../link_hover_underline.dart';
@@ -453,6 +454,9 @@ class _ToolUseTileState extends State<ToolUseTile> {
         input: widget.input,
         onLongPress: _copyContent,
       );
+    }
+    if (widget.name == swarmPostToolName) {
+      return SwarmPostCard(input: widget.input);
     }
 
     if (_expansion == ToolUseExpansion.collapsed) {

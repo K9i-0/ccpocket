@@ -27,7 +27,9 @@ List<ChatEntry> liteModeEntries(List<ChatEntry> entries) {
                   ThinkingContent(:final thinking) =>
                     thinking.trim().isNotEmpty,
                   ToolUseContent(:final name) =>
-                    name == 'ExitPlanMode' || name == 'ImageGeneration',
+                    name == 'ExitPlanMode' ||
+                        name == 'ImageGeneration' ||
+                        name == 'SwarmPost',
                 },
               )
               .toList();
