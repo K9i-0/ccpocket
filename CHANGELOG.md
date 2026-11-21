@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.174.0] - 2026-11-21
+
+### Added
+
+- Antigravity swarms (`/swarm`): posts on the swarm's board appear in the chat as cards with the poster's name, approval requests say which swarm worker is asking, and busy workers show in the background task bar. Needs Bridge 1.115.0, which also keeps swarms from stalling on approvals that never arrived.
+
 ## [1.173.2] - 2026-11-21
 
 ### Fixed
