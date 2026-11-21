@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.116.0] - 2026-11-22
+
+### Added
+
+- Antigravity swarms: while a swarm is active (the coordinator is in a turn or at least one worker is busy), workers that are alive but waiting are also reported as background tasks, with `Waiting` as their summary and busy workers listed first. The agent count no longer drops to 0 between turns. Once the coordinator and all workers are idle the list is empty again, so the completion push is not held back.
+- The session list is re-sent when a session's background task or agent count changes, so session cards follow the count without waiting for another update.
+
+### Fixed
+
+- Antigravity swarms: a worker that sends live updates (thinking, text, tool calls, approval requests) is marked busy right away and stays busy for 10 seconds after its last update, instead of waiting for the swarm roster file to catch up.
+
 ## [1.115.1] - 2026-11-22
 
 ### Changed
