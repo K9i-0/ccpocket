@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
@@ -11,6 +10,8 @@ import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
 import '../../../utils/skill_invocation.dart';
+import '../../session_list/services/session_resume_coordinator.dart'
+    show ClaudeSessionSettingsStore;
 import '../question_answer_transcript.dart';
 import 'background_completion_gate.dart';
 import 'chat_session_state.dart';
@@ -3123,24 +3124,12 @@ bool _listEquals(List<String> a, List<String> b) {
 /// [SessionListScreen.saveClaudeSessionSettings] so the session list
 /// can read them back when resuming.
 class _SessionSettingsHelper {
-  static const _prefix = 'claude_session_settings_';
-
   static Future<void> save(
     String sessionId,
     Map<String, dynamic> settings,
   ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = '$_prefix$sessionId';
-      final raw = prefs.getString(key);
-      Map<String, dynamic> existing = {};
-      if (raw != null) {
-        try {
-          existing = jsonDecode(raw) as Map<String, dynamic>;
-        } catch (_) {}
-      }
-      final merged = <String, dynamic>{...existing, ...settings};
-      await prefs.setString(key, jsonEncode(merged));
+      await const ClaudeSessionSettingsStore().save(sessionId, settings);
     } catch (_) {
       // SharedPreferences may not be available in test environments.
     }

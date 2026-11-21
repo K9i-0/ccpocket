@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../services/shared_state_adapters.dart';
+import '../../../services/shared_state_sync.dart';
+
 const _storageKey = 'codex_profile_by_project_v1';
 
 /// Persists the selected Codex profile for each project.
@@ -37,6 +40,11 @@ class CodexProjectProfileStore {
       profiles[key] = profile;
     }
     await prefs.setString(_storageKey, jsonEncode(profiles));
+    // An empty string keeps "cleared" on the Bridge.
+    SharedStateSync.instance?.set(
+      SharedStateKeys.codexProfile(key),
+      profile ?? '',
+    );
   }
 
   String? _key(String normalizedPath, String? projectId) {

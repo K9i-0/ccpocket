@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PinStore } from "./pin-store.js";
+import { SharedStateStore } from "./shared-state-store.js";
 import { AntigravityStore } from "./antigravity-store.js";
 import { resolvePlatformPath } from "./path-utils.js";
 import { MediaStore } from "./media-store.js";
@@ -3596,6 +3597,124 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         projects: [],
       });
       expect(legacy.pins).toEqual([]);
+    } finally {
+      for (const socket of (bridge as any).wss.clients) socket.terminate();
+      bridge.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("shares state between clients, echoes writes and adopts seeds", async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "ccpocket-shared-state-ws-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      sharedStateStore: new SharedStateStore(resolve(dir, "shared-state.json")),
+    });
+    vi.spyOn(bridge as any, "refreshConnectionMetadata").mockImplementation(() => {});
+    httpServer.listen(0, "127.0.0.1");
+    await once(httpServer, "listening");
+    const port = (httpServer.address() as { port: number }).port;
+    const types = ["shared_state", "shared_state_changed", "shared_state_seeded"];
+    async function connect(supportedServerMessages: string[]) {
+      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      const received: any[] = [];
+      const capabilities: string[][] = [];
+      socket.on("message", (data) => {
+        const message = JSON.parse(data.toString());
+        if (types.includes(message.type)) received.push(message);
+        if (message.type === "session_list") capabilities.push(message.protocolCapabilities);
+      });
+      await once(socket, "open");
+      socket.send(
+        JSON.stringify({
+          type: "client_capabilities",
+          protocolVersion: 1,
+          minimumProtocolVersion: 1,
+          supportedServerMessages,
+          performanceMode: true,
+        }),
+      );
+      return { socket, received, capabilities };
+    }
+    try {
+      const first = await connect(types);
+      const second = await connect(types);
+      const legacy = await connect([]);
+      await vi.waitFor(() =>
+        expect(first.capabilities.at(-1)).toContain("shared_state_v1"),
+      );
+
+      first.socket.send(JSON.stringify({ type: "get_shared_state" }));
+      await vi.waitFor(() => expect(first.received).toHaveLength(1));
+      const storeId = first.received[0].storeId;
+      expect(first.received[0]).toEqual({ type: "shared_state", storeId, entries: {} });
+
+      // A write is echoed to every client with its mutation id.
+      first.socket.send(
+        JSON.stringify({
+          type: "set_shared_state",
+          key: "auto_rename.claude",
+          value: true,
+          mutationId: "m1",
+        }),
+      );
+      await vi.waitFor(() => expect(second.received).toHaveLength(1));
+      const change = {
+        type: "shared_state_changed",
+        key: "auto_rename.claude",
+        value: true,
+        mutationId: "m1",
+      };
+      expect(second.received[0]).toEqual(change);
+      expect(first.received[1]).toEqual(change);
+
+      // max: the Bridge answers with the value it kept.
+      second.socket.send(
+        JSON.stringify({ type: "set_shared_state", key: "seen_at/s", value: "2", mode: "max" }),
+      );
+      second.socket.send(
+        JSON.stringify({ type: "set_shared_state", key: "seen_at/s", value: "1", mode: "max", mutationId: "m2" }),
+      );
+      await vi.waitFor(() => expect(first.received).toHaveLength(4));
+      expect(first.received[3]).toEqual({
+        type: "shared_state_changed",
+        key: "seen_at/s",
+        value: "2",
+        mutationId: "m2",
+      });
+
+      // A seed adds what is missing, tells everyone, then confirms.
+      second.socket.send(
+        JSON.stringify({
+          type: "seed_shared_state",
+          entries: { "auto_rename.claude": false, new_project_parent: "/work" },
+        }),
+      );
+      await vi.waitFor(() => expect(second.received.at(-1)?.type).toBe("shared_state_seeded"));
+      expect(second.received.at(-1)).toEqual({
+        type: "shared_state_seeded",
+        storeId,
+        adopted: ["new_project_parent"],
+      });
+      await vi.waitFor(() => expect(first.received.at(-1)?.type).toBe("shared_state"));
+      expect(first.received.at(-1).entries).toEqual({
+        "auto_rename.claude": true,
+        "seen_at/s": "2",
+        new_project_parent: "/work",
+      });
+
+      // Deleting is a write of null.
+      first.socket.send(
+        JSON.stringify({ type: "set_shared_state", key: "new_project_parent", value: null }),
+      );
+      await vi.waitFor(() =>
+        expect(second.received.at(-1)).toEqual({
+          type: "shared_state_changed",
+          key: "new_project_parent",
+          value: null,
+        }),
+      );
+      expect(legacy.received).toEqual([]);
     } finally {
       for (const socket of (bridge as any).wss.clients) socket.terminate();
       bridge.close();

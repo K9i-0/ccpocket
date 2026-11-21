@@ -80,6 +80,7 @@ import {
 } from "./workspace-store.js";
 import { ArchiveStore } from "./archive-store.js";
 import { PinStore } from "./pin-store.js";
+import { SharedStateStore } from "./shared-state-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
@@ -245,6 +246,11 @@ import {
   handleSetSessionPin,
 } from "./websocket/handlers/pins.js";
 import {
+  handleGetSharedState,
+  handleSeedSharedState,
+  handleSetSharedState,
+} from "./websocket/handlers/shared-state.js";
+import {
   handleGetHistory,
   handleGetSessionTranscript,
   handleGetSessionContext,
@@ -355,6 +361,8 @@ export interface BridgeServerOptions {
   antigravityStore?: AntigravityStore;
   /** Pinned sessions and projects. Tests replace it to avoid `~/.ccpocket`. */
   pinStore?: PinStore;
+  /** Shared settings. Tests replace it to avoid `~/.ccpocket`. */
+  sharedStateStore?: SharedStateStore;
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
@@ -441,6 +449,7 @@ export class BridgeWebSocketServer {
   notifiedPermissionToolUses = new Map<string, Set<string>>();
   archiveStore: ArchiveStore;
   readonly pinStore: PinStore;
+  readonly sharedStateStore: SharedStateStore;
   readonly antigravityStore: AntigravityStore;
   antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
   private antigravityUsageRead: Promise<UsageInfo[]> | undefined;
@@ -632,6 +641,8 @@ export class BridgeWebSocketServer {
     this.archiveStore = new ArchiveStore();
     this.pinStore = options.pinStore ?? new PinStore();
     void this.pinStore.init();
+    this.sharedStateStore = options.sharedStateStore ?? new SharedStateStore();
+    void this.sharedStateStore.init();
     this.antigravityStore = options.antigravityStore ?? new AntigravityStore();
     void this.antigravityStore.init().catch((err) => {
       console.error("[ws] Failed to initialize Antigravity store:", err);
@@ -1137,6 +1148,7 @@ export class BridgeWebSocketServer {
       if (operation.timeout) clearTimeout(operation.timeout);
     }
     this.resumeOperations.clear();
+    void this.sharedStateStore.flush();
     this.flushAllDeltaBatches();
     this.sessionManager.destroyAll();
     this.flushAllDeltaBatches();
@@ -1474,6 +1486,18 @@ export class BridgeWebSocketServer {
 
       case "get_pins":
         await handleGetPins(this, msg, ws);
+        break;
+
+      case "get_shared_state":
+        await handleGetSharedState(this, ws);
+        break;
+
+      case "set_shared_state":
+        await handleSetSharedState(this, msg);
+        break;
+
+      case "seed_shared_state":
+        await handleSeedSharedState(this, msg, ws);
         break;
 
       case "set_session_pin":

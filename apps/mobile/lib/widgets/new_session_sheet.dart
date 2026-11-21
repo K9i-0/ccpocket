@@ -13,6 +13,8 @@ import '../models/messages.dart';
 import '../models/model_picker_style.dart';
 import '../models/new_session_tab.dart';
 import '../services/bridge_service.dart';
+import '../services/shared_state_adapters.dart';
+import '../services/shared_state_sync.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/model_filter.dart';
@@ -1144,6 +1146,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_additionalWritableRootHistoryKey, history);
+      SharedStateSync.instance?.set(
+        SharedStateKeys.writableRootHistory,
+        history,
+      );
     } catch (_) {
       // SharedPreferences can be unavailable in widget tests.
     }

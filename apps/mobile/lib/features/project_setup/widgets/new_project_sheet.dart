@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../services/shared_state_adapters.dart';
+import '../../../services/shared_state_sync.dart';
 import '../../../widgets/directory_browser_sheet.dart';
 import '../../../widgets/project_sheet_layout.dart';
 import '../state/project_setup_cubit.dart';
@@ -43,8 +45,9 @@ class NewProjectSheet extends StatefulWidget {
 class _NewProjectSheetState extends State<NewProjectSheet> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
-  String get _parentPreferenceKey =>
-      'new_project_parent_${context.read<ProjectSetupCubit>().bridge.lastUrl ?? "default"}';
+  String get _parentPreferenceKey => SharedStatePrefs.newProjectParent(
+    context.read<ProjectSetupCubit>().bridge.lastUrl,
+  );
   final _parent = TextEditingController();
   final _description = TextEditingController();
   String? _source;
@@ -120,6 +123,10 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
       });
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(parentPreferenceKey, parentPath);
+      SharedStateSync.instance?.set(
+        SharedStateKeys.newProjectParent,
+        parentPath,
+      );
     }
     if (!mounted) return;
     if (_trust) {

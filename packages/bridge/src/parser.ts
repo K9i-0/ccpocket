@@ -19,6 +19,11 @@ import type {
 } from "./prompt-history-store.js";
 import type { WindowInfo } from "./screenshot.js";
 import type { WorktreeInfo } from "./worktree.js";
+import {
+  isValidSharedStateKey,
+  isValidSharedStateValue,
+  SHARED_STATE_MAX_SEED_ENTRIES,
+} from "./shared-state-store.js";
 
 // Re-export for convenience
 export type { ImageRef } from "./image-store.js";
@@ -689,6 +694,25 @@ export type ClientMessage =
       pinned: boolean;
     }
   | { type: "set_project_pin"; projectPath: string; pinned: boolean }
+  // ---- Shared state of this Bridge (docs/shared-state.md) ----
+  | { type: "get_shared_state" }
+  | {
+      /**
+       * Store `value` under `key` (null deletes it); answered by a
+       * `shared_state_changed` broadcast that repeats `mutationId`.
+       * `mode: "max"` keeps a stored string that is not smaller.
+       */
+      type: "set_shared_state";
+      key: string;
+      value?: unknown;
+      mode?: "max";
+      mutationId?: string;
+    }
+  | {
+      /** Offer local copies; only keys the Bridge does not have are adopted. */
+      type: "seed_shared_state";
+      entries: Record<string, unknown>;
+    }
   // ---- Git Operations (Phase 1-3) ----
   | {
       type: "git_stage";
@@ -1405,6 +1429,25 @@ export type ServerMessage =
         projectPath: string;
       }>;
       projects: string[];
+    }
+  | {
+      /** Every shared entry: the answer to `get_shared_state`. Opt-in. */
+      type: "shared_state";
+      storeId: string;
+      entries: Record<string, unknown>;
+    }
+  | {
+      /** One entry changed (`value: null` = absent). Opt-in. */
+      type: "shared_state_changed";
+      key: string;
+      value: unknown;
+      mutationId?: string;
+    }
+  | {
+      /** The answer to `seed_shared_state`. Opt-in. */
+      type: "shared_state_seeded";
+      storeId: string;
+      adopted: string[];
     }
   | {
       type: "prompt_history_status";
@@ -2842,6 +2885,27 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (typeof msg.projectPath !== "string") return null;
         break;
+      case "get_shared_state":
+        break;
+      case "set_shared_state":
+        if (!isValidSharedStateKey(msg.key)) return null;
+        if (
+          msg.value !== undefined &&
+          msg.value !== null &&
+          !isValidSharedStateValue(msg.value)
+        )
+          return null;
+        if (msg.mode !== undefined && msg.mode !== "max") return null;
+        if (!isOptionalNonEmptyString(msg.mutationId)) return null;
+        break;
+      case "seed_shared_state": {
+        const entries = msg.entries;
+        if (!entries || typeof entries !== "object" || Array.isArray(entries))
+          return null;
+        if (Object.keys(entries).length > SHARED_STATE_MAX_SEED_ENTRIES)
+          return null;
+        break;
+      }
       case "get_pins":
         if (!isValidPinSeed(msg.seed)) return null;
         break;

@@ -352,6 +352,28 @@ describe("parseClientMessage", () => {
     expect(parse({ type: "set_project_pin", projectPath: "/p" })).toBeNull();
   });
 
+  it("validates the shared state messages", () => {
+    const parse = (msg: unknown) => parseClientMessage(JSON.stringify(msg));
+
+    expect(parse({ type: "get_shared_state" })).not.toBeNull();
+    expect(
+      parse({ type: "set_shared_state", key: "a/b", value: { x: 1 }, mutationId: "m", mode: "max" }),
+    ).toMatchObject({ key: "a/b", mode: "max" });
+    expect(parse({ type: "set_shared_state", key: "a", value: null })).not.toBeNull();
+    expect(parse({ type: "set_shared_state", key: "a" })).not.toBeNull();
+    expect(parse({ type: "set_shared_state", key: "", value: 1 })).toBeNull();
+    expect(parse({ type: "set_shared_state", key: "k".repeat(513), value: 1 })).toBeNull();
+    expect(parse({ type: "set_shared_state", key: "a", value: 1, mode: "min" })).toBeNull();
+    expect(parse({ type: "set_shared_state", key: "a", value: 1, mutationId: "" })).toBeNull();
+    expect(
+      parse({ type: "set_shared_state", key: "a", value: "x".repeat(40 * 1024) }),
+    ).toBeNull();
+
+    expect(parse({ type: "seed_shared_state", entries: { a: 1 } })).not.toBeNull();
+    expect(parse({ type: "seed_shared_state", entries: [] })).toBeNull();
+    expect(parse({ type: "seed_shared_state" })).toBeNull();
+  });
+
   it("validates set_antigravity_model", () => {
     expect(
       parseClientMessage(

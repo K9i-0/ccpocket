@@ -63,6 +63,8 @@ import 'services/prompt_history_service.dart';
 import 'services/reflex_extension.dart';
 import 'services/revenuecat_service.dart';
 import 'services/ssh_bridge_tunnel_service.dart';
+import 'services/shared_state_adapters.dart';
+import 'services/shared_state_sync.dart';
 import 'services/ssh_startup_service.dart';
 import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
@@ -202,6 +204,15 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
     revenueCatService: revenueCatService,
     appIconService: appIconService,
   );
+  // Created before any screen so that stores and cubits can share through it.
+  final sharedStateSync = SharedStateSync(bridge: bridge, prefs: prefs);
+  SharedStateSync.instance = sharedStateSync;
+  registerPrefsSharedStateAdapters(
+    sharedStateSync,
+    prefs: prefs,
+    bridge: bridge,
+  );
+  sharedStateSync.register(settingsCubit.sharedStateAdapter);
   final gitStatusCubit = GitStatusCubit(
     bridge: bridge,
     remoteStatusBadgeEnabled: () =>

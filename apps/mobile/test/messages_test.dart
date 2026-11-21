@@ -698,6 +698,9 @@ void main() {
         'session_context',
         'session_activity',
         'session_recap',
+        'shared_state',
+        'shared_state_changed',
+        'shared_state_seeded',
       ]);
     });
 

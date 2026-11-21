@@ -173,6 +173,12 @@ export type AppSent =
       sometimes: "beforeIndex" | "limit" | "untilLatestCompaction";
     }
   | {
+      type: "get_shared_state";
+      from: "ClientMessage.getSharedState";
+      always: "type";
+      sometimes: never;
+    }
+  | {
       type: "get_usage";
       from: "ClientMessage.getUsage";
       always: "type";
@@ -497,6 +503,12 @@ export type AppSent =
       sometimes: never;
     }
   | {
+      type: "seed_shared_state";
+      from: "ClientMessage.seedSharedState";
+      always: "entries" | "type";
+      sometimes: never;
+    }
+  | {
       type: "set_antigravity_model";
       from: "ClientMessage.setAntigravityModel";
       always: "model" | "sessionId" | "type";
@@ -567,6 +579,12 @@ export type AppSent =
       from: "ClientMessage.setSessionPin";
       always: "pinned" | "projectPath" | "provider" | "sessionId" | "type";
       sometimes: never;
+    }
+  | {
+      type: "set_shared_state";
+      from: "ClientMessage.setSharedState";
+      always: "key" | "mutationId" | "type" | "value";
+      sometimes: "mode";
     }
   | {
       type: "start";
@@ -1001,6 +1019,21 @@ export type AppRead =
       optional: "endIndex" | "messages" | "provider" | "requestId" | "sessionId" | "startIndex" | "total";
     }
   | {
+      type: "shared_state";
+      required: never;
+      optional: "entries" | "storeId";
+    }
+  | {
+      type: "shared_state_changed";
+      required: never;
+      optional: "key" | "mutationId" | "value";
+    }
+  | {
+      type: "shared_state_seeded";
+      required: never;
+      optional: "storeId";
+    }
+  | {
       type: "status";
       required: "status";
       optional: never;
@@ -1075,4 +1108,7 @@ export type AppSupportedServerMessage =
   | "push_registration_result"
   | "session_activity"
   | "session_context"
-  | "session_recap";
+  | "session_recap"
+  | "shared_state"
+  | "shared_state_changed"
+  | "shared_state_seeded";

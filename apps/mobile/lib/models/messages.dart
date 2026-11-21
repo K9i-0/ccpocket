@@ -1921,6 +1921,20 @@ sealed class ServerMessage {
             .whereType<String>()
             .toList(),
       ),
+      'shared_state' => SharedStateMessage(
+        storeId: json['storeId'] as String? ?? '',
+        entries: Map<String, Object?>.from(
+          json['entries'] as Map? ?? const <String, Object?>{},
+        ),
+      ),
+      'shared_state_changed' => SharedStateChangedMessage(
+        key: json['key'] as String? ?? '',
+        value: json['value'],
+        mutationId: json['mutationId'] as String?,
+      ),
+      'shared_state_seeded' => SharedStateSeededMessage(
+        storeId: json['storeId'] as String? ?? '',
+      ),
       'prompt_history_status' => PromptHistoryStatusMessage(
         bridgeInstanceId: json['bridgeInstanceId'] as String? ?? '',
         revision: json['revision'] as int? ?? 0,
@@ -4762,6 +4776,37 @@ class PinsMessage implements ServerMessage {
   const PinsMessage({required this.sessions, required this.projects});
 }
 
+/// Every entry the Bridge shares between its clients.
+class SharedStateMessage implements ServerMessage {
+  /// Identifies the Bridge's store; changes when its file is lost.
+  final String storeId;
+  final Map<String, Object?> entries;
+
+  const SharedStateMessage({required this.storeId, required this.entries});
+}
+
+/// One shared entry changed; [value] is null when the key is absent.
+class SharedStateChangedMessage implements ServerMessage {
+  final String key;
+  final Object? value;
+
+  /// The `mutationId` of the `set_shared_state` that caused the change.
+  final String? mutationId;
+
+  const SharedStateChangedMessage({
+    required this.key,
+    required this.value,
+    this.mutationId,
+  });
+}
+
+/// The Bridge finished adopting the entries offered by this client.
+class SharedStateSeededMessage implements ServerMessage {
+  final String storeId;
+
+  const SharedStateSeededMessage({required this.storeId});
+}
+
 class PromptHistoryStatusMessage implements ServerMessage {
   final String bridgeInstanceId;
   final int revision;
@@ -5827,6 +5872,9 @@ class ClientMessage {
       'session_context',
       'session_activity',
       'session_recap',
+      'shared_state',
+      'shared_state_changed',
+      'shared_state_seeded',
     ],
   }) {
     return ClientMessage._(<String, dynamic>{
@@ -6928,6 +6976,37 @@ class ClientMessage {
       'type': 'set_project_pin',
       'projectPath': projectPath,
       'pinned': pinned,
+    });
+  }
+
+  // ---- Shared state of the Bridge ----
+
+  factory ClientMessage.getSharedState() {
+    return ClientMessage._(<String, dynamic>{'type': 'get_shared_state'});
+  }
+
+  /// Stores [value] under [key]; null deletes it. With [max] the Bridge keeps
+  /// a stored string that is not smaller.
+  factory ClientMessage.setSharedState({
+    required String key,
+    required Object? value,
+    required String mutationId,
+    bool max = false,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_shared_state',
+      'key': key,
+      'value': value,
+      'mutationId': mutationId,
+      if (max) 'mode': 'max',
+    });
+  }
+
+  /// Offers local copies; the Bridge adopts only the keys it does not have.
+  factory ClientMessage.seedSharedState(Map<String, Object?> entries) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'seed_shared_state',
+      'entries': entries,
     });
   }
 

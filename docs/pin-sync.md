@@ -3,6 +3,8 @@
 Pinned sessions and pinned (favorite) projects used to live only in each
 app's SharedPreferences, so every device had its own set. The Bridge now owns
 them and every client of that Bridge sees the same pins.
+Other shared settings and data use the generic store described in
+[shared-state.md](shared-state.md).
 
 ## Storage
 

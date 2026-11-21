@@ -159,6 +159,7 @@ export const BRIDGE_PROTOCOL_CAPABILITIES = [
   "message_edit_v1",
   "recent_sessions_filters_v1",
   "context_compaction_v1",
+  "shared_state_v1",
 ];
 /** Advertised only while the Antigravity CLI is installed on this machine. */
 export const ANTIGRAVITY_PROTOCOL_CAPABILITIES = [
@@ -191,6 +192,9 @@ export const OPT_IN_SERVER_MESSAGE_TYPES = [
   "projects",
   "push_registration_result",
   "session_recap",
+  "shared_state",
+  "shared_state_changed",
+  "shared_state_seeded",
 ] as const;
 
 export const OPT_IN_SERVER_MESSAGES = new Set<string>(

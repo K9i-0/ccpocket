@@ -22,6 +22,8 @@ import '../../../services/bridge_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../../services/machine_manager_service.dart';
 import '../../../services/revenuecat_service.dart';
+import '../../../services/shared_state_adapters.dart';
+import '../../../services/shared_state_sync.dart';
 import '../../../theme/code_text_style.dart';
 import '../../../utils/platform_helper.dart';
 import '../../workspace/workspace_layout_metrics.dart';
@@ -606,6 +608,29 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setAutoRenameCodexSessions(bool enabled) {
     _prefs.setBool(_keyAutoRenameCodexSessions, enabled);
     emit(state.copyWith(autoRenameCodexSessions: enabled));
+    SharedStateSync.instance?.set(SharedStateKeys.autoRenameCodex, enabled);
+  }
+
+  /// The auto-rename switches are shared through the Bridge
+  /// (docs/shared-state.md). Only a switch the user has set is offered.
+  late final SharedStateAdapter sharedStateAdapter = _AutoRenameAdapter(this);
+
+  Map<String, Object> _sharedAutoRename() => {
+    if (_prefs.containsKey(_keyAutoRenameClaudeSessions))
+      SharedStateKeys.autoRenameClaude: state.autoRenameClaudeSessions,
+    if (_prefs.containsKey(_keyAutoRenameCodexSessions))
+      SharedStateKeys.autoRenameCodex: state.autoRenameCodexSessions,
+  };
+
+  Future<void> _applySharedAutoRename(String key, Object? value) async {
+    if (value is! bool || isClosed) return;
+    if (key == SharedStateKeys.autoRenameClaude) {
+      await _prefs.setBool(_keyAutoRenameClaudeSessions, value);
+      emit(state.copyWith(autoRenameClaudeSessions: value));
+    } else if (key == SharedStateKeys.autoRenameCodex) {
+      await _prefs.setBool(_keyAutoRenameCodexSessions, value);
+      emit(state.copyWith(autoRenameCodexSessions: value));
+    }
   }
 
   void setDefaultInputDelivery(InputDelivery delivery) {
@@ -676,6 +701,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setAutoRenameClaudeSessions(bool enabled) {
     _prefs.setBool(_keyAutoRenameClaudeSessions, enabled);
     emit(state.copyWith(autoRenameClaudeSessions: enabled));
+    SharedStateSync.instance?.set(SharedStateKeys.autoRenameClaude, enabled);
   }
 
   void toggleUsageDisplayMode() {
@@ -892,4 +918,21 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
     return super.close();
   }
+}
+
+class _AutoRenameAdapter extends SharedStateAdapter {
+  final SettingsCubit _cubit;
+  _AutoRenameAdapter(this._cubit);
+
+  @override
+  bool owns(String key) =>
+      key == SharedStateKeys.autoRenameClaude ||
+      key == SharedStateKeys.autoRenameCodex;
+
+  @override
+  Future<Map<String, Object>> readLocal() async => _cubit._sharedAutoRename();
+
+  @override
+  Future<void> applyRemote(String key, Object? value) =>
+      _cubit._applySharedAutoRename(key, value);
 }

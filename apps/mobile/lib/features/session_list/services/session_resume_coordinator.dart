@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../models/offline_pending_action.dart';
 import '../../../services/bridge_service.dart';
+import '../../../services/shared_state_adapters.dart';
+import '../../../services/shared_state_sync.dart';
 import 'codex_project_profile_store.dart';
 import 'session_start_defaults_store.dart';
 
@@ -25,12 +27,19 @@ class ClaudeSessionSettingsStore {
     }
   }
 
+  /// Merges [settings] into what is stored for [sessionId], on this device
+  /// and on the Bridge (shared with the other devices).
   Future<void> save(String sessionId, Map<String, dynamic> settings) async {
     final prefs = await SharedPreferences.getInstance();
     final existing = await load(sessionId);
+    final merged = <String, dynamic>{...?existing, ...settings};
     await prefs.setString(
       '$_claudeSessionSettingsPrefix$sessionId',
-      jsonEncode(<String, dynamic>{...?existing, ...settings}),
+      jsonEncode(merged),
+    );
+    SharedStateSync.instance?.set(
+      SharedStateKeys.claudeSessionSettings(sessionId),
+      merged,
     );
   }
 }

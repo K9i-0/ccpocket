@@ -364,6 +364,10 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsClaudeFork =>
       _protocolCapabilities.contains('claude_fork_v1');
 
+  /// Bridge stores shared state (`get_shared_state` and friends).
+  bool get supportsSharedState =>
+      _protocolCapabilities.contains('shared_state_v1');
+
   /// Bridge accepts `set_claude_settings` and publishes `claude_settings`.
   bool get supportsClaudeSessionSettings =>
       _protocolCapabilities.contains('claude_session_settings_v1');
@@ -598,6 +602,18 @@ class BridgeService implements BridgeServiceBase {
     return _pinnedRecentExtras.any((s) => recentSessionRefOf(s) == ref) &&
         !_recentSessions.any((s) => recentSessionRefOf(s) == ref);
   }
+
+  final _sharedStateController = StreamController<ServerMessage>.broadcast();
+  final _sharedStateReadyController = StreamController<bool>.broadcast();
+  int _sharedStateReadyEpoch = -1;
+
+  /// `shared_state`, `shared_state_changed` and `shared_state_seeded`.
+  Stream<ServerMessage> get sharedStateMessages =>
+      _sharedStateController.stream;
+
+  /// Fires once per connection when the Bridge announced its capabilities;
+  /// the value tells whether it stores shared state.
+  Stream<bool> get sharedStateReady => _sharedStateReadyController.stream;
 
   final _pinsController = StreamController<PinsMessage>.broadcast();
 
@@ -1064,6 +1080,10 @@ class BridgeService implements BridgeServiceBase {
                   _applyDeliveryMode(supported: false);
                 }
                 _flushMessageQueue();
+                if (_sharedStateReadyEpoch != _connectionEpoch) {
+                  _sharedStateReadyEpoch = _connectionEpoch;
+                  _sharedStateReadyController.add(supportsSharedState);
+                }
                 _dispatchNextLegacyFileListRequest();
                 _dispatchNextLegacyWorktreeListRequest();
                 _dispatchNextLegacyWorktreeRemoveRequest();
@@ -1183,6 +1203,10 @@ class BridgeService implements BridgeServiceBase {
                 _promptHistoryMutationController.add(msg);
               case PinsMessage():
                 _pinsController.add(msg);
+              case SharedStateMessage() ||
+                  SharedStateChangedMessage() ||
+                  SharedStateSeededMessage():
+                _sharedStateController.add(msg);
               case PromptHistoryStatusMessage():
                 _rememberPromptHistoryBridgeId(msg.bridgeInstanceId);
                 _promptHistoryStatusController.add(msg);
@@ -1351,7 +1375,8 @@ class BridgeService implements BridgeServiceBase {
                       message == 'resolve_session_link') {
                     _completePendingSessionLinkResolutionsAsUnsupported();
                   } else if (msg.errorCode == 'unsupported_message' &&
-                      _pinMessageTypes.contains(message)) {
+                      (_pinMessageTypes.contains(message) ||
+                          _sharedStateMessageTypes.contains(message))) {
                     // A Bridge without shared pins: the pins stay on this
                     // device (docs/pin-sync.md).
                   } else {
@@ -1733,6 +1758,12 @@ class BridgeService implements BridgeServiceBase {
     _dispatchNextLegacyWorktreeRemoveRequest();
     return true;
   }
+
+  static const _sharedStateMessageTypes = {
+    'get_shared_state',
+    'set_shared_state',
+    'seed_shared_state',
+  };
 
   static const _pinMessageTypes = {
     'get_pins',
@@ -2197,6 +2228,9 @@ class BridgeService implements BridgeServiceBase {
     if (message.type == 'github_list' || message.type == 'github_item') {
       return;
     }
+    // SharedStateSync keeps its own pending writes and sends them again
+    // after each reconnect.
+    if (_sharedStateMessageTypes.contains(message.type)) return;
     // One pending pin request is enough; the latest carries the latest seed.
     if (message.type == 'get_pins') {
       _messageQueue.removeWhere((queued) => queued.type == 'get_pins');
@@ -5201,6 +5235,8 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryMutationController.close();
     _promptHistoryStatusController.close();
     _pinsController.close();
+    _sharedStateController.close();
+    _sharedStateReadyController.close();
     // Git Operations
     _gitStageResultController.close();
     _gitUnstageResultController.close();

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:material_ui/material_ui.dart';
@@ -401,7 +400,6 @@ class _SessionListScreenState extends State<SessionListScreen>
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyMacOSNativeAppBannerDismissed =
       'macos_native_app_banner.dismissed';
-  static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
   static const _codexProjectProfileStore = CodexProjectProfileStore();
   static const _sessionStartDefaultsStore = SessionStartDefaultsStore();
 
@@ -1367,30 +1365,12 @@ class _SessionListScreenState extends State<SessionListScreen>
     String sessionId,
     Map<String, dynamic> settings,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    // Merge with existing settings to preserve fields not being updated.
-    final existing = await loadClaudeSessionSettings(sessionId);
-    final merged = <String, dynamic>{...?existing, ...settings};
-    await prefs.setString(
-      '$_prefKeyClaudeSessionSettingsPrefix$sessionId',
-      jsonEncode(merged),
-    );
+    await const ClaudeSessionSettingsStore().save(sessionId, settings);
   }
 
   static Future<Map<String, dynamic>?> loadClaudeSessionSettings(
     String sessionId,
-  ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(
-      '$_prefKeyClaudeSessionSettingsPrefix$sessionId',
-    );
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      return jsonDecode(raw) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
+  ) => const ClaudeSessionSettingsStore().load(sessionId);
 
   /// Build a settings map from NewSessionParams (Claude fields only).
   static Map<String, dynamic> _claudeSettingsFromParams(

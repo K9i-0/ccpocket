@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../models/messages.dart';
+import '../../../services/shared_state_adapters.dart';
+import '../../../services/shared_state_sync.dart';
 import '../../../widgets/new_session_sheet.dart';
 
 const _legacyKey = 'session_start_defaults_v1';
@@ -59,8 +61,13 @@ class SessionStartDefaultsStore {
     final savedDefaults = await _saveScoped(
       prefs,
       _preserveUnchangedCodexModel(prefs, params),
+      share: true,
     );
-    final savedSelection = await _saveSelection(prefs, params.provider);
+    final savedSelection = await _saveSelection(
+      prefs,
+      params.provider,
+      share: true,
+    );
     if (preservedLegacy && savedDefaults && savedSelection) {
       await prefs.remove(_legacyKey);
     }
@@ -120,14 +127,34 @@ class SessionStartDefaultsStore {
     }
   }
 
-  Future<bool> _saveScoped(SharedPreferences prefs, NewSessionParams params) {
-    return prefs.setString(
-      _keyFor(params.provider),
-      jsonEncode(sessionStartDefaultsToJson(params)),
-    );
+  /// [share] is false for the one-time move of old local data, which is
+  /// offered to the Bridge by `SessionStartDefaultsAdapter` instead.
+  Future<bool> _saveScoped(
+    SharedPreferences prefs,
+    NewSessionParams params, {
+    bool share = false,
+  }) {
+    final json = sessionStartDefaultsToJson(params);
+    if (share) {
+      SharedStateSync.instance?.set(
+        SharedStateKeys.sessionStartDefaults(params.provider.value),
+        json,
+      );
+    }
+    return prefs.setString(_keyFor(params.provider), jsonEncode(json));
   }
 
-  Future<bool> _saveSelection(SharedPreferences prefs, Provider provider) {
+  Future<bool> _saveSelection(
+    SharedPreferences prefs,
+    Provider provider, {
+    bool share = false,
+  }) {
+    if (share) {
+      SharedStateSync.instance?.set(
+        SharedStateKeys.sessionStartLastProvider,
+        provider.value,
+      );
+    }
     return prefs.setString(_lastProviderKey, provider.value);
   }
 
