@@ -5,9 +5,9 @@ import { transcriptPageRange } from "./context-compaction.js";
 import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { lstat, readFile, readlink, realpath, stat, unlink } from "node:fs/promises";
-import { resolve, extname, basename, relative, posix, win32 } from "node:path";
+import { resolve, extname, posix, win32 } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import { textPreview } from "./text-preview.js";
@@ -36,7 +36,6 @@ import {
   CodexProcess,
   type CodexModelMetadata,
   type CodexStartOptions,
-  type CodexThreadSourceKind,
   type CodexThreadSummary,
 } from "./codex-process.js";
 import {
@@ -69,7 +68,6 @@ import {
   type DebugTraceEvent,
   type ImageChange,
   type Provider,
-  type RecentProjectFilter,
   type ServerMessage,
 } from "./parser.js";
 import {
@@ -87,19 +85,15 @@ import {
 import {
   getAllRecentSessions,
   getPinnedCodexSessions,
-  codexEntryAsThreadListShape,
   recentSessionIdentityKey,
-  type SessionIndexEntry,
   getCodexSessionHistory,
   getSessionHistory,
-  codexUserTurnUuid,
   codexThreadToSessionHistory,
   type SessionHistoryMessage,
   findSessionsByClaudeIds,
   extractMessageImages,
   getClaudeSessionName,
   getCodexSessionIndexMetadata,
-  type CodexSessionIndexMetadata,
   loadCodexSessionNames,
   listIndexedCodexThreadIds,
   renameClaudeSession,
@@ -136,7 +130,6 @@ import { WorktreeStore } from "./worktree-store.js";
 import {
   listWorktrees,
   removeWorktree,
-  createWorktree,
   worktreeExists,
   getMainBranch,
 } from "./worktree.js";
@@ -195,915 +188,100 @@ import {
   normalizeCodexPermissionsMode,
   withDerivedCodexPermissionsMode,
 } from "./codex-permissions.js";
-
-type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
-type ResultServerMessage = Extract<ServerMessage, { type: "result" }>;
-
-/** How long a session must stay idle without background work before Done. */
-const BACKGROUND_COMPLETION_SETTLE_MS = 2_000;
-/** How long a new session's first prompt waits for the skill list. */
-const INITIAL_PROMPT_SKILL_WAIT_MS = 5_000;
-const INITIAL_PROMPT_SKILL_POLL_MS = 100;
-type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
-type ResumeClientMessage = Extract<ClientMessage, { type: "resume_session" }>;
-type CorrelatedProjectRequest = {
-  projectPath: string;
-  requestId?: string;
-};
-
-function projectRequestMetadata(
-  request: CorrelatedProjectRequest,
-): { projectPath: string; requestId?: string } {
-  return {
-    projectPath: request.projectPath,
-    ...(request.requestId ? { requestId: request.requestId } : {}),
-  };
-}
-type ResumeOperation = {
-  id: string;
-  provider: Provider;
-  sourceSessionId: string;
-  projectPath: string;
-  resumeRequestId?: string;
-  fingerprint: string;
-  waiters: Set<WebSocket>;
-  provisionalSessionId?: string;
-  timeout?: ReturnType<typeof setTimeout>;
-  completed?: {
-    sessionId: string;
-    message: SystemServerMessage;
-    completedAt: number;
-  };
-};
-const RESUME_OPERATION_TIMEOUT_MS = 5 * 60 * 1000;
-const RESUME_COMPLETED_TTL_MS = 30 * 1000;
-type ClaudePermissionMode =
-  | "default"
-  | "auto"
-  | "acceptEdits"
-  | "bypassPermissions"
-  | "plan";
-
-// ---- Available model lists (delivered to clients via session_list) ----
-
-// Used only when the Agent SDK cannot report its model list. These are the
-// Claude Code aliases, which always resolve to the current model of each
-// family, so the fallback never needs version-specific updates.
-const FALLBACK_CLAUDE_MODEL_OPTIONS: ClaudeModelOption[] = [
-  { value: "default", displayName: "Default" },
-  { value: "opus", displayName: "Opus" },
-  { value: "sonnet", displayName: "Sonnet" },
-  { value: "haiku", displayName: "Haiku" },
-];
-
-const FALLBACK_CLAUDE_MODELS: string[] = FALLBACK_CLAUDE_MODEL_OPTIONS.map(
-  (option) => option.value,
-);
-
-const FALLBACK_CLAUDE_EFFORTS: ClaudeEffortLevel[] = ["low", "medium", "high"];
-
-const FALLBACK_CLAUDE_MODEL_EFFORTS: Record<string, ClaudeEffortLevel[]> = {
-  default: FALLBACK_CLAUDE_EFFORTS,
-  opus: FALLBACK_CLAUDE_EFFORTS,
-  sonnet: FALLBACK_CLAUDE_EFFORTS,
-  haiku: [],
-};
-
-export interface ClaudeModelOption {
-  value: string;
-  displayName?: string;
-  description?: string;
-  /** Claude Code fast mode is available for this model. */
-  supportsFastMode?: boolean;
-}
-
-const FALLBACK_CODEX_MODELS: string[] = [
-  "gpt-5.6-sol",
-  "gpt-5.6-terra",
-  "gpt-5.6-luna",
-  "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.4-mini",
-  "gpt-5.3-codex",
-  "gpt-5.3-codex-spark",
-];
-
-const FALLBACK_CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
-const FALLBACK_GPT_5_6_REASONING_EFFORTS = [
-  ...FALLBACK_CODEX_REASONING_EFFORTS,
-  "max",
-];
-const FALLBACK_GPT_5_6_ULTRA_REASONING_EFFORTS = [
-  ...FALLBACK_GPT_5_6_REASONING_EFFORTS,
-  "ultra",
-];
-
-function fallbackCodexReasoningEfforts(model: string): string[] {
-  if (model === "gpt-5.6-sol" || model === "gpt-5.6-terra") {
-    return FALLBACK_GPT_5_6_ULTRA_REASONING_EFFORTS;
-  }
-  if (model === "gpt-5.6-luna") return FALLBACK_GPT_5_6_REASONING_EFFORTS;
-  return FALLBACK_CODEX_REASONING_EFFORTS;
-}
-
-function fallbackCodexServiceTiers(model: string): string[] {
-  return [
-    "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-5.6-luna",
-    "gpt-5.5",
-    "gpt-5.4",
-  ].includes(model)
-    ? ["fast"]
-    : [];
-}
-
-const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
-  "cli",
-  "vscode",
-  "appServer",
-];
-
-const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
-/** Upper bound for waiting on a replaced Codex app-server to exit. */
-const CODEX_SHUTDOWN_WAIT_MS = 5_000;
-/** How long a retract waits for a just-sent prompt's turn to start. */
-const RETRACT_START_TIMEOUT_MS = 3_000;
-/** How long a retract waits for the interrupted turn to end. */
-const RETRACT_IDLE_TIMEOUT_MS = 15_000;
-
-const BRIDGE_PROTOCOL_CAPABILITIES = [
-  "performance_mode_v1",
-  "project_request_correlation_v1",
-  "session_context_v1",
-  "codex_service_tiers_v1",
-  "input_delivery_v1",
-  "claude_session_settings_v1",
-  "claude_fork_v1",
-  "message_edit_v1",
-  "recent_sessions_filters_v1",
-  "context_compaction_v1",
-];
-/** Advertised only while the Antigravity CLI is installed on this machine. */
-const ANTIGRAVITY_PROTOCOL_CAPABILITIES = [
-  "antigravity_v1",
-  // Catalog, model family and thinking level, question forms, plan review,
-  // context usage and the bypass mode.
-  "antigravity_v2",
-];
-/**
- * How long a catalog read is reused. Every read opens an empty conversation
- * that `agy` keeps on disk (about 400 KB), and running sessions refresh the
- * catalog for free, so a day is enough.
- */
-const ANTIGRAVITY_CATALOG_TTL_MS = 24 * 60 * 60_000;
-
-/** Default and maximum page size for `get_session_transcript`. */
-const TRANSCRIPT_PAGE_DEFAULT = 200;
-const TRANSCRIPT_PAGE_MAX = 1000;
-
-const OPT_IN_SERVER_MESSAGES = new Set<string>([
-  "agent_activity",
-  "background_tasks",
-  "context_compaction",
-  "conversation_queue",
-  "goal_state",
-  "codex_recovery_state",
-  "guardian_approval",
-  "prompt_history_status",
-  "projects",
-  "push_registration_result",
-  "session_recap",
-]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseCodexUserTurnOrdinal(uuid: string | undefined): number | null {
-  if (!uuid) return null;
-  const match = uuid.match(CODEX_USER_TURN_UUID_RE);
-  if (!match) return null;
-  const ordinal = Number(match[1]);
-  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal : null;
-}
-
-function countCodexUserTurnsInSession(session: SessionInfo): number {
-  let count = 0;
-  let maxOrdinal = 0;
-
-  const observe = (uuid?: string): void => {
-    count += 1;
-    const ordinal = parseCodexUserTurnOrdinal(uuid);
-    if (ordinal !== null) {
-      maxOrdinal = Math.max(maxOrdinal, ordinal);
-    }
-  };
-
-  if (Array.isArray(session.pastMessages)) {
-    for (const message of session.pastMessages) {
-      if (!message || typeof message !== "object") continue;
-      const item = message as { role?: unknown; uuid?: unknown; isMeta?: unknown };
-      if (item.role === "user" && item.isMeta !== true) {
-        observe(typeof item.uuid === "string" ? item.uuid : undefined);
-      }
-    }
-  }
-
-  for (const message of session.history) {
-    if (message.type === "user_input") {
-      observe(message.userMessageUuid);
-    }
-  }
-
-  return Math.max(count, maxOrdinal);
-}
-
-function nextCodexUserTurnUuid(session: SessionInfo): string {
-  return codexUserTurnUuid(countCodexUserTurnsInSession(session) + 1);
-}
-
-function normalizeHistoryContent(
-  content: unknown,
-): SessionHistoryMessage["content"] {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return [];
-
-  const normalized: Array<{
-    type: string;
-    text?: string;
-    id?: string;
-    name?: string;
-    input?: Record<string, unknown>;
-  }> = [];
-
-  for (const item of content) {
-    if (!item || typeof item !== "object") continue;
-    const value = item as Record<string, unknown>;
-    if (typeof value.type !== "string") continue;
-    if (value.type === "text") {
-      normalized.push({
-        type: "text",
-        text: typeof value.text === "string" ? value.text : "",
-      });
-    } else if (value.type === "tool_use") {
-      normalized.push({
-        type: "tool_use",
-        id: typeof value.id === "string" ? value.id : undefined,
-        name: typeof value.name === "string" ? value.name : undefined,
-        input:
-          value.input && typeof value.input === "object" && !Array.isArray(value.input)
-            ? (value.input as Record<string, unknown>)
-            : undefined,
-      });
-    }
-  }
-
-  return normalized;
-}
-
-function buildCodexHistoryPrefix(
-  session: SessionInfo,
-  targetOrdinal: number,
-): SessionHistoryMessage[] {
-  const messages: SessionHistoryMessage[] = [];
-  let userOrdinal = 0;
-  let reachedEnd = false;
-
-  const appendPastMessage = (message: unknown): void => {
-    if (reachedEnd || !message || typeof message !== "object") return;
-    const item = message as SessionHistoryMessage;
-    if (item.role === "user" && item.isMeta !== true) {
-      userOrdinal += 1;
-      if (userOrdinal > targetOrdinal) {
-        reachedEnd = true;
-        return;
-      }
-      messages.push({ ...item });
-      return;
-    }
-    if (item.role === "assistant" && userOrdinal > 0 && userOrdinal <= targetOrdinal) {
-      messages.push({ ...item });
-    }
-  };
-
-  for (const message of session.pastMessages ?? []) {
-    appendPastMessage(message);
-    if (reachedEnd) return messages;
-  }
-
-  for (const message of session.history) {
-    if (message.type === "user_input") {
-      if (message.isMeta === true) continue;
-      const userInput = message as typeof message & { timestamp?: string };
-      userOrdinal += 1;
-      if (userOrdinal > targetOrdinal) break;
-      messages.push({
-        role: "user",
-        uuid: userInput.userMessageUuid,
-        timestamp: userInput.timestamp,
-        imageCount: userInput.imageCount,
-        content: [{ type: "text", text: userInput.text }],
-      });
-    } else if (
-      message.type === "assistant" &&
-      userOrdinal > 0 &&
-      userOrdinal <= targetOrdinal
-    ) {
-      messages.push({
-        role: "assistant",
-        uuid: message.messageUuid,
-        content: normalizeHistoryContent(message.message.content),
-      });
-    }
-  }
-
-  return messages;
-}
-
-function countCodexHistoryUserTurns(messages: SessionHistoryMessage[]): number {
-  return messages.filter((message) => message.role === "user" && !message.isMeta)
-    .length;
-}
-
-// ---- Codex mode mapping helpers ----
-
-/** Map unified PermissionMode to Codex approval_policy.
- *  Only "bypassPermissions" maps to "never"; all others use "on-request". */
-function permissionModeToApprovalPolicy(mode?: string): "never" | "on-request" {
-  return mode === "bypassPermissions" ? "never" : "on-request";
-}
-
-function normalizeCodexApprovalPolicy(
-  value?: string,
-): "never" | "on-request" | "on-failure" | "untrusted" {
-  switch (value) {
-    case "untrusted":
-      return "untrusted";
-    case "on-failure":
-      return "on-failure";
-    case "never":
-      return "never";
-    case "on-request":
-    default:
-      return "on-request";
-  }
-}
-
-type CodexPermissionsMode = NonNullable<
-  CodexStartOptions["codexPermissionsMode"]
->;
-
-interface CodexPermissionSettings {
-  codexPermissionsMode?: CodexPermissionsMode;
-  approvalPolicy?: CodexStartOptions["approvalPolicy"];
-  approvalsReviewer?: CodexStartOptions["approvalsReviewer"];
-  sandboxMode?: CodexStartOptions["sandboxMode"];
-}
-
-function isCodexAutoReviewApprovalsReviewer(value: unknown): boolean {
-  return value === "auto_review" || value === "guardian_subagent";
-}
-
-function sanitizeCodexModel(model: unknown): string | undefined {
-  if (typeof model !== "string") return undefined;
-  const normalized = model.trim();
-  if (!normalized || normalized === "codex") return undefined;
-  return normalized;
-}
-
-function codexSettingsFromPermissionsMode(
-  mode: CodexPermissionsMode,
-): CodexPermissionSettings {
-  switch (mode) {
-    case "default":
-      return {
-        codexPermissionsMode: mode,
-        approvalPolicy: "on-request",
-        approvalsReviewer: "user",
-        sandboxMode: "workspace-write",
-      };
-    case "autoReview":
-      return {
-        codexPermissionsMode: mode,
-        approvalPolicy: "on-request",
-        approvalsReviewer: "auto_review",
-        sandboxMode: "workspace-write",
-      };
-    case "fullAccess":
-      return {
-        codexPermissionsMode: mode,
-        approvalPolicy: "never",
-        approvalsReviewer: "user",
-        sandboxMode: "danger-full-access",
-      };
-    case "custom":
-      return { codexPermissionsMode: mode };
-  }
-}
-
-function errorMessageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function isClaudeAutoModeUnavailableError(err: unknown): boolean {
-  const message = errorMessageOf(err).toLowerCase();
-  const autoMentionsMode =
-    message.includes("auto mode") ||
-    message.includes('permission mode "auto"') ||
-    message.includes("permission mode auto") ||
-    message.includes("mode auto");
-  if (!autoMentionsMode) return false;
-  return (
-    message.includes("unavailable") ||
-    message.includes("not available") ||
-    message.includes("unsupported") ||
-    message.includes("not supported") ||
-    message.includes("disabled") ||
-    message.includes("requires") ||
-    message.includes("only available") ||
-    message.includes("not enabled")
-  );
-}
-
-function deriveExecutionMode(params: {
-  permissionMode?: string;
-  executionMode?: string;
-  approvalPolicy?: string;
-  provider?: Provider;
-}): "default" | "acceptEdits" | "fullAccess" {
-  if (
-    params.executionMode === "default" ||
-    params.executionMode === "acceptEdits" ||
-    params.executionMode === "fullAccess"
-  ) {
-    return params.executionMode;
-  }
-  if (
-    params.permissionMode === "bypassPermissions" ||
-    params.approvalPolicy === "never"
-  ) {
-    return "fullAccess";
-  }
-  if (params.permissionMode === "acceptEdits") {
-    return params.provider === "codex" ? "default" : "acceptEdits";
-  }
-  return "default";
-}
-
-function derivePlanMode(params: {
-  permissionMode?: string;
-  planMode?: boolean;
-  collaborationMode?: "plan" | "default";
-}): boolean {
-  return (
-    params.planMode ??
-    (params.permissionMode === "plan" || params.collaborationMode === "plan")
-  );
-}
-
-function modesToLegacyPermissionMode(
-  provider: Provider,
-  executionMode: "default" | "acceptEdits" | "fullAccess",
-  planMode: boolean,
-): "default" | "acceptEdits" | "bypassPermissions" | "plan" {
-  if (planMode) return "plan";
-  switch (executionMode) {
-    case "fullAccess":
-      return "bypassPermissions";
-    case "acceptEdits":
-      return "acceptEdits";
-    case "default":
-    default:
-      return provider === "codex" ? "acceptEdits" : "default";
-  }
-}
-
-/** Map simplified SandboxMode (on/off) to Codex internal sandbox mode. */
-function sandboxModeToInternal(
-  mode?: string,
-): "read-only" | "workspace-write" | "danger-full-access" {
-  switch (mode) {
-    case "danger-full-access":
-    case "workspace-write":
-    case "read-only":
-      return mode;
-    case "off":
-      return "danger-full-access";
-    default:
-      return "workspace-write";
-  }
-}
-
-/** Map Codex internal sandbox mode back to simplified on/off for clients. */
-function sandboxModeToExternal(mode?: string): "on" | "off" {
-  return mode === "danger-full-access" ? "off" : "on";
-}
-
-function threadTimestampToIso(value: number): string {
-  return value > 0 ? new Date(value * 1000).toISOString() : "";
-}
-
-function envFlagEnabled(name: string): boolean {
-  const value = process.env[name]?.trim().toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
-
-const MAX_TIMER_DELAY_MS = 2_147_483_647;
-
-function positiveEnvInt(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const value = Number(raw);
-  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
-}
-
-function nonNegativeEnvInt(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const value = Number(raw);
-  return Number.isSafeInteger(value) &&
-    value >= 0 &&
-    value <= MAX_TIMER_DELAY_MS
-    ? value
-    : fallback;
-}
-
-function normalizePositiveLimit(
-  value: number | undefined,
-  fallback: number,
-): number {
-  return value !== undefined && Number.isSafeInteger(value) && value > 0
-    ? value
-    : fallback;
-}
-
-function normalizeNonNegativeLimit(
-  value: number | undefined,
-  fallback: number,
-): number {
-  return value !== undefined &&
-    Number.isSafeInteger(value) &&
-    value >= 0 &&
-    value <= MAX_TIMER_DELAY_MS
-    ? value
-    : fallback;
-}
-
-const FILE_PEEK_MEDIA_TYPES: Record<
-  string,
-  { kind: "audio" | "video"; mimeType: string }
-> = {
-  ".wav": { kind: "audio", mimeType: "audio/wav" },
-  ".mp3": { kind: "audio", mimeType: "audio/mpeg" },
-  ".m4a": { kind: "audio", mimeType: "audio/mp4" },
-  ".aac": { kind: "audio", mimeType: "audio/aac" },
-  ".flac": { kind: "audio", mimeType: "audio/flac" },
-  ".ogg": { kind: "audio", mimeType: "audio/ogg" },
-  ".opus": { kind: "audio", mimeType: "audio/ogg" },
-  ".aif": { kind: "audio", mimeType: "audio/aiff" },
-  ".aiff": { kind: "audio", mimeType: "audio/aiff" },
-  ".aifc": { kind: "audio", mimeType: "audio/aiff" },
-  ".mp4": { kind: "video", mimeType: "video/mp4" },
-  ".mov": { kind: "video", mimeType: "video/quicktime" },
-  ".m4v": { kind: "video", mimeType: "video/x-m4v" },
-  ".webm": { kind: "video", mimeType: "video/webm" },
-  ".mkv": { kind: "video", mimeType: "video/x-matroska" },
-  ".avi": { kind: "video", mimeType: "video/x-msvideo" },
-  ".mpg": { kind: "video", mimeType: "video/mpeg" },
-  ".mpeg": { kind: "video", mimeType: "video/mpeg" },
-};
-
-export function downloadMimeType(filePath: string): string {
-  const extension = extname(filePath).toLowerCase();
-  const mediaType = FILE_PEEK_MEDIA_TYPES[extension];
-  if (mediaType) return mediaType.mimeType;
-  const mimeTypes: Record<string, string> = {
-    ".glb": "model/gltf-binary",
-    ".bmp": "image/bmp",
-    ".csv": "text/csv",
-    ".doc": "application/msword",
-    ".docx":
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".gif": "image/gif",
-    ".gz": "application/gzip",
-    ".html": "text/html",
-    ".jpeg": "image/jpeg",
-    ".jpg": "image/jpeg",
-    ".json": "application/json",
-    ".md": "text/markdown",
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".ppt": "application/vnd.ms-powerpoint",
-    ".pptx":
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ".svg": "image/svg+xml",
-    ".tar": "application/x-tar",
-    ".txt": "text/plain",
-    ".webp": "image/webp",
-    ".xls": "application/vnd.ms-excel",
-    ".xlsx":
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".xml": "application/xml",
-    ".zip": "application/zip",
-  };
-  return mimeTypes[extension] ?? "application/octet-stream";
-}
-
-function codexThreadToRecentSession(
-  thread: CodexThreadSummary,
-  indexed?: CodexSessionIndexMetadata,
-): Record<string, unknown> {
-  // thread/list only exposes a single preview blob; prefer the real
-  // first/last/summary texts parsed from the rollout file so display-mode
-  // switches (first prompt / last prompt / summary) show distinct content.
-  return {
-    sessionId: thread.id,
-    provider: "codex",
-    ...(thread.name ? { name: thread.name } : {}),
-    ...(thread.agentNickname ? { agentNickname: thread.agentNickname } : {}),
-    ...(thread.agentRole ? { agentRole: thread.agentRole } : {}),
-    summary: indexed?.summary || thread.preview || undefined,
-    firstPrompt: indexed?.firstPrompt || thread.preview || "",
-    ...(indexed?.lastPrompt ? { lastPrompt: indexed.lastPrompt } : {}),
-    created: threadTimestampToIso(thread.createdAt),
-    modified: threadTimestampToIso(thread.updatedAt),
-    gitBranch: thread.gitBranch ?? "",
-    projectPath: thread.cwd,
-    ...(indexed?.resumeCwd ? { resumeCwd: indexed.resumeCwd } : {}),
-    isSidechain: false,
-    ...(indexed?.codexSettings ? { codexSettings: indexed.codexSettings } : {}),
-  };
-}
-
-function recentSessionModifiedTime(session: unknown): number {
-  const modified = (session as { modified?: unknown })?.modified;
-  return typeof modified === "string" ? new Date(modified).getTime() || 0 : 0;
-}
-
-function recentSessionDedupeKey(session: unknown, fallbackIndex: number): string {
-  const value = session as { provider?: unknown; sessionId?: unknown };
-  return typeof value.provider === "string" && typeof value.sessionId === "string"
-    ? `${value.provider}:${value.sessionId}`
-    : `unknown:${fallbackIndex}`;
-}
-
-type ListRecentSessionsMessage = Extract<
-  ClientMessage,
-  { type: "list_recent_sessions" }
->;
-
-interface RecentSessionsListing {
-  sessions: unknown[];
-  hasMore: boolean;
-  /**
-   * Requested pinned sessions that match the listing filters, independent of
-   * pagination. Only set for first-page list requests that sent pins.
-   */
-  pinnedSessions?: unknown[];
-}
-
-/**
- * Provider-qualified keys of the pinned sessions a request asks for, or
- * undefined when pinned sessions must not be resolved for this request
- * (project-scoped pages, later pages, or no pins sent).
- */
-export function pinnedSessionKeysForRecentRequest(
-  msg: ListRecentSessionsMessage,
-): Set<string> | undefined {
-  // With pinnedOnly the page itself already contains every pinned session.
-  if (msg.pinnedOnly === true) return undefined;
-  if (msg.requestScope === "project") return undefined;
-  if ((msg.offset ?? 0) !== 0) return undefined;
-  const pinned = msg.pinnedSessions;
-  if (!pinned || pinned.length === 0) return undefined;
-  return new Set(
-    pinned
-      .filter((pin) => !msg.provider || pin.provider === msg.provider)
-      .map((pin) => recentSessionIdentityKey(pin.provider, pin.sessionId)),
-  );
-}
-
-/**
- * Keys of `pinnedSessions` that define the result set of a `pinnedOnly`
- * request (any scope / offset), or undefined when `pinnedOnly` is not set.
- */
-export function pinnedOnlySessionKeys(
-  msg: ListRecentSessionsMessage,
-): Set<string> | undefined {
-  if (msg.pinnedOnly !== true) return undefined;
-  return new Set(
-    (msg.pinnedSessions ?? [])
-      .filter((pin) => !msg.provider || pin.provider === msg.provider)
-      .map((pin) => recentSessionIdentityKey(pin.provider, pin.sessionId)),
-  );
-}
-
-/**
- * In-flight coalescing key of a `list_recent_sessions` request. Includes every
- * field that changes the result (pins only where they are used).
- */
-export function recentSessionsCoalescingKey(
-  msg: ListRecentSessionsMessage,
-): string {
-  const pinnedKeys = pinnedSessionKeysForRecentRequest(msg);
-  const pinnedOnlyKeys = pinnedOnlySessionKeys(msg);
-  const sortedFilters = (filters: RecentProjectFilter[] | undefined) =>
-    filters
-      ? filters
-          .map((filter) =>
-            JSON.stringify([
-              filter.projectPath ?? null,
-              filter.projectId ?? null,
-              filter.workspaceKind ?? null,
-            ]),
-          )
-          .sort()
-      : null;
-  return JSON.stringify({
-    limit: msg.limit ?? null,
-    offset: msg.offset ?? null,
-    projectPath: msg.projectPath ?? null,
-    projectId: msg.projectId ?? null,
-    workspaceKind: msg.workspaceKind ?? null,
-    requestScope: msg.requestScope ?? null,
-    provider: msg.provider ?? null,
-    includeAntigravity: msg.includeAntigravity ?? null,
-    namedOnly: msg.namedOnly ?? null,
-    searchQuery: msg.searchQuery ?? null,
-    searchContent: msg.searchContent ?? null,
-    pinnedSessions: pinnedKeys ? [...pinnedKeys].sort() : null,
-    projectFilters: sortedFilters(msg.projectFilters),
-    modifiedAfter: msg.modifiedAfter ?? null,
-    modifiedBefore: msg.modifiedBefore ?? null,
-    dateField: msg.dateField ?? null,
-    pinnedOnly: msg.pinnedOnly ?? null,
-    pinnedOnlySessions: pinnedOnlyKeys ? [...pinnedOnlyKeys].sort() : null,
-    pinnedProjects: msg.pinnedOnly ? sortedFilters(msg.pinnedProjects) : null,
-  });
-}
-
-/** Content (transcript) search requested with a non-empty query. */
-export function isRecentContentSearch(msg: ListRecentSessionsMessage): boolean {
-  return msg.searchContent === true && Boolean(msg.searchQuery?.trim());
-}
-
-/** `projectFilters` apply to list requests only (project scope replaces them). */
-function effectiveRecentProjectFilters(
-  msg: ListRecentSessionsMessage,
-): RecentProjectFilter[] | undefined {
-  return msg.requestScope !== "project" && (msg.projectFilters?.length ?? 0) > 0
-    ? msg.projectFilters
-    : undefined;
-}
-
-/**
- * Whether the request uses any `recent_sessions_filters_v1` filter, which
- * routes it through the predicate-based listing path.
- */
-export function recentSessionsFiltersRequested(
-  msg: ListRecentSessionsMessage,
-): boolean {
-  return (
-    effectiveRecentProjectFilters(msg) !== undefined ||
-    msg.modifiedAfter !== undefined ||
-    msg.modifiedBefore !== undefined ||
-    msg.pinnedOnly === true ||
-    // Keyword searches, single projects and named only too: app-server
-    // `thread/list` paging / searchTerm took seconds, while the index plus the
-    // Codex thread snapshot answers in tens of milliseconds.
-    Boolean(msg.searchQuery?.trim()) ||
-    msg.projectPath !== undefined ||
-    msg.projectId !== undefined ||
-    msg.workspaceKind !== undefined ||
-    msg.namedOnly === true ||
-    isRecentContentSearch(msg)
-  );
-}
-
-function recentDateBound(value: string | undefined): number | undefined {
-  if (value === undefined) return undefined;
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? time : undefined;
-}
-
-/**
- * Predicate over (workspace-enriched) recent sessions combining, with AND:
- * the single project fields, `projectFilters` (OR), the date range and
- * `pinnedOnly` (pinned session keys OR any `pinnedProjects` entry).
- */
-export function buildRecentSessionPredicate(
-  msg: ListRecentSessionsMessage,
-  listProjects: () => ReadonlyArray<{ id: string; rootPaths: readonly string[] }>,
-  pinnedKeys?: ReadonlySet<string>,
-): (session: unknown) => boolean {
-  type Probe = {
-    provider?: unknown;
-    sessionId?: unknown;
-    projectPath?: unknown;
-    created?: unknown;
-    modified?: unknown;
-    workspace?: Record<string, unknown>;
-  };
-  const projectMatcher = (filter: RecentProjectFilter) => {
-    const primaryProjectIds = new Set(
-      filter.projectPath === undefined
-        ? []
-        : listProjects()
-            .filter((project) => project.rootPaths[0] === filter.projectPath)
-            .map((project) => project.id),
-    );
-    return (value: Probe): boolean => {
-      const workspace = value.workspace;
-      if (filter.projectId && workspace?.projectId !== filter.projectId) {
-        return false;
-      }
-      if (filter.workspaceKind && workspace?.kind !== filter.workspaceKind) {
-        return false;
-      }
-      if (filter.projectPath !== undefined) {
-        const matchesPrimaryProject =
-          typeof workspace?.projectId === "string" &&
-          primaryProjectIds.has(workspace.projectId);
-        if (value.projectPath !== filter.projectPath && !matchesPrimaryProject) {
-          return false;
-        }
-      }
-      return true;
-    };
-  };
-  const matchesScope = projectMatcher({
-    projectPath: msg.projectPath,
-    projectId: msg.projectId,
-    workspaceKind: msg.workspaceKind,
-  });
-  const projectFilterMatchers =
-    effectiveRecentProjectFilters(msg)?.map(projectMatcher);
-  const pinnedProjectMatchers =
-    msg.pinnedOnly === true
-      ? (msg.pinnedProjects ?? []).map(projectMatcher)
-      : undefined;
-  const after = recentDateBound(msg.modifiedAfter);
-  const before = recentDateBound(msg.modifiedBefore);
-  const dateField = msg.dateField === "created" ? "created" : "modified";
-
-  return (session: unknown): boolean => {
-    const value = (session ?? {}) as Probe;
-    if (!matchesScope(value)) return false;
-    if (
-      projectFilterMatchers &&
-      !projectFilterMatchers.some((matches) => matches(value))
-    ) {
-      return false;
-    }
-    if (after !== undefined || before !== undefined) {
-      const raw = value[dateField];
-      const time = typeof raw === "string" ? Date.parse(raw) : Number.NaN;
-      if (!Number.isFinite(time)) return false;
-      if (after !== undefined && time < after) return false;
-      if (before !== undefined && time >= before) return false;
-    }
-    if (pinnedProjectMatchers) {
-      const pinned =
-        typeof value.provider === "string" &&
-        typeof value.sessionId === "string" &&
-        (pinnedKeys?.has(
-          recentSessionIdentityKey(value.provider, value.sessionId),
-        ) ??
-          false);
-      if (!pinned && !pinnedProjectMatchers.some((matches) => matches(value))) {
-        return false;
-      }
-    }
-    return true;
-  };
-}
-
-/**
- * Pinned entries from the rollout/index scan, shaped like the page entries the
- * app-server `thread/list` listing produces for Codex.
- */
-function pinnedIndexEntriesAsListingShape(
-  entries: readonly SessionIndexEntry[] | undefined,
-): SessionIndexEntry[] | undefined {
-  return entries?.map((entry) =>
-    entry.provider === "codex" ? codexEntryAsThreadListShape(entry) : entry,
-  );
-}
-
-function mergeRecentSessionPages(sessions: unknown[]): unknown[] {
-  const seen = new Set<string>();
-  const merged: unknown[] = [];
-  for (const session of sessions) {
-    const key = recentSessionDedupeKey(session, merged.length);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(session);
-  }
-  return merged.sort(
-    (a, b) => recentSessionModifiedTime(b) - recentSessionModifiedTime(a),
-  );
-}
+import {
+  type SystemServerMessage,
+  type ResultServerMessage,
+  BACKGROUND_COMPLETION_SETTLE_MS,
+  INITIAL_PROMPT_SKILL_WAIT_MS,
+  INITIAL_PROMPT_SKILL_POLL_MS,
+  type InputClientMessage,
+  type ResumeClientMessage,
+  projectRequestMetadata,
+  type ResumeOperation,
+  RESUME_OPERATION_TIMEOUT_MS,
+  RESUME_COMPLETED_TTL_MS,
+  type ClaudePermissionMode,
+  FALLBACK_CLAUDE_MODEL_OPTIONS,
+  FALLBACK_CLAUDE_MODELS,
+  FALLBACK_CLAUDE_MODEL_EFFORTS,
+  type ClaudeModelOption,
+  FALLBACK_CODEX_MODELS,
+  fallbackCodexReasoningEfforts,
+  fallbackCodexServiceTiers,
+  CODEX_RECENT_THREAD_SOURCE_KINDS,
+  CODEX_SHUTDOWN_WAIT_MS,
+  RETRACT_START_TIMEOUT_MS,
+  RETRACT_IDLE_TIMEOUT_MS,
+  BRIDGE_PROTOCOL_CAPABILITIES,
+  ANTIGRAVITY_PROTOCOL_CAPABILITIES,
+  ANTIGRAVITY_CATALOG_TTL_MS,
+  TRANSCRIPT_PAGE_DEFAULT,
+  TRANSCRIPT_PAGE_MAX,
+  OPT_IN_SERVER_MESSAGES,
+  isRecord,
+  parseCodexUserTurnOrdinal,
+  countCodexUserTurnsInSession,
+  nextCodexUserTurnUuid,
+  buildCodexHistoryPrefix,
+  countCodexHistoryUserTurns,
+  normalizeCodexApprovalPolicy,
+  isCodexAutoReviewApprovalsReviewer,
+  sanitizeCodexModel,
+  codexSettingsFromPermissionsMode,
+  errorMessageOf,
+  isClaudeAutoModeUnavailableError,
+  deriveExecutionMode,
+  derivePlanMode,
+  modesToLegacyPermissionMode,
+  sandboxModeToInternal,
+  sandboxModeToExternal,
+  envFlagEnabled,
+  positiveEnvInt,
+  nonNegativeEnvInt,
+  normalizePositiveLimit,
+  normalizeNonNegativeLimit,
+  FILE_PEEK_MEDIA_TYPES,
+  downloadMimeType,
+} from "./websocket/shared.js";
+import {
+  codexThreadToRecentSession,
+  type ListRecentSessionsMessage,
+  type RecentSessionsListing,
+  pinnedSessionKeysForRecentRequest,
+  pinnedOnlySessionKeys,
+  recentSessionsCoalescingKey,
+  isRecentContentSearch,
+  recentSessionsFiltersRequested,
+  buildRecentSessionPredicate,
+  pinnedIndexEntriesAsListingShape,
+  mergeRecentSessionPages,
+} from "./websocket/recent-sessions.js";
+import {
+  MAX_DEBUG_EVENTS,
+  MAX_HISTORY_SUMMARY_ITEMS,
+  CONNECT_METADATA_REFRESH_COOLDOWN_MS,
+  DEFAULT_FILE_LIST_MAX_ENTRIES,
+  DEFAULT_FILE_LIST_MAX_BYTES,
+  DEFAULT_FILE_DOWNLOAD_MAX_BYTES,
+  DEFAULT_FILE_UPLOAD_MAX_BYTES,
+  DEFAULT_DELTA_BATCH_MS,
+  DEFAULT_DELTA_BATCH_MAX_CHARS,
+  IMAGE_EXTENSIONS,
+  FILE_PEEK_IMAGE_EXTENSIONS,
+  AUTO_DISPLAY_THRESHOLD,
+  MAX_IMAGE_SIZE,
+  mimeTypeForExt,
+} from "./websocket/shared.js";
+export {
+  pinnedSessionKeysForRecentRequest,
+  pinnedOnlySessionKeys,
+  recentSessionsCoalescingKey,
+  isRecentContentSearch,
+  recentSessionsFiltersRequested,
+  buildRecentSessionPredicate,
+} from "./websocket/recent-sessions.js";
+export { downloadMimeType } from "./websocket/shared.js";
+export type { ClaudeModelOption } from "./websocket/shared.js";
 
 export interface BridgeServerOptions {
   /**
@@ -1162,15 +340,6 @@ interface DeltaTextChunk {
 }
 
 export class BridgeWebSocketServer {
-  private static readonly MAX_DEBUG_EVENTS = 800;
-  private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
-  private static readonly CONNECT_METADATA_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
-  private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
-  private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
-  private static readonly DEFAULT_FILE_DOWNLOAD_MAX_BYTES = 512 * 1024 * 1024;
-  private static readonly DEFAULT_FILE_UPLOAD_MAX_BYTES = 512 * 1024 * 1024;
-  private static readonly DEFAULT_DELTA_BATCH_MS = 100;
-  private static readonly DEFAULT_DELTA_BATCH_MAX_CHARS = 4096;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -1362,42 +531,42 @@ export class BridgeWebSocketServer {
       fileListMaxEntries,
       positiveEnvInt(
         "BRIDGE_FILE_LIST_MAX_ENTRIES",
-        BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_ENTRIES,
+        DEFAULT_FILE_LIST_MAX_ENTRIES,
       ),
     );
     this.fileListMaxBytes = normalizePositiveLimit(
       fileListMaxBytes,
       positiveEnvInt(
         "BRIDGE_FILE_LIST_MAX_BYTES",
-        BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_BYTES,
+        DEFAULT_FILE_LIST_MAX_BYTES,
       ),
     );
     this.fileDownloadMaxBytes = normalizePositiveLimit(
       fileDownloadMaxBytes,
       positiveEnvInt(
         "BRIDGE_FILE_DOWNLOAD_MAX_SIZE_MB",
-        BridgeWebSocketServer.DEFAULT_FILE_DOWNLOAD_MAX_BYTES / 1024 / 1024,
+        DEFAULT_FILE_DOWNLOAD_MAX_BYTES / 1024 / 1024,
       ) * 1024 * 1024,
     );
     this.fileUploadMaxBytes = normalizePositiveLimit(
       fileUploadMaxBytes,
       positiveEnvInt(
         "BRIDGE_FILE_UPLOAD_MAX_SIZE_MB",
-        BridgeWebSocketServer.DEFAULT_FILE_UPLOAD_MAX_BYTES / 1024 / 1024,
+        DEFAULT_FILE_UPLOAD_MAX_BYTES / 1024 / 1024,
       ) * 1024 * 1024,
     );
     this.deltaBatchMs = normalizeNonNegativeLimit(
       deltaBatchMs,
       nonNegativeEnvInt(
         "BRIDGE_DELTA_BATCH_MS",
-        BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MS,
+        DEFAULT_DELTA_BATCH_MS,
       ),
     );
     this.deltaBatchMaxChars = normalizePositiveLimit(
       deltaBatchMaxChars,
       positiveEnvInt(
         "BRIDGE_DELTA_BATCH_MAX_CHARS",
-        BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MAX_CHARS,
+        DEFAULT_DELTA_BATCH_MAX_CHARS,
       ),
     );
 
@@ -3704,7 +2873,7 @@ export class BridgeWebSocketServer {
       lastRefreshAt !== null &&
       now >= lastRefreshAt &&
       now - lastRefreshAt <
-        BridgeWebSocketServer.CONNECT_METADATA_REFRESH_COOLDOWN_MS
+        CONNECT_METADATA_REFRESH_COOLDOWN_MS
     ) {
       return;
     }
@@ -6564,7 +5733,7 @@ export class BridgeWebSocketServer {
 
         const emitBundle = (diff: string, diffError?: string): void => {
           const traceLimit =
-            msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS;
+            msg.traceLimit ?? MAX_DEBUG_EVENTS;
           const trace = this.getDebugEvents(msg.sessionId, traceLimit);
           const generatedAt = new Date().toISOString();
           const includeDiff = msg.includeDiff !== false;
@@ -8034,9 +7203,9 @@ export class BridgeWebSocketServer {
               });
               return;
             }
-            if (BridgeWebSocketServer.FILE_PEEK_IMAGE_EXTENSIONS.has(ext)) {
-              const mimeType = BridgeWebSocketServer.mimeTypeForExt(ext);
-              if (resolvedFileStat.size > BridgeWebSocketServer.MAX_IMAGE_SIZE) {
+            if (FILE_PEEK_IMAGE_EXTENSIONS.has(ext)) {
+              const mimeType = mimeTypeForExt(ext);
+              if (resolvedFileStat.size > MAX_IMAGE_SIZE) {
                 this.send(ws, {
                   type: "file_content",
                   ...responseMetadata,
@@ -12229,57 +11398,6 @@ export class BridgeWebSocketServer {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Image diff helpers
-  // ---------------------------------------------------------------------------
-
-  private static readonly IMAGE_EXTENSIONS = new Set([
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".ico",
-    ".bmp",
-    ".svg",
-  ]);
-
-  private static readonly FILE_PEEK_IMAGE_EXTENSIONS = new Set([
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".svg",
-  ]);
-
-  // Image diff thresholds (configurable via environment variables)
-  // - Auto-display: images ≤ threshold are sent inline as base64
-  // - Max size: images ≤ max are available for on-demand loading
-  // - Images > max size show text info only
-  private static readonly AUTO_DISPLAY_THRESHOLD = (() => {
-    const kb = parseInt(process.env.DIFF_IMAGE_AUTO_DISPLAY_KB ?? "", 10);
-    return Number.isFinite(kb) && kb > 0 ? kb * 1024 : 1024 * 1024; // default 1 MB
-  })();
-  private static readonly MAX_IMAGE_SIZE = (() => {
-    const mb = parseInt(process.env.DIFF_IMAGE_MAX_SIZE_MB ?? "", 10);
-    return Number.isFinite(mb) && mb > 0 ? mb * 1024 * 1024 : 5 * 1024 * 1024; // default 5 MB
-  })();
-
-  private static mimeTypeForExt(ext: string): string {
-    const map: Record<string, string> = {
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".gif": "image/gif",
-      ".webp": "image/webp",
-      ".ico": "image/x-icon",
-      ".bmp": "image/bmp",
-      ".svg": "image/svg+xml",
-    };
-    return map[ext.toLowerCase()] ?? "application/octet-stream";
-  }
-
   /**
    * Scan diff text for image file changes and extract base64 data where appropriate.
    *
@@ -12317,7 +11435,7 @@ export class BridgeWebSocketServer {
 
       const filePath = gitMatch[2];
       const ext = extname(filePath).toLowerCase();
-      if (!BridgeWebSocketServer.IMAGE_EXTENSIONS.has(ext)) continue;
+      if (!IMAGE_EXTENSIONS.has(ext)) continue;
       if (processedPaths.has(filePath)) continue;
       processedPaths.add(filePath);
 
@@ -12334,7 +11452,7 @@ export class BridgeWebSocketServer {
         isNew,
         isDeleted,
         isSvg: ext === ".svg",
-        mimeType: BridgeWebSocketServer.mimeTypeForExt(ext),
+        mimeType: mimeTypeForExt(ext),
         ext,
       });
     }
@@ -12357,7 +11475,7 @@ export class BridgeWebSocketServer {
             ["show", `HEAD:${entry.filePath}`],
             {
               cwd,
-              maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+              maxBuffer: MAX_IMAGE_SIZE + 1024,
               encoding: "buffer",
             },
           );
@@ -12384,9 +11502,9 @@ export class BridgeWebSocketServer {
       const maxSize = Math.max(oldSize ?? 0, newSize ?? 0);
 
       const autoDisplay =
-        maxSize <= BridgeWebSocketServer.AUTO_DISPLAY_THRESHOLD;
+        maxSize <= AUTO_DISPLAY_THRESHOLD;
       const loadable =
-        autoDisplay || maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
+        autoDisplay || maxSize <= MAX_IMAGE_SIZE;
 
       const change: ImageChange = {
         filePath: entry.filePath,
@@ -12424,10 +11542,10 @@ export class BridgeWebSocketServer {
     }
 
     const ext = extname(filePath).toLowerCase();
-    if (!BridgeWebSocketServer.IMAGE_EXTENSIONS.has(ext)) {
+    if (!IMAGE_EXTENSIONS.has(ext)) {
       return { error: "Not an image file" };
     }
-    const mimeType = BridgeWebSocketServer.mimeTypeForExt(ext);
+    const mimeType = mimeTypeForExt(ext);
 
     try {
       const execFileAsync = promisify(execFile);
@@ -12439,7 +11557,7 @@ export class BridgeWebSocketServer {
           ["show", `HEAD:${filePath}`],
           {
             cwd,
-            maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+            maxBuffer: MAX_IMAGE_SIZE + 1024,
             encoding: "buffer",
           },
         );
@@ -12453,7 +11571,7 @@ export class BridgeWebSocketServer {
         buf = await readFile(absPath);
       }
 
-      if (buf.length > BridgeWebSocketServer.MAX_IMAGE_SIZE) {
+      if (buf.length > MAX_IMAGE_SIZE) {
         return { error: "Image too large" };
       }
 
@@ -12490,8 +11608,8 @@ export class BridgeWebSocketServer {
       ...event,
     };
     events.push(fullEvent);
-    if (events.length > BridgeWebSocketServer.MAX_DEBUG_EVENTS) {
-      events.splice(0, events.length - BridgeWebSocketServer.MAX_DEBUG_EVENTS);
+    if (events.length > MAX_DEBUG_EVENTS) {
+      events.splice(0, events.length - MAX_DEBUG_EVENTS);
     }
     this.debugEvents.set(sessionId, events);
     this.debugTraceStore.record(fullEvent);
@@ -12501,7 +11619,7 @@ export class BridgeWebSocketServer {
     const events = this.debugEvents.get(sessionId) ?? [];
     const capped = Math.max(
       0,
-      Math.min(limit, BridgeWebSocketServer.MAX_DEBUG_EVENTS),
+      Math.min(limit, MAX_DEBUG_EVENTS),
     );
     if (capped === 0) return [];
     return events.slice(-capped);
@@ -12512,10 +11630,10 @@ export class BridgeWebSocketServer {
       const num = String(index + 1).padStart(3, "0");
       return `${num}. ${this.summarizeServerMessage(msg)}`;
     });
-    if (lines.length <= BridgeWebSocketServer.MAX_HISTORY_SUMMARY_ITEMS) {
+    if (lines.length <= MAX_HISTORY_SUMMARY_ITEMS) {
       return lines;
     }
-    return lines.slice(-BridgeWebSocketServer.MAX_HISTORY_SUMMARY_ITEMS);
+    return lines.slice(-MAX_HISTORY_SUMMARY_ITEMS);
   }
 
   private summarizeClientMessage(msg: ClientMessage): string {
@@ -12542,7 +11660,7 @@ export class BridgeWebSocketServer {
       case "resume_session":
         return `sessionId=${msg.sessionId} provider=${msg.provider ?? "claude"}`;
       case "get_debug_bundle":
-        return `traceLimit=${msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS} includeDiff=${msg.includeDiff ?? true}`;
+        return `traceLimit=${msg.traceLimit ?? MAX_DEBUG_EVENTS} includeDiff=${msg.includeDiff ?? true}`;
       case "get_usage":
         return "get_usage";
       default:
