@@ -3137,7 +3137,6 @@ export class BridgeWebSocketServer {
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
-    options: { includeCachedCommands?: boolean } = {},
   ): Promise<boolean> {
     try {
       const entries = await this.codexCanonicalHistoryEntries(session);
@@ -3155,9 +3154,7 @@ export class BridgeWebSocketServer {
       this.sendQueueState(ws, sessionId, session);
       this.sendBackgroundTasksState(ws, sessionId, session);
       this.sendCodexGoalState(ws, sessionId, session);
-      if (options.includeCachedCommands) {
-        this.sendCachedCommands(ws, sessionId, session);
-      }
+      this.sendCachedCommands(ws, sessionId, session);
       return true;
     } catch (err) {
       this.send(ws, {
@@ -6471,6 +6468,7 @@ export class BridgeWebSocketServer {
           this.sendQueueState(ws, msg.sessionId, session);
           this.sendBackgroundTasksState(ws, msg.sessionId, session);
           this.sendCodexGoalState(ws, msg.sessionId, session);
+          this.sendCachedCommands(ws, msg.sessionId, session);
           break;
         }
 
@@ -6518,6 +6516,9 @@ export class BridgeWebSocketServer {
           this.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
           this.sendQueueState(ws, msg.sessionId, session);
           this.sendBackgroundTasksState(ws, msg.sessionId, session);
+          // The client rebuilds completion from the history it holds, and the
+          // init / supported_commands entries fall out of the bounded history.
+          this.sendCachedCommands(ws, msg.sessionId, session);
         } else {
           this.send(ws, {
             type: "error",

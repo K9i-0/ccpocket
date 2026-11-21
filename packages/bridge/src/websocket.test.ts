@@ -5375,6 +5375,68 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("re-sends cached commands with get_history_delta once init has left the history", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const internal = bridge as any;
+    const session = internal.sessionManager.get(sessionId);
+    vi.spyOn(internal.sessionManager, "getCachedCommands").mockReturnValue({
+      slashCommands: ["compact", "swarm"],
+      slashCommandDescriptions: { swarm: "Run a swarm" },
+      skills: [],
+      apps: [],
+      plugins: [],
+    });
+    let last = { seq: 0 };
+    for (let i = 0; i < 120; i++) {
+      last = internal.sessionManager.appendHistory(sessionId, {
+        type: "status",
+        status: i % 2 === 0 ? "running" : "idle",
+      });
+    }
+    expect(session.history).toHaveLength(100);
+
+    for (const sinceSeq of [0, last.seq]) {
+      ws.send.mockClear();
+      await internal.handleClientMessage(
+        { type: "get_history_delta", sessionId, sinceSeq },
+        ws,
+      );
+      const sent = ws.send.mock.calls.map((c: unknown[]) =>
+        JSON.parse(c[0] as string),
+      );
+      expect(
+        sent.find(
+          (m: any) => m.type === "system" && m.subtype === "supported_commands",
+        ),
+      ).toMatchObject({
+        sessionId,
+        slashCommands: ["compact", "swarm"],
+        slashCommandDescriptions: { swarm: "Run a swarm" },
+      });
+    }
+
+    bridge.close();
+  });
+
   it("includes resume past_history before get_history_delta", async () => {
     getSessionHistoryMock.mockResolvedValue([
       {
