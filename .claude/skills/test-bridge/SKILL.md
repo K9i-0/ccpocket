@@ -40,6 +40,21 @@ npx tsc --noEmit -p packages/bridge/tsconfig.json
 npm run test:bridge:coverage
 ```
 
+### 4. ミューテーションテスト (任意)
+
+ソースを少しずつ壊してテストが落ちるかを見る。カバレッジでは分からない「実行はされるが検証されていない」箇所が見つかる。CI では回さず、ロジック中心のモジュールのテストを見直すときに手元で使う。
+
+```bash
+bash scripts/mutation-bridge.sh path-utils cli-args     # src/<name>.ts を対象にする
+bash scripts/mutation-bridge.sh src/parser.ts:100-250   # 行範囲を絞る
+```
+
+- 終了時に、生き残った変異 (`survived`) とテストが通らない箇所 (`untested`) の一覧、ファイル別スコアを出す。JSON レポートを読み直すときは `node scripts/mutation-report.mjs <report.json>`。
+- 小さなモジュールは 1〜2 分、`parser.ts` 全体は 10 分ほどかかる。
+- 生き残った変異のうち、挙動として守りたいものだけテストを足す。等価な変異 (挙動が変わらない)、ログ文言だけの変異は追わない。100% は目標にしない。
+- 必ずこのスクリプト経由で実行する。変異はパス検査や git 操作のガードを外しうるため、スクリプトがサンドボックスをリポジトリ外に置き、`HOME` を空のディレクトリに差し替え、テストを fork プールで動かす。
+- プロセス起動やネットワークを伴うモジュール (`websocket.ts`、`*-process.ts`、`git-operations.ts` など) は対象にしない。
+
 ## テスト記述規約
 
 ### ファイル配置・命名
