@@ -44,6 +44,34 @@ describe("Codex service tier normalization", () => {
     ]);
   });
 
+  it("skips catalog entries without a usable id", () => {
+    expect(extractCodexServiceTierMetadata({ serviceTiers: [
+      null, 42, {}, { id: 7, name: "Numeric" }, { id: "   ", name: "Blank" }, "  ", { id: "flex" },
+    ] })).toEqual([{ id: "flex", name: "flex" }]);
+    expect(extractCodexServiceTierMetadata({})).toEqual([]);
+  });
+
+  it("keeps the first entry of a duplicated tier and trims display names", () => {
+    expect(extractCodexServiceTierMetadata({ serviceTiers: [
+      { id: "priority", name: "  Turbo  ", description: "first" },
+      { id: "fast", name: "Duplicate", description: "second" },
+      { id: " ultrafast ", name: "   " },
+      { id: "flex", name: 3, description: 4 },
+    ] })).toEqual([
+      { id: "fast", name: "Turbo", description: "first" },
+      { id: "ultrafast", name: "ultrafast" },
+      { id: "flex", name: "flex" },
+    ]);
+  });
+
+  it("ignores surrounding whitespace and non-string values when normalizing", () => {
+    expect(normalizeCodexServiceTierForClient(" priority ")).toBe("fast");
+    expect(normalizeCodexServiceTierForClient("  ")).toBe("standard");
+    expect(normalizeCodexServiceTierForClient(" default\n")).toBe("standard");
+    expect(normalizeCodexServiceTierForClient(undefined)).toBe("standard");
+    expect(normalizeCodexServiceTierForRpc(" flex ")).toBe("flex");
+  });
+
   it("rejects unadvertised tiers without changing the requested tier", () => {
     expect(isCodexServiceTierSupported("ultrafast", ["fast"])).toBe(false);
     expect(isCodexServiceTierSupported("ultrafast", ["priority", "ultrafast"])).toBe(true);

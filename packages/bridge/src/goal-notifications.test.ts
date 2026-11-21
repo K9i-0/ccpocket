@@ -62,6 +62,48 @@ describe("GoalNotifications", () => {
     expect(new GoalNotifications().update(goal("complete"))).toBe("none");
   });
 
+  it("does not suppress the turn notification when no goal was ever active", () => {
+    const fresh = new GoalNotifications(false);
+    expect(fresh.update(null)).toBe("none");
+    expect(fresh.result()).toBeUndefined();
+
+    // A goal that arrives already complete did not drive this turn.
+    const policy = new GoalNotifications(false);
+    policy.baseline(null);
+    policy.beginTurn();
+    expect(policy.update(goal("complete"))).toBe("goal_complete");
+    expect(policy.result()).toBeUndefined();
+  });
+
+  it("suppresses the turn notification when the goal was active during the turn", () => {
+    // Active at the baseline, completed or cleared before the turn result.
+    const completed = new GoalNotifications(false);
+    completed.baseline(goal("active"));
+    expect(completed.update(goal("complete"))).toBe("goal_complete");
+    expect(completed.result()).toBe("none");
+    const cleared = new GoalNotifications(false);
+    cleared.baseline(goal("active"));
+    cleared.update(null);
+    expect(cleared.result()).toBe("none");
+
+    // Set and completed within one turn.
+    const sameTurn = new GoalNotifications(false);
+    sameTurn.baseline(null);
+    sameTurn.beginTurn();
+    expect(sameTurn.update(goal("active"))).toBe("none");
+    expect(sameTurn.update(goal("complete"))).toBe("goal_complete");
+    expect(sameTurn.result()).toBe("none");
+  });
+
+  it("keeps a restored stopped goal from producing an ordinary notification", () => {
+    const policy = new GoalNotifications(false);
+    policy.baseline(goal("blocked"));
+    expect(policy.result()).toBe("none");
+    const done = new GoalNotifications(false);
+    done.baseline(goal("complete"));
+    expect(done.result()).toBeUndefined();
+  });
+
   it("resumes ordinary notifications after a goal is cleared", () => {
     const policy = new GoalNotifications();
     policy.baseline(goal("active"));

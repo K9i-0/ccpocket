@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getVersionInfo, type VersionInfo } from "./version.js";
+import { getPackageVersion, getVersionInfo, type VersionInfo } from "./version.js";
 
 describe("getVersionInfo", () => {
   const mockStartedAt = new Date("2026-02-11T10:00:00.000Z").getTime();
@@ -62,5 +63,77 @@ describe("getVersionInfo", () => {
     expect(info).toHaveProperty("arch");
     expect(info).toHaveProperty("startedAt");
     expect(info).toHaveProperty("uptime");
+  });
+});
+
+describe("package version", () => {
+  it("reports the version from the Bridge package.json", () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+    ) as { version: string };
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(getPackageVersion()).toBe(packageJson.version);
+    expect(getVersionInfo(Date.now()).version).toBe(packageJson.version);
+  });
+});
+
+// Git info is captured once at module load, so each case loads a fresh copy of
+// the module with `git` replaced; nothing depends on the real repository.
+describe("git info", () => {
+  const execSync = vi.fn();
+
+  async function loadVersionInfo(): Promise<VersionInfo> {
+    vi.resetModules();
+    vi.doMock("node:child_process", () => ({ execSync }));
+    const mod = await import("./version.js");
+    return mod.getVersionInfo(Date.now());
+  }
+
+  afterEach(() => {
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
+    execSync.mockReset();
+  });
+
+  it("reports the trimmed commit and branch from git", async () => {
+    execSync.mockImplementation((command: string) =>
+      command.includes("--abbrev-ref") ? "feature/x\n" : " abc1234\n",
+    );
+
+    const info = await loadVersionInfo();
+
+    expect(info).toMatchObject({ gitCommit: "abc1234", gitBranch: "feature/x" });
+    // Text output, and no git error output leaking into the Bridge log.
+    const options = { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] };
+    expect(execSync.mock.calls).toEqual([
+      ["git rev-parse --short HEAD", options],
+      ["git rev-parse --abbrev-ref HEAD", options],
+    ]);
+    // Only the documented fields are added.
+    expect(Object.keys(info).sort()).toEqual([
+      "arch", "gitBranch", "gitCommit", "minimumProtocolVersion", "nodeVersion",
+      "platform", "protocolVersion", "startedAt", "uptime", "version",
+    ]);
+  });
+
+  it("omits git fields outside a git repository", async () => {
+    execSync.mockImplementation(() => {
+      throw new Error("fatal: not a git repository");
+    });
+
+    const info = await loadVersionInfo();
+
+    expect(info).not.toHaveProperty("gitCommit");
+    expect(info).not.toHaveProperty("gitBranch");
+    expect(info.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it("omits git fields when git prints nothing", async () => {
+    execSync.mockReturnValue("\n");
+
+    const info = await loadVersionInfo();
+
+    expect("gitCommit" in info).toBe(false);
+    expect("gitBranch" in info).toBe(false);
   });
 });

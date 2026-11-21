@@ -33,6 +33,18 @@ describe("normalizeClaudeCompactMetadata", () => {
     ).toEqual({});
     expect(normalizeClaudeCompactMetadata(null)).toEqual({});
   });
+
+  it("omits token counts that are absent or not finite", () => {
+    expect(normalizeClaudeCompactMetadata({ trigger: "auto" })).toStrictEqual({
+      trigger: "auto",
+    });
+    expect(
+      normalizeClaudeCompactMetadata({ preTokens: NaN, post_tokens: Infinity }),
+    ).toStrictEqual({});
+    expect(
+      normalizeClaudeCompactMetadata({ pre_tokens: 0, postTokens: 12 }),
+    ).toStrictEqual({ preTokens: 0, postTokens: 12 });
+  });
 });
 
 describe("cleanClaudeCompactSummary", () => {
@@ -52,6 +64,21 @@ describe("cleanClaudeCompactSummary", () => {
       "If you need specific details from before compaction (like exact code snippets), read the full transcript at: /tmp/x.jsonl\n" +
       "Continue the conversation from where it left off without asking the user any further questions.";
     expect(cleanClaudeCompactSummary(raw)).toBe("9. Next step:\n   - None.");
+  });
+
+  it("removes multi-line system reminders inside the summary body", () => {
+    const raw =
+      "Summary:\nBefore.<system-reminder>\nhidden one\n</system-reminder>\n" +
+      "Between.<system-reminder>hidden two</system-reminder>\nAfter.";
+    expect(cleanClaudeCompactSummary(raw)).toBe("Before.\nBetween.\nAfter.");
+  });
+
+  it.each([
+    "If you need specific details from before compaction, read the transcript.",
+    "Continue the conversation from where it left off without asking.",
+  ])("cuts each model trailer on its own, indented or not: %s", (trailer) => {
+    expect(cleanClaudeCompactSummary(`Summary:\nBody.\n${trailer}`)).toBe("Body.");
+    expect(cleanClaudeCompactSummary(`Summary:\nBody.\n\n   ${trailer}`)).toBe("Body.");
   });
 
   it("returns the trimmed text when there is no heading", () => {
@@ -80,6 +107,12 @@ describe("transcriptPageRange", () => {
         1000,
       ),
     ).toEqual({ start: 1, end: 3 });
+  });
+
+  it("ends the first page at a marker that is the first entry", () => {
+    expect(
+      transcriptPageRange(["compaction", "user", "assistant"], { untilLatestCompaction: true }, 200, 1000),
+    ).toEqual({ start: 0, end: 1 });
   });
 
   it("falls back to the full transcript without a marker", () => {

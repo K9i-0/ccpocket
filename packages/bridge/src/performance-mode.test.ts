@@ -134,6 +134,126 @@ describe("performance delivery projection", () => {
     expect(performanceMessage({ type: "thinking_delta", text: "x" })).toEqual({ type: "thinking_delta", text: "x" });
   });
 
+  it("keeps the routing metadata of a stripped tool result and drops absent fields", () => {
+    expect(
+      performanceMessage({
+        role: "tool_result",
+        toolUseId: "t1",
+        content: "large output",
+        userMessageUuid: "u1",
+        permissionOutcome: "approved",
+        sessionId: "s1",
+        historySeq: 0,
+        images: [{ data: "x" }],
+      }),
+    ).toStrictEqual({
+      role: "tool_result",
+      toolUseId: "t1",
+      content: "",
+      userMessageUuid: "u1",
+      permissionOutcome: "approved",
+      sessionId: "s1",
+      historySeq: 0,
+    });
+    expect(
+      performanceMessage({
+        type: "tool_result",
+        toolUseId: "t1",
+        content: "large output",
+        userMessageUuid: null,
+        permissionOutcome: null,
+        sessionId: null,
+        historySeq: null,
+      }),
+    ).toStrictEqual({ type: "tool_result", toolUseId: "t1", content: "" });
+  });
+
+  it("does not forward non-text content of an answered question", () => {
+    expect(
+      performanceMessage({
+        type: "tool_result",
+        toolUseId: "t1",
+        content: [{ type: "text", text: "structured" }],
+        permissionOutcome: "answered",
+      }),
+    ).toEqual({ type: "tool_result", toolUseId: "t1", content: "", permissionOutcome: "answered" });
+  });
+
+  it("filters assistant content down to readable text, thinking and approval tools", () => {
+    const kept = [
+      { type: "text", text: "Visible" },
+      { type: "thinking", thinking: "Reasoning" },
+      { ...tool, name: "Write", input: { file_path: "C:\\Users\\me\\.claude\\plans\\a.md", content: "plan" } },
+    ];
+    const dropped = [
+      null,
+      "raw string",
+      ["nested"],
+      { type: "text", text: "   \n" },
+      { type: "text" },
+      { type: "text", text: 5 },
+      { type: "thinking" },
+      { type: "thinking", thinking: " " },
+      { type: "image", source: "data" },
+      // Only real tool_use blocks are matched by tool name.
+      { type: "server_tool_use", name: "AskUserQuestion" },
+      { ...tool, name: "Write", input: { file_path: "/repo/src/a.ts", content: "code" } },
+      { ...tool, name: "Write", input: { file_path: 42 } },
+      { ...tool, name: "Write", input: "/home/.claude/plans/a.md" },
+      { ...tool, name: "Write", input: null },
+      { ...tool, name: "Edit", input: { file_path: "/home/.claude/plans/a.md" } },
+    ];
+    expect(
+      performanceMessage({ role: "assistant", content: [...dropped, ...kept] }),
+    ).toEqual({ role: "assistant", content: kept });
+    expect(performanceMessage({ role: "assistant", content: dropped })).toBeNull();
+    // An empty image list does not keep an otherwise empty message alive.
+    expect(performanceMessage({ role: "assistant", content: dropped, images: [] })).toBeNull();
+    expect(
+      performanceMessage({ type: "assistant", message: { role: "assistant", content: dropped }, images: [] }),
+    ).toBeNull();
+  });
+
+  it("leaves messages that only resemble assistant or history frames untouched", () => {
+    for (const msg of [
+      { role: "user", content: [tool] },
+      { role: "assistant", content: "plain string" },
+      { type: "assistant", message: null },
+      { type: "assistant", message: "text" },
+      { type: "assistant", message: [tool] },
+      { type: "stream_event", message: { content: [tool] } },
+      { type: "session_list", messages: [{ message: result }] },
+      { type: "history_delta", messages: "none" },
+      { type: "history", messages: null },
+    ]) expect(performanceMessage(msg)).toEqual(msg);
+  });
+
+  it("skips malformed entries in history frames", () => {
+    expect(
+      performanceMessage({ type: "history", messages: [null, "text", ["x"], result] }),
+    ).toEqual({ type: "history", messages: [{ type: "tool_result", toolUseId: "t1", content: "" }] });
+    expect(
+      performanceMessage({
+        type: "history_snapshot",
+        fromSeq: 1,
+        messages: [
+          null,
+          "text",
+          { seq: 1 },
+          { seq: 2, message: "text" },
+          { seq: 3, message: [result] },
+          { seq: 4, message: { type: "tool_use_summary", summary: "read" } },
+          { seq: 5, message: result },
+        ],
+      }),
+    ).toEqual({
+      type: "history_snapshot",
+      fromSeq: 1,
+      filtered: true,
+      messages: [{ seq: 5, message: { type: "tool_result", toolUseId: "t1", content: "" } }],
+    });
+  });
+
   it("validates preferences while accepting legacy capabilities", () => {
     expect(parseClientMessage(JSON.stringify({ type: "client_capabilities" }))).not.toBeNull();
     for (const patch of [{ performanceMode: "yes" }, { sessionPerformanceModes: [] }, { sessionPerformanceModes: { a: 1 } }, { deliveryRevision: -1 }]) {

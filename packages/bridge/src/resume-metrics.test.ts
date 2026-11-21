@@ -33,6 +33,42 @@ describe("summarizeResumeHistory", () => {
       inlineImageBytes: 12,
     });
   });
+
+  it.each([
+    ["", 0],
+    ["QQ==", 1],
+    ["QUI=", 2],
+    ["QUJD", 3],
+    ["QUJDRA==", 4],
+  ])("estimates the decoded size of %j as %i bytes", (data, bytes) => {
+    const metrics = summarizeResumeHistory([
+      { role: "user", content: "", imageBase64: [{ data, mimeType: "image/png" }] },
+    ]);
+    expect(metrics.inlineImageBytes).toBe(bytes);
+  });
+
+  it.each([
+    [NaN, 1],
+    [Infinity, 1],
+    [-3, 1],
+    [2.9, 2],
+    [0, 1],
+  ])("uses an image count hint of %s only when it is a larger whole number", (imageCount, expected) => {
+    const metrics = summarizeResumeHistory([
+      { role: "user", content: "", imageCount, imagePaths: ["/tmp/one.png"] },
+    ]);
+    expect(metrics.imageCount).toBe(expected);
+  });
+
+  it("returns zeroes for an empty history", () => {
+    expect(summarizeResumeHistory([])).toEqual({
+      messageCount: 0,
+      imageCount: 0,
+      inlineImageCount: 0,
+      imagePathCount: 0,
+      inlineImageBytes: 0,
+    });
+  });
 });
 
 describe("formatResumePerformanceLog", () => {

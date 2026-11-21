@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -81,6 +81,39 @@ describe("isClaudeBedrockModeEnabled", () => {
 
     writeFileSync(join(configDir, "settings.json"), "{ not json");
     expect(isClaudeBedrockModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
+  });
+
+  it("ignores settings whose root or env block is not an object", () => {
+    for (const settings of [null, "CLAUDE_CODE_USE_BEDROCK", 1, {}, { env: null }, { env: "1" }, { env: { CLAUDE_CODE_USE_BEDROCK: 1 } }]) {
+      writeUserSettings(settings);
+      expect(isClaudeBedrockModeEnabled({ CLAUDE_CONFIG_DIR: configDir })).toBe(false);
+    }
+  });
+
+  it("trims CLAUDE_CONFIG_DIR before locating the settings file", () => {
+    writeUserSettings({ env: { CLAUDE_CODE_USE_BEDROCK: "1" } });
+    expect(isClaudeBedrockModeEnabled({ CLAUDE_CONFIG_DIR: ` ${configDir}\n` })).toBe(true);
+  });
+
+  it("falls back to ~/.claude/settings.json without a config directory", () => {
+    // os.homedir() follows HOME (USERPROFILE on Windows).
+    vi.stubEnv("HOME", configDir);
+    vi.stubEnv("USERPROFILE", configDir);
+    try {
+      expect(isClaudeBedrockModeEnabled({})).toBe(false);
+      mkdirSync(join(configDir, ".claude"));
+      writeFileSync(
+        join(configDir, ".claude", "settings.json"),
+        JSON.stringify({ env: { CLAUDE_CODE_USE_BEDROCK: "1" } }),
+      );
+      // A settings file directly in the home directory is not the user settings.
+      writeUserSettings({ env: { CLAUDE_CODE_USE_VERTEX: "1" } });
+      expect(isClaudeBedrockModeEnabled({})).toBe(true);
+      expect(isClaudeBedrockModeEnabled({ CLAUDE_CONFIG_DIR: "   " })).toBe(true);
+      expect(isClaudeVertexModeEnabled({})).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("detects AWS_REGION from the process environment or user settings", () => {

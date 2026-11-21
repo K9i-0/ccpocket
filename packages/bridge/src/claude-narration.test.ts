@@ -18,6 +18,21 @@ describe("isNarrationSignature", () => {
     expect(isNarrationSignature(undefined)).toBe(false);
     expect(isNarrationSignature("not base64 !!")).toBe(false);
   });
+
+  it("requires the block_kind field, not just the word narration", () => {
+    const field = Buffer.concat([Buffer.from([0x42, 9]), Buffer.from("narration")]);
+    const header = Buffer.from([0x08, 0x04, 0x12, 0x20]);
+    expect(isNarrationSignature(Buffer.concat([header, field]).toString("base64"))).toBe(true);
+    expect(
+      isNarrationSignature(Buffer.concat([header, Buffer.from("xxnarrationxx")]).toString("base64")),
+    ).toBe(false);
+    // A different field tag or length prefix is another block kind.
+    expect(
+      isNarrationSignature(
+        Buffer.concat([header, Buffer.from([0x3a, 9]), Buffer.from("narration")]).toString("base64"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("projectNarrationBlocks", () => {
@@ -40,6 +55,30 @@ describe("projectNarrationBlocks", () => {
     const content = [{ type: "thinking", thinking: "Next I'll run tests." }];
     expect(projectNarrationBlocks(content, [0])).toEqual([
       { type: "text", text: "Next I'll run tests." },
+    ]);
+  });
+
+  it("leaves non-thinking, malformed and empty blocks alone even at narration indexes", () => {
+    const content = [
+      null,
+      "plain string",
+      { type: "thinking" },
+      { type: "redacted_thinking", thinking: "opaque" },
+      { type: "thinking", thinking: "  \n", signature: NARRATION_SIGNATURE },
+      { type: "text", text: "hi" },
+    ];
+    expect(projectNarrationBlocks(content, [0, 1, 2, 3, 4, 5])).toBe(content);
+    expect(projectNarrationBlocks(content, "not-a-list")).toBe(content);
+  });
+
+  it("projects only the listed indexes when blocks carry no signature", () => {
+    const content = [
+      { type: "thinking", thinking: "reasoning" },
+      { type: "thinking", thinking: "Running tests." },
+    ];
+    expect(projectNarrationBlocks(content, [1, "0", 0.5])).toEqual([
+      content[0],
+      { type: "text", text: "Running tests." },
     ]);
   });
 

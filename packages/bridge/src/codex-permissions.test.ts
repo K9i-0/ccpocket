@@ -23,6 +23,44 @@ describe("deriveCodexPermissionsMode", () => {
   );
 
   it.each([
+    ["fullAccess", "never", "off"],
+    ["default", "on-request", "on"],
+  ] as const)(
+    "derives %s from the legacy sandbox alias",
+    (expected, approvalPolicy, sandboxMode) => {
+      expect(deriveCodexPermissionsMode({ approvalPolicy, sandboxMode })).toBe(expected);
+    },
+  );
+
+  it("requires approvals to be disabled for full access", () => {
+    expect(deriveCodexPermissionsMode({
+      approvalPolicy: "on-request",
+      sandboxMode: "danger-full-access",
+    })).toBe("custom");
+  });
+
+  it.each(["default", "autoReview", "fullAccess", "custom"] as const)(
+    "keeps the explicit %s mode over a conflicting tuple",
+    (codexPermissionsMode) => {
+      expect(deriveCodexPermissionsMode({
+        codexPermissionsMode,
+        approvalPolicy: "future-policy",
+        sandboxMode: "read-only",
+      })).toBe(codexPermissionsMode);
+    },
+  );
+
+  it("returns undefined without settings", () => {
+    expect(deriveCodexPermissionsMode(undefined)).toBeUndefined();
+    expect(withDerivedCodexPermissionsMode(undefined)).toBeUndefined();
+  });
+
+  it("returns settings unchanged when no mode can be derived", () => {
+    const raw = { approvalPolicy: "on-request" };
+    expect(withDerivedCodexPermissionsMode(raw)).toBe(raw);
+  });
+
+  it.each([
     ["on-request", "user", "read-only"],
     ["never", "user", "workspace-write"],
     ["on-request", "future-reviewer", "workspace-write"],
