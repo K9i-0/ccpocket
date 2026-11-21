@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.114.1] - 2026-11-21
+
+### Fixed
+
+- Assistant markdown images: an inline code span between an image's alt text and its destination (``![a]`code`(x.png)``) is no longer read as an image. Code is now replaced by whitespace instead of being removed, so the text on both sides is not joined.
+- Antigravity: Recent Sessions now report the worktree branch of a worktree session even when `agy` recorded the main checkout as the session directory.
+
 ## [1.114.0] - 2026-11-21
 
 ### Changed
