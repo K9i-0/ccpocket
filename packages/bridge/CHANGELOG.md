@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.115.0] - 2026-11-21
+
+### Added
+
+- Antigravity swarms (`/swarm`) now run to the end. A swarm worker is a conversation of its own whose approval requests never reached the Bridge, so it timed out after 60 seconds and the swarm stalled. The Bridge now opens each worker's conversation, relays its approval requests (the tool input carries `swarmWorker`), keeps workers in the coordinator's permission mode, and applies bypass and session grants to them.
+- Antigravity swarms: board posts are sent as `SwarmPost` tool calls, and busy workers are reported as background tasks (`Swarm: <name>`), which also holds the completion push while they work.
+
+### Fixed
+
+- Slash command and skill completion no longer goes missing in a chat reopened after a long conversation: the command list is now re-sent with `get_history_delta` and Codex history snapshots, as it already was with `get_history`.
+- Antigravity: updates from a swarm worker's conversation no longer change the coordinator's mode, commands or title, and the terminal-only `Run /swarm board` hint is removed from replies.
+
 ## [1.114.1] - 2026-11-21
 
 ### Fixed
