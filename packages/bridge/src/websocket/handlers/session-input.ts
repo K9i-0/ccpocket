@@ -7,6 +7,7 @@ import { AntigravityProcess } from "../../antigravity-process.js";
 import type { ClientMessage, ServerMessage } from "../../parser.js";
 import { nextCodexUserTurnUuid } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { interruptAndRetract, editUserMessage } from "../rewind-fork.js";
 
 export async function handleInput(
   server: BridgeWebSocketServer,
@@ -567,7 +568,7 @@ export async function handleInterrupt(
     return;
   }
   if (msg.retract === true) {
-    server.interruptAndRetract(ws, session).catch((err) => {
+    interruptAndRetract(server, ws, session).catch((err) => {
       console.warn(
         `[ws] Failed to retract interrupted prompt: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -582,5 +583,5 @@ export async function handleEditMessage(
   msg: Extract<ClientMessage, { type: "edit_message" }>,
   ws: WebSocket,
 ): Promise<void> {
-  await server.editUserMessage(ws, msg);
+  await editUserMessage(server, ws, msg);
 }

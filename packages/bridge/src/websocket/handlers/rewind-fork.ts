@@ -2,6 +2,11 @@ import { WebSocket } from "ws";
 import { SdkProcess } from "../../sdk-process.js";
 import type { ClientMessage } from "../../parser.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  rewindCodexConversation,
+  forkClaudeSession,
+  forkCodexSession,
+} from "../rewind-fork.js";
 
 export async function handleRewindDryRun(
   server: BridgeWebSocketServer,
@@ -83,7 +88,7 @@ export async function handleRewind(
     return;
   }
   if (session.provider === "codex") {
-    server.rewindCodexConversation(ws, msg.sessionId, msg.targetUuid, msg.mode)
+    rewindCodexConversation(server, ws, msg.sessionId, msg.targetUuid, msg.mode)
       .catch(handleError);
     return;
   }
@@ -214,8 +219,8 @@ export async function handleFork(
           new Error("Fork is not supported for Antigravity sessions"),
         )
       : forkSource?.provider === "claude"
-        ? server.forkClaudeSession(ws, msg.sessionId, msg.targetUuid)
-        : server.forkCodexSession(ws, msg.sessionId, msg.targetUuid);
+        ? forkClaudeSession(server, ws, msg.sessionId, msg.targetUuid)
+        : forkCodexSession(server, ws, msg.sessionId, msg.targetUuid);
   fork.catch((err) => {
     const errMsg = err instanceof Error ? err.message : String(err);
     server.send(ws, {
