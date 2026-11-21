@@ -12,6 +12,7 @@ import {
 import type { ClientMessage } from "../../parser.js";
 import { sanitizeCodexModel, errorMessageOf } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { recordDebugEvent } from "../debug-trace.js";
 
 export async function handleSetAntigravityModel(
   server: BridgeWebSocketServer,
@@ -173,7 +174,7 @@ export async function handleSetCodexModel(
       : {}),
   });
   server.broadcastSessionList();
-  server.recordDebugEvent(session.id, {
+  recordDebugEvent(server, session.id, {
     direction: "internal" as const,
     channel: "bridge",
     type: "codex_model_changed",

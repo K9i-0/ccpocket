@@ -35,6 +35,7 @@ import {
   sandboxModeToExternal,
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { recordDebugEvent } from "../debug-trace.js";
 
 export async function handleResumeSession(
   server: BridgeWebSocketServer,
@@ -540,7 +541,7 @@ export async function handleResumeSession(
       server.sessionManager.releaseDeferredProcessMessages(sessionId);
       server.broadcastSessionList();
       server.debugEvents.set(sessionId, []);
-      server.recordDebugEvent(sessionId, {
+      recordDebugEvent(server, sessionId, {
         direction: "internal",
         channel: "bridge",
         type: "session_resumed",
@@ -770,7 +771,7 @@ export async function handleResumeSession(
         finishResume();
       });
       server.debugEvents.set(sessionId, []);
-      server.recordDebugEvent(sessionId, {
+      recordDebugEvent(server, sessionId, {
         direction: "internal",
         channel: "bridge",
         type: "session_resumed",

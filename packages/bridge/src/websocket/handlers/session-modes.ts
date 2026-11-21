@@ -21,6 +21,7 @@ import {
   sandboxModeToExternal,
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { recordDebugEvent } from "../debug-trace.js";
 
 export async function handleSetPermissionMode(
   server: BridgeWebSocketServer,
@@ -182,7 +183,7 @@ export async function handleSetPermissionMode(
         planMode,
       });
       server.broadcastSessionList();
-      server.recordDebugEvent(session.id, {
+      recordDebugEvent(server, session.id, {
         direction: "internal" as const,
         channel: "bridge" as const,
         type: "permission_mode_changed",
@@ -381,7 +382,7 @@ export async function handleSetPermissionMode(
         });
 
         server.debugEvents.set(newId, []);
-        server.recordDebugEvent(newId, {
+        recordDebugEvent(server, newId, {
           direction: "internal" as const,
           channel: "bridge" as const,
           type: "permission_mode_changed",
@@ -551,7 +552,7 @@ export async function handleSetSandboxMode(
     });
 
     server.debugEvents.set(newId, []);
-    server.recordDebugEvent(newId, {
+    recordDebugEvent(server, newId, {
       direction: "internal" as const,
       channel: "bridge" as const,
       type: "sandbox_mode_changed",
@@ -777,7 +778,7 @@ export async function handleSetSandboxMode(
       });
 
       server.debugEvents.set(newId, []);
-      server.recordDebugEvent(newId, {
+      recordDebugEvent(server, newId, {
         direction: "internal" as const,
         channel: "bridge" as const,
         type: "sandbox_mode_changed",

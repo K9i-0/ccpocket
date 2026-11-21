@@ -5,6 +5,7 @@ import type { ClientMessage } from "../../parser.js";
 import { getAllRecentSessions } from "../../sessions-index.js";
 import { resolvePlatformPath } from "../../path-utils.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { recordDebugEvent } from "../debug-trace.js";
 
 export async function handleListSessions(
   server: BridgeWebSocketServer,
@@ -28,7 +29,7 @@ export async function handleStopSession(
       sessionId: session.claudeSessionId,
     });
     server.destroySession(msg.sessionId);
-    server.recordDebugEvent(msg.sessionId, {
+    recordDebugEvent(server, msg.sessionId, {
       direction: "internal",
       channel: "bridge",
       type: "session_stopped",

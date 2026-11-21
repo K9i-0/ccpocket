@@ -15,6 +15,7 @@ import {
   sandboxModeToExternal,
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { recordDebugEvent } from "../debug-trace.js";
 
 export async function handleStart(
   server: BridgeWebSocketServer,
@@ -393,7 +394,7 @@ export async function handleStart(
       }
     });
     server.debugEvents.set(sessionId, []);
-    server.recordDebugEvent(sessionId, {
+    recordDebugEvent(server, sessionId, {
       direction: "internal",
       channel: "bridge",
       type: "session_created",

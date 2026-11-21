@@ -6,6 +6,11 @@ import { listWindows, takeScreenshot } from "../../screenshot.js";
 import { fetchAllUsage, type UsageInfo } from "../../usage.js";
 import { projectRequestMetadata, MAX_DEBUG_EVENTS } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  getDebugEvents,
+  buildHistorySummary,
+  buildReproRecipe,
+} from "../debug-trace.js";
 
 export async function handleGetDebugBundle(
   server: BridgeWebSocketServer,
@@ -25,7 +30,7 @@ export async function handleGetDebugBundle(
   const emitBundle = (diff: string, diffError?: string): void => {
     const traceLimit =
       msg.traceLimit ?? MAX_DEBUG_EVENTS;
-    const trace = server.getDebugEvents(msg.sessionId, traceLimit);
+    const trace = getDebugEvents(server, msg.sessionId, traceLimit);
     const generatedAt = new Date().toISOString();
     const includeDiff = msg.includeDiff !== false;
     const bundlePayload: Record<string, unknown> = {
@@ -44,10 +49,11 @@ export async function handleGetDebugBundle(
         lastActivityAt: session.lastActivityAt.toISOString(),
       },
       pastMessageCount: session.pastMessages?.length ?? 0,
-      historySummary: server.buildHistorySummary(session.history),
+      historySummary: buildHistorySummary(server, session.history),
       debugTrace: trace,
       traceFilePath: server.debugTraceStore.getTraceFilePath(msg.sessionId),
-      reproRecipe: server.buildReproRecipe(
+      reproRecipe: buildReproRecipe(
+        server,
         session,
         traceLimit,
         includeDiff,

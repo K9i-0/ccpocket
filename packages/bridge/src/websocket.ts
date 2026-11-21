@@ -196,8 +196,6 @@ import {
   mergeRecentSessionPages,
 } from "./websocket/recent-sessions.js";
 import {
-  MAX_DEBUG_EVENTS,
-  MAX_HISTORY_SUMMARY_ITEMS,
   CONNECT_METADATA_REFRESH_COOLDOWN_MS,
   DEFAULT_FILE_LIST_MAX_ENTRIES,
   DEFAULT_FILE_LIST_MAX_BYTES,
@@ -329,6 +327,15 @@ import {
 } from "./websocket/handlers/session-modes.js";
 import { handleStart } from "./websocket/handlers/session-start.js";
 import { handleResumeSession } from "./websocket/handlers/session-resume.js";
+import {
+  extractSessionIdFromClientMessage,
+  extractSessionIdFromServerMessage,
+  recordDebugEvent,
+  summarizeClientMessage,
+  summarizeServerMessage,
+  summarizeOutboundMessage,
+  pruneDebugEvents,
+} from "./websocket/debug-trace.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -3011,16 +3018,16 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    const incomingSessionId = this.extractSessionIdFromClientMessage(msg);
+    const incomingSessionId = extractSessionIdFromClientMessage(msg);
     const isActiveRuntimeSession =
       incomingSessionId != null &&
       this.sessionManager.get(incomingSessionId) != null;
     if (incomingSessionId && isActiveRuntimeSession) {
-      this.recordDebugEvent(incomingSessionId, {
+      recordDebugEvent(this, incomingSessionId, {
         direction: "incoming",
         channel: "ws",
         type: msg.type,
-        detail: this.summarizeClientMessage(msg),
+        detail: summarizeClientMessage(msg),
       });
       this.recordingStore?.record(incomingSessionId, "incoming", msg);
     }
@@ -3870,7 +3877,7 @@ export class BridgeWebSocketServer {
   }
 
   sendSessionList(ws: WebSocket): void {
-    this.pruneDebugEvents();
+    pruneDebugEvents(this);
     const sessions = this.runtimeSessionsWithWorkspaces();
     this.send(ws, {
       type: "session_list",
@@ -3913,7 +3920,7 @@ export class BridgeWebSocketServer {
 
   /** Broadcast session list to all connected clients. */
   broadcastSessionList(): void {
-    this.pruneDebugEvents();
+    pruneDebugEvents(this);
     const sessions = this.runtimeSessionsWithWorkspaces();
     this.broadcast({
       type: "session_list",
@@ -4148,11 +4155,11 @@ export class BridgeWebSocketServer {
 
   private trackSessionMessage(sessionId: string, msg: ServerMessage): void {
     this.maybeSendPushNotification(sessionId, msg);
-    this.recordDebugEvent(sessionId, {
+    recordDebugEvent(this, sessionId, {
       direction: "outgoing",
       channel: "session",
       type: msg.type,
-      detail: this.summarizeServerMessage(msg),
+      detail: summarizeServerMessage(msg),
     });
     this.recordingStore?.record(sessionId, "outgoing", msg);
 
@@ -5888,13 +5895,13 @@ export class BridgeWebSocketServer {
   ): void {
     const compatibleMsg = this.prepareServerMessageForClient(ws, msg);
     if (!compatibleMsg) return;
-    const sessionId = this.extractSessionIdFromServerMessage(compatibleMsg);
+    const sessionId = extractSessionIdFromServerMessage(compatibleMsg);
     if (sessionId && this.debugEvents.has(sessionId)) {
-      this.recordDebugEvent(sessionId, {
+      recordDebugEvent(this, sessionId, {
         direction: "outgoing",
         channel: "ws",
         type: String(compatibleMsg.type ?? "unknown"),
-        detail: this.summarizeOutboundMessage(compatibleMsg),
+        detail: summarizeOutboundMessage(compatibleMsg),
       });
     }
     if (ws.readyState === WebSocket.OPEN) {
@@ -6246,193 +6253,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private extractSessionIdFromClientMessage(
-    msg: ClientMessage,
-  ): string | undefined {
-    return "sessionId" in msg && typeof msg.sessionId === "string"
-      ? msg.sessionId
-      : undefined;
-  }
-
-  private extractSessionIdFromServerMessage(
-    msg: ServerMessage | Record<string, unknown>,
-  ): string | undefined {
-    if ("sessionId" in msg && typeof msg.sessionId === "string")
-      return msg.sessionId;
-    return undefined;
-  }
-
-  recordDebugEvent(
-    sessionId: string,
-    event: Omit<DebugTraceEvent, "ts" | "sessionId">,
-  ): void {
-    const events = this.debugEvents.get(sessionId) ?? [];
-    const fullEvent: DebugTraceEvent = {
-      ts: new Date().toISOString(),
-      sessionId,
-      ...event,
-    };
-    events.push(fullEvent);
-    if (events.length > MAX_DEBUG_EVENTS) {
-      events.splice(0, events.length - MAX_DEBUG_EVENTS);
-    }
-    this.debugEvents.set(sessionId, events);
-    this.debugTraceStore.record(fullEvent);
-  }
-
-  getDebugEvents(sessionId: string, limit: number): DebugTraceEvent[] {
-    const events = this.debugEvents.get(sessionId) ?? [];
-    const capped = Math.max(
-      0,
-      Math.min(limit, MAX_DEBUG_EVENTS),
-    );
-    if (capped === 0) return [];
-    return events.slice(-capped);
-  }
-
-  buildHistorySummary(history: ServerMessage[]): string[] {
-    const lines = history.map((msg, index) => {
-      const num = String(index + 1).padStart(3, "0");
-      return `${num}. ${this.summarizeServerMessage(msg)}`;
-    });
-    if (lines.length <= MAX_HISTORY_SUMMARY_ITEMS) {
-      return lines;
-    }
-    return lines.slice(-MAX_HISTORY_SUMMARY_ITEMS);
-  }
-
-  private summarizeClientMessage(msg: ClientMessage): string {
-    switch (msg.type) {
-      case "input": {
-        const textPreview = msg.text.replace(/\s+/g, " ").trim().slice(0, 80);
-        const hasImage = msg.imageBase64 != null || msg.imageId != null;
-        return `text=\"${textPreview}\" image=${hasImage} skills=${msg.skills?.length ?? (msg.skill ? 1 : 0)} mentions=${msg.mentions?.length ?? 0}`;
-      }
-      case "push_register":
-        return `platform=${msg.platform} token=${msg.token.slice(0, 8)}...`;
-      case "push_unregister":
-        return `token=${msg.token.slice(0, 8)}...`;
-      case "approve":
-      case "approve_always":
-      case "reject":
-        return `id=${msg.id}`;
-      case "answer":
-        return `toolUseId=${msg.toolUseId}`;
-      case "install_tool_suggestion":
-        return `toolUseId=${msg.toolUseId}`;
-      case "start":
-        return `projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`;
-      case "resume_session":
-        return `sessionId=${msg.sessionId} provider=${msg.provider ?? "claude"}`;
-      case "get_debug_bundle":
-        return `traceLimit=${msg.traceLimit ?? MAX_DEBUG_EVENTS} includeDiff=${msg.includeDiff ?? true}`;
-      case "get_usage":
-        return "get_usage";
-      default:
-        return msg.type;
-    }
-  }
-
-  private summarizeServerMessage(msg: ServerMessage): string {
-    switch (msg.type) {
-      case "assistant": {
-        const textChunks: string[] = [];
-        for (const content of msg.message.content) {
-          if (content.type === "text") {
-            textChunks.push(content.text);
-          }
-        }
-        const text = textChunks
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 100);
-        return text ? `assistant: ${text}` : "assistant";
-      }
-      case "tool_result": {
-        const contentPreview = msg.content
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 100);
-        return `${msg.toolName ?? "tool_result"}(${msg.toolUseId}) ${contentPreview}`;
-      }
-      case "permission_request":
-        return `${msg.toolName}(${msg.toolUseId})`;
-      case "result":
-        return `${msg.subtype}${msg.error ? ` error=${msg.error}` : ""}`;
-      case "status":
-        return msg.status;
-      case "error":
-        return msg.message;
-      case "stream_delta":
-      case "thinking_delta":
-        return `${msg.type}(${msg.text.length})`;
-      default:
-        return msg.type;
-    }
-  }
-
-  private summarizeOutboundMessage(
-    msg: ServerMessage | Record<string, unknown>,
-  ): string {
-    if ("type" in msg && typeof msg.type === "string") {
-      return msg.type;
-    }
-    return "message";
-  }
-
-  private pruneDebugEvents(): void {
-    const active = new Set(this.sessionManager.list().map((s) => s.id));
-    for (const sessionId of this.debugEvents.keys()) {
-      if (!active.has(sessionId)) {
-        this.debugEvents.delete(sessionId);
-      }
-    }
-    for (const sessionId of this.notifiedPermissionToolUses.keys()) {
-      if (!active.has(sessionId)) {
-        this.notifiedPermissionToolUses.delete(sessionId);
-      }
-    }
-  }
-
-  buildReproRecipe(
-    session: SessionInfo,
-    traceLimit: number,
-    includeDiff: boolean,
-  ): Record<string, unknown> {
-    const bridgePort = process.env.BRIDGE_PORT ?? "8765";
-    const wsUrlHint = `ws://localhost:${bridgePort}`;
-    const notes = [
-      "1) Connect with wsUrlHint and send resumeSessionMessage.",
-      "2) Read session_created.sessionId from server response.",
-      "3) Replace <runtime_session_id> in getHistoryMessage/getDebugBundleMessage and send them.",
-      "4) Compare history/debugTrace/diff with the saved bundle snapshot.",
-    ];
-    if (!session.claudeSessionId) {
-      notes.push(
-        "claudeSessionId is not available yet. Use list_recent_sessions to pick the right session id.",
-      );
-    }
-
-    return {
-      wsUrlHint,
-      startBridgeCommand: `BRIDGE_PORT=${bridgePort} npm run bridge`,
-      resumeSessionMessage: this.buildResumeSessionMessage(session),
-      getHistoryMessage: {
-        type: "get_history",
-        sessionId: "<runtime_session_id>",
-      },
-      getDebugBundleMessage: {
-        type: "get_debug_bundle",
-        sessionId: "<runtime_session_id>",
-        traceLimit,
-        includeDiff,
-      },
-      notes,
-    };
-  }
-
-  private buildResumeSessionMessage(
+  buildResumeSessionMessage(
     session: SessionInfo,
   ): Record<string, unknown> {
     const msg: Record<string, unknown> = {
