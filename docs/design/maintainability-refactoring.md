@@ -119,6 +119,22 @@ offline outbox and history synchronization means designing the interfaces
 between them first; subclasses in tests override public members freely, so
 forwarding methods have to stay on the service.
 
+### Claude and Codex session screens
+
+The two screens keep their own `build`. What both had word for word now lives
+once: 14 helpers in `chat_session/session_screen_shared.dart` and three hooks
+in `chat_session/session_screen_hooks.dart` (draft restore, initial requests,
+file-list refresh). The screens went from 2,111 and 2,241 lines to about
+1,740 and 1,870.
+
+The bodies were not merged. About 690 of their 1,000 lines match, but the
+matches are cut by provider differences that are intended: goals, automatic
+recovery, the CLI join command and tool suggestions on Codex; the usage bar,
+file restore and capability checks (the Claude screen also shows Antigravity)
+on Claude. One screen for both needs those expressed as capabilities of the
+session first. A difference whose intent is unknown was left alone:
+`'FileChange'` refreshes the file list on the Claude screen only.
+
 ## Fallback policy for follow-up work
 
 - Protocol input: reject malformed values; do not coerce them.
@@ -140,8 +156,9 @@ forwarding methods have to stay on the service.
    outbox, history synchronization) and their interfaces, then move one at a
    time behind forwarding methods, preserving reconnect tests. Start with
    `connect`, whose 570-line message dispatch reaches every other part.
-3. Split `messages.dart` parsing by protocol domain and replace duplicated
-   Claude/Codex screen helpers with shared session components.
+3. Split `messages.dart` parsing by protocol domain. Express the Codex-only and
+   Claude-only parts of the session screens as session capabilities, then
+   merge the two bodies.
 
 Each slice should reduce one responsibility at a time and retain a red-green
 test demonstrating either the removed defect or the preserved compatibility
