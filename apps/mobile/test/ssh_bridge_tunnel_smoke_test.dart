@@ -125,6 +125,7 @@ void main() {
         manager.configureBridgeTunnelResolvers(
           wsUrlResolver: tunnelService.buildWsUrl,
           httpBaseUrlResolver: tunnelService.buildHttpBaseUrl,
+          machineIdForLocalPort: tunnelService.machineIdForLocalPort,
         );
 
         await manager.addMachine(
@@ -144,6 +145,8 @@ void main() {
 
         final wsUrl = await manager.buildWsUrl('m1');
         expect(wsUrl, startsWith('ws://127.0.0.1:'));
+        final localPort = Uri.parse(wsUrl).port;
+        expect(manager.findByBridgeEndpoint('127.0.0.1', localPort)?.id, 'm1');
         final httpBaseUrl = wsUrl.replaceFirst('ws://', 'http://');
 
         final health = await _getWithRetry(Uri.parse('$httpBaseUrl/health'));
@@ -176,6 +179,17 @@ void main() {
         expect(healthAfterDrop.statusCode, 200);
         expect(healthAfterDrop.body, 'ok');
         expect(await manager.buildWsUrl('m1'), wsUrl);
+
+        // Concurrent URL builds (a connect and a health check) share one
+        // tunnel, so the port in use always maps back to the machine.
+        await tunnelService.closeAll();
+        final urls = await Future.wait([
+          manager.buildWsUrl('m1'),
+          manager.buildWsUrl('m1'),
+        ]);
+        expect(urls[1], urls[0]);
+        final sharedPort = Uri.parse(urls[0]).port;
+        expect(manager.findByBridgeEndpoint('127.0.0.1', sharedPort)?.id, 'm1');
       },
     );
   });
