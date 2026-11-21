@@ -1258,12 +1258,15 @@ class _CodexChatBody extends HookWidget {
                               contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          const PopupMenuItem(
-                            key: ValueKey('menu_rename'),
+                          PopupMenuItem(
+                            key: const ValueKey('menu_rename'),
                             value: 'rename',
                             child: ListTile(
-                              leading: Icon(Icons.edit_outlined, size: 20),
-                              title: Text('Rename'),
+                              leading: const Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                              ),
+                              title: Text(l.rename),
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                             ),
@@ -1283,27 +1286,27 @@ class _CodexChatBody extends HookWidget {
                               ),
                             ),
                           if (effectiveProjectPath != null)
-                            const PopupMenuItem(
-                              key: ValueKey('menu_screenshot'),
+                            PopupMenuItem(
+                              key: const ValueKey('menu_screenshot'),
                               value: 'screenshot',
                               child: ListTile(
-                                leading: Icon(
+                                leading: const Icon(
                                   Icons.screenshot_monitor,
                                   size: 20,
                                 ),
-                                title: Text('Screenshot'),
+                                title: Text(l.screenshot),
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
                               ),
                             ),
                           if (effectiveProjectPath != null)
                             gitHubSessionMenuItem(context),
-                          const PopupMenuItem(
-                            key: ValueKey('menu_gallery'),
+                          PopupMenuItem(
+                            key: const ValueKey('menu_gallery'),
                             value: 'gallery',
                             child: ListTile(
-                              leading: Icon(Icons.collections, size: 20),
-                              title: Text('Gallery'),
+                              leading: const Icon(Icons.collections, size: 20),
+                              title: Text(l.gallery),
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                             ),
