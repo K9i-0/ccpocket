@@ -166,6 +166,16 @@ void main() {
           jsonDecode(message as String),
           containsPair('type', 'bridge_smoke'),
         );
+
+        // After the jump connection drops (network change, device sleep),
+        // the next request to the same local URL reconnects the jump host.
+        tunnelService.dropJumpConnectionsForTesting();
+        final healthAfterDrop = await http
+            .get(Uri.parse('$httpBaseUrl/health'))
+            .timeout(const Duration(seconds: 15));
+        expect(healthAfterDrop.statusCode, 200);
+        expect(healthAfterDrop.body, 'ok');
+        expect(await manager.buildWsUrl('m1'), wsUrl);
       },
     );
   });

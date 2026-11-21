@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../models/machine.dart';
 import 'machine_manager_service.dart';
@@ -65,6 +66,15 @@ class SshBridgeTunnelService {
     _tunnels.clear();
     for (final tunnel in tunnels) {
       await tunnel.close();
+    }
+  }
+
+  /// Drops every jump connection but keeps the local ports, as a network
+  /// change would.
+  @visibleForTesting
+  void dropJumpConnectionsForTesting() {
+    for (final tunnel in _tunnels.values) {
+      tunnel.dropJumpConnectionForTesting();
     }
   }
 
@@ -213,21 +223,49 @@ class _JumpCredentials {
 class _BridgeTunnel {
   final String machineId;
   final String signature;
-  final SSHClient _jumpClient;
-  final ServerSocket _server;
-  final StreamSubscription<Socket> _serverSubscription;
+  final String _jumpHost;
+  final int _jumpPort;
+  final String _jumpUsername;
+  final SshAuthType _authType;
+  final String? _password;
+  final String? _privateKey;
+  final String _targetHost;
+  final int _targetPort;
+  final Duration _connectionTimeout;
+  final void Function(String?)? _debugLog;
+  SSHClient _jumpClient;
+  Future<SSHClient>? _redial;
+  late final ServerSocket _server;
+  late final StreamSubscription<Socket> _serverSubscription;
   final Set<Socket> _localSockets = {};
   final Set<SSHSocket> _remoteSockets = {};
+  bool _closed = false;
 
   _BridgeTunnel._({
     required this.machineId,
     required this.signature,
+    required String jumpHost,
+    required int jumpPort,
+    required String jumpUsername,
+    required SshAuthType authType,
+    required String? password,
+    required String? privateKey,
+    required String targetHost,
+    required int targetPort,
+    required Duration connectionTimeout,
+    required void Function(String?)? debugLog,
     required SSHClient jumpClient,
-    required ServerSocket server,
-    required StreamSubscription<Socket> serverSubscription,
-  }) : _jumpClient = jumpClient,
-       _server = server,
-       _serverSubscription = serverSubscription;
+  }) : _jumpHost = jumpHost,
+       _jumpPort = jumpPort,
+       _jumpUsername = jumpUsername,
+       _authType = authType,
+       _password = password,
+       _privateKey = privateKey,
+       _targetHost = targetHost,
+       _targetPort = targetPort,
+       _connectionTimeout = connectionTimeout,
+       _debugLog = debugLog,
+       _jumpClient = jumpClient;
 
   int get localPort => _server.port;
 
@@ -245,42 +283,67 @@ class _BridgeTunnel {
     required Duration connectionTimeout,
     required void Function(String?)? debugLog,
   }) async {
-    final jumpSocket = await SSHSocket.connect(
-      jumpHost,
-      jumpPort,
-      timeout: connectionTimeout,
-    );
-    final jumpClient = _createClient(
-      jumpSocket,
+    final jumpClient = await _connectJumpClient(
+      host: jumpHost,
+      port: jumpPort,
       username: jumpUsername,
+      authType: authType,
+      password: password,
+      privateKey: privateKey,
+      timeout: connectionTimeout,
+      debugLog: debugLog,
+    );
+    final tunnel = _BridgeTunnel._(
+      machineId: machineId,
+      signature: signature,
+      jumpHost: jumpHost,
+      jumpPort: jumpPort,
+      jumpUsername: jumpUsername,
+      authType: authType,
+      password: password,
+      privateKey: privateKey,
+      targetHost: targetHost,
+      targetPort: targetPort,
+      connectionTimeout: connectionTimeout,
+      debugLog: debugLog,
+      jumpClient: jumpClient,
+    );
+    try {
+      tunnel._server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      tunnel._serverSubscription = tunnel._server.listen(
+        tunnel._handleLocalSocket,
+      );
+      return tunnel;
+    } catch (_) {
+      jumpClient.close();
+      rethrow;
+    }
+  }
+
+  static Future<SSHClient> _connectJumpClient({
+    required String host,
+    required int port,
+    required String username,
+    required SshAuthType authType,
+    required String? password,
+    required String? privateKey,
+    required Duration timeout,
+    required void Function(String?)? debugLog,
+  }) async {
+    final socket = await SSHSocket.connect(host, port, timeout: timeout);
+    final client = _createClient(
+      socket,
+      username: username,
       authType: authType,
       password: password,
       privateKey: privateKey,
       debugLog: debugLog,
     );
-
     try {
-      await jumpClient.ping().timeout(connectionTimeout);
-      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      late final _BridgeTunnel tunnel;
-      final subscription = server.listen((localSocket) async {
-        tunnel._handleLocalSocket(
-          localSocket,
-          targetHost: targetHost,
-          targetPort: targetPort,
-          connectionTimeout: connectionTimeout,
-        );
-      });
-      tunnel = _BridgeTunnel._(
-        machineId: machineId,
-        signature: signature,
-        jumpClient: jumpClient,
-        server: server,
-        serverSubscription: subscription,
-      );
-      return tunnel;
+      await client.ping().timeout(timeout);
+      return client;
     } catch (_) {
-      jumpClient.close();
+      client.close();
       rethrow;
     }
   }
@@ -316,18 +379,15 @@ class _BridgeTunnel {
     );
   }
 
-  Future<void> _handleLocalSocket(
-    Socket localSocket, {
-    required String targetHost,
-    required int targetPort,
-    required Duration connectionTimeout,
-  }) async {
+  Future<void> _handleLocalSocket(Socket localSocket) async {
     _localSockets.add(localSocket);
 
     try {
-      final remoteSocket = await _jumpClient
-          .forwardLocal(targetHost, targetPort)
-          .timeout(connectionTimeout);
+      final remoteSocket = await _openForward();
+      if (_closed) {
+        remoteSocket.destroy();
+        throw StateError('Bridge tunnel closed');
+      }
       _remoteSockets.add(remoteSocket);
 
       localSocket.listen(
@@ -356,7 +416,73 @@ class _BridgeTunnel {
     }
   }
 
+  /// Opens a channel to the Bridge through the jump host.
+  ///
+  /// The jump connection can die without notice when the device changes
+  /// networks or sleeps: the local port stays open, but nothing behind it
+  /// answers, so every automatic Bridge reconnect to the same local URL would
+  /// fail. When the connection is closed or opening the channel times out,
+  /// reconnect to the jump host once and retry. A refusal from a live jump
+  /// host (for example while the Bridge restarts) is passed through as is.
+  Future<SSHSocket> _openForward() async {
+    final client = _jumpClient;
+    if (!client.isClosed) {
+      try {
+        return await client
+            .forwardLocal(_targetHost, _targetPort)
+            .timeout(_connectionTimeout);
+      } on TimeoutException {
+        _debugLog?.call('Bridge tunnel: jump host did not answer');
+      } catch (_) {
+        if (!client.isClosed) rethrow;
+      }
+    }
+    final fresh = await _replaceJumpClient(client);
+    return fresh
+        .forwardLocal(_targetHost, _targetPort)
+        .timeout(_connectionTimeout);
+  }
+
+  /// Replaces [stale] with a new jump connection. Local sockets that fail at
+  /// the same time share one reconnect.
+  Future<SSHClient> _replaceJumpClient(SSHClient stale) {
+    if (_closed) {
+      return Future.error(StateError('Bridge tunnel closed'));
+    }
+    if (!identical(_jumpClient, stale)) return Future.value(_jumpClient);
+    return _redial ??= () async {
+      try {
+        stale.close();
+        final next = await _connectJumpClient(
+          host: _jumpHost,
+          port: _jumpPort,
+          username: _jumpUsername,
+          authType: _authType,
+          password: _password,
+          privateKey: _privateKey,
+          timeout: _connectionTimeout,
+          debugLog: _debugLog,
+        );
+        if (_closed) {
+          next.close();
+          throw StateError('Bridge tunnel closed');
+        }
+        _jumpClient = next;
+        _debugLog?.call('Bridge tunnel: reconnected to the jump host');
+        return next;
+      } finally {
+        _redial = null;
+      }
+    }();
+  }
+
+  /// Closes the jump connection but keeps the local port, as when the
+  /// network drops.
+  void dropJumpConnectionForTesting() => _jumpClient.close();
+
   Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
     await _serverSubscription.cancel();
     await _server.close();
     for (final socket in _localSockets.toList()) {
