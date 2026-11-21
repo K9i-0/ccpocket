@@ -36,6 +36,11 @@ import {
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
+import {
+  isPathAllowed,
+  buildPathNotAllowedError,
+  normalizeAdditionalWritableRoots,
+} from "../file-access.js";
 
 export async function handleResumeSession(
   server: BridgeWebSocketServer,
@@ -118,7 +123,7 @@ export async function handleResumeSession(
             rootPaths: requestedProject.rootPaths,
           }
         : undefined;
-  if (!server.isPathAllowed(resumeProjectPath)) {
+  if (!isPathAllowed(server, resumeProjectPath)) {
     server.sendResumeFailed(ws, {
       provider,
       sourceSessionId: msg.sessionId,
@@ -126,7 +131,7 @@ export async function handleResumeSession(
       resumeRequestId: msg.resumeRequestId,
     });
     server.send(ws, {
-      ...server.buildPathNotAllowedError(
+      ...buildPathNotAllowedError(
         msg.projectPath,
         msg.resumeRequestId,
       ),
@@ -170,7 +175,7 @@ export async function handleResumeSession(
         wtMapping.projectPath,
         server.platform,
       );
-      if (server.isPathAllowed(mappedProject)) {
+      if (isPathAllowed(server, mappedProject)) {
         effectiveResumeProjectPath = mappedProject;
       }
       worktreeOpts = {
@@ -183,7 +188,7 @@ export async function handleResumeSession(
         wtMapping?.projectPath ?? normalizeWorktreePath(effectiveResumeProjectPath),
         server.platform,
       );
-      if (server.isPathAllowed(fallbackPath)) {
+      if (isPathAllowed(server, fallbackPath)) {
         effectiveResumeProjectPath = fallbackPath;
       }
     }
@@ -207,7 +212,8 @@ export async function handleResumeSession(
           compactions: remembered?.compactions,
           permissionGrants: remembered?.permissionGrants,
           // Roots outside the allowed folders are left out.
-          additionalDirectories: server.normalizeAdditionalWritableRoots(
+          additionalDirectories: normalizeAdditionalWritableRoots(
+            server,
             resumeAdditionalRoots,
             effectiveResumeProjectPath,
           ).roots,
@@ -350,7 +356,8 @@ export async function handleResumeSession(
       return;
     }
     const additionalWritableRoots =
-      server.normalizeAdditionalWritableRoots(
+      normalizeAdditionalWritableRoots(
+        server,
         resumeAdditionalRoots,
         effectiveProjectPath,
       );
@@ -362,7 +369,7 @@ export async function handleResumeSession(
         resumeRequestId: msg.resumeRequestId,
       });
       server.send(ws, {
-        ...server.buildPathNotAllowedError(
+        ...buildPathNotAllowedError(
           additionalWritableRoots.deniedRoot,
           msg.resumeRequestId,
         ),
@@ -596,7 +603,8 @@ export async function handleResumeSession(
   }
 
   const claudeSessionId = sessionRefId;
-  const additionalDirectories = server.normalizeAdditionalWritableRoots(
+  const additionalDirectories = normalizeAdditionalWritableRoots(
+    server,
     resumeAdditionalRoots,
     resumeProjectPath,
   );
@@ -608,7 +616,7 @@ export async function handleResumeSession(
       resumeRequestId: msg.resumeRequestId,
     });
     server.send(ws, {
-      ...server.buildPathNotAllowedError(
+      ...buildPathNotAllowedError(
         additionalDirectories.deniedRoot,
         msg.resumeRequestId,
       ),

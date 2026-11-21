@@ -9,6 +9,10 @@ import {
   listAllowedDirectories,
 } from "../../directory-listing.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  isCanonicalPathAllowed,
+  buildPathNotAllowedError,
+} from "../file-access.js";
 
 export async function handleListProjectHistory(
   server: BridgeWebSocketServer,
@@ -44,7 +48,7 @@ export async function handleBootstrapProject(
 ): Promise<void> {
   try {
     const result = await bootstrapProject({ ...msg,
-      isAllowed: (path) => server.isCanonicalPathAllowed(path),
+      isAllowed: (path) => isCanonicalPathAllowed(server, path),
     });
     server.projectHistory?.addProject(result.projectPath);
     server.send(ws, { type: "project_setup_result", requestId: msg.requestId, ...result });
@@ -60,7 +64,7 @@ export async function handleTrustProject(
 ): Promise<void> {
   try {
     const projectPath = await realpath(msg.projectPath);
-    if (!await server.isCanonicalPathAllowed(projectPath)) throw new Error("Project directory is not allowed");
+    if (!await isCanonicalPathAllowed(server, projectPath)) throw new Error("Project directory is not allowed");
     if (msg.type === "trust_project") {
       if (msg.sessionId) {
         const session = server.sessionManager.get(msg.sessionId);
@@ -106,7 +110,7 @@ export async function handleCreateProject(
   if (normalized.deniedRoot || !normalized.roots) {
     server.send(
       ws,
-      server.buildPathNotAllowedError(
+      buildPathNotAllowedError(
         normalized.deniedRoot ?? msg.rootPaths[0],
       ),
     );
@@ -138,7 +142,7 @@ export async function handleUpdateProject(
   if (normalized.deniedRoot || !normalized.roots) {
     server.send(
       ws,
-      server.buildPathNotAllowedError(
+      buildPathNotAllowedError(
         normalized.deniedRoot ?? msg.rootPaths[0],
       ),
     );

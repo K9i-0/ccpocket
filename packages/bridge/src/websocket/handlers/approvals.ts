@@ -4,6 +4,7 @@ import { CodexProcess } from "../../codex-process.js";
 import { AntigravityProcess } from "../../antigravity-process.js";
 import type { ClientMessage } from "../../parser.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { sendToolActionError } from "../file-access.js";
 
 export async function handleApprove(
   server: BridgeWebSocketServer,
@@ -12,7 +13,7 @@ export async function handleApprove(
 ): Promise<void> {
   const session = server.resolveSession(msg.sessionId);
   if (!session) {
-    server.sendToolActionError(ws, msg, "No active session.");
+    sendToolActionError(server, ws, msg, "No active session.");
     return;
   }
   if (session.provider !== "claude") {
@@ -20,7 +21,8 @@ export async function handleApprove(
       session.process as CodexProcess | AntigravityProcess
     ).approve(msg.id);
     if (handled === false) {
-      server.sendToolActionError(
+      sendToolActionError(
+        server,
         ws,
         msg,
         "No matching pending tool action.",
@@ -97,7 +99,8 @@ export async function handleApprove(
   } else {
     const handled = sdkProc.approve(msg.id);
     if (handled === false) {
-      server.sendToolActionError(
+      sendToolActionError(
+        server,
         ws,
         msg,
         "No matching pending tool action.",
@@ -113,7 +116,7 @@ export async function handleApproveAlways(
 ): Promise<void> {
   const session = server.resolveSession(msg.sessionId);
   if (!session) {
-    server.sendToolActionError(ws, msg, "No active session.");
+    sendToolActionError(server, ws, msg, "No active session.");
     return;
   }
   if (session.provider !== "claude") {
@@ -123,7 +126,8 @@ export async function handleApproveAlways(
       msg.id,
     );
     if (handled === false) {
-      server.sendToolActionError(
+      sendToolActionError(
+        server,
         ws,
         msg,
         "No matching pending tool action.",
@@ -133,7 +137,8 @@ export async function handleApproveAlways(
   }
   const handled = (session.process as SdkProcess).approveAlways(msg.id);
   if (handled === false) {
-    server.sendToolActionError(
+    sendToolActionError(
+      server,
       ws,
       msg,
       "No matching pending tool action.",
@@ -148,7 +153,7 @@ export async function handleReject(
 ): Promise<void> {
   const session = server.resolveSession(msg.sessionId);
   if (!session) {
-    server.sendToolActionError(ws, msg, "No active session.");
+    sendToolActionError(server, ws, msg, "No active session.");
     return;
   }
   if (session.provider !== "claude") {
@@ -159,7 +164,8 @@ export async function handleReject(
       msg.message,
     );
     if (handled === false) {
-      server.sendToolActionError(
+      sendToolActionError(
+        server,
         ws,
         msg,
         "No matching pending tool action.",
@@ -172,7 +178,8 @@ export async function handleReject(
     msg.message,
   );
   if (handled === false) {
-    server.sendToolActionError(
+    sendToolActionError(
+      server,
       ws,
       msg,
       "No matching pending tool action.",
@@ -187,7 +194,7 @@ export async function handleAnswer(
 ): Promise<void> {
   const session = server.resolveSession(msg.sessionId);
   if (!session) {
-    server.sendToolActionError(ws, msg, "No active session.");
+    sendToolActionError(server, ws, msg, "No active session.");
     return;
   }
   if (session.provider !== "claude") {
@@ -198,7 +205,8 @@ export async function handleAnswer(
       msg.result,
     );
     if (handled === false) {
-      server.sendToolActionError(
+      sendToolActionError(
+        server,
         ws,
         msg,
         "No matching pending tool action.",
@@ -211,7 +219,8 @@ export async function handleAnswer(
     msg.result,
   );
   if (handled === false) {
-    server.sendToolActionError(
+    sendToolActionError(
+      server,
       ws,
       msg,
       "No matching pending tool action.",
@@ -226,11 +235,12 @@ export async function handleInstallToolSuggestion(
 ): Promise<void> {
   const session = server.resolveSession(msg.sessionId);
   if (!session) {
-    server.sendToolActionError(ws, msg, "No active session.");
+    sendToolActionError(server, ws, msg, "No active session.");
     return;
   }
   if (session.provider !== "codex") {
-    server.sendToolActionError(
+    sendToolActionError(
+      server,
       ws,
       msg,
       "Tool suggestions are only supported for Codex sessions.",
@@ -242,7 +252,8 @@ export async function handleInstallToolSuggestion(
       msg.toolUseId,
     );
   } catch (err) {
-    server.sendToolActionError(
+    sendToolActionError(
+      server,
       ws,
       msg,
       err instanceof Error ? err.message : String(err),

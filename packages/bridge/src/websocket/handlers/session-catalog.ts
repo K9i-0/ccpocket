@@ -6,6 +6,7 @@ import { getAllRecentSessions } from "../../sessions-index.js";
 import { resolvePlatformPath } from "../../path-utils.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
+import { isPathAllowed, buildPathNotAllowedError } from "../file-access.js";
 
 export async function handleListSessions(
   server: BridgeWebSocketServer,
@@ -214,8 +215,8 @@ export async function handleArchiveSession(
     projectPath,
     server.platform,
   );
-  if (!server.isPathAllowed(archiveProjectPath)) {
-    const pathError = server.buildPathNotAllowedError(projectPath);
+  if (!isPathAllowed(server, archiveProjectPath)) {
+    const pathError = buildPathNotAllowedError(projectPath);
     server.send(ws, {
       type: "archive_result",
       sessionId,

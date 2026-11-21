@@ -20,13 +20,22 @@ import {
   mimeTypeForExt,
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  prepareFileDownload,
+  prepareFileUpload,
+  finalizeFileUpload,
+  isPathReadable,
+  isCanonicalPathReadable,
+  isPathAllowed,
+  buildPathNotAllowedError,
+} from "../file-access.js";
 
 export async function handlePrepareFileDownload(
   server: BridgeWebSocketServer,
   msg: Extract<ClientMessage, { type: "prepare_file_download" }>,
   ws: WebSocket,
 ): Promise<void> {
-  void server.prepareFileDownload(ws, msg);
+  void prepareFileDownload(server, ws, msg);
 }
 
 export async function handlePrepareFileUpload(
@@ -34,7 +43,7 @@ export async function handlePrepareFileUpload(
   msg: Extract<ClientMessage, { type: "prepare_file_upload" }>,
   ws: WebSocket,
 ): Promise<void> {
-  void server.prepareFileUpload(ws, msg);
+  void prepareFileUpload(server, ws, msg);
 }
 
 export async function handleFinalizeFileUpload(
@@ -42,7 +51,7 @@ export async function handleFinalizeFileUpload(
   msg: Extract<ClientMessage, { type: "finalize_file_upload" }>,
   ws: WebSocket,
 ): Promise<void> {
-  void server.finalizeFileUpload(ws, msg);
+  void finalizeFileUpload(server, ws, msg);
 }
 
 export async function handleCancelFileUpload(
@@ -77,12 +86,12 @@ export async function handleRevealFileLocal(
     }
     try {
       const path = resolve(msg.projectPath, msg.filePath);
-      if (!server.isPathReadable(path)) {
+      if (!isPathReadable(server, path)) {
         reply("path_not_allowed");
         return;
       }
       const canonicalPath = await realpath(path);
-      if (!(await server.isCanonicalPathReadable(canonicalPath))) {
+      if (!(await isCanonicalPathReadable(server, canonicalPath))) {
         reply("path_not_allowed");
         return;
       }
@@ -104,7 +113,7 @@ export async function handleReadFile(
     filePath: msg.filePath,
   };
   const absPath = resolve(msg.projectPath, msg.filePath);
-  if (!server.isPathReadable(absPath)) {
+  if (!isPathReadable(server, absPath)) {
     server.send(ws, {
       type: "file_content",
       ...responseMetadata,
@@ -172,7 +181,7 @@ export async function handleReadFile(
         ? await stat(absPath)
         : fileStat;
       const canonicalPath = await realpath(absPath);
-      if (!(await server.isCanonicalPathReadable(canonicalPath))) {
+      if (!(await isCanonicalPathReadable(server, canonicalPath))) {
         server.send(ws, {
           type: "file_content",
           ...responseMetadata,
@@ -352,12 +361,12 @@ export async function handleListFiles(
   msg: Extract<ClientMessage, { type: "list_files" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "file_list",
       ...projectRequestMetadata(msg),
       files: [],
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }

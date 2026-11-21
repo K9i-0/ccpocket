@@ -16,6 +16,11 @@ import {
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
+import {
+  buildPathNotAllowedError,
+  isPathAllowed,
+  normalizeAdditionalWritableRoots,
+} from "../file-access.js";
 
 export async function handleStart(
   server: BridgeWebSocketServer,
@@ -39,7 +44,7 @@ export async function handleStart(
     if (normalized.deniedRoot || !normalized.roots) {
       server.send(
         ws,
-        server.buildPathNotAllowedError(
+        buildPathNotAllowedError(
           normalized.deniedRoot ?? project.rootPaths[0],
           msg.requestId,
         ),
@@ -54,9 +59,9 @@ export async function handleStart(
       rootPaths: normalized.roots,
     };
   }
-  if (!server.isPathAllowed(projectPath)) {
+  if (!isPathAllowed(server, projectPath)) {
     server.send(ws, {
-      ...server.buildPathNotAllowedError(msg.projectPath),
+      ...buildPathNotAllowedError(msg.projectPath),
       requestId: msg.requestId,
       path: msg.projectPath,
     });
@@ -148,7 +153,8 @@ export async function handleStart(
     const requestedAdditionalRoots =
       resolvedWorkspace?.rootPaths.slice(1) ??
       msg.additionalWritableRoots;
-    const additionalWritableRoots = server.normalizeAdditionalWritableRoots(
+    const additionalWritableRoots = normalizeAdditionalWritableRoots(
+      server,
       requestedAdditionalRoots,
       projectPath,
     );
@@ -156,7 +162,7 @@ export async function handleStart(
       server.send(
         ws,
         {
-          ...server.buildPathNotAllowedError(
+          ...buildPathNotAllowedError(
             additionalWritableRoots.deniedRoot,
           ),
           requestId: msg.requestId,

@@ -4,8 +4,8 @@ import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
-import { resolve, extname, posix, win32 } from "node:path";
+import { readFile } from "node:fs/promises";
+import { resolve, extname } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import {
@@ -100,8 +100,6 @@ import {
 } from "./markdown-images.js";
 import type { MediaStore } from "./media-store.js";
 import {
-  isSafeUploadFileName,
-  UploadStoreError,
   type UploadStore,
 } from "./upload-store.js";
 import type { GalleryStore } from "./gallery-store.js";
@@ -134,7 +132,6 @@ import {
 import {
   isPathWithinAllowedDirectory,
   resolvePlatformPath,
-  resolvePlatformPathFrom,
 } from "./path-utils.js";
 import {
   withDerivedCodexPermissionsMode,
@@ -180,7 +177,6 @@ import {
   nonNegativeEnvInt,
   normalizePositiveLimit,
   normalizeNonNegativeLimit,
-  downloadMimeType,
 } from "./websocket/shared.js";
 import {
   codexThreadToRecentSession,
@@ -336,6 +332,11 @@ import {
   summarizeOutboundMessage,
   pruneDebugEvents,
 } from "./websocket/debug-trace.js";
+import {
+  isPathAllowed,
+  isPathReadable,
+  isCanonicalPathReadable,
+} from "./websocket/file-access.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -409,9 +410,9 @@ export class BridgeWebSocketServer {
   sessionManager: SessionManager;
   private apiKey: string | null;
   allowedDirs: string[];
-  private readOnlyDirs: string[];
+  readOnlyDirs: string[];
   private assistantImageResolver: AssistantImageResolver | null = null;
-  private fileDownloadAllowAllPaths: boolean;
+  fileDownloadAllowAllPaths: boolean;
   imageStore: ImageStore | null;
   mediaStore: MediaStore | null;
   uploadStore: UploadStore | null;
@@ -502,8 +503,8 @@ export class BridgeWebSocketServer {
   failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   readonly fileListMaxEntries: number;
   readonly fileListMaxBytes: number;
-  private readonly fileDownloadMaxBytes: number;
-  private readonly fileUploadMaxBytes: number;
+  readonly fileDownloadMaxBytes: number;
+  readonly fileUploadMaxBytes: number;
   private readonly deltaBatchMs: number;
   private readonly deltaBatchMaxChars: number;
   private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
@@ -669,8 +670,8 @@ export class BridgeWebSocketServer {
     this.assistantImageResolver = imageStore
       ? createAssistantImageResolver({
           imageStore,
-          isPathReadable: (path) => this.isPathReadable(path),
-          isCanonicalPathReadable: (path) => this.isCanonicalPathReadable(path),
+          isPathReadable: (path) => isPathReadable(this, path),
+          isCanonicalPathReadable: (path) => isCanonicalPathReadable(this, path),
         })
       : null;
 
@@ -726,388 +727,6 @@ export class BridgeWebSocketServer {
     });
 
     console.log(`[ws] WebSocket server attached to HTTP server`);
-  }
-
-  /**
-   * Validate that a project path is within the allowed directories.
-   * Returns true if the path is allowed, false otherwise.
-   */
-  isPathAllowed(path: string): boolean {
-    if (this.allowedDirs.length === 0) return true;
-    return this.allowedDirs.some(
-      (dir) => isPathWithinAllowedDirectory(path, dir, this.platform),
-    );
-  }
-
-  async isCanonicalPathAllowed(path: string): Promise<boolean> {
-    if (this.allowedDirs.length === 0) return true;
-    for (const dir of this.allowedDirs) {
-      let canonicalDir = dir;
-      try {
-        canonicalDir = await realpath(dir);
-      } catch {
-        // Keep the configured path when the allowed root cannot be resolved.
-      }
-      if (isPathWithinAllowedDirectory(path, canonicalDir, this.platform)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private isPathInReadOnlyDir(path: string): boolean {
-    return this.readOnlyDirs.some(
-      (dir) => isPathWithinAllowedDirectory(path, dir, this.platform),
-    );
-  }
-
-  private async isCanonicalPathInReadOnlyDir(path: string): Promise<boolean> {
-    for (const dir of this.readOnlyDirs) {
-      let canonicalDir = dir;
-      try {
-        canonicalDir = await realpath(dir);
-      } catch {
-        // Keep the configured path when the read-only root cannot be resolved.
-      }
-      if (isPathWithinAllowedDirectory(path, canonicalDir, this.platform)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Read access: allowed directories plus BRIDGE_READONLY_DIRS. Use only for
-   * file preview, download, and reveal — never for projects or writes.
-   */
-  isPathReadable(path: string): boolean {
-    return this.isPathAllowed(path) || this.isPathInReadOnlyDir(path);
-  }
-
-  async isCanonicalPathReadable(path: string): Promise<boolean> {
-    return (
-      (await this.isCanonicalPathAllowed(path)) ||
-      (await this.isCanonicalPathInReadOnlyDir(path))
-    );
-  }
-
-  private sendFileDownloadError(
-    ws: WebSocket,
-    request: Extract<ClientMessage, { type: "prepare_file_download" }>,
-    errorCode:
-      | "file_download_not_allowed"
-      | "file_download_not_found"
-      | "file_download_not_file"
-      | "file_download_too_large"
-      | "file_download_unavailable"
-      | "file_download_failed",
-    message: string,
-  ): void {
-    this.send(ws, {
-      type: "error",
-      errorCode,
-      message,
-      path: request.filePath,
-      requestId: request.requestId,
-    });
-  }
-
-  async prepareFileDownload(
-    ws: WebSocket,
-    request: Extract<ClientMessage, { type: "prepare_file_download" }>,
-  ): Promise<void> {
-    const pathApi = this.platform === "win32" ? win32 : posix;
-    const projectPath = pathApi.resolve(request.projectPath);
-    const requestedPath = pathApi.resolve(projectPath, request.filePath);
-    if (
-      !this.isPathAllowed(projectPath) ||
-      (!this.fileDownloadAllowAllPaths &&
-        !isPathWithinAllowedDirectory(requestedPath, projectPath, this.platform) &&
-        !this.isPathInReadOnlyDir(requestedPath))
-    ) {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_not_allowed",
-        "The requested file is outside the current project.",
-      );
-      return;
-    }
-
-    let canonicalProjectPath: string;
-    try {
-      canonicalProjectPath = await realpath(projectPath);
-      const projectStat = await stat(canonicalProjectPath);
-      if (
-        !projectStat.isDirectory() ||
-        !(await this.isCanonicalPathAllowed(canonicalProjectPath))
-      ) {
-        throw new Error("project not allowed");
-      }
-    } catch {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_not_allowed",
-        "The current project is unavailable or not allowed.",
-      );
-      return;
-    }
-
-    let canonicalFilePath: string;
-    try {
-      canonicalFilePath = await realpath(requestedPath);
-    } catch {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_not_found",
-        "File not found.",
-      );
-      return;
-    }
-
-    const canonicalFileInProject =
-      isPathWithinAllowedDirectory(
-        canonicalFilePath,
-        canonicalProjectPath,
-        this.platform,
-      ) && (await this.isCanonicalPathAllowed(canonicalFilePath));
-    if (
-      !this.fileDownloadAllowAllPaths &&
-      !canonicalFileInProject &&
-      !(await this.isCanonicalPathInReadOnlyDir(canonicalFilePath))
-    ) {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_not_allowed",
-        "The requested file resolves outside the current project.",
-      );
-      return;
-    }
-
-    try {
-      const fileStat = await stat(canonicalFilePath);
-      if (!fileStat.isFile()) {
-        this.sendFileDownloadError(
-          ws,
-          request,
-          "file_download_not_file",
-          "Only regular files can be downloaded.",
-        );
-        return;
-      }
-      if (fileStat.size > this.fileDownloadMaxBytes) {
-        const maxSizeMb = Math.max(
-          1,
-          Math.ceil(this.fileDownloadMaxBytes / 1024 / 1024),
-        );
-        this.sendFileDownloadError(
-          ws,
-          request,
-          "file_download_too_large",
-          `File is too large to download. Maximum size is ${maxSizeMb} MB.`,
-        );
-        return;
-      }
-      if (!this.mediaStore) {
-        this.sendFileDownloadError(
-          ws,
-          request,
-          "file_download_unavailable",
-          "File downloads are unavailable on this Bridge.",
-        );
-        return;
-      }
-
-      const fileName = pathApi.basename(requestedPath);
-      const mimeType = downloadMimeType(fileName);
-      const ref = await this.mediaStore.register(
-        canonicalFilePath,
-        mimeType,
-        fileStat.size,
-        fileName,
-      );
-      this.send(ws, {
-        type: "file_download_ready",
-        requestId: request.requestId,
-        filePath: request.filePath,
-        fileName,
-        mimeType: ref.mimeType,
-        sizeBytes: ref.sizeBytes,
-        downloadUrl: ref.url,
-      });
-    } catch {
-      this.sendFileDownloadError(
-        ws,
-        request,
-        "file_download_failed",
-        "Unable to prepare the file download.",
-      );
-    }
-  }
-
-  private sendFileUploadError(
-    ws: WebSocket,
-    requestId: string,
-    errorCode: string,
-    message: string,
-    path?: string,
-  ): void {
-    this.send(ws, { type: "error", errorCode, message, requestId, path });
-  }
-
-  async prepareFileUpload(
-    ws: WebSocket,
-    request: Extract<ClientMessage, { type: "prepare_file_upload" }>,
-  ): Promise<void> {
-    const pathApi = this.platform === "win32" ? win32 : posix;
-    const projectPath = pathApi.resolve(request.projectPath);
-    if (
-      !this.uploadStore ||
-      pathApi.isAbsolute(request.directoryPath) ||
-      !isSafeUploadFileName(request.fileName)
-    ) {
-      this.sendFileUploadError(
-        ws,
-        request.requestId,
-        !this.uploadStore ? "file_upload_unavailable" : "file_upload_not_allowed",
-        !this.uploadStore
-          ? "File uploads are unavailable on this Bridge."
-          : "The upload destination or file name is not allowed.",
-        request.directoryPath,
-      );
-      return;
-    }
-    if (request.sizeBytes > this.fileUploadMaxBytes) {
-      this.sendFileUploadError(
-        ws,
-        request.requestId,
-        "file_upload_too_large",
-        `File is too large to upload. Maximum size is ${Math.ceil(this.fileUploadMaxBytes / 1024 / 1024)} MB.`,
-        request.fileName,
-      );
-      return;
-    }
-
-    const requestedDirectory = pathApi.resolve(projectPath, request.directoryPath || ".");
-    if (
-      !this.isPathAllowed(projectPath) ||
-      !isPathWithinAllowedDirectory(requestedDirectory, projectPath, this.platform)
-    ) {
-      this.sendFileUploadError(ws, request.requestId, "file_upload_not_allowed", "The upload destination is outside the current project.", request.directoryPath);
-      return;
-    }
-
-    try {
-      const canonicalProject = await realpath(projectPath);
-      const canonicalDirectory = await realpath(requestedDirectory);
-      const directoryStat = await stat(canonicalDirectory);
-      if (
-        !directoryStat.isDirectory() ||
-        !isPathWithinAllowedDirectory(canonicalDirectory, canonicalProject, this.platform) ||
-        !(await this.isCanonicalPathAllowed(canonicalDirectory))
-      ) {
-        throw new UploadStoreError("file_upload_directory_changed", "The upload destination is not allowed.");
-      }
-      const ref = await this.uploadStore.register({
-        directoryPath: canonicalDirectory,
-        relativeDirectoryPath: pathApi
-          .relative(projectPath, requestedDirectory)
-          .split(pathApi.sep)
-          .join("/"),
-        fileName: request.fileName,
-        sizeBytes: request.sizeBytes,
-        conflictPolicy: request.conflictPolicy,
-      });
-      this.send(ws, {
-        type: "file_upload_ready",
-        requestId: request.requestId,
-        fileName: request.fileName,
-        sizeBytes: request.sizeBytes,
-        uploadUrl: ref.url,
-        uploadToken: ref.token,
-      });
-    } catch (error) {
-      const known = error instanceof UploadStoreError ? error : null;
-      this.sendFileUploadError(
-        ws,
-        request.requestId,
-        known?.code ?? "file_upload_directory_not_found",
-        known?.message ?? "The upload destination was not found or is not allowed.",
-        request.directoryPath,
-      );
-    }
-  }
-
-  async finalizeFileUpload(
-    ws: WebSocket,
-    request: Extract<ClientMessage, { type: "finalize_file_upload" }>,
-  ): Promise<void> {
-    if (!this.uploadStore) {
-      this.sendFileUploadError(ws, request.requestId, "file_upload_unavailable", "File uploads are unavailable on this Bridge.");
-      return;
-    }
-    try {
-      const result = await this.uploadStore.finalize(request.uploadToken, request.sha256);
-      this.send(ws, { type: "file_upload_complete", requestId: request.requestId, ...result });
-    } catch (error) {
-      const known = error instanceof UploadStoreError ? error : null;
-      this.sendFileUploadError(ws, request.requestId, known?.code ?? "file_upload_failed", known?.message ?? "Unable to finish the file upload.");
-    }
-  }
-
-  /** Build a user-friendly error for disallowed project paths. */
-  buildPathNotAllowedError(
-    projectPath: string,
-    requestId?: string,
-  ): Extract<ServerMessage, { type: "error" }> {
-    return {
-      type: "error",
-      message: `⚠ Project path not allowed\n\n"${projectPath}" is not in the allowed directories.\n\nFix: Update BRIDGE_ALLOWED_DIRS on the Bridge server to include this path.`,
-      errorCode: "path_not_allowed",
-      path: projectPath,
-      requestId,
-    };
-  }
-
-  sendToolActionError(
-    ws: WebSocket,
-    message: { sessionId?: string; id?: string; toolUseId?: string },
-    error: string,
-  ): void {
-    this.send(ws, {
-      type: "error",
-      message: error,
-      sessionId: message.sessionId,
-      toolUseId: message.toolUseId ?? message.id,
-    });
-  }
-
-  normalizeAdditionalWritableRoots(
-    roots: string[] | undefined,
-    projectPath: string,
-  ): { roots?: string[]; deniedRoot?: string } {
-    if (!roots || roots.length === 0) return {};
-    const normalized = new Map<string, string>();
-    for (const root of roots) {
-      const trimmed = root.trim();
-      if (!trimmed) continue;
-      const resolved = resolvePlatformPathFrom(
-        projectPath,
-        trimmed,
-        this.platform,
-      );
-      if (!this.isPathAllowed(resolved)) {
-        return { deniedRoot: root };
-      }
-      const key = this.platform === "win32" ? resolved.toLowerCase() : resolved;
-      if (!normalized.has(key)) {
-        normalized.set(key, resolved);
-      }
-    }
-    return { roots: [...normalized.values()] };
   }
 
   buildSessionCreatedMessage(params: {
@@ -4787,7 +4406,7 @@ export class BridgeWebSocketServer {
     const seen = new Set<string>();
     for (const rawPath of rootPaths) {
       const path = resolvePlatformPath(rawPath, this.platform);
-      if (!this.isPathAllowed(path)) return { deniedRoot: rawPath };
+      if (!isPathAllowed(this, path)) return { deniedRoot: rawPath };
       if (!seen.has(path)) {
         seen.add(path);
         roots.push(path);

@@ -33,19 +33,20 @@ import {
 } from "../../github-cli.js";
 import { projectRequestMetadata } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { isPathAllowed, buildPathNotAllowedError } from "../file-access.js";
 
 export async function handleGetDiff(
   server: BridgeWebSocketServer,
   msg: Extract<ClientMessage, { type: "get_diff" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "diff_result",
       ...projectRequestMetadata(msg),
       staged: msg.staged === true,
       diff: "",
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId)
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId)
         .message,
       errorCode: "path_not_allowed",
     });
@@ -112,8 +113,8 @@ export async function handleGetDiffImage(
   ws: WebSocket,
 ): Promise<void> {
   if (
-    !server.isPathAllowed(msg.projectPath) ||
-    !server.isPathAllowed(resolve(msg.projectPath, msg.filePath))
+    !isPathAllowed(server, msg.projectPath) ||
+    !isPathAllowed(server, resolve(msg.projectPath, msg.filePath))
   ) {
     server.send(ws, {
       type: "diff_image_result",
@@ -174,12 +175,12 @@ export async function handleListWorktrees(
   msg: Extract<ClientMessage, { type: "list_worktrees" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "worktree_list",
       ...projectRequestMetadata(msg),
       worktrees: [],
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -207,12 +208,12 @@ export async function handleRemoveWorktree(
   msg: Extract<ClientMessage, { type: "remove_worktree" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "worktree_removed",
       ...projectRequestMetadata(msg),
       worktreePath: msg.worktreePath,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -239,12 +240,12 @@ export async function handleGitStage(
   msg: Extract<ClientMessage, { type: "git_stage" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_stage_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -271,12 +272,12 @@ export async function handleGitUnstage(
   msg: Extract<ClientMessage, { type: "git_unstage" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_unstage_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -302,12 +303,12 @@ export async function handleGitUnstageHunks(
   msg: Extract<ClientMessage, { type: "git_unstage_hunks" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_unstage_hunks_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -333,12 +334,12 @@ export async function handleGitCommit(
   msg: Extract<ClientMessage, { type: "git_commit" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_commit_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -401,12 +402,12 @@ export async function handleGitPush(
   msg: Extract<ClientMessage, { type: "git_push" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_push_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -432,7 +433,7 @@ export async function handleGitBranches(
   msg: Extract<ClientMessage, { type: "git_branches" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_branches_result",
       ...projectRequestMetadata(msg),
@@ -440,7 +441,7 @@ export async function handleGitBranches(
       branches: [],
       checkedOutBranches: [],
       remoteStatusByBranch: {},
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -471,12 +472,12 @@ export async function handleGitCreateBranch(
   msg: Extract<ClientMessage, { type: "git_create_branch" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_create_branch_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -502,12 +503,12 @@ export async function handleGitCheckoutBranch(
   msg: Extract<ClientMessage, { type: "git_checkout_branch" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_checkout_branch_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -533,12 +534,12 @@ export async function handleGitRevertFile(
   msg: Extract<ClientMessage, { type: "git_revert_file" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_revert_file_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -564,12 +565,12 @@ export async function handleGitRevertHunks(
   msg: Extract<ClientMessage, { type: "git_revert_hunks" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_revert_hunks_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -595,12 +596,12 @@ export async function handleGitFetch(
   msg: Extract<ClientMessage, { type: "git_fetch" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_fetch_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -626,12 +627,12 @@ export async function handleGitPull(
   msg: Extract<ClientMessage, { type: "git_pull" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_pull_result",
       ...projectRequestMetadata(msg),
       success: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -667,7 +668,7 @@ export async function handleGitStatus(
   msg: Extract<ClientMessage, { type: "git_status" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_status_result",
       requestId: msg.requestId,
@@ -732,7 +733,7 @@ export async function handleGitRemoteStatus(
   msg: Extract<ClientMessage, { type: "git_remote_status" }>,
   ws: WebSocket,
 ): Promise<void> {
-  if (!server.isPathAllowed(msg.projectPath)) {
+  if (!isPathAllowed(server, msg.projectPath)) {
     server.send(ws, {
       type: "git_remote_status_result",
       ...projectRequestMetadata(msg),
@@ -740,7 +741,7 @@ export async function handleGitRemoteStatus(
       behind: 0,
       branch: "",
       hasUpstream: false,
-      error: server.buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
+      error: buildPathNotAllowedError(msg.projectPath, msg.requestId).message,
     });
     return;
   }
@@ -789,12 +790,12 @@ export async function handleGithubList(
           kind: request.kind,
           number: request.number,
         };
-  if (!server.isPathAllowed(request.projectPath)) {
+  if (!isPathAllowed(server, request.projectPath)) {
     server.send(ws, {
       ...correlation,
       error: {
         code: "failed",
-        message: server.buildPathNotAllowedError(
+        message: buildPathNotAllowedError(
           request.projectPath,
           request.requestId,
         ).message,
