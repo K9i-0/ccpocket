@@ -34,7 +34,9 @@ TextEditingValue renumberOrderedListsInRange(
 
   for (final block in _listBlocks(lines, fencedLines)) {
     if (block.end < firstLine || block.start > lastLine) continue;
-    replacements.addAll(_renumberBlock(lines, block.start, block.end));
+    replacements.addAll(
+      _renumberBlock(lines, block.start, block.end, fencedLines),
+    );
   }
 
   return _applyReplacements(value, replacements);
@@ -55,7 +57,7 @@ TextEditingValue? completeListAfterNewline(TextEditingValue value) {
   final previousLine = beforeNewline.substring(previousLineStart);
   final lines = _linesOf(value.text);
   final previousLineIndex = _lineIndexAt(lines, cursor - 1);
-  if (_fencedLineIndexes(lines).contains(previousLineIndex)) return null;
+  if (_fencedLineIndexes(lines).containsKey(previousLineIndex)) return null;
   final item = _parseListText(previousLine);
   if (item == null) return null;
 
@@ -126,10 +128,13 @@ int _lineIndexAt(List<_Line> lines, int offset) {
   return lines.length - 1;
 }
 
-Set<int> _fencedLineIndexes(List<_Line> lines) {
-  final indexes = <int>{};
+/// Maps every line of a fenced code block, fence markers included, to the
+/// indentation of the fence that opened it.
+Map<int, int> _fencedLineIndexes(List<_Line> lines) {
+  final indexes = <int, int>{};
   String? fenceCharacter;
   var minimumFenceLength = 0;
+  var fenceIndent = 0;
 
   for (var index = 0; index < lines.length; index++) {
     final match = _fencePattern.firstMatch(lines[index].text);
@@ -138,11 +143,12 @@ Set<int> _fencedLineIndexes(List<_Line> lines) {
       final marker = match.group(1)!;
       fenceCharacter = marker[0];
       minimumFenceLength = marker.length;
-      indexes.add(index);
+      fenceIndent = _leadingSpaces(lines[index].text);
+      indexes[index] = fenceIndent;
       continue;
     }
 
-    indexes.add(index);
+    indexes[index] = fenceIndent;
     final closingFence = RegExp(
       '^ {0,3}${RegExp.escape(fenceCharacter)}'
       '{$minimumFenceLength,}[ \\t]*\$',
@@ -155,11 +161,11 @@ Set<int> _fencedLineIndexes(List<_Line> lines) {
   return indexes;
 }
 
-List<_ListBlock> _listBlocks(List<_Line> lines, Set<int> fencedLines) {
+List<_ListBlock> _listBlocks(List<_Line> lines, Map<int, int> fencedLines) {
   final blocks = <_ListBlock>[];
   var index = 0;
   while (index < lines.length) {
-    final firstItem = fencedLines.contains(index)
+    final firstItem = fencedLines.containsKey(index)
         ? null
         : _parseListLine(lines[index]);
     if (firstItem == null) {
@@ -183,19 +189,29 @@ bool _belongsToListBlock(
   _Line line,
   int rootIndent,
   int lineIndex,
-  Set<int> fencedLines,
+  Map<int, int> fencedLines,
 ) {
-  if (fencedLines.contains(lineIndex) || line.text.trim().isEmpty) return false;
+  // A code block indented under a list item is part of that item, so the
+  // list goes on after it. One at the list's own indentation ends the list.
+  final fenceIndent = fencedLines[lineIndex];
+  if (fenceIndent != null) return fenceIndent > rootIndent;
+  if (line.text.trim().isEmpty) return false;
   final item = _parseListLine(line);
   if (item != null) return item.indent.length >= rootIndent;
   return _leadingSpaces(line.text) > rootIndent;
 }
 
-List<_Replacement> _renumberBlock(List<_Line> lines, int start, int end) {
+List<_Replacement> _renumberBlock(
+  List<_Line> lines,
+  int start,
+  int end,
+  Map<int, int> fencedLines,
+) {
   final replacements = <_Replacement>[];
   final counters = <int, _Counter>{};
 
   for (var index = start; index <= end; index++) {
+    if (fencedLines.containsKey(index)) continue;
     final line = lines[index];
     final item = _parseListLine(line);
     if (item == null) continue;

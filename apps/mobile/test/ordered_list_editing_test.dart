@@ -211,6 +211,22 @@ void main() {
       expect(result.text, '1. A\n   ```\n   9. example\n   ```');
     });
 
+    test('continues numbering after a code block indented under an item', () {
+      const input = '1. A\n   ```\n   7. example\n   ```\n1. B\n1. C';
+
+      final result = renumber(input);
+
+      expect(result.text, '1. A\n   ```\n   7. example\n   ```\n2. B\n3. C');
+    });
+
+    test('restarts numbering after a code block at the list indentation', () {
+      const input = '1. A\n```\n7. example\n```\n5. B\n6. C';
+
+      final result = renumber(input);
+
+      expect(result.text, '1. A\n```\n7. example\n```\n1. B\n2. C');
+    });
+
     test('keeps a cursor that sits before the renumbered markers', () {
       const input = '9. A\n10. B\n11. C';
 
@@ -329,6 +345,12 @@ void main() {
       );
 
       expect(result.text, '1. top\n  1. nested parent\n continuation\n2. ');
+    });
+
+    test('continues the parent after a code block when outdenting', () {
+      final result = complete('1. A\n   ```\n   code\n   ```\n  1. \n');
+
+      expect(result.text, '1. A\n   ```\n   code\n   ```\n2. ');
     });
 
     test('outdents one level at a time in a deeply nested list', () {
