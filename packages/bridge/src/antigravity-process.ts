@@ -24,6 +24,16 @@ import type {
   AntigravityCompactionRecord,
   AntigravityPermissionGrants,
 } from "./antigravity-store.js";
+import {
+  ANTIGRAVITY_DEFAULT_PROFILE,
+  SWARM_TOOL_NAMES,
+  type SwarmMember,
+  antigravityAppDataDir,
+  antigravitySwarmDir,
+  readSwarmPosts,
+  readSwarmRoster,
+  swarmFilesSignature,
+} from "./antigravity-swarm.js";
 
 /**
  * Antigravity (`agy acp`) provider process.
@@ -56,6 +66,13 @@ const SELF_TURN_SETTLE_MS = 5_000;
 const FOLLOW_UP_WAIT_MS = 5 * 60_000;
 /** How long to wait for the agent's first word after a background call ends. */
 const WAKE_WAIT_MS = 30_000;
+/** How often a swarm's roster and board are looked at. */
+const SWARM_POLL_MS = 2_000;
+/** Attempts to open a swarm worker's conversation before giving up on it. */
+const SWARM_ATTACH_ATTEMPTS = 3;
+/** The hint `agy` appends for its terminal UI; there is no such shortcut here. */
+const SWARM_BOARD_HINT_RE =
+  /\n*^[ \t]*Run \/swarm board \(default shortcut [^)\n]*\) to open the live board\.[ \t]*$/gm;
 
 export type AntigravityAuthMode = "login" | "api_key";
 
@@ -313,6 +330,22 @@ interface PendingPermission {
     | { kind: "edit" }
     | { kind: "execute"; commandKey: string }
     | { kind: "mcp"; tool: string };
+  /** The swarm worker that asked. Its turns are not this session's turns. */
+  worker?: string;
+}
+
+/** A swarm worker: its own conversation, opened here to hear what it asks for. */
+interface SwarmWorker {
+  name: string;
+  conversationId: string;
+  killed: boolean;
+  working: boolean;
+  attached: boolean;
+  attaching: boolean;
+  attachAttempts: number;
+  /** When it last did something, to tell a live worker from a stale roster. */
+  lastActivityAt: number;
+  lastTool?: string;
 }
 
 /**
@@ -490,6 +523,8 @@ interface ToolCallState {
   timer: boolean;
   /** Still open when its turn ended. */
   background: boolean;
+  /** Shown another way (a board post), so no tool card. */
+  hidden?: boolean;
   /** Built-in `image-generator` subagent call; resolves once the image path arrives. */
   imageGeneration?: { prompt: string };
 }
@@ -1332,13 +1367,28 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private readonly allowedCommands = new Set<string>();
   private readonly allowedMcpTools = new Set<string>();
 
+  private readonly appDataDir: string;
+  private swarmDir: string | undefined;
+  private swarmTimer: ReturnType<typeof setInterval> | null = null;
+  private swarmSignature = "";
+  private swarmLastSeq = 0;
+  /** Swarm workers by conversation id. */
+  private readonly swarmWorkers = new Map<string, SwarmWorker>();
+
   constructor(options?: {
     config?: AntigravityConfig;
     createTransport?: (config: AntigravityConfig) => AcpTransport;
     isImageFile?: (path: string) => boolean;
+    /** `agy`'s data directory, where swarm rosters and boards live. */
+    appDataDir?: string;
   }) {
     super();
     this.config = options?.config ?? getAntigravityConfig();
+    this.appDataDir =
+      options?.appDataDir ??
+      antigravityAppDataDir(
+        this.config.apiKey ? ANTIGRAVITY_API_KEY_PROFILE : ANTIGRAVITY_DEFAULT_PROFILE,
+      );
     this.createTransport =
       options?.createTransport ?? ((config) => new StdioAcpTransport(config));
     this.isImageFile = options?.isImageFile ?? defaultIsImageFile;
@@ -1406,6 +1456,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    * ends in this state is a pause, not the end of the work.
    */
   get expectsFollowUp(): boolean {
+    if (this.activeSwarmWorkers().length > 0) return true;
     let command = false;
     for (const call of this.toolCalls.values()) {
       if (!call.background) continue;
@@ -1645,6 +1696,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     });
     this.setStatus("idle");
     this.resolveReady?.();
+    // A resumed coordinator: its workers ask for approval again once revived.
+    this.watchSwarm(false);
 
     const queued = this.queuedInputs;
     this.queuedInputs = [];
@@ -1666,6 +1719,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.outstandingPrompts = 0;
     this.clearSelfTurn();
     this.clearFollowUpTimer();
+    this.stopSwarmWatch();
     const transport = this.transport;
     this.transport = null;
     transport?.stop();
@@ -1691,7 +1745,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     const selfTurn = this.outstandingPrompts === 0;
     if (!selfTurn) this.cancelRequested = true;
     // ACP requires pending permission requests to be answered as cancelled.
+    // A swarm worker's request belongs to its own turn, which goes on.
     for (const pending of this.pendingPermissions.values()) {
+      if (pending.worker) continue;
       this.respond(pending.requestId, { outcome: { outcome: "cancelled" } });
       const call = this.toolCalls.get(pending.toolUseId);
       if (call) call.rejected = true;
@@ -1702,7 +1758,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         call?.imageGeneration ? "ImageGeneration" : undefined,
       );
     }
-    this.pendingPermissions.clear();
+    this.clearOwnPendingPermissions();
     for (const pending of this.pendingElicitations.values()) {
       this.respond(pending.requestId, { action: "cancel" });
       this.emitToolResult(pending.toolUseId, "Cancelled", "rejected");
@@ -1800,7 +1856,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (this.outstandingPrompts > 0) return;
 
     this.flushAssistant();
-    this.pendingPermissions.clear();
+    this.clearOwnPendingPermissions();
     this.pendingElicitations.clear();
     const sessionId = this._sessionId ?? undefined;
     if (this.contextUsageDirty) this.emitSettings();
@@ -1867,7 +1923,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       void this.requestPlanReview(planArtifact);
       return;
     }
-    this.setStatus("idle");
+    this.setStatus(this.restingStatus());
     this.emit("input_ready");
   }
 
@@ -2077,13 +2133,34 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   }
 
   private resumeRunningIfSettled(): void {
-    if (
-      this.pendingPermissions.size === 0 &&
-      this.pendingElicitations.size === 0 &&
-      this.isTurnActive
-    ) {
-      this.setStatus(this.manualCompacting ? "compacting" : "running");
+    if (this.pendingPermissions.size > 0 || this.pendingElicitations.size > 0) {
+      return;
     }
+    if (this.isTurnActive) {
+      this.setStatus(this.manualCompacting ? "compacting" : "running");
+    } else if (this._status === "waiting_approval" && !this.pendingPlan) {
+      // A swarm worker asked while this session's own turn was over.
+      this.setStatus("idle");
+    }
+  }
+
+  private hasOwnPendingPermissions(): boolean {
+    for (const pending of this.pendingPermissions.values()) {
+      if (!pending.worker) return true;
+    }
+    return false;
+  }
+
+  /** Drops what this session's own turn asked; swarm workers still wait. */
+  private clearOwnPendingPermissions(): void {
+    for (const [id, pending] of this.pendingPermissions) {
+      if (!pending.worker) this.pendingPermissions.delete(id);
+    }
+  }
+
+  /** `idle`, unless a swarm worker is still waiting for an answer. */
+  private restingStatus(): ProcessStatus {
+    return this.pendingPermissions.size > 0 ? "waiting_approval" : "idle";
   }
 
   /**
@@ -2137,6 +2214,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
             : "antigravity_terminal",
         ...(call.imageGeneration ? { subagentType: "image-generator" } : {}),
         ...(call.description ? { description: call.description } : {}),
+      });
+    }
+    for (const worker of this.activeSwarmWorkers()) {
+      tasks.push({
+        taskId: `swarm:${worker.name}`,
+        taskType: "antigravity_agent",
+        subagentType: "swarm",
+        description: `Swarm: ${worker.name}`,
+        // What it is doing now; clients show it after the description.
+        ...(worker.lastTool ? { summary: worker.lastTool } : {}),
       });
     }
     const key = JSON.stringify(tasks);
@@ -2210,7 +2297,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.selfTurnTimer = setTimeout(() => {
       this.selfTurnTimer = null;
       if (
-        this.pendingPermissions.size > 0 ||
+        this.hasOwnPendingPermissions() ||
         this.pendingElicitations.size > 0
       ) {
         return;
@@ -2248,7 +2335,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         this.closeOldestPendingImageGeneration("failed");
       }
     }
-    this.pendingPermissions.clear();
+    this.clearOwnPendingPermissions();
     this.pendingElicitations.clear();
     this.dropSettledToolCalls(
       subtype !== "interrupted",
@@ -2275,7 +2362,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       });
     }
     this.planArtifact = null;
-    this.setStatus("idle");
+    this.setStatus(this.restingStatus());
     this.emit("input_ready");
   }
 
@@ -2341,6 +2428,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.bypass = bypass;
     this.applyPermissionMode(mode);
     if (bypass) this.allowPendingPermissions();
+    for (const worker of this.swarmWorkers.values()) {
+      if (worker.attached && !worker.killed) void this.mirrorModeToWorker(worker);
+    }
   }
 
   private applyPermissionMode(mode: PermissionMode): void {
@@ -2439,6 +2529,198 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
   }
 
+  // ---- swarm --------------------------------------------------------------
+
+  /**
+   * Starts following this session's swarm. `live` is false for a session that
+   * may have had one before it was resumed: its old posts are history, and
+   * its roster may still call workers busy that stopped with the last run.
+   */
+  private watchSwarm(live: boolean): void {
+    if (this.swarmTimer || this.stopped || !this._sessionId) return;
+    const dir = antigravitySwarmDir(this.appDataDir, this._sessionId);
+    if (!dir) return;
+    if (!live) {
+      if (!readSwarmRoster(dir)) return;
+      this.swarmLastSeq = readSwarmPosts(dir, 0).at(-1)?.seq ?? 0;
+    }
+    this.swarmDir = dir;
+    this.swarmSignature = "";
+    this.swarmTimer = setInterval(() => this.syncSwarm(), SWARM_POLL_MS);
+    this.swarmTimer.unref?.();
+    this.syncSwarm(!live);
+  }
+
+  private stopSwarmWatch(): void {
+    if (this.swarmTimer) clearInterval(this.swarmTimer);
+    this.swarmTimer = null;
+  }
+
+  /** Workers in a turn right now, as far as can be told. */
+  private activeSwarmWorkers(): SwarmWorker[] {
+    const since = Date.now() - FOLLOW_UP_WAIT_MS;
+    return [...this.swarmWorkers.values()].filter(
+      (worker) => worker.working && !worker.killed && worker.lastActivityAt > since,
+    );
+  }
+
+  private syncSwarm(stale = false): void {
+    if (!this.swarmDir || this.stopped) return;
+    const signature = swarmFilesSignature(this.swarmDir);
+    if (signature && signature !== this.swarmSignature) {
+      const roster = readSwarmRoster(this.swarmDir);
+      // Unreadable while it is rewritten: keep the signature so it is retried.
+      if (roster) {
+        this.swarmSignature = signature;
+        this.applySwarmRoster(roster.members, stale);
+        for (const post of readSwarmPosts(this.swarmDir, this.swarmLastSeq)) {
+          this.swarmLastSeq = post.seq;
+          // A brief is already on the `swarm add` card.
+          if (post.kind !== "brief") this.emitSwarmPost(post);
+        }
+      }
+    }
+    for (const worker of this.swarmWorkers.values()) {
+      if (
+        !worker.killed &&
+        !worker.attached &&
+        !worker.attaching &&
+        worker.attachAttempts < SWARM_ATTACH_ATTEMPTS
+      ) {
+        void this.attachSwarmWorker(worker);
+      }
+    }
+    // Also when nothing changed: a worker stops counting as busy with time.
+    this.emitBackgroundTasks();
+  }
+
+  private applySwarmRoster(members: SwarmMember[], stale: boolean): void {
+    for (const member of members) {
+      if (member.conversationId === this._sessionId) continue;
+      let worker = this.swarmWorkers.get(member.conversationId);
+      if (!worker) {
+        worker = {
+          name: member.name,
+          conversationId: member.conversationId,
+          killed: member.killed,
+          working: member.working,
+          attached: false,
+          attaching: false,
+          attachAttempts: 0,
+          // A roster read on resume says "working" for workers that stopped
+          // with the last run; they count once they are heard from.
+          lastActivityAt: stale ? 0 : Date.now(),
+        };
+        this.swarmWorkers.set(member.conversationId, worker);
+        continue;
+      }
+      if (member.working && !worker.working && !stale) {
+        worker.lastActivityAt = Date.now();
+      }
+      worker.name = member.name;
+      worker.killed = member.killed;
+      worker.working = member.working;
+      if (!member.working) worker.lastTool = undefined;
+    }
+  }
+
+  /**
+   * Opens a worker's conversation on this connection. Until then its
+   * permission requests reach nobody and time out, and it gives up.
+   */
+  private async attachSwarmWorker(worker: SwarmWorker): Promise<void> {
+    worker.attaching = true;
+    worker.attachAttempts++;
+    try {
+      await this.request("session/resume", {
+        sessionId: worker.conversationId,
+        cwd: this.cwd,
+        mcpServers: [],
+      });
+      worker.attached = true;
+      await this.mirrorModeToWorker(worker);
+    } catch (err) {
+      if (!this.stopped) {
+        console.warn(
+          `[antigravity] Could not open swarm worker ${worker.name}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    } finally {
+      worker.attaching = false;
+    }
+  }
+
+  /** Workers start in `default` whatever mode the coordinator is in. */
+  private async mirrorModeToWorker(worker: SwarmWorker): Promise<void> {
+    // Bypass answers requests here; plan mode is for the coordinator's plan.
+    const mode =
+      !this.bypass &&
+      (this._permissionMode === "acceptEdits" || this._permissionMode === "auto")
+        ? this._permissionMode
+        : "default";
+    const modeId = acpModeFromPermissionMode(mode);
+    if (!modeId || this.stopped) return;
+    try {
+      await this.request("session/set_mode", {
+        sessionId: worker.conversationId,
+        modeId,
+      });
+    } catch {
+      // The worker keeps asking, which is safe.
+    }
+  }
+
+  private noteSwarmWorkerUpdate(
+    conversationId: string,
+    update: Record<string, unknown>,
+  ): void {
+    const worker = this.swarmWorkers.get(conversationId);
+    if (!worker) return;
+    worker.lastActivityAt = Date.now();
+    if (update.sessionUpdate !== "tool_call") return;
+    const title = stringOr(update.title);
+    if (!title || title === worker.lastTool) return;
+    worker.lastTool = title;
+    // The roster is only read every few seconds; the worker is plainly busy.
+    worker.working = true;
+    this.emitBackgroundTasks();
+  }
+
+  /** A board post, as a tool card every client can already show. */
+  private emitSwarmPost(post: { seq: number; agent: string; text: string; time?: string }): void {
+    this.flushAssistant();
+    const toolUseId = `swarm-post:${this._sessionId}:${post.seq}`;
+    this.emitMessage({
+      type: "assistant",
+      message: {
+        id: toolUseId,
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: toolUseId,
+            name: "SwarmPost",
+            input: {
+              seq: post.seq,
+              agent: post.agent,
+              text: post.text,
+              ...(post.time ? { time: post.time } : {}),
+            },
+          },
+        ],
+        model: this._model ?? "antigravity",
+      },
+    });
+    this.emitMessage({
+      type: "tool_result",
+      toolUseId,
+      content: post.text,
+      toolName: "SwarmPost",
+    });
+  }
+
   // ---- incoming -----------------------------------------------------------
 
   private handleIncoming(message: Record<string, unknown>): void {
@@ -2466,17 +2748,36 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
 
     const params = isRecord(message.params) ? message.params : {};
+    // Swarm workers are conversations of their own, opened on this
+    // connection. What they do is not this session's turn.
+    const from = stringOr(params.sessionId);
+    const foreign = !!from && !!this._sessionId && from !== this._sessionId;
     if (method === "session/update") {
-      if (isRecord(params.update)) this.handleUpdate(params.update);
+      if (foreign) {
+        if (isRecord(params.update)) this.noteSwarmWorkerUpdate(from, params.update);
+      } else if (isRecord(params.update)) {
+        this.handleUpdate(params.update);
+      }
       return;
     }
     if (typeof id !== "number" && typeof id !== "string") return;
     if (method === "session/request_permission") {
-      this.noteAgentActivity();
-      this.handlePermissionRequest(id, params);
+      if (foreign) {
+        const worker = this.swarmWorkers.get(from);
+        if (worker) worker.lastActivityAt = Date.now();
+        this.handlePermissionRequest(id, params, worker?.name ?? "worker");
+      } else {
+        this.noteAgentActivity();
+        this.handlePermissionRequest(id, params);
+      }
       return;
     }
     if (method === "elicitation/create") {
+      if (foreign) {
+        // Workers answer to the coordinator, which is who asks the user.
+        this.respond(id, { action: "decline" });
+        return;
+      }
       this.noteAgentActivity();
       this.handleElicitation(id, params);
       return;
@@ -2666,6 +2967,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       }
       if (!this.replaying) this.turnToolCalls++;
       const timer = stringOr(update.name) === "schedule";
+      const swarmTool = SWARM_TOOL_NAMES.has(stringOr(update.name));
+      if (swarmTool && !this.replaying) this.watchSwarm(true);
+      // The post itself is shown from the board, in order with the others.
+      const hidden =
+        stringOr(update.name) === "post_message" &&
+        !this.replaying &&
+        this.swarmTimer !== null;
       const imageGen = isImageGeneratorSubagent(update);
       const imagePrompt = imageGen
         ? summarizeImagePrompt(stringOr(rawInput.Prompt))
@@ -2684,17 +2992,20 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         timer,
         background: false,
         ...(imageGen ? { imageGeneration: { prompt: imagePrompt } } : {}),
+        ...(hidden ? { hidden } : {}),
       };
       this.toolCalls.set(toolUseId, call);
-      this.emitMessage({
-        type: "assistant",
-        message: {
-          id: toolUseId,
-          role: "assistant",
-          content: [{ type: "tool_use", id: toolUseId, name: toolName, input }],
-          model: this._model ?? "antigravity",
-        },
-      });
+      if (!hidden) {
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: toolUseId,
+            role: "assistant",
+            content: [{ type: "tool_use", id: toolUseId, name: toolName, input }],
+            model: this._model ?? "antigravity",
+          },
+        });
+      }
     } else if (isNew) {
       return;
     }
@@ -2715,6 +3026,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.notePlanArtifact(update);
     }
     if (call.rejected) return;
+    if (SWARM_TOOL_NAMES.has(call.toolName) && !this.replaying) {
+      // The roster and the board change with these calls.
+      this.syncSwarm();
+    }
+    if (call.hidden) return;
 
     let content: string;
     if (call.imageGeneration) {
@@ -2825,6 +3141,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private handlePermissionRequest(
     requestId: number | string,
     params: Record<string, unknown>,
+    worker?: string,
   ): void {
     const toolCall = isRecord(params.toolCall) ? params.toolCall : {};
     const toolUseId = stringOr(toolCall.toolCallId) || `permission-${requestId}`;
@@ -2904,6 +3221,22 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       input = { ...(known?.input ?? rawInput), availableDecisions };
     }
 
+    if (worker) {
+      // The worker's own tool calls are not shown, so nothing has introduced
+      // this one yet.
+      input = { ...input, swarmWorker: worker };
+      const { availableDecisions: _decisions, ...shown } = input;
+      this.flushAssistant();
+      this.emitMessage({
+        type: "assistant",
+        message: {
+          id: toolUseId,
+          role: "assistant",
+          content: [{ type: "tool_use", id: toolUseId, name: toolName, input: shown }],
+          model: this._model ?? "antigravity",
+        },
+      });
+    }
     this.pendingPermissions.set(toolUseId, {
       requestId,
       toolUseId,
@@ -2911,6 +3244,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       input,
       options,
       ...(sessionGrant ? { sessionGrant } : {}),
+      ...(worker ? { worker } : {}),
     });
     // Status first: the session summary broadcast with the request must
     // already say "waiting_approval", or clients drop the approval again.
@@ -2960,7 +3294,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.emitToolResult(pending.toolUseId, "Approved", outcome);
     }
     this.resumeRunningIfSettled();
-    if (outcome === "rejected") this.armSelfTurnEnd();
+    if (outcome === "rejected" && !pending.worker) this.armSelfTurnEnd();
     return true;
   }
 
@@ -3160,7 +3494,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private flushAssistant(): boolean {
     const thinking = this.thinkingBuffer.trim();
-    const text = this.textBuffer.trim();
+    const text = this.textBuffer.replace(SWARM_BOARD_HINT_RE, "").trim();
     this.thinkingBuffer = "";
     this.textBuffer = "";
     if (!thinking && !text) return false;
@@ -3318,6 +3652,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       return;
     }
     this.transport = null;
+    this.stopSwarmWatch();
     this.pendingPermissions.clear();
     this.pendingElicitations.clear();
     this.pendingPlan = null;

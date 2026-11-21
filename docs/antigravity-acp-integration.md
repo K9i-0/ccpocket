@@ -202,6 +202,77 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - 質問フォームが表示され、回答が `agy` に渡って応答が返った。使用量バー（時間・トークン・コンテキスト）も出た。
 - plan モードで計画書（`math_subtract_plan.md`）が書かれたあとプラン承認が出て、承認すると承認文がユーザー発言として表示され、`default` に戻って実装（ファイル編集の承認つき）まで進んだ。
 
+## Swarm（`/swarm`、2026-11-21、APIキー、agy 1.5.13）
+
+`/swarm` は組み込みスキル `native_swarm`（`<プロファイル>/builtin/skills/native_swarm/SKILL.md`）を読み込み、会話を「coordinator」にする。coordinator は `swarm`（`add` / `status` / `kill` / `title` / `model`）、`post_message`、`read_board`、`swarm_wait` の4ツールで worker を増やし、共有ボードでやり取りする。worker は **それぞれ別の会話**として同じ `agy` プロセス内で動く。
+
+トレース: [trace-swarm.ndjson](antigravity-acp/trace-swarm.ndjson)（worker 1人。coordinator のターン終了後に worker の会話を `session/resume` し、worker の承認要求と更新が届くところ）
+
+### ACP で見えるもの・見えないもの
+
+- coordinator のツール呼び出しは `kind: other`、`title: "Run swarm"` などで届き、`rawInput` に引数が入る。**結果（`rawOutput` / `content`）は付かない**ので、worker の一覧も会話IDもボードの中身も ACP からは分からない。
+- `swarm add` のあと coordinator のターンは `end_turn` で終わる（`swarm_wait` も即 `completed` になり、ターンを保持しない）。worker がボードに投稿すると、`agy` が coordinator を起こして自発ターンが始まる（`schedule` と同じ形。上の「自発的なターン」）。
+- **worker の `session/request_permission` と `session/update` は、coordinator の接続には届かない。** `agy` 側では承認待ちが 60 秒でタイムアウトし、worker は「承認プロンプトがタイムアウトした」とボードに書いて止まる。ccpocket で swarm が「止まって見える」原因はこれ。
+- **worker は coordinator のモードを引き継がない。** coordinator を `accept-edits` にしても、worker は `default` のまま承認を求めて止まる。
+- worker の会話は `session/list` に出ない。
+- **同じ接続で worker の会話を `session/resume` すると、その worker の更新と承認要求が worker の `sessionId` 付きで届く。** 承認に応答すると worker は先へ進み、swarm が完走する。`session/set_mode` も worker の会話に効く（`accept-edits` にすると承認なしで書き込む）。
+- coordinator の返答の末尾に `Run /swarm board (default shortcut alt+s) to open the live board.` が付く。CLI の画面用の案内で、ACP クライアントには対応する操作がない。
+
+### 判断: swarm の名簿とボードのファイルを読む（2026-11-21、所有者の決定）
+
+worker の会話IDとボードの投稿は、swarm プラグインが自分の表示に使っているファイルにしかない（`builtin/plugins/swarm/sidecars/swarm_board/README.md` が読み取り元として明記している）。
+
+```
+~/.gemini/<プロファイル>/brain/<coordinator の会話ID>/.system_generated/swarm/
+  members.json   名簿（name → conversation_id / role / wake_mode / killed）
+  board.jsonl    ボード（1行1投稿: seq / agent / text / time / kind）
+```
+
+Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メンバーの `logs/transcript.jsonl`、`view.json`、その他の内部ファイルは読まない（利用量でログや内部 API を読まないのと同じ線引き。ここで読むのは、プラグインの README がデータの契約として書いている2つに限る）。プロファイルは APIキー認証なら `antigravity-cli-ccpocket-apikey`、Google ログインなら `antigravity-cli`。
+
+形式が変わって読めなくなった場合は、swarm なしのセッションと同じ動き（worker に接続しない＝ `agy` 素の挙動）に戻るだけで、通常のセッションには影響しない。
+
+### Bridge の動き（[antigravity-swarm.ts](../packages/bridge/src/antigravity-swarm.ts)、`antigravity-process.ts` の swarm 節）
+
+- **開始の検知**: swarm 系4ツールのどれかを見たら、そのセッションの swarm ディレクトリを 2 秒おきに見る（2ファイルの更新時刻とサイズが変わったときだけ読む）。再開したセッションは、名簿があれば起動直後から見る。
+- **worker への接続**: 名簿にいて `killed` でないメンバーの会話を `session/resume` する（1人3回まで試す）。接続後、coordinator が `acceptEdits` / `auto` なら worker にも同じモードを `session/set_mode` する。モードを変えたときも揃え直す。`plan` と `bypassPermissions` のとき worker は `default`（`plan` は coordinator の計画用、bypass は Bridge が応答する）。
+- **振り分け**: `params.sessionId` が自分の会話でない `session/update` は、coordinator の会話には流さない（worker の本文・思考・モード変更・コマンド一覧・タイトルで coordinator の状態が書き換わらないようにする）。worker の「いま使っているツール」だけを稼働状況として使う。
+- **承認の中継**: worker の `session/request_permission` は coordinator のセッションの承認として出す。worker のツール呼び出しは表示していないので、承認の前に `tool_use` を1つ出し、`input.swarmWorker` に worker 名を入れる。セッション内の「常に許可」と bypass は worker の要求にも効く。worker の承認待ちは coordinator のターン終了や中断では消さない（worker のターンは別に続いている）。coordinator がアイドルのときに届くとセッションは `waiting_approval` になり、応答すると `idle` に戻る。
+- **worker からの質問**（`elicitation/create`）は `decline` を返す。ユーザーに聞くのは coordinator の役目。
+- **稼働状況**: 名簿の `wake_mode` が `working` で、直近 5 分以内に動きのあった worker を `background_tasks` に `taskType: "antigravity_agent"`、`subagentType: "swarm"`、`description: "Swarm: <名前>"`（`summary` に実行中のツール）で出す。その間 `expectsFollowUp` が真になり、完了通知を保留する。再開直後の名簿は前回の `working` が残っていることがあるので、接続後に動きが届くまでは数えない。
+- **ボード**: 新しい投稿を `tool_use`（`name: "SwarmPost"`、`input: {seq, agent, text, time}`）と、本文を入れた `tool_result` の組で出す。`kind: "brief"`（`swarm add` の brief の写し）は `swarm add` のカードと重なるので出さない。coordinator 自身の `post_message` は、ボードを見ている間はカードを出さず、ボードの投稿として1回だけ出す。再開時は過去の投稿を出し直さない。
+- **CLI 用の案内文**は確定した返答から取り除く（ストリーミング中の一時表示には残る）。
+
+### アプリ
+
+- `SwarmPost` はツールカードではなく、投稿者名と本文のカード（[swarm_post_card.dart](../apps/mobile/lib/widgets/bubbles/swarm_post_card.dart)）で出す。対になる結果は表示しない。Lite モードでも残す。
+- 承認バーとセッションカードの承認欄に `Swarm worker: <名前>` を出す。ツール行の要約は `[<名前>] …` で始める。
+- `swarm` ツールの行は `add <名前>` / `status` のように要約する。
+
+### 互換性
+
+- プロトコルの追加はない。`SwarmPost` は通常の `tool_use` / `tool_result` なので、**古いアプリ**でも汎用のツールカード（名前と JSON、結果に本文）として読める。`swarmWorker` は知らないキーとして無視される。稼働状況は既存の `background_tasks` に載る。
+- **新しいアプリ + 古い Bridge**: `SwarmPost` も `swarmWorker` も届かないので、これまでどおり（worker は承認待ちで止まる）。
+
+### 確認したこと
+
+- 既定モードで worker 2人: 承認が worker 名つきで届き、許可すると完走（APIキー、テスト用 Bridge に WebSocket で接続）。ボードの投稿が順に届き、案内文が消えることも同時に確認。
+- `accept-edits` を worker に揃えると承認なしで完走（プローブ `--attach-swarm --mode accept-edits`）。
+- 未確認: Google ログインの `auto` で worker がどう動くか（`auto` は APIキーで選べない）。narrator / monitor 付きの swarm、チャンネル分割、`workspace: "share"`（worker ごとの作業コピー）、worker が 10 人を超える規模。
+
+### 他の組み込みスキル（`<プロファイル>/builtin/skills/`、agy 1.5.13）
+
+スラッシュコマンドとして届くのは `swarm`、`run-workflow`、`agy-customizations`、`antigravity-guide` と、CLI 自身のコマンド（`goal` / `compact` / `schedule` / `browser` / `plan` / `grill-me` / `learn`）。それ以外は `disable-slash-command` か、モデルが必要時に読むだけ。
+
+| スキル | 何をするか | ccpocket での状態 |
+|---|---|---|
+| `swarm`（`native_swarm`） | 複数の会話を並行で動かす | 上のとおり対応 |
+| `swarm_narrator` / `swarm_monitor` / `swarm_pane` | swarm の特定の worker 用。Overview（`view.json` / `view.html`）を作る | 追加対応なし。worker として接続され、承認は届く。Overview の表示は CLI / IDE のペイン専用で、ccpocket には出ない |
+| `run-workflow` | Python スクリプトで複数エージェントを起動する `run_workflow` ツール | **未対応**。`run_workflow` 自体の承認は届くが、既定モードでは起動したエージェントが 100 秒たってもファイルを書けなかった（swarm の worker と同じく、子エージェントの承認が届いていないと見られる）。子の会話IDは swarm の名簿のような形では取れない |
+| `generative_ui` / `ui-plugin-navigation` / `mcp-app-development` | IDE のチャット内ウィジェットやサイドペイン | クライアント側の画面が要る。ccpocket では文章としての説明だけが出る |
+| `automation` | 定期実行の自動化を対話で作る | 通常の会話として動く（作った自動化の実行は `agy` 側） |
+| `agy-customizations` / `antigravity-guide` / `plugin` / `migrate-agent-settings` / `migrate-workflows` / `permissioned-github` | 説明・設定ファイルの作成 | 通常のツール（読み書き・コマンド）だけで動くので、追加対応は不要 |
+
 ## 未検証
 
 - 無料枠の APIキーで `agy` が動くか
@@ -309,6 +380,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 | `agy` 自身の「常に許可」 | 承認の選択肢に `allow_always` が出ない。いまは Bridge がセッション内で代行している | `session/request_permission` の `options` に `allow_always` が出るか | 出れば `approveAlways` がそのまま使う（実装済み） |
 | セッションの改名・削除 | `session/set_title`、`session/delete` が `-32601`。名前はいま Bridge が `~/.ccpocket/antigravity-sessions.json` に持つ | メソッドを直接呼ぶ | `renameSession`、`antigravity-store.ts` |
 | APIキーでの `auto` モード | APIキー認証では `auto` が一覧に出ない（OS のターミナルサンドボックスが必要） | APIキーのプロファイルで `session/new` の `modes` を見る | 対応不要（一覧に出れば自動で選べる） |
+| swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」） | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
+| `run_workflow` の子エージェントの承認 | 子エージェントの承認要求が届かず、会話IDも取れない | 既定モードで `/run-workflow` の子エージェントにファイルを書かせる | swarm と同じく子の会話を `session/resume` する |
 
 確認には `scripts/antigravity-acp-probe.mjs`（APIキー）を使う。プロンプトを送らない確認（`initialize`、`session/new`、メソッドの有無）は既定プロファイルでもよい。
 
