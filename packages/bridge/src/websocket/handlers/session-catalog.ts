@@ -7,6 +7,7 @@ import { resolvePlatformPath } from "../../path-utils.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
 import { isPathAllowed, buildPathNotAllowedError } from "../file-access.js";
+import { enrichRecentSessionWorkspace } from "../recent-sessions.js";
 
 export async function handleListSessions(
   server: BridgeWebSocketServer,
@@ -84,7 +85,7 @@ export async function handleResolveSessionLink(
         (session) => session.sessionId === msg.sessionId,
       );
       recentSession = found
-        ? (server.enrichRecentSessionWorkspace(found) as Record<
+        ? (enrichRecentSessionWorkspace(server, found) as Record<
             string,
             unknown
           >)
