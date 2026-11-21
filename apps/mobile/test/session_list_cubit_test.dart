@@ -416,6 +416,29 @@ void main() {
         expect(mockBridge.sentMessages, isEmpty);
       });
 
+      test('confirmations of quick toggles do not reload the list', () async {
+        final a = _session(id: 'a', projectPath: '/a/proj1');
+        final b = _session(id: 'b', projectPath: '/a/proj1');
+        cubit.refresh();
+        mockBridge.emitSessions([a, b]);
+        await Future<void>.delayed(Duration.zero);
+        await cubit.toggleRecentSessionPinned(a);
+        await cubit.toggleRecentSessionPinned(b);
+        mockBridge.sentMessages.clear();
+
+        const pinA = (provider: 'claude', sessionId: 'a', projectPath: '/x');
+        const pinB = (provider: 'claude', sessionId: 'b', projectPath: '/x');
+        // The confirmation of the first toggle does not know the second yet.
+        mockBridge.emitPins(sessions: [pinA]);
+        await Future<void>.delayed(Duration.zero);
+        mockBridge.emitPins(sessions: [pinA, pinB]);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.isRecentSessionPinned(a), isTrue);
+        expect(cubit.isRecentSessionPinned(b), isTrue);
+        expect(mockBridge.sentOfType('list_recent_sessions'), isEmpty);
+      });
+
       test('toggles are sent to the Bridge', () async {
         final session = _session(id: 'pinned', projectPath: '/a/proj1');
 

@@ -230,10 +230,15 @@ class SessionListCubit extends Cubit<SessionListState> {
     if (projectsChanged) {
       unawaited(_persistStringSet(_pinnedProjectPathsKey, projectPaths));
     }
-    // A pin added elsewhere may be outside the loaded pages, and pins define
-    // the pinned-only result set.
-    final addedSession = newIdentities.difference(oldIdentities).isNotEmpty;
-    if (_hasRequestedList && (addedSession || state.filters.pinnedOnly)) {
+    // Pins define the pinned-only result set, and a pin added elsewhere may
+    // be outside the loaded pages. A pin on a loaded session needs no
+    // request (re-requesting would drop the loaded pages).
+    final loaded = state.sessions.map(recentSessionPinIdentity).toSet();
+    final addedUnloaded = newIdentities
+        .difference(oldIdentities)
+        .difference(loaded)
+        .isNotEmpty;
+    if (_hasRequestedList && (addedUnloaded || state.filters.pinnedOnly)) {
       _requestWithCurrentFilters();
     }
   }

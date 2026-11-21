@@ -148,6 +148,44 @@ void main() {
     ]);
   });
 
+  test('pins stay on the device with a Bridge without shared pins', () async {
+    for (final type in ['get_pins', 'set_session_pin', 'set_project_pin']) {
+      fixture.on(
+        type,
+        (_) => [
+          {
+            'type': 'error',
+            'errorCode': 'unsupported_message',
+            'message': type,
+          },
+        ],
+      );
+    }
+    final errors = <Object>[];
+    final sub = bridge.messages.listen(errors.add);
+    await loadInitialList();
+
+    await app.act('togglePinned', {'sessionId': 'x1'});
+    await app.precondition(
+      'x1 pinned',
+      (s) => (s['sessions']! as List).any(
+        (e) => (e as Map)['id'] == 'x1' && e['pinned'] == true,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await sub.cancel();
+
+    expect(
+      fixture.received.map((r) => r['type']),
+      containsAll(['get_pins', 'set_session_pin']),
+    );
+    expect(errors, isEmpty);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList('session_list_pinned_session_keys_v1'), [
+      'codex\n/work/app\nx1',
+    ]);
+  });
+
   test('a failed list request ends loading instead of spinning', () async {
     fixture.on(
       'list_recent_sessions',

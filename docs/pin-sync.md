@@ -77,14 +77,16 @@ as `get_pins.seed` on every connect:
   `session_list_pinned_project_paths_v1`) is now a copy of what the device
   last saw: shown before the Bridge answers, used with a Bridge that has no
   shared pins, and offered as the seed.
-- When `pins` adds a session pin, the first page is requested again because
-  the session may be outside the loaded pages.
+- When `pins` adds a pin for a session that is not among the loaded ones, the
+  first page is requested again so the Bridge returns it. A pin on a loaded
+  session needs no request, and with the pinned-only filter every change
+  re-requests.
 - Each Bridge has its own pins. After switching to another Bridge the app
   shows that Bridge's pins once it answers; a Bridge that is still unseeded
   adopts the pins the app last saw.
 
 Known limit: two quick toggles can briefly show the first one's confirmed
-state before the second confirmation arrives.
+state before the second confirmation arrives. The list is not reloaded for it.
 
 ## Compatibility
 
