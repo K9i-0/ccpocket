@@ -571,4 +571,470 @@ Binary files a/image.png and b/image.png differ
       expect(files[1].stats, (added: 2, removed: 0));
     });
   });
+
+  group('parseDiff headerless file path extraction', () {
+    test('prefers the new path when old and new paths differ', () {
+      const diff = '''
+--- a/lib/old_name.dart
++++ b/lib/new_name.dart
+@@ -1 +1 @@
+-old
++new
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'lib/new_name.dart');
+      expect(file.isNewFile, isFalse);
+      expect(file.isDeleted, isFalse);
+    });
+
+    test('reads paths that have no a/ b/ prefixes', () {
+      const diff = '''
+--- /dev/null
++++ lib/new.dart
+@@ -0,0 +1 @@
++hello
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'lib/new.dart');
+      expect(file.isNewFile, isTrue);
+      expect(file.isDeleted, isFalse);
+    });
+
+    test('falls back to the old path for a deleted file', () {
+      const diff = '''
+--- a/lib/gone.dart
++++ /dev/null
+@@ -1,2 +0,0 @@
+-line 1
+-line 2
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'lib/gone.dart');
+      expect(file.isDeleted, isTrue);
+      expect(file.isNewFile, isFalse);
+      expect(file.stats, (added: 0, removed: 2));
+    });
+
+    test('decodes a quoted escaped old path for a deleted file', () {
+      const diff = r'''
+--- "a/docs/\343\201\202\343\201\204\343\201\206.md"
++++ /dev/null
+@@ -1 +0,0 @@
+-hello
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'docs/あいう.md');
+      expect(file.isDeleted, isTrue);
+      expect(file.isNewFile, isFalse);
+    });
+
+    test('falls back to an old path without the a/ prefix', () {
+      const diff = '''
+--- lib/gone.dart
++++ /dev/null
+@@ -1 +0,0 @@
+-bye
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'lib/gone.dart');
+      expect(file.isDeleted, isTrue);
+    });
+
+    test('decodes a quoted escaped new path', () {
+      const diff = r'''
+--- /dev/null
++++ "b/docs/\347\251\272 \347\231\275.md"
+@@ -0,0 +1 @@
++hello
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'docs/空 白.md');
+      expect(file.isNewFile, isTrue);
+    });
+
+    test('never reports /dev/null as the file path', () {
+      const diff = '''
+--- /dev/null
++++ /dev/null
+@@ -0,0 +0,0 @@
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, isEmpty);
+      expect(file.isNewFile, isTrue);
+      expect(file.isDeleted, isTrue);
+    });
+
+    test('leaves the path empty when there are no file headers', () {
+      final file = parseDiff('-old\n+new').single;
+
+      expect(file.filePath, isEmpty);
+      expect(file.isNewFile, isFalse);
+      expect(file.isDeleted, isFalse);
+    });
+
+    test('ignores added lines that look like file headers', () {
+      const diff = '''
+--- a/notes.md
++++ b/notes.md
+@@ -1 +1,4 @@
+ title
++++ b/other.md
++++ "b/quoted.md"
++++ plain.md
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'notes.md');
+      expect(file.hunks.single.lines.map((l) => l.content), [
+        'title',
+        '++ b/other.md',
+        '++ "b/quoted.md"',
+        '++ plain.md',
+      ]);
+      expect(file.stats, (added: 3, removed: 0));
+    });
+
+    test('does not split a single diff on a removed "-- " comment line', () {
+      const diff = '''
+--- a/schema.sql
++++ b/schema.sql
+@@ -1,2 +1,2 @@
+--- old comment
++-- new comment
+ select 1;
+''';
+      final files = parseDiff(diff);
+
+      expect(files, hasLength(1));
+      expect(files[0].filePath, 'schema.sql');
+      expect(files[0].stats, (added: 1, removed: 1));
+      expect(files[0].hunks.single.lines[0].content, '-- old comment');
+      expect(files[0].hunks.single.lines[1].content, '-- new comment');
+    });
+  });
+
+  group('parseDiff git path decoding', () {
+    test('decodes control-character and quote escapes in quoted paths', () {
+      const diff = r'''
+diff --git "a/dir/tab\there \"q\" back\\slash\nnl\rcr.txt" "b/dir/tab\there \"q\" back\\slash\nnl\rcr.txt"
+--- "a/dir/tab\there \"q\" back\\slash\nnl\rcr.txt"
++++ "b/dir/tab\there \"q\" back\\slash\nnl\rcr.txt"
+@@ -1 +1 @@
+-a
++b
+''';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'dir/tab\there "q" back\\slash\nnl\rcr.txt');
+    });
+
+    test('decodes an escape that sits near the end of a quoted path', () {
+      const diff = r'''
+--- /dev/null
++++ "b/a\tb"
+@@ -0,0 +1 @@
++x
+''';
+
+      expect(parseDiff(diff).single.filePath, 'a\tb');
+    });
+
+    test('decodes an octal escape at the very end of a quoted path', () {
+      const diff = r'''
+--- /dev/null
++++ "b/docs/\343\201\202"
+@@ -0,0 +1 @@
++x
+''';
+
+      expect(parseDiff(diff).single.filePath, 'docs/あ');
+    });
+
+    test('keeps a trailing lone backslash instead of failing', () {
+      const diff = r'''
+--- /dev/null
++++ odd\
+@@ -0,0 +1 @@
++x
+''';
+
+      expect(parseDiff(diff).single.filePath, r'odd\');
+    });
+  });
+
+  group('parseDiff hunk lines', () {
+    test('skips "\\ No newline at end of file" markers', () {
+      const diff = r'''
+--- a/x.txt
++++ b/x.txt
+@@ -1,2 +1,2 @@
+ keep
+-old
+\ No newline at end of file
++new
+\ No newline at end of file
+''';
+      final lines = parseDiff(diff).single.hunks.single.lines;
+
+      expect(lines.map((l) => l.type), [
+        DiffLineType.context,
+        DiffLineType.deletion,
+        DiffLineType.addition,
+      ]);
+      expect(lines.map((l) => l.content), ['keep', 'old', 'new']);
+      expect(lines[1].oldLineNumber, 2);
+      expect(lines[2].newLineNumber, 2);
+    });
+
+    test('treats an unprefixed line inside a hunk as context', () {
+      const diff = '''
+--- a/x.txt
++++ b/x.txt
+@@ -3,1 +3,2 @@
+unprefixed
++added
+''';
+      final lines = parseDiff(diff).single.hunks.single.lines;
+
+      expect(lines, hasLength(2));
+      expect(lines[0].type, DiffLineType.context);
+      expect(lines[0].content, 'unprefixed');
+      expect(lines[0].oldLineNumber, 3);
+      expect(lines[0].newLineNumber, 3);
+      expect(lines[1].type, DiffLineType.addition);
+      expect(lines[1].newLineNumber, 4);
+    });
+
+    test('excludes file headers from raw lines without hunk headers', () {
+      const diff = '--- a/lib/a.dart\n+++ b/lib/a.dart\n-old\n+new\n same';
+      final file = parseDiff(diff).single;
+      final lines = file.hunks.single.lines;
+
+      expect(file.filePath, 'lib/a.dart');
+      expect(lines.map((l) => l.type), [
+        DiffLineType.deletion,
+        DiffLineType.addition,
+        DiffLineType.context,
+      ]);
+      expect(lines.map((l) => l.content), ['old', 'new', 'same']);
+      expect(lines[0].oldLineNumber, 1);
+      expect(lines[1].newLineNumber, 1);
+      expect(lines[2].oldLineNumber, 2);
+      expect(lines[2].newLineNumber, 2);
+    });
+  });
+
+  group('combineFileChangeDiffs', () {
+    test('returns null when there are no changes', () {
+      expect(combineFileChangeDiffs({}), isNull);
+      expect(combineFileChangeDiffs({'changes': 'not a list'}), isNull);
+      expect(combineFileChangeDiffs({'changes': <dynamic>[]}), isNull);
+    });
+
+    test('passes through diffs that already carry file headers', () {
+      const unified = '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b';
+      const git =
+          'diff --git a/lib/b.dart b/lib/b.dart\n'
+          '--- a/lib/b.dart\n+++ b/lib/b.dart\n@@ -1 +1 @@\n-c\n+d';
+
+      expect(
+        combineFileChangeDiffs({
+          'changes': [
+            {'path': 'lib/a.dart', 'kind': 'update', 'diff': '$unified\n'},
+          ],
+        }),
+        unified,
+      );
+      expect(
+        combineFileChangeDiffs({
+          'changes': [
+            {'path': 'lib/b.dart', 'kind': 'update', 'diff': '$git\n'},
+          ],
+        }),
+        git,
+      );
+    });
+
+    test('adds file headers to bare hunks based on the change kind', () {
+      String? combine(String? kind) => combineFileChangeDiffs({
+        'changes': [
+          {'path': 'lib/a.dart', 'kind': kind, 'diff': '@@ -1 +1 @@\n-a\n+b\n'},
+        ],
+      });
+
+      expect(
+        combine('update'),
+        '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b',
+      );
+      expect(
+        combine(null),
+        '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b',
+      );
+      expect(
+        combine('add'),
+        '--- /dev/null\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b',
+      );
+      expect(
+        combine('delete'),
+        '--- a/lib/a.dart\n+++ /dev/null\n@@ -1 +1 @@\n-a\n+b',
+      );
+      expect(
+        combine('deleted'),
+        '--- a/lib/a.dart\n+++ /dev/null\n@@ -1 +1 @@\n-a\n+b',
+      );
+    });
+
+    test('keeps a bare hunk as is when the change has no path', () {
+      expect(
+        combineFileChangeDiffs({
+          'changes': [
+            {'diff': '@@ -1 +1 @@\n-a\n+b\n\n'},
+          ],
+        }),
+        '@@ -1 +1 @@\n-a\n+b',
+      );
+    });
+
+    test('joins sections with a blank line and skips unusable entries', () {
+      expect(
+        combineFileChangeDiffs({
+          'changes': [
+            {
+              'path': 'lib/a.dart',
+              'diff': '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b',
+            },
+            'not a map',
+            {'path': 'lib/empty.dart', 'diff': ' \n'},
+            {'path': 'lib/b.dart', 'kind': 'add', 'diff': '@@ -0,0 +1 @@\n+c'},
+          ],
+        }),
+        '--- a/lib/a.dart\n+++ b/lib/a.dart\n@@ -1 +1 @@\n-a\n+b'
+        '\n\n'
+        '--- /dev/null\n+++ b/lib/b.dart\n@@ -0,0 +1 @@\n+c',
+      );
+    });
+  });
+
+  group('synthesizeEditToolDiff', () {
+    DiffFile? fileChange(List<Object?> changes) =>
+        synthesizeEditToolDiff('FileChange', {'changes': changes});
+
+    test('FileChange with a single update is neither new nor deleted', () {
+      final file = fileChange([
+        {'path': 'lib/a.dart', 'kind': 'update', 'diff': '@@ -1 +1 @@\n-a\n+b'},
+      ])!;
+
+      expect(file.filePath, 'lib/a.dart');
+      expect(file.isNewFile, isFalse);
+      expect(file.isDeleted, isFalse);
+      expect(file.stats, (added: 1, removed: 1));
+    });
+
+    test('FileChange with a single added file is marked as new', () {
+      final file = fileChange([
+        {'path': 'lib/a.dart', 'kind': 'add', 'diff': '@@ -0,0 +1 @@\n+a'},
+      ])!;
+
+      expect(file.filePath, 'lib/a.dart');
+      expect(file.isNewFile, isTrue);
+      expect(file.isDeleted, isFalse);
+    });
+
+    test('FileChange with a single deleted file is marked as deleted', () {
+      final file = fileChange([
+        {'path': 'lib/a.dart', 'kind': 'delete', 'diff': '@@ -1 +0,0 @@\n-a'},
+      ])!;
+
+      expect(file.filePath, 'lib/a.dart');
+      expect(file.isNewFile, isFalse);
+      expect(file.isDeleted, isTrue);
+    });
+
+    test('FileChange spanning several files is neither new nor deleted', () {
+      final addedFirst = fileChange([
+        {'path': 'lib/a.dart', 'kind': 'add', 'diff': '@@ -0,0 +1 @@\n+a'},
+        {'path': 'lib/b.dart', 'kind': 'update', 'diff': '@@ -1 +1 @@\n-b\n+c'},
+      ])!;
+      final deletedFirst = fileChange([
+        {'path': 'lib/a.dart', 'kind': 'delete', 'diff': '@@ -1 +0,0 @@\n-a'},
+        {'path': 'lib/b.dart', 'kind': 'update', 'diff': '@@ -1 +1 @@\n-b\n+c'},
+      ])!;
+
+      expect(addedFirst.isNewFile, isFalse);
+      expect(addedFirst.isDeleted, isFalse);
+      expect(addedFirst.hunks, hasLength(2));
+      expect(deletedFirst.isNewFile, isFalse);
+      expect(deletedFirst.isDeleted, isFalse);
+      expect(deletedFirst.hunks, hasLength(2));
+    });
+
+    test('FileChange falls back to the first change path when the diff '
+        'names no file', () {
+      final file = fileChange([
+        {'diff': '@@ -1 +1 @@\n-a\n+b'},
+        'not a map',
+        {'path': '', 'diff': ''},
+        {'path': 'lib/fallback.dart', 'diff': ''},
+        {'path': 'lib/later.dart', 'diff': ''},
+      ])!;
+
+      expect(file.filePath, 'lib/fallback.dart');
+      expect(file.stats, (added: 1, removed: 1));
+    });
+
+    test('Write numbers the added lines from 1', () {
+      final file = synthesizeEditToolDiff('Write', {
+        'file_path': 'lib/new.dart',
+        'content': 'one\ntwo\nthree',
+      })!;
+      final lines = file.hunks.single.lines;
+
+      expect(lines.map((l) => l.newLineNumber), [1, 2, 3]);
+      expect(lines.map((l) => l.oldLineNumber), everyElement(isNull));
+      expect(lines.map((l) => l.content), ['one', 'two', 'three']);
+    });
+  });
+
+  group('reconstructUnifiedDiff file headers', () {
+    test('writes /dev/null as the old side of a new file', () {
+      final file = synthesizeEditToolDiff('Write', {
+        'file_path': 'lib/new.dart',
+        'content': 'one\ntwo',
+      })!;
+
+      expect(
+        reconstructUnifiedDiff(file),
+        'diff --git a/lib/new.dart b/lib/new.dart\n'
+        'new file mode 100644\n'
+        '--- /dev/null\n'
+        '+++ b/lib/new.dart\n'
+        '@@ -0,0 +1,2 @@\n'
+        '+one\n'
+        '+two',
+      );
+    });
+
+    test('writes /dev/null as the new side of a deleted file', () {
+      const diff =
+          'diff --git a/old_file.dart b/old_file.dart\n'
+          'deleted file mode 100644\n'
+          '--- a/old_file.dart\n'
+          '+++ /dev/null\n'
+          '@@ -1,2 +0,0 @@\n'
+          '-line 1\n'
+          '-line 2';
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'old_file.dart');
+      expect(reconstructUnifiedDiff(file), diff);
+      expect(reconstructDiff([file], {'0:0'}).diffText, diff);
+    });
+  });
 }
