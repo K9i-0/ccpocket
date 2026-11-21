@@ -178,7 +178,7 @@ export const ANTIGRAVITY_CATALOG_TTL_MS = 24 * 60 * 60_000;
 export const TRANSCRIPT_PAGE_DEFAULT = 200;
 export const TRANSCRIPT_PAGE_MAX = 1000;
 
-export const OPT_IN_SERVER_MESSAGES = new Set<string>([
+export const OPT_IN_SERVER_MESSAGE_TYPES = [
   "agent_activity",
   "background_tasks",
   "context_compaction",
@@ -190,7 +190,11 @@ export const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "projects",
   "push_registration_result",
   "session_recap",
-]);
+] as const;
+
+export const OPT_IN_SERVER_MESSAGES = new Set<string>(
+  OPT_IN_SERVER_MESSAGE_TYPES,
+);
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

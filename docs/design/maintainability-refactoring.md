@@ -90,6 +90,12 @@ the old inline `case`, so work started in the background by a handler can
 finish a few microtasks earlier relative to the caller. One test depended on
 that order and now stubs the background reload it was racing.
 
+### Protocol contract check
+
+`parser.ts` and `messages.dart` are still written by hand, but a type-level
+check now fails when they disagree about message types or keys. See
+[protocol-contract-check.md](../protocol-contract-check.md).
+
 ## Fallback policy for follow-up work
 
 - Protocol input: reject malformed values; do not coerce them.
