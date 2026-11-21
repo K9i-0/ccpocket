@@ -573,6 +573,38 @@ Binary files a/image.png and b/image.png differ
   });
 
   group('parseDiff headerless file path extraction', () {
+    test('keeps backslashes in an unquoted path', () {
+      const diff =
+          '--- C:\\work\\old.txt\n+++ C:\\work\\new.txt\n@@ -1 +1 @@\n-old\n+new\n';
+
+      expect(parseDiff(diff).single.filePath, r'C:\work\new.txt');
+    });
+
+    test('does not split a hunk on removed and added lines that look like a file header', () {
+      const diff =
+          '--- a/query.sql\n+++ b/query.sql\n@@ -1,3 +1,3 @@\n keep\n--- old comment\n+++ new comment\n tail\n';
+
+      final file = parseDiff(diff).single;
+
+      expect(file.filePath, 'query.sql');
+      expect(file.hunks.single.lines.map((line) => line.content), [
+        'keep',
+        '-- old comment',
+        '++ new comment',
+        'tail',
+      ]);
+    });
+
+    test('still splits files when a hunk header overstates its line counts', () {
+      const diff =
+          '--- a/one.txt\n+++ b/one.txt\n@@ -1,9 +1,9 @@\n-a\n+b\n--- a/two.txt\n+++ b/two.txt\n@@ -1 +1 @@\n-c\n+d\n';
+
+      expect(parseDiff(diff).map((file) => file.filePath), [
+        'one.txt',
+        'two.txt',
+      ]);
+    });
+
     test('drops the tab git appends after a path containing spaces', () {
       const modified =
           '--- a/docs/my notes.md\t\n+++ b/docs/my notes.md\t\n@@ -1 +1 @@\n-old\n+new\n';
@@ -731,6 +763,20 @@ Binary files a/image.png and b/image.png differ
   });
 
   group('parseDiff git path decoding', () {
+    test('reads an unquoted new path with spaces after a quoted old path', () {
+      const diff =
+          'diff --git "a/\\343\\201\\202.md" b/my file.md\n--- "a/\\343\\201\\202.md"\n+++ b/my file.md\t\n@@ -1 +1 @@\n-old\n+new\n';
+
+      expect(parseDiff(diff).single.filePath, 'my file.md');
+    });
+
+    test('reads a quoted new path after an unquoted old path with spaces', () {
+      const diff =
+          'diff --git a/my file.md "b/\\343\\201\\202.md"\n--- a/my file.md\t\n+++ "b/\\343\\201\\202.md"\n@@ -1 +1 @@\n-old\n+new\n';
+
+      expect(parseDiff(diff).single.filePath, 'あ.md');
+    });
+
     test('decodes control-character and quote escapes in quoted paths', () {
       const diff = r'''
 diff --git "a/dir/tab\there \"q\" back\\slash\nnl\rcr.txt" "b/dir/tab\there \"q\" back\\slash\nnl\rcr.txt"

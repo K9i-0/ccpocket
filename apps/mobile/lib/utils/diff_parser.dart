@@ -161,6 +161,7 @@ class DiffFile {
 }
 
 /// Regex for the hunk header: @@ -oldStart[,oldCount] +newStart[,newCount] @@
+final _hunkCountsRegex = RegExp(r'^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@');
 final _hunkHeaderRegex = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
 
 /// Parse unified diff text into a list of [DiffFile].
@@ -263,8 +264,43 @@ List<DiffFile> parseDiff(String diffText) {
 /// into per-file line slices.
 List<List<String>> _splitHeaderlessDiffSections(List<String> lines) {
   final starts = <int>[];
+  // Lines still owed to the current hunk. Inside a hunk a removed line that
+  // begins with "-- " followed by an added line that begins with "++ " reads
+  // exactly like a file header, so headers are only looked for between hunks.
+  var oldRemaining = 0;
+  var newRemaining = 0;
   for (var i = 0; i + 1 < lines.length; i++) {
-    if (lines[i].startsWith('--- ') && lines[i + 1].startsWith('+++ ')) {
+    final line = lines[i];
+    // A real header is followed by a hunk, which also covers a hunk header
+    // that overstates its line counts.
+    final startsFile =
+        line.startsWith('--- ') &&
+        lines[i + 1].startsWith('+++ ') &&
+        (i + 2 >= lines.length || _hunkCountsRegex.hasMatch(lines[i + 2]));
+    if (startsFile) {
+      starts.add(i);
+      oldRemaining = 0;
+      newRemaining = 0;
+      continue;
+    }
+    if (oldRemaining > 0 || newRemaining > 0) {
+      if (line.startsWith('+')) {
+        newRemaining--;
+      } else if (line.startsWith('-')) {
+        oldRemaining--;
+      } else if (!line.startsWith(r'\')) {
+        oldRemaining--;
+        newRemaining--;
+      }
+      continue;
+    }
+    final hunk = _hunkCountsRegex.firstMatch(line);
+    if (hunk != null) {
+      oldRemaining = int.parse(hunk.group(1) ?? '1');
+      newRemaining = int.parse(hunk.group(2) ?? '1');
+      continue;
+    }
+    if (line.startsWith('--- ') && lines[i + 1].startsWith('+++ ')) {
       starts.add(i);
     }
   }
@@ -866,6 +902,15 @@ String _extractFilePath(String diffGitLine) {
     tokens.add(buffer.toString());
   }
 
+  if (tokens.length > 2) {
+    // One side is quoted and the other is not, so the unquoted side may hold
+    // spaces: `"a/\343\201\202.md" b/my file.md` or the reverse.
+    if (tokens.last.startsWith('"')) return _decodeGitPathToken(tokens.last);
+    if (tokens.first.startsWith('"')) {
+      final rest = payload.trimLeft().substring(tokens.first.length);
+      return _decodeGitPathToken(rest);
+    }
+  }
   if (tokens.length >= 2) {
     return _decodeGitPathToken(tokens[1]);
   }
@@ -875,7 +920,11 @@ String _extractFilePath(String diffGitLine) {
 
 String _decodeGitPathToken(String token) {
   var normalized = token.trim();
-  if (normalized.startsWith('"') && normalized.endsWith('"')) {
+  final isQuoted =
+      normalized.length >= 2 &&
+      normalized.startsWith('"') &&
+      normalized.endsWith('"');
+  if (isQuoted) {
     normalized = normalized.substring(1, normalized.length - 1);
   }
 
@@ -883,7 +932,9 @@ String _decodeGitPathToken(String token) {
     normalized = normalized.substring(2);
   }
 
-  if (!normalized.contains(r'\')) {
+  // Git escapes a path only when it quotes it. In an unquoted path a backslash
+  // is an ordinary character (`C:\work\new.txt`).
+  if (!isQuoted || !normalized.contains(r'\')) {
     return normalized;
   }
 
