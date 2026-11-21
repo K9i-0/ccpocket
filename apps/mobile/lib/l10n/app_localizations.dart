@@ -7324,6 +7324,78 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'CI実行中'**
   String get githubChecksPending;
+
+  /// No description provided for @settingsEnabledModels.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用するモデル'**
+  String get settingsEnabledModels;
+
+  /// No description provided for @settingsEnabledModelsDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデル選択に表示するモデルを絞り込みます。すべて選択すると制限なしで表示されます。'**
+  String get settingsEnabledModelsDescription;
+
+  /// No description provided for @settingsEnabledModelsAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて表示'**
+  String get settingsEnabledModelsAll;
+
+  /// No description provided for @settingsEnabledModelsSelectAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて選択'**
+  String get settingsEnabledModelsSelectAll;
+
+  /// No description provided for @settingsEnabledModelsClearAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて解除'**
+  String get settingsEnabledModelsClearAll;
+
+  /// No description provided for @settingsEnabledModelsAtLeastOne.
+  ///
+  /// In ja, this message translates to:
+  /// **'1つ以上のモデルを選択してください'**
+  String get settingsEnabledModelsAtLeastOne;
+
+  /// No description provided for @settingsEnabledModelsLoading.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデル一覧を読み込み中…'**
+  String get settingsEnabledModelsLoading;
+
+  /// No description provided for @settingsEnabledModelsUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeに接続すると利用可能なモデル一覧を取得できます'**
+  String get settingsEnabledModelsUnavailable;
+
+  /// No description provided for @settingsModelPickerStyle.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデルの選択方法'**
+  String get settingsModelPickerStyle;
+
+  /// No description provided for @settingsModelPickerStyleSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデル名をタップしたときの表示方法。メニューにするとシートを重ねずその場で選べます。'**
+  String get settingsModelPickerStyleSubtitle;
+
+  /// No description provided for @modelPickerStyleBottomSheet.
+  ///
+  /// In ja, this message translates to:
+  /// **'シート'**
+  String get modelPickerStyleBottomSheet;
+
+  /// No description provided for @modelPickerStylePopupMenu.
+  ///
+  /// In ja, this message translates to:
+  /// **'メニュー'**
+  String get modelPickerStylePopupMenu;
 }
 
 class _AppLocalizationsDelegate

@@ -272,22 +272,41 @@ void main() {
       expect(bridge.requests, 1);
       // Until the Bridge answers there is nothing to pick a model from.
       expect(
-        find.byKey(const ValueKey('dialog_antigravity_model')),
+        find.byKey(const ValueKey('dialog_antigravity_settings')),
         findsNothing,
       );
 
       bridge.publish(_antigravityCatalog);
       await tester.pumpAndSettle();
-      expect(find.text('Gemini 3.8 Flash · High'), findsOne);
+      expect(
+        find.byKey(const ValueKey('dialog_antigravity_settings')),
+        findsOne,
+      );
+      expect(find.text('Gemini 3.8 Flash'), findsOne);
+      expect(find.text('High'), findsOne);
       expect(find.text('Google AI Ultra'), findsOne);
 
-      await tester.tap(find.byKey(const ValueKey('dialog_antigravity_model')));
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_antigravity_model_label_button')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('antigravity_model_option_gemini-3.1-pro')),
       );
       await tester.pumpAndSettle();
-      // Pro has no medium level.
+      // Pro has only low and high (no medium).
+      final proSlider = tester.widget<Slider>(
+        find.byKey(const ValueKey('dialog_antigravity_effort_slider')),
+      );
+      expect(proSlider.max, 1.0);
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_antigravity_advanced')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_antigravity_effort_row')),
+      );
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('antigravity_thought_level_medium')),
         findsNothing,
@@ -296,9 +315,8 @@ void main() {
         find.byKey(const ValueKey('antigravity_thought_level_low')),
       );
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-      expect(find.text('Gemini 3.1 Pro · Low'), findsOne);
+      expect(find.text('Gemini 3.1 Pro'), findsWidgets);
+      expect(find.text('Low'), findsWidgets);
 
       await tester.tap(
         find.byKey(const ValueKey('dialog_antigravity_permission_mode')),
@@ -641,10 +659,10 @@ void main() {
         );
 
         await tester.ensureVisible(
-          find.byKey(const ValueKey('dialog_antigravity_model')),
+          find.byKey(const ValueKey('dialog_antigravity_model_label_button')),
         );
         await tester.tap(
-          find.byKey(const ValueKey('dialog_antigravity_model')),
+          find.byKey(const ValueKey('dialog_antigravity_model_label_button')),
         );
         await tester.pumpAndSettle();
 
@@ -653,9 +671,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Dismiss the model sheet
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('dialog_antigravity_effort_slider')),
+          findsNothing,
+        );
 
         await _start(tester);
 

@@ -108,6 +108,8 @@ abstract final class SettingsEntryIds {
   static const liteMode = 'lite_mode';
   static const enabledAgents = 'enabled_agents';
   static const newSessionTabs = 'new_session_tabs';
+  static const enabledModels = 'enabled_models';
+  static const modelPickerStyle = 'model_picker_style';
   static const autoRenameCodex = 'auto_rename_codex';
   static const extendedCodexEfforts = 'extended_codex_efforts';
   static const autoRenameClaude = 'auto_rename_claude';
@@ -304,6 +306,18 @@ final List<SettingsEntry> settingsEntries = [
     title: (l) => l.settingsNewSessionTabs,
     keywords: 'new session tab order タブ 新規',
     visibleWhen: (v) => v.multipleAgents,
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.enabledModels,
+    category: SettingsCategory.agents,
+    title: (l) => l.settingsEnabledModels,
+    keywords: 'model filter visible claude codex antigravity モデル 表示 選択 絞り込み',
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.modelPickerStyle,
+    category: SettingsCategory.agents,
+    title: (l) => l.settingsModelPickerStyle,
+    keywords: 'model picker menu sheet popup モデル メニュー シート ポップアップ',
   ),
   SettingsEntry(
     id: SettingsEntryIds.autoRenameCodex,

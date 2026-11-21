@@ -1582,5 +1582,17 @@
   "githubErrorUnsupportedBody": "This Bridge does not support Issues / PRs yet. Update Bridge to the latest version, then try again.",
   "githubChecksSuccess": "CI passed",
   "githubChecksFailure": "CI failed",
-  "githubChecksPending": "CI running"
+  "githubChecksPending": "CI running",
+  "settingsEnabledModels": "Visible models",
+  "settingsEnabledModelsDescription": "Choose which models appear in model pickers. Selecting all shows every available model.",
+  "settingsEnabledModelsAll": "All models",
+  "settingsEnabledModelsSelectAll": "Select all",
+  "settingsEnabledModelsClearAll": "Clear all",
+  "settingsEnabledModelsAtLeastOne": "Select at least one model",
+  "settingsEnabledModelsLoading": "Loading models…",
+  "settingsEnabledModelsUnavailable": "Connect to Bridge to load available models",
+  "settingsModelPickerStyle": "Model picker style",
+  "settingsModelPickerStyleSubtitle": "How the model list opens when tapping the model name. Menu opens in place without another bottom sheet.",
+  "modelPickerStyleBottomSheet": "Sheet",
+  "modelPickerStylePopupMenu": "Menu"
 }

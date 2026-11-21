@@ -1664,5 +1664,17 @@
   "githubErrorUnsupportedBody": "このBridgeはIssue / PRの表示に対応していません。Bridgeを最新版に更新してから、再度お試しください。",
   "githubChecksSuccess": "CI成功",
   "githubChecksFailure": "CI失敗",
-  "githubChecksPending": "CI実行中"
+  "githubChecksPending": "CI実行中",
+  "settingsEnabledModels": "利用するモデル",
+  "settingsEnabledModelsDescription": "モデル選択に表示するモデルを絞り込みます。すべて選択すると制限なしで表示されます。",
+  "settingsEnabledModelsAll": "すべて表示",
+  "settingsEnabledModelsSelectAll": "すべて選択",
+  "settingsEnabledModelsClearAll": "すべて解除",
+  "settingsEnabledModelsAtLeastOne": "1つ以上のモデルを選択してください",
+  "settingsEnabledModelsLoading": "モデル一覧を読み込み中…",
+  "settingsEnabledModelsUnavailable": "Bridgeに接続すると利用可能なモデル一覧を取得できます",
+  "settingsModelPickerStyle": "モデルの選択方法",
+  "settingsModelPickerStyleSubtitle": "モデル名をタップしたときの表示方法。メニューにするとシートを重ねずその場で選べます。",
+  "modelPickerStyleBottomSheet": "シート",
+  "modelPickerStylePopupMenu": "メニュー"
 }

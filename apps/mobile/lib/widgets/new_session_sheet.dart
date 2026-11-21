@@ -12,13 +12,16 @@ import '../features/projects/widgets/project_manager_sheet.dart';
 import '../features/project_setup/widgets/new_project_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
+import '../models/model_picker_style.dart';
 import '../models/new_session_tab.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
+import '../utils/model_filter.dart';
 import '../utils/project_usage.dart';
 import 'antigravity_model_options_panel.dart';
 import 'directory_browser_sheet.dart';
+import 'model_picker.dart';
 import 'workspace_pane_chrome.dart';
 import 'claude_settings_panel.dart';
 import 'codex_effort_slider.dart';
@@ -531,6 +534,10 @@ Future<NewSessionParams?> showNewSessionSheet({
   List<NewSessionTab> visibleTabs = defaultNewSessionTabs,
   bool showExtendedCodexEfforts = false,
   bool showHiddenDirectories = false,
+  ModelPickerStyle modelPickerStyle = ModelPickerStyle.bottomSheet,
+  Set<String> enabledClaudeModels = const {},
+  Set<String> enabledCodexModels = const {},
+  Set<String> enabledAntigravityModels = const {},
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -552,6 +559,10 @@ Future<NewSessionParams?> showNewSessionSheet({
       visibleTabs: visibleTabs,
       showExtendedCodexEfforts: showExtendedCodexEfforts,
       showHiddenDirectories: showHiddenDirectories,
+      modelPickerStyle: modelPickerStyle,
+      enabledClaudeModels: enabledClaudeModels,
+      enabledCodexModels: enabledCodexModels,
+      enabledAntigravityModels: enabledAntigravityModels,
     ),
   );
 }
@@ -618,6 +629,10 @@ class _NewSessionSheetContent extends StatefulWidget {
   final List<NewSessionTab> visibleTabs;
   final bool showExtendedCodexEfforts;
   final bool showHiddenDirectories;
+  final ModelPickerStyle modelPickerStyle;
+  final Set<String> enabledClaudeModels;
+  final Set<String> enabledCodexModels;
+  final Set<String> enabledAntigravityModels;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
@@ -631,6 +646,10 @@ class _NewSessionSheetContent extends StatefulWidget {
     this.visibleTabs = defaultNewSessionTabs,
     this.showExtendedCodexEfforts = false,
     this.showHiddenDirectories = false,
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
+    this.enabledClaudeModels = const {},
+    this.enabledCodexModels = const {},
+    this.enabledAntigravityModels = const {},
   });
 
   @override
@@ -689,14 +708,27 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         : [...modes, _antigravityPermissionMode];
   }
 
+  /// Filtered Antigravity model families available in this sheet.
+  List<AntigravityModelOption> get _antigravityModelOptions =>
+      filterEnabledModels<AntigravityModelOption>(
+        models: _antigravityCatalog?.modelOptions ?? const [],
+        enabledIds: widget.enabledAntigravityModels,
+        idOf: (option) => option.id,
+      );
+
   /// The family the session will start on: the chosen one, or the default.
   AntigravityModelOption? get _antigravityModelOption {
     final catalog = _antigravityCatalog;
     if (catalog == null) return null;
-    for (final option in catalog.modelOptions) {
+    final options = _antigravityModelOptions;
+    for (final option in options) {
       if (option.id == _antigravityModel) return option;
     }
-    return catalog.currentModelOption;
+    final defaultOption = catalog.currentModelOption;
+    if (defaultOption != null && options.any((o) => o.id == defaultOption.id)) {
+      return defaultOption;
+    }
+    return options.firstOrNull;
   }
 
   /// The level the session will start at, if the family has levels.
@@ -706,9 +738,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final chosen = _antigravityThoughtLevel;
     if (chosen != null && option.thoughtLevels.contains(chosen)) return chosen;
     final fallback = _antigravityCatalog?.thoughtLevel;
-    return fallback != null && option.thoughtLevels.contains(fallback)
-        ? fallback
-        : option.thoughtLevels.first;
+    if (fallback != null && option.thoughtLevels.contains(fallback)) {
+      return fallback;
+    }
+    return preferredAntigravityThoughtLevel(option.thoughtLevels);
   }
 
   /// The mode was saved earlier or picked in this sheet; otherwise the sheet
@@ -723,9 +756,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     } else if (!modes.contains(_antigravityPermissionMode)) {
       _antigravityPermissionMode = PermissionMode.defaultMode;
     }
-    if (catalog.modelOptions.isNotEmpty &&
+    final filteredOptions = _antigravityModelOptions;
+    if (filteredOptions.isNotEmpty &&
         _antigravityModel != null &&
-        !catalog.modelOptions.any((o) => o.id == _antigravityModel)) {
+        !filteredOptions.any((o) => o.id == _antigravityModel)) {
       _antigravityModel = null;
     }
   }
@@ -1189,9 +1223,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _loadModelCatalogs() {
     final bridgeClaudeOptions =
         widget.bridge?.claudeModelOptions ?? const <ClaudeModelOption>[];
-    final claudeOptions = bridgeClaudeOptions.isNotEmpty
+    final allClaudeOptions = bridgeClaudeOptions.isNotEmpty
         ? bridgeClaudeOptions
         : defaultClaudeModelOptions;
+    final claudeOptions = filterEnabledModels<ClaudeModelOption>(
+      models: allClaudeOptions,
+      enabledIds: widget.enabledClaudeModels,
+      idOf: (option) => option.value,
+    );
     _claudeModelList = [for (final option in claudeOptions) option.value];
     _claudeModelOptions = {
       for (final option in claudeOptions) option.value: option,
@@ -1200,9 +1239,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       widget.bridge?.claudeModelEfforts ?? const {},
     );
     final bridgeCodexModels = widget.bridge?.codexModels ?? const [];
-    _codexModelList = bridgeCodexModels.isNotEmpty
+    final allCodexModels = bridgeCodexModels.isNotEmpty
         ? bridgeCodexModels
         : _defaultCodexModels;
+    _codexModelList = filterEnabledModels<String>(
+      models: allCodexModels,
+      enabledIds: widget.enabledCodexModels,
+      idOf: (model) => model,
+    );
     _codexModelReasoningEfforts = _normalizeCodexModelReasoningEfforts(
       widget.bridge?.codexModelReasoningEfforts ?? const {},
     );
@@ -1940,6 +1984,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             appColors: appColors,
             provider: pageProvider,
             showExtendedCodexEfforts: widget.showExtendedCodexEfforts,
+            modelPickerStyle: widget.modelPickerStyle,
             claudePermissionMode: _claudePermissionMode,
             onClaudePermissionModeChanged: (value) {
               setState(() => _claudePermissionMode = value);
@@ -1952,13 +1997,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 _antigravityModeChosen = true;
               });
             },
-            antigravityModelOptions:
-                _antigravityCatalog?.modelOptions ?? const [],
+            antigravityModelOptions: _antigravityModelOptions,
             antigravityModelOption: _antigravityModelOption,
             antigravityThoughtLevel: _antigravityEffectiveThoughtLevel,
             antigravityTierName: _antigravityCatalog?.tierName,
-            onAntigravityModelChanged: (value) {
-              setState(() => _antigravityModel = value);
+            onAntigravityModelChanged: (option) {
+              setState(() {
+                _antigravityModel = option.id;
+                if (option.thoughtLevels.isEmpty) {
+                  _antigravityThoughtLevel = null;
+                } else if (_antigravityThoughtLevel != null &&
+                    !option.thoughtLevels.contains(_antigravityThoughtLevel)) {
+                  _antigravityThoughtLevel = preferredAntigravityThoughtLevel(
+                    option.thoughtLevels,
+                    current: _antigravityCatalog?.thoughtLevel,
+                  );
+                }
+              });
             },
             onAntigravityThoughtLevelChanged: (value) {
               setState(() => _antigravityThoughtLevel = value);
@@ -2983,6 +3038,7 @@ class _OptionsSection extends StatelessWidget {
   final AppColors appColors;
   final Provider provider;
   final bool showExtendedCodexEfforts;
+  final ModelPickerStyle modelPickerStyle;
   final PermissionMode claudePermissionMode;
   final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
   final PermissionMode antigravityPermissionMode;
@@ -2994,7 +3050,7 @@ class _OptionsSection extends StatelessWidget {
   final AntigravityModelOption? antigravityModelOption;
   final String? antigravityThoughtLevel;
   final String? antigravityTierName;
-  final ValueChanged<String> onAntigravityModelChanged;
+  final ValueChanged<AntigravityModelOption> onAntigravityModelChanged;
   final ValueChanged<String?> onAntigravityThoughtLevelChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
@@ -3068,6 +3124,7 @@ class _OptionsSection extends StatelessWidget {
     required this.appColors,
     required this.provider,
     required this.showExtendedCodexEfforts,
+    required this.modelPickerStyle,
     required this.claudePermissionMode,
     required this.onClaudePermissionModeChanged,
     required this.antigravityPermissionMode,
@@ -3279,40 +3336,6 @@ class _OptionsSection extends StatelessWidget {
         mode == PermissionMode.auto
         ? l.permissionAutoDescriptionAntigravity
         : permissionDescription(mode);
-
-    // Model family and thinking level, as in the chat screen's model sheet.
-    void showAntigravityModelSheet() {
-      var model = antigravityModelOption;
-      var level = antigravityThoughtLevel;
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        builder: (sheetContext) => StatefulBuilder(
-          builder: (sheetContext, setSheetState) =>
-              AntigravityModelOptionsPanel(
-                modelOptions: antigravityModelOptions,
-                model: model?.id,
-                thoughtLevel: level,
-                thoughtLevels: model?.thoughtLevels ?? const [],
-                onModelSelected: (option) {
-                  onAntigravityModelChanged(option.id);
-                  setSheetState(() {
-                    model = option;
-                    // Keep the level when the new family has it too.
-                    if (!option.thoughtLevels.contains(level)) {
-                      level = option.thoughtLevels.firstOrNull;
-                      onAntigravityThoughtLevelChanged(level);
-                    }
-                  });
-                },
-                onThoughtLevelSelected: (value) {
-                  onAntigravityThoughtLevelChanged(value);
-                  setSheetState(() => level = value);
-                },
-              ),
-        ),
-      );
-    }
 
     void showModeSheet<T>({
       required String title,
@@ -3608,18 +3631,19 @@ class _OptionsSection extends StatelessWidget {
           const SizedBox(height: 8),
           if (provider == Provider.antigravity)
             if (antigravityModelOption case final option?) ...[
-              modeSelectorField(
-                key: const ValueKey('dialog_antigravity_model'),
-                label: l.model,
-                icon: Icons.memory,
-                title: antigravityThoughtLevel == null
-                    ? option.name
-                    : '${option.name} · '
-                          '${antigravityThoughtLevelLabel(antigravityThoughtLevel!)}',
-                subtitle: antigravityTierName ?? '',
-                onTap: showAntigravityModelSheet,
+              AntigravityModelOptionsPanel(
+                key: const ValueKey('dialog_antigravity_settings'),
+                keyPrefix: 'dialog_antigravity',
+                modelOptions: antigravityModelOptions,
+                model: option.id,
+                thoughtLevel: antigravityThoughtLevel,
+                thoughtLevels: option.thoughtLevels,
+                tierName: antigravityTierName,
+                modelPickerStyle: modelPickerStyle,
+                onModelSelected: onAntigravityModelChanged,
+                onThoughtLevelSelected: onAntigravityThoughtLevelChanged,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
             ],
           if (provider == Provider.antigravity &&
               antigravityModelOption == null)
@@ -3648,6 +3672,7 @@ class _OptionsSection extends StatelessWidget {
               effort: claudeEffort,
               fastMode: claudeFastMode,
               ultracode: claudeUltracode,
+              modelPickerStyle: modelPickerStyle,
               onModelChanged: onClaudeModelChanged,
               onEffortChanged: onClaudeEffortChanged,
               onFastModeChanged: onClaudeFastModeChanged,
@@ -3663,6 +3688,7 @@ class _OptionsSection extends StatelessWidget {
               reasoningEffort: modelReasoningEffort,
               onReasoningEffortChanged: onModelReasoningEffortChanged,
               showExtendedEfforts: showExtendedCodexEfforts,
+              modelPickerStyle: modelPickerStyle,
               speed: codexSpeed,
               availableSpeeds: codexAvailableSpeeds,
               onSpeedChanged: onCodexSpeedChanged,
@@ -3839,6 +3865,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
   final ReasoningEffort reasoningEffort;
   final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
   final bool showExtendedEfforts;
+  final ModelPickerStyle modelPickerStyle;
   final CodexSpeed speed;
   final List<CodexSpeed> availableSpeeds;
   final ValueChanged<CodexSpeed> onSpeedChanged;
@@ -3852,6 +3879,7 @@ class _CodexSettingsSwitcher extends StatefulWidget {
     required this.reasoningEffort,
     required this.onReasoningEffortChanged,
     required this.showExtendedEfforts,
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
     required this.speed,
     required this.availableSpeeds,
     required this.onSpeedChanged,
@@ -3863,6 +3891,21 @@ class _CodexSettingsSwitcher extends StatefulWidget {
 
 class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
   bool _showAdvanced = false;
+
+  void _openModelPicker(BuildContext anchorContext) {
+    final activeModel = widget.selectedModel ?? widget.models.firstOrNull;
+    showModelPicker<String>(
+      context: context,
+      anchorContext: anchorContext,
+      style: widget.modelPickerStyle,
+      title: AppLocalizations.of(context).model,
+      values: widget.models,
+      selected: activeModel,
+      label: codexModelDisplayName,
+      optionKey: (m) => 'dialog_codex_model_${m}_option',
+      onSelected: widget.onModelChanged,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3890,6 +3933,7 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
       advancedPanelKey: 'dialog_codex_advanced_panel',
       modelLabelKey: 'dialog_codex_model_label',
       effortLabelKey: 'dialog_codex_effort_label',
+      onModelTapWithContext: widget.models.isEmpty ? null : _openModelPicker,
       quickChild: CodexEffortSlider(
         key: const ValueKey('dialog_codex_effort_control'),
         efforts: widget.reasoningEfforts,

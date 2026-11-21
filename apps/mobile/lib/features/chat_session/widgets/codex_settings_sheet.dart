@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
+import '../../../models/model_picker_style.dart';
 import '../../../widgets/codex_effort_slider.dart';
+import '../../../widgets/model_picker.dart';
 
 class CodexSettingsSheet extends StatefulWidget {
   final List<String> models;
@@ -15,6 +17,7 @@ class CodexSettingsSheet extends StatefulWidget {
   final ReasoningEffort initialEffort;
   final CodexSpeed initialSpeed;
   final bool showExtendedEfforts;
+  final ModelPickerStyle modelPickerStyle;
   final void Function(String model, ReasoningEffort effort) onModelChanged;
   final void Function(String model, ReasoningEffort effort) onEffortChanged;
   final ValueChanged<CodexSpeed> onSpeedChanged;
@@ -30,6 +33,7 @@ class CodexSettingsSheet extends StatefulWidget {
     required this.initialEffort,
     required this.initialSpeed,
     this.showExtendedEfforts = false,
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
     required this.onModelChanged,
     required this.onEffortChanged,
     required this.onSpeedChanged,
@@ -131,7 +135,8 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
           advancedPanelKey: 'codex_settings_advanced_panel',
           modelLabelKey: 'codex_settings_model_label',
           effortLabelKey: 'codex_settings_effort_label',
-          onModelTap: () => _showModelPicker(context),
+          onModelTapWithContext: (anchorContext) =>
+              _showModelPicker(context, anchorContext: anchorContext),
           quickChild: CodexEffortSlider(
             efforts: _efforts,
             value: _effort,
@@ -142,11 +147,14 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
           advancedChild: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _SettingsRow(
-                key: const ValueKey('codex_model_advanced'),
-                label: l.model,
-                value: codexModelDisplayName(_model),
-                onTap: () => _showModelPicker(context),
+              Builder(
+                builder: (rowContext) => _SettingsRow(
+                  key: const ValueKey('codex_model_advanced'),
+                  label: l.model,
+                  value: codexModelDisplayName(_model),
+                  onTap: () =>
+                      _showModelPicker(context, anchorContext: rowContext),
+                ),
               ),
               _SettingsRow(
                 key: const ValueKey('codex_effort_advanced'),
@@ -167,13 +175,17 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
     );
   }
 
-  void _showModelPicker(BuildContext context) {
-    _showPicker<String>(
+  void _showModelPicker(BuildContext context, {BuildContext? anchorContext}) {
+    showModelPicker<String>(
       context: context,
+      anchorContext: anchorContext,
+      style: widget.modelPickerStyle,
       title: AppLocalizations.of(context).model,
       values: widget.models,
       selected: _model,
       label: codexModelDisplayName,
+      optionKey: (m) => 'codex_model_${m}_option',
+      notifyWhenUnchanged: true,
       onSelected: _selectModel,
     );
   }

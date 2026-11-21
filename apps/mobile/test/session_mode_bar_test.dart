@@ -453,9 +453,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('antigravity_model_chip')));
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.byKey(const ValueKey('antigravity_thought_level_medium')),
+      // Slider has 3 sorted levels: low (0), medium (1), high (2).
+      final sliderFinder = find.byKey(
+        const ValueKey('antigravity_settings_effort_slider'),
       );
+      expect(sliderFinder, findsOneWidget);
+      await tester.tap(sliderFinder);
       await tester.pumpAndSettle();
       expect(_decode(bridge.sentMessages.single), {
         'type': 'set_antigravity_settings',
@@ -463,7 +466,12 @@ void main() {
         'thoughtLevel': 'medium',
       });
 
-      // The sheet stays open; picking a family shows that family's levels.
+      // The sheet stays open; picking a family updates the slider to that
+      // family's levels.
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_settings_model_label_button')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('antigravity_model_option_gemini-3.1-pro')),
       );
@@ -473,6 +481,17 @@ void main() {
         'sessionId': 'antigravity-session',
         'model': 'gemini-3.1-pro',
       });
+      final updatedSlider = tester.widget<Slider>(sliderFinder);
+      expect(updatedSlider.max, 1.0);
+      // Advanced effort picker shows only Pro's levels (low, high — no medium).
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_settings_advanced')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('antigravity_settings_effort_row')),
+      );
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('antigravity_thought_level_medium')),
         findsNothing,

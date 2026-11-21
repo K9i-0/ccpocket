@@ -4059,4 +4059,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI running';
+
+  @override
+  String get settingsEnabledModels => 'Visible models';
+
+  @override
+  String get settingsEnabledModelsDescription =>
+      'Choose which models appear in model pickers. Selecting all shows every available model.';
+
+  @override
+  String get settingsEnabledModelsAll => 'All models';
+
+  @override
+  String get settingsEnabledModelsSelectAll => 'Select all';
+
+  @override
+  String get settingsEnabledModelsClearAll => 'Clear all';
+
+  @override
+  String get settingsEnabledModelsAtLeastOne => 'Select at least one model';
+
+  @override
+  String get settingsEnabledModelsLoading => 'Loading models…';
+
+  @override
+  String get settingsEnabledModelsUnavailable =>
+      'Connect to Bridge to load available models';
+
+  @override
+  String get settingsModelPickerStyle => 'Model picker style';
+
+  @override
+  String get settingsModelPickerStyleSubtitle =>
+      'How the model list opens when tapping the model name. Menu opens in place without another bottom sheet.';
+
+  @override
+  String get modelPickerStyleBottomSheet => 'Sheet';
+
+  @override
+  String get modelPickerStylePopupMenu => 'Menu';
 }

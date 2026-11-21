@@ -6,27 +6,60 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
+import '../../../models/model_picker_style.dart';
+import '../../../utils/model_filter.dart';
 import '../../../widgets/antigravity_model_options_panel.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/claude_settings_panel.dart';
 import '../../../widgets/codex_effort_slider.dart';
+import '../../settings/state/settings_cubit.dart';
+import '../../settings/state/settings_state.dart';
 import '../state/chat_session_state.dart';
 import '../state/chat_session_cubit.dart';
 import 'codex_settings_sheet.dart';
 
+SettingsState? _watchSettingsState(BuildContext context) {
+  try {
+    return context.watch<SettingsCubit>().state;
+  } on ProviderNotFoundException {
+    return null;
+  }
+}
+
 class SessionModeBar extends StatelessWidget {
   final Future<void> Function()? onBeforeRestart;
   final bool showExtendedCodexEfforts;
+  final ModelPickerStyle? modelPickerStyle;
+  final Set<String>? enabledClaudeModels;
+  final Set<String>? enabledCodexModels;
+  final Set<String>? enabledAntigravityModels;
 
   const SessionModeBar({
     super.key,
     this.onBeforeRestart,
     this.showExtendedCodexEfforts = false,
+    this.modelPickerStyle,
+    this.enabledClaudeModels,
+    this.enabledCodexModels,
+    this.enabledAntigravityModels,
   });
 
   @override
   Widget build(BuildContext context) {
     final chatCubit = context.watch<ChatSessionCubit>();
+    final settingsState = _watchSettingsState(context);
+    final effectivePickerStyle =
+        modelPickerStyle ??
+        settingsState?.modelPickerStyle ??
+        ModelPickerStyle.bottomSheet;
+    final effectiveClaudeModels =
+        enabledClaudeModels ?? settingsState?.enabledClaudeModels ?? const {};
+    final effectiveCodexModels =
+        enabledCodexModels ?? settingsState?.enabledCodexModels ?? const {};
+    final effectiveAntigravityModels =
+        enabledAntigravityModels ??
+        settingsState?.enabledAntigravityModels ??
+        const {};
     final executionMode = chatCubit.state.executionMode;
     final planMode = chatCubit.state.planMode;
     final inPlanMode = chatCubit.state.inPlanMode;
@@ -85,6 +118,8 @@ class SessionModeBar extends StatelessWidget {
                       context,
                       chatCubit,
                       showExtendedEfforts: showExtendedCodexEfforts,
+                      modelPickerStyle: effectivePickerStyle,
+                      enabledModels: effectiveCodexModels,
                     ),
                   ),
                   Padding(
@@ -136,7 +171,12 @@ class SessionModeBar extends StatelessWidget {
                       effort: chatCubit.state.claudeEffort,
                       fastMode: chatCubit.state.claudeFastMode,
                       ultracode: chatCubit.state.claudeUltracode,
-                      onTap: () => showClaudeSettingsMenu(context, chatCubit),
+                      onTap: () => showClaudeSettingsMenu(
+                        context,
+                        chatCubit,
+                        modelPickerStyle: effectivePickerStyle,
+                        enabledModels: effectiveClaudeModels,
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -154,7 +194,12 @@ class SessionModeBar extends StatelessWidget {
                       label:
                           antigravitySettings.modelSummary ??
                           AppLocalizations.of(context).model,
-                      onTap: () => showAntigravityModelMenu(context, chatCubit),
+                      onTap: () => showAntigravityModelMenu(
+                        context,
+                        chatCubit,
+                        modelPickerStyle: effectivePickerStyle,
+                        enabledModels: effectiveAntigravityModels,
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -431,14 +476,16 @@ void showCodexModelMenu(
   BuildContext context,
   ChatSessionCubit chatCubit, {
   bool showExtendedEfforts = false,
+  ModelPickerStyle modelPickerStyle = ModelPickerStyle.bottomSheet,
+  Set<String> enabledModels = const {},
 }) {
-  final models = chatCubit.codexModels.isNotEmpty
+  final allModels = chatCubit.codexModels.isNotEmpty
       ? chatCubit.codexModels
       : defaultCodexModels;
   final currentModel = _currentCodexModel(chatCubit);
   final currentEfforts = _codexReasoningEffortsForModel(context, currentModel);
   final modelEfforts = {
-    for (final model in models)
+    for (final model in allModels)
       model: _codexReasoningEffortsForModel(context, model),
   };
 
@@ -450,19 +497,27 @@ void showCodexModelMenu(
       builder: (_, _) => BlocBuilder<ChatSessionCubit, ChatSessionState>(
         bloc: chatCubit,
         builder: (_, state) {
+          final activeModel = state.codexModel ?? currentModel;
+          final models = filterEnabledModels<String>(
+            models: allModels,
+            enabledIds: enabledModels,
+            idOf: (m) => m,
+            currentId: activeModel,
+          );
           return CodexSettingsSheet(
             models: models,
             modelEfforts: modelEfforts,
             modelServiceTiers: chatCubit.codexModelServiceTiers,
             modelServiceTierMetadata: chatCubit.codexModelServiceTierMetadata,
             supportsExtendedServiceTiers: chatCubit.supportsCodexServiceTiers,
-            initialModel: state.codexModel ?? currentModel,
+            initialModel: activeModel,
             initialEffort: _effectiveCodexReasoningEffort(
               state.codexModelReasoningEffort,
-              modelEfforts[state.codexModel ?? currentModel] ?? currentEfforts,
+              modelEfforts[activeModel] ?? currentEfforts,
             ),
             initialSpeed: state.codexSpeed,
             showExtendedEfforts: showExtendedEfforts,
+            modelPickerStyle: modelPickerStyle,
             onModelChanged: (model, effort) =>
                 chatCubit.setCodexModel(model, reasoningEffort: effort),
             onEffortChanged: (model, effort) =>
@@ -483,8 +538,13 @@ List<ClaudeModelOption> _claudeModelOptions(ChatSessionCubit chatCubit) {
   return [for (final model in models) ClaudeModelOption(value: model)];
 }
 
-void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
-  final options = _claudeModelOptions(chatCubit);
+void showClaudeSettingsMenu(
+  BuildContext context,
+  ChatSessionCubit chatCubit, {
+  ModelPickerStyle modelPickerStyle = ModelPickerStyle.bottomSheet,
+  Set<String> enabledModels = const {},
+}) {
+  final allOptions = _claudeModelOptions(chatCubit);
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -497,21 +557,32 @@ void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
           prev.claudeEffort != next.claudeEffort ||
           prev.claudeFastMode != next.claudeFastMode ||
           prev.claudeUltracode != next.claudeUltracode,
-      builder: (context, state) => ClaudeSettingsSheet(
-        models: options,
-        modelEfforts: normalizeClaudeModelEfforts(chatCubit.claudeModelEfforts),
-        initialModel: state.claudeModel,
-        initialEffort: state.claudeEffort,
-        initialFastMode: state.claudeFastMode,
-        initialUltracode: state.claudeUltracode,
-        onChanged: ({model, effort, fastMode, ultracode}) =>
-            chatCubit.setClaudeSettings(
-              model: model,
-              effort: effort,
-              fastMode: fastMode,
-              ultracode: ultracode,
-            ),
-      ),
+      builder: (context, state) {
+        final options = filterEnabledModels<ClaudeModelOption>(
+          models: allOptions,
+          enabledIds: enabledModels,
+          idOf: (o) => o.value,
+          currentId: state.claudeModel ?? 'default',
+        );
+        return ClaudeSettingsSheet(
+          models: options,
+          modelEfforts: normalizeClaudeModelEfforts(
+            chatCubit.claudeModelEfforts,
+          ),
+          initialModel: state.claudeModel,
+          initialEffort: state.claudeEffort,
+          initialFastMode: state.claudeFastMode,
+          initialUltracode: state.claudeUltracode,
+          modelPickerStyle: modelPickerStyle,
+          onChanged: ({model, effort, fastMode, ultracode}) =>
+              chatCubit.setClaudeSettings(
+                model: model,
+                effort: effort,
+                fastMode: fastMode,
+                ultracode: ultracode,
+              ),
+        );
+      },
     ),
   );
 }
@@ -521,8 +592,10 @@ void showClaudeSettingsMenu(BuildContext context, ChatSessionCubit chatCubit) {
 /// rejected switch shows the model that is really in use.
 void showAntigravityModelMenu(
   BuildContext context,
-  ChatSessionCubit chatCubit,
-) {
+  ChatSessionCubit chatCubit, {
+  ModelPickerStyle modelPickerStyle = ModelPickerStyle.bottomSheet,
+  Set<String> enabledModels = const {},
+}) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -532,6 +605,8 @@ void showAntigravityModelMenu(
           prev.antigravitySettings != next.antigravitySettings,
       builder: (sheetContext, state) => AntigravityModelSheet(
         settings: state.antigravitySettings,
+        modelPickerStyle: modelPickerStyle,
+        enabledModels: enabledModels,
         onSelected: (model) {
           Navigator.pop(sheetContext);
           if (model.id == state.antigravitySettings?.model) return;
@@ -555,6 +630,8 @@ void showAntigravityModelMenu(
 class AntigravityModelSheet extends StatelessWidget {
   final AntigravitySettings? settings;
   final ValueChanged<AntigravityModel> onSelected;
+  final ModelPickerStyle modelPickerStyle;
+  final Set<String> enabledModels;
 
   /// Picking a model family or a thinking level. Used instead of [onSelected]
   /// when the Bridge reports families (`antigravity_v2`).
@@ -565,6 +642,8 @@ class AntigravityModelSheet extends StatelessWidget {
     super.key,
     required this.settings,
     required this.onSelected,
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
+    this.enabledModels = const {},
     this.onFamilySelected,
     this.onThoughtLevelSelected,
   });
@@ -578,16 +657,33 @@ class AntigravityModelSheet extends StatelessWidget {
         settings.hasModelOptions &&
         onFamilySelected != null &&
         onThoughtLevelSelected != null) {
-      return AntigravityModelOptionsPanel(
-        modelOptions: settings.modelOptions,
-        model: settings.baseModel,
-        thoughtLevel: settings.thoughtLevel,
-        thoughtLevels: settings.thoughtLevels,
-        onModelSelected: onFamilySelected!,
-        onThoughtLevelSelected: onThoughtLevelSelected!,
+      final filteredOptions = filterEnabledModels<AntigravityModelOption>(
+        models: settings.modelOptions,
+        enabledIds: enabledModels,
+        idOf: (option) => option.id,
+        currentId: settings.baseModel,
+      );
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: AntigravityModelOptionsPanel(
+            modelOptions: filteredOptions,
+            model: settings.baseModel,
+            thoughtLevel: settings.thoughtLevel,
+            thoughtLevels: settings.thoughtLevels,
+            modelPickerStyle: modelPickerStyle,
+            onModelSelected: onFamilySelected!,
+            onThoughtLevelSelected: onThoughtLevelSelected!,
+          ),
+        ),
       );
     }
-    final models = settings?.models ?? const <AntigravityModel>[];
+    final models = filterEnabledModels<AntigravityModel>(
+      models: settings?.models ?? const <AntigravityModel>[],
+      enabledIds: enabledModels,
+      idOf: (model) => model.id,
+      currentId: settings?.model,
+    );
     final current = settings?.model;
     return SafeArea(
       child: ConstrainedBox(

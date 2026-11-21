@@ -13,6 +13,7 @@ import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
 import '../../../models/messages.dart';
+import '../../../models/model_picker_style.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/skill_trigger_style.dart';
 import '../../../models/terminal_app.dart';
@@ -71,6 +72,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyAutoRenameClaudeSessions = 'autoRenameClaudeSessions';
   static const _keyDefaultInputDelivery = 'settings_default_input_delivery';
   static const _keySkillTriggerStyle = 'settings_skill_trigger_style';
+  static const _keyModelPickerStyle = 'settings_model_picker_style';
+  static const _keyEnabledClaudeModels = 'settings_enabled_claude_models';
+  static const _keyEnabledCodexModels = 'settings_enabled_codex_models';
+  static const _keyEnabledAntigravityModels =
+      'settings_enabled_antigravity_models';
   static const _keyTextScale = 'settings_text_scale';
   static const _keyMultiPaneBreakpoint = 'settings_multi_pane_breakpoint';
   static const _keyCodeFontSize = 'settings_code_font_size';
@@ -246,6 +252,15 @@ class SettingsCubit extends Cubit<SettingsState> {
     final skillTriggerStyle =
         SkillTriggerStyle.fromValue(prefs.getString(_keySkillTriggerStyle)) ??
         SkillTriggerStyle.both;
+    final modelPickerStyle =
+        ModelPickerStyle.fromValue(prefs.getString(_keyModelPickerStyle)) ??
+        ModelPickerStyle.bottomSheet;
+    final enabledClaudeModels = _loadStringSet(prefs, _keyEnabledClaudeModels);
+    final enabledCodexModels = _loadStringSet(prefs, _keyEnabledCodexModels);
+    final enabledAntigravityModels = _loadStringSet(
+      prefs,
+      _keyEnabledAntigravityModels,
+    );
     final showHiddenDirectories =
         prefs.getBool(_keyShowHiddenDirectories) ?? false;
 
@@ -320,7 +335,28 @@ class SettingsCubit extends Cubit<SettingsState> {
       autoRenameClaudeSessions: autoRenameClaudeSessions,
       defaultInputDelivery: defaultInputDelivery,
       skillTriggerStyle: skillTriggerStyle,
+      modelPickerStyle: modelPickerStyle,
+      enabledClaudeModels: enabledClaudeModels,
+      enabledCodexModels: enabledCodexModels,
+      enabledAntigravityModels: enabledAntigravityModels,
     );
+  }
+
+  static Set<String> _loadStringSet(SharedPreferences prefs, String key) {
+    final raw = prefs.getString(key);
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return {
+          for (final item in decoded)
+            if (item is String && item.isNotEmpty) item,
+        };
+      }
+    } catch (_) {
+      // Ignore malformed persisted values.
+    }
+    return const {};
   }
 
   void _syncPerformanceMode() {
@@ -582,6 +618,49 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (style == state.skillTriggerStyle) return;
     _prefs.setString(_keySkillTriggerStyle, style.value);
     emit(state.copyWith(skillTriggerStyle: style));
+  }
+
+  void setModelPickerStyle(ModelPickerStyle style) {
+    if (style == state.modelPickerStyle) return;
+    _prefs.setString(_keyModelPickerStyle, style.value);
+    emit(state.copyWith(modelPickerStyle: style));
+  }
+
+  void setEnabledClaudeModels(Set<String> models) {
+    final normalized = Set<String>.unmodifiable(models);
+    _saveStringSet(_keyEnabledClaudeModels, normalized);
+    emit(state.copyWith(enabledClaudeModels: normalized));
+  }
+
+  void setEnabledCodexModels(Set<String> models) {
+    final normalized = Set<String>.unmodifiable(models);
+    _saveStringSet(_keyEnabledCodexModels, normalized);
+    emit(state.copyWith(enabledCodexModels: normalized));
+  }
+
+  void setEnabledAntigravityModels(Set<String> models) {
+    final normalized = Set<String>.unmodifiable(models);
+    _saveStringSet(_keyEnabledAntigravityModels, normalized);
+    emit(state.copyWith(enabledAntigravityModels: normalized));
+  }
+
+  void setEnabledModelsForProvider(Provider provider, Set<String> models) {
+    switch (provider) {
+      case Provider.claude:
+        setEnabledClaudeModels(models);
+      case Provider.codex:
+        setEnabledCodexModels(models);
+      case Provider.antigravity:
+        setEnabledAntigravityModels(models);
+    }
+  }
+
+  void _saveStringSet(String key, Set<String> values) {
+    if (values.isEmpty) {
+      _prefs.remove(key);
+    } else {
+      _prefs.setString(key, jsonEncode(values.toList()..sort()));
+    }
   }
 
   void setShowAntigravityTab(bool enabled) {

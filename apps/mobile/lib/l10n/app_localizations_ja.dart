@@ -3908,4 +3908,43 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI実行中';
+
+  @override
+  String get settingsEnabledModels => '利用するモデル';
+
+  @override
+  String get settingsEnabledModelsDescription =>
+      'モデル選択に表示するモデルを絞り込みます。すべて選択すると制限なしで表示されます。';
+
+  @override
+  String get settingsEnabledModelsAll => 'すべて表示';
+
+  @override
+  String get settingsEnabledModelsSelectAll => 'すべて選択';
+
+  @override
+  String get settingsEnabledModelsClearAll => 'すべて解除';
+
+  @override
+  String get settingsEnabledModelsAtLeastOne => '1つ以上のモデルを選択してください';
+
+  @override
+  String get settingsEnabledModelsLoading => 'モデル一覧を読み込み中…';
+
+  @override
+  String get settingsEnabledModelsUnavailable =>
+      'Bridgeに接続すると利用可能なモデル一覧を取得できます';
+
+  @override
+  String get settingsModelPickerStyle => 'モデルの選択方法';
+
+  @override
+  String get settingsModelPickerStyleSubtitle =>
+      'モデル名をタップしたときの表示方法。メニューにするとシートを重ねずその場で選べます。';
+
+  @override
+  String get modelPickerStyleBottomSheet => 'シート';
+
+  @override
+  String get modelPickerStylePopupMenu => 'メニュー';
 }

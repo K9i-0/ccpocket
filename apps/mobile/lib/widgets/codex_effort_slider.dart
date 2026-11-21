@@ -105,7 +105,7 @@ class CodexSettingsPanel extends StatelessWidget {
   final CodexSpeed speed;
   final bool supportsFast;
   final List<CodexSpeed>? availableSpeeds;
-  final ValueChanged<CodexSpeed> onSpeedChanged;
+  final ValueChanged<CodexSpeed>? onSpeedChanged;
   final String speedButtonKey;
   final bool showAdvanced;
   final String advancedLabel;
@@ -121,15 +121,23 @@ class CodexSettingsPanel extends StatelessWidget {
   /// Opens the model picker straight from the header's model name.
   final VoidCallback? onModelTap;
 
+  /// Variant of [onModelTap] that receives the model button's [BuildContext]
+  /// so inline popup menus can anchor directly to it.
+  final ValueChanged<BuildContext>? onModelTapWithContext;
+
+  /// Whether to show the leading speed (bolt) button in the header.
+  final bool showSpeedButton;
+
   const CodexSettingsPanel({
     super.key,
     required this.modelLabel,
     required this.effortLabel,
-    required this.speed,
-    required this.supportsFast,
+    this.speed = CodexSpeed.standard,
+    this.supportsFast = false,
     this.availableSpeeds,
-    required this.onSpeedChanged,
-    required this.speedButtonKey,
+    this.onSpeedChanged,
+    this.speedButtonKey = 'speed_button',
+    this.showSpeedButton = true,
     required this.showAdvanced,
     required this.advancedLabel,
     required this.toggleButtonKey,
@@ -141,6 +149,7 @@ class CodexSettingsPanel extends StatelessWidget {
     required this.quickChild,
     required this.advancedChild,
     this.onModelTap,
+    this.onModelTapWithContext,
   });
 
   @override
@@ -167,6 +176,7 @@ class CodexSettingsPanel extends StatelessWidget {
             availableSpeeds: speeds,
             onSpeedChanged: onSpeedChanged,
             speedButtonKey: speedButtonKey,
+            showSpeedButton: showSpeedButton,
             showAdvanced: showAdvanced,
             advancedLabel: advancedLabel,
             toggleButtonKey: toggleButtonKey,
@@ -174,6 +184,7 @@ class CodexSettingsPanel extends StatelessWidget {
             modelLabelKey: modelLabelKey,
             effortLabelKey: effortLabelKey,
             onModelTap: onModelTap,
+            onModelTapWithContext: onModelTapWithContext,
           ),
           if (!speeds.contains(speed))
             Padding(
@@ -232,8 +243,9 @@ class _CodexSettingsHeader extends StatelessWidget {
   final String effortLabel;
   final CodexSpeed speed;
   final List<CodexSpeed> availableSpeeds;
-  final ValueChanged<CodexSpeed> onSpeedChanged;
+  final ValueChanged<CodexSpeed>? onSpeedChanged;
   final String speedButtonKey;
+  final bool showSpeedButton;
   final bool showAdvanced;
   final String advancedLabel;
   final String toggleButtonKey;
@@ -241,6 +253,7 @@ class _CodexSettingsHeader extends StatelessWidget {
   final String modelLabelKey;
   final String effortLabelKey;
   final VoidCallback? onModelTap;
+  final ValueChanged<BuildContext>? onModelTapWithContext;
 
   const _CodexSettingsHeader({
     required this.modelLabel,
@@ -249,6 +262,7 @@ class _CodexSettingsHeader extends StatelessWidget {
     required this.availableSpeeds,
     required this.onSpeedChanged,
     required this.speedButtonKey,
+    required this.showSpeedButton,
     required this.showAdvanced,
     required this.advancedLabel,
     required this.toggleButtonKey,
@@ -256,12 +270,15 @@ class _CodexSettingsHeader extends StatelessWidget {
     required this.modelLabelKey,
     required this.effortLabelKey,
     this.onModelTap,
+    this.onModelTapWithContext,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final onModelTap = this.onModelTap;
+    final onModelTapWithContext = this.onModelTapWithContext;
+    final canTapModel = onModelTap != null || onModelTapWithContext != null;
     final modelText = Text(
       '$modelLabel${speed != CodexSpeed.standard && speed != CodexSpeed.fast ? ' · ${speed.label}' : ''}',
       key: ValueKey(modelLabelKey),
@@ -285,44 +302,53 @@ class _CodexSettingsHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
       child: Row(
         children: [
-          CodexSpeedButton(
-            speed: speed,
-            enabled: availableSpeeds.contains(CodexSpeed.fast),
-            availableSpeeds: availableSpeeds,
-            onChanged: onSpeedChanged,
-            buttonKey: speedButtonKey,
-          ),
-          const SizedBox(width: 4),
+          if (showSpeedButton && onSpeedChanged != null) ...[
+            CodexSpeedButton(
+              speed: speed,
+              enabled: availableSpeeds.contains(CodexSpeed.fast),
+              availableSpeeds: availableSpeeds,
+              onChanged: onSpeedChanged!,
+              buttonKey: speedButtonKey,
+            ),
+            const SizedBox(width: 4),
+          ] else
+            const SizedBox(width: 8),
           Expanded(
             child: Row(
               children: [
                 Flexible(
-                  child: onModelTap == null
+                  child: !canTapModel
                       ? modelText
-                      : InkWell(
-                          key: ValueKey('${modelLabelKey}_button'),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            onModelTap();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 8, 2, 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(child: modelText),
-                                Icon(
-                                  Icons.arrow_drop_down_rounded,
-                                  size: 20,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ],
+                      : Builder(
+                          builder: (buttonContext) => InkWell(
+                            key: ValueKey('${modelLabelKey}_button'),
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              if (onModelTapWithContext != null) {
+                                onModelTapWithContext(buttonContext);
+                              } else {
+                                onModelTap?.call();
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(6, 8, 2, 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(child: modelText),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 20,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                 ),
-                SizedBox(width: onModelTap == null ? 8 : 4),
+                SizedBox(width: !canTapModel ? 8 : 4),
                 Semantics(
                   label: 'Effort',
                   value: effortLabel,

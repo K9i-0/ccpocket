@@ -2195,6 +2195,8 @@ void main() {
         'lite_mode',
         'enabled_agents',
         'new_session_tabs',
+        'enabled_models',
+        'model_picker_style',
         'auto_rename_codex',
         'extended_codex_efforts',
         'auto_rename_claude',

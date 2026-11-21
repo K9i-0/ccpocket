@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
+import '../models/model_picker_style.dart';
 import 'codex_effort_slider.dart';
+import 'model_picker.dart';
 
 /// Fallback Claude models when the Bridge has not delivered a list yet.
 /// Claude Code aliases always resolve to the current model of each family.
@@ -110,6 +112,9 @@ class ClaudeSettingsPanel extends StatefulWidget {
   /// Prefix for widget keys (e.g. `claude_settings` / `dialog_claude`).
   final String keyPrefix;
 
+  /// How tapping the model name opens the model selector.
+  final ModelPickerStyle modelPickerStyle;
+
   const ClaudeSettingsPanel({
     super.key,
     required this.models,
@@ -123,6 +128,7 @@ class ClaudeSettingsPanel extends StatefulWidget {
     required this.ultracode,
     required this.onUltracodeChanged,
     this.keyPrefix = 'claude_settings',
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
   });
 
   @override
@@ -165,7 +171,8 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
       advancedPanelKey: '${prefix}_advanced_panel',
       modelLabelKey: '${prefix}_model_label',
       effortLabelKey: '${prefix}_effort_label',
-      onModelTap: () => _showModelPicker(prefix),
+      onModelTapWithContext: (anchorContext) =>
+          _showModelPicker(prefix, anchorContext: anchorContext),
       quickChild: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -240,11 +247,13 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
   ) {
     final l = AppLocalizations.of(context);
     return [
-      _SettingsRow(
-        key: ValueKey('${prefix}_model_row'),
-        label: l.model,
-        value: claudeModelLabel(widget.models, _model),
-        onTap: () => _showModelPicker(prefix),
+      Builder(
+        builder: (rowContext) => _SettingsRow(
+          key: ValueKey('${prefix}_model_row'),
+          label: l.model,
+          value: claudeModelLabel(widget.models, _model),
+          onTap: () => _showModelPicker(prefix, anchorContext: rowContext),
+        ),
       ),
       if (efforts.isNotEmpty && effort != null)
         _SettingsRow(
@@ -281,8 +290,11 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
     ];
   }
 
-  void _showModelPicker(String prefix) {
-    _showPicker<String>(
+  void _showModelPicker(String prefix, {BuildContext? anchorContext}) {
+    showModelPicker<String>(
+      context: context,
+      anchorContext: anchorContext,
+      style: widget.modelPickerStyle,
       title: AppLocalizations.of(context).model,
       values: [for (final option in widget.models) option.value],
       selected: _model,
@@ -305,57 +317,16 @@ class _ClaudeSettingsPanelState extends State<ClaudeSettingsPanel> {
     required String Function(T) optionKey,
     required ValueChanged<T> onSelected,
   }) {
-    showModalBottomSheet<void>(
+    showModelPicker<T>(
       context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final value in values)
-                      ListTile(
-                        key: ValueKey(optionKey(value)),
-                        title: Text(label(value)),
-                        subtitle: subtitle?.call(value) == null
-                            ? null
-                            : Text(subtitle!(value)!),
-                        trailing: value == selected
-                            ? const Icon(Icons.check)
-                            : null,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          Navigator.pop(sheetContext);
-                          if (value != selected) onSelected(value);
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      style: ModelPickerStyle.bottomSheet,
+      title: title,
+      values: values,
+      selected: selected,
+      label: label,
+      subtitle: subtitle,
+      optionKey: optionKey,
+      onSelected: onSelected,
     );
   }
 }
@@ -441,6 +412,7 @@ class ClaudeSettingsSheet extends StatefulWidget {
   final ClaudeEffort? initialEffort;
   final bool initialFastMode;
   final bool initialUltracode;
+  final ModelPickerStyle modelPickerStyle;
   final void Function({
     String? model,
     ClaudeEffort? effort,
@@ -457,6 +429,7 @@ class ClaudeSettingsSheet extends StatefulWidget {
     required this.initialEffort,
     required this.initialFastMode,
     this.initialUltracode = false,
+    this.modelPickerStyle = ModelPickerStyle.bottomSheet,
     required this.onChanged,
   });
 
@@ -525,6 +498,7 @@ class _ClaudeSettingsSheetState extends State<ClaudeSettingsSheet> {
             widget.onChanged(fastMode: fast);
           },
           ultracode: _ultracode,
+          modelPickerStyle: widget.modelPickerStyle,
           onUltracodeChanged: (on) {
             setState(() => _ultracode = on);
             widget.onChanged(ultracode: on);

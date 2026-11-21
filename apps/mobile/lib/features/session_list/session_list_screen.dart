@@ -1022,6 +1022,10 @@ class _SessionListScreenState extends State<SessionListScreen>
       ),
       showExtendedCodexEfforts: settings.showExtendedCodexEfforts,
       showHiddenDirectories: settings.showHiddenDirectories,
+      modelPickerStyle: settings.modelPickerStyle,
+      enabledClaudeModels: settings.enabledClaudeModels,
+      enabledCodexModels: settings.enabledCodexModels,
+      enabledAntigravityModels: settings.enabledAntigravityModels,
     );
   }
 

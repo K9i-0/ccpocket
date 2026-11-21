@@ -3864,4 +3864,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 运行中';
+
+  @override
+  String get settingsEnabledModels => '显示的模型';
+
+  @override
+  String get settingsEnabledModelsDescription => '筛选模型选择器中显示的模型。全选时将显示所有可用模型。';
+
+  @override
+  String get settingsEnabledModelsAll => '全部模型';
+
+  @override
+  String get settingsEnabledModelsSelectAll => '全选';
+
+  @override
+  String get settingsEnabledModelsClearAll => '全部取消';
+
+  @override
+  String get settingsEnabledModelsAtLeastOne => '请至少选择一个模型';
+
+  @override
+  String get settingsEnabledModelsLoading => '正在加载模型列表…';
+
+  @override
+  String get settingsEnabledModelsUnavailable => '连接到 Bridge 后可加载可用模型列表';
+
+  @override
+  String get settingsModelPickerStyle => '模型选择方式';
+
+  @override
+  String get settingsModelPickerStyleSubtitle =>
+      '点击模型名称时的显示方式。选择弹出菜单可在原地直接选择，无需再弹出底部弹窗。';
+
+  @override
+  String get modelPickerStyleBottomSheet => '底部弹窗';
+
+  @override
+  String get modelPickerStylePopupMenu => '弹出菜单';
 }

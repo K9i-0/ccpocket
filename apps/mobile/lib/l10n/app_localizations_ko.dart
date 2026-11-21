@@ -3939,4 +3939,43 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get githubChecksPending => 'CI 실행 중';
+
+  @override
+  String get settingsEnabledModels => '표시할 모델';
+
+  @override
+  String get settingsEnabledModelsDescription =>
+      '모델 선택에 표시할 모델을 제한합니다. 모두 선택하면 제한 없이 표시됩니다.';
+
+  @override
+  String get settingsEnabledModelsAll => '모든 모델';
+
+  @override
+  String get settingsEnabledModelsSelectAll => '모두 선택';
+
+  @override
+  String get settingsEnabledModelsClearAll => '모두 해제';
+
+  @override
+  String get settingsEnabledModelsAtLeastOne => '모델을 1개 이상 선택하세요';
+
+  @override
+  String get settingsEnabledModelsLoading => '모델 목록 불러오는 중…';
+
+  @override
+  String get settingsEnabledModelsUnavailable =>
+      'Bridge에 연결하면 사용 가능한 모델 목록을 불러올 수 있습니다';
+
+  @override
+  String get settingsModelPickerStyle => '모델 선택 방식';
+
+  @override
+  String get settingsModelPickerStyleSubtitle =>
+      '모델 이름을 탭했을 때 열리는 방식입니다. 메뉴를 선택하면 시트를 겹치지 않고 그 자리에서 선택합니다.';
+
+  @override
+  String get modelPickerStyleBottomSheet => '시트';
+
+  @override
+  String get modelPickerStylePopupMenu => '메뉴';
 }

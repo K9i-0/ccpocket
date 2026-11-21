@@ -6,6 +6,8 @@ import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
 import '../../../models/input_delivery.dart';
+import '../../../models/messages.dart' show Provider;
+import '../../../models/model_picker_style.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/skill_trigger_style.dart';
 import '../../../models/terminal_app.dart';
@@ -140,7 +142,25 @@ abstract class SettingsState with _$SettingsState {
 
     /// Which trigger the composer uses for skills (`/`, `\$`, or both).
     @Default(SkillTriggerStyle.both) SkillTriggerStyle skillTriggerStyle,
+
+    /// How the model selector opens when tapping a model name in a panel.
+    @Default(ModelPickerStyle.bottomSheet) ModelPickerStyle modelPickerStyle,
+
+    /// Enabled Claude model IDs (empty means all available models are shown).
+    @Default({}) Set<String> enabledClaudeModels,
+
+    /// Enabled Codex model IDs (empty means all available models are shown).
+    @Default({}) Set<String> enabledCodexModels,
+
+    /// Enabled Antigravity model family IDs (empty means all models are shown).
+    @Default({}) Set<String> enabledAntigravityModels,
   }) = _SettingsState;
+
+  Set<String> enabledModelsForProvider(Provider provider) => switch (provider) {
+    Provider.claude => enabledClaudeModels,
+    Provider.codex => enabledCodexModels,
+    Provider.antigravity => enabledAntigravityModels,
+  };
 
   bool liteModeForSession(String sessionId) =>
       sessionLiteModes[sessionId] ?? liteMode;

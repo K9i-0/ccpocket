@@ -4,10 +4,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/messages.dart';
+import '../../../models/model_picker_style.dart';
 import '../../../models/new_session_tab.dart';
+import '../../../services/bridge_service.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
+import '../widgets/enabled_models_bottom_sheet.dart';
 import '../widgets/new_session_tabs_bottom_sheet.dart';
 import '../widgets/settings_tiles.dart';
 import '../widgets/terminal_app_bottom_sheet.dart';
@@ -90,6 +94,58 @@ class AgentsSettingsSection extends StatelessWidget {
                   ),
                 ),
               ),
+            SettingsItem(
+              id: SettingsEntryIds.enabledModels,
+              child: SettingsNavTile(
+                key: const ValueKey('enabled_models_tile'),
+                icon: Icons.checklist_rounded,
+                title: Text(l.settingsEnabledModels),
+                subtitle: _enabledModelsSummary(l, agents, state),
+                onTap: () => showEnabledModelsBottomSheet(
+                  context: context,
+                  agents: agents,
+                  initialEnabledByProvider: {
+                    Provider.claude: state.enabledClaudeModels,
+                    Provider.codex: state.enabledCodexModels,
+                    Provider.antigravity: state.enabledAntigravityModels,
+                  },
+                  bridge: _maybeBridge(context),
+                  onSaved: (updated) {
+                    for (final entry in updated.entries) {
+                      cubit.setEnabledModelsForProvider(entry.key, entry.value);
+                    }
+                  },
+                ),
+              ),
+            ),
+            SettingsItem(
+              id: SettingsEntryIds.modelPickerStyle,
+              child: SettingsControlTile(
+                key: const ValueKey('model_picker_style_tile'),
+                icon: Icons.arrow_drop_down_circle_outlined,
+                title: l.settingsModelPickerStyle,
+                description: l.settingsModelPickerStyleSubtitle,
+                control: SegmentedButton<ModelPickerStyle>(
+                  key: const ValueKey('model_picker_style_selector'),
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: ModelPickerStyle.bottomSheet,
+                      icon: const Icon(Icons.view_agenda_outlined, size: 18),
+                      label: Text(l.modelPickerStyleBottomSheet),
+                    ),
+                    ButtonSegment(
+                      value: ModelPickerStyle.popupMenu,
+                      icon: const Icon(Icons.menu_open_rounded, size: 18),
+                      label: Text(l.modelPickerStylePopupMenu),
+                    ),
+                  ],
+                  selected: {state.modelPickerStyle},
+                  onSelectionChanged: (selection) =>
+                      cubit.setModelPickerStyle(selection.first),
+                ),
+              ),
+            ),
           ],
         ),
         if (hasSessionOptions)
@@ -184,4 +240,27 @@ class AgentsSettingsSection extends StatelessWidget {
       ],
     );
   }
+}
+
+BridgeService? _maybeBridge(BuildContext context) {
+  try {
+    return context.read<BridgeService>();
+  } on ProviderNotFoundException {
+    return null;
+  }
+}
+
+String _enabledModelsSummary(
+  AppLocalizations l,
+  List<NewSessionTab> agents,
+  SettingsState state,
+) {
+  final parts = <String>[];
+  for (final agent in agents) {
+    final enabled = state.enabledModelsForProvider(agent.toProvider());
+    if (enabled.isNotEmpty) {
+      parts.add('${agent.label}: ${enabled.length}');
+    }
+  }
+  return parts.isEmpty ? l.settingsEnabledModelsAll : parts.join(', ');
 }
